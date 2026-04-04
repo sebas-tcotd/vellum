@@ -7,7 +7,7 @@
     "dev": "tauri dev",
     "dev:vite": "vite",
     "build": "tauri build",
-    "build:vite": "tsc && vite build",
+    "build:vite": "tsc -b && vite build",
     "preview": "vite preview",
     "tauri": "tauri"
   },

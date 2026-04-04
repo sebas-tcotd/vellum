@@ -5,6 +5,7 @@ target/
 *.msi
 *.dmg
 *.AppImage
+*.tsbuildinfo
 _bmad/
 _bmad-output/
 .claude/
