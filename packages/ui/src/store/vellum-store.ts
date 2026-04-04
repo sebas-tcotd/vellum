@@ -30,7 +30,7 @@ interface VellumStore {
 }
 
 const DEFAULT_ACTIVE_LAYERS = Object.fromEntries(
-  LAYER_NAMES.map((name) => [name, true])
+  LAYER_NAMES.map((name: LayerName) => [name, true] as const)
 ) as LayerVisibility;
 
 export const useVellumStore = create<VellumStore>((set) => ({
