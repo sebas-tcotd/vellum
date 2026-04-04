@@ -1,1 +1,2 @@
-export { App } from './App.tsx';
+export { App } from './App';
+export { useVellumStore } from './store/vellum-store';

@@ -2,11 +2,17 @@
   "extends": "../../tsconfig.json",
   "compilerOptions": {
     "noEmit": true,
-    "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
     "lib": ["ES2020", "DOM", "DOM.Iterable"]
   },
   "include": ["src"],
-  "references": [{ "path": "./tsconfig.node.json" }]
+  "references": [
+    { "path": "./tsconfig.node.json" },
+    { "path": "../../packages/core" },
+    { "path": "../../packages/theme-engine" },
+    { "path": "../../packages/parser-cslmap" },
+    { "path": "../../packages/renderer-canvas" },
+    { "path": "../../packages/ui" }
+  ]
 }

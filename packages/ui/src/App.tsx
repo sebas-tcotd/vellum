@@ -1,4 +1,9 @@
-// Story 2.1 implementará el empty state real
+import { CanvasRoot } from './components/canvas/CanvasRoot';
+
 export function App() {
-  return <div />;
+  return (
+    <div style={{ width: '100vw', height: '100vh' }}>
+      <CanvasRoot />
+    </div>
+  );
 }

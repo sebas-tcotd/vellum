@@ -6,9 +6,12 @@
     "dev": "turbo dev",
     "build": "turbo build",
     "test": "turbo test",
-    "lint": "turbo lint"
+    "lint": "turbo lint",
+    "lint:arch": "eslint packages apps"
   },
   "devDependencies": {
-    "turbo": "latest"
+    "eslint": "^10.2.0",
+    "turbo": "latest",
+    "typescript-eslint": "^8.58.0"
   }
 }

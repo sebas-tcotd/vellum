@@ -5,8 +5,8 @@
   "type": "module",
   "main": "./src/index.ts",
   "scripts": {
-    "build": "tsc --noEmit",
-    "lint": "tsc --noEmit"
+    "build": "tsc -b",
+    "lint": "tsc -b --noEmit"
   },
   "dependencies": {
     "@vellum/core": "workspace:*"

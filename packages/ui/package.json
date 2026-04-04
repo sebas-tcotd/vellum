@@ -5,15 +5,16 @@
   "type": "module",
   "main": "./src/index.ts",
   "scripts": {
-    "build": "tsc --noEmit",
-    "lint": "tsc --noEmit"
+    "build": "tsc -b",
+    "lint": "tsc -b --noEmit"
   },
   "dependencies": {
     "@vellum/core": "workspace:*",
     "@vellum/renderer-canvas": "workspace:*",
     "@vellum/theme-engine": "workspace:*",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "react-dom": "^19.1.0",
+    "zustand": "^5.0.12"
   },
   "devDependencies": {
     "@types/react": "^19.1.8",
