@@ -1,45 +1,37 @@
 import { create } from 'zustand';
-
-// Importar tipos desde @vellum/core cuando estén disponibles (Story 1.3)
-// Por ahora: tipos placeholder para establecer el contrato de la interfaz
+import type { CityData, VellumError, LayerName, LayerVisibility } from '@vellum/core';
+import { LAYER_NAMES } from '@vellum/core';
 
 type LoadingState = 'idle' | 'loading' | 'error';
-type LayerName = 'terrain' | 'water' | 'roads' | 'transit' | 'buildings' | 'forests' | 'districts';
 
 interface VellumStore {
   // Ciudad cargada
-  cityData: unknown | null;       // será CityData de @vellum/core (Story 1.3)
-  loadingState: LoadingState;     // NUNCA isLoading: boolean
-  loadingError: unknown | null;   // será VellumError (Story 1.3)
+  cityData: CityData | null;
+  loadingState: LoadingState; // NUNCA isLoading: boolean
+  loadingError: VellumError | null;
 
   // Capas
-  activeLayers: Record<LayerName, boolean>;
+  activeLayers: LayerVisibility;
 
   // Tema
   activeTheme: string;
-  availableThemes: unknown[];     // será ThemeMetadata[] (Story 5.x)
+  availableThemes: unknown[]; // será ThemeMetadata[] (Story 5.x)
 
   // Preferencias
   autoUpdateEnabled: boolean;
   activeLanguage: 'en' | 'es';
 
   // Acciones
-  setLoadingState: (state: LoadingState, error?: unknown) => void;
-  setCityData: (data: unknown) => void;
+  setLoadingState: (state: LoadingState, error?: VellumError | null) => void;
+  setCityData: (data: CityData) => void;
   toggleLayer: (layer: LayerName) => void;
   setActiveTheme: (theme: string) => void;
   setLanguage: (lang: 'en' | 'es') => void;
 }
 
-const DEFAULT_ACTIVE_LAYERS: Record<LayerName, boolean> = {
-  terrain: true,
-  water: true,
-  roads: true,
-  transit: true,
-  buildings: true,
-  forests: true,
-  districts: true,
-};
+const DEFAULT_ACTIVE_LAYERS = Object.fromEntries(
+  LAYER_NAMES.map((name) => [name, true])
+) as LayerVisibility;
 
 export const useVellumStore = create<VellumStore>((set) => ({
   cityData: null,

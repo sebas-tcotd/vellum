@@ -2,12 +2,19 @@
 #![deny(clippy::expect_used)]
 #![warn(clippy::pedantic)]
 
+pub mod commands;
+pub mod errors;
+pub mod city_data;
+mod ipc_contract; // interno — tipos auxiliares IPC no re-exportados
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .invoke_handler(tauri::generate_handler![
+            commands::parse_cslmap,
+            commands::export_png,
+            commands::export_svg,
+        ])
         .run(tauri::generate_context!())
-        .unwrap_or_else(|e| {
-            eprintln!("error while running tauri application: {e}");
-            std::process::exit(1);
-        });
+        .expect("error while running tauri application");
 }
