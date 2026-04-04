@@ -8,3 +8,5 @@ target/
 _bmad/
 _bmad-output/
 .claude/
+.gemini/
+.opencode/
