@@ -9,12 +9,15 @@ mod ipc_contract; // interno — tipos auxiliares IPC no re-exportados
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    if let Err(error) = tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
             commands::parse_cslmap,
             commands::export_png,
             commands::export_svg,
         ])
         .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+    {
+        eprintln!("error while running tauri application: {error}");
+        std::process::exit(1);
+    }
 }
