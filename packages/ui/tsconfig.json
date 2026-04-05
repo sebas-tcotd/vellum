@@ -10,5 +10,5 @@
     { "path": "../renderer-canvas" },
     { "path": "../theme-engine" }
   ],
-  "include": ["src/**/*"]
+  "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.json"]
 }

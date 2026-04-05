@@ -8,6 +8,7 @@
     "target": "ESNext",
     "module": "ESNext",
     "jsx": "react-jsx",
+    "resolveJsonModule": true,
     "skipLibCheck": true,
     "paths": {
       "@vellum/core": ["./packages/core/src/index.ts"],
