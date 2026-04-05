@@ -126,6 +126,7 @@ Esto es necesario para que `vite` y `esbuild` funcionen correctamente en `pnpm d
 | `pnpm dev` | Inicia la app en modo desarrollo (Vite + Tauri con hot-reload) |
 | `pnpm build` | Compila todo el monorepo en orden topológico |
 | `pnpm lint` | Verifica tipos TypeScript en todos los paquetes (`tsc --noEmit`) |
+| `pnpm check:architecture` | Verifica reglas de Clean Architecture e imports entre packages |
 | `pnpm test` | Ejecuta pruebas *(framework aún no configurado)* |
 
 ### Solo frontend (sin proceso Tauri)
@@ -134,6 +135,25 @@ Esto es necesario para que `vite` y `esbuild` funcionen correctamente en `pnpm d
 cd apps/desktop
 pnpm dev:vite
 ```
+
+### Verificación de arquitectura
+
+La story 1-2 deja dos barreras activas para proteger el grafo del monorepo:
+
+- `packages/core` sobreescribe `compilerOptions.paths` con `{}` para no heredar aliases a otros `@vellum/*`.
+- `eslint.config.mjs` bloquea imports a subpaths internos como `@vellum/core/src/...` o `../../core/src/...`.
+
+Usa este comando antes de cerrar una story que toque dependencias entre packages:
+
+```bash
+pnpm check:architecture
+```
+
+Reglas rápidas:
+
+- Importa otros packages solo desde su barrel público: `@vellum/core`, `@vellum/ui`, etc.
+- No importes desde `src/`, `dist/` ni por rutas relativas que crucen packages.
+- `@vellum/core` no debe depender de ningún otro package del monorepo.
 
 ---
 

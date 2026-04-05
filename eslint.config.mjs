@@ -21,20 +21,28 @@ export default [
         {
           patterns: [
             {
-              group: ['*/packages/core/src/*'],
+              group: ['@vellum/core/src/*', '@vellum/core/dist/*', '**/core/src/**', '**/core/dist/**'],
               message: 'Import from @vellum/core, not internal paths',
             },
             {
-              group: ['*/packages/renderer-canvas/src/*'],
+              group: [
+                '@vellum/renderer-canvas/*',
+                '**/renderer-canvas/src/**',
+                '**/renderer-canvas/dist/**',
+              ],
               message: 'Import from @vellum/renderer-canvas, not internal paths',
             },
             {
-              group: ['*/packages/theme-engine/src/*'],
+              group: ['@vellum/theme-engine/*', '**/theme-engine/src/**', '**/theme-engine/dist/**'],
               message: 'Import from @vellum/theme-engine, not internal paths',
             },
             {
-              group: ['*/packages/ui/src/*'],
+              group: ['@vellum/ui/*', '**/ui/src/**', '**/ui/dist/**'],
               message: 'Import from @vellum/ui, not internal paths',
+            },
+            {
+              group: ['@vellum/parser-cslmap/*', '**/parser-cslmap/src/**', '**/parser-cslmap/dist/**'],
+              message: 'Import from @vellum/parser-cslmap, not internal paths',
             },
           ],
         },
