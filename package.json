@@ -6,6 +6,7 @@
     "dev": "turbo dev",
     "build": "turbo build",
     "test": "turbo test",
+    "test:e2e": "turbo test:e2e",
     "lint": "turbo lint",
     "lint:arch": "eslint packages apps",
     "check:architecture": "pnpm lint:arch",
@@ -17,6 +18,7 @@
     "eslint": "^10.2.0",
     "husky": "^9.1.7",
     "turbo": "latest",
-    "typescript-eslint": "^8.58.0"
+    "typescript-eslint": "^8.58.0",
+    "vitest": "^4.1.2"
   }
 }

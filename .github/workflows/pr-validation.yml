@@ -40,6 +40,11 @@ jobs:
       - name: Rust Tests
         run: cargo test --workspace
 
+      # NOTE: Los tests E2E (Playwright + tauri-driver) NO se ejecutan en este CI en v1.
+      # Requieren: build de Tauri completo, `cargo install tauri-driver`, y display virtual (Xvfb) en Linux.
+      # Para ejecutarlos localmente: `pnpm test:e2e` (requiere tauri-driver instalado y app compilada).
+      # Pipeline de release o job manual dedicado cuando se implemente en Story 2.x+.
+
   compile-check:
     name: Compile Check ${{ matrix.platform }}
     # NO usamos "needs: quality-checks". Queremos que arranque en paralelo para ahorrar tiempo.
