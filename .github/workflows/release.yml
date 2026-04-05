@@ -19,16 +19,26 @@ jobs:
 
       - name: Create Release
         id: create-release
-        uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tagName: ${{ github.ref_name }}
-          releaseName: Vellum ${{ github.ref_name }}
-          releaseBody: |
-            See CHANGELOG.md for release notes.
-          releaseDraft: true
-          prerelease: false
+        shell: bash
+        run: |
+          release_id="$(gh api "/repos/${GITHUB_REPOSITORY}/releases/tags/${GITHUB_REF_NAME}" --jq '.id' 2>/dev/null || true)"
+
+          if [ -z "${release_id}" ]; then
+            release_id="$(gh api \
+              --method POST \
+              -H "Accept: application/vnd.github+json" \
+              "/repos/${GITHUB_REPOSITORY}/releases" \
+              -f tag_name="${GITHUB_REF_NAME}" \
+              -f name="Vellum ${GITHUB_REF_NAME}" \
+              -f body='See CHANGELOG.md for release notes.' \
+              -F draft=true \
+              -F prerelease=false \
+              --jq '.id')"
+          fi
+
+          echo "releaseId=${release_id}" >> "$GITHUB_OUTPUT"
 
   build-release:
     name: Build ${{ matrix.platform }}
