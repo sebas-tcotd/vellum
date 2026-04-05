@@ -5,8 +5,8 @@
     "rootDir": "src",
     "outDir": "dist",
     "paths": {
-      "@vellum/core": ["../core/src/index.ts"],
-      "@vellum/theme-engine": ["../theme-engine/src/index.ts"]
+      "@vellum/core": ["../core"],
+      "@vellum/theme-engine": ["../theme-engine"]
     }
   },
   "references": [

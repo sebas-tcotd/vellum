@@ -108,6 +108,10 @@ jobs:
 
   build-native:
     name: Compile check ${{ matrix.platform }}
+    needs:
+      - test-typescript
+      - test-rust
+      - lint
     strategy:
       fail-fast: false
       matrix:
@@ -149,8 +153,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build TypeScript
-        run: pnpm build
+      - name: Build desktop frontend
+        run: pnpm --filter @vellum/desktop run build:vite
 
-      - name: Compile Rust
-        run: cargo build --workspace
+      - name: Compile desktop Rust shell
+        run: cargo build --manifest-path apps/desktop/src-tauri/Cargo.toml
