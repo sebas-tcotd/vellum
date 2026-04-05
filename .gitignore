@@ -12,3 +12,4 @@ _bmad-output/
 .gemini/
 .opencode/
 .agents/
+*/**/test-results/
