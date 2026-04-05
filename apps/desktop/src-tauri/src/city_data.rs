@@ -212,7 +212,8 @@ mod tests {
         let json = serde_json::to_value(TransitMode::Bus).expect("serialization must not fail");
         assert_eq!(json, "Bus");
 
-        let json = serde_json::to_value(TransitMode::CableCar).expect("serialization must not fail");
+        let json =
+            serde_json::to_value(TransitMode::CableCar).expect("serialization must not fail");
         assert_eq!(json, "CableCar");
 
         let json = serde_json::to_value(TransitMode::Unknown).expect("serialization must not fail");
@@ -239,7 +240,11 @@ mod tests {
         let stop = TransitStop {
             id: "stop-1".to_string(),
             mode: TransitMode::Metro,
-            position: Vec3 { x: 0.0, y: 0.0, z: 0.0 },
+            position: Vec3 {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+            },
             name: "Central".to_string(),
         };
         let json = serde_json::to_value(&stop).expect("serialization must not fail");

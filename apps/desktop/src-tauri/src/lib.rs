@@ -2,9 +2,9 @@
 #![deny(clippy::expect_used)]
 #![warn(clippy::pedantic)]
 
+pub mod city_data;
 pub mod commands;
 pub mod errors;
-pub mod city_data;
 mod ipc_contract; // interno — tipos auxiliares IPC no re-exportados
 
 /// Punto de entrada de la aplicación Tauri.

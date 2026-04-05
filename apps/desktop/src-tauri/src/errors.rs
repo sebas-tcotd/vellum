@@ -9,21 +9,11 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(tag = "type")]
 pub enum VellumError {
-    InvalidFile {
-        reason: String,
-    },
-    UnsupportedVersion {
-        found: String,
-    },
-    PartialParse {
-        warnings: Vec<String>,
-    },
-    ExportFailed {
-        reason: String,
-    },
-    IoError {
-        reason: String,
-    },
+    InvalidFile { reason: String },
+    UnsupportedVersion { found: String },
+    PartialParse { warnings: Vec<String> },
+    ExportFailed { reason: String },
+    IoError { reason: String },
 }
 
 impl std::fmt::Display for VellumError {
@@ -61,7 +51,10 @@ mod tests {
             reason: "bad file".to_string(),
         };
         let json = serde_json::to_value(&err).expect("serialization must not fail");
-        assert_eq!(json["type"], "InvalidFile", "tag must be PascalCase, not camelCase");
+        assert_eq!(
+            json["type"], "InvalidFile",
+            "tag must be PascalCase, not camelCase"
+        );
         assert_eq!(json["reason"], "bad file");
     }
 
@@ -106,11 +99,19 @@ mod tests {
     #[test]
     fn display_impl_covers_all_variants() {
         let cases: Vec<VellumError> = vec![
-            VellumError::InvalidFile { reason: "r".to_string() },
-            VellumError::UnsupportedVersion { found: "v".to_string() },
+            VellumError::InvalidFile {
+                reason: "r".to_string(),
+            },
+            VellumError::UnsupportedVersion {
+                found: "v".to_string(),
+            },
             VellumError::PartialParse { warnings: vec![] },
-            VellumError::ExportFailed { reason: "r".to_string() },
-            VellumError::IoError { reason: "r".to_string() },
+            VellumError::ExportFailed {
+                reason: "r".to_string(),
+            },
+            VellumError::IoError {
+                reason: "r".to_string(),
+            },
         ];
         for err in cases {
             let msg = format!("{err}");

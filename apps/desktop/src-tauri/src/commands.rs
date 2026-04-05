@@ -39,7 +39,7 @@ pub async fn parse_cslmap(file_path: String) -> Result<CityData, VellumError> {
 
 /// Exporta el mapa actual como PNG en la resolución indicada.
 /// Story 6.2 implementará la exportación real — aquí es stub.
-/// 
+///
 /// # Errors
 /// Retorna un `VellumError` si la exportación para PNG aún no ha sido implementada.
 #[tauri::command]
