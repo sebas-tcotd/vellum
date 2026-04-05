@@ -23,8 +23,12 @@ pub struct ExportResult {
 
 // ─── Commands ────────────────────────────────────────────────────────────────
 
-/// Parsea un archivo .cslmap y retorna el modelo CityData.
+/// Parsea un archivo .cslmap y retorna el modelo `CityData`.
 /// Story 2.x implementará el parsing real — aquí es stub.
+///
+/// # Errors
+/// Retorna un `VellumError` si el archivo no existe, no se puede leer,
+/// o si el formato del archivo es inválido.
 #[tauri::command]
 pub async fn parse_cslmap(file_path: String) -> Result<CityData, VellumError> {
     // TODO(story-2.3): implementar parser real con quick-xml
@@ -35,6 +39,9 @@ pub async fn parse_cslmap(file_path: String) -> Result<CityData, VellumError> {
 
 /// Exporta el mapa actual como PNG en la resolución indicada.
 /// Story 6.2 implementará la exportación real — aquí es stub.
+/// 
+/// # Errors
+/// Retorna un `VellumError` si la exportación para PNG aún no ha sido implementada.
 #[tauri::command]
 pub async fn export_png(_options: ExportOptions) -> Result<ExportResult, VellumError> {
     // TODO(story-6.2): implementar exportación PNG
@@ -45,6 +52,9 @@ pub async fn export_png(_options: ExportOptions) -> Result<ExportResult, VellumE
 
 /// Exporta el mapa actual como SVG vectorial.
 /// Story 6.3 implementará la exportación real — aquí es stub.
+///
+/// # Errors
+/// Retorna un `VellumError` si la exportación para SVG aún no ha sido implementada.
 #[tauri::command]
 pub async fn export_svg(_options: ExportOptions) -> Result<ExportResult, VellumError> {
     // TODO(story-6.3): implementar exportación SVG
