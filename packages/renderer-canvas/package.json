@@ -13,13 +13,16 @@
   },
   "scripts": {
     "build": "tsc -b",
-    "lint": "tsc --noEmit -p tsconfig.json"
+    "lint": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run"
   },
   "dependencies": {
     "@vellum/core": "workspace:*",
     "@vellum/theme-engine": "workspace:*"
   },
   "devDependencies": {
-    "typescript": "~5.8.3"
+    "jsdom": "^29.0.1",
+    "typescript": "~5.8.3",
+    "vitest": "^4.1.2"
   }
 }
