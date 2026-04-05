@@ -23,6 +23,14 @@
       "csp": null
     }
   },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDM5M0E5RDFDOUQ5NkVGMzgKUldRNDc1YWRISjA2T1VOK0JMVG9zeUkzMWtvYStuYlpQbE5hMHFZV2FSTzZHSWxFVllCNFRUV0EK",
+      "endpoints": [
+        "https://github.com/tu-usuario/vellum/releases/latest/download/latest.json"
+      ]
+    }
+  },
   "bundle": {
     "active": true,
     "targets": "all",

@@ -212,3 +212,43 @@ La documentación técnica generada se encuentra en [`docs/`](docs/):
 | [index.md](docs/index.md) | Índice completo de documentación |
 
 Los artefactos de planificación (PRD, arquitectura, épicas, UX) están en [`_bmad-output/planning-artifacts/`](_bmad-output/planning-artifacts/).
+
+---
+
+## CI/CD Setup
+
+El proyecto usa **GitHub Actions** con dos workflows:
+
+| Workflow | Trigger | Propósito |
+|----------|---------|-----------|
+| [`ci.yml`](.github/workflows/ci.yml) | Push/PR a `main` | Build, tests Rust, lint TypeScript + Clippy |
+| [`release.yml`](.github/workflows/release.yml) | Tag `v*` | Build multiplataforma + GitHub Release draft |
+
+### Secrets requeridos en GitHub
+
+Ir a **Settings → Secrets and variables → Actions** y configurar:
+
+| Secret | Requerido | Descripción |
+|--------|-----------|-------------|
+| `TAURI_SIGNING_PRIVATE_KEY` | Sí | Clave privada del auto-updater (generar con `pnpm tauri signer generate`) |
+| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | Sí | Contraseña de la clave privada del updater |
+| `WINDOWS_CERTIFICATE` | No (v1) | Certificado PFX en base64 para code signing Windows |
+| `WINDOWS_CERTIFICATE_PASSWORD` | No (v1) | Contraseña del certificado Windows |
+
+> **Sin `WINDOWS_CERTIFICATE`**, el `.msi` se construye sin firma — SmartScreen mostrará advertencia al instalar. Requerido para v1.0 (Story 7.5).
+
+> **macOS sin notarización en v1:** Los builds de macOS se generan sin notarizar. Al instalar en macOS, ejecutar `xattr -cr /Applications/Vellum.app` si Gatekeeper bloquea la app.
+
+### Generar las claves del auto-updater
+
+Ejecutar una sola vez desde la raíz del proyecto:
+
+```bash
+pnpm tauri signer generate -w ~/.tauri/vellum-updater.key
+```
+
+El comando muestra:
+- **Public key** → copiar a `apps/desktop/src-tauri/tauri.conf.json` en `plugins.updater.pubkey`
+- **Private key** → añadir como secret `TAURI_SIGNING_PRIVATE_KEY` en GitHub
+
+> **CRÍTICO:** La clave privada (`~/.tauri/vellum-updater.key`) nunca se commitea al repositorio.
