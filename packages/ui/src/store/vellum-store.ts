@@ -28,6 +28,8 @@ interface VellumStore {
   toggleLayer: (layer: LayerName) => void;
   setActiveTheme: (theme: string) => void;
   setLanguage: (lang: 'en' | 'es') => void;
+  /** Sincroniza `activeLanguage` con el idioma detectado al arrancar — solo para uso en `App.tsx` tras `initI18n()`. No toca i18next ni localStorage. */
+  syncActiveLanguage: (lang: 'en' | 'es') => void;
 }
 
 const DEFAULT_ACTIVE_LAYERS = Object.fromEntries(
@@ -68,4 +70,6 @@ export const useVellumStore = create<VellumStore>((set) => ({
     localStorage.setItem('preferredLanguage', lang); // persistencia temporal (Story 7.2 usará tauri-plugin-store)
     set({ activeLanguage: lang });
   },
+
+  syncActiveLanguage: (lang) => set({ activeLanguage: lang }),
 }));

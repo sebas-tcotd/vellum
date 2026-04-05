@@ -12,7 +12,7 @@ import es from './locales/es.json';
  * Los JSONs de traducción son imports estáticos — Vite los bundlea offline.
  * No se realizan fetches en runtime (NFR14).
  */
-export async function initI18n(): Promise<void> {
+export async function initI18n(): Promise<'en' | 'es'> {
   const initialLanguage = await detectInitialLanguage();
 
   await i18next.use(initReactI18next).init({
@@ -28,6 +28,8 @@ export async function initI18n(): Promise<void> {
       escapeValue: false, // React ya escapa por defecto
     },
   });
+
+  return initialLanguage;
 }
 
 /**
