@@ -3,7 +3,7 @@ name: Publish Release
 on:
   push:
     tags:
-      - 'v[0-9]*'
+      - "v[0-9]*"
 
 permissions:
   contents: write
@@ -13,32 +13,19 @@ jobs:
     name: Create GitHub Release
     runs-on: ubuntu-latest
     outputs:
-      release-id: ${{ steps.create-release.outputs.releaseId }}
+      # Mapeamos el ID real que devuelve la acción
+      release-id: ${{ steps.create-release.outputs.id }}
     steps:
       - uses: actions/checkout@v4
 
       - name: Create Release
         id: create-release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        shell: bash
-        run: |
-          release_id="$(gh api "/repos/${GITHUB_REPOSITORY}/releases/tags/${GITHUB_REF_NAME}" --jq '.id' 2>/dev/null || true)"
-
-          if [ -z "${release_id}" ]; then
-            release_id="$(gh api \
-              --method POST \
-              -H "Accept: application/vnd.github+json" \
-              "/repos/${GITHUB_REPOSITORY}/releases" \
-              -f tag_name="${GITHUB_REF_NAME}" \
-              -f name="Vellum ${GITHUB_REF_NAME}" \
-              -f body='See CHANGELOG.md for release notes.' \
-              -F draft=true \
-              -F prerelease=false \
-              --jq '.id')"
-          fi
-
-          echo "releaseId=${release_id}" >> "$GITHUB_OUTPUT"
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Vellum ${{ github.ref_name }}
+          body: "See CHANGELOG.md for release notes."
+          draft: true
+          prerelease: false
 
   build-release:
     name: Build ${{ matrix.platform }}
@@ -48,11 +35,11 @@ jobs:
       matrix:
         include:
           - platform: windows-latest
-            args: '--target x86_64-pc-windows-msvc'
+            args: "--target x86_64-pc-windows-msvc"
           - platform: macos-latest
-            args: '--target universal-apple-darwin'
+            args: "--target universal-apple-darwin"
           - platform: ubuntu-22.04
-            args: ''
+            args: ""
 
     runs-on: ${{ matrix.platform }}
     steps:
