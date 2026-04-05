@@ -75,7 +75,7 @@ pub struct RoadNode {
 }
 
 /// Clasificación de un segmento vial. Mirror del union TypeScript `WayType`.
-/// Serializa como PascalCase para coincidir con el contrato IPC.
+/// Serializa como `PascalCase` para coincidir con el contrato IPC.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum WayType {
     Road,
@@ -106,7 +106,7 @@ pub struct RoadSegment {
 }
 
 /// Modo de transporte de una línea o parada. Mirror del union TypeScript `TransitMode`.
-/// Serializa como PascalCase para coincidir con el contrato IPC.
+/// Serializa como `PascalCase` para coincidir con el contrato IPC.
 /// `Unknown` actúa como fallback graceful para tipos no reconocidos.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum TransitMode {
