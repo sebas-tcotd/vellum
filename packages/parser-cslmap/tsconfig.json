@@ -4,9 +4,7 @@
     "composite": true,
     "rootDir": "src",
     "outDir": "dist",
-    "paths": {
-      "@vellum/core": ["../core"]
-    }
+    "paths": {}
   },
   "references": [{ "path": "../core" }],
   "include": ["src/**/*"]

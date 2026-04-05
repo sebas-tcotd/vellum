@@ -4,11 +4,7 @@
     "composite": true,
     "rootDir": "src",
     "outDir": "dist",
-    "paths": {
-      "@vellum/core": ["../core"],
-      "@vellum/renderer-canvas": ["../renderer-canvas"],
-      "@vellum/theme-engine": ["../theme-engine"]
-    }
+    "paths": {}
   },
   "references": [
     { "path": "../core" },
