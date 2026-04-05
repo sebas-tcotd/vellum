@@ -1,0 +1,70 @@
+name: PR & Main Validation
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality-checks:
+    name: Code Quality & Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Vellum Environment
+        uses: ./.github/actions/setup-vellum
+        with:
+          os: ubuntu-latest
+          
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        
+      - name: ESLint
+        run: pnpm lint
+        
+      - name: TypeScript Tests
+        run: pnpm test
+        
+      - name: Rustfmt Check
+        run: cargo fmt --all -- --check
+        
+      - name: Clippy Check
+        run: cargo clippy --workspace -- -D warnings
+        
+      - name: Rust Tests
+        run: cargo test --workspace
+
+  compile-check:
+    name: Compile Check ${{ matrix.platform }}
+    # NO usamos "needs: quality-checks". Queremos que arranque en paralelo para ahorrar tiempo.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-latest
+          - platform: macos-latest
+          - platform: ubuntu-22.04
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Vellum Environment
+        uses: ./.github/actions/setup-vellum
+        with:
+          os: ${{ matrix.platform }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build frontend
+        run: pnpm --filter @vellum/desktop run build:vite
+
+      # MAGIA: Usamos `check` en lugar de `build`. Un 60% más rápido.
+      - name: Compile check desktop Rust shell
+        run: cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml

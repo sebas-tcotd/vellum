@@ -1,0 +1,45 @@
+name: "Setup Vellum Environment"
+description: "Prepara Node, pnpm, Rust, caché y dependencias de OS para compilar Vellum"
+inputs:
+  os:
+    description: "El sistema operativo del runner"
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - uses: pnpm/action-setup@v4
+      with:
+        version: 10.33.0
+
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 20
+        cache: pnpm
+
+    - name: Cache Turborepo
+      uses: actions/cache@v4
+      with:
+        path: .turbo
+        key: turbo-${{ inputs.os }}-${{ hashFiles('pnpm-lock.yaml', 'turbo.json') }}-${{ github.sha }}
+        restore-keys: |
+          turbo-${{ inputs.os }}-${{ hashFiles('pnpm-lock.yaml', 'turbo.json') }}-
+          turbo-${{ inputs.os }}-
+
+    - uses: dtolnay/rust-toolchain@stable
+      with:
+        # Descarga los targets universales si estamos en Mac, y los componentes de linting
+        targets: ${{ inputs.os == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+        components: clippy, rustfmt
+
+    - uses: Swatinem/rust-cache@v2
+      with:
+        workspaces: apps/desktop/src-tauri
+
+    - name: Install system dependencies (Linux)
+      if: inputs.os == 'ubuntu-22.04' || inputs.os == 'ubuntu-latest'
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev \
+          libappindicator3-dev librsvg2-dev patchelf
