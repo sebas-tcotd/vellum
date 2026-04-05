@@ -4,7 +4,7 @@ Visor de escritorio para archivos **CSLMap** — exportaciones de mapas de Citie
 
 Aplicación nativa multiplataforma construida con Tauri 2 (Rust) + React 19 + TypeScript, organizada como monorepo con pnpm workspaces y Turborepo.
 
-> Estado actual: **scaffolding** — arquitectura y dependencias definidas; implementación interna de los paquetes en progreso.
+> Estado actual: **scaffolding funcional** — monorepo, dev y build desktop validados en Windows y macOS.
 
 ---
 
@@ -106,6 +106,17 @@ pnpm install
 
 `pnpm install` instala dependencias de todos los workspaces y crea los symlinks entre paquetes internos.
 
+### Paso adicional en macOS con pnpm 10
+
+Si `pnpm install` muestra un aviso como `Ignored build scripts: esbuild`, aprueba ese build script antes de continuar:
+
+```bash
+pnpm approve-builds
+pnpm install
+```
+
+Esto es necesario para que `vite` y `esbuild` funcionen correctamente en `pnpm dev` y `pnpm build`.
+
 ---
 
 ## Comandos Principales
@@ -123,6 +134,46 @@ pnpm install
 cd apps/desktop
 pnpm dev:vite
 ```
+
+---
+
+## Ejecución por Plataforma
+
+### macOS
+
+1. Instala los prerrequisitos de Tauri para macOS y Rust estable.
+2. Ejecuta `pnpm install`.
+3. Si pnpm bloquea scripts de build, corre `pnpm approve-builds` y aprueba `esbuild`.
+4. Inicia desarrollo con `pnpm dev`.
+5. Genera el bundle instalable con `pnpm build`.
+
+Resultado esperado:
+- `pnpm dev` abre la ventana de Vellum.
+- `pnpm build` genera la app instalable `.app` / bundle para arrastrar a `Applications`.
+
+### Windows
+
+1. Instala Node.js, pnpm 10.33.0 y Rust estable.
+2. Instala los prerrequisitos de Tauri para Windows (MSVC build tools / WebView2 si aplica).
+3. Ejecuta `pnpm install`.
+4. Inicia desarrollo con `pnpm dev`.
+5. Genera instaladores con `pnpm build`.
+
+Resultado esperado:
+- `pnpm dev` abre la ventana de Vellum.
+- `pnpm build` produce instaladores como `.msi` y `-setup.exe`.
+
+### Solución rápida de problemas
+
+- Si aparece `TS6305`, limpia artefactos locales y vuelve a compilar:
+
+```bash
+rm -rf .turbo apps/desktop/dist packages/*/dist
+find . -name "tsconfig.tsbuildinfo" -delete
+pnpm build
+```
+
+- Si `pnpm install` bloquea `esbuild`, ejecuta `pnpm approve-builds`.
 
 ---
 
