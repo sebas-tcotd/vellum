@@ -27,10 +27,18 @@ const MINIMAL_CITY_DATA: CityData = {
   districts: [],
 };
 
+/**
+ * Crea un `CityData` mínimo válido con todos los arrays vacíos.
+ * Pasar `overrides` para personalizar campos específicos en cada test.
+ */
 export function makeCityData(overrides?: Partial<CityData>): CityData {
   return { ...MINIMAL_CITY_DATA, ...overrides };
 }
 
+/**
+ * Crea un `RoadSegment` con valores predeterminados razonables.
+ * Pasar `overrides` para personalizar campos específicos en cada test.
+ */
 export function makeRoadSegment(overrides?: Partial<RoadSegment>): RoadSegment {
   return {
     id: 'seg-1',
@@ -43,6 +51,10 @@ export function makeRoadSegment(overrides?: Partial<RoadSegment>): RoadSegment {
   };
 }
 
+/**
+ * Crea un `LayerVisibility` con todas las capas visibles por defecto.
+ * Pasar `overrides` para ocultar capas específicas en cada test.
+ */
 export function makeLayerVisibility(overrides?: Partial<LayerVisibility>): LayerVisibility {
   return {
     ...Object.fromEntries(LAYER_NAMES.map((n) => [n, true])),

@@ -1,6 +1,11 @@
 // apps/desktop/src-tauri/src/errors.rs
 use serde::{Deserialize, Serialize};
 
+/// Error tipado que cruza el boundary IPC. Mirror del union discriminado TypeScript `VellumError`.
+///
+/// Serializa con `#[serde(tag = "type")]` en PascalCase para coincidir con el discriminante
+/// TypeScript. Nunca propagar errores como `String` libre por el IPC.
+/// El campo `reason` es para logs/debug — nunca mostrarlo directamente al usuario.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(tag = "type")]
 pub enum VellumError {

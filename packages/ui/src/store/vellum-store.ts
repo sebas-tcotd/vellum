@@ -33,6 +33,12 @@ const DEFAULT_ACTIVE_LAYERS = Object.fromEntries(
   LAYER_NAMES.map((name: LayerName) => [name, true] as const)
 ) as LayerVisibility;
 
+/**
+ * Store global de la aplicación. Acceder siempre mediante este hook desde componentes React.
+ *
+ * Estado de UI (capas activas, tema, idioma) persiste en `tauri-plugin-store`.
+ * `CityData` es inmutable una vez cargado — usar `setCityData` para reemplazarlo por completo.
+ */
 export const useVellumStore = create<VellumStore>((set) => ({
   cityData: null,
   loadingState: 'idle',

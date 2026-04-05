@@ -11,6 +11,13 @@ interface CanvasRootProps {
   onElementLeave?: () => void;
 }
 
+/**
+ * Contenedor raíz del canvas de renderizado.
+ *
+ * Gestiona el loop de animación RAF y el estado del viewport mediante `useRef`
+ * (nunca React state) para evitar re-renders constantes durante zoom/pan.
+ * En Story 3.x montará los `CanvasLayer` por cada capa activa.
+ */
 export function CanvasRoot({ onElementHover: _onElementHover, onElementLeave: _onElementLeave }: CanvasRootProps) {
   // REGLA: viewport SIEMPRE en useRef, NUNCA en Zustand/React state
   // Razón: el viewport cambia a 30fps — React state causaría re-renders constantes

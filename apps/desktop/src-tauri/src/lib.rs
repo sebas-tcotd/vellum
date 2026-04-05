@@ -7,6 +7,8 @@ pub mod errors;
 pub mod city_data;
 mod ipc_contract; // interno — tipos auxiliares IPC no re-exportados
 
+/// Punto de entrada de la aplicación Tauri.
+/// Registra los comandos IPC y arranca el event loop. Termina el proceso con código 1 si falla.
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     if let Err(error) = tauri::Builder::default()

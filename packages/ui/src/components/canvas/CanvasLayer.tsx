@@ -6,6 +6,13 @@ interface CanvasLayerProps {
   visible: boolean;
 }
 
+/**
+ * Canvas individual para una capa de renderizado.
+ *
+ * La visibilidad se controla mediante `opacity` CSS — el canvas nunca se desmonta
+ * para evitar pérdida de contexto de renderizado. En Story 3.x, `canvasRef` se
+ * pasará al renderer para obtener el contexto Canvas 2D.
+ */
 export function CanvasLayer({ layerName, zIndex, visible }: CanvasLayerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
