@@ -1,0 +1,75 @@
+{
+  "emptyState": {
+    "title": "Vellum",
+    "dropHint": "Drop your .cslmap file here",
+    "orOpenWith": "or press",
+    "openShortcut": "Ctrl+O",
+    "firstUseHint": "Export your city with CSL Map View · Vellum's native exporter coming in v2 →"
+  },
+  "loading": {
+    "parsing": "Loading city...",
+    "rendering": "Rendering map..."
+  },
+  "errors": {
+    "InvalidFile": "This file couldn't be read. It may be corrupted or not a valid .cslmap.",
+    "UnsupportedVersion": "This map was exported with an unsupported version ({{found}}).",
+    "PartialParse": "Map loaded with warnings. Some elements may not display correctly.",
+    "ExportFailed": "Export failed. Check that the destination folder is writable.",
+    "IoError": "File access error. The file may have been moved or deleted."
+  },
+  "layers": {
+    "terrain": "Terrain",
+    "water": "Water",
+    "roads": "Roads",
+    "transit": "Transit",
+    "buildings": "Buildings",
+    "forests": "Forests",
+    "districts": "Districts"
+  },
+  "themes": {
+    "day": "Day",
+    "transit": "Transit",
+    "classic": "Classic",
+    "grayscale": "Grayscale",
+    "grayscaleWater": "Grayscale + Water"
+  },
+  "export": {
+    "title": "Export Map",
+    "format": "Format",
+    "area": "Area",
+    "background": "Background",
+    "fileName": "File name",
+    "exportButton": "Export",
+    "cancelButton": "Cancel",
+    "area_viewport": "Current viewport",
+    "area_fullMap": "Full map",
+    "background_white": "White",
+    "background_dark": "Dark",
+    "background_transparent": "Transparent",
+    "successToast": "Exported as {{fileName}}",
+    "openFolder": "Open folder",
+    "cancelledToast": "Export cancelled",
+    "failedToast": "Export failed. Try again."
+  },
+  "preferences": {
+    "title": "Preferences",
+    "language": "Language",
+    "autoUpdate": "Automatic updates",
+    "language_en": "English",
+    "language_es": "Spanish"
+  },
+  "updates": {
+    "available": "Vellum {{version}} available.",
+    "viewChangelog": "View changelog"
+  },
+  "toasts": {
+    "cityLoaded": "{{cityName}} loaded",
+    "partialLoad": "Some elements (DLC or mods) displayed in simplified form.",
+    "tabHint": "Tab · focus mode"
+  },
+  "a11y": {
+    "mapCanvas": "City map canvas",
+    "loadingProgress": "Loading progress",
+    "exportProgress": "Export progress"
+  }
+}

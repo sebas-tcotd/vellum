@@ -1,0 +1,75 @@
+{
+  "emptyState": {
+    "title": "Vellum",
+    "dropHint": "Arrastra tu archivo .cslmap aquí",
+    "orOpenWith": "o presiona",
+    "openShortcut": "Ctrl+O",
+    "firstUseHint": "Exporta tu ciudad con CSL Map View · El exportador nativo de Vellum viene en v2 →"
+  },
+  "loading": {
+    "parsing": "Cargando ciudad...",
+    "rendering": "Renderizando mapa..."
+  },
+  "errors": {
+    "InvalidFile": "No se pudo leer el archivo. ¿Es un .cslmap válido?",
+    "UnsupportedVersion": "Este mapa fue exportado con una versión no soportada ({{found}}).",
+    "PartialParse": "Mapa cargado con advertencias. Algunos elementos pueden no mostrarse correctamente.",
+    "ExportFailed": "Error al exportar. Verifica que la carpeta de destino sea accesible.",
+    "IoError": "Error de acceso al archivo. El archivo puede haber sido movido o eliminado."
+  },
+  "layers": {
+    "terrain": "Terreno",
+    "water": "Agua",
+    "roads": "Vías",
+    "transit": "Tránsito",
+    "buildings": "Edificios",
+    "forests": "Bosques",
+    "districts": "Distritos"
+  },
+  "themes": {
+    "day": "Día",
+    "transit": "Tránsito",
+    "classic": "Clásico",
+    "grayscale": "Escala de grises",
+    "grayscaleWater": "Grises + Agua"
+  },
+  "export": {
+    "title": "Exportar mapa",
+    "format": "Formato",
+    "area": "Área",
+    "background": "Fondo",
+    "fileName": "Nombre de archivo",
+    "exportButton": "Exportar",
+    "cancelButton": "Cancelar",
+    "area_viewport": "Viewport actual",
+    "area_fullMap": "Mapa completo",
+    "background_white": "Blanco",
+    "background_dark": "Oscuro",
+    "background_transparent": "Transparente",
+    "successToast": "Exportado como {{fileName}}",
+    "openFolder": "Abrir carpeta",
+    "cancelledToast": "Exportación cancelada",
+    "failedToast": "Error al exportar. Intenta de nuevo."
+  },
+  "preferences": {
+    "title": "Preferencias",
+    "language": "Idioma",
+    "autoUpdate": "Actualizaciones automáticas",
+    "language_en": "Inglés",
+    "language_es": "Español"
+  },
+  "updates": {
+    "available": "Vellum {{version}} disponible.",
+    "viewChangelog": "Ver novedades"
+  },
+  "toasts": {
+    "cityLoaded": "{{cityName}} cargada",
+    "partialLoad": "Algunos elementos (DLC o mods) se mostraron de forma simplificada.",
+    "tabHint": "Tab · modo limpio"
+  },
+  "a11y": {
+    "mapCanvas": "Canvas del mapa de ciudad",
+    "loadingProgress": "Progreso de carga",
+    "exportProgress": "Progreso de exportación"
+  }
+}

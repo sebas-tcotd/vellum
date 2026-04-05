@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { CityData, VellumError, LayerName, LayerVisibility } from '@vellum/core';
 import { LAYER_NAMES } from '@vellum/core';
+import { i18n } from '../i18n/i18n-setup';
 
 type LoadingState = 'idle' | 'loading' | 'error';
 
@@ -27,6 +28,8 @@ interface VellumStore {
   toggleLayer: (layer: LayerName) => void;
   setActiveTheme: (theme: string) => void;
   setLanguage: (lang: 'en' | 'es') => void;
+  /** Sincroniza `activeLanguage` con el idioma detectado al arrancar — solo para uso en `App.tsx` tras `initI18n()`. No toca i18next ni localStorage. */
+  syncActiveLanguage: (lang: 'en' | 'es') => void;
 }
 
 const DEFAULT_ACTIVE_LAYERS = Object.fromEntries(
@@ -62,6 +65,11 @@ export const useVellumStore = create<VellumStore>((set) => ({
 
   setActiveTheme: (theme) => set({ activeTheme: theme }),
 
-  setLanguage: (lang) => set({ activeLanguage: lang }),
-  // Story 7.x: añadirá i18n.changeLanguage(lang) y tauriStore.set('preferredLanguage', lang)
+  setLanguage: (lang) => {
+    i18n.changeLanguage(lang); // hot-swap inmediato de todos los strings (NFR16)
+    localStorage.setItem('preferredLanguage', lang); // persistencia temporal (Story 7.2 usará tauri-plugin-store)
+    set({ activeLanguage: lang });
+  },
+
+  syncActiveLanguage: (lang) => set({ activeLanguage: lang }),
 }));
