@@ -3,6 +3,8 @@
    los @import de npm y los url() relativos a este archivo se resuelvan
    correctamente en build time. */
 
+@import "tailwindcss";
+
 /* ─── Fuentes ─────────────────────────────────────────────────────────────── */
 /* @font-face directo (no @import @fontsource) para poder fijar font-display: block.
    Los woff2 vienen del package @fontsource/cormorant-garamond (dep de @vellum/ui);
