@@ -1,0 +1,81 @@
+/* packages/ui/src/globals.css */
+/* Importado desde apps/desktop/src/main.tsx (entry point de Vite) para que
+   los @import de npm y los url() relativos a este archivo se resuelvan
+   correctamente en build time. */
+
+/* ─── Fuentes ─────────────────────────────────────────────────────────────── */
+/* @font-face directo (no @import @fontsource) para poder fijar font-display: block.
+   Los woff2 vienen del package @fontsource/cormorant-garamond (dep de @vellum/ui);
+   Vite resuelve URLs con prefijo '@' en CSS como imports de npm. */
+@font-face {
+  font-family: 'Cormorant Garamond';
+  src: url('@fontsource/cormorant-garamond/files/cormorant-garamond-latin-400-normal.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  /* block: bloquea render hasta que cargue — correcto para fuente bundleada
+     (sin latencia de red). Evita el FOUT en el wordmark al arrancar la app.
+     @fontsource usa 'swap' por defecto — esta declaración directa lo sobreescribe. */
+  font-display: block;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191,
+    U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Cormorant Garamond';
+  src: url('@fontsource/cormorant-garamond/files/cormorant-garamond-latin-400-italic.woff2') format('woff2');
+  font-weight: 400;
+  font-style: italic;
+  font-display: block;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191,
+    U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* ─── Design tokens ───────────────────────────────────────────────────────── */
+:root {
+  /* Paleta pergamino — Tema Day (OSM Humanitarian) */
+  --color-bg:              #F2EFE9; /* fondo terreno — beige cálido */
+  --color-terrain:         #F2EFE9;
+  --color-water:           #AAD3DF; /* agua */
+  --color-green:           #CDEBB0; /* zonas verdes */
+  --color-text:            #333333;
+  --color-text-subtle:     #777777;
+  --color-border:          rgba(0, 0, 0, 0.08);
+
+  /* Paleta Transit — Tema oscuro */
+  --color-transit-bg:      #1A1A2E;
+
+  /* Tipografía */
+  --font-wordmark: 'Cormorant Garamond', 'Georgia', serif;
+  --font-ui:       system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono:     'DM Mono', 'Consolas', 'Monaco', monospace;
+
+  /* Radio de borde */
+  --radius-sm:   6px;
+  --radius-md:   10px;
+  --radius-lg:   12px;
+
+  /* Sombras */
+  --shadow-panel: 0 4px 24px rgba(0, 0, 0, 0.12);
+
+  /* Transiciones */
+  --transition-layer:  200ms ease;
+  --transition-panel:  150ms ease;
+  --transition-theme:  300ms ease;
+}
+
+/* ─── Reset mínimo ────────────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-ui);
+  min-width: 900px;   /* NFR: tamaño mínimo de ventana — enforceado también en tauri.conf.json */
+  min-height: 600px;
+  overflow: hidden;   /* la app es canvas-first — sin scrollbars en el body */
+}

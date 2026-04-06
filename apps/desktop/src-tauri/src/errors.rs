@@ -2,16 +2,16 @@ use serde::{Deserialize, Serialize};
 
 /// A strongly-typed error enumeration that crosses the Tauri IPC boundary.
 ///
-/// **CRITICAL RULE (IPC Contract):** This enum is an exact mirror of the TypeScript 
-/// discriminated union `VellumError` defined in `@vellum/core/ipc-contract.ts`. 
-/// It strictly uses `#[serde(tag = "type")]` to ensure the variants serialize 
-/// with a `PascalCase` type tag (e.g., `{"type": "InvalidFile", "reason": "..."}`), 
-/// perfectly matching the TypeScript type discriminator. 
+/// **CRITICAL RULE (IPC Contract):** This enum is an exact mirror of the TypeScript
+/// discriminated union `VellumError` defined in `@vellum/core/ipc-contract.ts`.
+/// It strictly uses `#[serde(tag = "type")]` to ensure the variants serialize
+/// with a `PascalCase` type tag (e.g., `{"type": "InvalidFile", "reason": "..."}`),
+/// perfectly matching the TypeScript type discriminator.
 /// Never propagate unstructured `String` errors across the IPC boundary.
 ///
-/// **CRITICAL UI INVARIANT:** The string fields within these variants (such as `reason` 
-/// or `found`) are exclusively intended for internal backend logging, developer debugging, 
-/// and telemetry. They must NEVER be displayed directly to the end-user. The React UI layer 
+/// **CRITICAL UI INVARIANT:** The string fields within these variants (such as `reason`
+/// or `found`) are exclusively intended for internal backend logging, developer debugging,
+/// and telemetry. They must NEVER be displayed directly to the end-user. The React UI layer
 /// must switch on the `type` discriminant and map it to a localized `i18n` translation key.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(tag = "type")]
@@ -30,7 +30,7 @@ pub enum VellumError {
 
 /// Formats the error for backend terminal logging and developer debugging.
 ///
-/// **Usage Note:** Output from this `Display` implementation is strictly for the Rust 
+/// **Usage Note:** Output from this `Display` implementation is strictly for the Rust
 /// standard output or local log files. It must not be sent to the frontend for UI display.
 impl std::fmt::Display for VellumError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

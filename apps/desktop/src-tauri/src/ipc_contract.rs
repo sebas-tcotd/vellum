@@ -5,9 +5,9 @@ use serde::Serialize;
 
 /// Payload structure for the `vellum://progress` event emitted during the file parsing phase.
 ///
-/// **CRITICAL RULE (IPC Contract):** This struct is an exact mirror of the `ProgressPayload` 
-/// interface defined in `@vellum/core/ipc-contract.ts`. It serializes to `camelCase` JSON. 
-/// Any structural modification here MUST be symmetrically applied to the TypeScript 
+/// **CRITICAL RULE (IPC Contract):** This struct is an exact mirror of the `ProgressPayload`
+/// interface defined in `@vellum/core/ipc-contract.ts`. It serializes to `camelCase` JSON.
+/// Any structural modification here MUST be symmetrically applied to the TypeScript
 /// contract within the same commit.
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -21,7 +21,7 @@ pub struct ProgressPayload {
 
 /// Payload structure for the `vellum://update-available` event emitted by the background update checker.
 ///
-/// **CRITICAL RULE (IPC Contract):** This struct is an exact mirror of the `UpdatePayload` 
+/// **CRITICAL RULE (IPC Contract):** This struct is an exact mirror of the `UpdatePayload`
 /// interface defined in `@vellum/core/ipc-contract.ts`. It serializes to `camelCase` JSON.
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]

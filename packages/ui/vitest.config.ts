@@ -8,6 +8,9 @@ import path from 'path';
 export default mergeConfig(
   baseConfig,
   defineConfig({
+    test: {
+      setupFiles: ['./src/test-setup.ts'],
+    },
     resolve: {
       alias: [
         {

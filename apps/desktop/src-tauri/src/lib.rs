@@ -13,16 +13,16 @@ mod ipc_contract;
 
 /// The main entry point for the Vellum desktop application backend.
 ///
-/// This function initializes the Tauri builder, registers all available IPC 
+/// This function initializes the Tauri builder, registers all available IPC
 /// command handlers, and starts the native event loop.
 ///
 /// # Lifecycle and Error Handling
-/// If the Tauri runtime fails to initialize or encounters a fatal error during 
-/// execution, this function will log the error to `stderr` and terminate 
+/// If the Tauri runtime fails to initialize or encounters a fatal error during
+/// execution, this function will log the error to `stderr` and terminate
 /// the process with an exit code of `1`.
 ///
 /// # Platform Specifics
-/// The `#[cfg_attr(mobile, ...)]` attribute ensures compatibility should the 
+/// The `#[cfg_attr(mobile, ...)]` attribute ensures compatibility should the
 /// project expand to mobile platforms in the future.
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {

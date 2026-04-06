@@ -20,6 +20,12 @@ export interface CanvasLayerProps {
    * Controls CSS `opacity` exclusively. It does NOT govern the React DOM mounting state.
    */
   visible: boolean;
+  /**
+   * Accessible label for the canvas element (WCAG 2.1 AA — AC Task 7).
+   * Provided by the parent via `t('a11y.mapCanvas')`.
+   * @default ""
+   */
+  ariaLabel?: string;
 }
 
 /**
@@ -32,7 +38,7 @@ export interface CanvasLayerProps {
  * (via `transferControlToOffscreen()`) and passed down to the `@vellum/renderer-canvas`
  * port to ensure rendering operations remain off the main React thread.
  */
-export function CanvasLayer({ layerName, zIndex, visible }: CanvasLayerProps) {
+export function CanvasLayer({ layerName, zIndex, visible, ariaLabel = '' }: CanvasLayerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   // canvasRef will be utilized in Story 3.x to acquire the rendering context
@@ -42,6 +48,8 @@ export function CanvasLayer({ layerName, zIndex, visible }: CanvasLayerProps) {
     <canvas
       ref={canvasRef}
       id={`layer-${layerName}`}
+      role="img"
+      aria-label={ariaLabel}
       style={{
         position: "absolute",
         inset: 0,

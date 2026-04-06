@@ -10,5 +10,6 @@
     { "path": "../renderer-canvas" },
     { "path": "../theme-engine" }
   ],
-  "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.json"]
+  "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.json"],
+  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx", "src/**/*.spec.ts", "src/**/*.spec.tsx"]
 }
