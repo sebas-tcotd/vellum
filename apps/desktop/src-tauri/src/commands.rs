@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 /// Inbound payload configuration for export commands crossing the IPC boundary.
 ///
-/// **CRITICAL RULE:** This struct must remain perfectly synchronized with `ExportOptions` 
+/// **CRITICAL RULE:** This struct must remain perfectly synchronized with `ExportOptions`
 /// in `@vellum/core/ipc-contract.ts`. It serializes from `camelCase` JSON.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -23,7 +23,7 @@ pub struct ExportOptions {
 
 /// Outbound payload returned upon successful completion of an export command.
 ///
-/// **CRITICAL RULE:** Must remain synchronized with `ExportResult` in `ipc-contract.ts`. 
+/// **CRITICAL RULE:** Must remain synchronized with `ExportResult` in `ipc-contract.ts`.
 /// Serializes to `camelCase` for the frontend.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -38,16 +38,16 @@ pub struct ExportResult {
 
 /// Parses a `.cslmap` file and returns the complete immutable `CityData` domain model.
 ///
-/// **Architectural Context:** /// This is a Tauri IPC endpoint (`#[tauri::command]`). It executes asynchronously off 
-/// the main thread, ensuring the React UI remains fully responsive (≥30fps) during heavy 
+/// **Architectural Context:** /// This is a Tauri IPC endpoint (`#[tauri::command]`). It executes asynchronously off
+/// the main thread, ensuring the React UI remains fully responsive (≥30fps) during heavy
 /// XML parsing operations, satisfying the strict NFR budget for file loading.
 ///
-/// **Future Implementation (Story 2.x):** /// Currently implemented as a stub. Will be fully implemented using the `quick-xml` crate 
+/// **Future Implementation (Story 2.x):** /// Currently implemented as a stub. Will be fully implemented using the `quick-xml` crate
 /// for high-performance, allocation-efficient parsing.
 ///
 /// # Errors
-/// Returns a `VellumError` (serialized to TS) if the file cannot be found, read, or if 
-/// the XML schema is invalid. The frontend MUST map this error to an i18n key rather 
+/// Returns a `VellumError` (serialized to TS) if the file cannot be found, read, or if
+/// the XML schema is invalid. The frontend MUST map this error to an i18n key rather
 /// than displaying the raw reason.
 #[tauri::command]
 pub async fn parse_cslmap(file_path: String) -> Result<CityData, VellumError> {
@@ -62,7 +62,7 @@ pub async fn parse_cslmap(file_path: String) -> Result<CityData, VellumError> {
 /// **Future Implementation (Story 6.2):** /// Currently a stub. Will handle offscreen rasterization based on the provided `ExportOptions`.
 ///
 /// # Errors
-/// Returns a `VellumError::ExportFailed` if the operation is unsupported or if filesystem 
+/// Returns a `VellumError::ExportFailed` if the operation is unsupported or if filesystem
 /// permissions prevent saving the output.
 #[tauri::command]
 pub async fn export_png(_options: ExportOptions) -> Result<ExportResult, VellumError> {

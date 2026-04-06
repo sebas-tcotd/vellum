@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 
 /// Represents a point in the 3D game space.
-/// 
+///
 /// **Coordinate Mapping:**
 /// - `x`: East-west coordinate.
 /// - `y`: Vertical elevation.
@@ -26,15 +26,15 @@ pub struct MapBounds {
     pub min_z: f64,
     pub max_z: f64,
     /// The default base sea level threshold (typically 40.0).
-    /// **Domain Invariant:** Any spatial point where `y < sea_level` is strictly 
+    /// **Domain Invariant:** Any spatial point where `y < sea_level` is strictly
     /// considered submerged or underground.
     pub sea_level: f64,
 }
 
 /// The root domain model representing a completely parsed `.cslmap` city.
 ///
-/// **CRITICAL RULE:** This struct is strictly immutable once constructed by the parser. 
-/// It serializes its fields to `camelCase` when crossing the Tauri IPC boundary to match 
+/// **CRITICAL RULE:** This struct is strictly immutable once constructed by the parser.
+/// It serializes its fields to `camelCase` when crossing the Tauri IPC boundary to match
 /// the TypeScript `@vellum/core` contract. Vectors may be empty but must never serialize as `null`.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -48,7 +48,7 @@ pub struct CityData {
     pub water_tiles: Vec<WaterTile>,
     pub road_nodes: Vec<RoadNode>,
     /// Valid physical road segments.
-    /// **CRITICAL INVARIANT:** Virtual connectors like `Bus Line` must be pre-filtered 
+    /// **CRITICAL INVARIANT:** Virtual connectors like `Bus Line` must be pre-filtered
     /// and completely excluded from this vector.
     pub road_segments: Vec<RoadSegment>,
     pub transit_lines: Vec<TransitLine>,
@@ -59,7 +59,7 @@ pub struct CityData {
 
 /// Represents a dry terrain cell with a discrete elevation level.
 ///
-/// **CRITICAL INVARIANT:** Land and water data are strictly kept in separate vectors. 
+/// **CRITICAL INVARIANT:** Land and water data are strictly kept in separate vectors.
 /// They must NEVER be merged into a unified heightmap by the parser.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -89,8 +89,8 @@ pub struct RoadNode {
 
 /// Defines the classification of a road or path segment.
 ///
-/// **Serialization Rule:** Deliberately omits `#[serde(rename_all = "...")]` so that 
-/// variants serialize as `PascalCase` strings by default, perfectly mirroring the 
+/// **Serialization Rule:** Deliberately omits `#[serde(rename_all = "...")]` so that
+/// variants serialize as `PascalCase` strings by default, perfectly mirroring the
 /// TypeScript `WayType` union.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum WayType {
@@ -134,7 +134,7 @@ pub enum TransitMode {
     Ferry,
     Blimp,
     Trolleybus,
-    /// Graceful fallback variant for unrecognized transportation types (e.g., from future DLCs). 
+    /// Graceful fallback variant for unrecognized transportation types (e.g., from future DLCs).
     /// Ensures the parser never throws a fatal error for unknown transit assets.
     Unknown,
 }
@@ -165,8 +165,8 @@ pub struct TransitStop {
 
 /// Represents a segment of a pre-calculated transit route.
 ///
-/// **CRITICAL INVARIANT:** The game engine pre-calculates all transit paths. 
-/// No pathfinding logic should be implemented in Vellum. Simply traverse 
+/// **CRITICAL INVARIANT:** The game engine pre-calculates all transit paths.
+/// No pathfinding logic should be implemented in Vellum. Simply traverse
 /// the `segment_ids` sequentially.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]

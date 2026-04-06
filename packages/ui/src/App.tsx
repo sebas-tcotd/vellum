@@ -1,6 +1,7 @@
 // packages/ui/src/App.tsx
 import { Suspense, useEffect, useState } from 'react';
 import { CanvasRoot } from './components/canvas/CanvasRoot';
+import { EmptyState } from './components/empty-state/EmptyState';
 import { initI18n } from './i18n/i18n-setup';
 
 /**
@@ -26,12 +27,15 @@ import { useVellumStore } from './store/vellum-store';
  * the store's `syncActiveLanguage` to align the Zustand state with the implicitly 
  * detected OS language at boot time, preventing initialization loops.
  * 
- * **Future Implementation (Story 2.1):** An `<EmptyState />` component will be 
- * injected over the canvas to handle the scenario where no `.cslmap` is loaded yet.
+ * **Empty State (Story 2.1):** `<EmptyState />` se inyecta como overlay sobre el canvas
+ * cuando `loadingState === 'idle'` y `cityData === null`. `CanvasRoot` permanece siempre
+ * montado para preservar el contexto canvas al cargar un mapa.
  */
 export function App() {
   const [i18nReady, setI18nReady] = useState(false);
   const syncActiveLanguage = useVellumStore((s) => s.syncActiveLanguage);
+  const cityData = useVellumStore((s) => s.cityData);
+  const loadingState = useVellumStore((s) => s.loadingState);
 
   useEffect(() => {
     initI18n().then((detectedLang) => {
@@ -43,11 +47,16 @@ export function App() {
   // Evitar flash en idioma incorrecto — no renderizar hasta que i18n esté listo
   if (!i18nReady) return null;
 
+  // EmptyState es overlay sobre CanvasRoot — CanvasRoot siempre montado para
+  // no perder el contexto canvas al cargar un mapa (Story 2.4 añadirá la transición)
+  const showEmptyState = loadingState === 'idle' && cityData === null;
+
   return (
     <Suspense fallback={null}>
       <div style={{ width: '100vw', height: '100vh' }}>
         <CanvasRoot />
-        {/* Story 2.1 will append <EmptyState /> here */}
+        {showEmptyState && <EmptyState />}
+        {/* Story 2.4: <ProgressReveal /> se añade aquí */}
       </div>
     </Suspense>
   );
