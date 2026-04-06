@@ -1,6 +1,8 @@
-// packages/core/src/types/layer.ts
-
-/** Identificador de una capa de renderizado. */
+/** Defines the unique identifier for a logical map layer.
+ * @remarks
+ * These identifiers act as the contract between the UI toggle controls, 
+ * the theme engine, and the rendering system.
+ */
 export type LayerName =
   | 'terrain'
   | 'water'
@@ -10,7 +12,12 @@ export type LayerName =
   | 'forests'
   | 'districts';
 
-/** Array ordenado con todos los nombres de capa válidos. Usar para inicializar visibilidad. */
+/** An ordered array containing all valid `LayerName` variants.
+ * @remarks
+ * Guaranteed to be exhaustive. Useful for iterating over all available layers 
+ * during runtime (e.g., initializing default store states or rendering UI panels) 
+ * without duplicating the list.
+ */
 export const LAYER_NAMES: LayerName[] = [
   'terrain',
   'water',
@@ -21,5 +28,8 @@ export const LAYER_NAMES: LayerName[] = [
   'districts',
 ];
 
-/** Mapa de visibilidad por capa: `true` = visible, `false` = oculta. */
+/** A dictionary mapping each layer to its boolean visibility status.
+ * @remarks
+ * `true` indicates the layer should be processed by the renderer; `false` indicates it should be skipped.
+ */
 export type LayerVisibility = Record<LayerName, boolean>;

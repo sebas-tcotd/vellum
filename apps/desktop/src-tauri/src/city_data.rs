@@ -1,9 +1,13 @@
-// apps/desktop/src-tauri/src/city_data.rs
-// Mirrors de CityData TypeScript — producidos por el parser, serializados por serde al IPC
+// Mirrors of TypeScript CityData — produced by the parser, serialized by serde for IPC
 
 use serde::{Deserialize, Serialize};
 
-/// Punto en espacio 3D del juego. `x` = este-oeste, `y` = elevación, `z` = norte-sur.
+/// Represents a point in the 3D game space.
+/// 
+/// **Coordinate Mapping:**
+/// - `x`: East-west coordinate.
+/// - `y`: Vertical elevation.
+/// - `z`: North-south coordinate (maps to the Y-axis in 2D canvas).
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Vec3 {
@@ -12,7 +16,8 @@ pub struct Vec3 {
     pub z: f64,
 }
 
-/// Bounds del mapa derivados del XML. Define el espacio de coordenadas válido.
+/// Spatial boundaries and global thresholds derived from the XML data.
+/// Defines the valid coordinate space for the rendered map.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct MapBounds {
@@ -20,26 +25,31 @@ pub struct MapBounds {
     pub max_x: f64,
     pub min_z: f64,
     pub max_z: f64,
-    /// Nivel de mar típico: 40. Todo `y < sea_level` es agua o subterráneo.
+    /// The default base sea level threshold (typically 40.0).
+    /// **Domain Invariant:** Any spatial point where `y < sea_level` is strictly 
+    /// considered submerged or underground.
     pub sea_level: f64,
 }
 
-/// Modelo de dominio raíz que representa una ciudad parseada desde un `.cslmap`.
+/// The root domain model representing a completely parsed `.cslmap` city.
 ///
-/// Inmutable una vez construido. Serializado como camelCase al cruzar el IPC.
-/// Todos los `Vec<_>` pueden estar vacíos pero nunca son nulos.
+/// **CRITICAL RULE:** This struct is strictly immutable once constructed by the parser. 
+/// It serializes its fields to `camelCase` when crossing the Tauri IPC boundary to match 
+/// the TypeScript `@vellum/core` contract. Vectors may be empty but must never serialize as `null`.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct CityData {
     pub city_name: String,
     pub file_name: String,
-    /// Timestamp ISO 8601 de cuándo se generó el archivo.
+    /// ISO 8601 timestamp representing when this archive was generated.
     pub generated_at: String,
     pub bounds: MapBounds,
     pub land_tiles: Vec<LandTile>,
     pub water_tiles: Vec<WaterTile>,
     pub road_nodes: Vec<RoadNode>,
-    /// Excluye segmentos `Bus Line` — son conectores virtuales filtrados por el parser.
+    /// Valid physical road segments.
+    /// **CRITICAL INVARIANT:** Virtual connectors like `Bus Line` must be pre-filtered 
+    /// and completely excluded from this vector.
     pub road_segments: Vec<RoadSegment>,
     pub transit_lines: Vec<TransitLine>,
     pub buildings: Vec<Building>,
@@ -47,17 +57,20 @@ pub struct CityData {
     pub districts: Vec<District>,
 }
 
-/// Celda de terreno seco con su nivel de elevación discreta (0–23).
+/// Represents a dry terrain cell with a discrete elevation level.
+///
+/// **CRITICAL INVARIANT:** Land and water data are strictly kept in separate vectors. 
+/// They must NEVER be merged into a unified heightmap by the parser.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct LandTile {
-    /// Nivel de elevación (0–23 en los 24 umbrales del juego).
+    /// Discrete elevation level, typically mapped to 24 distinct thresholds (0.0 - 23.0).
     pub elevation: f64,
     pub x: f64,
     pub z: f64,
 }
 
-/// Celda de agua con su profundidad en unidades del juego.
+/// Represents a water cell containing depth information.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct WaterTile {
@@ -66,7 +79,7 @@ pub struct WaterTile {
     pub z: f64,
 }
 
-/// Nodo de intersección o extremo de un segmento vial.
+/// Represents an intersection or a terminal end of a road segment.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct RoadNode {
@@ -74,8 +87,11 @@ pub struct RoadNode {
     pub position: Vec3,
 }
 
-/// Clasificación de un segmento vial. Mirror del union TypeScript `WayType`.
-/// Serializa como `PascalCase` para coincidir con el contrato IPC.
+/// Defines the classification of a road or path segment.
+///
+/// **Serialization Rule:** Deliberately omits `#[serde(rename_all = "...")]` so that 
+/// variants serialize as `PascalCase` strings by default, perfectly mirroring the 
+/// TypeScript `WayType` union.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum WayType {
     Road,
@@ -89,25 +105,24 @@ pub enum WayType {
     None,
 }
 
-/// Segmento vial entre dos nodos con sus flags de clasificación.
-/// Excluye siempre `icls="Bus Line"` — son conectores virtuales filtrados por el parser.
+/// Represents a physical road or path segment connecting two nodes.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct RoadSegment {
     pub id: String,
     pub start_node_id: String,
     pub end_node_id: String,
-    /// Flags combinables de clasificación del segmento.
+    /// Collection of active classifications for this segment.
     pub way_type: Vec<WayType>,
-    /// Clase original del asset en el juego (para filtrado).
+    /// The original asset class from the game. Used for granular filtering.
     pub item_class: String,
-    /// Ancho en unidades del juego.
+    /// Physical base width in game units.
     pub width: f64,
 }
 
-/// Modo de transporte de una línea o parada. Mirror del union TypeScript `TransitMode`.
-/// Serializa como `PascalCase` para coincidir con el contrato IPC.
-/// `Unknown` actúa como fallback graceful para tipos no reconocidos.
+/// Represents the mode of transportation for a line or stop.
+///
+/// **Serialization Rule:** Serializes as `PascalCase` to match the TS union.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum TransitMode {
     Bus,
@@ -119,25 +134,26 @@ pub enum TransitMode {
     Ferry,
     Blimp,
     Trolleybus,
-    /// Fallback para tipos de transporte desconocidos — nunca producir error fatal.
+    /// Graceful fallback variant for unrecognized transportation types (e.g., from future DLCs). 
+    /// Ensures the parser never throws a fatal error for unknown transit assets.
     Unknown,
 }
 
-/// Línea de transporte público con su ruta completa pre-calculada y sus paradas.
+/// Represents a complete public transportation line, including its predefined route and stops.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct TransitLine {
     pub id: String,
     pub name: String,
     pub mode: TransitMode,
-    /// Color hex asignado por el juego, p.ej. `"#FF6600"`.
+    /// Hexadecimal color string defined in-game (e.g., `"#FF6600"`).
     pub color: String,
     pub stops: Vec<TransitStop>,
-    /// Ruta completa pre-calculada. No se necesita pathfinding.
+    /// The complete, pre-calculated route geometry.
     pub route: Vec<PathSegment>,
 }
 
-/// Parada de tránsito con posición geográfica y modo de transporte.
+/// Represents a public transportation stop or station.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct TransitStop {
@@ -147,45 +163,47 @@ pub struct TransitStop {
     pub name: String,
 }
 
-/// Segmento de ruta pre-calculada: lista ordenada de IDs de `RoadSegment`.
-/// Las rutas ya vienen calculadas en el `.cslmap` — no se necesita pathfinding en Vellum.
+/// Represents a segment of a pre-calculated transit route.
+///
+/// **CRITICAL INVARIANT:** The game engine pre-calculates all transit paths. 
+/// No pathfinding logic should be implemented in Vellum. Simply traverse 
+/// the `segment_ids` sequentially.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct PathSegment {
-    /// IDs de `RoadSegment` en orden de recorrido.
+    /// Ordered list of `RoadSegment` IDs that make up this portion of the route.
     pub segment_ids: Vec<String>,
 }
 
-/// Edificio con su huella poligonal en coordenadas del juego.
-/// `item_class` se usa para filtrar tipos excluidos (p.ej. `"Beautification Item"`).
+/// Represents a building asset with its physical footprint.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Building {
     pub id: String,
     pub position: Vec3,
-    /// Clase del asset en el juego. Usada para filtrar edificios excluidos.
+    /// The original asset class, used to filter out decorative entities like `"Beautification Item"`.
     pub item_class: String,
-    /// Polígono del edificio en coordenadas del juego.
+    /// Polygon vertices defining the building's physical boundaries in game units.
     pub footprint: Vec<Vec3>,
 }
 
-/// Celda de vegetación con densidad normalizada (0.0–1.0).
+/// Represents a cell of vegetation/tree cover.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ForestCell {
     pub x: f64,
     pub z: f64,
-    /// Densidad de vegetación normalizada entre 0.0 (vacío) y 1.0 (denso).
+    /// Normalized density of the forest cover (0.0 to 1.0).
     pub density: f64,
 }
 
-/// Distrito de la ciudad con su polígono de delimitación.
+/// Represents a zoned district with custom boundaries.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct District {
     pub id: String,
     pub name: String,
-    /// Polígono de delimitación del distrito en coordenadas del juego.
+    /// Polygon vertices defining the perimeter of the district in game units.
     pub boundary: Vec<Vec3>,
 }
 
@@ -195,7 +213,7 @@ mod tests {
 
     #[test]
     fn way_type_serializes_pascalcase() {
-        // P2 fix: WayType debe serializar como PascalCase para coincidir con el union TypeScript
+        // P2 fix: WayType must serialize as PascalCase to match the TypeScript union
         let json = serde_json::to_value(WayType::Road).expect("serialization must not fail");
         assert_eq!(json, "Road");
 
@@ -208,7 +226,7 @@ mod tests {
 
     #[test]
     fn transit_mode_serializes_pascalcase() {
-        // P2 fix: TransitMode debe serializar como PascalCase para coincidir con el union TypeScript
+        // P2 fix: TransitMode must serialize as PascalCase to match the TypeScript union
         let json = serde_json::to_value(TransitMode::Bus).expect("serialization must not fail");
         assert_eq!(json, "Bus");
 

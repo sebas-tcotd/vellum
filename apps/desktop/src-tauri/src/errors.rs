@@ -1,21 +1,37 @@
-// apps/desktop/src-tauri/src/errors.rs
 use serde::{Deserialize, Serialize};
 
-/// Error tipado que cruza el boundary IPC. Mirror del union discriminado TypeScript `VellumError`.
+/// A strongly-typed error enumeration that crosses the Tauri IPC boundary.
 ///
-/// Serializa con `#[serde(tag = "type")]` en `PascalCase` para coincidir con el discriminante
-/// TypeScript. Nunca propagar errores como `String` libre por el IPC.
-/// El campo `reason` es para logs/debug — nunca mostrarlo directamente al usuario.
+/// **CRITICAL RULE (IPC Contract):** This enum is an exact mirror of the TypeScript 
+/// discriminated union `VellumError` defined in `@vellum/core/ipc-contract.ts`. 
+/// It strictly uses `#[serde(tag = "type")]` to ensure the variants serialize 
+/// with a `PascalCase` type tag (e.g., `{"type": "InvalidFile", "reason": "..."}`), 
+/// perfectly matching the TypeScript type discriminator. 
+/// Never propagate unstructured `String` errors across the IPC boundary.
+///
+/// **CRITICAL UI INVARIANT:** The string fields within these variants (such as `reason` 
+/// or `found`) are exclusively intended for internal backend logging, developer debugging, 
+/// and telemetry. They must NEVER be displayed directly to the end-user. The React UI layer 
+/// must switch on the `type` discriminant and map it to a localized `i18n` translation key.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(tag = "type")]
 pub enum VellumError {
+    /// Triggered when the selected file is structurally invalid, corrupted, or cannot be parsed.
     InvalidFile { reason: String },
+    /// Triggered when the parsed `.cslmap` file schema version exceeds the capabilities of the current parser.
     UnsupportedVersion { found: String },
+    /// Emitted when parsing succeeds overall but encounters non-fatal data anomalies that require reporting.
     PartialParse { warnings: Vec<String> },
+    /// Triggered when a raster or vector map export operation fails (e.g., missing permissions, unsupported format).
     ExportFailed { reason: String },
+    /// A wrapper for standard filesystem or I/O errors encountered during file access.
     IoError { reason: String },
 }
 
+/// Formats the error for backend terminal logging and developer debugging.
+///
+/// **Usage Note:** Output from this `Display` implementation is strictly for the Rust 
+/// standard output or local log files. It must not be sent to the frontend for UI display.
 impl std::fmt::Display for VellumError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -32,6 +48,7 @@ impl std::fmt::Display for VellumError {
     }
 }
 
+/// Seamlessly converts standard Rust I/O errors into the IPC-compatible `VellumError` union.
 impl From<std::io::Error> for VellumError {
     fn from(e: std::io::Error) -> Self {
         VellumError::IoError {
@@ -46,7 +63,7 @@ mod tests {
 
     #[test]
     fn vellum_error_serializes_pascalcase_type_tag() {
-        // AC2: el tag "type" debe ser PascalCase para coincidir con el discriminated union TypeScript
+        // AC2: The "type" tag must be PascalCase to match the TypeScript discriminated union
         let err = VellumError::InvalidFile {
             reason: "bad file".to_string(),
         };

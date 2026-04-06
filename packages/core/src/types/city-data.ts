@@ -1,160 +1,231 @@
-// packages/core/src/types/city-data.ts
-// Modelo de dominio central — producido por el parser, consumido por el renderer
-
-// ─── Coordenadas y geometría ────────────────────────────────────────────────
-/** Punto en espacio 3D del juego. Eje X = este-oeste, Y = elevación, Z = norte-sur. */
+/**
+ * Represents a point in the 3D game space.
+ * @remarks
+ * The game's native Z-axis (north-south) maps directly to the Y-axis in 2D canvas rendering.
+ */
 export interface Vec3 {
-  x: number; // este-oeste
-  y: number; // elevación
-  z: number; // norte-sur (mapea al eje Y del canvas)
+  /** East-west coordinate. */
+  x: number;
+  /** Vertical elevation. */
+  y: number;
+  /** North-south coordinate. Maps to the Y-axis on the 2D canvas. */
+  z: number;
 }
 
-// ─── Terrain ────────────────────────────────────────────────────────────────
-// INVARIANTE: LandArray y WaterArray son SIEMPRE arrays separados — nunca un heightmap unificado
-/** Celda de terreno seco con su nivel de elevación discreta (0–23). */
+/**
+ * Represents a dry terrain cell with a discrete elevation level.
+ * @remarks
+ * Domain Invariant: Land and water data are strictly kept in separate arrays.
+ * They must never be merged into a unified heightmap.
+ */
 export interface LandTile {
-  elevation: number; // nivel de elevación (0-23 niveles en los 24 umbrales)
+  /** Discrete elevation level, typically mapped to 24 distinct thresholds (0-23). */
+  elevation: number;
+  /** X-coordinate in the global grid. */
   x: number;
+  /** Z-coordinate in the global grid. */
   z: number;
 }
 
-/** Celda de agua con su profundidad en unidades del juego. */
+/**
+ * Represents a water cell containing depth information.
+ * @remarks
+ * Domain Invariant: This is maintained separately from `LandTile` data.
+ */
 export interface WaterTile {
+  /** Depth of the water in game units. */
   depth: number;
+  /** X-coordinate in the global grid. */
   x: number;
+  /** Z-coordinate in the global grid. */
   z: number;
 }
 
-// ─── Vías ───────────────────────────────────────────────────────────────────
-// WayType es una máscara de bits (flags combinables)
-/** Clasificación de un segmento vial. Se pueden combinar múltiples flags en un array. */
+/**
+ * Defines the classification of a road or path segment.
+ * Designed to be used as combinable flags for mixed-use ways.
+ */
 export type WayType =
-  | 'Road'
-  | 'Highway'
-  | 'Elevated'
-  | 'Underground'
-  | 'Bridge'
-  | 'Tunnel'
-  | 'Pedestrian'
-  | 'Bicycle'
-  | 'None';
+  | "Road"
+  | "Highway"
+  | "Elevated"
+  | "Underground"
+  | "Bridge"
+  | "Tunnel"
+  | "Pedestrian"
+  | "Bicycle"
+  | "None";
 
-/** Nodo de intersección o extremo de un segmento vial. */
+/**
+ * Represents an intersection or a terminal end of a road segment.
+ */
 export interface RoadNode {
+  /** Unique identifier assigned by the game engine. */
   id: string;
+  /** Spatial location of the node. */
   position: Vec3;
 }
 
 /**
- * Segmento vial entre dos nodos.
- * Siempre excluye segmentos `icls="Bus Line"` — son conectores virtuales filtrados por el parser.
+ * Represents a physical road or path segment connecting two nodes.
+ * @remarks
+ * Virtual connector segments (e.g., `icls="Bus Line"`) are strictly filtered out
+ * by the parser and will never appear in this dataset.
  */
 export interface RoadSegment {
+  /** Unique identifier for the segment. */
   id: string;
+  /** ID of the origin `RoadNode`. */
   startNodeId: string;
+  /** ID of the destination `RoadNode`. */
   endNodeId: string;
-  wayType: WayType[]; // flags combinados
-  itemClass: string; // clase original del asset
-  width: number; // ancho en unidades del juego
-  // Nota: segmentos con icls="Bus Line" son EXCLUIDOS de este array por el parser
+  /** Collection of active classifications for this segment. */
+  wayType: WayType[];
+  /** The original asset class from the game, used by the theme engine for granular filtering. */
+  itemClass: string;
+  /** Physical base width in game units (does not include UI scaling factors). */
+  width: number;
 }
 
-// ─── Tránsito ───────────────────────────────────────────────────────────────
-/** Modo de transporte de una línea o parada. `Unknown` para tipos no reconocidos en el .cslmap. */
+/**
+ * Represents the mode of transportation for a line or stop.
+ * Contains an `Unknown` fallback variant for graceful handling of unrecognized DLC content.
+ */
 export type TransitMode =
-  | 'Bus'
-  | 'Tram'
-  | 'Train'
-  | 'Metro'
-  | 'CableCar'
-  | 'Monorail'
-  | 'Ferry'
-  | 'Blimp'
-  | 'Trolleybus'
-  | 'Unknown';
+  | "Bus"
+  | "Tram"
+  | "Train"
+  | "Metro"
+  | "CableCar"
+  | "Monorail"
+  | "Ferry"
+  | "Blimp"
+  | "Trolleybus"
+  | "Unknown";
 
-/** Parada de tránsito con posición geográfica y modo de transporte. */
+/**
+ * Represents a public transportation stop or station.
+ */
 export interface TransitStop {
+  /** Unique identifier for the stop. */
   id: string;
+  /** The type of vehicle that services this stop. */
   mode: TransitMode;
+  /** Spatial location of the stop. */
   position: Vec3;
+  /** Custom or default name assigned in-game. */
   name: string;
 }
 
 /**
- * Segmento de ruta pre-calculada: lista ordenada de IDs de `RoadSegment`.
- * No se necesita pathfinding — el juego ya calculó y serializó las rutas en el .cslmap.
+ * Represents a segment of a pre-calculated transit route.
+ * @remarks
+ * The game engine pre-calculates all transit paths. No pathfinding logic should be
+ * implemented in Vellum; simply traverse the `segmentIds` in order.
  */
 export interface PathSegment {
-  segmentIds: string[]; // IDs de RoadSegment en orden de recorrido
+  /** Ordered list of `RoadSegment` IDs that make up this portion of the route. */
+  segmentIds: string[];
 }
 
-/** Línea de transporte público con su ruta completa pre-calculada y sus paradas. */
-export interface TransitLine {
-  id: string;
-  name: string;
-  mode: TransitMode;
-  color: string; // color hex del juego, ej: '#FF6600'
-  stops: TransitStop[];
-  route: PathSegment[]; // ruta completa pre-calculada
-}
-
-// ─── Edificios ──────────────────────────────────────────────────────────────
 /**
- * Edificio con su huella poligonal en coordenadas del juego.
- * `itemClass` se usa para filtrar tipos excluidos (p.ej. `'Beautification Item'`).
+ * Represents a complete public transportation line, including its predefined route and stops.
+ */
+export interface TransitLine {
+  /** Unique identifier for the transit line. */
+  id: string;
+  /** User-defined or auto-generated name. */
+  name: string;
+  /** The transportation mode for this entire line. */
+  mode: TransitMode;
+  /** Hexadecimal color string defined in-game (e.g., '#FF6600'). */
+  color: string;
+  /** Collection of stops serviced by this line. */
+  stops: TransitStop[];
+  /** The complete, pre-calculated route geometry. */
+  route: PathSegment[];
+}
+
+/**
+ * Represents a building asset with its physical footprint.
  */
 export interface Building {
+  /** Unique identifier for the building. */
   id: string;
+  /** Anchor position of the building in the 3D space. */
   position: Vec3;
-  itemClass: string; // usado para filtrado: excluir 'Beautification Item', etc.
-  footprint: Vec3[]; // polígono del edificio
+  /** The original asset class, used to filter out entities like 'Beautification Item'. */
+  itemClass: string;
+  /** Polygon vertices defining the building's physical boundaries. */
+  footprint: Vec3[];
 }
 
-// ─── Bosques ────────────────────────────────────────────────────────────────
-/** Celda de vegetación con densidad normalizada (0.0–1.0). */
-export interface ForestCell {
-  x: number;
-  z: number;
-  density: number; // 0.0–1.0
-}
-
-// ─── Distritos ──────────────────────────────────────────────────────────────
-/** Distrito de la ciudad con su polígono de delimitación. */
-export interface District {
-  id: string;
-  name: string;
-  boundary: Vec3[]; // polígono del distrito
-}
-
-// ─── CityData — modelo central ──────────────────────────────────────────────
 /**
- * Modelo de dominio raíz que representa una ciudad completa parseada desde un `.cslmap`.
- *
- * Inmutable una vez construido: el parser lo produce, el renderer lo consume sin mutarlo.
- * Todos los arrays pueden estar vacíos pero nunca son `null`.
+ * Represents a cell of vegetation/tree cover.
+ */
+export interface ForestCell {
+  /** X-coordinate in the global grid. */
+  x: number;
+  /** Z-coordinate in the global grid. */
+  z: number;
+  /** Normalized density of the forest cover (0.0 to 1.0). */
+  density: number;
+}
+
+/**
+ * Represents a zoned district with custom boundaries.
+ */
+export interface District {
+  /** Unique identifier for the district. */
+  id: string;
+  /** Name assigned to the district in-game. */
+  name: string;
+  /** Polygon vertices defining the perimeter of the district. */
+  boundary: Vec3[];
+}
+
+/**
+ * The core domain model representing a completely parsed `.cslmap` city.
+ * @remarks
+ * This structure is strictly immutable once constructed. The Rust parser produces it,
+ * and the Canvas renderer consumes it. Arrays may be empty, but must never be `null`.
  */
 export interface CityData {
+  /** The name of the city as defined in the save file. */
   cityName: string;
+  /** The original filename of the `.cslmap` archive. */
   fileName: string;
-  generatedAt: string; // ISO timestamp
+  /** ISO 8601 timestamp representing when this data was parsed. */
+  generatedAt: string;
 
-  // Bounds del mapa (derivados del XML)
+  /** Spatial boundaries and global elevation thresholds derived from the XML. */
   bounds: {
+    /** Minimum X-coordinate (western boundary). */
     minX: number;
+    /** Maximum X-coordinate (eastern boundary). */
     maxX: number;
+    /** Minimum Z-coordinate (northern boundary). */
     minZ: number;
+    /** Maximum Z-coordinate (southern boundary). */
     maxZ: number;
-    seaLevel: number; // typical: 40 — todo y < seaLevel es agua/subterráneo
+    /** Base water level threshold (typically 40). Any Y-value below this is considered water or underground. */
+    seaLevel: number;
   };
 
-  // Capas de datos (arrays — nunca null, pueden ser vacíos)
+  /** Grid cells representing dry terrain elevation. */
   landTiles: LandTile[];
+  /** Grid cells representing water bodies and their depths. */
   waterTiles: WaterTile[];
+  /** Intersections and terminuses for the road network. */
   roadNodes: RoadNode[];
-  roadSegments: RoadSegment[]; // Bus Line ya excluidos
+  /** Valid physical road segments (virtual connectors like 'Bus Line' are pre-filtered). */
+  roadSegments: RoadSegment[];
+  /** Public transportation lines with pre-calculated paths. */
   transitLines: TransitLine[];
+  /** Static building geometry. */
   buildings: Building[];
+  /** Vegetation density map. */
   forestCells: ForestCell[];
+  /** User-defined city districts. */
   districts: District[];
 }

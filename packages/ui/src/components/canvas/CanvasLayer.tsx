@@ -1,34 +1,53 @@
-import { useRef } from 'react';
+import { useRef } from "react";
 
-interface CanvasLayerProps {
-  layerName: string; // ej: 'terrain', 'roads', 'transit'
+/**
+ * Component properties for {@link CanvasLayer}.
+ */
+export interface CanvasLayerProps {
+  /**
+   * The logical identifier for this rendering layer.
+   * @remarks
+   * Maps conceptually to `LayerName` from `@vellum/core` (e.g., 'terrain', 'roads', 'transit').
+   */
+  layerName: string;
+  /**
+   * The CSS z-index dictating the absolute stacking order of this canvas relative to others.
+   */
   zIndex: number;
+  /**
+   * Determines if the layer should be visually active.
+   * @remarks
+   * Controls CSS `opacity` exclusively. It does NOT govern the React DOM mounting state.
+   */
   visible: boolean;
 }
 
 /**
- * Canvas individual para una capa de renderizado.
- *
- * La visibilidad se controla mediante `opacity` CSS — el canvas nunca se desmonta
- * para evitar pérdida de contexto de renderizado. En Story 3.x, `canvasRef` se
- * pasará al renderer para obtener el contexto Canvas 2D.
+ * An isolated HTML `<canvas>` element dedicated to rendering a specific map layer.
+ * @remarks
+ * **CRITICAL INVARIANT:** This component must NEVER be conditionally unmounted from the DOM
+ * based on its visibility state. Unmounting destroys the underlying Canvas 2D / WebGL context.
+ * Visibility transitions are strictly handled via CSS `opacity`.
+ * **Future Implementation (Story 3.x):** The internal `canvasRef` will be utilized to extract the offscreen context
+ * (via `transferControlToOffscreen()`) and passed down to the `@vellum/renderer-canvas`
+ * port to ensure rendering operations remain off the main React thread.
  */
 export function CanvasLayer({ layerName, zIndex, visible }: CanvasLayerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  // canvasRef se usará en Story 3.x para obtener el contexto de renderizado
+  // canvasRef will be utilized in Story 3.x to acquire the rendering context
   void canvasRef;
 
   return (
     <canvas
       ref={canvasRef}
-      id={`layer-${layerName}`} // naming: layer-{name} kebab-case
+      id={`layer-${layerName}`}
       style={{
-        position: 'absolute',
+        position: "absolute",
         inset: 0,
         zIndex,
-        opacity: visible ? 1 : 0, // fade gestionado por CSS opacity, no desmontando el canvas
-        transition: 'opacity 200ms ease',
+        opacity: visible ? 1 : 0,
+        transition: "opacity 200ms ease",
       }}
     />
   );

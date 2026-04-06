@@ -1,74 +1,98 @@
-// packages/core/src/ipc-contract.ts
-// LA CONSTITUCIÓN del proyecto — todos los tipos que cruzan el boundary Rust ↔ WebView
-
-// ─── Commands (nombres de funciones Rust en snake_case) ─────────────────────
-/** Nombres de los comandos Tauri IPC. Usar siempre estas constantes en lugar de strings literales. */
-export const IPC_COMMANDS = {
-  PARSE_CSLMAP: 'parse_cslmap',
-  EXPORT_PNG: 'export_png',
-  EXPORT_SVG: 'export_svg',
-} as const;
-
-// ─── Events ────────────────────────────────────────────────────────────────
-/** Nombres de los eventos Tauri emitidos desde Rust. Usar siempre estas constantes. */
-export const IPC_EVENTS = {
-  PROGRESS: 'vellum://progress',
-  UPDATE_AVAILABLE: 'vellum://update-available',
-} as const;
-
-// ─── VellumError — discriminated union (mirror de errors.rs en Rust) ────────
 /**
- * Error tipado que cruza el boundary IPC. Mirror del enum `VellumError` de Rust.
- *
- * La UI mapea cada variant a su clave i18n — nunca mostrar `reason` directamente al usuario.
- * Usar el campo `type` como discriminante en `switch`/guards de tipo.
+ * Registry of Tauri IPC command names.
+ * @remarks
+ * **CRITICAL INVARIANT:** These constants map directly to `#[tauri::command]` functions
+ * in the Rust backend (`snake_case`). Any modification to these strings requires a
+ * synchronized update in the Rust codebase within the same commit. Always use these
+ * constants instead of literal strings when invoking commands from the frontend.
+ */
+export const IPC_COMMANDS = {
+  PARSE_CSLMAP: "parse_cslmap",
+  EXPORT_PNG: "export_png",
+  EXPORT_SVG: "export_svg",
+} as const;
+
+/**
+ * Registry of Tauri IPC event names emitted from the Rust backend.
+ * @remarks
+ * Always use these constants when setting up event listeners via `@tauri-apps/api/event`.
+ */
+export const IPC_EVENTS = {
+  PROGRESS: "vellum://progress",
+  UPDATE_AVAILABLE: "vellum://update-available",
+} as const;
+
+/**
+ * Discriminated union representing all errors that can cross the IPC boundary.
+ * @remarks
+ * This type is an exact mirror of the `VellumError` enum in the Rust backend (`errors.rs`).
+ * * **CRITICAL RULE:** The `reason` field is strictly for development logging and debugging.
+ * The UI layer must NEVER display the raw `reason` string to the user. Instead, use the
+ * discriminated `type` field to map the error to a localized `i18n` translation key.
  */
 export type VellumError =
-  | { type: 'InvalidFile'; reason: string }
-  | { type: 'UnsupportedVersion'; found: string }
-  | { type: 'PartialParse'; warnings: string[] }
-  | { type: 'ExportFailed'; reason: string }
-  | { type: 'IoError'; reason: string };
+  | { type: "InvalidFile"; reason: string }
+  | { type: "UnsupportedVersion"; found: string }
+  | { type: "PartialParse"; warnings: string[] }
+  | { type: "ExportFailed"; reason: string }
+  | { type: "IoError"; reason: string };
 
-// ─── Event Payloads ────────────────────────────────────────────────────────
-/** Payload del evento `vellum://progress` emitido durante el parseo. */
+/** Payload structure for the `vellum://progress` event emitted during the parsing phase. */
 export interface ProgressPayload {
-  currentStep: string; // Rust: current_step
-  percent: number; // Rust: percent (f32)
+  /** The current operation being performed (mapped from Rust `current_step`). */
+  currentStep: string;
+  /** Normalized progress percentage, typically ranging from 0.0 to 100.0 (mapped from Rust `f32`). */
+  percent: number;
 }
 
-/** Payload del evento `vellum://update-available` emitido por el update checker. */
+/** Payload structure for the `vellum://update-available` event emitted by the update checker. */
 export interface UpdatePayload {
-  version: string; // Rust: version
-  url: string; // Rust: url (release notes URL)
+  /** The new version string available for download (mapped from Rust `version`). */
+  version: string;
+  /** The URL pointing to the release notes or download page (mapped from Rust `url`). */
+  url: string;
 }
 
-// ─── Export types ──────────────────────────────────────────────────────────
-/** Formato de exportación. `png-1x/2x/4x` para PNG a distintas densidades, `svg` vectorial. */
-export type ExportFormat = 'png-1x' | 'png-2x' | 'png-4x' | 'svg';
+/**
+ * Defines the supported output formats for map exportation.
+ * @remarks
+ * `png-*x` variants determine the pixel density scaling of the rasterized output.
+ * `svg` provides a scalable vector graphic format without density multipliers.
+ */
+export type ExportFormat = "png-1x" | "png-2x" | "png-4x" | "svg";
 
-/** Área de exportación: solo el viewport visible o el mapa completo. */
-export type ExportArea = 'viewport' | 'full-map';
+/** Defines the spatial boundaries to be included in the exported file. */
+export type ExportArea = "viewport" | "full-map";
 
-/** Color de fondo para la exportación. */
-export type ExportBackground = 'white' | 'dark' | 'transparent';
+/** Defines the background rendering behavior for the exported file. */
+export type ExportBackground = "white" | "dark" | "transparent";
 
-/** Opciones completas de exportación pasadas al comando `export_png` o `export_svg`. */
+/** Configuration options supplied to the `export_png` or `export_svg` IPC commands. */
 export interface ExportOptions {
+  /** The target export format and resolution multiplier. */
   format: ExportFormat;
+  /** The spatial area to capture. */
   area: ExportArea;
+  /** The background color or transparency setting. */
   background: ExportBackground;
+  /** The desired filename (without extension) provided by the user. */
   fileName: string;
 }
 
-/** Resultado de una exportación exitosa con la ruta del archivo generado. */
+/** Result structure returned upon successful completion of an export command. */
 export interface ExportResult {
-  filePath: string; // Rust: file_path — ruta absoluta del archivo exportado
-  folderPath: string; // Rust: folder_path — carpeta contenedora para "Abrir carpeta"
+  /** The absolute file system path to the successfully generated asset. */
+  filePath: string;
+  /** The absolute path to the directory containing the asset, useful for "Open Folder" actions. */
+  folderPath: string;
 }
 
-// ─── Parse result ──────────────────────────────────────────────────────────
-import type { CityData } from './types/city-data';
+import type { CityData } from "./types/city-data";
 
-/** Tipo de retorno del comando `parse_cslmap`. Alias de `CityData` para claridad en el contrato. */
+/**
+ * The expected return type of the `parse_cslmap` IPC command.
+ * @remarks
+ * Aliased directly to `CityData` to explicitly denote that the parsing operation 
+ * yields the complete, immutable root domain model.
+ */
 export type ParseResult = CityData;

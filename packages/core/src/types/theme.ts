@@ -1,34 +1,49 @@
-// packages/core/src/types/theme.ts
-// Stubs — implementación completa en Story 5.x (theme-engine)
+// Stubs — full implementation will be completed in Story 5.x (theme-engine)
 
-/** Descriptor de un archivo `.vellumstyle`. Los campos de estilo se definen en Story 5.x. */
+/**
+ * Describes the structural definition of a `.vellumstyle` file.
+ * @remarks
+ * Currently a stub. The complete style field schema will be defined in Story 5.x.
+ */
 export interface VellumStyle {
-  schemaVersion: number; // siempre presente desde v1; comienza en 1
+  /** Schema version for backward compatibility and validation.
+   * Guaranteed to be present starting from v1. */
+  schemaVersion: number;
+  /** The human-readable display name of the theme. */
   name: string;
-  // campos de estilo se definen en Story 5.x
 }
 
 /**
- * Estilo visual de una línea con modelo `fixed + scaled`.
- *
- * `totalWidth = fixedWidth + scaledWidth × zoomFactor`
- *
- * Nunca precalcular un único valor de ancho — siempre exponer ambos componentes por separado.
+ * Defines the visual appearance of a stroked path or line using the `fixed + scaled` sizing model.
+ * * @remarks
+ * **CRITICAL INVARIANT:** Never precalculate or flatten the width into a single value.
+ * The rendering engine must dynamically compute the final width on every frame using the formula:
+ * `totalWidth = fixedWidth + (scaledWidth * zoomFactor)`
  */
 export interface LineStyle {
+  /** Hexadecimal color string (e.g., '#FFFFFF'). */
   colorHex: string;
-  fixedWidth: number; // ancho mínimo visible a cualquier zoom
-  scaledWidth: number; // ancho proporcional: totalWidth = fixed + scaled × zoomFactor
-  opacity: number; // 0.0–1.0
+  /** The baseline width in canvas pixels that remains constant regardless of the camera's zoom level.
+   * Ensures the line remains visible even when fully zoomed out. */
+  fixedWidth: number;
+  /** The proportional width component that scales linearly with the camera's zoom factor. */
+  scaledWidth: number;
+  /** Alpha transparency level, ranging from 0.0 (fully transparent) to 1.0 (fully opaque). */
+  opacity: number;
 }
 
-/** Mapa de estilos de vía, indexado por `WayType` string. */
+/** A mapping dictionary that associates specific `WayType` string keys to their visual representation. */
 export interface RoadStyleParams {
   [wayType: string]: LineStyle;
 }
 
-/** Parámetros de estilo de renderizado completos, producidos por `theme-engine`. */
+/**
+ * The comprehensive styling configuration produced by the `@vellum/theme-engine`.
+ * @remarks
+ * Passed directly to the rendering engine to dictate visual output independently of the immutable `CityData`.
+ * Additional style groupings (transit, buildings, etc.) will be added in Story 5.x.
+ */
 export interface RenderStyleParams {
+  /** Style mappings specifically for the road network. */
   roads: RoadStyleParams;
-  // otros grupos de estilos se añaden en Story 5.x
 }

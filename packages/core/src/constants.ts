@@ -1,16 +1,39 @@
-// packages/core/src/constants.ts
-
-/** Límite soft de tamaño de archivo para mostrar aviso al usuario. No hay límite duro de carga. */
+/**
+ * Soft limit (in megabytes) for `.cslmap` file sizes.
+ * @remarks
+ * Exceeding this threshold triggers a performance warning in the UI, but
+ * there is no hard restriction enforced by the parsing engine.
+ */
 export const MAX_FILE_SIZE_MB = 50;
 
-/** Nombre del tema visual activo por defecto al abrir la aplicación. */
-export const DEFAULT_THEME = 'day';
+/**
+ * The default visual theme identifier applied upon launching the application.
+ * @remarks
+ * Corresponds to a `.vellumstyle` configuration loaded by the theme engine.
+ */
+export const DEFAULT_THEME = "day";
 
-/** Nivel de mar por defecto en unidades del juego. Todo `y < SEA_LEVEL_DEFAULT` es agua. */
-export const SEA_LEVEL_DEFAULT = 40; // valor típico en .cslmap de CS1
+/**
+ * The default base sea level threshold in game units.
+ * @remarks
+ * Typical value found in standard _Cities: Skylines 1_ `.cslmap` files.
+ * Domain Invariant: Any spatial point where `y < SEA_LEVEL_DEFAULT` is strictly
+ * considered submerged or underground.
+ */
+export const SEA_LEVEL_DEFAULT = 40;
 
-/** Mitad del tamaño total del mapa en unidades del juego. El mapa cubre ±8640 en X y Z. */
-export const GAME_MAP_HALF_EXTENT = 8640; // unidades de juego: mapa = ±8640 en X y Z
+/**
+ * Half of the total map extent in game units.
+ * @remarks
+ * The game world spans from `-8640` to `+8640` along both the X (east-west)
+ * and Z (north-south) axes, resulting in a total logical area of `17280 x 17280`.
+ */
+export const GAME_MAP_HALF_EXTENT = 8640;
 
-/** Radio máximo en unidades del juego para fusionar paradas de tránsito en el tooltip. */
-export const STOP_MERGE_RADIUS_UNITS = 48; // paradas a ≤48 unidades se fusionan en tooltip
+/**
+ * Maximum spatial radius in game units used to visually group transit stops.
+ * @remarks
+ * Transit stops located within this radius (≤ 48 units) from each other are merged
+ * into a single aggregate tooltip in the UI to prevent clutter.
+ */
+export const STOP_MERGE_RADIUS_UNITS = 48;

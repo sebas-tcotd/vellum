@@ -1,26 +1,55 @@
-import { useRef, useEffect } from 'react';
+import { useEffect, useRef } from "react";
 
-interface ViewportState {
+/**
+ * Represents the current state of the camera viewport within the canvas space.
+ */
+export interface ViewportState {
+  /** The scaling multiplier applied to the projection matrix. */
   zoom: number;
+  /** The horizontal translation offset in canvas pixels. */
   panX: number;
+  /** The vertical translation offset in canvas pixels. */
   panY: number;
 }
 
-interface CanvasRootProps {
-  onElementHover?: (element: unknown) => void; // tipado real en Story 4.x
+/**
+ * Component properties for {@link CanvasRoot}.
+ */
+export interface CanvasRootProps {
+  /**
+   * Callback triggered when the user's pointer hovers over an interactive map entity.
+   * @remarks
+   * Currently defined as `unknown`. The concrete entity payload type and collision
+   * detection logic will be fully implemented in Story 4.x.
+   */
+  onElementHover?: (element: unknown) => void;
+  /**
+   * Callback triggered when the user's pointer leaves the bounding box of an interactive entity.
+   */
   onElementLeave?: () => void;
 }
 
 /**
- * Contenedor raíz del canvas de renderizado.
+ * The root container responsible for orchestrating the map rendering lifecycle.
  *
- * Gestiona el loop de animación RAF y el estado del viewport mediante `useRef`
- * (nunca React state) para evitar re-renders constantes durante zoom/pan.
- * En Story 3.x montará los `CanvasLayer` por cada capa activa.
+ * @remarks
+ * **CRITICAL ARCHITECTURAL RULE:** The viewport state (`zoom`, `panX`, `panY`) must ALWAYS
+ * be stored in a mutable `useRef`. It must NEVER be placed in React state (`useState`)
+ * or the global Zustand store. The viewport updates at ≥30fps during panning/zooming;
+ * bridging this into React state would trigger catastrophic cascading re-renders across the UI tree.
+ *
+ * **Rendering Loop:** This component manages a dedicated `requestAnimationFrame` (RAF) loop
+ * to synchronize camera movements smoothly without blocking the React render cycle.
+ *
+ * **Future Implementation (Story 3.x):** This component will be responsible for mounting
+ * individual `CanvasLayer` instances (one for each active `LayerName`) and pushing
+ * the mutable `viewportRef.current` state to the `IRenderer` instance.
  */
-export function CanvasRoot({ onElementHover: _onElementHover, onElementLeave: _onElementLeave }: CanvasRootProps) {
-  // REGLA: viewport SIEMPRE en useRef, NUNCA en Zustand/React state
-  // Razón: el viewport cambia a 30fps — React state causaría re-renders constantes
+export function CanvasRoot({
+  onElementHover: _onElementHover,
+  onElementLeave: _onElementLeave,
+}: CanvasRootProps) {
+  // RULE: viewport ALWAYS in useRef, NEVER in Zustand/React state
   const viewportRef = useRef<ViewportState>({ zoom: 1, panX: 0, panY: 0 });
   const rafIdRef = useRef<number>(0);
   const isActiveRef = useRef(true);
@@ -30,8 +59,10 @@ export function CanvasRoot({ onElementHover: _onElementHover, onElementLeave: _o
 
     const tick = () => {
       if (!isActiveRef.current) return;
-      // Story 3.x: renderer.updateViewport(viewportRef.current) irá aquí
+
+      // Story 3.x: renderer.updateViewport(viewportRef.current) will be invoked here
       void viewportRef.current;
+
       rafIdRef.current = requestAnimationFrame(tick);
     };
     rafIdRef.current = requestAnimationFrame(tick);
@@ -43,8 +74,11 @@ export function CanvasRoot({ onElementHover: _onElementHover, onElementLeave: _o
   }, []);
 
   return (
-    <div className="canvas-root" style={{ position: 'relative', width: '100%', height: '100%' }}>
-      {/* CanvasLayer por capa se añade en Story 3.x */}
+    <div
+      className="canvas-root"
+      style={{ position: "relative", width: "100%", height: "100%" }}
+    >
+      {/* CanvasLayer instances per active layer will be injected here in Story 3.x */}
     </div>
   );
 }
