@@ -8,12 +8,23 @@ const HINT_STORAGE_KEY = 'vellum:hint-shown';
 /** Delay en ms antes de mostrar el hint contextual en la primera sesión. */
 const HINT_DELAY_MS = 4000;
 
+/** Duración de la transición de fade-out del hint (debe coincidir con el CSS). */
+const HINT_FADEOUT_MS = 300;
+
 /**
  * Data URI del patrón SVG de cuadrícula cartográfica usado como fondo.
  * Opacidad ~5% — "se siente, no se ve" (AC 2, rango spec: 4–6%).
  * Se define fuera del componente para evitar recrearlo en cada render.
  */
 const GRID_PATTERN_SVG = `url("data:image/svg+xml,%3Csvg width='40' height='40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M 40 0 L 0 0 0 40' fill='none' stroke='%23333' stroke-width='0.5'/%3E%3C/svg%3E")`;
+
+/**
+ * Fases del ciclo de vida del hint contextual.
+ * - `hidden`  → no montado en el DOM
+ * - `visible` → montado, fade-in via @keyframes `vellum-hint-fadein` (globals.css)
+ * - `leaving` → montado, fade-out via `transition: opacity` — se desmonta tras 300ms
+ */
+type HintPhase = 'hidden' | 'visible' | 'leaving';
 
 /**
  * Pantalla inicial que se muestra cuando no hay ningún mapa cargado.
@@ -27,28 +38,37 @@ const GRID_PATTERN_SVG = `url("data:image/svg+xml,%3Csvg width='40' height='40' 
  * un dato de onboarding ligado al primer uso, no una preferencia del usuario.
  * Story 7.2 migrará las preferencias reales a `tauri-plugin-store`.
  *
- * **Diseño de effects:** Se usan dos effects separados con deps vacíos para evitar
- * que el cambio de `hintAlreadyShown` (cuando el hint se muestra) elimine el listener
- * de `dragenter` antes de que el usuario pueda interactuar con él (AC 4).
+ * **Diseño de effects:** Dos effects con deps `[]` para que el listener de `dragenter`
+ * no se elimine cuando `hintAlreadyShown` cambia al mostrarse el hint (AC 4).
+ *
+ * **Animaciones:** fade-in via `@keyframes vellum-hint-fadein` (globals.css).
+ * Fade-out via máquina de estados `HintPhase` + `transition: opacity` con desmontaje
+ * diferido 300ms para que la transición CSS complete antes de quitar el nodo del DOM.
  */
 export function EmptyState() {
   const { t } = useTranslation();
 
   // Leer localStorage en el render (no en useEffect) para evitar el frame de flash
-  // donde el hint aparecería brevemente y luego desaparecería
   const hintAlreadyShown = localStorage.getItem(HINT_STORAGE_KEY) === 'true';
-  const [hintVisible, setHintVisible] = useState(false);
+
+  const [hintPhase, setHintPhase] = useState<HintPhase>('hidden');
+
+  // Ref de la fase actual — usado dentro de los event listeners para evitar
+  // closures obsoletas (los listeners se registran una sola vez con deps [])
+  const hintPhaseRef = useRef<HintPhase>('hidden');
+
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Timer del fade-out — necesita limpiarse si el componente se desmonta durante la animación
+  const fadeOutTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Effect 1: timer de primera sesión (AC 3, 5)
-  // deps vacíos — captura `hintAlreadyShown` al montar; es el valor correcto para la
-  // decisión de iniciar o no el timer
   useEffect(() => {
     if (hintAlreadyShown) return;
 
     timerRef.current = setTimeout(() => {
-      setHintVisible(true);
-      localStorage.setItem(HINT_STORAGE_KEY, 'true'); // AC 5: persistir para sesiones futuras
+      localStorage.setItem(HINT_STORAGE_KEY, 'true'); // AC 5
+      hintPhaseRef.current = 'visible';
+      setHintPhase('visible');
     }, HINT_DELAY_MS);
 
     return () => {
@@ -58,18 +78,27 @@ export function EmptyState() {
   }, []);
 
   // Effect 2: ocultar hint cuando el usuario arrastra un archivo (AC 4)
-  // Escucha dos eventos:
-  //   - 'dragenter'          → drags internos de la página / entorno de dev (browser)
-  //   - 'vellum:drag-enter'  → custom event despachado por apps/desktop/src/main.tsx
-  //                            cuando Tauri detecta un drag externo del SO (WebView2 no
-  //                            propaga el evento browser 'dragenter' para drags del explorador)
+  // Escucha 'dragenter' (browser/dev) y 'vellum:drag-enter' (custom event desde
+  // apps/desktop/src/main.tsx que bridges Tauri → browser para WebView2 en Windows)
   useEffect(() => {
     const handleDragEnter = () => {
+      // Cancelar timer pendiente si el drag ocurre antes de los 4s
       if (timerRef.current) {
         clearTimeout(timerRef.current);
         timerRef.current = null;
       }
-      setHintVisible(false);
+
+      // Solo iniciar fade-out si el hint está visible
+      if (hintPhaseRef.current !== 'visible') return;
+
+      hintPhaseRef.current = 'leaving';
+      setHintPhase('leaving');
+
+      // Desmontar del DOM tras completar la transición CSS (300ms)
+      fadeOutTimerRef.current = setTimeout(() => {
+        hintPhaseRef.current = 'hidden';
+        setHintPhase('hidden');
+      }, HINT_FADEOUT_MS);
     };
 
     window.addEventListener('dragenter', handleDragEnter);
@@ -77,6 +106,7 @@ export function EmptyState() {
     return () => {
       window.removeEventListener('dragenter', handleDragEnter);
       window.removeEventListener('vellum:drag-enter', handleDragEnter as EventListener);
+      if (fadeOutTimerRef.current) clearTimeout(fadeOutTimerRef.current);
     };
   }, []);
 
@@ -90,7 +120,7 @@ export function EmptyState() {
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: 'var(--color-bg)',
-        zIndex: 10, // encima del CanvasRoot (z-index < 10)
+        zIndex: 10,
       }}
     >
       {/* Patrón de cuadrícula cartográfica — fondo sutil (AC 2) */}
@@ -98,7 +128,7 @@ export function EmptyState() {
         style={{
           backgroundImage: GRID_PATTERN_SVG,
           backgroundSize: '40px 40px',
-          opacity: 0.05, // 5% — "se siente, no se ve" (rango spec: 4–6%)
+          opacity: 0.05,
           position: 'absolute',
           inset: 0,
           pointerEvents: 'none',
@@ -184,17 +214,25 @@ export function EmptyState() {
           </p>
         </div>
 
-        {/* Hint contextual — primera sesión, aparece tras 4s de inactividad (AC 3, 4, 5) */}
-        {hintVisible && (
+        {/* Hint contextual — fade-in al aparecer, fade-out al arrastrar (AC 3, 4, 5) */}
+        {hintPhase !== 'hidden' && (
           <p
             role="status"
+            aria-hidden={hintPhase === 'leaving'}
             style={{
               fontFamily: 'var(--font-ui)',
               fontSize: '12px',
               color: 'var(--color-text-subtle)',
               margin: 0,
-              transition: 'opacity 300ms ease',
               maxWidth: '400px',
+              // Ambas fases usan @keyframes (globals.css) — NO mezclar con opacity/transition
+              // inline porque un estilo inline sobreescribe al keyframe inmediatamente.
+              // `forwards` retiene el estado final (opacity:0) hasta que React desmonta el nodo.
+              animation: hintPhase === 'visible'
+                ? 'vellum-hint-fadein 300ms ease forwards'
+                : hintPhase === 'leaving'
+                ? 'vellum-hint-fadeout 300ms ease forwards'
+                : undefined,
             }}
           >
             {t('emptyState.firstUseHint')}
