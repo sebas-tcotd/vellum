@@ -1,6 +1,6 @@
 // packages/ui/src/components/empty-state/ContextualHint.tsx
 import type { ReactNode } from 'react';
-import type { HintPhase } from './useHintCycle';
+import type { HintPhase } from '../hooks/useHintCycle';
 
 interface ContextualHintProps {
   phase: Exclude<HintPhase, 'hidden'>;
@@ -26,7 +26,7 @@ export function ContextualHint({ phase, children }: ContextualHintProps) {
     <p
       role="status"
       aria-hidden={phase === 'leaving'}
-      className="font-extralight text-xs text-(--color-text-subtle) m-0 max-w-[400px]"
+      className="font-extralight text-xs text-(--color-text-subtle) m-0 max-w-100"
       style={{ animation: ANIMATION[phase] }}
     >
       {children}

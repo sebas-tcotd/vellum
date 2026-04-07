@@ -1,6 +1,6 @@
 export { useTranslation } from 'react-i18next';
 export { App } from './App';
-export { EmptyState } from './components/empty-state/EmptyState';
+export { EmptyState } from './components/empty-state';
 export { AppMetaProvider } from './context/AppMetaContext';
 export { initI18n } from './i18n/i18n-setup';
 export { Button, buttonVariants } from './lib/button';

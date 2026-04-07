@@ -1,3 +1,8 @@
 // packages/ui/src/test-setup.ts
-// Setup de matchers de @testing-library/jest-dom para tests de componentes React
+import * as matchers from '@testing-library/jest-dom/matchers';
 import '@testing-library/jest-dom';
+import { expect } from 'vitest';
+
+// Extendemos explícitamente en lugar de usar '@testing-library/jest-dom/vitest'
+// para evitar problemas de auto-detección con la extensión de VSCode.
+expect.extend(matchers);

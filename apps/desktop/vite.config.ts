@@ -10,7 +10,7 @@ const host = process.env.TAURI_DEV_HOST;
 export default defineConfig(async () => ({
   plugins: [tailwindcss(), react()],
   define: {
-    '__APP_VERSION__': JSON.stringify(version),
+    __APP_VERSION__: JSON.stringify(version),
   },
 
   resolve: {

@@ -1,6 +1,6 @@
 // packages/ui/src/components/canvas/CanvasLayer.test.tsx
 import { describe, it, expect } from 'vitest';
-import { render } from '@testing-library/react';
+import { render } from '../../test-utils';
 import { CanvasLayer } from './CanvasLayer';
 
 describe('CanvasLayer — accesibilidad (Task 7 — code review finding)', () => {

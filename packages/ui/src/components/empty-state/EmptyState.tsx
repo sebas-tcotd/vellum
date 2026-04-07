@@ -1,10 +1,10 @@
 // packages/ui/src/components/empty-state/EmptyState.tsx
 import { useTranslation } from 'react-i18next';
-import { useHintCycle } from './useHintCycle';
-import { GridBackground } from './GridBackground';
-import { DropZone } from './DropZone';
-import { ContextualHint } from './ContextualHint';
-import { Version } from './Version';
+import { useHintCycle } from './hooks/useHintCycle';
+import { GridBackground } from './components/GridBackground';
+import { DropZone } from './components/DropZone';
+import { ContextualHint } from './components/ContextualHint';
+import { Version } from './components/Version';
 
 /**
  * Pantalla inicial que se muestra cuando no hay ningún mapa cargado.

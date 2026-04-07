@@ -1,4 +1,4 @@
-import { useAppMeta } from '../../context/AppMetaContext';
+import { useAppMeta } from '../../../context/AppMetaContext';
 
 export function Version() {
   const { version } = useAppMeta();
