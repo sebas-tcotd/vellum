@@ -8,6 +8,7 @@
     "dev:vite": "vite",
     "build": "tauri build",
     "build:vite": "tsc -b && vite build",
+    "lint": "tsc --noEmit -p tsconfig.json",
     "preview": "vite preview",
     "tauri": "tauri",
     "test:e2e": "playwright test"
