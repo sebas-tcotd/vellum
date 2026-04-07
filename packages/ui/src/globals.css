@@ -34,6 +34,51 @@
     U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
+/* ─── shadcn/ui — variables semánticas (Tailwind v4 @theme) ──────────────── */
+/* Mapeo de la paleta pergamino de Vellum a los tokens semánticos que usan
+   los componentes shadcn (bg-primary, bg-destructive, ring-ring, etc.).
+   Con Tailwind v4, @theme define las variables CSS que resuelven las utility classes.
+   baseColor = neutral (configurado en components.json). */
+@theme {
+  /* Base */
+  --color-background:        #F2EFE9; /* = --color-bg / --color-terrain */
+  --color-foreground:        #333333; /* = --color-text */
+
+  /* Primary — tono pergamino oscuro para acciones principales */
+  --color-primary:           #4A4035;
+  --color-primary-foreground:#F2EFE9;
+
+  /* Secondary — beige más claro para acciones secundarias */
+  --color-secondary:         #E8E3DA;
+  --color-secondary-foreground: #4A4035;
+
+  /* Destructive — rojo semántico para errores y acciones destructivas */
+  --color-destructive:       #C0392B;
+  --color-destructive-foreground: #F2EFE9;
+
+  /* Muted — fondo apagado para estados disabled / placeholders */
+  --color-muted:             #E0DDD7;
+  --color-muted-foreground:  #777777; /* = --color-text-subtle */
+
+  /* Accent — hover states */
+  --color-accent:            #D9D3C8;
+  --color-accent-foreground: #333333;
+
+  /* Popover / Card */
+  --color-popover:           #F2EFE9;
+  --color-popover-foreground:#333333;
+  --color-card:              #F2EFE9;
+  --color-card-foreground:   #333333;
+
+  /* Border / Input / Ring */
+  --color-border:            rgba(0, 0, 0, 0.12);
+  --color-input:             rgba(0, 0, 0, 0.12);
+  --color-ring:              #4A4035;
+
+  /* Radius */
+  --radius: 10px; /* = --radius-md */
+}
+
 /* ─── Design tokens ───────────────────────────────────────────────────────── */
 :root {
   /* Paleta pergamino — Tema Day (OSM Humanitarian) */

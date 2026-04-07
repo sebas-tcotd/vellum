@@ -74,7 +74,6 @@ export function EmptyState() {
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Effect 2: ocultar hint cuando el usuario arrastra un archivo (AC 4)
@@ -219,6 +218,7 @@ export function EmptyState() {
           <p
             role="status"
             aria-hidden={hintPhase === 'leaving'}
+            className='font-extralight'
             style={{
               fontFamily: 'var(--font-ui)',
               fontSize: '12px',
