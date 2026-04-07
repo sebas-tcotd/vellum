@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef } from 'react';
 
 /**
  * Component properties for {@link CanvasLayer}.
@@ -38,7 +38,12 @@ export interface CanvasLayerProps {
  * (via `transferControlToOffscreen()`) and passed down to the `@vellum/renderer-canvas`
  * port to ensure rendering operations remain off the main React thread.
  */
-export function CanvasLayer({ layerName, zIndex, visible, ariaLabel = '' }: CanvasLayerProps) {
+export function CanvasLayer({
+  layerName,
+  zIndex,
+  visible,
+  ariaLabel = '',
+}: CanvasLayerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   // canvasRef will be utilized in Story 3.x to acquire the rendering context
@@ -51,11 +56,11 @@ export function CanvasLayer({ layerName, zIndex, visible, ariaLabel = '' }: Canv
       role="img"
       aria-label={ariaLabel}
       style={{
-        position: "absolute",
+        position: 'absolute',
         inset: 0,
         zIndex,
         opacity: visible ? 1 : 0,
-        transition: "opacity 200ms ease",
+        transition: 'opacity 200ms ease',
       }}
     />
   );

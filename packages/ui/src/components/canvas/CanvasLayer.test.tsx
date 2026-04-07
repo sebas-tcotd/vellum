@@ -6,7 +6,12 @@ import { CanvasLayer } from './CanvasLayer';
 describe('CanvasLayer — accesibilidad (Task 7 — code review finding)', () => {
   it('el canvas tiene role="img"', () => {
     const { container } = render(
-      <CanvasLayer layerName="terrain" zIndex={0} visible={true} ariaLabel="City map canvas" />
+      <CanvasLayer
+        layerName="terrain"
+        zIndex={0}
+        visible={true}
+        ariaLabel="City map canvas"
+      />,
     );
     const canvas = container.querySelector('canvas');
     expect(canvas).not.toBeNull();
@@ -15,7 +20,12 @@ describe('CanvasLayer — accesibilidad (Task 7 — code review finding)', () =>
 
   it('el canvas tiene aria-label cuando se pasa la prop', () => {
     const { container } = render(
-      <CanvasLayer layerName="terrain" zIndex={0} visible={true} ariaLabel="City map canvas" />
+      <CanvasLayer
+        layerName="terrain"
+        zIndex={0}
+        visible={true}
+        ariaLabel="City map canvas"
+      />,
     );
     const canvas = container.querySelector('canvas');
     expect(canvas?.getAttribute('aria-label')).toBe('City map canvas');
@@ -23,7 +33,7 @@ describe('CanvasLayer — accesibilidad (Task 7 — code review finding)', () =>
 
   it('ariaLabel es opcional y por defecto es cadena vacía', () => {
     const { container } = render(
-      <CanvasLayer layerName="roads" zIndex={1} visible={true} />
+      <CanvasLayer layerName="roads" zIndex={1} visible={true} />,
     );
     const canvas = container.querySelector('canvas');
     expect(canvas?.getAttribute('aria-label')).toBe('');
@@ -31,7 +41,7 @@ describe('CanvasLayer — accesibilidad (Task 7 — code review finding)', () =>
 
   it('el canvas tiene id derivado de layerName', () => {
     const { container } = render(
-      <CanvasLayer layerName="water" zIndex={2} visible={false} />
+      <CanvasLayer layerName="water" zIndex={2} visible={false} />,
     );
     const canvas = container.querySelector('canvas');
     expect(canvas?.id).toBe('layer-water');
@@ -39,12 +49,16 @@ describe('CanvasLayer — accesibilidad (Task 7 — code review finding)', () =>
 
   it('la opacidad refleja el estado visible', () => {
     const { container: c1 } = render(
-      <CanvasLayer layerName="transit" zIndex={3} visible={true} />
+      <CanvasLayer layerName="transit" zIndex={3} visible={true} />,
     );
     const { container: c2 } = render(
-      <CanvasLayer layerName="transit" zIndex={3} visible={false} />
+      <CanvasLayer layerName="transit" zIndex={3} visible={false} />,
     );
-    expect((c1.querySelector('canvas') as HTMLCanvasElement).style.opacity).toBe('1');
-    expect((c2.querySelector('canvas') as HTMLCanvasElement).style.opacity).toBe('0');
+    expect(
+      (c1.querySelector('canvas') as HTMLCanvasElement).style.opacity,
+    ).toBe('1');
+    expect(
+      (c2.querySelector('canvas') as HTMLCanvasElement).style.opacity,
+    ).toBe('0');
   });
 });

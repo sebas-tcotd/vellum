@@ -55,7 +55,9 @@ export function makeRoadSegment(overrides?: Partial<RoadSegment>): RoadSegment {
  * Crea un `LayerVisibility` con todas las capas visibles por defecto.
  * Pasar `overrides` para ocultar capas específicas en cada test.
  */
-export function makeLayerVisibility(overrides?: Partial<LayerVisibility>): LayerVisibility {
+export function makeLayerVisibility(
+  overrides?: Partial<LayerVisibility>,
+): LayerVisibility {
   return {
     ...Object.fromEntries(LAYER_NAMES.map((n) => [n, true])),
     ...overrides,

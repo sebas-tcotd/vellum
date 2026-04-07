@@ -1,7 +1,7 @@
-import { fileURLToPath, URL } from "node:url";
-import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
-import tailwindcss from "@tailwindcss/vite";
+import { fileURLToPath, URL } from 'node:url';
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
 
 const host = process.env.TAURI_DEV_HOST;
 
@@ -12,7 +12,7 @@ export default defineConfig(async () => ({
   resolve: {
     alias: {
       // Maps `@/*` used by shadcn/ui components to packages/ui/src/*
-      "@": fileURLToPath(new URL("../../packages/ui/src", import.meta.url)),
+      '@': fileURLToPath(new URL('../../packages/ui/src', import.meta.url)),
     },
   },
 
@@ -27,14 +27,14 @@ export default defineConfig(async () => ({
     host: host || false,
     hmr: host
       ? {
-          protocol: "ws",
+          protocol: 'ws',
           host,
           port: 1421,
         }
       : undefined,
     watch: {
       // 3. tell Vite to ignore watching `src-tauri`
-      ignored: ["**/src-tauri/**"],
+      ignored: ['**/src-tauri/**'],
     },
   },
 }));

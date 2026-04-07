@@ -10,14 +10,14 @@ Aplicación nativa multiplataforma construida con Tauri 2 (Rust) + React 19 + Ty
 
 ## Stack Tecnológico
 
-| Capa | Tecnología | Versión |
-|------|-----------|---------|
-| Shell de escritorio | Tauri + Rust | 2.x / Edition 2021 |
-| UI | React | ^19.1.0 |
-| Lenguaje | TypeScript | ~5.8.3 |
-| Build / Dev server | Vite | ^7.0.4 |
-| Orquestador de build | Turborepo | latest |
-| Gestor de paquetes | pnpm | 10.33.0 |
+| Capa                 | Tecnología   | Versión            |
+| -------------------- | ------------ | ------------------ |
+| Shell de escritorio  | Tauri + Rust | 2.x / Edition 2021 |
+| UI                   | React        | ^19.1.0            |
+| Lenguaje             | TypeScript   | ~5.8.3             |
+| Build / Dev server   | Vite         | ^7.0.4             |
+| Orquestador de build | Turborepo    | latest             |
+| Gestor de paquetes   | pnpm         | 10.33.0            |
 
 ---
 
@@ -85,12 +85,12 @@ Archivo .cslmap (disco)
 
 ## Requisitos Previos
 
-| Herramienta | Versión | Verificar |
-|-------------|---------|-----------|
-| Node.js | LTS ≥ 18 | `node --version` |
-| pnpm | 10.33.0 | `pnpm --version` |
-| Rust | stable (Edition 2021) | `rustc --version` |
-| Tauri CLI | ^2.x | `pnpm tauri --version` |
+| Herramienta | Versión               | Verificar              |
+| ----------- | --------------------- | ---------------------- |
+| Node.js     | LTS ≥ 18              | `node --version`       |
+| pnpm        | 10.33.0               | `pnpm --version`       |
+| Rust        | stable (Edition 2021) | `rustc --version`      |
+| Tauri CLI   | ^2.x                  | `pnpm tauri --version` |
 
 > Tauri 2 requiere dependencias del sistema operativo para compilar el shell nativo. Consulta la [documentación oficial de Tauri](https://tauri.app/start/prerequisites/) para tu plataforma.
 
@@ -121,13 +121,13 @@ Esto es necesario para que `vite` y `esbuild` funcionen correctamente en `pnpm d
 
 ## Comandos Principales
 
-| Comando | Descripción |
-|---------|-------------|
-| `pnpm dev` | Inicia la app en modo desarrollo (Vite + Tauri con hot-reload) |
-| `pnpm build` | Compila todo el monorepo en orden topológico |
-| `pnpm lint` | Verifica tipos TypeScript en todos los paquetes (`tsc --noEmit`) |
-| `pnpm check:architecture` | Verifica reglas de Clean Architecture e imports entre packages |
-| `pnpm test` | Ejecuta pruebas *(framework aún no configurado)* |
+| Comando                   | Descripción                                                      |
+| ------------------------- | ---------------------------------------------------------------- |
+| `pnpm dev`                | Inicia la app en modo desarrollo (Vite + Tauri con hot-reload)   |
+| `pnpm build`              | Compila todo el monorepo en orden topológico                     |
+| `pnpm lint`               | Verifica tipos TypeScript en todos los paquetes (`tsc --noEmit`) |
+| `pnpm check:architecture` | Verifica reglas de Clean Architecture e imports entre packages   |
+| `pnpm test`               | Ejecuta pruebas _(framework aún no configurado)_                 |
 
 ### Solo frontend (sin proceso Tauri)
 
@@ -168,6 +168,7 @@ Reglas rápidas:
 5. Genera el bundle instalable con `pnpm build`.
 
 Resultado esperado:
+
 - `pnpm dev` abre la ventana de Vellum.
 - `pnpm build` genera la app instalable `.app` / bundle para arrastrar a `Applications`.
 
@@ -180,6 +181,7 @@ Resultado esperado:
 5. Genera instaladores con `pnpm build`.
 
 Resultado esperado:
+
 - `pnpm dev` abre la ventana de Vellum.
 - `pnpm build` produce instaladores como `.msi` y `-setup.exe`.
 
@@ -201,15 +203,15 @@ pnpm build
 
 La documentación técnica generada se encuentra en [`docs/`](docs/):
 
-| Documento | Descripción |
-|-----------|-------------|
-| [project-overview.md](docs/project-overview.md) | Visión general, stack y estructura |
-| [development-guide.md](docs/development-guide.md) | Setup, comandos y guías de desarrollo |
-| [integration-architecture.md](docs/integration-architecture.md) | Grafo de integración y comunicación Tauri IPC |
-| [architecture-desktop.md](docs/architecture-desktop.md) | Arquitectura interna de la app desktop |
-| [source-tree-analysis.md](docs/source-tree-analysis.md) | Árbol de fuentes anotado |
-| [component-inventory-desktop.md](docs/component-inventory-desktop.md) | Inventario de componentes React |
-| [index.md](docs/index.md) | Índice completo de documentación |
+| Documento                                                             | Descripción                                   |
+| --------------------------------------------------------------------- | --------------------------------------------- |
+| [project-overview.md](docs/project-overview.md)                       | Visión general, stack y estructura            |
+| [development-guide.md](docs/development-guide.md)                     | Setup, comandos y guías de desarrollo         |
+| [integration-architecture.md](docs/integration-architecture.md)       | Grafo de integración y comunicación Tauri IPC |
+| [architecture-desktop.md](docs/architecture-desktop.md)               | Arquitectura interna de la app desktop        |
+| [source-tree-analysis.md](docs/source-tree-analysis.md)               | Árbol de fuentes anotado                      |
+| [component-inventory-desktop.md](docs/component-inventory-desktop.md) | Inventario de componentes React               |
+| [index.md](docs/index.md)                                             | Índice completo de documentación              |
 
 Los artefactos de planificación (PRD, arquitectura, épicas, UX) están en [`_bmad-output/planning-artifacts/`](_bmad-output/planning-artifacts/).
 
@@ -219,21 +221,21 @@ Los artefactos de planificación (PRD, arquitectura, épicas, UX) están en [`_b
 
 El proyecto usa **GitHub Actions** con dos workflows:
 
-| Workflow | Trigger | Propósito |
-|----------|---------|-----------|
-| [`ci.yml`](.github/workflows/ci.yml) | Push/PR a `main` | Build, tests Rust, lint TypeScript + Clippy |
-| [`release.yml`](.github/workflows/release.yml) | Tag `v*` | Build multiplataforma + GitHub Release draft |
+| Workflow                                       | Trigger          | Propósito                                    |
+| ---------------------------------------------- | ---------------- | -------------------------------------------- |
+| [`ci.yml`](.github/workflows/ci.yml)           | Push/PR a `main` | Build, tests Rust, lint TypeScript + Clippy  |
+| [`release.yml`](.github/workflows/release.yml) | Tag `v*`         | Build multiplataforma + GitHub Release draft |
 
 ### Secrets requeridos en GitHub
 
 Ir a **Settings → Secrets and variables → Actions** y configurar:
 
-| Secret | Requerido | Descripción |
-|--------|-----------|-------------|
-| `TAURI_SIGNING_PRIVATE_KEY` | Sí | Clave privada del auto-updater (generar con `pnpm tauri signer generate`) |
-| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | Sí | Contraseña de la clave privada del updater |
-| `WINDOWS_CERTIFICATE` | No (v1) | Certificado PFX en base64 para code signing Windows |
-| `WINDOWS_CERTIFICATE_PASSWORD` | No (v1) | Contraseña del certificado Windows |
+| Secret                               | Requerido | Descripción                                                               |
+| ------------------------------------ | --------- | ------------------------------------------------------------------------- |
+| `TAURI_SIGNING_PRIVATE_KEY`          | Sí        | Clave privada del auto-updater (generar con `pnpm tauri signer generate`) |
+| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | Sí        | Contraseña de la clave privada del updater                                |
+| `WINDOWS_CERTIFICATE`                | No (v1)   | Certificado PFX en base64 para code signing Windows                       |
+| `WINDOWS_CERTIFICATE_PASSWORD`       | No (v1)   | Contraseña del certificado Windows                                        |
 
 > **Sin `WINDOWS_CERTIFICATE`**, el `.msi` se construye sin firma — SmartScreen mostrará advertencia al instalar. Requerido para v1.0 (Story 7.5).
 
@@ -248,6 +250,7 @@ pnpm tauri signer generate -w ~/.tauri/vellum-updater.key
 ```
 
 El comando muestra:
+
 - **Public key** → copiar a `apps/desktop/src-tauri/tauri.conf.json` en `plugins.updater.pubkey`
 - **Private key** → añadir como secret `TAURI_SIGNING_PRIVATE_KEY` en GitHub
 

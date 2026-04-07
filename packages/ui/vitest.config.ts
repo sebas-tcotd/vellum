@@ -23,7 +23,10 @@ export default mergeConfig(
         },
         {
           find: '@vellum/renderer-canvas',
-          replacement: path.resolve(__dirname, '../renderer-canvas/src/index.ts'),
+          replacement: path.resolve(
+            __dirname,
+            '../renderer-canvas/src/index.ts',
+          ),
         },
         {
           find: '@vellum/theme-engine',
@@ -31,5 +34,5 @@ export default mergeConfig(
         },
       ],
     },
-  })
+  }),
 );

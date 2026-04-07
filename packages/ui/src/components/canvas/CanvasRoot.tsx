@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef } from 'react';
 
 /**
  * Represents the current state of the camera viewport within the canvas space.
@@ -76,7 +76,7 @@ export function CanvasRoot({
   return (
     <div
       className="canvas-root"
-      style={{ position: "relative", width: "100%", height: "100%" }}
+      style={{ position: 'relative', width: '100%', height: '100%' }}
     >
       {/* CanvasLayer instances per active layer will be injected here in Story 3.x */}
     </div>

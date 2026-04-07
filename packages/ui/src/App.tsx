@@ -7,26 +7,26 @@ import { initI18n } from './i18n/i18n-setup';
 /**
  * Global type augmentation for i18next.
  * @remarks
- * **CRITICAL INVARIANT:** This import must remain at the top level of the application 
- * to ensure strict type-checking for the `t()` function is activated globally across 
+ * **CRITICAL INVARIANT:** This import must remain at the top level of the application
+ * to ensure strict type-checking for the `t()` function is activated globally across
  * the entire React component tree.
  */
-import './i18n/types'; 
+import './i18n/types';
 
 import { useVellumStore } from './store/vellum-store';
 
 /**
  * The root React component of the Vellum desktop application.
  * @remarks
- * **Lifecycle Invariant (Localization):** The UI is strictly blocked from rendering 
- * (returning `null`) until the asynchronous `initI18n()` routine completes. This 
- * guarantees that users never experience a "flash of unlocalized content" or see 
+ * **Lifecycle Invariant (Localization):** The UI is strictly blocked from rendering
+ * (returning `null`) until the asynchronous `initI18n()` routine completes. This
+ * guarantees that users never experience a "flash of unlocalized content" or see
  * raw translation keys on startup.
- * 
- * **State Synchronization:** This component is solely responsible for invoking 
- * the store's `syncActiveLanguage` to align the Zustand state with the implicitly 
+ *
+ * **State Synchronization:** This component is solely responsible for invoking
+ * the store's `syncActiveLanguage` to align the Zustand state with the implicitly
  * detected OS language at boot time, preventing initialization loops.
- * 
+ *
  * **Empty State (Story 2.1):** `<EmptyState />` se inyecta como overlay sobre el canvas
  * cuando `loadingState === 'idle'` y `cityData === null`. `CanvasRoot` permanece siempre
  * montado para preservar el contexto canvas al cargar un mapa.

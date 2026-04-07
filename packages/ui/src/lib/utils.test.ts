@@ -7,7 +7,9 @@ describe('cn', () => {
   });
 
   it('handles conditional falsy values', () => {
-    expect(cn('base', false && 'skip', null, undefined, 'end')).toBe('base end');
+    expect(cn('base', false && 'skip', null, undefined, 'end')).toBe(
+      'base end',
+    );
   });
 
   it('resolves Tailwind conflicts — last padding wins', () => {

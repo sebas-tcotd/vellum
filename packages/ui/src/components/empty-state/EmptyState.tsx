@@ -101,10 +101,16 @@ export function EmptyState() {
     };
 
     window.addEventListener('dragenter', handleDragEnter);
-    window.addEventListener('vellum:drag-enter', handleDragEnter as EventListener);
+    window.addEventListener(
+      'vellum:drag-enter',
+      handleDragEnter as EventListener,
+    );
     return () => {
       window.removeEventListener('dragenter', handleDragEnter);
-      window.removeEventListener('vellum:drag-enter', handleDragEnter as EventListener);
+      window.removeEventListener(
+        'vellum:drag-enter',
+        handleDragEnter as EventListener,
+      );
       if (fadeOutTimerRef.current) clearTimeout(fadeOutTimerRef.current);
     };
   }, []);
@@ -218,7 +224,7 @@ export function EmptyState() {
           <p
             role="status"
             aria-hidden={hintPhase === 'leaving'}
-            className='font-extralight'
+            className="font-extralight"
             style={{
               fontFamily: 'var(--font-ui)',
               fontSize: '12px',
@@ -228,11 +234,12 @@ export function EmptyState() {
               // Ambas fases usan @keyframes (globals.css) — NO mezclar con opacity/transition
               // inline porque un estilo inline sobreescribe al keyframe inmediatamente.
               // `forwards` retiene el estado final (opacity:0) hasta que React desmonta el nodo.
-              animation: hintPhase === 'visible'
-                ? 'vellum-hint-fadein 300ms ease forwards'
-                : hintPhase === 'leaving'
-                ? 'vellum-hint-fadeout 300ms ease forwards'
-                : undefined,
+              animation:
+                hintPhase === 'visible'
+                  ? 'vellum-hint-fadein 300ms ease forwards'
+                  : hintPhase === 'leaving'
+                    ? 'vellum-hint-fadeout 300ms ease forwards'
+                    : undefined,
             }}
           >
             {t('emptyState.firstUseHint')}

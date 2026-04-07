@@ -1,2 +1,2 @@
-"use strict";
+'use strict';
 // @vellum/renderer-canvas — barrel export placeholder

@@ -22,7 +22,9 @@ afterEach(() => {
 describe('EmptyState — renderizado base', () => {
   it('renderiza el wordmark con la clave i18n emptyState.title', () => {
     render(<EmptyState />);
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('emptyState.title');
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
+      'emptyState.title',
+    );
   });
 
   it('renderiza la zona de drop con role="region"', () => {
@@ -46,31 +48,43 @@ describe('EmptyState — hint autodismissible (AC 3, 4, 5)', () => {
     render(<EmptyState />);
     expect(screen.queryByRole('status')).toBeNull();
 
-    act(() => { vi.advanceTimersByTime(4000); });
+    act(() => {
+      vi.advanceTimersByTime(4000);
+    });
 
     expect(screen.getByRole('status')).toBeDefined();
-    expect(screen.getByRole('status')).toHaveTextContent('emptyState.firstUseHint');
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'emptyState.firstUseHint',
+    );
   });
 
   it('al mostrar el hint se persiste la clave en localStorage (AC 5)', () => {
     render(<EmptyState />);
-    act(() => { vi.advanceTimersByTime(4000); });
+    act(() => {
+      vi.advanceTimersByTime(4000);
+    });
     expect(localStorage.getItem('vellum:hint-shown')).toBe('true');
   });
 
   it('el hint NO aparece si ya fue mostrado antes (AC 5)', () => {
     localStorage.setItem('vellum:hint-shown', 'true');
     render(<EmptyState />);
-    act(() => { vi.advanceTimersByTime(4000); });
+    act(() => {
+      vi.advanceTimersByTime(4000);
+    });
     expect(screen.queryByRole('status')).toBeNull();
   });
 
   it('el hint inicia fade-out (aria-hidden) inmediatamente al detectar dragenter (AC 4)', () => {
     render(<EmptyState />);
-    act(() => { vi.advanceTimersByTime(4000); });
+    act(() => {
+      vi.advanceTimersByTime(4000);
+    });
     expect(screen.getByRole('status')).toBeDefined();
 
-    act(() => { window.dispatchEvent(new Event('dragenter')); });
+    act(() => {
+      window.dispatchEvent(new Event('dragenter'));
+    });
 
     // El elemento está en el DOM pero aria-hidden=true (fase 'leaving')
     const status = screen.getByRole('status', { hidden: true });
@@ -79,10 +93,16 @@ describe('EmptyState — hint autodismissible (AC 3, 4, 5)', () => {
 
   it('el hint se desmonta del DOM tras 300ms del fade-out (AC 4)', () => {
     render(<EmptyState />);
-    act(() => { vi.advanceTimersByTime(4000); });
+    act(() => {
+      vi.advanceTimersByTime(4000);
+    });
 
-    act(() => { window.dispatchEvent(new Event('dragenter')); });
-    act(() => { vi.advanceTimersByTime(300); });
+    act(() => {
+      window.dispatchEvent(new Event('dragenter'));
+    });
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
 
     expect(screen.queryByRole('status', { hidden: true })).toBeNull();
   });
@@ -101,10 +121,14 @@ describe('EmptyState — hint autodismissible (AC 3, 4, 5)', () => {
 
   it('el custom event vellum:drag-enter inicia fade-out (bridge Tauri, AC 4)', () => {
     render(<EmptyState />);
-    act(() => { vi.advanceTimersByTime(4000); });
+    act(() => {
+      vi.advanceTimersByTime(4000);
+    });
     expect(screen.getByRole('status')).toBeDefined();
 
-    act(() => { window.dispatchEvent(new CustomEvent('vellum:drag-enter')); });
+    act(() => {
+      window.dispatchEvent(new CustomEvent('vellum:drag-enter'));
+    });
 
     const status = screen.getByRole('status', { hidden: true });
     expect(status).toHaveAttribute('aria-hidden', 'true');
@@ -112,10 +136,16 @@ describe('EmptyState — hint autodismissible (AC 3, 4, 5)', () => {
 
   it('vellum:drag-enter completa el desmontaje tras 300ms (bridge Tauri, AC 4)', () => {
     render(<EmptyState />);
-    act(() => { vi.advanceTimersByTime(4000); });
+    act(() => {
+      vi.advanceTimersByTime(4000);
+    });
 
-    act(() => { window.dispatchEvent(new CustomEvent('vellum:drag-enter')); });
-    act(() => { vi.advanceTimersByTime(300); });
+    act(() => {
+      window.dispatchEvent(new CustomEvent('vellum:drag-enter'));
+    });
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
 
     expect(screen.queryByRole('status', { hidden: true })).toBeNull();
   });
@@ -151,13 +181,17 @@ describe('EmptyState — accesibilidad (AC 1, Task 7)', () => {
 
   it('el hint visible tiene role="status" para screen readers', () => {
     render(<EmptyState />);
-    act(() => { vi.advanceTimersByTime(4000); });
+    act(() => {
+      vi.advanceTimersByTime(4000);
+    });
     expect(screen.getByRole('status')).toBeDefined();
   });
 
   it('el patrón SVG de fondo está oculto a screen readers (aria-hidden)', () => {
     const { container } = render(<EmptyState />);
-    expect(container.querySelectorAll('[aria-hidden="true"]').length).toBeGreaterThan(0);
+    expect(
+      container.querySelectorAll('[aria-hidden="true"]').length,
+    ).toBeGreaterThan(0);
   });
 });
 

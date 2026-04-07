@@ -1,12 +1,12 @@
-name: "Setup Vellum Environment"
-description: "Prepara Node, pnpm, Rust, caché y dependencias de OS para compilar Vellum"
+name: 'Setup Vellum Environment'
+description: 'Prepara Node, pnpm, Rust, caché y dependencias de OS para compilar Vellum'
 inputs:
   os:
-    description: "El sistema operativo del runner"
+    description: 'El sistema operativo del runner'
     required: true
 
 runs:
-  using: "composite"
+  using: 'composite'
   steps:
     - uses: pnpm/action-setup@v4
       with:

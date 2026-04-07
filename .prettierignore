@@ -1,0 +1,12 @@
+node_modules/
+dist/
+**/*.log
+.turbo/
+target/  # Para Rust, si aplica
+_bmad/
+_bmad-output/
+.agents/
+.claude/
+.gemini/
+apps/desktop/src-tauri/target/**/**
+target/

@@ -3,7 +3,7 @@
    los @import de npm y los url() relativos a este archivo se resuelvan
    correctamente en build time. */
 
-@import "tailwindcss";
+@import 'tailwindcss';
 
 /* ─── Fuentes ─────────────────────────────────────────────────────────────── */
 /* @font-face directo (no @import @fontsource) para poder fijar font-display: block.
@@ -11,27 +11,31 @@
    Vite resuelve URLs con prefijo '@' en CSS como imports de npm. */
 @font-face {
   font-family: 'Cormorant Garamond';
-  src: url('@fontsource/cormorant-garamond/files/cormorant-garamond-latin-400-normal.woff2') format('woff2');
+  src: url('@fontsource/cormorant-garamond/files/cormorant-garamond-latin-400-normal.woff2')
+    format('woff2');
   font-weight: 400;
   font-style: normal;
   /* block: bloquea render hasta que cargue — correcto para fuente bundleada
      (sin latencia de red). Evita el FOUT en el wordmark al arrancar la app.
      @fontsource usa 'swap' por defecto — esta declaración directa lo sobreescribe. */
   font-display: block;
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
-    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191,
-    U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212,
+    U+2215, U+FEFF, U+FFFD;
 }
 
 @font-face {
   font-family: 'Cormorant Garamond';
-  src: url('@fontsource/cormorant-garamond/files/cormorant-garamond-latin-400-italic.woff2') format('woff2');
+  src: url('@fontsource/cormorant-garamond/files/cormorant-garamond-latin-400-italic.woff2')
+    format('woff2');
   font-weight: 400;
   font-style: italic;
   font-display: block;
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
-    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191,
-    U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212,
+    U+2215, U+FEFF, U+FFFD;
 }
 
 /* ─── shadcn/ui — variables semánticas (Tailwind v4 @theme) ──────────────── */
@@ -41,39 +45,39 @@
    baseColor = neutral (configurado en components.json). */
 @theme {
   /* Base */
-  --color-background:        #F2EFE9; /* = --color-bg / --color-terrain */
-  --color-foreground:        #333333; /* = --color-text */
+  --color-background: #f2efe9; /* = --color-bg / --color-terrain */
+  --color-foreground: #333333; /* = --color-text */
 
   /* Primary — tono pergamino oscuro para acciones principales */
-  --color-primary:           #4A4035;
-  --color-primary-foreground:#F2EFE9;
+  --color-primary: #4a4035;
+  --color-primary-foreground: #f2efe9;
 
   /* Secondary — beige más claro para acciones secundarias */
-  --color-secondary:         #E8E3DA;
-  --color-secondary-foreground: #4A4035;
+  --color-secondary: #e8e3da;
+  --color-secondary-foreground: #4a4035;
 
   /* Destructive — rojo semántico para errores y acciones destructivas */
-  --color-destructive:       #C0392B;
-  --color-destructive-foreground: #F2EFE9;
+  --color-destructive: #c0392b;
+  --color-destructive-foreground: #f2efe9;
 
   /* Muted — fondo apagado para estados disabled / placeholders */
-  --color-muted:             #E0DDD7;
-  --color-muted-foreground:  #777777; /* = --color-text-subtle */
+  --color-muted: #e0ddd7;
+  --color-muted-foreground: #777777; /* = --color-text-subtle */
 
   /* Accent — hover states */
-  --color-accent:            #D9D3C8;
+  --color-accent: #d9d3c8;
   --color-accent-foreground: #333333;
 
   /* Popover / Card */
-  --color-popover:           #F2EFE9;
-  --color-popover-foreground:#333333;
-  --color-card:              #F2EFE9;
-  --color-card-foreground:   #333333;
+  --color-popover: #f2efe9;
+  --color-popover-foreground: #333333;
+  --color-card: #f2efe9;
+  --color-card-foreground: #333333;
 
   /* Border / Input / Ring */
-  --color-border:            rgba(0, 0, 0, 0.12);
-  --color-input:             rgba(0, 0, 0, 0.12);
-  --color-ring:              #4A4035;
+  --color-border: rgba(0, 0, 0, 0.12);
+  --color-input: rgba(0, 0, 0, 0.12);
+  --color-ring: #4a4035;
 
   /* Radius */
   --radius: 10px; /* = --radius-md */
@@ -82,49 +86,63 @@
 /* ─── Design tokens ───────────────────────────────────────────────────────── */
 :root {
   /* Paleta pergamino — Tema Day (OSM Humanitarian) */
-  --color-bg:              #F2EFE9; /* fondo terreno — beige cálido */
-  --color-terrain:         #F2EFE9;
-  --color-water:           #AAD3DF; /* agua */
-  --color-green:           #CDEBB0; /* zonas verdes */
-  --color-text:            #333333;
-  --color-text-subtle:     #777777;
-  --color-border:          rgba(0, 0, 0, 0.08);
+  --color-bg: #f2efe9; /* fondo terreno — beige cálido */
+  --color-terrain: #f2efe9;
+  --color-water: #aad3df; /* agua */
+  --color-green: #cdebb0; /* zonas verdes */
+  --color-text: #333333;
+  --color-text-subtle: #777777;
+  --color-border: rgba(0, 0, 0, 0.08);
 
   /* Paleta Transit — Tema oscuro */
-  --color-transit-bg:      #1A1A2E;
+  --color-transit-bg: #1a1a2e;
 
   /* Tipografía */
   --font-wordmark: 'Cormorant Garamond', 'Georgia', serif;
-  --font-ui:       system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  --font-mono:     'DM Mono', 'Consolas', 'Monaco', monospace;
+  --font-ui: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'DM Mono', 'Consolas', 'Monaco', monospace;
 
   /* Radio de borde */
-  --radius-sm:   6px;
-  --radius-md:   10px;
-  --radius-lg:   12px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
 
   /* Sombras */
   --shadow-panel: 0 4px 24px rgba(0, 0, 0, 0.12);
 
   /* Transiciones */
-  --transition-layer:  200ms ease;
-  --transition-panel:  150ms ease;
-  --transition-theme:  300ms ease;
+  --transition-layer: 200ms ease;
+  --transition-panel: 150ms ease;
+  --transition-theme: 300ms ease;
 }
 
 /* ─── Animaciones ─────────────────────────────────────────────────────────── */
 @keyframes vellum-hint-fadein {
-  from { opacity: 0; transform: translateY(4px); }
-  to   { opacity: 1; transform: translateY(0);   }
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes vellum-hint-fadeout {
-  from { opacity: 1; transform: translateY(0);   }
-  to   { opacity: 0; transform: translateY(4px); }
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(4px);
+  }
 }
 
 /* ─── Reset mínimo ────────────────────────────────────────────────────────── */
-*, *::before, *::after {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
 }
 
@@ -133,7 +151,7 @@ body {
   background-color: var(--color-bg);
   color: var(--color-text);
   font-family: var(--font-ui);
-  min-width: 900px;   /* NFR: tamaño mínimo de ventana — enforceado también en tauri.conf.json */
+  min-width: 900px; /* NFR: tamaño mínimo de ventana — enforceado también en tauri.conf.json */
   min-height: 600px;
-  overflow: hidden;   /* la app es canvas-first — sin scrollbars en el body */
+  overflow: hidden; /* la app es canvas-first — sin scrollbars en el body */
 }
