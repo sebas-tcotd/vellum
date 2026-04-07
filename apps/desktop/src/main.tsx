@@ -1,11 +1,12 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { App } from '@vellum/ui';
+import { App, AppMetaProvider } from '@vellum/ui';
 // CSS global importado aquí (entry point de Vite) para que los @font-face con
 // url() a @fontsource y los design tokens se procesen en build time.
 // No puede importarse desde dentro de @vellum/ui (compilado con TSC, no Vite).
 import '@vellum/ui/globals.css';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { version } from '../package.json';
 
 // Bridge: Tauri → browser custom event
 // WebView2 (Windows) no propaga el evento browser 'dragenter' para drags externos
@@ -18,6 +19,8 @@ void getCurrentWindow().listen('tauri://drag-enter', () => {
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
-    <App />
+    <AppMetaProvider version={version}>
+      <App />
+    </AppMetaProvider>
   </React.StrictMode>,
 );
