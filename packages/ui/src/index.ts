@@ -1,4 +1,12 @@
 export { useTranslation } from 'react-i18next';
+export { CanvasRoot } from './components/canvas/CanvasRoot';
+export type {
+  CanvasRootProps,
+  ViewportState,
+  MapEntity,
+} from './components/canvas/CanvasRoot';
+export { CanvasLayer } from './components/canvas/CanvasLayer';
+export type { CanvasLayerProps } from './components/canvas/CanvasLayer';
 export { App } from './App';
 export { EmptyState } from './components/empty-state';
 export { AppMetaProvider } from './context/AppMetaContext';
