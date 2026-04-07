@@ -155,13 +155,13 @@ export function EmptyState() {
       >
         {/* Wordmark (AC 1) */}
         <h1
+          className="m-0"
           style={{
             fontFamily: 'var(--font-wordmark)',
             fontSize: '32px',
             fontWeight: 400,
             letterSpacing: '0.05em',
             color: 'var(--color-text)',
-            margin: 0,
           }}
         >
           {t('emptyState.title')}

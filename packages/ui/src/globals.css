@@ -5,6 +5,12 @@
 
 @import 'tailwindcss';
 
+/* Tailwind v4 ignora por defecto los directorios en .gitignore (dist/) y solo
+   escanea desde el Vite root (apps/desktop/). Con @source le indicamos explícitamente
+   que escanee los fuentes de @vellum/ui para generar las utility classes correctas. */
+@source '.';
+@source '../../../apps/desktop/src';
+
 /* ─── Fuentes ─────────────────────────────────────────────────────────────── */
 /* @font-face directo (no @import @fontsource) para poder fijar font-display: block.
    Los woff2 vienen del package @fontsource/cormorant-garamond (dep de @vellum/ui);
