@@ -1,6 +1,6 @@
 /** Defines the unique identifier for a logical map layer.
  * @remarks
- * These identifiers act as the contract between the UI toggle controls, 
+ * These identifiers act as the contract between the UI toggle controls,
  * the theme engine, and the rendering system.
  */
 export type LayerName =
@@ -14,8 +14,8 @@ export type LayerName =
 
 /** An ordered array containing all valid `LayerName` variants.
  * @remarks
- * Guaranteed to be exhaustive. Useful for iterating over all available layers 
- * during runtime (e.g., initializing default store states or rendering UI panels) 
+ * Guaranteed to be exhaustive. Useful for iterating over all available layers
+ * during runtime (e.g., initializing default store states or rendering UI panels)
  * without duplicating the list.
  */
 export const LAYER_NAMES: LayerName[] = [

@@ -7,16 +7,24 @@
     "build": "turbo build",
     "test": "turbo test",
     "test:e2e": "turbo test:e2e",
-    "lint": "turbo lint",
+    "lint": "turbo lint && pnpm lint:arch",
     "lint:arch": "eslint packages apps",
     "check:architecture": "pnpm lint:arch",
-    "prepare": "husky"
+    "rust:fmt": "cargo fmt --all -- --check",
+    "rust:lint": "cargo clippy --workspace -- -D warnings",
+    "rust:test": "cargo test --workspace",
+    "prepare": "husky",
+    "format": "prettier --write \"**/*.{js,ts,tsx,json,md,css,scss,html,yaml,yml}\" --ignore-path .prettierignore",
+    "format:check": "prettier --check \"**/*.{js,ts,tsx,json,md,css,scss,html,yaml,yml}\" --ignore-path .prettierignore"
   },
   "devDependencies": {
     "@commitlint/cli": "^20.5.0",
     "@commitlint/config-conventional": "^20.5.0",
     "eslint": "^10.2.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.5",
     "husky": "^9.1.7",
+    "prettier": "^3.8.1",
     "turbo": "latest",
     "typescript-eslint": "^8.58.0",
     "vitest": "^4.1.2"

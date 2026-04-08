@@ -1,11 +1,24 @@
-import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
+import tailwindcss from '@tailwindcss/vite';
+import react from '@vitejs/plugin-react';
+import { fileURLToPath, URL } from 'node:url';
+import { defineConfig } from 'vite';
+import { version } from './package.json';
 
 const host = process.env.TAURI_DEV_HOST;
 
 // https://vite.dev/config/
 export default defineConfig(async () => ({
-  plugins: [react()],
+  plugins: [tailwindcss(), react()],
+  define: {
+    __APP_VERSION__: JSON.stringify(version),
+  },
+
+  resolve: {
+    alias: {
+      // Maps `@/*` used by shadcn/ui components to packages/ui/src/*
+      '@': fileURLToPath(new URL('../../packages/ui/src', import.meta.url)),
+    },
+  },
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //
@@ -18,14 +31,14 @@ export default defineConfig(async () => ({
     host: host || false,
     hmr: host
       ? {
-          protocol: "ws",
+          protocol: 'ws',
           host,
           port: 1421,
         }
       : undefined,
     watch: {
       // 3. tell Vite to ignore watching `src-tauri`
-      ignored: ["**/src-tauri/**"],
+      ignored: ['**/src-tauri/**'],
     },
   },
 }));

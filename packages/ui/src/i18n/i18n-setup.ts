@@ -8,11 +8,11 @@ import es from './locales/es.json';
 /**
  * Initializes the `i18next` instance with `react-i18next` bindings.
  * @remarks
- * **CRITICAL ARCHITECTURAL RULE (NFR14):** Translation JSONs are statically imported. 
- * Vite bundles them directly into the application payload. No runtime network fetches 
+ * **CRITICAL ARCHITECTURAL RULE (NFR14):** Translation JSONs are statically imported.
+ * Vite bundles them directly into the application payload. No runtime network fetches
  * are permitted, ensuring the application remains fully functional offline within the Tauri shell.
- * **CRITICAL INVARIANT:** This initialization function MUST be invoked and awaited 
- * BEFORE the initial React render phase (e.g., using a Suspense boundary or awaiting 
+ * **CRITICAL INVARIANT:** This initialization function MUST be invoked and awaited
+ * BEFORE the initial React render phase (e.g., using a Suspense boundary or awaiting
  * it prior to mounting the main component tree in `App.tsx`).
  *
  * @returns A promise resolving to the language code that was successfully initialized.
@@ -45,8 +45,8 @@ export async function initI18n(): Promise<'en' | 'es'> {
  * 1. Previously stored user preference.
  * 2. Operating system locale fallback (`navigator.language`) to satisfy FR40.
  * 3. Default fallback to English (`'en'`).
- * **Future Implementation (Story 7.2):** The current `localStorage` implementation 
- * is a temporary polyfill. It will be explicitly replaced by `tauri-plugin-store` 
+ * **Future Implementation (Story 7.2):** The current `localStorage` implementation
+ * is a temporary polyfill. It will be explicitly replaced by `tauri-plugin-store`
  * to guarantee robust, cross-platform persistence within the native filesystem.
  *
  * @returns A promise resolving to the optimally detected language code (`'en'` or `'es'`).
@@ -70,9 +70,8 @@ export async function detectInitialLanguage(): Promise<'en' | 'es'> {
 /**
  * The configured `i18next` singleton instance.
  * @remarks
- * **Usage Rule:** Exported explicitly for imperative usage OUTSIDE of React components 
+ * **Usage Rule:** Exported explicitly for imperative usage OUTSIDE of React components
  * (e.g., within the global Zustand store to trigger state updates alongside language changes).
  * Inside React components, ALWAYS use the `useTranslation()` hook instead.
  */
 export { i18next as i18n };
-

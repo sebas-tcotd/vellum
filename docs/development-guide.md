@@ -6,12 +6,12 @@
 
 ## Prerrequisitos
 
-| Herramienta | Versión requerida | Verificar con |
-|-------------|------------------|---------------|
-| Node.js | LTS (≥18 recomendado) | `node --version` |
-| pnpm | 10.33.0 | `pnpm --version` |
-| Rust | stable (Edition 2021) | `rustc --version` |
-| Tauri CLI | ^2.x (vía pnpm) | `pnpm tauri --version` |
+| Herramienta | Versión requerida     | Verificar con          |
+| ----------- | --------------------- | ---------------------- |
+| Node.js     | LTS (≥18 recomendado) | `node --version`       |
+| pnpm        | 10.33.0               | `pnpm --version`       |
+| Rust        | stable (Edition 2021) | `rustc --version`      |
+| Tauri CLI   | ^2.x (vía pnpm)       | `pnpm tauri --version` |
 
 > **Nota:** Tauri 2 requiere dependencias del sistema operativo para compilar el shell nativo. Consultar la documentación oficial de Tauri para Windows/macOS/Linux.
 
@@ -43,6 +43,7 @@ pnpm dev
 ```
 
 Esto ejecuta en orden:
+
 1. Construye los paquetes dependientes (`core`, `parser-cslmap`, `renderer-canvas`, `theme-engine`, `ui`)
 2. Inicia el servidor de desarrollo Vite en `http://localhost:1420`
 3. Lanza el proceso Tauri con hot-reload del frontend
@@ -159,9 +160,9 @@ const respuesta = await invoke<string>('mi_comando', { arg: 'hola' });
 
 ## Estructura de Scripts del Monorepo
 
-| Script | Comando real | Descripción |
-|--------|-------------|-------------|
-| `pnpm dev` | `turbo dev` | Inicia app desktop en modo dev |
-| `pnpm build` | `turbo build` | Compila todo el monorepo |
-| `pnpm test` | `turbo test` | Ejecuta pruebas (no configurado aún) |
-| `pnpm lint` | `turbo lint` | Verifica tipos TypeScript |
+| Script       | Comando real  | Descripción                          |
+| ------------ | ------------- | ------------------------------------ |
+| `pnpm dev`   | `turbo dev`   | Inicia app desktop en modo dev       |
+| `pnpm build` | `turbo build` | Compila todo el monorepo             |
+| `pnpm test`  | `turbo test`  | Ejecuta pruebas (no configurado aún) |
+| `pnpm lint`  | `turbo lint`  | Verifica tipos TypeScript            |

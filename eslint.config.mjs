@@ -1,10 +1,17 @@
 // @ts-check
+import eslintConfigPrettier from 'eslint-config-prettier';
+import prettier from 'eslint-plugin-prettier';
 import tseslint from 'typescript-eslint';
 
 /** @type {import('eslint').Linter.Config[]} */
 export default [
   {
-    ignores: ['**/dist/**', '**/node_modules/**', '**/.turbo/**', '**/src-tauri/**'],
+    ignores: [
+      '**/dist/**',
+      '**/node_modules/**',
+      '**/.turbo/**',
+      '**/src-tauri/**',
+    ],
   },
   {
     files: ['packages/*/src/**/*.{ts,tsx}', 'apps/desktop/src/**/*.{ts,tsx}'],
@@ -21,7 +28,12 @@ export default [
         {
           patterns: [
             {
-              group: ['@vellum/core/src/*', '@vellum/core/dist/*', '**/core/src/**', '**/core/dist/**'],
+              group: [
+                '@vellum/core/src/*',
+                '@vellum/core/dist/*',
+                '**/core/src/**',
+                '**/core/dist/**',
+              ],
               message: 'Import from @vellum/core, not internal paths',
             },
             {
@@ -30,23 +42,47 @@ export default [
                 '**/renderer-canvas/src/**',
                 '**/renderer-canvas/dist/**',
               ],
-              message: 'Import from @vellum/renderer-canvas, not internal paths',
+              message:
+                'Import from @vellum/renderer-canvas, not internal paths',
             },
             {
-              group: ['@vellum/theme-engine/*', '**/theme-engine/src/**', '**/theme-engine/dist/**'],
+              group: [
+                '@vellum/theme-engine/*',
+                '**/theme-engine/src/**',
+                '**/theme-engine/dist/**',
+              ],
               message: 'Import from @vellum/theme-engine, not internal paths',
             },
             {
-              group: ['@vellum/ui/*', '**/ui/src/**', '**/ui/dist/**'],
+              group: [
+                '@vellum/ui/src/*',
+                '@vellum/ui/dist/*',
+                '**/ui/src/**',
+                '**/ui/dist/**',
+              ],
               message: 'Import from @vellum/ui, not internal paths',
             },
             {
-              group: ['@vellum/parser-cslmap/*', '**/parser-cslmap/src/**', '**/parser-cslmap/dist/**'],
+              group: [
+                '@vellum/parser-cslmap/*',
+                '**/parser-cslmap/src/**',
+                '**/parser-cslmap/dist/**',
+              ],
               message: 'Import from @vellum/parser-cslmap, not internal paths',
             },
           ],
         },
       ],
+    },
+  },
+  {
+    files: ['packages/*/src/**/*.{ts,tsx}', 'apps/desktop/src/**/*.{ts,tsx}'],
+    plugins: {
+      prettier,
+    },
+    rules: {
+      ...eslintConfigPrettier.rules,
+      'prettier/prettier': 'error',
     },
   },
 ];

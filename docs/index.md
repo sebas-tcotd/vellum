@@ -16,6 +16,7 @@
 ## Referencia Rápida por Parte
 
 ### desktop (`apps/desktop`)
+
 - **Tipo:** Desktop (Tauri + Vite + React)
 - **Entry point Frontend:** `apps/desktop/src/main.tsx`
 - **Entry point Rust:** `apps/desktop/src-tauri/src/main.rs`
@@ -23,30 +24,35 @@
 - **Build:** `pnpm build` → ejecutable nativo empaquetado
 
 ### @vellum/core (`packages/core`)
+
 - **Tipo:** Library TypeScript
 - **Entry:** `packages/core/src/index.ts`
 - **Dependencias internas:** ninguna
 - **Estado:** Placeholder (barrel export vacío)
 
 ### @vellum/parser-cslmap (`packages/parser-cslmap`)
+
 - **Tipo:** Library TypeScript
 - **Entry:** `packages/parser-cslmap/src/index.ts`
 - **Dependencias internas:** `@vellum/core`
 - **Estado:** Placeholder
 
 ### @vellum/renderer-canvas (`packages/renderer-canvas`)
+
 - **Tipo:** Library TypeScript
 - **Entry:** `packages/renderer-canvas/src/index.ts`
 - **Dependencias internas:** `@vellum/core`, `@vellum/theme-engine`
 - **Estado:** Placeholder
 
 ### @vellum/theme-engine (`packages/theme-engine`)
+
 - **Tipo:** Library TypeScript
 - **Entry:** `packages/theme-engine/src/index.ts`
 - **Dependencias internas:** `@vellum/core`
 - **Estado:** Placeholder
 
 ### @vellum/ui (`packages/ui`)
+
 - **Tipo:** Library TypeScript + React
 - **Entry:** `packages/ui/src/index.ts`
 - **Dependencias internas:** `@vellum/core`, `@vellum/renderer-canvas`, `@vellum/theme-engine`
@@ -56,14 +62,14 @@
 
 ## Documentación Generada
 
-| Documento | Descripción |
-|-----------|-------------|
-| [Visión General del Proyecto](./project-overview.md) | Resumen ejecutivo, stack, grafo de dependencias |
-| [Análisis del Árbol de Fuentes](./source-tree-analysis.md) | Árbol anotado de directorios y archivos |
-| [Arquitectura Desktop](./architecture-desktop.md) | Arquitectura detallada de `apps/desktop` |
-| [Arquitectura de Integración](./integration-architecture.md) | Cómo se comunican los paquetes del monorepo |
-| [Guía de Desarrollo](./development-guide.md) | Setup, comandos dev/build/lint, IPC Tauri |
-| [Inventario de Componentes](./component-inventory-desktop.md) | Componentes UI actuales y planificados |
+| Documento                                                     | Descripción                                     |
+| ------------------------------------------------------------- | ----------------------------------------------- |
+| [Visión General del Proyecto](./project-overview.md)          | Resumen ejecutivo, stack, grafo de dependencias |
+| [Análisis del Árbol de Fuentes](./source-tree-analysis.md)    | Árbol anotado de directorios y archivos         |
+| [Arquitectura Desktop](./architecture-desktop.md)             | Arquitectura detallada de `apps/desktop`        |
+| [Arquitectura de Integración](./integration-architecture.md)  | Cómo se comunican los paquetes del monorepo     |
+| [Guía de Desarrollo](./development-guide.md)                  | Setup, comandos dev/build/lint, IPC Tauri       |
+| [Inventario de Componentes](./component-inventory-desktop.md) | Componentes UI actuales y planificados          |
 
 ### Documentación Pendiente de Generar
 
@@ -79,15 +85,15 @@
 
 Ubicados en `_bmad-output/planning-artifacts/`:
 
-| Documento | Descripción |
-|-----------|-------------|
-| [product-brief-Vellum.md](../_bmad-output/planning-artifacts/product-brief-Vellum.md) | Brief del producto |
-| [product-brief-Vellum-distillate.md](../_bmad-output/planning-artifacts/product-brief-Vellum-distillate.md) | Brief condensado |
-| [prd.md](../_bmad-output/planning-artifacts/prd.md) | Documento de Requisitos del Producto |
-| [architecture.md](../_bmad-output/planning-artifacts/architecture.md) | Diseño de arquitectura planificado |
-| [epics.md](../_bmad-output/planning-artifacts/epics.md) | Épicas e historias de usuario |
-| [ux-design-specification.md](../_bmad-output/planning-artifacts/ux-design-specification.md) | Especificación de diseño UX |
-| [implementation-readiness-report-2026-03-30b.md](../_bmad-output/planning-artifacts/implementation-readiness-report-2026-03-30b.md) | Último reporte de readiness |
+| Documento                                                                                                                           | Descripción                          |
+| ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| [product-brief-Vellum.md](../_bmad-output/planning-artifacts/product-brief-Vellum.md)                                               | Brief del producto                   |
+| [product-brief-Vellum-distillate.md](../_bmad-output/planning-artifacts/product-brief-Vellum-distillate.md)                         | Brief condensado                     |
+| [prd.md](../_bmad-output/planning-artifacts/prd.md)                                                                                 | Documento de Requisitos del Producto |
+| [architecture.md](../_bmad-output/planning-artifacts/architecture.md)                                                               | Diseño de arquitectura planificado   |
+| [epics.md](../_bmad-output/planning-artifacts/epics.md)                                                                             | Épicas e historias de usuario        |
+| [ux-design-specification.md](../_bmad-output/planning-artifacts/ux-design-specification.md)                                         | Especificación de diseño UX          |
+| [implementation-readiness-report-2026-03-30b.md](../_bmad-output/planning-artifacts/implementation-readiness-report-2026-03-30b.md) | Último reporte de readiness          |
 
 ---
 

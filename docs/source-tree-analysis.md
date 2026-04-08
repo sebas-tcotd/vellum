@@ -90,32 +90,32 @@ c:\Proyectos\Vellum/                          ← Raíz del monorepo
 
 ## Directorios Críticos por Parte
 
-| Directorio | Parte | Propósito |
-|-----------|-------|-----------|
-| `apps/desktop/src/` | desktop | Punto de entrada React |
-| `apps/desktop/src-tauri/src/` | desktop | Shell Rust nativo |
-| `apps/desktop/src-tauri/capabilities/` | desktop | Permisos de seguridad Tauri |
-| `packages/core/src/` | core | Tipos y lógica base (implementar primero) |
-| `packages/parser-cslmap/src/` | parser-cslmap | Parsing de documentos CSLMap |
-| `packages/renderer-canvas/src/` | renderer-canvas | Renderizado visual en Canvas |
-| `packages/theme-engine/src/` | theme-engine | Gestión de temas y tokens de diseño |
-| `packages/ui/src/` | ui | Componentes React y pantallas |
+| Directorio                             | Parte           | Propósito                                 |
+| -------------------------------------- | --------------- | ----------------------------------------- |
+| `apps/desktop/src/`                    | desktop         | Punto de entrada React                    |
+| `apps/desktop/src-tauri/src/`          | desktop         | Shell Rust nativo                         |
+| `apps/desktop/src-tauri/capabilities/` | desktop         | Permisos de seguridad Tauri               |
+| `packages/core/src/`                   | core            | Tipos y lógica base (implementar primero) |
+| `packages/parser-cslmap/src/`          | parser-cslmap   | Parsing de documentos CSLMap              |
+| `packages/renderer-canvas/src/`        | renderer-canvas | Renderizado visual en Canvas              |
+| `packages/theme-engine/src/`           | theme-engine    | Gestión de temas y tokens de diseño       |
+| `packages/ui/src/`                     | ui              | Componentes React y pantallas             |
 
 ---
 
 ## Puntos de Entrada
 
-| Tipo | Archivo | Descripción |
-|------|---------|-------------|
-| Frontend (Vite) | `apps/desktop/src/main.tsx` | Monta `<App />` en el DOM |
-| UI Component | `packages/ui/src/App.tsx` | Componente raíz de la aplicación |
-| Tauri (Rust) | `apps/desktop/src-tauri/src/main.rs` | Inicia el proceso nativo |
-| Tauri Library | `apps/desktop/src-tauri/src/lib.rs` | Configura el builder de Tauri |
+| Tipo            | Archivo                              | Descripción                      |
+| --------------- | ------------------------------------ | -------------------------------- |
+| Frontend (Vite) | `apps/desktop/src/main.tsx`          | Monta `<App />` en el DOM        |
+| UI Component    | `packages/ui/src/App.tsx`            | Componente raíz de la aplicación |
+| Tauri (Rust)    | `apps/desktop/src-tauri/src/main.rs` | Inicia el proceso nativo         |
+| Tauri Library   | `apps/desktop/src-tauri/src/lib.rs`  | Configura el builder de Tauri    |
 
 ---
 
 ## Estado del Código
 
-> ⚠️ **Scaffolding en curso** — Todos los paquetes (`core`, `parser-cslmap`, `renderer-canvas`, `theme-engine`) contienen únicamente barrel exports vacíos. El componente `App.tsx` en `packages/ui` devuelve `<div />` con un comentario: *"Story 2.1 implementará el empty state real"*.
+> ⚠️ **Scaffolding en curso** — Todos los paquetes (`core`, `parser-cslmap`, `renderer-canvas`, `theme-engine`) contienen únicamente barrel exports vacíos. El componente `App.tsx` en `packages/ui` devuelve `<div />` con un comentario: _"Story 2.1 implementará el empty state real"_.
 
 La arquitectura y las interfaces están definidas por los documentos de planificación en `_bmad-output/planning-artifacts/`, pero aún no se han trasladado al código.

@@ -1,5 +1,5 @@
-import type { CityData } from "./city-data";
-import type { LayerVisibility } from "./layer";
+import type { CityData } from './city-data';
+import type { LayerVisibility } from './layer';
 
 /**
  * Rendering parameters supplied to the renderer engine for each frame.

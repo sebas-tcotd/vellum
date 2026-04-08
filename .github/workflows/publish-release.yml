@@ -3,7 +3,7 @@ name: Publish Release
 on:
   push:
     tags:
-      - "v[0-9]*"
+      - 'v[0-9]*'
 
 permissions:
   contents: write
@@ -23,7 +23,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           name: Vellum ${{ github.ref_name }}
-          body: "See CHANGELOG.md for release notes."
+          body: 'See CHANGELOG.md for release notes.'
           draft: true
           prerelease: false
 
@@ -35,11 +35,11 @@ jobs:
       matrix:
         include:
           - platform: windows-latest
-            args: "--target x86_64-pc-windows-msvc"
+            args: '--target x86_64-pc-windows-msvc'
           - platform: macos-latest
-            args: "--target universal-apple-darwin"
+            args: '--target universal-apple-darwin'
           - platform: ubuntu-22.04
-            args: ""
+            args: ''
 
     runs-on: ${{ matrix.platform }}
     steps:

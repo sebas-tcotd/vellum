@@ -14,16 +14,16 @@
 
 ## Stack Tecnológico
 
-| Capa | Tecnología | Versión |
-|------|-----------|---------|
-| Shell nativo | Rust + Tauri | Edition 2021 / Tauri ^2 |
-| Build nativo | tauri-build | ^2 |
-| Serialización | serde + serde_json | ^1 |
-| Frontend framework | React | ^19.1.0 |
-| Frontend build | Vite | ^7.0.4 |
-| Transpilador | TypeScript | ~5.8.3 |
-| Plugin React/Vite | @vitejs/plugin-react | ^4.6.0 |
-| API Tauri (frontend) | @tauri-apps/api | ^2 |
+| Capa                 | Tecnología           | Versión                 |
+| -------------------- | -------------------- | ----------------------- |
+| Shell nativo         | Rust + Tauri         | Edition 2021 / Tauri ^2 |
+| Build nativo         | tauri-build          | ^2                      |
+| Serialización        | serde + serde_json   | ^1                      |
+| Frontend framework   | React                | ^19.1.0                 |
+| Frontend build       | Vite                 | ^7.0.4                  |
+| Transpilador         | TypeScript           | ~5.8.3                  |
+| Plugin React/Vite    | @vitejs/plugin-react | ^4.6.0                  |
+| API Tauri (frontend) | @tauri-apps/api      | ^2                      |
 
 ---
 
@@ -54,28 +54,28 @@
 
 ### Frontend (React/TypeScript)
 
-| Archivo | Descripción |
-|---------|-------------|
-| `src/main.tsx` | Punto de entrada: monta `<App />` de `@vellum/ui` en `#root` |
+| Archivo          | Descripción                                                        |
+| ---------------- | ------------------------------------------------------------------ |
+| `src/main.tsx`   | Punto de entrada: monta `<App />` de `@vellum/ui` en `#root`       |
 | `vite.config.ts` | Config Vite: puerto 1420, plugin React, integración HMR para Tauri |
-| `index.html` | HTML shell con `<div id="root">` |
+| `index.html`     | HTML shell con `<div id="root">`                                   |
 
 ### Backend (Rust/Tauri)
 
-| Archivo | Descripción |
-|---------|-------------|
-| `src-tauri/src/main.rs` | Punto de entrada Rust — invoca `vellum_lib::run()` |
-| `src-tauri/src/lib.rs` | Bootstrap Tauri: `Builder::default().run()` — sin comandos IPC registrados aún |
-| `src-tauri/tauri.conf.json` | Configuración de la app: ventana, bundling, CSP, iconos |
-| `src-tauri/Cargo.toml` | Dependencias Rust: tauri, serde, serde_json |
-| `src-tauri/build.rs` | Build script requerido por tauri-build |
+| Archivo                     | Descripción                                                                    |
+| --------------------------- | ------------------------------------------------------------------------------ |
+| `src-tauri/src/main.rs`     | Punto de entrada Rust — invoca `vellum_lib::run()`                             |
+| `src-tauri/src/lib.rs`      | Bootstrap Tauri: `Builder::default().run()` — sin comandos IPC registrados aún |
+| `src-tauri/tauri.conf.json` | Configuración de la app: ventana, bundling, CSP, iconos                        |
+| `src-tauri/Cargo.toml`      | Dependencias Rust: tauri, serde, serde_json                                    |
+| `src-tauri/build.rs`        | Build script requerido por tauri-build                                         |
 
 ### Configuración
 
-| Archivo | Descripción |
-|---------|-------------|
-| `src-tauri/capabilities/default.json` | Permisos: `core:default` para la ventana `main` |
-| `src-tauri/tauri.conf.json` | Ventana 1200×800 (mín. 900×600), CSP: null (dev), bundling: all |
+| Archivo                               | Descripción                                                     |
+| ------------------------------------- | --------------------------------------------------------------- |
+| `src-tauri/capabilities/default.json` | Permisos: `core:default` para la ventana `main`                 |
+| `src-tauri/tauri.conf.json`           | Ventana 1200×800 (mín. 900×600), CSP: null (dev), bundling: all |
 
 ---
 
@@ -123,24 +123,24 @@ HMR (Hot Module Replacement) configurado con soporte para `TAURI_DEV_HOST` (desa
 
 ## Seguridad
 
-| Aspecto | Configuración actual |
-|---------|---------------------|
-| CSP | `null` (sin restricciones — solo aceptable en desarrollo; **debe configurarse para producción**) |
-| Permisos Tauri | `core:default` únicamente |
-| Comandos IPC | Ninguno registrado aún |
-| Acceso a sistema de archivos | No concedido |
+| Aspecto                      | Configuración actual                                                                             |
+| ---------------------------- | ------------------------------------------------------------------------------------------------ |
+| CSP                          | `null` (sin restricciones — solo aceptable en desarrollo; **debe configurarse para producción**) |
+| Permisos Tauri               | `core:default` únicamente                                                                        |
+| Comandos IPC                 | Ninguno registrado aún                                                                           |
+| Acceso a sistema de archivos | No concedido                                                                                     |
 
 ---
 
 ## Dependencias Internas (workspace)
 
-| Paquete | Rol |
-|---------|-----|
-| `@vellum/ui` | Componentes React — todo el UI |
-| `@vellum/core` | Tipos y utilidades base |
-| `@vellum/parser-cslmap` | Parsing de documentos |
-| `@vellum/renderer-canvas` | Renderizado visual |
-| `@vellum/theme-engine` | Sistema de temas |
+| Paquete                   | Rol                            |
+| ------------------------- | ------------------------------ |
+| `@vellum/ui`              | Componentes React — todo el UI |
+| `@vellum/core`            | Tipos y utilidades base        |
+| `@vellum/parser-cslmap`   | Parsing de documentos          |
+| `@vellum/renderer-canvas` | Renderizado visual             |
+| `@vellum/theme-engine`    | Sistema de temas               |
 
 ---
 

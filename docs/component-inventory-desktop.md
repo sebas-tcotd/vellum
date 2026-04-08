@@ -14,11 +14,12 @@
 
 ### `@vellum/ui`
 
-| Componente | Archivo | Estado | Descripción |
-|-----------|---------|--------|-------------|
-| `App` | `packages/ui/src/App.tsx` | Placeholder | Componente raíz. Actualmente devuelve `<div />`. Story 2.1 implementará el empty state real. |
+| Componente | Archivo                   | Estado      | Descripción                                                                                  |
+| ---------- | ------------------------- | ----------- | -------------------------------------------------------------------------------------------- |
+| `App`      | `packages/ui/src/App.tsx` | Placeholder | Componente raíz. Actualmente devuelve `<div />`. Story 2.1 implementará el empty state real. |
 
 **Exportaciones públicas:**
+
 ```typescript
 // packages/ui/src/index.ts
 export { App } from './App.tsx';
@@ -30,23 +31,23 @@ export { App } from './App.tsx';
 
 Según los artefactos de planificación en `_bmad-output/planning-artifacts/`, la interfaz de Vellum incluirá los siguientes tipos de componentes (ver `ux-design-specification.md` y `prd.md` para detalle):
 
-| Categoría | Componentes esperados | Fuente |
-|-----------|----------------------|--------|
-| Layout | Shell principal, paneles, sidebars | `architecture.md` |
-| Canvas | Área de renderizado del documento CSLMap | `renderer-canvas` |
-| Controles | Toolbar, paleta de herramientas | `prd.md` |
-| Overlays | Modales, tooltips, notificaciones | `ux-design-specification.md` |
-| Empty states | Estado inicial sin documento | Story 2.1 |
+| Categoría    | Componentes esperados                    | Fuente                       |
+| ------------ | ---------------------------------------- | ---------------------------- |
+| Layout       | Shell principal, paneles, sidebars       | `architecture.md`            |
+| Canvas       | Área de renderizado del documento CSLMap | `renderer-canvas`            |
+| Controles    | Toolbar, paleta de herramientas          | `prd.md`                     |
+| Overlays     | Modales, tooltips, notificaciones        | `ux-design-specification.md` |
+| Empty states | Estado inicial sin documento             | Story 2.1                    |
 
 ---
 
 ## Dependencias del Sistema de Diseño
 
-| Paquete | Rol en el sistema de diseño |
-|---------|----------------------------|
-| `@vellum/theme-engine` | Tokens de diseño: colores, tipografía, espaciado |
-| `@vellum/renderer-canvas` | Renderizado de contenido en Canvas 2D |
-| `@vellum/core` | Tipos compartidos (Document, Element, etc.) |
+| Paquete                   | Rol en el sistema de diseño                      |
+| ------------------------- | ------------------------------------------------ |
+| `@vellum/theme-engine`    | Tokens de diseño: colores, tipografía, espaciado |
+| `@vellum/renderer-canvas` | Renderizado de contenido en Canvas 2D            |
+| `@vellum/core`            | Tipos compartidos (Document, Element, etc.)      |
 
 ---
 

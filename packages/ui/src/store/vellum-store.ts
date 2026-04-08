@@ -3,10 +3,10 @@ import type {
   LayerName,
   LayerVisibility,
   VellumError,
-} from "@vellum/core";
-import { LAYER_NAMES } from "@vellum/core";
-import { create } from "zustand";
-import { i18n } from "../i18n/i18n-setup";
+} from '@vellum/core';
+import { LAYER_NAMES } from '@vellum/core';
+import { create } from 'zustand';
+import { i18n } from '../i18n/i18n-setup';
 
 /**
  * Represents the explicit finite state machine for asynchronous operations.
@@ -15,7 +15,7 @@ import { i18n } from "../i18n/i18n-setup";
  * or `isError`. Always rely on this explicit state union to prevent impossible UI states
  * (e.g., rendering a loading spinner and an error message simultaneously).
  */
-type LoadingState = "idle" | "loading" | "error";
+type LoadingState = 'idle' | 'loading' | 'error';
 
 /** The global application state contract managed by Zustand. */
 interface VellumStore {
@@ -44,7 +44,7 @@ interface VellumStore {
   autoUpdateEnabled: boolean;
 
   /** The currently active application language code. */
-  activeLanguage: "en" | "es";
+  activeLanguage: 'en' | 'es';
 
   // Actions
   /** Transitions the loading state machine and optionally sets an error payload. */
@@ -69,7 +69,7 @@ interface VellumStore {
    * **Side Effects:** This action intentionally triggers an immediate hot-swap in `i18next` (NFR16)
    * and persists the choice to local storage.
    */
-  setLanguage: (lang: "en" | "es") => void;
+  setLanguage: (lang: 'en' | 'es') => void;
 
   /**
    * Synchronizes the Zustand state with the language detected during app initialization.
@@ -78,7 +78,7 @@ interface VellumStore {
    * `initI18n()` resolves. It strictly bypasses `i18next` and `localStorage` side-effects to
    * prevent initialization loops.
    */
-  syncActiveLanguage: (lang: "en" | "es") => void;
+  syncActiveLanguage: (lang: 'en' | 'es') => void;
 }
 
 /**
@@ -101,19 +101,19 @@ const DEFAULT_ACTIVE_LAYERS = Object.fromEntries(
  */
 export const useVellumStore = create<VellumStore>((set) => ({
   cityData: null,
-  loadingState: "idle",
+  loadingState: 'idle',
   loadingError: null,
   activeLayers: DEFAULT_ACTIVE_LAYERS,
-  activeTheme: "day",
+  activeTheme: 'day',
   availableThemes: [],
   autoUpdateEnabled: false,
-  activeLanguage: "en",
+  activeLanguage: 'en',
 
   setLoadingState: (state, error = null) =>
     set({ loadingState: state, loadingError: error }),
 
   setCityData: (data) =>
-    set({ cityData: data, loadingState: "idle", loadingError: null }),
+    set({ cityData: data, loadingState: 'idle', loadingError: null }),
 
   toggleLayer: (layer) =>
     set((state) => ({
@@ -127,7 +127,7 @@ export const useVellumStore = create<VellumStore>((set) => ({
 
   setLanguage: (lang) => {
     i18n.changeLanguage(lang); // hot-swap inmediato de todos los strings (NFR16)
-    localStorage.setItem("preferredLanguage", lang); // persistencia temporal (Story 7.2 usará tauri-plugin-store)
+    localStorage.setItem('preferredLanguage', lang); // persistencia temporal (Story 7.2 usará tauri-plugin-store)
     set({ activeLanguage: lang });
   },
 

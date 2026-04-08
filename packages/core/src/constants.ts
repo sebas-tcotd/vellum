@@ -11,7 +11,7 @@ export const MAX_FILE_SIZE_MB = 50;
  * @remarks
  * Corresponds to a `.vellumstyle` configuration loaded by the theme engine.
  */
-export const DEFAULT_THEME = "day";
+export const DEFAULT_THEME = 'day';
 
 /**
  * The default base sea level threshold in game units.

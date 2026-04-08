@@ -14,29 +14,29 @@ El estado actual del código es de **scaffolding** — la estructura del proyect
 
 ## Stack Tecnológico
 
-| Categoría | Tecnología | Versión | Justificación |
-|-----------|-----------|---------|--------------|
-| Lenguaje Frontend | TypeScript | ~5.8.3 | Tipado estricto en todo el monorepo |
-| Lenguaje Backend (Tauri) | Rust | Edition 2021 | Shell nativo de la aplicación de escritorio |
-| Framework UI | React | ^19.1.0 | Renderizado de interfaz en la capa desktop |
-| Build de Frontend | Vite | ^7.0.4 | Bundler y servidor de desarrollo |
-| Framework Desktop | Tauri | ^2.x | Empaquetado nativo multiplataforma |
-| Orquestador de Build | Turborepo | latest | Gestión de tareas y caché en monorepo |
-| Gestor de Paquetes | pnpm | 10.33.0 | Workspaces y resolución de dependencias |
-| CSS/Estilos | — | — | No detectado (por definir) |
-| Testing | — | — | No detectado (por configurar) |
-| CI/CD | — | — | No detectado (por configurar) |
+| Categoría                | Tecnología | Versión      | Justificación                               |
+| ------------------------ | ---------- | ------------ | ------------------------------------------- |
+| Lenguaje Frontend        | TypeScript | ~5.8.3       | Tipado estricto en todo el monorepo         |
+| Lenguaje Backend (Tauri) | Rust       | Edition 2021 | Shell nativo de la aplicación de escritorio |
+| Framework UI             | React      | ^19.1.0      | Renderizado de interfaz en la capa desktop  |
+| Build de Frontend        | Vite       | ^7.0.4       | Bundler y servidor de desarrollo            |
+| Framework Desktop        | Tauri      | ^2.x         | Empaquetado nativo multiplataforma          |
+| Orquestador de Build     | Turborepo  | latest       | Gestión de tareas y caché en monorepo       |
+| Gestor de Paquetes       | pnpm       | 10.33.0      | Workspaces y resolución de dependencias     |
+| CSS/Estilos              | —          | —            | No detectado (por definir)                  |
+| Testing                  | —          | —            | No detectado (por configurar)               |
+| CI/CD                    | —          | —            | No detectado (por configurar)               |
 
 ---
 
 ## Clasificación de Arquitectura
 
-| Propiedad | Valor |
-|-----------|-------|
-| Tipo de repositorio | Monorepo (pnpm workspaces) |
-| Patrón arquitectónico | Modular / Capas separadas |
-| Tipo de app destino | Aplicación de escritorio (desktop) |
-| Número de partes | 6 (1 app + 5 packages) |
+| Propiedad             | Valor                              |
+| --------------------- | ---------------------------------- |
+| Tipo de repositorio   | Monorepo (pnpm workspaces)         |
+| Patrón arquitectónico | Modular / Capas separadas          |
+| Tipo de app destino   | Aplicación de escritorio (desktop) |
+| Número de partes      | 6 (1 app + 5 packages)             |
 
 ---
 
@@ -83,12 +83,12 @@ desktop ────────────────────────
 
 Los siguientes documentos de planificación fueron generados previamente y se encuentran en `_bmad-output/planning-artifacts/`:
 
-| Documento | Descripción |
-|-----------|-------------|
-| [product-brief-Vellum.md](../_bmad-output/planning-artifacts/product-brief-Vellum.md) | Brief del producto |
-| [product-brief-Vellum-distillate.md](../_bmad-output/planning-artifacts/product-brief-Vellum-distillate.md) | Versión condensada del brief |
-| [prd.md](../_bmad-output/planning-artifacts/prd.md) | Documento de Requisitos del Producto |
-| [architecture.md](../_bmad-output/planning-artifacts/architecture.md) | Diseño de arquitectura |
-| [epics.md](../_bmad-output/planning-artifacts/epics.md) | Épicas e historias de usuario |
-| [ux-design-specification.md](../_bmad-output/planning-artifacts/ux-design-specification.md) | Especificación de diseño UX |
+| Documento                                                                                                                           | Descripción                               |
+| ----------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
+| [product-brief-Vellum.md](../_bmad-output/planning-artifacts/product-brief-Vellum.md)                                               | Brief del producto                        |
+| [product-brief-Vellum-distillate.md](../_bmad-output/planning-artifacts/product-brief-Vellum-distillate.md)                         | Versión condensada del brief              |
+| [prd.md](../_bmad-output/planning-artifacts/prd.md)                                                                                 | Documento de Requisitos del Producto      |
+| [architecture.md](../_bmad-output/planning-artifacts/architecture.md)                                                               | Diseño de arquitectura                    |
+| [epics.md](../_bmad-output/planning-artifacts/epics.md)                                                                             | Épicas e historias de usuario             |
+| [ux-design-specification.md](../_bmad-output/planning-artifacts/ux-design-specification.md)                                         | Especificación de diseño UX               |
 | [implementation-readiness-report-2026-03-30b.md](../_bmad-output/planning-artifacts/implementation-readiness-report-2026-03-30b.md) | Último reporte de readiness (30 Mar 2026) |

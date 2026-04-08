@@ -9,16 +9,66 @@
   "project_root": "c:\\Proyectos\\Vellum",
   "project_knowledge": "c:\\Proyectos\\Vellum/docs",
   "completed_steps": [
-    { "step": "step_1", "status": "completed", "timestamp": "2026-04-04T00:05:00Z", "summary": "Clasificado como monorepo con 6 partes: desktop (desktop), core/parser-cslmap/renderer-canvas/theme-engine/ui (library)" },
-    { "step": "step_2", "status": "completed", "timestamp": "2026-04-04T00:08:00Z", "summary": "0 docs en código fuente. 7 artefactos de planificación en _bmad-output/planning-artifacts/" },
-    { "step": "step_3", "status": "completed", "timestamp": "2026-04-04T00:12:00Z", "summary": "Tech stack: TypeScript 5.8.3 + Rust (Tauri 2) + React 19 + Vite 7 + pnpm 10.33.0 + Turborepo" },
-    { "step": "step_4", "status": "completed", "timestamp": "2026-04-04T00:15:00Z", "summary": "Quick scan: desktop=state_management+ui_components+deployment_config; libraries=minimal. Sin API, sin DB, sin CI/CD, sin i18n" },
-    { "step": "step_5", "status": "completed", "timestamp": "2026-04-04T00:18:00Z", "summary": "Árbol de fuentes documentado con anotaciones para 6 partes" },
-    { "step": "step_6", "status": "completed", "timestamp": "2026-04-04T00:20:00Z", "summary": "Dev setup y comandos documentados. Sin CI/CD, sin deployment config más allá de Tauri bundling" },
-    { "step": "step_7", "status": "completed", "timestamp": "2026-04-04T00:22:00Z", "summary": "12 integration points workspace + 1 Tauri IPC (scaffolded)" },
-    { "step": "step_8", "status": "completed", "timestamp": "2026-04-04T00:25:00Z", "summary": "architecture-desktop.md generado. Arquitecturas de packages library marcadas como To be generated" },
-    { "step": "step_9", "status": "completed", "timestamp": "2026-04-04T00:28:00Z", "summary": "6 archivos generados: project-overview, source-tree-analysis, integration-architecture, development-guide, component-inventory-desktop, architecture-desktop" },
-    { "step": "step_10", "status": "completed", "timestamp": "2026-04-04T00:30:00Z", "summary": "index.md generado con 5 items marcados como To be generated (architectures de packages library)" }
+    {
+      "step": "step_1",
+      "status": "completed",
+      "timestamp": "2026-04-04T00:05:00Z",
+      "summary": "Clasificado como monorepo con 6 partes: desktop (desktop), core/parser-cslmap/renderer-canvas/theme-engine/ui (library)"
+    },
+    {
+      "step": "step_2",
+      "status": "completed",
+      "timestamp": "2026-04-04T00:08:00Z",
+      "summary": "0 docs en código fuente. 7 artefactos de planificación en _bmad-output/planning-artifacts/"
+    },
+    {
+      "step": "step_3",
+      "status": "completed",
+      "timestamp": "2026-04-04T00:12:00Z",
+      "summary": "Tech stack: TypeScript 5.8.3 + Rust (Tauri 2) + React 19 + Vite 7 + pnpm 10.33.0 + Turborepo"
+    },
+    {
+      "step": "step_4",
+      "status": "completed",
+      "timestamp": "2026-04-04T00:15:00Z",
+      "summary": "Quick scan: desktop=state_management+ui_components+deployment_config; libraries=minimal. Sin API, sin DB, sin CI/CD, sin i18n"
+    },
+    {
+      "step": "step_5",
+      "status": "completed",
+      "timestamp": "2026-04-04T00:18:00Z",
+      "summary": "Árbol de fuentes documentado con anotaciones para 6 partes"
+    },
+    {
+      "step": "step_6",
+      "status": "completed",
+      "timestamp": "2026-04-04T00:20:00Z",
+      "summary": "Dev setup y comandos documentados. Sin CI/CD, sin deployment config más allá de Tauri bundling"
+    },
+    {
+      "step": "step_7",
+      "status": "completed",
+      "timestamp": "2026-04-04T00:22:00Z",
+      "summary": "12 integration points workspace + 1 Tauri IPC (scaffolded)"
+    },
+    {
+      "step": "step_8",
+      "status": "completed",
+      "timestamp": "2026-04-04T00:25:00Z",
+      "summary": "architecture-desktop.md generado. Arquitecturas de packages library marcadas como To be generated"
+    },
+    {
+      "step": "step_9",
+      "status": "completed",
+      "timestamp": "2026-04-04T00:28:00Z",
+      "summary": "6 archivos generados: project-overview, source-tree-analysis, integration-architecture, development-guide, component-inventory-desktop, architecture-desktop"
+    },
+    {
+      "step": "step_10",
+      "status": "completed",
+      "timestamp": "2026-04-04T00:30:00Z",
+      "summary": "index.md generado con 5 items marcados como To be generated (architectures de packages library)"
+    }
   ],
   "current_step": "step_11",
   "findings": {
@@ -31,12 +81,36 @@
     "state_management": "no detectado"
   },
   "project_types": [
-    { "part_id": "desktop",         "project_type_id": "desktop", "display_name": "Desktop App (Tauri + Vite + React + Rust)" },
-    { "part_id": "core",            "project_type_id": "library", "display_name": "Package: core" },
-    { "part_id": "parser-cslmap",   "project_type_id": "library", "display_name": "Package: parser-cslmap" },
-    { "part_id": "renderer-canvas", "project_type_id": "library", "display_name": "Package: renderer-canvas" },
-    { "part_id": "theme-engine",    "project_type_id": "library", "display_name": "Package: theme-engine" },
-    { "part_id": "ui",              "project_type_id": "library", "display_name": "Package: ui" }
+    {
+      "part_id": "desktop",
+      "project_type_id": "desktop",
+      "display_name": "Desktop App (Tauri + Vite + React + Rust)"
+    },
+    {
+      "part_id": "core",
+      "project_type_id": "library",
+      "display_name": "Package: core"
+    },
+    {
+      "part_id": "parser-cslmap",
+      "project_type_id": "library",
+      "display_name": "Package: parser-cslmap"
+    },
+    {
+      "part_id": "renderer-canvas",
+      "project_type_id": "library",
+      "display_name": "Package: renderer-canvas"
+    },
+    {
+      "part_id": "theme-engine",
+      "project_type_id": "library",
+      "display_name": "Package: theme-engine"
+    },
+    {
+      "part_id": "ui",
+      "project_type_id": "library",
+      "display_name": "Package: ui"
+    }
   ],
   "outputs_generated": [
     "project-scan-report.json",

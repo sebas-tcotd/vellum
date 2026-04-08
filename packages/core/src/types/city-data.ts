@@ -46,15 +46,15 @@ export interface WaterTile {
  * Designed to be used as combinable flags for mixed-use ways.
  */
 export type WayType =
-  | "Road"
-  | "Highway"
-  | "Elevated"
-  | "Underground"
-  | "Bridge"
-  | "Tunnel"
-  | "Pedestrian"
-  | "Bicycle"
-  | "None";
+  | 'Road'
+  | 'Highway'
+  | 'Elevated'
+  | 'Underground'
+  | 'Bridge'
+  | 'Tunnel'
+  | 'Pedestrian'
+  | 'Bicycle'
+  | 'None';
 
 /**
  * Represents an intersection or a terminal end of a road segment.
@@ -92,16 +92,16 @@ export interface RoadSegment {
  * Contains an `Unknown` fallback variant for graceful handling of unrecognized DLC content.
  */
 export type TransitMode =
-  | "Bus"
-  | "Tram"
-  | "Train"
-  | "Metro"
-  | "CableCar"
-  | "Monorail"
-  | "Ferry"
-  | "Blimp"
-  | "Trolleybus"
-  | "Unknown";
+  | 'Bus'
+  | 'Tram'
+  | 'Train'
+  | 'Metro'
+  | 'CableCar'
+  | 'Monorail'
+  | 'Ferry'
+  | 'Blimp'
+  | 'Trolleybus'
+  | 'Unknown';
 
 /**
  * Represents a public transportation stop or station.

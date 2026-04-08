@@ -7,9 +7,9 @@
  * constants instead of literal strings when invoking commands from the frontend.
  */
 export const IPC_COMMANDS = {
-  PARSE_CSLMAP: "parse_cslmap",
-  EXPORT_PNG: "export_png",
-  EXPORT_SVG: "export_svg",
+  PARSE_CSLMAP: 'parse_cslmap',
+  EXPORT_PNG: 'export_png',
+  EXPORT_SVG: 'export_svg',
 } as const;
 
 /**
@@ -18,8 +18,8 @@ export const IPC_COMMANDS = {
  * Always use these constants when setting up event listeners via `@tauri-apps/api/event`.
  */
 export const IPC_EVENTS = {
-  PROGRESS: "vellum://progress",
-  UPDATE_AVAILABLE: "vellum://update-available",
+  PROGRESS: 'vellum://progress',
+  UPDATE_AVAILABLE: 'vellum://update-available',
 } as const;
 
 /**
@@ -31,11 +31,11 @@ export const IPC_EVENTS = {
  * discriminated `type` field to map the error to a localized `i18n` translation key.
  */
 export type VellumError =
-  | { type: "InvalidFile"; reason: string }
-  | { type: "UnsupportedVersion"; found: string }
-  | { type: "PartialParse"; warnings: string[] }
-  | { type: "ExportFailed"; reason: string }
-  | { type: "IoError"; reason: string };
+  | { type: 'InvalidFile'; reason: string }
+  | { type: 'UnsupportedVersion'; found: string }
+  | { type: 'PartialParse'; warnings: string[] }
+  | { type: 'ExportFailed'; reason: string }
+  | { type: 'IoError'; reason: string };
 
 /** Payload structure for the `vellum://progress` event emitted during the parsing phase. */
 export interface ProgressPayload {
@@ -59,13 +59,13 @@ export interface UpdatePayload {
  * `png-*x` variants determine the pixel density scaling of the rasterized output.
  * `svg` provides a scalable vector graphic format without density multipliers.
  */
-export type ExportFormat = "png-1x" | "png-2x" | "png-4x" | "svg";
+export type ExportFormat = 'png-1x' | 'png-2x' | 'png-4x' | 'svg';
 
 /** Defines the spatial boundaries to be included in the exported file. */
-export type ExportArea = "viewport" | "full-map";
+export type ExportArea = 'viewport' | 'full-map';
 
 /** Defines the background rendering behavior for the exported file. */
-export type ExportBackground = "white" | "dark" | "transparent";
+export type ExportBackground = 'white' | 'dark' | 'transparent';
 
 /** Configuration options supplied to the `export_png` or `export_svg` IPC commands. */
 export interface ExportOptions {
@@ -87,12 +87,12 @@ export interface ExportResult {
   folderPath: string;
 }
 
-import type { CityData } from "./types/city-data";
+import type { CityData } from './types/city-data';
 
 /**
  * The expected return type of the `parse_cslmap` IPC command.
  * @remarks
- * Aliased directly to `CityData` to explicitly denote that the parsing operation 
+ * Aliased directly to `CityData` to explicitly denote that the parsing operation
  * yields the complete, immutable root domain model.
  */
 export type ParseResult = CityData;
