@@ -29,6 +29,9 @@ interface VellumStore {
   /** Stores the error details if the parsing or loading phase fails. */
   loadingError: VellumError | null;
 
+  /** Counter for anti-race-condition load requests. Incremented on each new load. */
+  loadRequestId: number;
+
   /** Dictionary controlling the visibility of individual map layers in the renderer. */
   activeLayers: LayerVisibility;
 
@@ -79,6 +82,18 @@ interface VellumStore {
    * prevent initialization loops.
    */
   syncActiveLanguage: (lang: 'en' | 'es') => void;
+
+  /**
+   * Resets the store for a new file load operation.
+   * Increments `loadRequestId` and clears previous city data and error state.
+   */
+  resetForNewFile: () => void;
+
+  /**
+   * Increments the load request ID and resets loading state.
+   * @returns The new load request ID.
+   */
+  incrementLoadRequestId: () => number;
 }
 
 /**
@@ -99,10 +114,11 @@ const DEFAULT_ACTIVE_LAYERS = Object.fromEntries(
  * - UI preferences (layers, theme, language) are currently ephemeral or rely on `localStorage`.
  * Story 7.2 will introduce `tauri-plugin-store` for robust native persistence.
  */
-export const useVellumStore = create<VellumStore>((set) => ({
+export const useVellumStore = create<VellumStore>((set, get) => ({
   cityData: null,
   loadingState: 'idle',
   loadingError: null,
+  loadRequestId: 0,
   activeLayers: DEFAULT_ACTIVE_LAYERS,
   activeTheme: 'day',
   availableThemes: [],
@@ -132,4 +148,24 @@ export const useVellumStore = create<VellumStore>((set) => ({
   },
 
   syncActiveLanguage: (lang) => set({ activeLanguage: lang }),
+
+  resetForNewFile: () => {
+    set({
+      cityData: null,
+      loadingState: 'idle',
+      loadingError: null,
+      loadRequestId: get().loadRequestId + 1,
+    });
+  },
+
+  incrementLoadRequestId: () => {
+    const next = get().loadRequestId + 1;
+    set({
+      loadRequestId: next,
+      cityData: null,
+      loadingState: 'idle',
+      loadingError: null,
+    });
+    return next;
+  },
 }));
