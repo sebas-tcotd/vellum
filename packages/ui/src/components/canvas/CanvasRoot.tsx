@@ -1,4 +1,6 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
+import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
+import type { UnlistenFn } from '@tauri-apps/api/event';
 import { useRenderLoop } from './hooks/useRenderLoop';
 
 /**
@@ -36,6 +38,11 @@ export interface CanvasRootProps {
    * interactive entity.
    */
   onElementLeave?: () => void;
+  /**
+   * Callback to load a .cslmap file.
+   * Used by the file drop handler.
+   */
+  loadFile?: (filePath: string) => Promise<void>;
 }
 
 /**
@@ -62,9 +69,42 @@ export interface CanvasRootProps {
 export function CanvasRoot({
   onElementHover: _onElementHover,
   onElementLeave: _onElementLeave,
+  loadFile,
 }: CanvasRootProps) {
-  // RULE: viewport ALWAYS in useRef, NEVER in Zustand / React state.
+  const unlistenRef = useRef<UnlistenFn | null>(null);
   const viewportRef = useRef<ViewportState>({ zoom: 1, panX: 0, panY: 0 });
+
+  useEffect(() => {
+    if (!loadFile) return;
+
+    let cancelled = false;
+
+    getCurrentWebviewWindow()
+      .onDragDropEvent((event) => {
+        if (event.payload.type === 'drop') {
+          const paths: string[] = event.payload.paths;
+          const cslmapPath = paths.find((p) =>
+            p.toLowerCase().endsWith('.cslmap'),
+          );
+          if (cslmapPath) {
+            void loadFile(cslmapPath);
+          }
+        }
+      })
+      .then((unlisten: UnlistenFn) => {
+        if (!cancelled) {
+          unlistenRef.current = unlisten;
+        } else {
+          unlisten();
+        }
+      });
+
+    return () => {
+      cancelled = true;
+      unlistenRef.current?.();
+      unlistenRef.current = null;
+    };
+  }, [loadFile]);
 
   // NOTE: Story 3.x — replace with renderer.updateViewport(viewportRef.current)
   const handleTick = useCallback(() => {

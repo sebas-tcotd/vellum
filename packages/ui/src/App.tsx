@@ -3,6 +3,8 @@ import { Suspense, useEffect, useState } from 'react';
 import { CanvasRoot } from './components/canvas/CanvasRoot';
 import { EmptyState } from './components/empty-state/EmptyState';
 import { initI18n } from './i18n/i18n-setup';
+import { useParseCslmap } from './hooks/use-parse-cslmap';
+import { useKeyboardShortcuts } from './hooks/use-keyboard-shortcuts';
 
 /**
  * Global type augmentation for i18next.
@@ -36,6 +38,9 @@ export function App() {
   const syncActiveLanguage = useVellumStore((s) => s.syncActiveLanguage);
   const cityData = useVellumStore((s) => s.cityData);
   const loadingState = useVellumStore((s) => s.loadingState);
+  const { openFileDialog, loadFile } = useParseCslmap();
+
+  useKeyboardShortcuts({ onOpenFile: openFileDialog });
 
   useEffect(() => {
     initI18n().then((detectedLang) => {
@@ -54,7 +59,7 @@ export function App() {
   return (
     <Suspense fallback={null}>
       <div style={{ width: '100vw', height: '100vh' }}>
-        <CanvasRoot />
+        <CanvasRoot loadFile={loadFile} />
         {showEmptyState && <EmptyState />}
         {/* Story 2.4: <ProgressReveal /> se añade aquí */}
       </div>
