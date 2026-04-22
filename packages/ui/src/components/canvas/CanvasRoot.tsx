@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import type { UnlistenFn } from '@tauri-apps/api/event';
 import { useRenderLoop } from './hooks/useRenderLoop';
+import { useVellumStore } from '../../store/vellum-store';
 
 /**
  * Represents the current state of the camera viewport within the canvas space.
@@ -82,6 +83,7 @@ export function CanvasRoot({
     getCurrentWebviewWindow()
       .onDragDropEvent((event) => {
         if (event.payload.type === 'drop') {
+          if (useVellumStore.getState().loadingState === 'loading') return; // AC 5
           const paths: string[] = event.payload.paths;
           const cslmapPath = paths.find((p) =>
             p.toLowerCase().endsWith('.cslmap'),
@@ -97,6 +99,12 @@ export function CanvasRoot({
         } else {
           unlisten();
         }
+      })
+      .catch((err: unknown) => {
+        console.error(
+          '[CanvasRoot] Failed to register drag-drop listener:',
+          err,
+        );
       });
 
     return () => {

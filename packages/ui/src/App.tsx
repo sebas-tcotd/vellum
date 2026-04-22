@@ -3,7 +3,6 @@ import { Suspense, useEffect, useState } from 'react';
 import { CanvasRoot } from './components/canvas/CanvasRoot';
 import { EmptyState } from './components/empty-state/EmptyState';
 import { initI18n } from './i18n/i18n-setup';
-import { useParseCslmap } from './hooks/use-parse-cslmap';
 import { useKeyboardShortcuts } from './hooks/use-keyboard-shortcuts';
 
 /**
@@ -16,6 +15,20 @@ import { useKeyboardShortcuts } from './hooks/use-keyboard-shortcuts';
 import './i18n/types';
 
 import { useVellumStore } from './store/vellum-store';
+
+const noop = async (): Promise<void> => {};
+
+/**
+ * Props injected from the Tauri composition root (`apps/desktop`).
+ * Allows `@vellum/ui` to remain free of direct Tauri runtime dependencies
+ * while still receiving the file-loading callbacks it needs.
+ */
+export interface AppProps {
+  /** Loads a .cslmap file via the IPC bridge. Injected from the Tauri composition root. */
+  loadFile?: (filePath: string) => Promise<void>;
+  /** Opens the OS file picker. Injected from the Tauri composition root. */
+  openFileDialog?: () => Promise<void>;
+}
 
 /**
  * The root React component of the Vellum desktop application.
@@ -33,14 +46,16 @@ import { useVellumStore } from './store/vellum-store';
  * cuando `loadingState === 'idle'` y `cityData === null`. `CanvasRoot` permanece siempre
  * montado para preservar el contexto canvas al cargar un mapa.
  */
-export function App() {
+export function App({ loadFile, openFileDialog = noop }: AppProps) {
   const [i18nReady, setI18nReady] = useState(false);
   const syncActiveLanguage = useVellumStore((s) => s.syncActiveLanguage);
   const cityData = useVellumStore((s) => s.cityData);
   const loadingState = useVellumStore((s) => s.loadingState);
-  const { openFileDialog, loadFile } = useParseCslmap();
 
-  useKeyboardShortcuts({ onOpenFile: openFileDialog });
+  useKeyboardShortcuts({
+    onOpenFile: openFileDialog,
+    enabled: loadingState !== 'loading',
+  });
 
   useEffect(() => {
     initI18n().then((detectedLang) => {
@@ -59,7 +74,7 @@ export function App() {
   return (
     <Suspense fallback={null}>
       <div style={{ width: '100vw', height: '100vh' }}>
-        <CanvasRoot loadFile={loadFile} />
+        <CanvasRoot {...(loadFile !== undefined ? { loadFile } : {})} />
         {showEmptyState && <EmptyState />}
         {/* Story 2.4: <ProgressReveal /> se añade aquí */}
       </div>

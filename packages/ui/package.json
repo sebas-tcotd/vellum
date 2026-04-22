@@ -22,7 +22,6 @@
     "@fontsource/cormorant-garamond": "^5.2.11",
     "@radix-ui/react-slot": "^1.2.4",
     "@tauri-apps/api": "^2.10.1",
-    "@tauri-apps/plugin-dialog": "^2.7.0",
     "@vellum/core": "workspace:*",
     "@vellum/renderer-canvas": "workspace:*",
     "@vellum/theme-engine": "workspace:*",

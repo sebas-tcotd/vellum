@@ -84,12 +84,6 @@ interface VellumStore {
   syncActiveLanguage: (lang: 'en' | 'es') => void;
 
   /**
-   * Resets the store for a new file load operation.
-   * Increments `loadRequestId` and clears previous city data and error state.
-   */
-  resetForNewFile: () => void;
-
-  /**
    * Increments the load request ID and resets loading state.
    * @returns The new load request ID.
    */
@@ -149,21 +143,12 @@ export const useVellumStore = create<VellumStore>((set, get) => ({
 
   syncActiveLanguage: (lang) => set({ activeLanguage: lang }),
 
-  resetForNewFile: () => {
-    set({
-      cityData: null,
-      loadingState: 'idle',
-      loadingError: null,
-      loadRequestId: get().loadRequestId + 1,
-    });
-  },
-
   incrementLoadRequestId: () => {
     const next = get().loadRequestId + 1;
     set({
       loadRequestId: next,
       cityData: null,
-      loadingState: 'idle',
+      loadingState: 'loading', // atomic: jump directly to loading, no idle flash
       loadingError: null,
     });
     return next;

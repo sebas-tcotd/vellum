@@ -7,6 +7,7 @@ import { App, AppMetaProvider } from '@vellum/ui';
 import '@vellum/ui/globals.css';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { version } from '../package.json';
+import { useParseCslmap } from './hooks/use-parse-cslmap';
 
 // Bridge: Tauri → browser custom event
 // WebView2 (Windows) no propaga el evento browser 'dragenter' para drags externos
@@ -17,10 +18,19 @@ void getCurrentWindow().listen('tauri://drag-enter', () => {
   window.dispatchEvent(new CustomEvent('vellum:drag-enter'));
 });
 
+/**
+ * Composition root that wires Tauri-specific hooks into the UI layer.
+ * Keeps `@vellum/ui` free of direct Tauri runtime dependencies.
+ */
+function AppShell() {
+  const { loadFile, openFileDialog } = useParseCslmap();
+  return <App loadFile={loadFile} openFileDialog={openFileDialog} />;
+}
+
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
     <AppMetaProvider version={version}>
-      <App />
+      <AppShell />
     </AppMetaProvider>
   </React.StrictMode>,
 );

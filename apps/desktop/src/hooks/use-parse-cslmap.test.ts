@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useParseCslmap } from './use-parse-cslmap';
-import { useVellumStore } from '../store/vellum-store';
+import { useVellumStore } from '@vellum/ui';
+import { makeCityData } from '@vellum/core/testing';
 
 vi.mock('@tauri-apps/api/core', () => ({
   invoke: vi.fn(),
@@ -12,7 +13,6 @@ vi.mock('@tauri-apps/plugin-dialog', () => ({
 
 import { invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
-import { makeCityData } from '@vellum/core/testing';
 
 describe('useParseCslmap', () => {
   beforeEach(() => {
@@ -23,6 +23,29 @@ describe('useParseCslmap', () => {
       loadingError: null,
       loadRequestId: 0,
     });
+  });
+
+  it('transiciona atómicamente a loading durante la carga (estado intermedio)', async () => {
+    let resolveInvoke!: (v: unknown) => void;
+    vi.mocked(invoke).mockImplementationOnce(
+      () => new Promise((r) => (resolveInvoke = r)),
+    );
+
+    const { result } = renderHook(() => useParseCslmap());
+
+    act(() => {
+      void result.current.loadFile('/path/to/city.cslmap');
+    });
+
+    // incrementLoadRequestId atómicamente setea loadingState: 'loading'
+    expect(useVellumStore.getState().loadingState).toBe('loading');
+    expect(useVellumStore.getState().cityData).toBeNull();
+
+    await act(async () => {
+      resolveInvoke(makeCityData());
+    });
+
+    expect(useVellumStore.getState().loadingState).toBe('idle');
   });
 
   it('transiciona a loading y luego idle en happy path', async () => {
@@ -55,8 +78,8 @@ describe('useParseCslmap', () => {
 
     const { result } = renderHook(() => useParseCslmap());
 
-    act(() => {
-      result.current.loadFile('/a.cslmap');
+    await act(async () => {
+      void result.current.loadFile('/a.cslmap');
     });
     await act(() => result.current.loadFile('/b.cslmap'));
     await act(async () => {
@@ -68,6 +91,16 @@ describe('useParseCslmap', () => {
 
   it('no llama loadFile si el usuario cancela el dialog', async () => {
     vi.mocked(open).mockResolvedValue(null);
+
+    const { result } = renderHook(() => useParseCslmap());
+    await act(() => result.current.openFileDialog());
+
+    expect(invoke).not.toHaveBeenCalled();
+    expect(useVellumStore.getState().loadingState).toBe('idle');
+  });
+
+  it('maneja excepción del dialog sin cambiar el estado', async () => {
+    vi.mocked(open).mockRejectedValue(new Error('Dialog failed'));
 
     const { result } = renderHook(() => useParseCslmap());
     await act(() => result.current.openFileDialog());

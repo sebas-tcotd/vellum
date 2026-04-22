@@ -1,8 +1,11 @@
 // packages/ui/src/components/canvas/CanvasRoot.test.tsx
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render } from '../../test-utils';
+import { act } from '@testing-library/react';
 import { CanvasRoot } from './CanvasRoot';
+import { useVellumStore } from '../../store/vellum-store';
 
+// --- Mock RAF -----------------------------------------------------------
 describe('CanvasRoot — RAF lifecycle', () => {
   beforeEach(() => {
     vi.spyOn(window, 'requestAnimationFrame').mockImplementation(() => {
@@ -29,6 +32,7 @@ describe('CanvasRoot — RAF lifecycle', () => {
   });
 });
 
+// --- Mock rendering -------------------------------------------------------
 describe('CanvasRoot — rendering', () => {
   it('renders a container with the canvas-root class', () => {
     const { container } = render(<CanvasRoot />);
@@ -52,5 +56,91 @@ describe('CanvasRoot — rendering', () => {
     expect(() =>
       render(<CanvasRoot onElementHover={onHover} onElementLeave={onLeave} />),
     ).not.toThrow();
+  });
+});
+
+// --- Drag-drop integration -----------------------------------------------
+
+const mockUnlisten = vi.fn();
+const mockOnDragDropEvent = vi.fn().mockResolvedValue(mockUnlisten);
+
+vi.mock('@tauri-apps/api/webviewWindow', () => ({
+  getCurrentWebviewWindow: () => ({
+    onDragDropEvent: mockOnDragDropEvent,
+  }),
+}));
+
+describe('CanvasRoot — drag-drop', () => {
+  beforeEach(() => {
+    mockOnDragDropEvent.mockClear();
+    mockUnlisten.mockClear();
+    useVellumStore.setState({ loadingState: 'idle', cityData: null });
+  });
+
+  it('sin prop loadFile, no registra el listener de drag-drop', async () => {
+    render(<CanvasRoot />);
+    await act(async () => {});
+    expect(mockOnDragDropEvent).not.toHaveBeenCalled();
+  });
+
+  it('con prop loadFile, registra onDragDropEvent', async () => {
+    const loadFile = vi.fn().mockResolvedValue(undefined);
+    render(<CanvasRoot loadFile={loadFile} />);
+    await act(async () => {});
+    expect(mockOnDragDropEvent).toHaveBeenCalledOnce();
+  });
+
+  it('drop de archivo .cslmap llama loadFile', async () => {
+    const loadFile = vi.fn().mockResolvedValue(undefined);
+    render(<CanvasRoot loadFile={loadFile} />);
+    await act(async () => {});
+
+    const handler = mockOnDragDropEvent.mock.calls[0][0] as (
+      e: unknown,
+    ) => void;
+    await act(async () => {
+      handler({ payload: { type: 'drop', paths: ['/path/to/city.cslmap'] } });
+    });
+
+    expect(loadFile).toHaveBeenCalledWith('/path/to/city.cslmap');
+  });
+
+  it('drop de archivo no-.cslmap no llama loadFile (AC 4)', async () => {
+    const loadFile = vi.fn().mockResolvedValue(undefined);
+    render(<CanvasRoot loadFile={loadFile} />);
+    await act(async () => {});
+
+    const handler = mockOnDragDropEvent.mock.calls[0][0] as (
+      e: unknown,
+    ) => void;
+    await act(async () => {
+      handler({ payload: { type: 'drop', paths: ['/path/to/image.png'] } });
+    });
+
+    expect(loadFile).not.toHaveBeenCalled();
+  });
+
+  it('drop mientras loadingState === loading es ignorado (AC 5)', async () => {
+    useVellumStore.setState({ loadingState: 'loading' });
+    const loadFile = vi.fn().mockResolvedValue(undefined);
+    render(<CanvasRoot loadFile={loadFile} />);
+    await act(async () => {});
+
+    const handler = mockOnDragDropEvent.mock.calls[0][0] as (
+      e: unknown,
+    ) => void;
+    await act(async () => {
+      handler({ payload: { type: 'drop', paths: ['/path/to/city.cslmap'] } });
+    });
+
+    expect(loadFile).not.toHaveBeenCalled();
+  });
+
+  it('unlisten se llama al desmontar el componente', async () => {
+    const loadFile = vi.fn();
+    const { unmount } = render(<CanvasRoot loadFile={loadFile} />);
+    await act(async () => {});
+    unmount();
+    expect(mockUnlisten).toHaveBeenCalled();
   });
 });
