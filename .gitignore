@@ -1,16 +1,49 @@
+# Dependency directories
 node_modules/
+.target/
+
+# Build outputs
 dist/
 dist-node/
 .turbo/
+build/
+.next/
+.cache/
+src-tauri/target/
+
+# Rust / Tauri artifacts
 target/
+*.tsbuildinfo
 *.msi
 *.dmg
 *.AppImage
-*.tsbuildinfo
+
+# BMAD / AI runner artifacts
 _bmad/
 _bmad-output/
-.claude/
-.gemini/
-.opencode/
-.agents/
-*/**/test-results/
+.agent
+.agents
+.claude
+.cursor
+.gemini
+.windsurf
+.roo
+.codex
+.augment/
+.clinerules
+.mcp.json
+CLAUDE.local.md
+
+# Test output folders
+**/test-results/
+
+# OS files
+.DS_Store
+*.swp
+
+# Environment files
+.env
+.env.local
+
+# Exceptions
+!CLAUDE.md
