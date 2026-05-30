@@ -74,7 +74,7 @@ export function App({ loadFile, openFileDialog = noop }: AppProps) {
   return (
     <Suspense fallback={null}>
       <div style={{ width: '100vw', height: '100vh' }}>
-        <CanvasRoot {...(loadFile !== undefined ? { loadFile } : {})} />
+        <CanvasRoot loadFile={loadFile} />
         {showEmptyState && <EmptyState />}
         {/* Story 2.4: <ProgressReveal /> se añade aquí */}
       </div>

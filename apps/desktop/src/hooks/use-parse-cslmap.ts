@@ -13,6 +13,24 @@ import type { CityData, VellumError } from '@vellum/core';
  * @returns `loadFile` — loads a `.cslmap` path via IPC, with anti-race guard.
  * @returns `openFileDialog` — opens the OS file picker, then calls `loadFile`.
  */
+
+function toVellumError(err: unknown): VellumError {
+  if (
+    err &&
+    typeof err === 'object' &&
+    'type' in err &&
+    typeof err.type === 'string' &&
+    'reason' in err &&
+    typeof err.reason === 'string'
+  ) {
+    return err as VellumError;
+  }
+  return {
+    type: 'IoError',
+    reason: err instanceof Error ? err.message : String(err),
+  };
+}
+
 export function useParseCslmap() {
   const setLoadingState = useVellumStore((s) => s.setLoadingState);
   const setCityData = useVellumStore((s) => s.setCityData);
@@ -34,7 +52,7 @@ export function useParseCslmap() {
         setCityData(cityData); // also sets loadingState: 'idle' and clears error
       } catch (err) {
         if (useVellumStore.getState().loadRequestId !== requestId) return;
-        setLoadingState('error', err as VellumError);
+        setLoadingState('error', toVellumError(err));
       }
     },
     [incrementLoadRequestId, setCityData, setLoadingState],
@@ -50,6 +68,7 @@ export function useParseCslmap() {
       });
     } catch (err) {
       console.error('[useParseCslmap] File dialog failed:', err);
+      setLoadingState('error', toVellumError(err));
       return;
     }
 
@@ -58,7 +77,7 @@ export function useParseCslmap() {
     const filePath = typeof selected === 'string' ? selected : selected[0];
     if (!filePath) return;
     await loadFile(filePath);
-  }, [loadFile]);
+  }, [loadFile, setLoadingState]);
 
   return { loadFile, openFileDialog };
 }

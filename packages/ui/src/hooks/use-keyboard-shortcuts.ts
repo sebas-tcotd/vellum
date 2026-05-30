@@ -16,7 +16,8 @@ export function useKeyboardShortcuts({
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (!enabled) return;
-      if (e.ctrlKey && !e.shiftKey && !e.altKey && e.key === 'o') {
+      const isModKey = e.ctrlKey || e.metaKey;
+      if (isModKey && !e.shiftKey && !e.altKey && e.key === 'o') {
         e.preventDefault();
         onOpenFile();
       }

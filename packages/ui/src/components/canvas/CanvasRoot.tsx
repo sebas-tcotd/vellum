@@ -43,7 +43,7 @@ export interface CanvasRootProps {
    * Callback to load a .cslmap file.
    * Used by the file drop handler.
    */
-  loadFile?: (filePath: string) => Promise<void>;
+  loadFile?: ((filePath: string) => Promise<void>) | undefined;
 }
 
 /**

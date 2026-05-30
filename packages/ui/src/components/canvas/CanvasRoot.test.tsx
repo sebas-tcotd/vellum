@@ -77,20 +77,20 @@ describe('CanvasRoot — drag-drop', () => {
     useVellumStore.setState({ loadingState: 'idle', cityData: null });
   });
 
-  it('sin prop loadFile, no registra el listener de drag-drop', async () => {
+  it('does not register drag-drop listener without loadFile prop', async () => {
     render(<CanvasRoot />);
     await act(async () => {});
     expect(mockOnDragDropEvent).not.toHaveBeenCalled();
   });
 
-  it('con prop loadFile, registra onDragDropEvent', async () => {
+  it('registers onDragDropEvent when loadFile prop is provided', async () => {
     const loadFile = vi.fn().mockResolvedValue(undefined);
     render(<CanvasRoot loadFile={loadFile} />);
     await act(async () => {});
     expect(mockOnDragDropEvent).toHaveBeenCalledOnce();
   });
 
-  it('drop de archivo .cslmap llama loadFile', async () => {
+  it('drop of .cslmap file triggers loadFile', async () => {
     const loadFile = vi.fn().mockResolvedValue(undefined);
     render(<CanvasRoot loadFile={loadFile} />);
     await act(async () => {});
@@ -105,7 +105,7 @@ describe('CanvasRoot — drag-drop', () => {
     expect(loadFile).toHaveBeenCalledWith('/path/to/city.cslmap');
   });
 
-  it('drop de archivo no-.cslmap no llama loadFile (AC 4)', async () => {
+  it('drop of non-.cslmap file does not trigger loadFile (AC 4)', async () => {
     const loadFile = vi.fn().mockResolvedValue(undefined);
     render(<CanvasRoot loadFile={loadFile} />);
     await act(async () => {});
@@ -120,7 +120,7 @@ describe('CanvasRoot — drag-drop', () => {
     expect(loadFile).not.toHaveBeenCalled();
   });
 
-  it('drop mientras loadingState === loading es ignorado (AC 5)', async () => {
+  it('drop while loadingState is loading is ignored (AC 5)', async () => {
     useVellumStore.setState({ loadingState: 'loading' });
     const loadFile = vi.fn().mockResolvedValue(undefined);
     render(<CanvasRoot loadFile={loadFile} />);
@@ -136,7 +136,7 @@ describe('CanvasRoot — drag-drop', () => {
     expect(loadFile).not.toHaveBeenCalled();
   });
 
-  it('unlisten se llama al desmontar el componente', async () => {
+  it('unlisten is called when component unmounts', async () => {
     const loadFile = vi.fn();
     const { unmount } = render(<CanvasRoot loadFile={loadFile} />);
     await act(async () => {});
