@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
 use quick_xml::events::Event;
 use quick_xml::Reader;
 use tauri::Emitter;
@@ -46,7 +48,8 @@ pub fn parse_cslmap_file(
         &bytes[..]
     };
 
-    let result = parse_cslmap_bytes_with_progress(content, app_handle)?;
+    let total_len = content.len();
+    let result = parse_inner_with_progress(content, total_len, app_handle)?;
 
     emit_progress(app_handle, "done", 100.0);
     Ok(result)
@@ -65,32 +68,80 @@ pub fn parse_cslmap_bytes(content: &[u8]) -> Result<CityData, VellumError> {
 // ─── Internal helpers ─────────────────────────────────────────────────────────
 
 fn emit_progress(app_handle: &tauri::AppHandle, step: &str, percent: f32) {
-    let _ = app_handle.emit(
+    if let Err(e) = app_handle.emit(
         "vellum://progress",
         ProgressPayload {
             current_step: step.to_string(),
             percent,
         },
-    );
+    ) {
+        eprintln!("[parser-cslmap] Failed to emit progress event: {e}");
+    }
 }
 
-fn parse_cslmap_bytes_with_progress(
+fn parse_inner_with_progress(
     content: &[u8],
+    total_len: usize,
     app_handle: &tauri::AppHandle,
 ) -> Result<CityData, VellumError> {
-    // We parse once; progress milestones are emitted at specific element boundaries
-    // via a thin wrapper that intercepts the builder callbacks.
-    // For v1, use a single-pass parser with post-hoc milestones.
-    emit_progress(app_handle, "terrain", 30.0);
-    emit_progress(app_handle, "roads", 60.0);
-    emit_progress(app_handle, "transit", 90.0);
-    parse_inner(content)
+    let mut reader = Reader::from_reader(content);
+    reader.config_mut().trim_text(true);
+
+    let mut builder = CityDataBuilder::default();
+    let mut buf = Vec::new();
+    let mut last_pct: i32 = -1;
+
+    loop {
+        match reader.read_event_into(&mut buf) {
+            Ok(Event::Start(ref e)) => builder.handle_start(e)?,
+            Ok(Event::Empty(ref e)) => builder.handle_empty(e)?,
+            Ok(Event::Text(ref e)) => {
+                let text = e.unescape().map_err(|err| VellumError::InvalidFile {
+                    reason: format!(
+                        "XML text error at position {}: {err}",
+                        reader.buffer_position()
+                    ),
+                })?;
+                builder.handle_text(&text);
+            }
+            Ok(Event::End(ref e)) => builder.handle_end(e),
+            Ok(Event::Eof) => break,
+            Err(e) => {
+                return Err(VellumError::InvalidFile {
+                    reason: format!(
+                        "XML parse error at position {}: {e}",
+                        reader.buffer_position()
+                    ),
+                });
+            }
+            _ => {}
+        }
+        buf.clear();
+
+        // Real progress based on byte position in the stream
+        if total_len > 0 {
+            let pct = (reader.buffer_position() as f64 / total_len as f64 * 100.0) as i32;
+            if pct > last_pct {
+                last_pct = pct;
+                emit_progress(app_handle, "parsing", pct as f32);
+            }
+        }
+    }
+
+    builder.build()
 }
 
 // ─── Attribute helpers ────────────────────────────────────────────────────────
 
 fn attr_str(e: &quick_xml::events::BytesStart, name: &[u8]) -> Option<String> {
-    e.attributes().flatten().find_map(|a| {
+    e.attributes().find_map(|a| {
+        let a = match a {
+            Ok(attr) => attr,
+            Err(e) => {
+                eprintln!("[parser-cslmap] Malformed attribute in XML: {e}");
+                return None;
+            }
+        };
         if a.key.local_name().as_ref() == name {
             a.unescape_value().ok().map(|v| v.into_owned())
         } else {
@@ -100,7 +151,9 @@ fn attr_str(e: &quick_xml::events::BytesStart, name: &[u8]) -> Option<String> {
 }
 
 fn attr_f64(e: &quick_xml::events::BytesStart, name: &[u8]) -> Option<f64> {
-    attr_str(e, name).and_then(|s| s.parse().ok())
+    attr_str(e, name)
+        .and_then(|s| s.parse::<f64>().ok())
+        .filter(|v| v.is_finite())
 }
 
 // ─── WayType / TransitMode classifiers ───────────────────────────────────────
@@ -168,7 +221,7 @@ struct CityDataBuilder {
     current_route_seg_ids: Vec<String>,
     in_transit_path_segs: bool,
     // bus routes collected from Bus Line segments, assigned to transit lines by order
-    bus_routes: Vec<Vec<String>>,
+    bus_routes: VecDeque<Vec<String>>,
 
     current_building: Option<(String, Vec3, String)>,
     current_building_footprint: Vec<Vec3>,
@@ -281,6 +334,7 @@ impl CityDataBuilder {
     fn handle_empty(&mut self, e: &quick_xml::events::BytesStart<'_>) -> Result<(), VellumError> {
         let local = e.name().local_name().as_ref().to_vec();
         let name = local.as_slice();
+        self.element_stack.push(local.clone());
         match name {
             b"LandTile" => {
                 self.land_tiles.push(LandTile {
@@ -307,15 +361,16 @@ impl CityDataBuilder {
                 });
             }
             b"Stop" if self.in_transit_line() => {
-                let mode_str = attr_str(e, b"mode")
+                let stop_mode = attr_str(e, b"mode")
                     .as_deref()
-                    .map(parse_transit_mode)
-                    .unwrap_or(crate::city_data::TransitMode::Unknown);
-                // inherit line mode when stop has no explicit mode
-                let mode = if let Some(ref line_mode) = self.current_transit_line_mode.clone() {
+                    .map(parse_transit_mode);
+                // Use stop's own mode if explicitly provided; otherwise inherit from line
+                let mode = if let Some(sm) = stop_mode {
+                    sm
+                } else if let Some(ref line_mode) = self.current_transit_line_mode.clone() {
                     parse_transit_mode(line_mode)
                 } else {
-                    mode_str
+                    crate::city_data::TransitMode::Unknown
                 };
                 self.current_transit_stops.push(TransitStop {
                     id: attr_str(e, b"id").unwrap_or_default(),
@@ -351,6 +406,7 @@ impl CityDataBuilder {
             }
             _ => {}
         }
+        self.element_stack.pop();
         Ok(())
     }
 
@@ -359,9 +415,9 @@ impl CityDataBuilder {
         if trimmed.is_empty() {
             return;
         }
-        // WayType text inside a Segment
-        if self.current_way_type_text.is_some() {
-            self.current_way_type_text = Some(trimmed.to_string());
+        // WayType text inside a Segment — accumulate to handle CDATA splits
+        if let Some(ref mut existing) = self.current_way_type_text {
+            existing.push_str(trimmed);
             return;
         }
         // Sg text inside segment path
@@ -400,7 +456,7 @@ impl CityDataBuilder {
                     if seg.item_class == "Bus Line" {
                         let mut segs = seg.path_segs.clone();
                         normalize_debug_segs(&mut segs); // AC5: handle debug format (Gotcha 4)
-                        self.bus_routes.push(segs);
+                        self.bus_routes.push_back(segs);
                         return;
                     }
 
@@ -444,8 +500,7 @@ impl CityDataBuilder {
                     // If the line has no explicit paths in <Paths>, check for bus routes
                     let route = if self.current_transit_routes.is_empty() {
                         // AC5: pull route from collected bus_routes in order
-                        if !self.bus_routes.is_empty() {
-                            let segs = self.bus_routes.remove(0);
+                        if let Some(segs) = self.bus_routes.pop_front() {
                             vec![PathSegment { segment_ids: segs }]
                         } else {
                             Vec::new()
@@ -680,7 +735,7 @@ mod tests {
     fn perf_10mb_file() {
         let path = concat!(env!("CARGO_MANIFEST_DIR"), "/fixtures/large-city.cslmap");
         if !std::path::Path::new(path).exists() {
-            return;
+            panic!("Fixture not found: {path}. Create a ~10MB .cslmap file to enable this benchmark.");
         }
         let bytes = std::fs::read(path).expect("read file");
         let content = if bytes.starts_with(b"\xEF\xBB\xBF") {

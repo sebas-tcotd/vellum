@@ -60,7 +60,7 @@ pub async fn parse_cslmap(
     tokio::task::spawn_blocking(move || parse_cslmap_file(&file_path, &app_handle))
         .await
         .map_err(|e| VellumError::IoError {
-            reason: e.to_string(),
+            reason: format!("Parser task failed: {}", e),
         })?
 }
 

@@ -3,6 +3,9 @@ use crate::types::road::RoadHierarchy;
 /// Road hierarchy derived purely from physical width when ItemClass is unknown.
 /// Thresholds: ≤12 → Small, ≤24 → Medium, >24 → Large.
 pub fn classify_by_width(width: f64) -> RoadHierarchy {
+    if width < 0.0 {
+        return RoadHierarchy::Small;
+    }
     #[allow(clippy::if_not_else)]
     if width <= 12.0 {
         RoadHierarchy::Small

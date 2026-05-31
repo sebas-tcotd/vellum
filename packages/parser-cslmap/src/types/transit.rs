@@ -1,7 +1,8 @@
 /// Detects the debug .cslmap format where the first segment ID is duplicated (Gotcha 4).
 /// Standard format: segs are unique. Debug format: segs[0] == segs[1].
+/// Only triggers when there are at least 3 segs to reduce false-positive risk.
 pub fn detect_debug_format(segs: &[String]) -> bool {
-    segs.len() >= 2 && segs[0] == segs[1]
+    segs.len() >= 3 && segs[0] == segs[1]
 }
 
 /// Removes the duplicate leading segment ID present in debug-format files.

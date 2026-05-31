@@ -63,6 +63,8 @@ pub struct RoadNode {
     pub position: Vec3,
 }
 
+/// Serializes as PascalCase (default serde behavior) to match the TypeScript union.
+/// Keep this enum in PascalCase — do not add #[serde(rename_all)].
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum WayType {
     Road,
