@@ -884,42 +884,38 @@ impl CityDataBuilder {
                 self.in_trans = false;
             }
 
-            b"Buil" => {
-                if self.in_buil {
-                    let footprint = std::mem::take(&mut self.current_buil_footprint);
-                    let position = if let Some(first) = footprint.first() {
-                        first.clone()
-                    } else {
-                        eprintln!(
-                            "[parser-cslmap] Building id='{}' has empty footprint — position defaulting to origin",
-                            self.current_buil_id
-                        );
-                        Vec3 {
-                            x: 0.0,
-                            y: 0.0,
-                            z: 0.0,
-                        }
-                    };
-                    self.buildings.push(Building {
-                        id: std::mem::take(&mut self.current_buil_id),
-                        name: std::mem::take(&mut self.current_buil_name),
-                        position,
-                        item_class: std::mem::take(&mut self.current_buil_icls),
-                        footprint,
-                    });
-                    self.in_buil = false;
-                }
+            b"Buil" if self.in_buil => {
+                let footprint = std::mem::take(&mut self.current_buil_footprint);
+                let position = if let Some(first) = footprint.first() {
+                    first.clone()
+                } else {
+                    eprintln!(
+                        "[parser-cslmap] Building id='{}' has empty footprint — position defaulting to origin",
+                        self.current_buil_id
+                    );
+                    Vec3 {
+                        x: 0.0,
+                        y: 0.0,
+                        z: 0.0,
+                    }
+                };
+                self.buildings.push(Building {
+                    id: std::mem::take(&mut self.current_buil_id),
+                    name: std::mem::take(&mut self.current_buil_name),
+                    position,
+                    item_class: std::mem::take(&mut self.current_buil_icls),
+                    footprint,
+                });
+                self.in_buil = false;
             }
 
-            b"Dist" => {
-                if self.in_dist {
-                    self.districts.push(District {
-                        id: std::mem::take(&mut self.current_dist_id),
-                        name: std::mem::take(&mut self.current_dist_name),
-                        boundary: std::mem::take(&mut self.current_dist_boundary),
-                    });
-                    self.in_dist = false;
-                }
+            b"Dist" if self.in_dist => {
+                self.districts.push(District {
+                    id: std::mem::take(&mut self.current_dist_id),
+                    name: std::mem::take(&mut self.current_dist_name),
+                    boundary: std::mem::take(&mut self.current_dist_boundary),
+                });
+                self.in_dist = false;
             }
 
             _ => {}
