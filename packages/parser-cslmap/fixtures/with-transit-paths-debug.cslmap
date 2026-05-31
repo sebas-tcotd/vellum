@@ -1,0 +1,40 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<VellumMap CityName="Debug City" FileName="with-transit-paths-debug" GeneratedAt="2026-01-01T00:00:00Z">
+  <Bounds minX="-500.0" maxX="500.0" minZ="-500.0" maxZ="500.0" seaLevel="40.0"/>
+  <Terrain>
+    <LandTile x="0.0" z="0.0" elevation="45.0"/>
+  </Terrain>
+  <Nodes>
+    <Node id="1" x="0.0" y="45.0" z="0.0"/>
+    <Node id="2" x="100.0" y="45.0" z="0.0"/>
+    <Node id="3" x="200.0" y="45.0" z="0.0"/>
+  </Nodes>
+  <Segments>
+    <Segment id="101" startNodeId="1" endNodeId="2" icls="Basic Road" width="16.0">
+      <WayType>[Deprecated]Road</WayType>
+    </Segment>
+    <Segment id="102" startNodeId="2" endNodeId="3" icls="Basic Road" width="16.0">
+      <WayType>[Deprecated]Road</WayType>
+    </Segment>
+    <Segment id="201" startNodeId="1" endNodeId="3" icls="Bus Line" width="2.0">
+      <Path>
+        <Segs>
+          <Sg>101</Sg>
+          <Sg>101</Sg>
+          <Sg>102</Sg>
+        </Segs>
+      </Path>
+    </Segment>
+  </Segments>
+  <TransitLines>
+    <Line id="L1" name="Bus Route 1" mode="Bus" color="#FF6600">
+      <Stops>
+        <Stop id="S1" x="0.0" y="45.0" z="0.0" name="Start Terminal"/>
+        <Stop id="S2" x="200.0" y="45.0" z="0.0" name="End Terminal"/>
+      </Stops>
+    </Line>
+  </TransitLines>
+  <Buildings/>
+  <ForestCells/>
+  <Districts/>
+</VellumMap>

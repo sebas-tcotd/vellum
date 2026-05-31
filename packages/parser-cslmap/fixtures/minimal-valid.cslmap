@@ -1,0 +1,20 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<VellumMap CityName="Test City" FileName="minimal" GeneratedAt="2026-01-01T00:00:00Z">
+  <Bounds minX="-500.0" maxX="500.0" minZ="-500.0" maxZ="500.0" seaLevel="40.0"/>
+  <Terrain>
+    <LandTile x="0.0" z="0.0" elevation="45.0"/>
+  </Terrain>
+  <Nodes>
+    <Node id="1" x="0.0" y="45.0" z="0.0"/>
+    <Node id="2" x="100.0" y="45.0" z="0.0"/>
+  </Nodes>
+  <Segments>
+    <Segment id="101" startNodeId="1" endNodeId="2" icls="Basic Road" width="16.0">
+      <WayType>[Deprecated]Road</WayType>
+    </Segment>
+  </Segments>
+  <TransitLines/>
+  <Buildings/>
+  <ForestCells/>
+  <Districts/>
+</VellumMap>

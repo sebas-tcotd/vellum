@@ -1,6 +1,6 @@
 [workspace]
 members = [
   "apps/desktop/src-tauri",
-  # "packages/parser-cslmap",  # se añade en Story 2.x cuando se implemente el parser Rust
+  "packages/parser-cslmap",
 ]
 resolver = "2"

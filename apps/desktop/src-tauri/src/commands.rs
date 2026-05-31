@@ -1,5 +1,6 @@
 use crate::city_data::CityData;
 use crate::errors::VellumError;
+use parser_cslmap::parser::parse_cslmap_file;
 use serde::{Deserialize, Serialize};
 
 // ─── Export types (mirrors of ExportOptions/ExportResult in ipc-contract.ts) ─
@@ -49,12 +50,18 @@ pub struct ExportResult {
 /// Returns a `VellumError` (serialized to TS) if the file cannot be found, read, or if
 /// the XML schema is invalid. The frontend MUST map this error to an i18n key rather
 /// than displaying the raw reason.
+/// Parses a `.cslmap` file and returns the complete immutable `CityData` domain model.
+/// Runs the CPU-bound XML parsing on a blocking thread to avoid stalling the Tauri async runtime.
 #[tauri::command]
-pub async fn parse_cslmap(file_path: String) -> Result<CityData, VellumError> {
-    // TODO(story-2.3): implementar parser real con quick-xml respetando el budget de <100ms
-    Err(VellumError::IoError {
-        reason: format!("Parser not yet implemented. File: {file_path}"),
-    })
+pub async fn parse_cslmap(
+    file_path: String,
+    app_handle: tauri::AppHandle,
+) -> Result<CityData, VellumError> {
+    tokio::task::spawn_blocking(move || parse_cslmap_file(&file_path, &app_handle))
+        .await
+        .map_err(|e| VellumError::IoError {
+            reason: e.to_string(),
+        })?
 }
 
 /// Exports the current map rendering state to a rasterized PNG image.
