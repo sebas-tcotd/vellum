@@ -18,13 +18,22 @@ import { IPC_EVENTS } from '@vellum/core';
  */
 
 function toVellumError(err: unknown): VellumError {
-  if (
-    err &&
-    typeof err === 'object' &&
-    'type' in err &&
-    typeof err.type === 'string'
-  ) {
-    return err as VellumError;
+  if (err && typeof err === 'object' && 'type' in err) {
+    const e = err as Record<string, unknown>;
+    if (e.type === 'UnsupportedVersion' && typeof e.found === 'string') {
+      return err as VellumError;
+    }
+    if (e.type === 'PartialParse' && Array.isArray(e.warnings)) {
+      return err as VellumError;
+    }
+    if (
+      (e.type === 'InvalidFile' ||
+        e.type === 'IoError' ||
+        e.type === 'ExportFailed') &&
+      typeof e.reason === 'string'
+    ) {
+      return err as VellumError;
+    }
   }
   return {
     type: 'IoError',
@@ -99,6 +108,21 @@ export function useParseCslmap() {
 
     const requestId = incrementLoadRequestId();
 
+    let pendingWarnings: string[] = [];
+    const cancelled = { current: false };
+    const unlistenRef = { current: null as (() => void) | null };
+
+    listen<ParseWarningsPayload>(IPC_EVENTS.PARSE_WARNINGS, (event) => {
+      if (!cancelled.current) {
+        pendingWarnings = [...pendingWarnings, ...event.payload.warnings];
+      }
+    })
+      .then((fn) => {
+        if (cancelled.current) fn();
+        else unlistenRef.current = fn;
+      })
+      .catch(console.error);
+
     try {
       const cityData = await invoke<CityData>('parse_cslmap', {
         filePath,
@@ -109,13 +133,25 @@ export function useParseCslmap() {
 
       setCityData(cityData);
       setHasPartialData(true);
+      if (pendingWarnings.length > 0) {
+        setDlcWarnings(pendingWarnings);
+      }
     } catch (err) {
       if (useVellumStore.getState().loadRequestId !== requestId) return;
       const vellumErr = toVellumError(err);
       console.error('[useParseCslmap] Partial parse error:', vellumErr);
       setLoadingState('error', vellumErr);
+    } finally {
+      cancelled.current = true;
+      unlistenRef.current?.();
     }
-  }, [incrementLoadRequestId, setCityData, setLoadingState, setHasPartialData]);
+  }, [
+    incrementLoadRequestId,
+    setCityData,
+    setLoadingState,
+    setHasPartialData,
+    setDlcWarnings,
+  ]);
 
   const openFileDialog = useCallback(async (): Promise<void> => {
     let selected: string | string[] | null;

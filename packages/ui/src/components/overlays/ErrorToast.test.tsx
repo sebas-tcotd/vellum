@@ -60,4 +60,19 @@ describe('ErrorToast', () => {
     );
     expect(screen.getByRole('alert')).toBeDefined();
   });
+
+  it('muestra errors.PartialParse cuando type=PartialParse (no miente con InvalidFile)', () => {
+    render(
+      <ErrorToast
+        error={{ type: 'PartialParse', warnings: [] }}
+        onDismiss={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole('alert').textContent).toContain(
+      'errors.PartialParse',
+    );
+    expect(screen.getByRole('alert').textContent).not.toContain(
+      'errors.InvalidFile',
+    );
+  });
 });

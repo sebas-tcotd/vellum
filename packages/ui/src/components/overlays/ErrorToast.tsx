@@ -22,8 +22,8 @@ export function ErrorToast({ error, onDismiss }: ErrorToastProps) {
         return t('errors.IoError');
       case 'ExportFailed':
         return t('errors.ExportFailed');
-      default:
-        return t('errors.InvalidFile');
+      case 'PartialParse':
+        return t('errors.PartialParse');
     }
   })();
 

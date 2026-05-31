@@ -55,6 +55,32 @@ describe('PartialParseDialog', () => {
     expect(screen.getByText('errors.partialParseDescription')).toBeDefined();
   });
 
+  it('muestra los warnings del error al usuario', () => {
+    render(
+      <PartialParseDialog
+        error={{
+          type: 'PartialParse',
+          warnings: ['section header failed', 'section roads failed'],
+        }}
+        onPartialRender={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    );
+    expect(screen.getByText('section header failed')).toBeDefined();
+    expect(screen.getByText('section roads failed')).toBeDefined();
+  });
+
+  it('no muestra lista de warnings cuando el array está vacío', () => {
+    render(
+      <PartialParseDialog
+        error={{ type: 'PartialParse', warnings: [] }}
+        onPartialRender={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    );
+    expect(screen.queryByRole('list')).toBeNull();
+  });
+
   it('llama onPartialRender al hacer click en "Intentar renderizado parcial"', () => {
     const onPartialRender = vi.fn();
     render(

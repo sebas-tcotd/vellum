@@ -19,6 +19,7 @@ export interface PartialParseDialogProps {
 /** Non-blocking modal shown when a .cslmap file has recoverable section errors.
  * Gives the user the choice to attempt partial rendering or cancel. */
 export function PartialParseDialog({
+  error,
   onPartialRender,
   onCancel,
 }: PartialParseDialogProps) {
@@ -45,6 +46,13 @@ export function PartialParseDialog({
             {t('errors.partialParseDescription')}
           </DialogDescription>
         </DialogHeader>
+        {error.warnings.length > 0 && (
+          <ul className="max-h-32 overflow-y-auto rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground space-y-0.5">
+            {error.warnings.map((w, i) => (
+              <li key={i}>{w}</li>
+            ))}
+          </ul>
+        )}
         <DialogFooter className="flex-col-reverse sm:flex-row gap-2">
           <button
             type="button"

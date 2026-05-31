@@ -1,5 +1,5 @@
 // packages/ui/src/App.tsx
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useState } from 'react';
 import { CanvasRoot } from './components/canvas/CanvasRoot';
 import { EmptyState } from './components/empty-state/EmptyState';
 import { ProgressBar } from './components/overlays/ProgressBar';
@@ -81,6 +81,11 @@ export function App({
     });
   }, [syncActiveLanguage]);
 
+  const handleDlcDismiss = useCallback(() => {
+    setDlcWarnings([]);
+    setHasPartialData(false);
+  }, [setDlcWarnings, setHasPartialData]);
+
   // Evitar flash en idioma incorrecto — no renderizar hasta que i18n esté listo
   if (!i18nReady) return null;
 
@@ -133,10 +138,7 @@ export function App({
         {showDlcWarningToast && (
           <DlcWarningToast
             isPartialData={hasPartialData}
-            onDismiss={() => {
-              setDlcWarnings([]);
-              setHasPartialData(false);
-            }}
+            onDismiss={handleDlcDismiss}
           />
         )}
       </div>

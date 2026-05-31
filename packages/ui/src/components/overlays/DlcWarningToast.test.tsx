@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, act } from '../../test-utils';
+import { render, screen, act, fireEvent } from '../../test-utils';
 import { DlcWarningToast } from './DlcWarningToast';
 
 vi.mock('react-i18next', () => ({
@@ -29,7 +29,7 @@ describe('DlcWarningToast', () => {
     );
   });
 
-  it('auto-dismiss llama onDismiss después de 6 segundos', () => {
+  it('auto-dismiss llama onDismiss después de 6 segundos (modo DLC)', () => {
     const onDismiss = vi.fn();
     render(<DlcWarningToast onDismiss={onDismiss} />);
     expect(onDismiss).not.toHaveBeenCalled();
@@ -39,8 +39,24 @@ describe('DlcWarningToast', () => {
     expect(onDismiss).toHaveBeenCalledOnce();
   });
 
+  it('NO auto-dismiss cuando isPartialData=true (AC3)', () => {
+    const onDismiss = vi.fn();
+    render(<DlcWarningToast isPartialData onDismiss={onDismiss} />);
+    act(() => {
+      vi.advanceTimersByTime(10000);
+    });
+    expect(onDismiss).not.toHaveBeenCalled();
+  });
+
   it('tiene role="status" para accesibilidad', () => {
     render(<DlcWarningToast onDismiss={vi.fn()} />);
     expect(screen.getByRole('status')).toBeDefined();
+  });
+
+  it('botón de cierre manual llama onDismiss', () => {
+    const onDismiss = vi.fn();
+    render(<DlcWarningToast onDismiss={onDismiss} />);
+    fireEvent.click(screen.getByRole('button', { name: /common\.close/i }));
+    expect(onDismiss).toHaveBeenCalledOnce();
   });
 });
