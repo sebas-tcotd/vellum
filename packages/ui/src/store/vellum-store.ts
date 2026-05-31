@@ -32,6 +32,14 @@ interface VellumStore {
   /** Counter for anti-race-condition load requests. Incremented on each new load. */
   loadRequestId: number;
 
+  /** DLC/mod asset warnings collected during the last successful parse.
+   * Non-empty triggers the DlcWarningToast (AC1). */
+  dlcWarnings: string[];
+
+  /** True when the displayed map was loaded via allow_partial mode (AC3).
+   * Triggers the "partial data" variant of DlcWarningToast. */
+  hasPartialData: boolean;
+
   /** Dictionary controlling the visibility of individual map layers in the renderer. */
   activeLayers: LayerVisibility;
 
@@ -59,6 +67,12 @@ interface VellumStore {
    * Automatically resets `loadingState` to 'idle' and clears any `loadingError`.
    */
   setCityData: (data: CityData) => void;
+
+  /** Sets the DLC/mod asset warnings from the last parse. Pass [] to clear. */
+  setDlcWarnings: (warnings: string[]) => void;
+
+  /** Sets whether the current map was loaded via partial-parse mode. */
+  setHasPartialData: (value: boolean) => void;
 
   /** Toggles the visibility state of a specific map layer. */
   toggleLayer: (layer: LayerName) => void;
@@ -118,12 +132,24 @@ export const useVellumStore = create<VellumStore>((set, get) => ({
   availableThemes: [],
   autoUpdateEnabled: false,
   activeLanguage: 'en',
+  dlcWarnings: [],
+  hasPartialData: false,
 
   setLoadingState: (state, error = null) =>
     set({ loadingState: state, loadingError: error }),
 
   setCityData: (data) =>
-    set({ cityData: data, loadingState: 'idle', loadingError: null }),
+    set({
+      cityData: data,
+      loadingState: 'idle',
+      loadingError: null,
+      dlcWarnings: [],
+      hasPartialData: false,
+    }),
+
+  setDlcWarnings: (warnings) => set({ dlcWarnings: warnings }),
+
+  setHasPartialData: (value) => set({ hasPartialData: value }),
 
   toggleLayer: (layer) =>
     set((state) => ({
@@ -150,6 +176,8 @@ export const useVellumStore = create<VellumStore>((set, get) => ({
       cityData: null,
       loadingState: 'loading', // atomic: jump directly to loading, no idle flash
       loadingError: null,
+      dlcWarnings: [],
+      hasPartialData: false,
     });
     return next;
   },

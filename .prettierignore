@@ -1,5 +1,7 @@
 node_modules/
 dist/
+pnpm-lock.yaml
+.agent/
 **/*.log
 .turbo/
 target/  # Para Rust, si aplica

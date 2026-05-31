@@ -10,8 +10,8 @@ pub enum RoadHierarchy {
 
 #[cfg(test)]
 mod tests {
-    use crate::dlc_fallback;
     use super::RoadHierarchy;
+    use crate::dlc_fallback;
 
     #[test]
     fn fallback_hierarchy_by_width() {

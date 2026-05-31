@@ -1,7 +1,8 @@
 use crate::types::road::RoadHierarchy;
 
-/// Road hierarchy derived purely from physical width when ItemClass is unknown.
+/// Road hierarchy derived purely from physical width when `ItemClass` is unknown.
 /// Thresholds: ≤12 → Small, ≤24 → Medium, >24 → Large.
+#[must_use]
 pub fn classify_by_width(width: f64) -> RoadHierarchy {
     if width < 0.0 {
         return RoadHierarchy::Small;
@@ -16,8 +17,9 @@ pub fn classify_by_width(width: f64) -> RoadHierarchy {
     }
 }
 
-/// Returns true for ItemClass values known to the base game and major DLCs.
+/// Returns true for `ItemClass` values known to the base game and major DLCs.
 /// Sources: CS1 base game + Snowfall, After Dark, Mass Transit, etc.
+#[must_use]
 pub fn is_known_item_class(item_class: &str) -> bool {
     matches!(
         item_class,

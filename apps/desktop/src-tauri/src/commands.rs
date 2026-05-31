@@ -55,12 +55,13 @@ pub struct ExportResult {
 #[tauri::command]
 pub async fn parse_cslmap(
     file_path: String,
+    allow_partial: bool,
     app_handle: tauri::AppHandle,
 ) -> Result<CityData, VellumError> {
-    tokio::task::spawn_blocking(move || parse_cslmap_file(&file_path, &app_handle))
+    tokio::task::spawn_blocking(move || parse_cslmap_file(&file_path, &app_handle, allow_partial))
         .await
         .map_err(|e| VellumError::IoError {
-            reason: format!("Parser task failed: {}", e),
+            reason: format!("Parser task failed: {e}"),
         })?
 }
 

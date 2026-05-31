@@ -21,17 +21,31 @@ struct ProgressPayload {
     percent: f32,
 }
 
+// ─── Parse warnings payload (mirrors ipc_contract.rs in src-tauri) ────────────
+
+#[derive(serde::Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct ParseWarningsPayload {
+    warnings: Vec<String>,
+}
+
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 /// Reads a `.cslmap` file from disk, strips the UTF-8 BOM, emits Tauri progress
-/// events, and delegates to `parse_cslmap_bytes`.
+/// and parse-warnings events, and runs the XML parser.
+///
+/// When `allow_partial` is false (normal mode), recoverable section errors produce
+/// `VellumError::PartialParse`. When true (lenient mode), those errors are swallowed
+/// and the parser returns whatever data was successfully built.
 ///
 /// # Errors
 /// Returns `VellumError::IoError` if the file cannot be read.
-/// Returns `VellumError::InvalidFile` for malformed XML.
+/// Returns `VellumError::InvalidFile` for XML that is entirely unreadable.
+/// Returns `VellumError::PartialParse` for XML valid at root level but with damaged sections.
 pub fn parse_cslmap_file(
     path: &str,
     app_handle: &tauri::AppHandle,
+    allow_partial: bool,
 ) -> Result<CityData, VellumError> {
     emit_progress(app_handle, "reading", 0.0);
 
@@ -47,24 +61,38 @@ pub fn parse_cslmap_file(
     };
 
     let total_len = content.len();
-    let result = parse_inner_with_progress(content, total_len, app_handle)?;
+    let result = parse_inner_with_progress(content, total_len, app_handle, allow_partial)?;
 
     emit_progress(app_handle, "done", 100.0);
     Ok(result)
 }
 
-/// Pure parsing function: accepts raw bytes (BOM stripped automatically), no AppHandle required.
-/// Used directly by unit tests.
+/// Pure parsing function (no `AppHandle`, no `allow_partial)`: used directly by unit tests.
 ///
 /// # Errors
-/// Returns `VellumError::InvalidFile` for malformed XML.
+/// Returns `VellumError::InvalidFile` for completely unreadable XML.
+/// Returns `VellumError::PartialParse` for XML valid at root but with damaged sections.
 pub fn parse_cslmap_bytes(content: &[u8]) -> Result<CityData, VellumError> {
     let content = if content.starts_with(b"\xEF\xBB\xBF") {
         &content[3..]
     } else {
         content
     };
-    parse_inner(content)
+    parse_inner(content, false)
+}
+
+/// Lenient variant of `parse_cslmap_bytes` for testing partial-parse mode.
+/// Swallows recoverable section errors and returns whatever data was built.
+///
+/// # Errors
+/// Returns `VellumError::InvalidFile` if the root element is missing or the XML is fatally malformed.
+pub fn parse_cslmap_bytes_lenient(content: &[u8]) -> Result<CityData, VellumError> {
+    let content = if content.starts_with(b"\xEF\xBB\xBF") {
+        &content[3..]
+    } else {
+        content
+    };
+    parse_inner(content, true)
 }
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
@@ -85,6 +113,7 @@ fn parse_inner_with_progress(
     content: &[u8],
     total_len: usize,
     app_handle: &tauri::AppHandle,
+    allow_partial: bool,
 ) -> Result<CityData, VellumError> {
     let mut reader = Reader::from_reader(content);
     reader.config_mut().trim_text(true);
@@ -92,44 +121,101 @@ fn parse_inner_with_progress(
     let mut builder = CityDataBuilder::default();
     let mut buf = Vec::new();
     let mut last_pct: i32 = -1;
+    let mut has_parsed_root = false;
+    let mut partial_errors: Vec<String> = Vec::new();
 
     loop {
         match reader.read_event_into(&mut buf) {
-            Ok(Event::Start(ref e)) => builder.handle_start(e)?,
-            Ok(Event::Empty(ref e)) => builder.handle_empty(e)?,
-            Ok(Event::Text(ref e)) => {
-                let text = e.unescape().map_err(|err| VellumError::InvalidFile {
-                    reason: format!(
+            Ok(Event::Start(ref e)) => {
+                has_parsed_root = true;
+                if let Err(err) = builder.handle_start(e) {
+                    if allow_partial {
+                        partial_errors.push(err.to_string());
+                    } else {
+                        return Err(VellumError::PartialParse {
+                            warnings: vec![err.to_string()],
+                        });
+                    }
+                }
+            }
+            Ok(Event::Empty(ref e)) => {
+                has_parsed_root = true;
+                if let Err(err) = builder.handle_empty(e) {
+                    if allow_partial {
+                        partial_errors.push(err.to_string());
+                    } else {
+                        return Err(VellumError::PartialParse {
+                            warnings: vec![err.to_string()],
+                        });
+                    }
+                }
+            }
+            Ok(Event::Text(ref e)) => match e.unescape() {
+                Ok(text) => builder.handle_text(&text),
+                Err(err) => {
+                    let msg = format!(
                         "XML text error at position {}: {err}",
                         reader.buffer_position()
-                    ),
-                })?;
-                builder.handle_text(&text);
-            }
+                    );
+                    if allow_partial {
+                        partial_errors.push(msg);
+                    } else if has_parsed_root {
+                        return Err(VellumError::PartialParse {
+                            warnings: vec![msg],
+                        });
+                    } else {
+                        return Err(VellumError::InvalidFile { reason: msg });
+                    }
+                }
+            },
             Ok(Event::End(ref e)) => builder.handle_end(e),
             Ok(Event::Eof) => break,
             Err(e) => {
-                return Err(VellumError::InvalidFile {
-                    reason: format!(
-                        "XML parse error at position {}: {e}",
-                        reader.buffer_position()
-                    ),
-                });
+                let msg = format!(
+                    "XML parse error at position {}: {e}",
+                    reader.buffer_position()
+                );
+                if allow_partial {
+                    // Stop parsing but continue to build with what we have
+                    partial_errors.push(msg);
+                    break;
+                } else if has_parsed_root {
+                    return Err(VellumError::PartialParse {
+                        warnings: vec![msg],
+                    });
+                }
+                return Err(VellumError::InvalidFile { reason: msg });
             }
             _ => {}
         }
         buf.clear();
 
         // Real progress based on byte position in the stream
+        #[allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
         if total_len > 0 {
             let pct = (reader.buffer_position() as f64 / total_len as f64 * 100.0) as i32;
             if pct > last_pct {
                 last_pct = pct;
+                #[allow(clippy::cast_precision_loss)]
                 emit_progress(app_handle, "parsing", pct as f32);
             }
         }
     }
 
+    // Emit DLC warnings event (before consuming builder)
+    let warnings_to_emit = builder.warnings.clone();
+    if !warnings_to_emit.is_empty() {
+        if let Err(e) = app_handle.emit(
+            "vellum://parse-warnings",
+            ParseWarningsPayload {
+                warnings: warnings_to_emit,
+            },
+        ) {
+            eprintln!("[parser-cslmap] Failed to emit parse-warnings: {e}");
+        }
+    }
+
+    let _ = partial_errors; // already captured in PartialParse path or logged via eprintln
     builder.build()
 }
 
@@ -145,7 +231,7 @@ fn attr_str(e: &quick_xml::events::BytesStart, name: &[u8]) -> Option<String> {
             }
         };
         if a.key.local_name().as_ref() == name {
-            a.unescape_value().ok().map(|v| v.into_owned())
+            a.unescape_value().ok().map(std::borrow::Cow::into_owned)
         } else {
             None
         }
@@ -183,7 +269,7 @@ fn rgba_to_hex(r: u8, g: u8, b: u8, a: u8) -> String {
 
 // ─── WayType derivation ───────────────────────────────────────────────────────
 
-/// Derives WayType flags from an item_class string.
+/// Derives `WayType` flags from an `item_class` string.
 /// Strips `[Deprecated]` prefix (AC2 / Gotcha 5) before matching.
 /// Returns a non-empty Vec — unknown items get `[None]`.
 fn way_type_from_item_class(item_class: &str) -> Vec<WayType> {
@@ -226,9 +312,9 @@ fn way_type_from_item_class(item_class: &str) -> Vec<WayType> {
 
 // ─── Terrain CSV parsing ──────────────────────────────────────────────────────
 
-/// Parses the CSLExportXML terrain CSV format: `"elev:res,elev:res,..."`
+/// Parses the `CSLExportXML` terrain CSV format: `"elev:res,elev:res,..."`
 /// Grid is 1081×1081, covering ±8640 world units (16 units per cell).
-/// Tiles with raw elevation ≤ sea_level_raw are water; the rest are land.
+/// Tiles with raw elevation ≤ `sea_level_raw` are water; the rest are land.
 fn parse_terrain_csv(
     csv: &str,
     sea_level_raw: f64,
@@ -250,19 +336,15 @@ fn parse_terrain_csv(
             break;
         }
         let col = idx % GRID_SIZE;
+        #[allow(clippy::cast_precision_loss)]
         let x = MAP_ORIGIN + col as f64 * CELL_SIZE;
+        #[allow(clippy::cast_precision_loss)]
         let z = MAP_ORIGIN + row as f64 * CELL_SIZE;
 
         // Parse "elev:res" pair
         let mut parts = entry.splitn(2, ':');
-        let raw_elev: f64 = parts
-            .next()
-            .and_then(|s| s.parse().ok())
-            .unwrap_or(0.0);
-        let raw_res: f64 = parts
-            .next()
-            .and_then(|s| s.parse().ok())
-            .unwrap_or(0.0);
+        let raw_elev: f64 = parts.next().and_then(|s| s.parse().ok()).unwrap_or(0.0);
+        let raw_res: f64 = parts.next().and_then(|s| s.parse().ok()).unwrap_or(0.0);
 
         if raw_elev <= sea_level_raw {
             // Water tile: depth approximated as (sea_level - elevation) normalized
@@ -270,6 +352,7 @@ fn parse_terrain_csv(
             water_tiles.push(WaterTile { depth, x, z });
         } else {
             // Land tile: store raw elevation and resolution
+            #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
             land_tiles.push(LandTile {
                 elevation: raw_elev,
                 resolution: raw_res as u32,
@@ -280,14 +363,14 @@ fn parse_terrain_csv(
     }
 }
 
-/// Parses the CSLExportXML forest CSV format: comma-separated integer density values.
+/// Parses the `CSLExportXML` forest CSV format: comma-separated integer density values.
 /// Grid matches terrain at 1/8 resolution: 135×135 cells approx.
 fn parse_forest_csv(csv: &str, forest_cells: &mut Vec<ForestCell>) {
     const TERRAIN_GRID: usize = 1081;
     const FOREST_DIVISOR: usize = 8;
-    let forest_grid = (TERRAIN_GRID + FOREST_DIVISOR - 1) / FOREST_DIVISOR; // ≈136
     const CELL_SIZE: f64 = 16.0 * 8.0; // 128 world units per forest cell
     const MAP_ORIGIN: f64 = -8640.0;
+    let forest_grid = TERRAIN_GRID.div_ceil(FOREST_DIVISOR); // ≈136
 
     for (idx, val) in csv.split(',').enumerate() {
         let density_raw: u32 = val.trim().parse().unwrap_or(0);
@@ -296,7 +379,9 @@ fn parse_forest_csv(csv: &str, forest_cells: &mut Vec<ForestCell>) {
         }
         let col = idx % forest_grid;
         let row = idx / forest_grid;
+        #[allow(clippy::cast_precision_loss)]
         let x = MAP_ORIGIN + col as f64 * CELL_SIZE;
+        #[allow(clippy::cast_precision_loss)]
         let z = MAP_ORIGIN + row as f64 * CELL_SIZE;
         let density = f64::from(density_raw) / 255.0;
         forest_cells.push(ForestCell { x, z, density });
@@ -318,6 +403,7 @@ struct ParsedSeg {
 }
 
 #[derive(Default)]
+#[allow(clippy::struct_excessive_bools)]
 struct CityDataBuilder {
     // Output data
     city_name: String,
@@ -351,9 +437,9 @@ struct CityDataBuilder {
 
     // Segment parsing state
     current_seg: Option<ParsedSeg>,
-    in_seg_points: bool,        // inside Seg>Points
-    in_seg_path: bool,          // inside Seg>Path
-    in_seg_segs: bool,          // inside Seg>Path>Segs
+    in_seg_points: bool, // inside Seg>Points
+    in_seg_path: bool,   // inside Seg>Path
+    in_seg_segs: bool,   // inside Seg>Path>Segs
 
     // Transit parsing state
     in_trans: bool,
@@ -406,11 +492,12 @@ impl CityDataBuilder {
         self.in_trans
     }
 
-    #[allow(clippy::too_many_lines)]
-    fn handle_start(
-        &mut self,
-        e: &quick_xml::events::BytesStart<'_>,
-    ) -> Result<(), VellumError> {
+    #[allow(
+        clippy::too_many_lines,
+        clippy::unnecessary_wraps,
+        clippy::match_same_arms
+    )]
+    fn handle_start(&mut self, e: &quick_xml::events::BytesStart<'_>) -> Result<(), VellumError> {
         let local = e.name().local_name();
         self.pending_text.clear();
         self.text_element = TextElement::None;
@@ -525,10 +612,8 @@ impl CityDataBuilder {
         Ok(())
     }
 
-    fn handle_empty(
-        &mut self,
-        e: &quick_xml::events::BytesStart<'_>,
-    ) -> Result<(), VellumError> {
+    #[allow(clippy::unnecessary_wraps)]
+    fn handle_empty(&mut self, e: &quick_xml::events::BytesStart<'_>) -> Result<(), VellumError> {
         let local = e.name().local_name();
 
         match local.as_ref() {
@@ -545,13 +630,7 @@ impl CityDataBuilder {
                     position,
                 });
                 // Track bounds
-                if !self.has_nodes {
-                    self.min_x = x;
-                    self.max_x = x;
-                    self.min_z = z;
-                    self.max_z = z;
-                    self.has_nodes = true;
-                } else {
+                if self.has_nodes {
                     if x < self.min_x {
                         self.min_x = x;
                     }
@@ -564,6 +643,12 @@ impl CityDataBuilder {
                     if z > self.max_z {
                         self.max_z = z;
                     }
+                } else {
+                    self.min_x = x;
+                    self.max_x = x;
+                    self.min_z = z;
+                    self.max_z = z;
+                    self.has_nodes = true;
                 }
             }
 
@@ -603,7 +688,11 @@ impl CityDataBuilder {
                     .node_position_index
                     .get(&node_id)
                     .cloned()
-                    .unwrap_or(Vec3 { x: 0.0, y: 0.0, z: 0.0 });
+                    .unwrap_or(Vec3 {
+                        x: 0.0,
+                        y: 0.0,
+                        z: 0.0,
+                    });
                 self.current_trans_stops.push(TransitStop {
                     id: node_id,
                     mode,
@@ -795,44 +884,45 @@ impl CityDataBuilder {
                 self.in_trans = false;
             }
 
-            b"Buil" => {
-                if self.in_buil {
-                    let footprint = std::mem::take(&mut self.current_buil_footprint);
-                    let position = if let Some(first) = footprint.first() {
-                        first.clone()
-                    } else {
-                        eprintln!(
-                            "[parser-cslmap] Building id='{}' has empty footprint — position defaulting to origin",
-                            self.current_buil_id
-                        );
-                        Vec3 { x: 0.0, y: 0.0, z: 0.0 }
-                    };
-                    self.buildings.push(Building {
-                        id: std::mem::take(&mut self.current_buil_id),
-                        name: std::mem::take(&mut self.current_buil_name),
-                        position,
-                        item_class: std::mem::take(&mut self.current_buil_icls),
-                        footprint,
-                    });
-                    self.in_buil = false;
-                }
+            b"Buil" if self.in_buil => {
+                let footprint = std::mem::take(&mut self.current_buil_footprint);
+                let position = if let Some(first) = footprint.first() {
+                    first.clone()
+                } else {
+                    eprintln!(
+                        "[parser-cslmap] Building id='{}' has empty footprint — position defaulting to origin",
+                        self.current_buil_id
+                    );
+                    Vec3 {
+                        x: 0.0,
+                        y: 0.0,
+                        z: 0.0,
+                    }
+                };
+                self.buildings.push(Building {
+                    id: std::mem::take(&mut self.current_buil_id),
+                    name: std::mem::take(&mut self.current_buil_name),
+                    position,
+                    item_class: std::mem::take(&mut self.current_buil_icls),
+                    footprint,
+                });
+                self.in_buil = false;
             }
 
-            b"Dist" => {
-                if self.in_dist {
-                    self.districts.push(District {
-                        id: std::mem::take(&mut self.current_dist_id),
-                        name: std::mem::take(&mut self.current_dist_name),
-                        boundary: std::mem::take(&mut self.current_dist_boundary),
-                    });
-                    self.in_dist = false;
-                }
+            b"Dist" if self.in_dist => {
+                self.districts.push(District {
+                    id: std::mem::take(&mut self.current_dist_id),
+                    name: std::mem::take(&mut self.current_dist_name),
+                    boundary: std::mem::take(&mut self.current_dist_boundary),
+                });
+                self.in_dist = false;
             }
 
             _ => {}
         }
     }
 
+    #[allow(clippy::unnecessary_wraps)]
     fn build(self) -> Result<CityData, VellumError> {
         // Bounds derived from node positions; fall back to CS1 map limits if no nodes
         let bounds = if self.has_nodes {
@@ -877,35 +967,74 @@ impl CityDataBuilder {
 
 // ─── Core parse loop (no progress events) ────────────────────────────────────
 
-fn parse_inner(content: &[u8]) -> Result<CityData, VellumError> {
+fn parse_inner(content: &[u8], allow_partial: bool) -> Result<CityData, VellumError> {
     let mut reader = Reader::from_reader(content);
     reader.config_mut().trim_text(true);
 
     let mut builder = CityDataBuilder::default();
     let mut buf = Vec::new();
+    let mut has_parsed_root = false;
 
     loop {
         match reader.read_event_into(&mut buf) {
-            Ok(Event::Start(ref e)) => builder.handle_start(e)?,
-            Ok(Event::Empty(ref e)) => builder.handle_empty(e)?,
-            Ok(Event::Text(ref e)) => {
-                let text = e.unescape().map_err(|err| VellumError::InvalidFile {
-                    reason: format!(
+            Ok(Event::Start(ref e)) => {
+                has_parsed_root = true;
+                if let Err(err) = builder.handle_start(e) {
+                    if allow_partial {
+                        eprintln!("[parser-cslmap] Partial: section start error: {err}");
+                    } else {
+                        return Err(VellumError::PartialParse {
+                            warnings: vec![err.to_string()],
+                        });
+                    }
+                }
+            }
+            Ok(Event::Empty(ref e)) => {
+                has_parsed_root = true;
+                if let Err(err) = builder.handle_empty(e) {
+                    if allow_partial {
+                        eprintln!("[parser-cslmap] Partial: section empty error: {err}");
+                    } else {
+                        return Err(VellumError::PartialParse {
+                            warnings: vec![err.to_string()],
+                        });
+                    }
+                }
+            }
+            Ok(Event::Text(ref e)) => match e.unescape() {
+                Ok(text) => builder.handle_text(&text),
+                Err(err) => {
+                    let msg = format!(
                         "XML text error at position {}: {err}",
                         reader.buffer_position()
-                    ),
-                })?;
-                builder.handle_text(&text);
-            }
+                    );
+                    if allow_partial {
+                        eprintln!("[parser-cslmap] Partial: {msg}");
+                    } else if has_parsed_root {
+                        return Err(VellumError::PartialParse {
+                            warnings: vec![msg],
+                        });
+                    } else {
+                        return Err(VellumError::InvalidFile { reason: msg });
+                    }
+                }
+            },
             Ok(Event::End(ref e)) => builder.handle_end(e),
             Ok(Event::Eof) => break,
             Err(e) => {
-                return Err(VellumError::InvalidFile {
-                    reason: format!(
-                        "XML parse error at position {}: {e}",
-                        reader.buffer_position()
-                    ),
-                });
+                let msg = format!(
+                    "XML parse error at position {}: {e}",
+                    reader.buffer_position()
+                );
+                if allow_partial {
+                    eprintln!("[parser-cslmap] Partial: stopping early — {msg}");
+                    break;
+                } else if has_parsed_root {
+                    return Err(VellumError::PartialParse {
+                        warnings: vec![msg],
+                    });
+                }
+                return Err(VellumError::InvalidFile { reason: msg });
             }
             _ => {}
         }
@@ -918,6 +1047,7 @@ fn parse_inner(content: &[u8]) -> Result<CityData, VellumError> {
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
+#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
 
@@ -966,14 +1096,42 @@ mod tests {
         }
     }
 
-    // AC1 + error: corrupted.cslmap → Err(VellumError::InvalidFile)
+    // Story 2.5: corrupted.cslmap → PartialParse (XML started valid before error)
     #[test]
-    fn corrupted_cslmap_returns_invalid_file_error() {
+    fn corrupted_cslmap_returns_partial_parse_error() {
         let bytes = include_bytes!("../fixtures/corrupted.cslmap");
         let result = parse_cslmap_bytes(bytes);
         assert!(
+            matches!(result, Err(VellumError::PartialParse { .. })),
+            "expected PartialParse error (XML was partially valid before corruption), got: {result:?}"
+        );
+    }
+
+    // Story 2.5: XML that fails immediately (no root element processed) → InvalidFile
+    #[test]
+    fn totally_invalid_file_returns_invalid_file_error() {
+        // Quick-xml fails on unclosed tags before any element is opened
+        let bytes = b"<unclosed";
+        let result = parse_cslmap_bytes(bytes);
+        assert!(
             matches!(result, Err(VellumError::InvalidFile { .. })),
-            "expected InvalidFile error, got: {result:?}"
+            "expected InvalidFile error for XML that fails before root, got: {result:?}"
+        );
+    }
+
+    // Story 2.5: allow_partial mode on corrupted.cslmap → Ok with partial data
+    #[test]
+    fn allow_partial_returns_ok_with_partial_data() {
+        let bytes = include_bytes!("../fixtures/corrupted.cslmap");
+        let result = parse_cslmap_bytes_lenient(bytes);
+        assert!(
+            result.is_ok(),
+            "expected Ok in lenient mode, got: {result:?}"
+        );
+        let city = result.expect("already checked");
+        assert_eq!(
+            city.city_name, "Corrupted",
+            "city_name should be populated from the valid section before corruption"
         );
     }
 
@@ -993,10 +1151,16 @@ mod tests {
     fn deprecated_prefix_stripped_in_way_type() {
         use crate::city_data::WayType;
         let types = way_type_from_item_class("[Deprecated]Basic Road");
-        assert!(matches!(types[0], WayType::Road), "expected Road, got {types:?}");
+        assert!(
+            matches!(types[0], WayType::Road),
+            "expected Road, got {types:?}"
+        );
 
         let types = way_type_from_item_class("[Deprecated]Highway");
-        assert!(matches!(types[0], WayType::Highway), "expected Highway, got {types:?}");
+        assert!(
+            matches!(types[0], WayType::Highway),
+            "expected Highway, got {types:?}"
+        );
     }
 
     #[test]
@@ -1020,12 +1184,17 @@ mod tests {
 
         // "Medium Road Elevated" → [Road, Elevated]
         let elevated = way_type_from_item_class("Medium Road Elevated");
-        assert!(elevated.iter().any(|t| matches!(t, WayType::Elevated)),
-            "expected Elevated flag in {elevated:?}");
+        assert!(
+            elevated.iter().any(|t| matches!(t, WayType::Elevated)),
+            "expected Elevated flag in {elevated:?}"
+        );
 
         // Truly unknown (no road/highway/pedestrian/bicycle keyword) → [None]
         let unknown = way_type_from_item_class("Electricity Wire");
-        assert!(matches!(unknown[0], WayType::None), "expected None, got {unknown:?}");
+        assert!(
+            matches!(unknown[0], WayType::None),
+            "expected None, got {unknown:?}"
+        );
     }
 
     // Terrain CSV parsing: land vs water classification
@@ -1047,9 +1216,15 @@ mod tests {
         // Generate 1081*1081 + 5 entries; all elevation=300 (above sea_level=100)
         let entry = "300:0";
         let total = 1081 * 1081 + 5;
-        let csv = std::iter::repeat(entry).take(total).collect::<Vec<_>>().join(",");
+        let csv = std::iter::repeat_n(entry, total)
+            .collect::<Vec<_>>()
+            .join(",");
         parse_terrain_csv(&csv, 100.0, &mut land, &mut water);
-        assert_eq!(land.len(), 1081 * 1081, "overflow entries must be discarded");
+        assert_eq!(
+            land.len(),
+            1081 * 1081,
+            "overflow entries must be discarded"
+        );
     }
 
     // Color hex conversion — 8-digit format with alpha
@@ -1085,12 +1260,13 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // requires large fixture; run manually with cargo test -- --ignored
+    #[ignore = "requires large fixture; run manually with cargo test -- --ignored"]
     fn perf_10mb_file() {
         let path = concat!(env!("CARGO_MANIFEST_DIR"), "/fixtures/large-city.cslmap");
-        if !std::path::Path::new(path).exists() {
-            panic!("Fixture not found: {path}. Create a ~10MB .cslmap file to enable this benchmark.");
-        }
+        assert!(
+            std::path::Path::new(path).exists(),
+            "Fixture not found: {path}. Create a ~10MB .cslmap file to enable this benchmark."
+        );
         let bytes = std::fs::read(path).expect("read file");
         let start = std::time::Instant::now();
         let _ = parse_cslmap_bytes(&bytes); // BOM stripped internally
@@ -1124,7 +1300,10 @@ mod tests {
         assert_eq!(city.city_name, "Altavento");
         assert!(city.road_nodes.len() > 1000, "expected many nodes");
         assert!(city.road_segments.len() > 1000, "expected many segments");
-        let has_bus_line = city.road_segments.iter().any(|s| s.item_class == "Bus Line");
+        let has_bus_line = city
+            .road_segments
+            .iter()
+            .any(|s| s.item_class == "Bus Line");
         assert!(!has_bus_line, "Bus Line must not be in road_segments");
     }
 }

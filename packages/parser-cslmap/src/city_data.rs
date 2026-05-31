@@ -56,7 +56,7 @@ pub struct LandTile {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct WaterTile {
-    /// Depth approximated as (sea_level_raw - elevation_raw).
+    /// Depth approximated as (`sea_level_raw` - `elevation_raw`).
     pub depth: f64,
     /// X-coordinate in world space, derived from grid index.
     pub x: f64,
@@ -71,8 +71,8 @@ pub struct RoadNode {
     pub position: Vec3,
 }
 
-/// Serializes as PascalCase (default serde behavior) to match the TypeScript union.
-/// Keep this enum in PascalCase — do not add #[serde(rename_all)].
+/// Serializes as `PascalCase` (default serde behavior) to match the TypeScript union.
+/// Keep this enum in `PascalCase` — do not add #[`serde(rename_all)`].
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum WayType {
     Road,
@@ -92,7 +92,7 @@ pub struct RoadSegment {
     pub id: String,
     pub start_node_id: String,
     pub end_node_id: String,
-    /// WayType classifications. Empty for real CSLExportXML segments (no WayType element).
+    /// `WayType` classifications. Empty for real `CSLExportXML` segments (no `WayType` element).
     pub way_type: Vec<WayType>,
     pub item_class: String,
     pub width: f64,
@@ -169,6 +169,7 @@ pub struct District {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
 
@@ -189,8 +190,7 @@ mod tests {
         let json =
             serde_json::to_value(TransitMode::CableCar).expect("serialization must not fail");
         assert_eq!(json, "CableCar");
-        let json =
-            serde_json::to_value(TransitMode::Unknown).expect("serialization must not fail");
+        let json = serde_json::to_value(TransitMode::Unknown).expect("serialization must not fail");
         assert_eq!(json, "Unknown");
     }
 
@@ -203,7 +203,11 @@ mod tests {
             way_type: vec![WayType::Road, WayType::Elevated],
             item_class: "Basic Road".to_string(),
             width: 16.0,
-            points: vec![Vec3 { x: 1.0, y: 2.0, z: 3.0 }],
+            points: vec![Vec3 {
+                x: 1.0,
+                y: 2.0,
+                z: 3.0,
+            }],
         };
         let json = serde_json::to_value(&segment).expect("serialization must not fail");
         assert_eq!(json["wayType"][0], "Road");
