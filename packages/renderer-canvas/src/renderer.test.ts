@@ -1,7 +1,8 @@
 // packages/renderer-canvas/src/renderer.test.ts
-// Primer test TypeScript — verifica la infraestructura de Vitest y las factories de @vellum/core/testing
 import { describe, it, expect } from 'vitest';
 import { makeCityData } from '@vellum/core/testing';
+import type { IRenderer } from '@vellum/core';
+import { CanvasRenderer } from './renderer';
 
 describe('CityData factory', () => {
   it('creates a valid minimal CityData', () => {
@@ -22,5 +23,21 @@ describe('CityData factory', () => {
     expect(cityData.cityName).toBe('Mi Ciudad');
     // Otros campos mantienen sus defaults
     expect(cityData.bounds.seaLevel).toBe(40);
+  });
+});
+
+describe('CanvasRenderer', () => {
+  it('instancia sin errores', () => {
+    const renderer = new CanvasRenderer();
+    expect(renderer).toBeDefined();
+    renderer.dispose();
+  });
+
+  it('implementa el contrato IRenderer', () => {
+    const renderer: IRenderer = new CanvasRenderer();
+    expect(typeof renderer.render).toBe('function');
+    expect(typeof renderer.updateViewport).toBe('function');
+    expect(typeof renderer.resize).toBe('function');
+    expect(typeof renderer.dispose).toBe('function');
   });
 });
