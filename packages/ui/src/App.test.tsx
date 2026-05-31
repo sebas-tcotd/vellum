@@ -73,6 +73,21 @@ describe('App — renderizado condicional', () => {
     expect(screen.queryByTestId('progress-bar')).toBeNull();
   });
 
+  it('muestra EmptyState cuando loadingState es error (no pantalla en blanco)', async () => {
+    await act(async () => {
+      render(<App />);
+    });
+
+    act(() => {
+      useVellumStore
+        .getState()
+        .setLoadingState('error', { type: 'IoError', reason: 'fail' });
+    });
+
+    expect(screen.getByTestId('empty-state')).toBeDefined();
+    expect(screen.queryByTestId('progress-bar')).toBeNull();
+  });
+
   it('el canvas wrapper tiene opacity-0 cuando no hay cityData', async () => {
     await act(async () => {
       render(<App />);

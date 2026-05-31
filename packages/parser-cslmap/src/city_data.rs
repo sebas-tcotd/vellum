@@ -43,16 +43,24 @@ pub struct CityData {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct LandTile {
+    /// Raw elevation value from the terrain CSV (not in game-unit meters).
     pub elevation: f64,
+    /// Raw resolution (surface) value from the terrain CSV.
+    pub resolution: u32,
+    /// X-coordinate in world space, derived from grid index (origin -8640, step 16).
     pub x: f64,
+    /// Z-coordinate in world space, derived from grid index (origin -8640, step 16).
     pub z: f64,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct WaterTile {
+    /// Depth approximated as (sea_level_raw - elevation_raw).
     pub depth: f64,
+    /// X-coordinate in world space, derived from grid index.
     pub x: f64,
+    /// Z-coordinate in world space, derived from grid index.
     pub z: f64,
 }
 
@@ -84,9 +92,12 @@ pub struct RoadSegment {
     pub id: String,
     pub start_node_id: String,
     pub end_node_id: String,
+    /// WayType classifications. Empty for real CSLExportXML segments (no WayType element).
     pub way_type: Vec<WayType>,
     pub item_class: String,
     pub width: f64,
+    /// Bezier control points from the segment's `<Points>` element.
+    pub points: Vec<Vec3>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -133,6 +144,9 @@ pub struct PathSegment {
 #[serde(rename_all = "camelCase")]
 pub struct Building {
     pub id: String,
+    /// Asset name as exported from the game.
+    pub name: String,
+    /// Anchor position derived from the first footprint point.
     pub position: Vec3,
     pub item_class: String,
     pub footprint: Vec<Vec3>,
@@ -189,9 +203,13 @@ mod tests {
             way_type: vec![WayType::Road, WayType::Elevated],
             item_class: "Basic Road".to_string(),
             width: 16.0,
+            points: vec![Vec3 { x: 1.0, y: 2.0, z: 3.0 }],
         };
         let json = serde_json::to_value(&segment).expect("serialization must not fail");
         assert_eq!(json["wayType"][0], "Road");
         assert_eq!(json["wayType"][1], "Elevated");
+        assert_eq!(json["points"][0]["x"], 1.0);
+        assert_eq!(json["points"][0]["y"], 2.0);
+        assert_eq!(json["points"][0]["z"], 3.0);
     }
 }

@@ -1,40 +1,82 @@
-﻿<?xml version="1.0" encoding="UTF-8"?>
-<VellumMap CityName="Debug City" FileName="with-transit-paths-debug" GeneratedAt="2026-01-01T00:00:00Z">
-  <Bounds minX="-500.0" maxX="500.0" minZ="-500.0" maxZ="500.0" seaLevel="40.0"/>
-  <Terrain>
-    <LandTile x="0.0" z="0.0" elevation="45.0"/>
-  </Terrain>
+<?xml version="1.0" encoding="utf-8"?>
+<CSLExportXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns:xsd="http://www.w3.org/2001/XMLSchema" version="4.1">
+  <City>Debug City</City>
+  <Generated>1/1/2026 12:00:00 AM</Generated>
+  <SeaLevel>100</SeaLevel>
   <Nodes>
-    <Node id="1" x="0.0" y="45.0" z="0.0"/>
-    <Node id="2" x="100.0" y="45.0" z="0.0"/>
-    <Node id="3" x="200.0" y="45.0" z="0.0"/>
+    <Node id="1" elev="0" ug="false" og="true" srv="Road" subsrv="None" dist="0">
+      <Pos x="0.0" y="120.0" z="0.0" />
+    </Node>
+    <Node id="2" elev="0" ug="false" og="true" srv="Road" subsrv="None" dist="0">
+      <Pos x="100.0" y="120.0" z="0.0" />
+    </Node>
+    <Node id="3" elev="0" ug="false" og="true" srv="Road" subsrv="None" dist="0">
+      <Pos x="200.0" y="120.0" z="0.0" />
+    </Node>
+    <Node id="4" elev="0" ug="false" og="true" srv="Road" subsrv="None" dist="0">
+      <Pos x="300.0" y="120.0" z="0.0" />
+    </Node>
+    <Node id="10" elev="0" ug="false" og="true" srv="PublicTransport" subsrv="None" dist="0">
+      <Pos x="0.0" y="120.0" z="0.0" />
+    </Node>
+    <Node id="11" elev="0" ug="false" og="true" srv="PublicTransport" subsrv="None" dist="0">
+      <Pos x="300.0" y="120.0" z="0.0" />
+    </Node>
   </Nodes>
   <Segments>
-    <Segment id="101" startNodeId="1" endNodeId="2" icls="Basic Road" width="16.0">
-      <WayType>[Deprecated]Road</WayType>
-    </Segment>
-    <Segment id="102" startNodeId="2" endNodeId="3" icls="Basic Road" width="16.0">
-      <WayType>[Deprecated]Road</WayType>
-    </Segment>
-    <Segment id="201" startNodeId="1" endNodeId="3" icls="Bus Line" width="2.0">
-      <Path>
+    <Seg id="101" sn="1" en="2" icls="Basic Road" width="16.0">
+      <Name>Basic Road</Name>
+      <Points>
+        <P x="0.0" y="120.0" z="0.0" />
+        <P x="100.0" y="120.0" z="0.0" />
+      </Points>
+    </Seg>
+    <Seg id="102" sn="2" en="3" icls="Basic Road" width="16.0">
+      <Name>Basic Road</Name>
+      <Points>
+        <P x="100.0" y="120.0" z="0.0" />
+        <P x="200.0" y="120.0" z="0.0" />
+      </Points>
+    </Seg>
+    <Seg id="103" sn="3" en="4" icls="Basic Road" width="16.0">
+      <Name>Basic Road</Name>
+      <Points>
+        <P x="200.0" y="120.0" z="0.0" />
+        <P x="300.0" y="120.0" z="0.0" />
+      </Points>
+    </Seg>
+    <Seg id="201" sn="10" en="11" icls="Bus Line" width="2.0">
+      <Name>Bus Line</Name>
+      <Points>
+        <P x="0.0" y="120.0" z="0.0" />
+        <P x="300.0" y="120.0" z="0.0" />
+      </Points>
+      <Path id="9001">
         <Segs>
           <Sg>101</Sg>
           <Sg>101</Sg>
           <Sg>102</Sg>
+          <Sg>103</Sg>
         </Segs>
       </Path>
-    </Segment>
+    </Seg>
   </Segments>
-  <TransitLines>
-    <Line id="L1" name="Bus Route 1" mode="Bus" color="#FF6600">
+  <Terrains>
+    <Ter>6800:10000,6800:10000</Ter>
+  </Terrains>
+  <Buildings />
+  <Forests>
+    <Forest>0,0</Forest>
+  </Forests>
+  <Districts />
+  <Transports>
+    <Trans id="L1" name="Bus Route 1" type="Bus">
+      <color a="255" r="255" g="102" b="0" />
       <Stops>
-        <Stop id="S1" x="0.0" y="45.0" z="0.0" name="Start Terminal"/>
-        <Stop id="S2" x="200.0" y="45.0" z="0.0" name="End Terminal"/>
+        <Stop node="10" />
+        <Stop node="11" />
       </Stops>
-    </Line>
-  </TransitLines>
-  <Buildings/>
-  <ForestCells/>
-  <Districts/>
-</VellumMap>
+    </Trans>
+  </Transports>
+</CSLExportXML>

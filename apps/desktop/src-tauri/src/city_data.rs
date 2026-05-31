@@ -36,6 +36,7 @@ mod tests {
             way_type: vec![WayType::Road, WayType::Elevated],
             item_class: "Basic Road".to_string(),
             width: 16.0,
+            points: vec![],
         };
         let json = serde_json::to_value(&segment).expect("serialization must not fail");
         assert_eq!(json["wayType"][0], "Road");

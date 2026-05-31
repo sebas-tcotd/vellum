@@ -52,7 +52,9 @@ export function useParseCslmap() {
         setCityData(cityData); // also sets loadingState: 'idle' and clears error
       } catch (err) {
         if (useVellumStore.getState().loadRequestId !== requestId) return;
-        setLoadingState('error', toVellumError(err));
+        const vellumErr = toVellumError(err);
+        console.error('[useParseCslmap] Parse error:', vellumErr);
+        setLoadingState('error', vellumErr);
       }
     },
     [incrementLoadRequestId, setCityData, setLoadingState],

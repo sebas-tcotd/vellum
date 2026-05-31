@@ -71,7 +71,9 @@ export function App({ loadFile, openFileDialog = noop }: AppProps) {
 
   // EmptyState es overlay sobre CanvasRoot — CanvasRoot siempre montado para
   // no perder el contexto canvas al cargar un mapa (Story 2.4 añadirá la transición)
-  const showEmptyState = loadingState === 'idle' && cityData === null;
+  // Show EmptyState when there's no city to display — covers both idle (no file loaded)
+  // and error (parse failed) states. Never show during active loading.
+  const showEmptyState = cityData === null && loadingState !== 'loading';
 
   return (
     <Suspense fallback={null}>
@@ -86,6 +88,14 @@ export function App({ loadFile, openFileDialog = noop }: AppProps) {
         </div>
         {showEmptyState && <EmptyState />}
         {loadingState === 'loading' && <ProgressBar />}
+        {cityData && loadingState === 'idle' && (
+          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
+            <div className="rounded-xl bg-black/75 px-5 py-3 text-sm text-white shadow-lg backdrop-blur-sm">
+              Genial! el parser Rust ha completado su tarea con éxito. El
+              renderizado ocurrirá pronto (stay tuned!) 😉
+            </div>
+          </div>
+        )}
       </div>
     </Suspense>
   );

@@ -17,12 +17,18 @@ pub fn classify_by_width(width: f64) -> RoadHierarchy {
 }
 
 /// Returns true for ItemClass values known to the base game and major DLCs.
+/// Sources: CS1 base game + Snowfall, After Dark, Mass Transit, etc.
 pub fn is_known_item_class(item_class: &str) -> bool {
     matches!(
         item_class,
+        // Roads — base game
         "Basic Road"
             | "Basic Road Elevated"
             | "Basic Road Underground"
+            | "Basic Road Bridge"
+            | "Small Road"
+            | "Small Road Elevated"
+            | "Small Road Underground"
             | "Medium Road"
             | "Medium Road Elevated"
             | "Medium Road Underground"
@@ -31,23 +37,37 @@ pub fn is_known_item_class(item_class: &str) -> bool {
             | "Large Road Underground"
             | "Highway"
             | "Highway Ramp"
+            | "Highway Elevated"
             | "Highway Barrier"
+            // Pedestrian
+            | "Pedestrian Way"
+            | "Pedestrian Path"
+            // Transit infrastructure
             | "Bus Line"
+            | "Tram Line"
             | "Tram Track"
             | "Tram Track Elevated"
             | "Train Track"
             | "Train Track Elevated"
             | "Metro Track"
             | "Metro Track Elevated"
-            | "Ferry Line"
             | "Monorail Track"
+            | "Monorail Track Elevated"
             | "Cable Car Line"
+            | "Ferry Line"
+            // Utility
+            | "Electricity Wire"
+            | "Dam Node"
+            // Landscaping / service
             | "Alley Road"
             | "Gravel Road"
             | "Landscaping Canal"
             | "Landscaping Flood Wall"
+            // Invisible / virtual paths
             | "Airplane Path"
             | "Ship Path"
+            // Beautification (buildings, not roads — filtered at render time)
+            | "Beautification Item"
     )
 }
 
