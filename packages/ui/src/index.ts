@@ -13,5 +13,6 @@ export { AppMetaProvider } from './context/AppMetaContext';
 export { initI18n } from './i18n/i18n-setup';
 export { Button, buttonVariants } from './lib/button';
 export type { ButtonProps } from './lib/button';
+export { ProgressBar } from './components/overlays/ProgressBar';
 export { cn } from './lib/utils';
 export { useVellumStore } from './store/vellum-store';

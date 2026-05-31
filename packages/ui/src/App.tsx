@@ -2,8 +2,10 @@
 import { Suspense, useEffect, useState } from 'react';
 import { CanvasRoot } from './components/canvas/CanvasRoot';
 import { EmptyState } from './components/empty-state/EmptyState';
+import { ProgressBar } from './components/overlays/ProgressBar';
 import { initI18n } from './i18n/i18n-setup';
 import { useKeyboardShortcuts } from './hooks/use-keyboard-shortcuts';
+import { cn } from './lib/utils';
 
 /**
  * Global type augmentation for i18next.
@@ -74,9 +76,16 @@ export function App({ loadFile, openFileDialog = noop }: AppProps) {
   return (
     <Suspense fallback={null}>
       <div style={{ width: '100vw', height: '100vh' }}>
-        <CanvasRoot loadFile={loadFile} />
+        <div
+          className={cn(
+            'absolute inset-0 transition-opacity duration-500',
+            cityData ? 'opacity-100' : 'opacity-0',
+          )}
+        >
+          <CanvasRoot loadFile={loadFile} />
+        </div>
         {showEmptyState && <EmptyState />}
-        {/* Story 2.4: <ProgressReveal /> se añade aquí */}
+        {loadingState === 'loading' && <ProgressBar />}
       </div>
     </Suspense>
   );

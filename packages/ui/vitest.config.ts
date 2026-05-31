@@ -18,6 +18,10 @@ export default mergeConfig(
           replacement: path.resolve(__dirname, '../core/src/testing/index.ts'),
         },
         {
+          find: /^@\//,
+          replacement: path.resolve(__dirname, 'src') + '/',
+        },
+        {
           find: '@vellum/core',
           replacement: path.resolve(__dirname, '../core/src/index.ts'),
         },
