@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup } from '../../test-utils';
 import { act } from 'react';
 import { ProgressBar } from './ProgressBar';
@@ -7,8 +7,13 @@ vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));
 
+const mockUseProgressEvents = vi.fn(() => ({
+  percent: 42,
+  listenError: false,
+}));
+
 vi.mock('../../hooks/use-progress-events', () => ({
-  useProgressEvents: () => ({ percent: 42 }),
+  useProgressEvents: () => mockUseProgressEvents(),
 }));
 
 // Mock @radix-ui/react-progress para entorno jsdom
@@ -29,6 +34,11 @@ vi.mock('@radix-ui/react-progress', () => ({
 
 beforeEach(() => {
   cleanup();
+  mockUseProgressEvents.mockReturnValue({ percent: 42, listenError: false });
+});
+
+afterEach(() => {
+  vi.clearAllMocks();
 });
 
 describe('ProgressBar', () => {
@@ -73,5 +83,14 @@ describe('ProgressBar', () => {
       .getByRole('progressbar')
       .closest('.pointer-events-none');
     expect(container).toBeDefined();
+  });
+
+  it('no renderiza nada cuando listenError es true', async () => {
+    mockUseProgressEvents.mockReturnValue({ percent: 0, listenError: true });
+    let container!: ReturnType<typeof render>['container'];
+    await act(async () => {
+      ({ container } = render(<ProgressBar />));
+    });
+    expect(container.firstChild).toBeNull();
   });
 });
