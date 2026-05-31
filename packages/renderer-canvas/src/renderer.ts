@@ -11,6 +11,7 @@ export class CanvasRenderer implements IRenderer {
   render(_cityData: CityData, _params: RenderParams): void {
     // Story 3.2+ implementa capas reales.
     // tokens disponibles como this.tokens — sin hardcoding de colores.
+    // void evita el error no-unused-private-class-members hasta que render tenga implementación real.
     void this.tokens;
   }
 

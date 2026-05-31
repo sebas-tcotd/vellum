@@ -39,5 +39,6 @@ describe('CanvasRenderer', () => {
     expect(typeof renderer.updateViewport).toBe('function');
     expect(typeof renderer.resize).toBe('function');
     expect(typeof renderer.dispose).toBe('function');
+    renderer.dispose();
   });
 });
