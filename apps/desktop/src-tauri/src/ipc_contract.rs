@@ -31,3 +31,15 @@ pub struct UpdatePayload {
     /// The URL pointing to the release notes or the direct download page.
     pub url: String,
 }
+
+/// Payload structure for the `vellum://parse-warnings` event emitted when DLC or mod assets
+/// are not recognized and rendered with a generic fallback representation.
+///
+/// **CRITICAL RULE (IPC Contract):** This struct is an exact mirror of the `ParseWarningsPayload`
+/// interface defined in `@vellum/core/ipc-contract.ts`. It serializes to `camelCase` JSON.
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ParseWarningsPayload {
+    /// List of human-readable warning messages for each unrecognized asset.
+    pub warnings: Vec<String>,
+}

@@ -23,8 +23,14 @@ void getCurrentWindow().listen('tauri://drag-enter', () => {
  * Keeps `@vellum/ui` free of direct Tauri runtime dependencies.
  */
 function AppShell() {
-  const { loadFile, openFileDialog } = useParseCslmap();
-  return <App loadFile={loadFile} openFileDialog={openFileDialog} />;
+  const { loadFile, openFileDialog, loadFilePartial } = useParseCslmap();
+  return (
+    <App
+      loadFile={loadFile}
+      openFileDialog={openFileDialog}
+      loadFilePartial={loadFilePartial}
+    />
+  );
 }
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(

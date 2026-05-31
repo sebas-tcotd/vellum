@@ -15,7 +15,10 @@
     "UnsupportedVersion": "This map was exported with an unsupported version ({{found}}).",
     "PartialParse": "Map loaded with warnings. Some elements may not display correctly.",
     "ExportFailed": "Export failed. Check that the destination folder is writable.",
-    "IoError": "File access error. The file may have been moved or deleted."
+    "IoError": "File access error. The file may have been moved or deleted.",
+    "partialParseTitle": "File loaded with issues",
+    "partialParseDescription": "This file has some corrupted sections. You can try rendering the data that could be read, or cancel and try another file.",
+    "tryPartialRender": "Try partial render"
   },
   "layers": {
     "terrain": "Terrain",
@@ -65,7 +68,12 @@
   "toasts": {
     "cityLoaded": "{{cityName}} loaded",
     "partialLoad": "Some elements (DLC or mods) displayed in simplified form.",
+    "partialDataWarning": "Map partially loaded. Some sections could not be read.",
     "tabHint": "Tab · focus mode"
+  },
+  "common": {
+    "cancel": "Cancel",
+    "close": "Close"
   },
   "a11y": {
     "mapCanvas": "City map canvas",

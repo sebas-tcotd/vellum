@@ -55,13 +55,16 @@ pub struct ExportResult {
 #[tauri::command]
 pub async fn parse_cslmap(
     file_path: String,
+    allow_partial: bool,
     app_handle: tauri::AppHandle,
 ) -> Result<CityData, VellumError> {
-    tokio::task::spawn_blocking(move || parse_cslmap_file(&file_path, &app_handle))
-        .await
-        .map_err(|e| VellumError::IoError {
-            reason: format!("Parser task failed: {}", e),
-        })?
+    tokio::task::spawn_blocking(move || {
+        parse_cslmap_file(&file_path, &app_handle, allow_partial)
+    })
+    .await
+    .map_err(|e| VellumError::IoError {
+        reason: format!("Parser task failed: {}", e),
+    })?
 }
 
 /// Exports the current map rendering state to a rasterized PNG image.

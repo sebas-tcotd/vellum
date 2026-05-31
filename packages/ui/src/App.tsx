@@ -3,6 +3,9 @@ import { Suspense, useEffect, useState } from 'react';
 import { CanvasRoot } from './components/canvas/CanvasRoot';
 import { EmptyState } from './components/empty-state/EmptyState';
 import { ProgressBar } from './components/overlays/ProgressBar';
+import { ErrorToast } from './components/overlays/ErrorToast';
+import { PartialParseDialog } from './components/overlays/PartialParseDialog';
+import { DlcWarningToast } from './components/overlays/DlcWarningToast';
 import { initI18n } from './i18n/i18n-setup';
 import { useKeyboardShortcuts } from './hooks/use-keyboard-shortcuts';
 import { cn } from './lib/utils';
@@ -30,6 +33,8 @@ export interface AppProps {
   loadFile?: (filePath: string) => Promise<void>;
   /** Opens the OS file picker. Injected from the Tauri composition root. */
   openFileDialog?: () => Promise<void>;
+  /** Retries the last file with allow_partial=true. Injected from the Tauri composition root. */
+  loadFilePartial?: () => Promise<void>;
 }
 
 /**
@@ -48,11 +53,21 @@ export interface AppProps {
  * cuando `loadingState === 'idle'` y `cityData === null`. `CanvasRoot` permanece siempre
  * montado para preservar el contexto canvas al cargar un mapa.
  */
-export function App({ loadFile, openFileDialog = noop }: AppProps) {
+export function App({
+  loadFile,
+  openFileDialog = noop,
+  loadFilePartial = noop,
+}: AppProps) {
   const [i18nReady, setI18nReady] = useState(false);
   const syncActiveLanguage = useVellumStore((s) => s.syncActiveLanguage);
   const cityData = useVellumStore((s) => s.cityData);
   const loadingState = useVellumStore((s) => s.loadingState);
+  const loadingError = useVellumStore((s) => s.loadingError);
+  const dlcWarnings = useVellumStore((s) => s.dlcWarnings);
+  const hasPartialData = useVellumStore((s) => s.hasPartialData);
+  const setLoadingState = useVellumStore((s) => s.setLoadingState);
+  const setDlcWarnings = useVellumStore((s) => s.setDlcWarnings);
+  const setHasPartialData = useVellumStore((s) => s.setHasPartialData);
 
   useKeyboardShortcuts({
     onOpenFile: openFileDialog,
@@ -70,10 +85,23 @@ export function App({ loadFile, openFileDialog = noop }: AppProps) {
   if (!i18nReady) return null;
 
   // EmptyState es overlay sobre CanvasRoot — CanvasRoot siempre montado para
-  // no perder el contexto canvas al cargar un mapa (Story 2.4 añadirá la transición)
+  // no perder el contexto canvas al cargar un mapa.
   // Show EmptyState when there's no city to display — covers both idle (no file loaded)
   // and error (parse failed) states. Never show during active loading.
   const showEmptyState = cityData === null && loadingState !== 'loading';
+
+  const showPartialParseDialog =
+    loadingState === 'error' && loadingError?.type === 'PartialParse';
+
+  const showErrorToast =
+    loadingState === 'error' &&
+    loadingError != null &&
+    loadingError.type !== 'PartialParse';
+
+  const showDlcWarningToast =
+    cityData !== null &&
+    loadingState === 'idle' &&
+    (dlcWarnings.length > 0 || hasPartialData);
 
   return (
     <Suspense fallback={null}>
@@ -89,13 +117,27 @@ export function App({ loadFile, openFileDialog = noop }: AppProps) {
         </div>
         {showEmptyState && <EmptyState />}
         {loadingState === 'loading' && <ProgressBar />}
-        {cityData && loadingState === 'idle' && (
-          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
-            <div className="rounded-xl bg-black/75 px-5 py-3 text-sm text-white shadow-lg backdrop-blur-sm">
-              Genial! el parser Rust ha completado su tarea con éxito. El
-              renderizado ocurrirá pronto (stay tuned!) 😉
-            </div>
-          </div>
+        {showPartialParseDialog && loadingError?.type === 'PartialParse' && (
+          <PartialParseDialog
+            error={loadingError}
+            onPartialRender={loadFilePartial}
+            onCancel={() => setLoadingState('idle')}
+          />
+        )}
+        {showErrorToast && loadingError != null && (
+          <ErrorToast
+            error={loadingError}
+            onDismiss={() => setLoadingState('idle')}
+          />
+        )}
+        {showDlcWarningToast && (
+          <DlcWarningToast
+            isPartialData={hasPartialData}
+            onDismiss={() => {
+              setDlcWarnings([]);
+              setHasPartialData(false);
+            }}
+          />
         )}
       </div>
     </Suspense>

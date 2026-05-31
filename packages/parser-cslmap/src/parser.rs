@@ -21,17 +21,31 @@ struct ProgressPayload {
     percent: f32,
 }
 
+// ─── Parse warnings payload (mirrors ipc_contract.rs in src-tauri) ────────────
+
+#[derive(serde::Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct ParseWarningsPayload {
+    warnings: Vec<String>,
+}
+
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 /// Reads a `.cslmap` file from disk, strips the UTF-8 BOM, emits Tauri progress
-/// events, and delegates to `parse_cslmap_bytes`.
+/// and parse-warnings events, and runs the XML parser.
+///
+/// When `allow_partial` is false (normal mode), recoverable section errors produce
+/// `VellumError::PartialParse`. When true (lenient mode), those errors are swallowed
+/// and the parser returns whatever data was successfully built.
 ///
 /// # Errors
 /// Returns `VellumError::IoError` if the file cannot be read.
-/// Returns `VellumError::InvalidFile` for malformed XML.
+/// Returns `VellumError::InvalidFile` for XML that is entirely unreadable.
+/// Returns `VellumError::PartialParse` for XML valid at root level but with damaged sections.
 pub fn parse_cslmap_file(
     path: &str,
     app_handle: &tauri::AppHandle,
+    allow_partial: bool,
 ) -> Result<CityData, VellumError> {
     emit_progress(app_handle, "reading", 0.0);
 
@@ -47,24 +61,35 @@ pub fn parse_cslmap_file(
     };
 
     let total_len = content.len();
-    let result = parse_inner_with_progress(content, total_len, app_handle)?;
+    let result = parse_inner_with_progress(content, total_len, app_handle, allow_partial)?;
 
     emit_progress(app_handle, "done", 100.0);
     Ok(result)
 }
 
-/// Pure parsing function: accepts raw bytes (BOM stripped automatically), no AppHandle required.
-/// Used directly by unit tests.
+/// Pure parsing function (no AppHandle, no allow_partial): used directly by unit tests.
 ///
 /// # Errors
-/// Returns `VellumError::InvalidFile` for malformed XML.
+/// Returns `VellumError::InvalidFile` for completely unreadable XML.
+/// Returns `VellumError::PartialParse` for XML valid at root but with damaged sections.
 pub fn parse_cslmap_bytes(content: &[u8]) -> Result<CityData, VellumError> {
     let content = if content.starts_with(b"\xEF\xBB\xBF") {
         &content[3..]
     } else {
         content
     };
-    parse_inner(content)
+    parse_inner(content, false)
+}
+
+/// Lenient variant of `parse_cslmap_bytes` for testing partial-parse mode.
+/// Swallows recoverable section errors and returns whatever data was built.
+pub fn parse_cslmap_bytes_lenient(content: &[u8]) -> Result<CityData, VellumError> {
+    let content = if content.starts_with(b"\xEF\xBB\xBF") {
+        &content[3..]
+    } else {
+        content
+    };
+    parse_inner(content, true)
 }
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
@@ -85,6 +110,7 @@ fn parse_inner_with_progress(
     content: &[u8],
     total_len: usize,
     app_handle: &tauri::AppHandle,
+    allow_partial: bool,
 ) -> Result<CityData, VellumError> {
     let mut reader = Reader::from_reader(content);
     reader.config_mut().trim_text(true);
@@ -92,29 +118,71 @@ fn parse_inner_with_progress(
     let mut builder = CityDataBuilder::default();
     let mut buf = Vec::new();
     let mut last_pct: i32 = -1;
+    let mut has_parsed_root = false;
+    let mut partial_errors: Vec<String> = Vec::new();
 
     loop {
         match reader.read_event_into(&mut buf) {
-            Ok(Event::Start(ref e)) => builder.handle_start(e)?,
-            Ok(Event::Empty(ref e)) => builder.handle_empty(e)?,
+            Ok(Event::Start(ref e)) => {
+                has_parsed_root = true;
+                if let Err(err) = builder.handle_start(e) {
+                    if allow_partial {
+                        partial_errors.push(err.to_string());
+                    } else {
+                        return Err(VellumError::PartialParse {
+                            warnings: vec![err.to_string()],
+                        });
+                    }
+                }
+            }
+            Ok(Event::Empty(ref e)) => {
+                has_parsed_root = true;
+                if let Err(err) = builder.handle_empty(e) {
+                    if allow_partial {
+                        partial_errors.push(err.to_string());
+                    } else {
+                        return Err(VellumError::PartialParse {
+                            warnings: vec![err.to_string()],
+                        });
+                    }
+                }
+            }
             Ok(Event::Text(ref e)) => {
-                let text = e.unescape().map_err(|err| VellumError::InvalidFile {
-                    reason: format!(
-                        "XML text error at position {}: {err}",
-                        reader.buffer_position()
-                    ),
-                })?;
-                builder.handle_text(&text);
+                match e.unescape() {
+                    Ok(text) => builder.handle_text(&text),
+                    Err(err) => {
+                        let msg = format!(
+                            "XML text error at position {}: {err}",
+                            reader.buffer_position()
+                        );
+                        if allow_partial {
+                            partial_errors.push(msg);
+                        } else if has_parsed_root {
+                            return Err(VellumError::PartialParse {
+                                warnings: vec![msg],
+                            });
+                        } else {
+                            return Err(VellumError::InvalidFile { reason: msg });
+                        }
+                    }
+                }
             }
             Ok(Event::End(ref e)) => builder.handle_end(e),
             Ok(Event::Eof) => break,
             Err(e) => {
-                return Err(VellumError::InvalidFile {
-                    reason: format!(
-                        "XML parse error at position {}: {e}",
-                        reader.buffer_position()
-                    ),
-                });
+                let msg = format!(
+                    "XML parse error at position {}: {e}",
+                    reader.buffer_position()
+                );
+                if allow_partial {
+                    // Stop parsing but continue to build with what we have
+                    partial_errors.push(msg);
+                    break;
+                } else if has_parsed_root {
+                    return Err(VellumError::PartialParse { warnings: vec![msg] });
+                } else {
+                    return Err(VellumError::InvalidFile { reason: msg });
+                }
             }
             _ => {}
         }
@@ -130,6 +198,20 @@ fn parse_inner_with_progress(
         }
     }
 
+    // Emit DLC warnings event (before consuming builder)
+    let warnings_to_emit = builder.warnings.clone();
+    if !warnings_to_emit.is_empty() {
+        if let Err(e) = app_handle.emit(
+            "vellum://parse-warnings",
+            ParseWarningsPayload {
+                warnings: warnings_to_emit,
+            },
+        ) {
+            eprintln!("[parser-cslmap] Failed to emit parse-warnings: {e}");
+        }
+    }
+
+    let _ = partial_errors; // already captured in PartialParse path or logged via eprintln
     builder.build()
 }
 
@@ -877,35 +959,73 @@ impl CityDataBuilder {
 
 // ─── Core parse loop (no progress events) ────────────────────────────────────
 
-fn parse_inner(content: &[u8]) -> Result<CityData, VellumError> {
+fn parse_inner(content: &[u8], allow_partial: bool) -> Result<CityData, VellumError> {
     let mut reader = Reader::from_reader(content);
     reader.config_mut().trim_text(true);
 
     let mut builder = CityDataBuilder::default();
     let mut buf = Vec::new();
+    let mut has_parsed_root = false;
 
     loop {
         match reader.read_event_into(&mut buf) {
-            Ok(Event::Start(ref e)) => builder.handle_start(e)?,
-            Ok(Event::Empty(ref e)) => builder.handle_empty(e)?,
+            Ok(Event::Start(ref e)) => {
+                has_parsed_root = true;
+                if let Err(err) = builder.handle_start(e) {
+                    if allow_partial {
+                        eprintln!("[parser-cslmap] Partial: section start error: {err}");
+                    } else {
+                        return Err(VellumError::PartialParse {
+                            warnings: vec![err.to_string()],
+                        });
+                    }
+                }
+            }
+            Ok(Event::Empty(ref e)) => {
+                has_parsed_root = true;
+                if let Err(err) = builder.handle_empty(e) {
+                    if allow_partial {
+                        eprintln!("[parser-cslmap] Partial: section empty error: {err}");
+                    } else {
+                        return Err(VellumError::PartialParse {
+                            warnings: vec![err.to_string()],
+                        });
+                    }
+                }
+            }
             Ok(Event::Text(ref e)) => {
-                let text = e.unescape().map_err(|err| VellumError::InvalidFile {
-                    reason: format!(
-                        "XML text error at position {}: {err}",
-                        reader.buffer_position()
-                    ),
-                })?;
-                builder.handle_text(&text);
+                match e.unescape() {
+                    Ok(text) => builder.handle_text(&text),
+                    Err(err) => {
+                        let msg = format!(
+                            "XML text error at position {}: {err}",
+                            reader.buffer_position()
+                        );
+                        if allow_partial {
+                            eprintln!("[parser-cslmap] Partial: {msg}");
+                        } else if has_parsed_root {
+                            return Err(VellumError::PartialParse { warnings: vec![msg] });
+                        } else {
+                            return Err(VellumError::InvalidFile { reason: msg });
+                        }
+                    }
+                }
             }
             Ok(Event::End(ref e)) => builder.handle_end(e),
             Ok(Event::Eof) => break,
             Err(e) => {
-                return Err(VellumError::InvalidFile {
-                    reason: format!(
-                        "XML parse error at position {}: {e}",
-                        reader.buffer_position()
-                    ),
-                });
+                let msg = format!(
+                    "XML parse error at position {}: {e}",
+                    reader.buffer_position()
+                );
+                if allow_partial {
+                    eprintln!("[parser-cslmap] Partial: stopping early — {msg}");
+                    break;
+                } else if has_parsed_root {
+                    return Err(VellumError::PartialParse { warnings: vec![msg] });
+                } else {
+                    return Err(VellumError::InvalidFile { reason: msg });
+                }
             }
             _ => {}
         }
@@ -966,14 +1086,42 @@ mod tests {
         }
     }
 
-    // AC1 + error: corrupted.cslmap → Err(VellumError::InvalidFile)
+    // Story 2.5: corrupted.cslmap → PartialParse (XML started valid before error)
     #[test]
-    fn corrupted_cslmap_returns_invalid_file_error() {
+    fn corrupted_cslmap_returns_partial_parse_error() {
         let bytes = include_bytes!("../fixtures/corrupted.cslmap");
         let result = parse_cslmap_bytes(bytes);
         assert!(
+            matches!(result, Err(VellumError::PartialParse { .. })),
+            "expected PartialParse error (XML was partially valid before corruption), got: {result:?}"
+        );
+    }
+
+    // Story 2.5: XML that fails immediately (no root element processed) → InvalidFile
+    #[test]
+    fn totally_invalid_file_returns_invalid_file_error() {
+        // Quick-xml fails on unclosed tags before any element is opened
+        let bytes = b"<unclosed";
+        let result = parse_cslmap_bytes(bytes);
+        assert!(
             matches!(result, Err(VellumError::InvalidFile { .. })),
-            "expected InvalidFile error, got: {result:?}"
+            "expected InvalidFile error for XML that fails before root, got: {result:?}"
+        );
+    }
+
+    // Story 2.5: allow_partial mode on corrupted.cslmap → Ok with partial data
+    #[test]
+    fn allow_partial_returns_ok_with_partial_data() {
+        let bytes = include_bytes!("../fixtures/corrupted.cslmap");
+        let result = parse_cslmap_bytes_lenient(bytes);
+        assert!(
+            result.is_ok(),
+            "expected Ok in lenient mode, got: {result:?}"
+        );
+        let city = result.expect("already checked");
+        assert_eq!(
+            city.city_name, "Corrupted",
+            "city_name should be populated from the valid section before corruption"
         );
     }
 

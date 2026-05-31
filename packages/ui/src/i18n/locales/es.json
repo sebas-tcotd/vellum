@@ -15,7 +15,10 @@
     "UnsupportedVersion": "Este mapa fue exportado con una versión no soportada ({{found}}).",
     "PartialParse": "Mapa cargado con advertencias. Algunos elementos pueden no mostrarse correctamente.",
     "ExportFailed": "Error al exportar. Verifica que la carpeta de destino sea accesible.",
-    "IoError": "Error de acceso al archivo. El archivo puede haber sido movido o eliminado."
+    "IoError": "Error de acceso al archivo. El archivo puede haber sido movido o eliminado.",
+    "partialParseTitle": "Archivo cargado con problemas",
+    "partialParseDescription": "Este archivo tiene algunas secciones dañadas. Puedes intentar renderizar los datos que se pudieron leer, o cancelar y probar otro archivo.",
+    "tryPartialRender": "Intentar renderizado parcial"
   },
   "layers": {
     "terrain": "Terreno",
@@ -65,7 +68,12 @@
   "toasts": {
     "cityLoaded": "{{cityName}} cargada",
     "partialLoad": "Algunos elementos (DLC o mods) se mostraron de forma simplificada.",
+    "partialDataWarning": "Mapa parcialmente cargado. Algunas secciones no pudieron leerse.",
     "tabHint": "Tab · modo limpio"
+  },
+  "common": {
+    "cancel": "Cancelar",
+    "close": "Cerrar"
   },
   "a11y": {
     "mapCanvas": "Canvas del mapa de ciudad",
