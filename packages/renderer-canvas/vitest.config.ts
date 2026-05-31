@@ -8,6 +8,9 @@ import path from 'path';
 export default mergeConfig(
   baseConfig,
   defineConfig({
+    test: {
+      setupFiles: ['./vitest.setup.ts'],
+    },
     resolve: {
       alias: [
         {
