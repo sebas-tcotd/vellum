@@ -26,7 +26,10 @@ export function useProgressEvents() {
       .then((fn) => {
         clearTimeout(timeoutId);
         if (cancelled) fn();
-        else unlisten = fn;
+        else {
+          unlisten = fn;
+          setListenError(false);
+        }
       })
       .catch((err: unknown) => {
         clearTimeout(timeoutId);

@@ -9,7 +9,10 @@ export function ProgressBar() {
   if (listenError) return null;
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none">
+    <div
+      data-testid="progress-bar-container"
+      className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none"
+    >
       <div className="w-64">
         <Progress
           value={percent}

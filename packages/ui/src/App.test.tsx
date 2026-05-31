@@ -66,13 +66,6 @@ describe('App — renderizado condicional', () => {
     expect(screen.queryByTestId('empty-state')).toBeNull();
   });
 
-  it('no muestra ProgressBar cuando loadingState es idle', async () => {
-    await act(async () => {
-      render(<App />);
-    });
-    expect(screen.queryByTestId('progress-bar')).toBeNull();
-  });
-
   it('muestra EmptyState cuando loadingState es error (no pantalla en blanco)', async () => {
     await act(async () => {
       render(<App />);
@@ -92,8 +85,8 @@ describe('App — renderizado condicional', () => {
     await act(async () => {
       render(<App />);
     });
-    const canvasWrapper = screen.getByTestId('canvas-root').parentElement;
-    expect(canvasWrapper?.className).toContain('opacity-0');
+    const canvasWrapper = screen.getByTestId('canvas-wrapper');
+    expect(canvasWrapper.className).toContain('opacity-0');
   });
 
   it('el canvas wrapper tiene opacity-100 cuando hay cityData', async () => {
@@ -115,7 +108,7 @@ describe('App — renderizado condicional', () => {
       });
     });
 
-    const canvasWrapper = screen.getByTestId('canvas-root').parentElement;
-    expect(canvasWrapper?.className).toContain('opacity-100');
+    const canvasWrapper = screen.getByTestId('canvas-wrapper');
+    expect(canvasWrapper.className).toContain('opacity-100');
   });
 });

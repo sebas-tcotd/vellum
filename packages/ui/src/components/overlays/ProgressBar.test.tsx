@@ -78,11 +78,8 @@ describe('ProgressBar', () => {
     await act(async () => {
       render(<ProgressBar />);
     });
-    // El contenedor wrapping tiene pointer-events-none
-    const container = screen
-      .getByRole('progressbar')
-      .closest('.pointer-events-none');
-    expect(container).toBeDefined();
+    const container = screen.getByTestId('progress-bar-container');
+    expect(container.className).toContain('pointer-events-none');
   });
 
   it('no renderiza nada cuando listenError es true', async () => {

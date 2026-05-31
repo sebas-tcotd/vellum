@@ -77,11 +77,12 @@ export function App({ loadFile, openFileDialog = noop }: AppProps) {
 
   return (
     <Suspense fallback={null}>
-      <div style={{ width: '100vw', height: '100vh' }}>
+      <div style={{ width: '100vw', height: '100vh', position: 'relative' }}>
         <div
+          data-testid="canvas-wrapper"
           className={cn(
             'absolute inset-0 transition-opacity duration-500',
-            cityData ? 'opacity-100' : 'opacity-0',
+            cityData ? 'opacity-100' : 'opacity-0 pointer-events-none',
           )}
         >
           <CanvasRoot loadFile={loadFile} />
