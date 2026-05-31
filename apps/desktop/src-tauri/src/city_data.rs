@@ -2,6 +2,7 @@
 pub use parser_cslmap::city_data::*;
 
 #[cfg(test)]
+#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
 
@@ -22,8 +23,7 @@ mod tests {
         let json =
             serde_json::to_value(TransitMode::CableCar).expect("serialization must not fail");
         assert_eq!(json, "CableCar");
-        let json =
-            serde_json::to_value(TransitMode::Unknown).expect("serialization must not fail");
+        let json = serde_json::to_value(TransitMode::Unknown).expect("serialization must not fail");
         assert_eq!(json, "Unknown");
     }
 

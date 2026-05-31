@@ -37,6 +37,7 @@ impl From<std::io::Error> for VellumError {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
 
