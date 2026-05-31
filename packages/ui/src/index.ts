@@ -22,3 +22,4 @@ export { DlcWarningToast } from './components/overlays/DlcWarningToast';
 export type { DlcWarningToastProps } from './components/overlays/DlcWarningToast';
 export { cn } from './lib/utils';
 export { useVellumStore } from './store/vellum-store';
+export { useTauriEvent } from './hooks/use-tauri-event';
