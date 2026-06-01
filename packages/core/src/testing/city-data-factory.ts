@@ -44,6 +44,7 @@ export function makeRoadSegment(overrides?: Partial<RoadSegment>): RoadSegment {
     id: 'seg-1',
     startNodeId: 'node-1',
     endNodeId: 'node-2',
+    points: [],
     wayType: ['Road'],
     itemClass: 'Basic Road',
     width: 16,
@@ -56,6 +57,9 @@ export function makeRoadSegment(overrides?: Partial<RoadSegment>): RoadSegment {
  * Pasar `overrides` para personalizar campos específicos en cada test.
  */
 export function makeTransitLine(overrides?: Partial<TransitLine>): TransitLine {
+  const defined = Object.fromEntries(
+    Object.entries(overrides ?? {}).filter(([, v]) => v !== undefined),
+  ) as Partial<TransitLine>;
   return {
     id: 'line-1',
     name: 'Test Line',
@@ -63,7 +67,7 @@ export function makeTransitLine(overrides?: Partial<TransitLine>): TransitLine {
     color: '#FF6600',
     stops: [],
     route: [],
-    ...overrides,
+    ...defined,
   };
 }
 

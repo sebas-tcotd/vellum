@@ -81,6 +81,8 @@ export interface RoadSegment {
   startNodeId: string;
   /** ID of the destination `RoadNode`. */
   endNodeId: string;
+  /** Intermediate geometry points of the segment curve, in world space. Empty for straight segments. */
+  points: Vec3[];
   /** Collection of active classifications for this segment. */
   wayType: WayType[];
   /** The original asset class from the game, used by the theme engine for granular filtering. */
