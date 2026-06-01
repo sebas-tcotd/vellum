@@ -1,6 +1,7 @@
 import type {
   TransitLine,
   TransitStop,
+  TransitMode,
   RoadSegment,
   RoadNode,
   CityData,
@@ -13,10 +14,12 @@ const MAX_LINES_PER_SEGMENT = 8;
 /** Proximity threshold for merging stops into a single marker, in CS1 world units (meters). */
 export const STOP_MERGE_THRESHOLD = 48;
 
+/** Separation in px between marker centers for different modes in a merged group. */
+const MULTI_STOP_SPACING = 11;
+
 interface StopEntry {
   stop: TransitStop;
   line: TransitLine;
-  indexInLine: number;
 }
 
 interface StopGroup {
@@ -43,8 +46,8 @@ function buildSegmentLineUsers(
 function groupStops(lines: TransitLine[]): StopGroup[] {
   const all: StopEntry[] = [];
   for (const line of lines) {
-    for (let i = 0; i < line.stops.length; i++) {
-      all.push({ stop: line.stops[i], line, indexInLine: i });
+    for (const stop of line.stops) {
+      all.push({ stop, line });
     }
   }
   if (all.length === 0) return [];
@@ -107,50 +110,106 @@ function drawOffsetPolyline(
   ctx.stroke();
 }
 
-function drawGroupedStop(
+function drawModeMarker(
   ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
   cx: number,
   cy: number,
-  count: number,
-  lineColor: string,
+  mode: TransitMode,
+  fillColor: string,
+  strokeColor: string,
 ): void {
-  const r = Math.min(6, 3 + Math.floor(count / 2));
-  ctx.beginPath();
-  ctx.arc(cx, cy, r, 0, Math.PI * 2);
-  ctx.fillStyle = '#ffffff';
-  ctx.fill();
-  ctx.strokeStyle = lineColor;
   ctx.lineWidth = 1.5;
-  ctx.stroke();
-}
 
-function drawSingleStop(
-  ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
-  cx: number,
-  cy: number,
-  dir: { x: number; y: number },
-  lineColor: string,
-): void {
-  const SIZE = 5;
-  const LENGTH = 9;
-
-  const tipX = cx + dir.x * LENGTH;
-  const tipY = cy + dir.y * LENGTH;
-  const blX = cx + dir.y * SIZE;
-  const blY = cy - dir.x * SIZE;
-  const brX = cx - dir.y * SIZE;
-  const brY = cy + dir.x * SIZE;
-
-  ctx.beginPath();
-  ctx.moveTo(tipX, tipY);
-  ctx.lineTo(blX, blY);
-  ctx.lineTo(brX, brY);
-  ctx.closePath();
-  ctx.fillStyle = lineColor;
-  ctx.fill();
-  ctx.strokeStyle = '#ffffff';
-  ctx.lineWidth = 1;
-  ctx.stroke();
+  switch (mode) {
+    case 'Bus':
+    case 'Trolleybus':
+    case 'Unknown': {
+      ctx.beginPath();
+      ctx.arc(cx, cy, 4, 0, Math.PI * 2);
+      ctx.fillStyle = fillColor;
+      ctx.fill();
+      ctx.strokeStyle = strokeColor;
+      ctx.stroke();
+      break;
+    }
+    case 'Tram': {
+      ctx.beginPath();
+      ctx.rect(cx - 4, cy - 4, 8, 8);
+      ctx.fillStyle = fillColor;
+      ctx.fill();
+      ctx.strokeStyle = strokeColor;
+      ctx.stroke();
+      break;
+    }
+    case 'Train': {
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - 5);
+      ctx.lineTo(cx + 5, cy);
+      ctx.lineTo(cx, cy + 5);
+      ctx.lineTo(cx - 5, cy);
+      ctx.closePath();
+      ctx.fillStyle = fillColor;
+      ctx.fill();
+      ctx.strokeStyle = strokeColor;
+      ctx.stroke();
+      break;
+    }
+    case 'Metro': {
+      ctx.beginPath();
+      ctx.arc(cx, cy, 4, 0, Math.PI * 2);
+      ctx.fillStyle = strokeColor;
+      ctx.fill();
+      ctx.strokeStyle = fillColor;
+      ctx.stroke();
+      break;
+    }
+    case 'CableCar': {
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - 5);
+      ctx.lineTo(cx + 5, cy + 3.5);
+      ctx.lineTo(cx - 5, cy + 3.5);
+      ctx.closePath();
+      ctx.fillStyle = fillColor;
+      ctx.fill();
+      ctx.strokeStyle = strokeColor;
+      ctx.stroke();
+      break;
+    }
+    case 'Monorail': {
+      ctx.beginPath();
+      ctx.rect(cx - 5.5, cy - 2.5, 11, 5);
+      ctx.fillStyle = fillColor;
+      ctx.fill();
+      ctx.strokeStyle = strokeColor;
+      ctx.stroke();
+      break;
+    }
+    case 'Ferry': {
+      ctx.beginPath();
+      for (let i = 0; i < 5; i++) {
+        const angle = (i * Math.PI * 2) / 5 - Math.PI / 2;
+        const px = cx + 4.5 * Math.cos(angle);
+        const py = cy + 4.5 * Math.sin(angle);
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      ctx.fillStyle = fillColor;
+      ctx.fill();
+      ctx.strokeStyle = strokeColor;
+      ctx.stroke();
+      break;
+    }
+    case 'Blimp': {
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, 6, 3.5, 0, 0, Math.PI * 2);
+      ctx.fillStyle = fillColor;
+      ctx.fill();
+      ctx.strokeStyle = strokeColor;
+      ctx.stroke();
+      break;
+    }
+  }
 }
 
 export function renderTransitLayer(
@@ -224,24 +283,41 @@ export function renderTransitLayer(
   for (const group of stopGroups) {
     const [cx, cy] = worldToCanvas(group.centroid);
 
-    if (group.entries.length >= 2) {
-      drawGroupedStop(
+    const seenModes = new Set<TransitMode>();
+    const uniqueModes: TransitMode[] = [];
+    for (const entry of group.entries) {
+      if (!seenModes.has(entry.stop.mode)) {
+        seenModes.add(entry.stop.mode);
+        uniqueModes.push(entry.stop.mode);
+      }
+    }
+
+    if (uniqueModes.length === 1) {
+      drawModeMarker(
         ctx,
         cx,
         cy,
-        group.entries.length,
+        uniqueModes[0],
+        '#ffffff',
         group.entries[0].line.color,
       );
     } else {
-      const { line, indexInLine } = group.entries[0];
-      if (line.stops.length < 2) continue;
-      const nextIdx = (indexInLine + 1) % line.stops.length;
-      const [nx, ny] = worldToCanvas(line.stops[nextIdx].position);
-      const dx = nx - cx;
-      const dy = ny - cy;
-      const len = Math.sqrt(dx * dx + dy * dy);
-      const dir = len > 0.001 ? { x: dx / len, y: dy / len } : { x: 1, y: 0 };
-      drawSingleStop(ctx, cx, cy, dir, line.color);
+      const totalWidth = (uniqueModes.length - 1) * MULTI_STOP_SPACING;
+      const startX = cx - totalWidth / 2;
+      for (let i = 0; i < uniqueModes.length; i++) {
+        const modeEntry = group.entries.find(
+          (e) => e.stop.mode === uniqueModes[i],
+        );
+        const lineColor = modeEntry?.line.color ?? group.entries[0].line.color;
+        drawModeMarker(
+          ctx,
+          startX + i * MULTI_STOP_SPACING,
+          cy,
+          uniqueModes[i],
+          '#ffffff',
+          lineColor,
+        );
+      }
     }
   }
 

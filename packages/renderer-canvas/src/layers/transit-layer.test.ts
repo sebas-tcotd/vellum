@@ -11,6 +11,8 @@ function makeCtx() {
     closePath: vi.fn(),
     stroke: vi.fn(),
     arc: vi.fn(),
+    ellipse: vi.fn(),
+    rect: vi.fn(),
     fill: vi.fn(),
     strokeStyle: '',
     lineWidth: 0,
@@ -392,14 +394,49 @@ describe('renderTransitLayer', () => {
   });
 
   describe('renderizado de paradas', () => {
-    it('parada solitaria renderiza cabeza de flecha (arc no llamado)', () => {
+    it('parada Bus solitaria renderiza círculo (arc llamado)', () => {
       const ctx = makeCtx();
-      const stopA = makeStop({ id: 'stop-a', position: { x: 0, y: 60, z: 0 } });
+      const stopA = makeStop({
+        id: 'stop-a',
+        mode: 'Bus',
+        position: { x: 0, y: 60, z: 0 },
+      });
       const stopB = makeStop({
         id: 'stop-b',
+        mode: 'Bus',
+        position: { x: 500, y: 60, z: 0 },
+      });
+      const line = makeTransitLine({ stops: [stopA, stopB], route: [] });
+
+      renderTransitLayer(
+        ctx,
+        [line],
+        new Map(),
+        new Map(),
+        BOUNDS,
+        800,
+        800,
+        1,
+      );
+
+      expect(ctx.arc).toHaveBeenCalled();
+      expect(ctx.rect).not.toHaveBeenCalled();
+    });
+
+    it('parada Tram solitaria renderiza cuadrado (rect llamado, arc no llamado)', () => {
+      const ctx = makeCtx();
+      const stopA = makeStop({
+        id: 'stop-a',
+        mode: 'Tram',
+        position: { x: 0, y: 60, z: 0 },
+      });
+      const stopB = makeStop({
+        id: 'stop-b',
+        mode: 'Tram',
         position: { x: 500, y: 60, z: 0 },
       });
       const line = makeTransitLine({
+        mode: 'Tram',
         stops: [stopA, stopB],
         route: [],
       });
@@ -415,36 +452,180 @@ describe('renderTransitLayer', () => {
         1,
       );
 
-      // Dos stops en la misma línea, sin otro stop cercano → dos arrowheads (arc no se usa)
+      expect(ctx.rect).toHaveBeenCalled();
       expect(ctx.arc).not.toHaveBeenCalled();
-      // fill sí se llama para los arrowheads
-      expect(ctx.fill).toHaveBeenCalled();
-      expect(ctx.closePath).toHaveBeenCalled();
+      expect(ctx.ellipse).not.toHaveBeenCalled();
     });
 
-    it('dos paradas cercanas se fusionan en círculo', () => {
+    it('parada Train solitaria renderiza diamante (moveTo/lineTo/closePath, no arc/rect)', () => {
       const ctx = makeCtx();
-      // Dos stops de distintas líneas dentro del threshold (< 48m)
-      const stopA = makeStop({ id: 'stop-a', position: { x: 0, y: 60, z: 0 } });
+      const stopA = makeStop({
+        id: 'stop-a',
+        mode: 'Train',
+        position: { x: 0, y: 60, z: 0 },
+      });
       const stopB = makeStop({
         id: 'stop-b',
+        mode: 'Train',
+        position: { x: 500, y: 60, z: 0 },
+      });
+      const line = makeTransitLine({
+        mode: 'Train',
+        stops: [stopA, stopB],
+        route: [],
+      });
+
+      renderTransitLayer(
+        ctx,
+        [line],
+        new Map(),
+        new Map(),
+        BOUNDS,
+        800,
+        800,
+        1,
+      );
+
+      expect(ctx.moveTo).toHaveBeenCalled();
+      expect(ctx.lineTo).toHaveBeenCalled();
+      expect(ctx.closePath).toHaveBeenCalled();
+      expect(ctx.arc).not.toHaveBeenCalled();
+      expect(ctx.rect).not.toHaveBeenCalled();
+    });
+
+    it('parada Metro renderiza círculo (arc llamado)', () => {
+      const ctx = makeCtx();
+      const stopA = makeStop({
+        id: 'stop-a',
+        mode: 'Metro',
+        position: { x: 0, y: 60, z: 0 },
+      });
+      const stopB = makeStop({
+        id: 'stop-b',
+        mode: 'Metro',
+        position: { x: 500, y: 60, z: 0 },
+      });
+      const line = makeTransitLine({
+        mode: 'Metro',
+        stops: [stopA, stopB],
+        route: [],
+      });
+
+      renderTransitLayer(
+        ctx,
+        [line],
+        new Map(),
+        new Map(),
+        BOUNDS,
+        800,
+        800,
+        1,
+      );
+
+      expect(ctx.arc).toHaveBeenCalled();
+    });
+
+    it('parada Blimp renderiza elipse (ellipse llamado)', () => {
+      const ctx = makeCtx();
+      const stopA = makeStop({
+        id: 'stop-a',
+        mode: 'Blimp',
+        position: { x: 0, y: 60, z: 0 },
+      });
+      const stopB = makeStop({
+        id: 'stop-b',
+        mode: 'Blimp',
+        position: { x: 500, y: 60, z: 0 },
+      });
+      const line = makeTransitLine({
+        mode: 'Blimp',
+        stops: [stopA, stopB],
+        route: [],
+      });
+
+      renderTransitLayer(
+        ctx,
+        [line],
+        new Map(),
+        new Map(),
+        BOUNDS,
+        800,
+        800,
+        1,
+      );
+
+      expect(ctx.ellipse).toHaveBeenCalled();
+      expect(ctx.arc).not.toHaveBeenCalled();
+    });
+
+    it('todos los TransitMode de paradas renderizan sin error', () => {
+      const modes = [
+        'Bus',
+        'Tram',
+        'Train',
+        'Metro',
+        'CableCar',
+        'Monorail',
+        'Ferry',
+        'Blimp',
+        'Trolleybus',
+      ] as const;
+      const ctx = makeCtx();
+      const lines = modes.map((mode, i) => {
+        const stopA = makeStop({
+          id: `stop-${i}a`,
+          mode,
+          position: { x: i * 200, y: 60, z: 0 },
+        });
+        const stopB = makeStop({
+          id: `stop-${i}b`,
+          mode,
+          position: { x: i * 200 + 500, y: 60, z: 0 },
+        });
+        return makeTransitLine({
+          id: `line-${i}`,
+          mode,
+          stops: [stopA, stopB],
+          route: [],
+        });
+      });
+
+      expect(() =>
+        renderTransitLayer(
+          ctx,
+          lines,
+          new Map(),
+          new Map(),
+          BOUNDS,
+          800,
+          800,
+          1,
+        ),
+      ).not.toThrow();
+      expect(ctx.fill).toHaveBeenCalled();
+    });
+
+    it('dos paradas Bus cercanas se fusionan en un único círculo', () => {
+      const ctx = makeCtx();
+      const stopA = makeStop({
+        id: 'stop-a',
+        mode: 'Bus',
+        position: { x: 0, y: 60, z: 0 },
+      });
+      const stopB = makeStop({
+        id: 'stop-b',
+        mode: 'Bus',
         position: { x: 10, y: 60, z: 0 },
       });
 
       const lineA = makeTransitLine({
         id: 'line-a',
-        stops: [
-          stopA,
-          makeStop({ id: 'stop-a2', position: { x: 500, y: 60, z: 0 } }),
-        ],
+        stops: [stopA],
         route: [],
       });
       const lineB = makeTransitLine({
         id: 'line-b',
-        stops: [
-          stopB,
-          makeStop({ id: 'stop-b2', position: { x: -500, y: 60, z: 0 } }),
-        ],
+        stops: [stopB],
         route: [],
       });
 
@@ -459,33 +640,79 @@ describe('renderTransitLayer', () => {
         1,
       );
 
-      // stopA y stopB están a 10m → se fusionan → circle → arc llamado
-      expect(ctx.arc).toHaveBeenCalled();
+      // stopA y stopB están a 10m → mismo modo (Bus) → fusionados → 1 solo arc
+      expect(ctx.arc).toHaveBeenCalledTimes(1);
     });
 
-    it('dos paradas lejanas NO se fusionan (arc no llamado)', () => {
+    it('Bus y Tram en la misma ubicación → ambas formas dibujadas (arc Y rect)', () => {
       const ctx = makeCtx();
-      // Dos stops de distintas líneas fuera del threshold (> 48m)
-      const stopA = makeStop({ id: 'stop-a', position: { x: 0, y: 60, z: 0 } });
+      const stopBus = makeStop({
+        id: 'stop-bus',
+        mode: 'Bus',
+        position: { x: 0, y: 60, z: 0 },
+      });
+      const stopTram = makeStop({
+        id: 'stop-tram',
+        mode: 'Tram',
+        position: { x: 5, y: 60, z: 0 },
+      });
+
+      const lineBus = makeTransitLine({
+        id: 'line-bus',
+        mode: 'Bus',
+        stops: [
+          stopBus,
+          makeStop({ id: 'stop-bus2', position: { x: 500, y: 60, z: 0 } }),
+        ],
+        route: [],
+      });
+      const lineTram = makeTransitLine({
+        id: 'line-tram',
+        mode: 'Tram',
+        stops: [
+          stopTram,
+          makeStop({ id: 'stop-tram2', position: { x: -500, y: 60, z: 0 } }),
+        ],
+        route: [],
+      });
+
+      renderTransitLayer(
+        ctx,
+        [lineBus, lineTram],
+        new Map(),
+        new Map(),
+        BOUNDS,
+        800,
+        800,
+        1,
+      );
+
+      // Multi-modo en el mismo grupo → arc (Bus) Y rect (Tram) ambos llamados
+      expect(ctx.arc).toHaveBeenCalled();
+      expect(ctx.rect).toHaveBeenCalled();
+    });
+
+    it('dos paradas lejanas (>48m) NO se fusionan — cada una tiene su propio marcador', () => {
+      const ctx = makeCtx();
+      const stopA = makeStop({
+        id: 'stop-a',
+        mode: 'Bus',
+        position: { x: 0, y: 60, z: 0 },
+      });
       const stopB = makeStop({
         id: 'stop-b',
+        mode: 'Bus',
         position: { x: 100, y: 60, z: 0 },
       });
 
       const lineA = makeTransitLine({
         id: 'line-a',
-        stops: [
-          stopA,
-          makeStop({ id: 'stop-a2', position: { x: 500, y: 60, z: 0 } }),
-        ],
+        stops: [stopA],
         route: [],
       });
       const lineB = makeTransitLine({
         id: 'line-b',
-        stops: [
-          stopB,
-          makeStop({ id: 'stop-b2', position: { x: -500, y: 60, z: 0 } }),
-        ],
+        stops: [stopB],
         route: [],
       });
 
@@ -500,21 +727,22 @@ describe('renderTransitLayer', () => {
         1,
       );
 
-      // 100m > STOP_MERGE_THRESHOLD (48) → no merge → sólo arrowheads
-      expect(ctx.arc).not.toHaveBeenCalled();
+      // 100m > 48m → 2 grupos separados → arc llamado 2 veces (2 círculos Bus)
+      expect(ctx.arc).toHaveBeenCalledTimes(2);
     });
 
     it(`STOP_MERGE_THRESHOLD es ${STOP_MERGE_THRESHOLD} metros`, () => {
       expect(STOP_MERGE_THRESHOLD).toBe(48);
     });
 
-    it('línea con un solo stop no renderiza arrowhead (no hay siguiente stop para dirección)', () => {
+    it('línea con un solo stop renderiza su marcador', () => {
       const ctx = makeCtx();
-      const stopA = makeStop({ id: 'stop-a', position: { x: 0, y: 60, z: 0 } });
-      const line = makeTransitLine({
-        stops: [stopA],
-        route: [],
+      const stopA = makeStop({
+        id: 'stop-a',
+        mode: 'Bus',
+        position: { x: 0, y: 60, z: 0 },
       });
+      const line = makeTransitLine({ stops: [stopA], route: [] });
 
       expect(() =>
         renderTransitLayer(
@@ -529,8 +757,8 @@ describe('renderTransitLayer', () => {
         ),
       ).not.toThrow();
 
-      // Con un solo stop no hay dirección → se omite sin crash
-      expect(ctx.fill).not.toHaveBeenCalled();
+      // Un solo stop en una línea → se renderiza como grupo solitario → arc llamado
+      expect(ctx.arc).toHaveBeenCalled();
     });
   });
 });
