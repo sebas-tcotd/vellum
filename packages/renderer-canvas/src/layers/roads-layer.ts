@@ -51,7 +51,12 @@ export function renderRoadsLayer(
     ];
   }
 
+  if (rangeX === 0 || rangeZ === 0) return;
+
   const tiers = ['local', 'pedestrian', 'arterial', 'highway'] as const;
+
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
 
   for (const pass of ['casing', 'fill'] as const) {
     for (const tier of tiers) {
@@ -67,15 +72,13 @@ export function renderRoadsLayer(
         const baseWidth = style.fixed + style.scaled * zoom;
 
         if (pass === 'casing') {
-          ctx.strokeStyle = tokens[style.casing] as string;
+          ctx.strokeStyle = tokens[style.casing];
           ctx.lineWidth = baseWidth + 1.5;
         } else {
-          ctx.strokeStyle = tokens[style.fill] as string;
+          ctx.strokeStyle = tokens[style.fill];
           ctx.lineWidth = baseWidth;
         }
 
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
         ctx.beginPath();
         ctx.moveTo(x0, y0);
         ctx.lineTo(x1, y1);

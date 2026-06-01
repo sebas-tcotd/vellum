@@ -67,7 +67,8 @@ self.onmessage = (event: MessageEvent<WorkerMessage>) => {
         layer.offscreen.height = msg.height;
       }
     } else if (msg.type === 'update-viewport') {
-      currentZoom = msg.viewport.zoom;
+      const z = msg.viewport.zoom;
+      currentZoom = Number.isFinite(z) && z > 0 ? z : 1;
     }
   } catch (err) {
     const error: WorkerResponse = {
