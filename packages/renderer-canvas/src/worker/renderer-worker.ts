@@ -2,6 +2,7 @@ import type { WorkerMessage, WorkerResponse } from './messages';
 import { renderTerrainLayer } from '../layers/terrain-layer';
 import { renderWaterLayer } from '../layers/water-layer';
 import { renderRoadsLayer } from '../layers/roads-layer';
+import { renderTransitLayer } from '../layers/transit-layer';
 
 interface LayerCanvas {
   offscreen: OffscreenCanvas;
@@ -39,16 +40,35 @@ self.onmessage = (event: MessageEvent<WorkerMessage>) => {
             cityData.waterTiles,
             cityData.landTiles,
             style.tokens,
-            Math.min(w, h),
+            w,
+            h,
+            cityData.bounds,
           );
         } else if (layerName === 'roads' && layerVisibility.roads) {
-          const nodeMap = new Map(cityData.roadNodes.map((n) => [n.id, n]));
+          const segments = cityData.roadSegments ?? [];
+          const nodes = cityData.roadNodes ?? [];
+          const nodeMap = new Map(nodes.map((n) => [n.id, n]));
           renderRoadsLayer(
             ctx,
-            cityData.roadSegments,
+            segments,
             nodeMap,
             cityData.bounds,
             style.tokens,
+            w,
+            h,
+            currentZoom,
+          );
+        } else if (layerName === 'transit' && layerVisibility.transit) {
+          const segmentMap = new Map(
+            cityData.roadSegments.map((s) => [s.id, s]),
+          );
+          const nodeMap = new Map(cityData.roadNodes.map((n) => [n.id, n]));
+          renderTransitLayer(
+            ctx,
+            cityData.transitLines,
+            segmentMap,
+            nodeMap,
+            cityData.bounds,
             w,
             h,
             currentZoom,
@@ -71,10 +91,11 @@ self.onmessage = (event: MessageEvent<WorkerMessage>) => {
       currentZoom = Number.isFinite(z) && z > 0 ? z : 1;
     }
   } catch (err) {
-    const error: WorkerResponse = {
-      type: 'error',
-      error: err instanceof Error ? err.message : String(err),
-    };
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(
+      `[renderer-worker] render error — zoom: ${currentZoom} — ${message}`,
+    );
+    const error: WorkerResponse = { type: 'error', error: message };
     self.postMessage(error);
   }
 };

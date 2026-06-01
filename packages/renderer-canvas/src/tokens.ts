@@ -7,11 +7,22 @@ export interface RendererTokens {
   green: string; // --color-green
   text: string; // --color-text
   transitBg: string; // --color-transit-bg
+
+  // Road fills — OSM Humanitarian palette (ajustado para contraste con terreno CS1)
   roadHighway: string; // --color-road-highway
-  roadArterial: string; // --color-road-arterial
+  roadHighwayCasing: string; // --color-road-highway-casing
+  roadLargeArterial: string; // --color-road-large-arterial
+  roadLargeArterialCasing: string; // --color-road-large-arterial-casing
+  roadMediumArterial: string; // --color-road-medium-arterial
   roadLocal: string; // --color-road-local
+  roadLocalCasing: string; // --color-road-local-casing
+  roadGravel: string; // --color-road-gravel
+  roadGravelCasing: string; // --color-road-gravel-casing
   roadPedestrian: string; // --color-road-pedestrian
-  roadCasing: string; // --color-road-casing
+  roadPedestrianCasing: string; // --color-road-pedestrian-casing
+  roadPedestrianWay: string; // --color-road-pedestrian-way
+  roadRailway: string; // --color-road-railway
+  roadRailwayCasing: string; // --color-road-railway-casing
 }
 
 const FALLBACKS: RendererTokens = {
@@ -19,15 +30,24 @@ const FALLBACKS: RendererTokens = {
   terrainLow: '#b2c29d',
   terrainMid: '#deddbe',
   terrainHigh: '#eee5b2',
-  water: '#90cccb',
+  water: '#6db8b7',
   green: '#d0dcae',
   text: '#333333',
   transitBg: '#1a1a2e',
-  roadHighway: '#f6a800',
-  roadArterial: '#fcd47a',
-  roadLocal: '#ffffff',
-  roadPedestrian: '#ededed',
-  roadCasing: '#aaaaaa',
+  roadHighway: '#a098b0',
+  roadHighwayCasing: '#7d748e',
+  roadLargeArterial: '#d2938e',
+  roadLargeArterialCasing: '#b8756e',
+  roadMediumArterial: '#d4a882',
+  roadLocal: '#e4e1d1',
+  roadLocalCasing: '#8a8278',
+  roadGravel: '#e0d5c1',
+  roadGravelCasing: '#c4b89e',
+  roadPedestrian: '#7a6e60',
+  roadPedestrianCasing: '#5d5550',
+  roadPedestrianWay: '#8b7d6b',
+  roadRailway: '#eceff1',
+  roadRailwayCasing: '#455a64',
 };
 
 export function readTokensFromDOM(): RendererTokens {
@@ -54,17 +74,44 @@ export function readTokensFromDOM(): RendererTokens {
     roadHighway:
       style.getPropertyValue('--color-road-highway').trim() ||
       FALLBACKS.roadHighway,
-    roadArterial:
-      style.getPropertyValue('--color-road-arterial').trim() ||
-      FALLBACKS.roadArterial,
+    roadHighwayCasing:
+      style.getPropertyValue('--color-road-highway-casing').trim() ||
+      FALLBACKS.roadHighwayCasing,
+    roadLargeArterial:
+      style.getPropertyValue('--color-road-large-arterial').trim() ||
+      FALLBACKS.roadLargeArterial,
+    roadLargeArterialCasing:
+      style.getPropertyValue('--color-road-large-arterial-casing').trim() ||
+      FALLBACKS.roadLargeArterialCasing,
+    roadMediumArterial:
+      style.getPropertyValue('--color-road-medium-arterial').trim() ||
+      FALLBACKS.roadMediumArterial,
     roadLocal:
       style.getPropertyValue('--color-road-local').trim() ||
       FALLBACKS.roadLocal,
+    roadLocalCasing:
+      style.getPropertyValue('--color-road-local-casing').trim() ||
+      FALLBACKS.roadLocalCasing,
+    roadGravel:
+      style.getPropertyValue('--color-road-gravel').trim() ||
+      FALLBACKS.roadGravel,
+    roadGravelCasing:
+      style.getPropertyValue('--color-road-gravel-casing').trim() ||
+      FALLBACKS.roadGravelCasing,
     roadPedestrian:
       style.getPropertyValue('--color-road-pedestrian').trim() ||
       FALLBACKS.roadPedestrian,
-    roadCasing:
-      style.getPropertyValue('--color-road-casing').trim() ||
-      FALLBACKS.roadCasing,
+    roadPedestrianCasing:
+      style.getPropertyValue('--color-road-pedestrian-casing').trim() ||
+      FALLBACKS.roadPedestrianCasing,
+    roadPedestrianWay:
+      style.getPropertyValue('--color-road-pedestrian-way').trim() ||
+      FALLBACKS.roadPedestrianWay,
+    roadRailway:
+      style.getPropertyValue('--color-road-railway').trim() ||
+      FALLBACKS.roadRailway,
+    roadRailwayCasing:
+      style.getPropertyValue('--color-road-railway-casing').trim() ||
+      FALLBACKS.roadRailwayCasing,
   };
 }

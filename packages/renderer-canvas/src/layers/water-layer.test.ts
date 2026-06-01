@@ -11,18 +11,41 @@ function createMockCtx() {
 
 const CANVAS_SIZE = 1081;
 const NO_LAND: never[] = [];
+const FULL_BOUNDS = {
+  minX: -8640,
+  maxX: 8640,
+  minZ: -8640,
+  maxZ: 8640,
+  seaLevel: 0,
+};
 
 describe('renderWaterLayer', () => {
   it('no lanza con tiles vacíos', () => {
     const ctx = createMockCtx();
     expect(() =>
-      renderWaterLayer(ctx, [], NO_LAND, readTokensFromDOM(), CANVAS_SIZE),
+      renderWaterLayer(
+        ctx,
+        [],
+        NO_LAND,
+        readTokensFromDOM(),
+        CANVAS_SIZE,
+        CANVAS_SIZE,
+        FULL_BOUNDS,
+      ),
     ).not.toThrow();
   });
 
   it('no llama fill con tiles vacíos (early return)', () => {
     const ctx = createMockCtx();
-    renderWaterLayer(ctx, [], NO_LAND, readTokensFromDOM(), CANVAS_SIZE);
+    renderWaterLayer(
+      ctx,
+      [],
+      NO_LAND,
+      readTokensFromDOM(),
+      CANVAS_SIZE,
+      CANVAS_SIZE,
+      FULL_BOUNDS,
+    );
     expect(ctx.fill).not.toHaveBeenCalled();
   });
 
@@ -33,7 +56,15 @@ describe('renderWaterLayer', () => {
       { x: -8624, z: -8640, depth: 3 },
       { x: -8640, z: -8624, depth: 5 },
     ];
-    renderWaterLayer(ctx, tiles, NO_LAND, readTokensFromDOM(), CANVAS_SIZE);
+    renderWaterLayer(
+      ctx,
+      tiles,
+      NO_LAND,
+      readTokensFromDOM(),
+      CANVAS_SIZE,
+      CANVAS_SIZE,
+      FULL_BOUNDS,
+    );
     expect(ctx.fill).toHaveBeenCalledOnce();
   });
 
@@ -41,7 +72,15 @@ describe('renderWaterLayer', () => {
     const ctx = createMockCtx();
     const tokens = readTokensFromDOM();
     const tiles = [{ x: -8640, z: -8640, depth: 2 }];
-    renderWaterLayer(ctx, tiles, NO_LAND, tokens, CANVAS_SIZE);
+    renderWaterLayer(
+      ctx,
+      tiles,
+      NO_LAND,
+      tokens,
+      CANVAS_SIZE,
+      CANVAS_SIZE,
+      FULL_BOUNDS,
+    );
     expect(ctx.fillStyle).toBe(tokens.water);
   });
 
@@ -49,7 +88,15 @@ describe('renderWaterLayer', () => {
     const ctx = createMockCtx();
     // resolution > SEA_LEVEL_DEFAULT (40) → debe tratarse como agua
     const landTiles = [{ x: -8640, z: -8640, elevation: 50, resolution: 80 }];
-    renderWaterLayer(ctx, [], landTiles, readTokensFromDOM(), CANVAS_SIZE);
+    renderWaterLayer(
+      ctx,
+      [],
+      landTiles,
+      readTokensFromDOM(),
+      CANVAS_SIZE,
+      CANVAS_SIZE,
+      FULL_BOUNDS,
+    );
     expect(ctx.fill).toHaveBeenCalledOnce();
   });
 
@@ -60,7 +107,15 @@ describe('renderWaterLayer', () => {
       { x: 99999, z: 99999, depth: 1 },
     ];
     expect(() =>
-      renderWaterLayer(ctx, tiles, NO_LAND, readTokensFromDOM(), CANVAS_SIZE),
+      renderWaterLayer(
+        ctx,
+        tiles,
+        NO_LAND,
+        readTokensFromDOM(),
+        CANVAS_SIZE,
+        CANVAS_SIZE,
+        FULL_BOUNDS,
+      ),
     ).not.toThrow();
   });
 });

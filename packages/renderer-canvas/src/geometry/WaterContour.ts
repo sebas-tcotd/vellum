@@ -1,4 +1,4 @@
-import { GRID_SIZE } from './PresenceGrid';
+import { GRID_SIZE, CELL_SIZE, MAP_ORIGIN } from './PresenceGrid';
 
 // Vertex space is (GRID_SIZE+1) × (GRID_SIZE+1) — corners of the tile grid.
 // Vertex (col, row) is the top-left corner of tile (row, col).
@@ -104,16 +104,19 @@ function chaikin(vertices: number[]): number[] {
 }
 
 // Converts tile-vertex-space polygons into a single Path2D in canvas-pixel space.
-// The X axis is mirrored: col 0 (east) maps to the right side of the canvas.
-// Uses evenodd fill rule so holes (enclosed non-water areas) render correctly.
+// Uses the same bounds-relative coordinate system as terrain-layer and roads-layer
+// so all three layers stay visually aligned regardless of map extent.
 // Corners are smoothed via midpoint quadratic curves (Chaikin-style): each vertex
 // becomes a quadratic control point, and each edge midpoint becomes an anchor.
 // This converts the staircase-shaped tile boundaries into organic coastline curves.
 export function buildWaterPath(
   polygons: Float32Array[],
-  canvasSize: number,
+  canvasWidth: number,
+  canvasHeight: number,
+  bounds: { minX: number; maxX: number; minZ: number; maxZ: number },
 ): Path2D {
-  const scale = canvasSize / GRID_SIZE;
+  const rangeX = bounds.maxX - bounds.minX;
+  const rangeZ = bounds.maxZ - bounds.minZ;
   const path = new Path2D();
 
   for (const rawPolygon of polygons) {
@@ -128,10 +131,16 @@ export function buildWaterPath(
     const polygon = smoothed;
     const n = polygon.length / 2;
 
-    // West (col=0) → left (px=0), East (col=GRID_SIZE) → right (px=canvasSize)
-    // North (row=GRID_SIZE) → top (py=0), South (row=0) → bottom (py=canvasSize)
-    const px = (i: number): number => polygon[i * 2] * scale;
-    const py = (i: number): number => (GRID_SIZE - polygon[i * 2 + 1]) * scale;
+    // Convert tile-vertex (col, row) → world coordinates → canvas pixels.
+    // This matches the projection used in terrain-layer.ts and roads-layer.ts.
+    const px = (i: number): number => {
+      const worldX = MAP_ORIGIN + polygon[i * 2] * CELL_SIZE;
+      return ((worldX - bounds.minX) / rangeX) * canvasWidth;
+    };
+    const py = (i: number): number => {
+      const worldZ = MAP_ORIGIN + polygon[i * 2 + 1] * CELL_SIZE;
+      return canvasHeight - ((worldZ - bounds.minZ) / rangeZ) * canvasHeight;
+    };
 
     // Start at the midpoint of the last→first edge so the path closes smoothly.
     const startX = (px(n - 1) + px(0)) / 2;

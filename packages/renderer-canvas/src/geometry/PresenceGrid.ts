@@ -2,8 +2,8 @@ import type { WaterTile, LandTile } from '@vellum/core';
 import { SEA_LEVEL_DEFAULT } from '@vellum/core';
 
 export const GRID_SIZE = 1081;
-const CELL_SIZE = 16;
-const MAP_ORIGIN = -8640;
+export const CELL_SIZE = 16;
+export const MAP_ORIGIN = -8640;
 
 function mark(grid: Uint8Array, x: number, z: number): void {
   const col = Math.round((x - MAP_ORIGIN) / CELL_SIZE);

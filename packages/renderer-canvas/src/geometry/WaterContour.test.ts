@@ -2,6 +2,15 @@ import { describe, it, expect } from 'vitest';
 import { traceWaterContours, buildWaterPath } from './WaterContour';
 import { GRID_SIZE } from './PresenceGrid';
 
+// Bounds equivalentes a la grilla completa del mapa CS1
+const FULL_BOUNDS = {
+  minX: -8640,
+  maxX: 8640,
+  minZ: -8640,
+  maxZ: 8640,
+  seaLevel: 0,
+};
+
 function makeGrid(...cells: [number, number][]): Uint8Array {
   const grid = new Uint8Array(GRID_SIZE * GRID_SIZE);
   for (const [row, col] of cells) {
@@ -48,7 +57,7 @@ describe('traceWaterContours', () => {
 
 describe('buildWaterPath', () => {
   it('sin polígonos → Path2D sin movimientos', () => {
-    const path = buildWaterPath([], 1081);
+    const path = buildWaterPath([], 1081, 1081, FULL_BOUNDS);
     // MockPath2D (del setup) expone calls — no debe haber moveTo/lineTo
     const mock = path as unknown as { calls: Array<{ method: string }> };
     expect(mock.calls.filter((c) => c.method === 'moveTo')).toHaveLength(0);
@@ -57,7 +66,7 @@ describe('buildWaterPath', () => {
   it('un polígono → un moveTo, quadraticCurveTo por vértice suavizado, y closePath', () => {
     // 4 vértices → 2 pasadas de Chaikin → 4×2×2 = 16 vértices → 16 quadraticCurveTo
     const polygon = new Float32Array([0, 0, 1, 0, 1, 1, 0, 1]);
-    const path = buildWaterPath([polygon], 1081);
+    const path = buildWaterPath([polygon], 1081, 1081, FULL_BOUNDS);
     const mock = path as unknown as { calls: Array<{ method: string }> };
     expect(mock.calls.filter((c) => c.method === 'moveTo')).toHaveLength(1);
     expect(
@@ -68,7 +77,7 @@ describe('buildWaterPath', () => {
 
   it('aplica espejo X correctamente: col 0 → px = canvasSize', () => {
     const polygon = new Float32Array([0, 0, 1, 0, 1, 1]);
-    buildWaterPath([polygon], 1081);
+    buildWaterPath([polygon], 1081, 1081, FULL_BOUNDS);
     // El moveTo para col=0 debería ser px = (1081 - 0) * scale = 1081
     // con scale = 1081/1081 = 1, px = 1081
     // Solo verificamos que no lanza y que produce algo
