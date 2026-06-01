@@ -43,22 +43,41 @@ function parseHsl(color: string): { h: number; s: number; l: number } | null {
   return null;
 }
 
-function buildTerrainRamp(levels: number, baseColor: string): string[] {
-  const parsed = parseHsl(baseColor);
-  if (!parsed) {
-    return Array.from({ length: levels }, () => baseColor);
+type Hsl = { h: number; s: number; l: number };
+
+function lerpHsl(a: Hsl, b: Hsl, t: number): Hsl {
+  return {
+    h: a.h + (b.h - a.h) * t,
+    s: a.s + (b.s - a.s) * t,
+    l: a.l + (b.l - a.l) * t,
+  };
+}
+
+function buildTerrainRamp(levels: number, stopColors: string[]): string[] {
+  const validStops = stopColors
+    .map(parseHsl)
+    .filter((s): s is Hsl => s !== null);
+  if (validStops.length < 2) {
+    return Array.from({ length: levels }, () => stopColors[0] ?? '#f7f6f1');
   }
-  const { h, s, l } = parsed;
+  const segCount = validStops.length - 1;
   return Array.from({ length: levels }, (_, i) => {
     const t = i / (levels - 1);
-    const newL = Math.max(0, Math.min(100, l - 15 * t));
-    return `hsl(${h}, ${s.toFixed(1)}%, ${newL.toFixed(1)}%)`;
+    const seg = Math.min(Math.floor(t * segCount), segCount - 1);
+    const segT = t * segCount - seg;
+    const { h, s, l } = lerpHsl(validStops[seg]!, validStops[seg + 1]!, segT);
+    return `hsl(${h.toFixed(1)}, ${s.toFixed(1)}%, ${l.toFixed(1)}%)`;
   });
 }
 
-// Ramp is built once per call — callers should cache this if needed
+// Ramp is built once per call — callers should cache this if needed.
+// Stops go low→mid→high: vegetated lowlands → agriculture → arid highlands.
 function getTerrainRamp(tokens: RendererTokens): string[] {
-  return buildTerrainRamp(24, tokens.terrain);
+  return buildTerrainRamp(24, [
+    tokens.terrainLow,
+    tokens.terrainMid,
+    tokens.terrainHigh,
+  ]);
 }
 
 export function renderTerrainLayer(
@@ -78,8 +97,6 @@ export function renderTerrainLayer(
   const pixelsPerUnitX = canvasWidth / rangeX;
   const pixelsPerUnitZ = canvasHeight / rangeZ;
   const CELL_SIZE = 16;
-  const cellW = CELL_SIZE * pixelsPerUnitX;
-  const cellH = CELL_SIZE * pixelsPerUnitZ;
 
   // Normalize raw elevation to 0-23 range across the actual data range
   let minElev = Infinity;
@@ -94,9 +111,15 @@ export function renderTerrainLayer(
     const normalized = (tile.elevation - minElev) / elevRange;
     const colorIndex = Math.floor(normalized * 23);
     ctx.fillStyle = ramp[colorIndex];
-    // West (minX) → left (px=0), East → right. North (maxZ) → top (py=0), South → bottom.
-    const px = (tile.x - bounds.minX) * pixelsPerUnitX;
-    const py = canvasHeight - (tile.z - bounds.minZ) * pixelsPerUnitZ - cellH;
-    ctx.fillRect(px, py, cellW, cellH);
+    // Snap to integer pixels to eliminate sub-pixel gaps between adjacent tiles.
+    const x0 = Math.floor((tile.x - bounds.minX) * pixelsPerUnitX);
+    const y1 = Math.ceil(
+      canvasHeight - (tile.z - bounds.minZ) * pixelsPerUnitZ,
+    );
+    const x1 = Math.ceil((tile.x - bounds.minX + CELL_SIZE) * pixelsPerUnitX);
+    const y0 = Math.floor(
+      canvasHeight - (tile.z - bounds.minZ + CELL_SIZE) * pixelsPerUnitZ,
+    );
+    ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
   }
 }

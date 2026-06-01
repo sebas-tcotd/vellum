@@ -94,6 +94,9 @@
   /* Paleta pergamino — Tema Day (OSM Humanitarian) */
   --color-bg: #f7f6f1; /* fondo terreno — @land del OSM Humanitarian .mss */
   --color-terrain: #f7f6f1;
+  --color-terrain-low: #b2c29d; /* vegetación costera/llanos — @wooded del .mss */
+  --color-terrain-mid: #deddbe; /* agricultura/transición — @agriculture del .mss */
+  --color-terrain-high: #eee5b2; /* tierras altas/áridas — @beach del .mss */
   --color-water: #90cccb; /* agua — @water del .mss */
   --color-green: #d0dcae; /* zonas verdes — @park del .mss */
   --color-text: #333333;
