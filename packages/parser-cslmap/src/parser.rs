@@ -418,8 +418,10 @@ struct CityDataBuilder {
     forest_cells: Vec<ForestCell>,
     districts: Vec<District>,
     warnings: Vec<String>,
-    // bus routes from Bus Line segs, assigned to transit lines in order
-    bus_routes: VecDeque<Vec<String>>,
+    // Virtual transit connector segs (e.g. "Bus Line", "Tram Line"), keyed by (sn, en).
+    // Each entry holds a queue of road-segment-ID lists — one per connector seg with that node pair.
+    // Queued because two different transit lines can share the same stop pair.
+    transit_route_by_nodes: HashMap<(String, String), VecDeque<Vec<String>>>,
 
     // Bounds tracking (derived from node positions)
     min_x: f64,
@@ -805,11 +807,15 @@ impl CityDataBuilder {
                 self.in_seg_segs = false;
 
                 if let Some(seg) = self.current_seg.take() {
-                    // AC3 + Gotcha 6: Bus Line segments are virtual — extract route, skip road_segments
-                    if seg.item_class == "Bus Line" {
+                    // AC3 + Gotcha 6: transit virtual connector segs (e.g. "Bus Line",
+                    // "Tram Line") carry route geometry — extract and skip road_segments.
+                    if seg.item_class.ends_with(" Line") {
                         let mut segs = seg.path_segs;
                         normalize_debug_segs(&mut segs); // AC5 + Gotcha 4
-                        self.bus_routes.push_back(segs);
+                        self.transit_route_by_nodes
+                            .entry((seg.start_node_id, seg.end_node_id))
+                            .or_default()
+                            .push_back(segs);
                         return;
                     }
 
@@ -866,11 +872,33 @@ impl CityDataBuilder {
                 };
                 let mode = parse_transit_mode(&mode_str);
 
-                // Pull route from collected bus_routes (assigned by order of appearance)
-                let route = if let Some(segs) = self.bus_routes.pop_front() {
-                    vec![PathSegment { segment_ids: segs }]
-                } else {
+                // Reconstruct the full route by looking up each consecutive stop pair.
+                // Each Bus Line virtual seg connects two adjacent stops and carries the
+                // road segment IDs for that leg. Circular routes close from last→first stop.
+                let stop_ids: Vec<String> = self
+                    .current_trans_stops
+                    .iter()
+                    .map(|s| s.id.clone())
+                    .collect();
+                let n = stop_ids.len();
+                let mut all_seg_ids: Vec<String> = Vec::new();
+                for i in 0..n {
+                    let key = (stop_ids[i].clone(), stop_ids[(i + 1) % n].clone());
+                    if let Some(queue) = self.transit_route_by_nodes.get_mut(&key) {
+                        if let Some(leg_segs) = queue.pop_front() {
+                            all_seg_ids.extend(leg_segs);
+                        }
+                        if queue.is_empty() {
+                            self.transit_route_by_nodes.remove(&key);
+                        }
+                    }
+                }
+                let route = if all_seg_ids.is_empty() {
                     Vec::new()
+                } else {
+                    vec![PathSegment {
+                        segment_ids: all_seg_ids,
+                    }]
                 };
 
                 self.transit_lines.push(TransitLine {
@@ -1075,6 +1103,31 @@ mod tests {
             .any(|s| s.item_class == "Bus Line");
         assert!(!has_bus_line, "Bus Line must not appear in road_segments");
         assert!(!city.transit_lines.is_empty(), "expected transit lines");
+    }
+
+    // Bus Line route reconstruction: each transit line assembles its full route from
+    // per-stop-pair Bus Line virtual segs, keyed by (sn, en). Verifies with Altavento
+    // fixture (36 Bus Line segs across 4 Trans: 16+20 stop pairs).
+    #[test]
+    fn transit_routes_assembled_from_stop_pairs() {
+        let bytes = include_bytes!("../fixtures/altavento.cslmap");
+        let result = parse_cslmap_bytes(bytes);
+        assert!(result.is_ok(), "expected Ok, got: {result:?}");
+        let city = result.expect("already checked");
+        assert!(!city.transit_lines.is_empty(), "expected transit lines");
+        // Every transit line with stops must have a non-empty route
+        for line in &city.transit_lines {
+            if !line.stops.is_empty() {
+                let total_segs: usize = line.route.iter().map(|p| p.segment_ids.len()).sum();
+                assert!(
+                    total_segs > 1,
+                    "transit line '{}' has {} stops but only {} route segments — expected full route",
+                    line.name,
+                    line.stops.len(),
+                    total_segs,
+                );
+            }
+        }
     }
 
     // AC5 + Gotcha 4: debug-format fixture → no duplicate leading segment in route

@@ -60,12 +60,14 @@ self.onmessage = (event: MessageEvent<WorkerMessage>) => {
           );
         } else if (layerName === 'transit' && layerVisibility.transit) {
           const segmentMap = new Map(
-            cityData.roadSegments.map((s) => [s.id, s]),
+            (cityData.roadSegments ?? []).map((s) => [s.id, s]),
           );
-          const nodeMap = new Map(cityData.roadNodes.map((n) => [n.id, n]));
+          const nodeMap = new Map(
+            (cityData.roadNodes ?? []).map((n) => [n.id, n]),
+          );
           renderTransitLayer(
             ctx,
-            cityData.transitLines,
+            cityData.transitLines ?? [],
             segmentMap,
             nodeMap,
             cityData.bounds,
