@@ -3,7 +3,7 @@ import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import type { UnlistenFn } from '@tauri-apps/api/event';
 import { useRenderLoop } from './hooks/useRenderLoop';
 import { useVellumStore } from '../../store/vellum-store';
-import { CanvasLayer } from './CanvasLayer';
+import { CanvasManager, CanvasRenderer } from '@vellum/renderer-canvas';
 import type { IRenderer } from '@vellum/core';
 
 export interface ViewportState {
@@ -21,6 +21,16 @@ export interface CanvasRootProps {
   renderer?: IRenderer | null;
 }
 
+const ACTIVE_LAYERS = {
+  terrain: true,
+  water: true,
+  roads: false,
+  transit: false,
+  buildings: false,
+  forests: false,
+  districts: false,
+} as const;
+
 export function CanvasRoot({
   onElementHover: _onElementHover,
   onElementLeave: _onElementLeave,
@@ -30,17 +40,59 @@ export function CanvasRoot({
   const unlistenRef = useRef<UnlistenFn | null>(null);
   const viewportRef = useRef<ViewportState>({ zoom: 1, panX: 0, panY: 0 });
   const rendererRef = useRef<IRenderer | null>(renderer ?? null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const managerRef = useRef<CanvasManager | null>(null);
 
-  // Keep rendererRef in sync with the renderer prop
   useEffect(() => {
     rendererRef.current = renderer ?? null;
   }, [renderer]);
 
+  // Wire CanvasManager to renderer whenever a new renderer is provided
+  useEffect(() => {
+    if (!renderer || !containerRef.current) return;
+
+    managerRef.current?.destroy();
+    const manager = new CanvasManager(containerRef.current);
+    managerRef.current = manager;
+
+    if (renderer instanceof CanvasRenderer) {
+      for (const layerName of ['terrain', 'water'] as const) {
+        const offscreen = manager.getOffscreen(layerName);
+        if (offscreen) renderer.registerLayer(layerName, offscreen);
+      }
+      const data = useVellumStore.getState().cityData;
+      if (data) renderer.render(data, { activeLayers: ACTIVE_LAYERS });
+    }
+
+    return () => {
+      managerRef.current?.destroy();
+      managerRef.current = null;
+    };
+  }, [renderer]);
+
+  // Resize canvases when the container changes size
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const observer = new ResizeObserver(([entry]) => {
+      const { width, height } = entry.contentRect;
+      if (!managerRef.current || !rendererRef.current) return;
+      managerRef.current.resizeDisplay(width, height);
+      const dpr = window.devicePixelRatio || 1;
+      rendererRef.current.resize(
+        Math.round(width * dpr),
+        Math.round(height * dpr),
+      );
+      const data = useVellumStore.getState().cityData;
+      if (data)
+        rendererRef.current.render(data, { activeLayers: ACTIVE_LAYERS });
+    });
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, []);
+
   useEffect(() => {
     if (!loadFile) return;
-
     let cancelled = false;
-
     getCurrentWebviewWindow()
       .onDragDropEvent((event) => {
         if (event.payload.type === 'drop') {
@@ -49,9 +101,7 @@ export function CanvasRoot({
           const cslmapPath = paths.find((p) =>
             p.toLowerCase().endsWith('.cslmap'),
           );
-          if (cslmapPath) {
-            void loadFile(cslmapPath);
-          }
+          if (cslmapPath) void loadFile(cslmapPath);
         }
       })
       .then((unlisten: UnlistenFn) => {
@@ -67,7 +117,6 @@ export function CanvasRoot({
           err,
         );
       });
-
     return () => {
       cancelled = true;
       unlistenRef.current?.();
@@ -87,12 +136,12 @@ export function CanvasRoot({
 
   return (
     <div
+      ref={containerRef}
       className="canvas-root relative w-full h-full"
       role="region"
       aria-label="Map canvas"
     >
-      <CanvasLayer layerName="terrain" zIndex={1} visible={true} decorative />
-      <CanvasLayer layerName="water" zIndex={2} visible={true} decorative />
+      {/* Canvases are created imperatively by CanvasManager when a renderer is wired */}
     </div>
   );
 }

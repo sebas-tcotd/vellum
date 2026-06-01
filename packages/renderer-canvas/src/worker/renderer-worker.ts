@@ -8,8 +8,6 @@ interface LayerCanvas {
 }
 
 const layers = new Map<string, LayerCanvas>();
-let canvasWidth = 800;
-let canvasHeight = 600;
 
 self.onmessage = (event: MessageEvent<WorkerMessage>) => {
   const msg = event.data;
@@ -20,7 +18,9 @@ self.onmessage = (event: MessageEvent<WorkerMessage>) => {
 
       for (const [layerName, canvas] of layers) {
         const ctx = canvas.ctx;
-        ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+        const w = canvas.offscreen.width;
+        const h = canvas.offscreen.height;
+        ctx.clearRect(0, 0, w, h);
 
         if (layerName === 'terrain' && layerVisibility.terrain) {
           renderTerrainLayer(
@@ -28,8 +28,8 @@ self.onmessage = (event: MessageEvent<WorkerMessage>) => {
             cityData.landTiles,
             cityData.bounds,
             style.tokens,
-            canvasWidth,
-            canvasHeight,
+            w,
+            h,
           );
         } else if (layerName === 'water' && layerVisibility.water) {
           renderWaterLayer(
@@ -37,8 +37,8 @@ self.onmessage = (event: MessageEvent<WorkerMessage>) => {
             cityData.waterTiles,
             cityData.bounds,
             style.tokens,
-            canvasWidth,
-            canvasHeight,
+            w,
+            h,
           );
         }
 
@@ -49,8 +49,6 @@ self.onmessage = (event: MessageEvent<WorkerMessage>) => {
       const done: WorkerResponse = { type: 'render-complete' };
       self.postMessage(done);
     } else if (msg.type === 'resize') {
-      canvasWidth = msg.width;
-      canvasHeight = msg.height;
       for (const [, layer] of layers) {
         layer.offscreen.width = msg.width;
         layer.offscreen.height = msg.height;

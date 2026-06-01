@@ -74,14 +74,17 @@ export function renderWaterLayer(
   const ramp = getWaterRamp(tokens);
   const rangeX = bounds.maxX - bounds.minX;
   const rangeZ = bounds.maxZ - bounds.minZ;
-  const cellWidth = canvasWidth / rangeX;
-  const cellHeight = canvasHeight / rangeZ;
+  const pixelsPerUnitX = canvasWidth / rangeX;
+  const pixelsPerUnitZ = canvasHeight / rangeZ;
+  const CELL_SIZE = 16;
+  const cellW = CELL_SIZE * pixelsPerUnitX;
+  const cellH = CELL_SIZE * pixelsPerUnitZ;
 
   for (const tile of tiles) {
-    const colorIndex = Math.max(0, Math.min(8, tile.depth));
+    const colorIndex = Math.max(0, Math.min(8, Math.floor(tile.depth)));
     ctx.fillStyle = ramp[colorIndex];
-    const px = (tile.x - bounds.minX) * cellWidth;
-    const py = (tile.z - bounds.minZ) * cellHeight;
-    ctx.fillRect(px, py, cellWidth, cellHeight);
+    const px = canvasWidth - (tile.x - bounds.minX) * pixelsPerUnitX - cellW;
+    const py = (tile.z - bounds.minZ) * pixelsPerUnitZ;
+    ctx.fillRect(px, py, cellW, cellH);
   }
 }

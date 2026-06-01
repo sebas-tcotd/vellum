@@ -48,11 +48,10 @@ export class CanvasManager {
     return this.canvases.get(layer);
   }
 
-  resize(logicalWidth: number, logicalHeight: number): void {
-    const dpr = window.devicePixelRatio || 1;
+  // Updates only the CSS display size. Physical dimensions are owned by the
+  // worker after transferControlToOffscreen() — use renderer.resize() for those.
+  resizeDisplay(logicalWidth: number, logicalHeight: number): void {
     for (const [, canvas] of this.canvases) {
-      canvas.width = logicalWidth * dpr;
-      canvas.height = logicalHeight * dpr;
       canvas.style.width = `${logicalWidth}px`;
       canvas.style.height = `${logicalHeight}px`;
     }

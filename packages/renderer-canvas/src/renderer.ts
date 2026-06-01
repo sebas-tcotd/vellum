@@ -1,49 +1,48 @@
 import type { IRenderer, CityData, RenderParams } from '@vellum/core';
 import { readTokensFromDOM, type RendererTokens } from './tokens';
 import type { WorkerMessage, WorkerResponse } from './worker/messages';
+// Vite ?worker syntax — bundled as a separate chunk by the app's bundler
+import RenderWorker from './worker/renderer-worker?worker';
+
+const EXPECTED_LAYERS = 2; // terrain + water
 
 export class CanvasRenderer implements IRenderer {
   private tokens: RendererTokens;
   private worker: Worker | null = null;
   private offscreens = new Map<string, OffscreenCanvas>();
+  private pendingRender: WorkerMessage | null = null;
 
   constructor() {
     this.tokens = readTokensFromDOM();
   }
 
-  /**
-   * Register an OffscreenCanvas for a named layer.
-   * Must be called before render() for each layer.
-   */
   registerLayer(layerName: string, offscreen: OffscreenCanvas): void {
     this.offscreens.set(layerName, offscreen);
-    if (this.worker) {
-      this.worker.postMessage({ type: 'init-layer', layerName, offscreen }, [
-        offscreen,
-      ]);
+    const worker = this.getOrCreateWorker();
+    if (!worker) return;
+    worker.postMessage({ type: 'init-layer', layerName, offscreen }, [
+      offscreen,
+    ]);
+    // Flush buffered render only after ALL layers are registered
+    if (this.pendingRender && this.offscreens.size >= EXPECTED_LAYERS) {
+      worker.postMessage(this.pendingRender);
+      this.pendingRender = null;
     }
   }
 
   private getOrCreateWorker(): Worker | null {
     if (!this.worker) {
       if (typeof Worker === 'undefined') return null;
-      // Dynamic import with Vite worker syntax — bundled as a separate chunk
-      this.worker = new Worker(
-        new URL('./worker/renderer-worker.ts', import.meta.url),
-        { type: 'module' },
-      );
-      this.worker.onmessage = (e: MessageEvent<WorkerResponse>) => {
+      const w = new RenderWorker();
+      w.onmessage = (e: MessageEvent<WorkerResponse>) => {
         if (e.data.type === 'error') {
           console.error('[RendererWorker]', e.data.error);
         }
       };
-      // Send any already-registered offscreens
-      for (const [layerName, offscreen] of this.offscreens) {
-        this.worker.postMessage({ type: 'init-layer', layerName, offscreen }, [
-          offscreen,
-        ]);
-      }
-      this.offscreens.clear();
+      w.onerror = (e) => {
+        console.error('[RendererWorker] worker error', e);
+      };
+      this.worker = w;
     }
     return this.worker;
   }
@@ -57,6 +56,10 @@ export class CanvasRenderer implements IRenderer {
       style: { tokens: this.tokens },
       layers: params.activeLayers,
     };
+    if (this.offscreens.size < EXPECTED_LAYERS) {
+      this.pendingRender = msg;
+      return;
+    }
     worker.postMessage(msg);
   }
 
@@ -79,5 +82,6 @@ export class CanvasRenderer implements IRenderer {
     this.worker?.terminate();
     this.worker = null;
     this.offscreens.clear();
+    this.pendingRender = null;
   }
 }

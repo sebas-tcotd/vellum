@@ -74,14 +74,29 @@ export function renderTerrainLayer(
   const ramp = getTerrainRamp(tokens);
   const rangeX = bounds.maxX - bounds.minX;
   const rangeZ = bounds.maxZ - bounds.minZ;
-  const cellWidth = canvasWidth / rangeX;
-  const cellHeight = canvasHeight / rangeZ;
+  // Each terrain cell covers 16 game units. pixelsPerUnit converts world→canvas.
+  const pixelsPerUnitX = canvasWidth / rangeX;
+  const pixelsPerUnitZ = canvasHeight / rangeZ;
+  const CELL_SIZE = 16;
+  const cellW = CELL_SIZE * pixelsPerUnitX;
+  const cellH = CELL_SIZE * pixelsPerUnitZ;
+
+  // Normalize raw elevation to 0-23 range across the actual data range
+  let minElev = Infinity;
+  let maxElev = -Infinity;
+  for (const tile of tiles) {
+    if (tile.elevation < minElev) minElev = tile.elevation;
+    if (tile.elevation > maxElev) maxElev = tile.elevation;
+  }
+  const elevRange = maxElev - minElev || 1;
 
   for (const tile of tiles) {
-    const colorIndex = Math.max(0, Math.min(23, tile.elevation));
+    const normalized = (tile.elevation - minElev) / elevRange;
+    const colorIndex = Math.floor(normalized * 23);
     ctx.fillStyle = ramp[colorIndex];
-    const px = (tile.x - bounds.minX) * cellWidth;
-    const py = (tile.z - bounds.minZ) * cellHeight;
-    ctx.fillRect(px, py, cellWidth, cellHeight);
+    // X is mirrored: game east → canvas left (heightmap col 0 = east in export)
+    const px = canvasWidth - (tile.x - bounds.minX) * pixelsPerUnitX - cellW;
+    const py = (tile.z - bounds.minZ) * pixelsPerUnitZ;
+    ctx.fillRect(px, py, cellW, cellH);
   }
 }

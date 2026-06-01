@@ -3,6 +3,13 @@ import * as matchers from '@testing-library/jest-dom/matchers';
 import '@testing-library/jest-dom';
 import { expect } from 'vitest';
 
+// jsdom doesn't implement ResizeObserver
+global.ResizeObserver = class MockResizeObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+};
+
 // Extendemos explícitamente en lugar de usar '@testing-library/jest-dom/vitest'
 // para evitar problemas de auto-detección con la extensión de VSCode.
 expect.extend(matchers);
