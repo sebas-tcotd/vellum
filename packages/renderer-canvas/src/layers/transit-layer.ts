@@ -117,6 +117,7 @@ function drawModeMarker(
   mode: TransitMode,
   fillColor: string,
   strokeColor: string,
+  count: number,
 ): void {
   ctx.lineWidth = 1.5;
 
@@ -124,8 +125,9 @@ function drawModeMarker(
     case 'Bus':
     case 'Trolleybus':
     case 'Unknown': {
+      const radius = Math.min(6, 3 + Math.floor(count / 2));
       ctx.beginPath();
-      ctx.arc(cx, cy, 4, 0, Math.PI * 2);
+      ctx.arc(cx, cy, radius, 0, Math.PI * 2);
       ctx.fillStyle = fillColor;
       ctx.fill();
       ctx.strokeStyle = strokeColor;
@@ -155,8 +157,10 @@ function drawModeMarker(
       break;
     }
     case 'Metro': {
+      // Invertido: relleno de color, borde blanco — visualmente distinto del Bus
+      const radiusM = Math.min(6, 3 + Math.floor(count / 2));
       ctx.beginPath();
-      ctx.arc(cx, cy, 4, 0, Math.PI * 2);
+      ctx.arc(cx, cy, radiusM, 0, Math.PI * 2);
       ctx.fillStyle = strokeColor;
       ctx.fill();
       ctx.strokeStyle = fillColor;
@@ -164,10 +168,11 @@ function drawModeMarker(
       break;
     }
     case 'CableCar': {
+      // Triángulo equilátero centrado en (cx, cy): apex=cy-5, base=cy+2.5, base-x=±4.33
       ctx.beginPath();
       ctx.moveTo(cx, cy - 5);
-      ctx.lineTo(cx + 5, cy + 3.5);
-      ctx.lineTo(cx - 5, cy + 3.5);
+      ctx.lineTo(cx + 4.33, cy + 2.5);
+      ctx.lineTo(cx - 4.33, cy + 2.5);
       ctx.closePath();
       ctx.fillStyle = fillColor;
       ctx.fill();
@@ -300,15 +305,17 @@ export function renderTransitLayer(
         uniqueModes[0],
         '#ffffff',
         group.entries[0].line.color,
+        group.entries.length,
       );
     } else {
       const totalWidth = (uniqueModes.length - 1) * MULTI_STOP_SPACING;
       const startX = cx - totalWidth / 2;
       for (let i = 0; i < uniqueModes.length; i++) {
-        const modeEntry = group.entries.find(
+        const modeEntries = group.entries.filter(
           (e) => e.stop.mode === uniqueModes[i],
         );
-        const lineColor = modeEntry?.line.color ?? group.entries[0].line.color;
+        const lineColor =
+          modeEntries[0]?.line.color ?? group.entries[0].line.color;
         drawModeMarker(
           ctx,
           startX + i * MULTI_STOP_SPACING,
@@ -316,6 +323,7 @@ export function renderTransitLayer(
           uniqueModes[i],
           '#ffffff',
           lineColor,
+          modeEntries.length,
         );
       }
     }

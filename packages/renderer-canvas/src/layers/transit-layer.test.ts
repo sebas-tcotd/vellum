@@ -735,6 +735,45 @@ describe('renderTransitLayer', () => {
       expect(STOP_MERGE_THRESHOLD).toBe(48);
     });
 
+    it('paradas exactamente a 48m se fusionan (límite ≤ threshold)', () => {
+      const ctx = makeCtx();
+      const stopA = makeStop({
+        id: 'stop-a',
+        mode: 'Bus',
+        position: { x: 0, y: 60, z: 0 },
+      });
+      const stopB = makeStop({
+        id: 'stop-b',
+        mode: 'Bus',
+        position: { x: 48, y: 60, z: 0 },
+      });
+
+      const lineA = makeTransitLine({
+        id: 'line-a',
+        stops: [stopA],
+        route: [],
+      });
+      const lineB = makeTransitLine({
+        id: 'line-b',
+        stops: [stopB],
+        route: [],
+      });
+
+      renderTransitLayer(
+        ctx,
+        [lineA, lineB],
+        new Map(),
+        new Map(),
+        BOUNDS,
+        800,
+        800,
+        1,
+      );
+
+      // 48m === STOP_MERGE_THRESHOLD → fusionar → 1 solo arc
+      expect(ctx.arc).toHaveBeenCalledTimes(1);
+    });
+
     it('línea con un solo stop renderiza su marcador', () => {
       const ctx = makeCtx();
       const stopA = makeStop({
