@@ -19,19 +19,22 @@ export class CanvasManager {
 
   private create(): void {
     const dpr = window.devicePixelRatio || 1;
-    const logicalWidth = this.container.clientWidth || 800;
-    const logicalHeight = this.container.clientHeight || 600;
+    const size = Math.max(
+      this.container.clientWidth || window.innerWidth,
+      this.container.clientHeight || window.innerHeight,
+    );
 
     for (const layer of LAYERS) {
       const canvas = document.createElement('canvas');
       canvas.id = `layer-${layer}`;
-      canvas.className = 'absolute inset-0 transition-opacity duration-200';
+      canvas.className =
+        'absolute top-0 left-0 transition-opacity duration-200';
       canvas.style.zIndex = String(LAYER_Z_INDEX[layer]);
       canvas.style.opacity = '1';
-      canvas.style.width = `${logicalWidth}px`;
-      canvas.style.height = `${logicalHeight}px`;
-      canvas.width = logicalWidth * dpr;
-      canvas.height = logicalHeight * dpr;
+      canvas.style.width = `${size}px`;
+      canvas.style.height = `${size}px`;
+      canvas.width = Math.round(size * dpr);
+      canvas.height = Math.round(size * dpr);
       this.container.appendChild(canvas);
       this.canvases.set(layer, canvas);
 
@@ -50,10 +53,10 @@ export class CanvasManager {
 
   // Updates only the CSS display size. Physical dimensions are owned by the
   // worker after transferControlToOffscreen() — use renderer.resize() for those.
-  resizeDisplay(logicalWidth: number, logicalHeight: number): void {
+  resizeDisplay(size: number): void {
     for (const [, canvas] of this.canvases) {
-      canvas.style.width = `${logicalWidth}px`;
-      canvas.style.height = `${logicalHeight}px`;
+      canvas.style.width = `${size}px`;
+      canvas.style.height = `${size}px`;
     }
   }
 

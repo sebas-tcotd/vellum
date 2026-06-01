@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import type { UnlistenFn } from '@tauri-apps/api/event';
 import { useRenderLoop } from './hooks/useRenderLoop';
@@ -40,8 +40,10 @@ export function CanvasRoot({
   const unlistenRef = useRef<UnlistenFn | null>(null);
   const viewportRef = useRef<ViewportState>({ zoom: 1, panX: 0, panY: 0 });
   const rendererRef = useRef<IRenderer | null>(renderer ?? null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const managerRef = useRef<CanvasManager | null>(null);
+  const [canvasSize, setCanvasSize] = useState(0);
 
   useEffect(() => {
     rendererRef.current = renderer ?? null;
@@ -70,23 +72,23 @@ export function CanvasRoot({
     };
   }, [renderer]);
 
-  // Resize canvases when the container changes size
+  // Track viewport size via wrapperRef; resize canvas to square (max dimension)
   useEffect(() => {
-    if (!containerRef.current) return;
+    if (!wrapperRef.current) return;
     const observer = new ResizeObserver(([entry]) => {
       const { width, height } = entry.contentRect;
+      const size = Math.max(width, height);
+      setCanvasSize(size);
       if (!managerRef.current || !rendererRef.current) return;
-      managerRef.current.resizeDisplay(width, height);
+      managerRef.current.resizeDisplay(size);
       const dpr = window.devicePixelRatio || 1;
-      rendererRef.current.resize(
-        Math.round(width * dpr),
-        Math.round(height * dpr),
-      );
+      const physicalSize = Math.round(size * dpr);
+      rendererRef.current.resize(physicalSize, physicalSize);
       const data = useVellumStore.getState().cityData;
       if (data)
         rendererRef.current.render(data, { activeLayers: ACTIVE_LAYERS });
     });
-    observer.observe(containerRef.current);
+    observer.observe(wrapperRef.current);
     return () => observer.disconnect();
   }, []);
 
@@ -136,12 +138,20 @@ export function CanvasRoot({
 
   return (
     <div
-      ref={containerRef}
-      className="canvas-root relative w-full h-full"
+      ref={wrapperRef}
+      className="canvas-root relative w-full h-full overflow-auto"
       role="region"
       aria-label="Map canvas"
     >
-      {/* Canvases are created imperatively by CanvasManager when a renderer is wired */}
+      <div
+        ref={containerRef}
+        className="relative"
+        style={
+          canvasSize > 0
+            ? { width: canvasSize, height: canvasSize }
+            : { width: '100%', height: '100%' }
+        }
+      />
     </div>
   );
 }

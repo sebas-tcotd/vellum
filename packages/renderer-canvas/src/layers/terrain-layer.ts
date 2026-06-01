@@ -94,9 +94,9 @@ export function renderTerrainLayer(
     const normalized = (tile.elevation - minElev) / elevRange;
     const colorIndex = Math.floor(normalized * 23);
     ctx.fillStyle = ramp[colorIndex];
-    // X is mirrored: game east → canvas left (heightmap col 0 = east in export)
-    const px = canvasWidth - (tile.x - bounds.minX) * pixelsPerUnitX - cellW;
-    const py = (tile.z - bounds.minZ) * pixelsPerUnitZ;
+    // West (minX) → left (px=0), East → right. North (maxZ) → top (py=0), South → bottom.
+    const px = (tile.x - bounds.minX) * pixelsPerUnitX;
+    const py = canvasHeight - (tile.z - bounds.minZ) * pixelsPerUnitZ - cellH;
     ctx.fillRect(px, py, cellW, cellH);
   }
 }

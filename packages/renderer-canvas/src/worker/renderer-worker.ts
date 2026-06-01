@@ -35,10 +35,9 @@ self.onmessage = (event: MessageEvent<WorkerMessage>) => {
           renderWaterLayer(
             ctx,
             cityData.waterTiles,
-            cityData.bounds,
+            cityData.landTiles,
             style.tokens,
-            w,
-            h,
+            Math.min(w, h),
           );
         }
 

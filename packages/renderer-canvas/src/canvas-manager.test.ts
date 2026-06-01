@@ -36,15 +36,16 @@ describe('CanvasManager', () => {
     manager.destroy();
   });
 
-  it('aplica devicePixelRatio al crear canvas', () => {
+  it('aplica devicePixelRatio al crear canvas con tamaño cuadrado', () => {
     Object.defineProperty(window, 'devicePixelRatio', {
       value: 2,
       configurable: true,
     });
+    // Canvas es siempre cuadrado: max(800, 600) = 800
     const manager = new CanvasManager(createContainer(800, 600));
     const canvas = manager.getCanvas('terrain');
     expect(canvas?.width).toBe(800 * 2);
-    expect(canvas?.height).toBe(600 * 2);
+    expect(canvas?.height).toBe(800 * 2);
     manager.destroy();
   });
 

@@ -41,8 +41,8 @@ describe('renderTerrainLayer', () => {
   it('llama fillRect por cada tile', () => {
     const ctx = createMockCtx();
     const tiles = [
-      { x: 0, z: 0, elevation: 5 },
-      { x: 1, z: 1, elevation: 20 },
+      { x: 0, z: 0, elevation: 5, resolution: 0 },
+      { x: 1, z: 1, elevation: 20, resolution: 0 },
     ];
     const bounds = makeCityData().bounds;
     renderTerrainLayer(ctx, tiles, bounds, readTokensFromDOM(), 800, 600);
@@ -52,8 +52,8 @@ describe('renderTerrainLayer', () => {
   it('asigna colores distintos a elevaciones distintas (rampa)', () => {
     const ctx = createMockCtx();
     const tiles = [
-      { x: 0, z: 0, elevation: 0 },
-      { x: 1, z: 1, elevation: 23 },
+      { x: 0, z: 0, elevation: 0, resolution: 0 },
+      { x: 1, z: 1, elevation: 23, resolution: 0 },
     ];
     const bounds = makeCityData().bounds;
     const colors: string[] = [];
@@ -68,8 +68,8 @@ describe('renderTerrainLayer', () => {
   it('clampea elevaciones fuera de rango', () => {
     const ctx = createMockCtx();
     const tiles = [
-      { x: 0, z: 0, elevation: -5 },
-      { x: 1, z: 1, elevation: 100 },
+      { x: 0, z: 0, elevation: -5, resolution: 0 },
+      { x: 1, z: 1, elevation: 100, resolution: 0 },
     ];
     const bounds = makeCityData().bounds;
     expect(() =>
