@@ -106,6 +106,13 @@
   /* Paleta Transit — Tema oscuro */
   --color-transit-bg: #1a1a2e;
 
+  /* Road hierarchy — Day palette (OSM Humanitarian) */
+  --color-road-highway: #f6a800;
+  --color-road-arterial: #fcd47a;
+  --color-road-local: #ffffff;
+  --color-road-pedestrian: #ededed;
+  --color-road-casing: #aaaaaa;
+
   /* Tipografía */
   --font-wordmark: 'Cormorant Garamond', 'Georgia', serif;
   --font-ui: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;

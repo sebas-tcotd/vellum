@@ -1,6 +1,7 @@
 import type { WorkerMessage, WorkerResponse } from './messages';
 import { renderTerrainLayer } from '../layers/terrain-layer';
 import { renderWaterLayer } from '../layers/water-layer';
+import { renderRoadsLayer } from '../layers/roads-layer';
 
 interface LayerCanvas {
   offscreen: OffscreenCanvas;
@@ -8,6 +9,7 @@ interface LayerCanvas {
 }
 
 const layers = new Map<string, LayerCanvas>();
+let currentZoom = 1;
 
 self.onmessage = (event: MessageEvent<WorkerMessage>) => {
   const msg = event.data;
@@ -39,6 +41,18 @@ self.onmessage = (event: MessageEvent<WorkerMessage>) => {
             style.tokens,
             Math.min(w, h),
           );
+        } else if (layerName === 'roads' && layerVisibility.roads) {
+          const nodeMap = new Map(cityData.roadNodes.map((n) => [n.id, n]));
+          renderRoadsLayer(
+            ctx,
+            cityData.roadSegments,
+            nodeMap,
+            cityData.bounds,
+            style.tokens,
+            w,
+            h,
+            currentZoom,
+          );
         }
 
         const response: WorkerResponse = { type: 'layer-ready', layerName };
@@ -53,7 +67,7 @@ self.onmessage = (event: MessageEvent<WorkerMessage>) => {
         layer.offscreen.height = msg.height;
       }
     } else if (msg.type === 'update-viewport') {
-      // Viewport updates will be used for pan/zoom in Story 4.4
+      currentZoom = msg.viewport.zoom;
     }
   } catch (err) {
     const error: WorkerResponse = {

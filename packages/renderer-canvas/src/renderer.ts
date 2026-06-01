@@ -4,7 +4,7 @@ import type { WorkerMessage, WorkerResponse } from './worker/messages';
 // Vite ?worker syntax — bundled as a separate chunk by the app's bundler
 import RenderWorker from './worker/renderer-worker?worker';
 
-const EXPECTED_LAYERS = 2; // terrain + water
+const EXPECTED_LAYERS = 3; // terrain + water + roads
 
 export class CanvasRenderer implements IRenderer {
   private tokens: RendererTokens;

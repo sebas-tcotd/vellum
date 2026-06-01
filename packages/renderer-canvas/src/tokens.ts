@@ -7,6 +7,11 @@ export interface RendererTokens {
   green: string; // --color-green
   text: string; // --color-text
   transitBg: string; // --color-transit-bg
+  roadHighway: string; // --color-road-highway
+  roadArterial: string; // --color-road-arterial
+  roadLocal: string; // --color-road-local
+  roadPedestrian: string; // --color-road-pedestrian
+  roadCasing: string; // --color-road-casing
 }
 
 const FALLBACKS: RendererTokens = {
@@ -18,6 +23,11 @@ const FALLBACKS: RendererTokens = {
   green: '#d0dcae',
   text: '#333333',
   transitBg: '#1a1a2e',
+  roadHighway: '#f6a800',
+  roadArterial: '#fcd47a',
+  roadLocal: '#ffffff',
+  roadPedestrian: '#ededed',
+  roadCasing: '#aaaaaa',
 };
 
 export function readTokensFromDOM(): RendererTokens {
@@ -41,5 +51,20 @@ export function readTokensFromDOM(): RendererTokens {
     transitBg:
       style.getPropertyValue('--color-transit-bg').trim() ||
       FALLBACKS.transitBg,
+    roadHighway:
+      style.getPropertyValue('--color-road-highway').trim() ||
+      FALLBACKS.roadHighway,
+    roadArterial:
+      style.getPropertyValue('--color-road-arterial').trim() ||
+      FALLBACKS.roadArterial,
+    roadLocal:
+      style.getPropertyValue('--color-road-local').trim() ||
+      FALLBACKS.roadLocal,
+    roadPedestrian:
+      style.getPropertyValue('--color-road-pedestrian').trim() ||
+      FALLBACKS.roadPedestrian,
+    roadCasing:
+      style.getPropertyValue('--color-road-casing').trim() ||
+      FALLBACKS.roadCasing,
   };
 }
