@@ -97,7 +97,7 @@
   --color-terrain-low: #b2c29d; /* vegetación costera/llanos — @wooded del .mss */
   --color-terrain-mid: #deddbe; /* agricultura/transición — @agriculture del .mss */
   --color-terrain-high: #eee5b2; /* tierras altas/áridas — @beach del .mss */
-  --color-water: #90cccb; /* agua — @water del .mss */
+  --color-water: #6db8b7; /* agua — más oscuro que Humanitarian base para contraste con terreno */
   --color-green: #d0dcae; /* zonas verdes — @park del .mss */
   --color-text: #333333;
   --color-text-subtle: #777777;
@@ -105,6 +105,25 @@
 
   /* Paleta Transit — Tema oscuro */
   --color-transit-bg: #1a1a2e;
+
+  /* Road hierarchy — OSM Humanitarian palette */
+  /* Tiers con color distintivo */
+  --color-road-highway: #a098b0;
+  --color-road-highway-casing: #7d748e;
+  --color-road-large-arterial: #d2938e;
+  --color-road-large-arterial-casing: #b8756e;
+  --color-road-medium-arterial: #d4a882;
+  /* Tiers neutros: requieren casing para visibilidad sobre terrain */
+  --color-road-local: #e4e1d1;
+  --color-road-local-casing: #8a8278; /* casing oscuro para contraste sobre terrain */
+  --color-road-gravel: #e0d5c1;
+  --color-road-gravel-casing: #c4b89e;
+  --color-road-pedestrian: #7a6e60;
+  --color-road-pedestrian-casing: #5d5550;
+  --color-road-pedestrian-way: #8b7d6b;
+  /* Railway — traviesas (casing dashed butt) + rieles (fill sólido delgado) */
+  --color-road-railway: #eceff1;
+  --color-road-railway-casing: #455a64; /* charcoal azulado solarizado */
 
   /* Tipografía */
   --font-wordmark: 'Cormorant Garamond', 'Georgia', serif;

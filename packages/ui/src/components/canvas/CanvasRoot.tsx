@@ -24,8 +24,8 @@ export interface CanvasRootProps {
 const ACTIVE_LAYERS = {
   terrain: true,
   water: true,
-  roads: false,
-  transit: false,
+  roads: true,
+  transit: true,
   buildings: false,
   forests: false,
   districts: false,
@@ -58,7 +58,12 @@ export function CanvasRoot({
     managerRef.current = manager;
 
     if (renderer instanceof CanvasRenderer) {
-      for (const layerName of ['terrain', 'water'] as const) {
+      for (const layerName of [
+        'terrain',
+        'water',
+        'roads',
+        'transit',
+      ] as const) {
         const offscreen = manager.getOffscreen(layerName);
         if (offscreen) renderer.registerLayer(layerName, offscreen);
       }

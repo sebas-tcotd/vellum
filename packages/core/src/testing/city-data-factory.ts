@@ -1,6 +1,6 @@
 // packages/core/src/testing/city-data-factory.ts
 // Factories para tests — importar desde '@vellum/core/testing' (nunca desde el barrel principal)
-import type { CityData, RoadSegment } from '../types/city-data';
+import type { CityData, RoadSegment, TransitLine } from '../types/city-data';
 import type { LayerVisibility } from '../types/layer';
 import { LAYER_NAMES } from '../types/layer';
 
@@ -47,6 +47,22 @@ export function makeRoadSegment(overrides?: Partial<RoadSegment>): RoadSegment {
     wayType: ['Road'],
     itemClass: 'Basic Road',
     width: 16,
+    ...overrides,
+  };
+}
+
+/**
+ * Crea un `TransitLine` con valores predeterminados razonables.
+ * Pasar `overrides` para personalizar campos específicos en cada test.
+ */
+export function makeTransitLine(overrides?: Partial<TransitLine>): TransitLine {
+  return {
+    id: 'line-1',
+    name: 'Test Line',
+    mode: 'Bus',
+    color: '#FF6600',
+    stops: [],
+    route: [],
     ...overrides,
   };
 }
