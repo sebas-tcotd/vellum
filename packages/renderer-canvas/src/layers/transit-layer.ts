@@ -110,6 +110,27 @@ function drawOffsetPolyline(
   ctx.stroke();
 }
 
+/**
+ * Draws a stop marker with a shape specific to the transit mode.
+ *
+ * Shape mapping:
+ *   Bus, Trolleybus, Unknown → circle (radius scales with stop count)
+ *   Tram                    → square (8×8)
+ *   Train                   → diamond (rotated square)
+ *   Metro                   → inverted circle (line color fill, white stroke)
+ *   CableCar                → equilateral triangle pointing up
+ *   Monorail                → horizontal rectangle (11×5)
+ *   Ferry                   → regular pentagon
+ *   Blimp                   → horizontal ellipse (12×7)
+ *
+ * @param ctx - 2D rendering context (canvas or offscreen)
+ * @param cx - Marker center X in canvas coordinates
+ * @param cy - Marker center Y in canvas coordinates
+ * @param mode - Transit mode of the stop
+ * @param fillColor - Fill color (typically '#ffffff')
+ * @param strokeColor - Stroke color (typically the line's game color)
+ * @param count - Number of stops merged into this group (used to scale circle radius)
+ */
 function drawModeMarker(
   ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
   cx: number,

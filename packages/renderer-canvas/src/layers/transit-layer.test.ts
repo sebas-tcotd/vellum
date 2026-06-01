@@ -493,8 +493,19 @@ describe('renderTransitLayer', () => {
       expect(ctx.rect).not.toHaveBeenCalled();
     });
 
-    it('parada Metro renderiza círculo (arc llamado)', () => {
+    it('parada Metro renderiza círculo invertido (arc llamado, fillStyle=lineColor, strokeStyle=blanco)', () => {
+      const fillStyles: string[] = [];
+      const strokeStyles: string[] = [];
       const ctx = makeCtx();
+      Object.defineProperty(ctx, 'fillStyle', {
+        set: (v: string) => fillStyles.push(v),
+        get: () => fillStyles.at(-1) ?? '',
+      });
+      Object.defineProperty(ctx, 'strokeStyle', {
+        set: (v: string) => strokeStyles.push(v),
+        get: () => strokeStyles.at(-1) ?? '',
+      });
+      const lineColor = '#FF6600';
       const stopA = makeStop({
         id: 'stop-a',
         mode: 'Metro',
@@ -506,6 +517,7 @@ describe('renderTransitLayer', () => {
         position: { x: 500, y: 60, z: 0 },
       });
       const line = makeTransitLine({
+        color: lineColor,
         mode: 'Metro',
         stops: [stopA, stopB],
         route: [],
@@ -523,6 +535,9 @@ describe('renderTransitLayer', () => {
       );
 
       expect(ctx.arc).toHaveBeenCalled();
+      // Metro inverts colors: line color is the fill, white is the stroke
+      expect(fillStyles).toContain(lineColor);
+      expect(strokeStyles).toContain('#ffffff');
     });
 
     it('parada Blimp renderiza elipse (ellipse llamado)', () => {
@@ -558,6 +573,114 @@ describe('renderTransitLayer', () => {
       expect(ctx.arc).not.toHaveBeenCalled();
     });
 
+    it('parada CableCar renderiza triángulo (moveTo/lineTo/closePath, no arc/rect/ellipse)', () => {
+      const ctx = makeCtx();
+      const stopA = makeStop({
+        id: 'stop-a',
+        mode: 'CableCar',
+        position: { x: 0, y: 60, z: 0 },
+      });
+      const stopB = makeStop({
+        id: 'stop-b',
+        mode: 'CableCar',
+        position: { x: 500, y: 60, z: 0 },
+      });
+      const line = makeTransitLine({
+        mode: 'CableCar',
+        stops: [stopA, stopB],
+        route: [],
+      });
+
+      renderTransitLayer(
+        ctx,
+        [line],
+        new Map(),
+        new Map(),
+        BOUNDS,
+        800,
+        800,
+        1,
+      );
+
+      expect(ctx.moveTo).toHaveBeenCalled();
+      expect(ctx.lineTo).toHaveBeenCalled();
+      expect(ctx.closePath).toHaveBeenCalled();
+      expect(ctx.arc).not.toHaveBeenCalled();
+      expect(ctx.rect).not.toHaveBeenCalled();
+      expect(ctx.ellipse).not.toHaveBeenCalled();
+    });
+
+    it('parada Monorail renderiza rectángulo horizontal (rect llamado, no arc/ellipse)', () => {
+      const ctx = makeCtx();
+      const stopA = makeStop({
+        id: 'stop-a',
+        mode: 'Monorail',
+        position: { x: 0, y: 60, z: 0 },
+      });
+      const stopB = makeStop({
+        id: 'stop-b',
+        mode: 'Monorail',
+        position: { x: 500, y: 60, z: 0 },
+      });
+      const line = makeTransitLine({
+        mode: 'Monorail',
+        stops: [stopA, stopB],
+        route: [],
+      });
+
+      renderTransitLayer(
+        ctx,
+        [line],
+        new Map(),
+        new Map(),
+        BOUNDS,
+        800,
+        800,
+        1,
+      );
+
+      expect(ctx.rect).toHaveBeenCalled();
+      expect(ctx.arc).not.toHaveBeenCalled();
+      expect(ctx.ellipse).not.toHaveBeenCalled();
+    });
+
+    it('parada Ferry renderiza pentágono (moveTo/lineTo/closePath, no arc/rect/ellipse)', () => {
+      const ctx = makeCtx();
+      const stopA = makeStop({
+        id: 'stop-a',
+        mode: 'Ferry',
+        position: { x: 0, y: 60, z: 0 },
+      });
+      const stopB = makeStop({
+        id: 'stop-b',
+        mode: 'Ferry',
+        position: { x: 500, y: 60, z: 0 },
+      });
+      const line = makeTransitLine({
+        mode: 'Ferry',
+        stops: [stopA, stopB],
+        route: [],
+      });
+
+      renderTransitLayer(
+        ctx,
+        [line],
+        new Map(),
+        new Map(),
+        BOUNDS,
+        800,
+        800,
+        1,
+      );
+
+      expect(ctx.moveTo).toHaveBeenCalled();
+      expect(ctx.lineTo).toHaveBeenCalled();
+      expect(ctx.closePath).toHaveBeenCalled();
+      expect(ctx.arc).not.toHaveBeenCalled();
+      expect(ctx.rect).not.toHaveBeenCalled();
+      expect(ctx.ellipse).not.toHaveBeenCalled();
+    });
+
     it('todos los TransitMode de paradas renderizan sin error', () => {
       const modes = [
         'Bus',
@@ -569,6 +692,7 @@ describe('renderTransitLayer', () => {
         'Ferry',
         'Blimp',
         'Trolleybus',
+        'Unknown',
       ] as const;
       const ctx = makeCtx();
       const lines = modes.map((mode, i) => {
