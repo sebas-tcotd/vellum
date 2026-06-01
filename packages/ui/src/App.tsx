@@ -1,6 +1,8 @@
 // packages/ui/src/App.tsx
-import { Suspense, useCallback, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { CanvasRoot } from './components/canvas/CanvasRoot';
+import { CanvasRenderer } from '@vellum/renderer-canvas';
+import type { IRenderer } from '@vellum/core';
 import { EmptyState } from './components/empty-state/EmptyState';
 import { ProgressBar } from './components/overlays/ProgressBar';
 import { ErrorToast } from './components/overlays/ErrorToast';
@@ -59,6 +61,8 @@ export function App({
   loadFilePartial = noop,
 }: AppProps) {
   const [i18nReady, setI18nReady] = useState(false);
+  const rendererRef = useRef<IRenderer | null>(null);
+  const [renderer, setRenderer] = useState<IRenderer | null>(null);
   const syncActiveLanguage = useVellumStore((s) => s.syncActiveLanguage);
   const cityData = useVellumStore((s) => s.cityData);
   const loadingState = useVellumStore((s) => s.loadingState);
@@ -80,6 +84,29 @@ export function App({
       setI18nReady(true);
     });
   }, [syncActiveLanguage]);
+
+  useEffect(() => {
+    if (!cityData) return;
+    const r = new CanvasRenderer();
+    rendererRef.current = r;
+    setRenderer(r);
+    r.render(cityData, {
+      activeLayers: {
+        terrain: true,
+        water: true,
+        roads: false,
+        transit: false,
+        buildings: false,
+        forests: false,
+        districts: false,
+      },
+    });
+    return () => {
+      r.dispose();
+      rendererRef.current = null;
+      setRenderer(null);
+    };
+  }, [cityData]);
 
   const handleDlcDismiss = useCallback(() => {
     setDlcWarnings([]);
@@ -118,7 +145,7 @@ export function App({
             cityData ? 'opacity-100' : 'opacity-0 pointer-events-none',
           )}
         >
-          <CanvasRoot loadFile={loadFile} />
+          <CanvasRoot loadFile={loadFile} renderer={renderer} />
         </div>
         {showEmptyState && <EmptyState />}
         {loadingState === 'loading' && <ProgressBar />}

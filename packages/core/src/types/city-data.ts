@@ -19,8 +19,10 @@ export interface Vec3 {
  * They must never be merged into a unified heightmap.
  */
 export interface LandTile {
-  /** Discrete elevation level, typically mapped to 24 distinct thresholds (0-23). */
+  /** Raw elevation value from the terrain CSV (not in game-unit meters). */
   elevation: number;
+  /** Raw water-surface height from the terrain CSV. When this exceeds `SEA_LEVEL_DEFAULT`, the cell has an inland water body (river or lake) sitting above the ground — used to detect non-ocean water. */
+  resolution: number;
   /** X-coordinate in the global grid. */
   x: number;
   /** Z-coordinate in the global grid. */
