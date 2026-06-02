@@ -20,6 +20,16 @@ export const BUILDING_EXCLUDED_ITEM_CLASSES = new Set([
   'Tsunami Buoy',
 ]);
 
+function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
+  const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex);
+  if (!m) return null;
+  return {
+    r: parseInt(m[1], 16),
+    g: parseInt(m[2], 16),
+    b: parseInt(m[3], 16),
+  };
+}
+
 /**
  * Renders building footprints as filled polygons onto the buildings canvas
  * (z-index 5). Buildings whose `itemClass` is in {@link BUILDING_EXCLUDED_ITEM_CLASSES}
@@ -29,6 +39,10 @@ export const BUILDING_EXCLUDED_ITEM_CLASSES = new Set([
  * degenerate bounds, missing footprints, footprints with fewer than 3 vertices,
  * and footprints with non-finite vertices are all skipped silently rather than
  * throwing or producing a corrupt path.
+ *
+ * The stroke fades out at low zoom values to prevent outlines from visually
+ * dominating small building footprints (figure-ground competition). Full opacity
+ * is reached at zoom ≥ 0.4; the stroke vanishes at zoom ≤ 0.15.
  */
 export function renderBuildingsLayer(
   ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
@@ -37,6 +51,7 @@ export function renderBuildingsLayer(
   tokens: RendererTokens,
   canvasWidth: number,
   canvasHeight: number,
+  zoom = 1,
 ): void {
   if (buildings.length === 0) return;
 
@@ -67,8 +82,15 @@ export function renderBuildingsLayer(
     ];
   }
 
+  // Stroke alpha fades between zoom 0.15 (invisible) and 0.4 (full opacity).
+  const strokeAlpha = Math.min(1, Math.max(0, (zoom - 0.15) / (0.4 - 0.15)));
+  const rgb = hexToRgb(tokens.buildingStroke);
+  const strokeStyle = rgb
+    ? `rgba(${rgb.r},${rgb.g},${rgb.b},${strokeAlpha.toFixed(3)})`
+    : tokens.buildingStroke;
+
   ctx.fillStyle = tokens.buildingFill;
-  ctx.strokeStyle = tokens.buildingStroke;
+  ctx.strokeStyle = strokeStyle;
   ctx.lineWidth = 1;
 
   for (const building of buildings) {
@@ -88,6 +110,6 @@ export function renderBuildingsLayer(
     }
     ctx.closePath();
     ctx.fill();
-    ctx.stroke();
+    if (strokeAlpha > 0) ctx.stroke();
   }
 }

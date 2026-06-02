@@ -57,8 +57,12 @@ function makeBuilding(overrides?: Partial<Building>): Building {
   };
 }
 
-function render(ctx: ReturnType<typeof makeCtx>, buildings: Building[]): void {
-  renderBuildingsLayer(ctx, buildings, BOUNDS, MOCK_TOKENS, W, H);
+function render(
+  ctx: ReturnType<typeof makeCtx>,
+  buildings: Building[],
+  zoom = 1,
+): void {
+  renderBuildingsLayer(ctx, buildings, BOUNDS, MOCK_TOKENS, W, H, zoom);
 }
 
 describe('renderBuildingsLayer', () => {
@@ -136,9 +140,11 @@ describe('renderBuildingsLayer', () => {
       tokens,
       W,
       H,
+      1,
     );
     expect(ctx.fillStyle).toBe('#abcdef');
-    expect(ctx.strokeStyle).toBe('#123456');
+    // At zoom=1 strokeAlpha=1 → rgba con los componentes de #123456 (18,52,86)
+    expect(ctx.strokeStyle).toBe('rgba(18,52,86,1.000)');
   });
 
   // --- Review Follow-ups (code-review 2026-06-02) ---
@@ -165,6 +171,7 @@ describe('renderBuildingsLayer', () => {
       MOCK_TOKENS,
       100,
       100,
+      1,
     );
     expect(ctx.moveTo).toHaveBeenCalledWith(10, 80);
     expect(ctx.lineTo).toHaveBeenNthCalledWith(1, 30, 60);
@@ -181,6 +188,7 @@ describe('renderBuildingsLayer', () => {
       MOCK_TOKENS,
       W,
       H,
+      1,
     );
     expect(ctx.fill).not.toHaveBeenCalled();
   });
@@ -195,6 +203,7 @@ describe('renderBuildingsLayer', () => {
       MOCK_TOKENS,
       W,
       H,
+      1,
     );
     expect(ctx.fill).not.toHaveBeenCalled();
   });
@@ -254,6 +263,7 @@ describe('renderBuildingsLayer', () => {
         MOCK_TOKENS,
         w,
         h,
+        1,
       );
       expect(ctx.fill, `${w}x${h} no debe renderizar`).not.toHaveBeenCalled();
     }
@@ -274,9 +284,41 @@ describe('renderBuildingsLayer', () => {
         MOCK_TOKENS,
         w,
         h,
+        1,
       );
       expect(ctx.fill, `${w}x${h} no debe renderizar`).not.toHaveBeenCalled();
     }
+  });
+
+  // --- Zoom-aware stroke alpha ---
+
+  it('Test 16 — zoom >= 0.4 → stroke completamente opaco', () => {
+    const ctx = makeCtx();
+    render(ctx, [makeBuilding({ itemClass: 'Residential' })], 0.4);
+    expect(ctx.stroke).toHaveBeenCalledTimes(1);
+    expect(ctx.strokeStyle).toMatch(/rgba\(160,149,133,1\.000\)/);
+  });
+
+  it('Test 17 — zoom <= 0.15 → stroke no se llama (alpha 0)', () => {
+    const ctx = makeCtx();
+    render(ctx, [makeBuilding({ itemClass: 'Residential' })], 0.1);
+    expect(ctx.fill).toHaveBeenCalledTimes(1);
+    expect(ctx.stroke).not.toHaveBeenCalled();
+  });
+
+  it('Test 18 — zoom en rango medio → alpha interpolado', () => {
+    const ctx = makeCtx();
+    // zoom=0.275 → midpoint → alpha = (0.275 - 0.15) / (0.4 - 0.15) = 0.5
+    render(ctx, [makeBuilding({ itemClass: 'Residential' })], 0.275);
+    expect(ctx.stroke).toHaveBeenCalledTimes(1);
+    expect(ctx.strokeStyle).toMatch(/rgba\(160,149,133,0\.500\)/);
+  });
+
+  it('Test 19 — zoom por defecto (1) → stroke opaco', () => {
+    const ctx = makeCtx();
+    render(ctx, [makeBuilding({ itemClass: 'Residential' })]);
+    expect(ctx.stroke).toHaveBeenCalledTimes(1);
+    expect(ctx.strokeStyle).toMatch(/rgba\(160,149,133,1\.000\)/);
   });
 
   it('Test 15 — itemClass null/undefined no está excluido → renderiza (AC3)', () => {
