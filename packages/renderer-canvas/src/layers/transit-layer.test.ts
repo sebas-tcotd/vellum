@@ -923,5 +923,145 @@ describe('renderTransitLayer', () => {
       // Un solo stop en una línea → se renderiza como grupo solitario → arc llamado
       expect(ctx.arc).toHaveBeenCalled();
     });
+
+    it('parada Trolleybus renderiza círculo (arc llamado, sin rect/ellipse)', () => {
+      const ctx = makeCtx();
+      const stopA = makeStop({
+        id: 'stop-a',
+        mode: 'Trolleybus',
+        position: { x: 0, y: 60, z: 0 },
+      });
+      const stopB = makeStop({
+        id: 'stop-b',
+        mode: 'Trolleybus',
+        position: { x: 500, y: 60, z: 0 },
+      });
+      const line = makeTransitLine({
+        mode: 'Trolleybus',
+        stops: [stopA, stopB],
+        route: [],
+      });
+
+      renderTransitLayer(
+        ctx,
+        [line],
+        new Map(),
+        new Map(),
+        BOUNDS,
+        800,
+        800,
+        1,
+      );
+
+      expect(ctx.arc).toHaveBeenCalled();
+      expect(ctx.rect).not.toHaveBeenCalled();
+      expect(ctx.ellipse).not.toHaveBeenCalled();
+    });
+
+    it('AC2: Bus y Tram fusionados se disponen en fila horizontal centrada en el centroide', () => {
+      const arcXPositions: number[] = [];
+      const rectXPositions: number[] = [];
+      const ctx = makeCtx();
+      ctx.arc = vi.fn((x: number) => arcXPositions.push(x));
+      ctx.rect = vi.fn((x: number) => rectXPositions.push(x));
+
+      // Both stops at (0,0) → centroid (0,0) → canvasCX=400, canvasCY=400
+      const stopBus = makeStop({
+        id: 'stop-bus',
+        mode: 'Bus',
+        position: { x: 0, y: 60, z: 0 },
+      });
+      const stopTram = makeStop({
+        id: 'stop-tram',
+        mode: 'Tram',
+        position: { x: 0, y: 60, z: 0 },
+      });
+
+      const lineBus = makeTransitLine({
+        id: 'line-bus',
+        mode: 'Bus',
+        stops: [stopBus],
+        route: [],
+      });
+      const lineTram = makeTransitLine({
+        id: 'line-tram',
+        mode: 'Tram',
+        stops: [stopTram],
+        route: [],
+      });
+
+      renderTransitLayer(
+        ctx,
+        [lineBus, lineTram],
+        new Map(),
+        new Map(),
+        BOUNDS,
+        800,
+        800,
+        1,
+      );
+
+      // 2 modes, MULTI_STOP_SPACING=11: startX = 400 - 5.5 = 394.5
+      // Bus (index 0) → arc at cx=394.5
+      // Tram (index 1) → rect at cx=405.5, so rect first arg = 405.5 - 4 = 401.5
+      expect(arcXPositions[0]).toBeCloseTo(394.5, 1);
+      expect(rectXPositions[0]).toBeCloseTo(401.5, 1);
+    });
+
+    it('AC2: tres modos únicos en la misma ubicación → tres formas distintas dibujadas', () => {
+      const ctx = makeCtx();
+
+      const stopBus = makeStop({
+        id: 'stop-bus',
+        mode: 'Bus',
+        position: { x: 0, y: 60, z: 0 },
+      });
+      const stopTram = makeStop({
+        id: 'stop-tram',
+        mode: 'Tram',
+        position: { x: 0, y: 60, z: 0 },
+      });
+      const stopTrain = makeStop({
+        id: 'stop-train',
+        mode: 'Train',
+        position: { x: 0, y: 60, z: 0 },
+      });
+
+      const lineBus = makeTransitLine({
+        id: 'line-bus',
+        mode: 'Bus',
+        stops: [stopBus],
+        route: [],
+      });
+      const lineTram = makeTransitLine({
+        id: 'line-tram',
+        mode: 'Tram',
+        stops: [stopTram],
+        route: [],
+      });
+      const lineTrain = makeTransitLine({
+        id: 'line-train',
+        mode: 'Train',
+        stops: [stopTrain],
+        route: [],
+      });
+
+      renderTransitLayer(
+        ctx,
+        [lineBus, lineTram, lineTrain],
+        new Map(),
+        new Map(),
+        BOUNDS,
+        800,
+        800,
+        1,
+      );
+
+      // 3 unique modes → arc (Bus) + rect (Tram) + moveTo/lineTo/closePath (Train) all called
+      expect(ctx.arc).toHaveBeenCalledTimes(1);
+      expect(ctx.rect).toHaveBeenCalledTimes(1);
+      expect(ctx.moveTo).toHaveBeenCalled();
+      expect(ctx.closePath).toHaveBeenCalled();
+    });
   });
 });

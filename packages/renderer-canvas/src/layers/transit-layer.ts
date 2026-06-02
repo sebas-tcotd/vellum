@@ -178,7 +178,6 @@ function drawModeMarker(
       break;
     }
     case 'Metro': {
-      // Invertido: relleno de color, borde blanco — visualmente distinto del Bus
       const radiusM = Math.min(6, 3 + Math.floor(count / 2));
       ctx.beginPath();
       ctx.arc(cx, cy, radiusM, 0, Math.PI * 2);
@@ -189,7 +188,7 @@ function drawModeMarker(
       break;
     }
     case 'CableCar': {
-      // Triángulo equilátero centrado en (cx, cy): apex=cy-5, base=cy+2.5, base-x=±4.33
+      // Equilateral triangle centered on (cx, cy): apex at cy-5, base at cy+2.5, base half-width ±4.33
       ctx.beginPath();
       ctx.moveTo(cx, cy - 5);
       ctx.lineTo(cx + 4.33, cy + 2.5);
