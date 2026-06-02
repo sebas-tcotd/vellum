@@ -26,7 +26,7 @@ const ACTIVE_LAYERS = {
   water: true,
   roads: true,
   transit: true,
-  buildings: false,
+  buildings: true,
   forests: false,
   districts: false,
 } as const;
@@ -63,6 +63,7 @@ export function CanvasRoot({
         'water',
         'roads',
         'transit',
+        'buildings',
       ] as const) {
         const offscreen = manager.getOffscreen(layerName);
         if (offscreen) renderer.registerLayer(layerName, offscreen);

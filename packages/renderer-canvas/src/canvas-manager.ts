@@ -1,13 +1,20 @@
-export type LayerName = 'terrain' | 'water' | 'roads' | 'transit';
+export type LayerName = 'terrain' | 'water' | 'roads' | 'transit' | 'buildings';
 
 const LAYER_Z_INDEX: Record<LayerName, number> = {
   terrain: 1,
   water: 2,
   roads: 3,
   transit: 4,
+  buildings: 5,
 };
 
-const LAYERS: LayerName[] = ['terrain', 'water', 'roads', 'transit'];
+const LAYERS: LayerName[] = [
+  'terrain',
+  'water',
+  'roads',
+  'transit',
+  'buildings',
+];
 
 export class CanvasManager {
   private canvases = new Map<LayerName, HTMLCanvasElement>();

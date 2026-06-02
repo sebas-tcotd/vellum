@@ -23,6 +23,10 @@ export interface RendererTokens {
   roadPedestrianWay: string; // --color-road-pedestrian-way
   roadRailway: string; // --color-road-railway
   roadRailwayCasing: string; // --color-road-railway-casing
+
+  // Building fill and stroke — OSM Humanitarian palette
+  buildingFill: string; // --color-building
+  buildingStroke: string; // --color-building-stroke
 }
 
 const FALLBACKS: RendererTokens = {
@@ -48,6 +52,8 @@ const FALLBACKS: RendererTokens = {
   roadPedestrianWay: '#8b7d6b',
   roadRailway: '#eceff1',
   roadRailwayCasing: '#455a64',
+  buildingFill: '#c8bfb5',
+  buildingStroke: '#a09585',
 };
 
 export function readTokensFromDOM(): RendererTokens {
@@ -113,5 +119,11 @@ export function readTokensFromDOM(): RendererTokens {
     roadRailwayCasing:
       style.getPropertyValue('--color-road-railway-casing').trim() ||
       FALLBACKS.roadRailwayCasing,
+    buildingFill:
+      style.getPropertyValue('--color-building').trim() ||
+      FALLBACKS.buildingFill,
+    buildingStroke:
+      style.getPropertyValue('--color-building-stroke').trim() ||
+      FALLBACKS.buildingStroke,
   };
 }

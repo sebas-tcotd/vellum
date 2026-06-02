@@ -1,8 +1,14 @@
-import type { WorkerMessage, WorkerResponse } from './messages';
+import type { CityData } from '@vellum/core';
+import type {
+  WorkerMessage,
+  WorkerResponse,
+  RenderStyleParams,
+} from './messages';
 import { renderTerrainLayer } from '../layers/terrain-layer';
 import { renderWaterLayer } from '../layers/water-layer';
 import { renderRoadsLayer } from '../layers/roads-layer';
 import { renderTransitLayer } from '../layers/transit-layer';
+import { renderBuildingsLayer } from '../layers/buildings-layer';
 
 interface LayerCanvas {
   offscreen: OffscreenCanvas;
@@ -11,6 +17,9 @@ interface LayerCanvas {
 
 const layers = new Map<string, LayerCanvas>();
 let currentZoom = 1;
+let lastZoomForBuildings = currentZoom;
+let lastCityData: CityData | null = null;
+let lastStyle: RenderStyleParams | null = null;
 
 self.onmessage = (event: MessageEvent<WorkerMessage>) => {
   const msg = event.data;
@@ -18,6 +27,9 @@ self.onmessage = (event: MessageEvent<WorkerMessage>) => {
   try {
     if (msg.type === 'render') {
       const { cityData, style, layers: layerVisibility } = msg;
+      lastCityData = cityData;
+      lastStyle = style;
+      lastZoomForBuildings = currentZoom;
 
       for (const [layerName, canvas] of layers) {
         const ctx = canvas.ctx;
@@ -75,6 +87,16 @@ self.onmessage = (event: MessageEvent<WorkerMessage>) => {
             h,
             currentZoom,
           );
+        } else if (layerName === 'buildings' && layerVisibility.buildings) {
+          renderBuildingsLayer(
+            ctx,
+            cityData.buildings ?? [],
+            cityData.bounds,
+            style.tokens,
+            w,
+            h,
+            currentZoom,
+          );
         }
 
         const response: WorkerResponse = { type: 'layer-ready', layerName };
@@ -91,6 +113,25 @@ self.onmessage = (event: MessageEvent<WorkerMessage>) => {
     } else if (msg.type === 'update-viewport') {
       const z = msg.viewport.zoom;
       currentZoom = Number.isFinite(z) && z > 0 ? z : 1;
+
+      // Re-render buildings only when zoom changes — stroke alpha depends on zoom.
+      if (currentZoom !== lastZoomForBuildings && lastCityData && lastStyle) {
+        lastZoomForBuildings = currentZoom;
+        const buildingsLayer = layers.get('buildings');
+        if (buildingsLayer && buildingsLayer.offscreen.width > 0) {
+          const { ctx, offscreen } = buildingsLayer;
+          ctx.clearRect(0, 0, offscreen.width, offscreen.height);
+          renderBuildingsLayer(
+            ctx,
+            lastCityData.buildings ?? [],
+            lastCityData.bounds,
+            lastStyle.tokens,
+            offscreen.width,
+            offscreen.height,
+            currentZoom,
+          );
+        }
+      }
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
