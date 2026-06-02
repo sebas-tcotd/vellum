@@ -9,11 +9,14 @@ import { makeCityData } from '@vellum/core/testing';
 function makeCtx() {
   return {
     fillStyle: '' as string,
+    strokeStyle: '' as string,
+    lineWidth: 0 as number,
     beginPath: vi.fn(),
     moveTo: vi.fn(),
     lineTo: vi.fn(),
     closePath: vi.fn(),
     fill: vi.fn(),
+    stroke: vi.fn(),
     clearRect: vi.fn(),
   } as unknown as OffscreenCanvasRenderingContext2D & {
     beginPath: ReturnType<typeof vi.fn>;
@@ -21,6 +24,7 @@ function makeCtx() {
     lineTo: ReturnType<typeof vi.fn>;
     closePath: ReturnType<typeof vi.fn>;
     fill: ReturnType<typeof vi.fn>;
+    stroke: ReturnType<typeof vi.fn>;
   };
 }
 
@@ -28,9 +32,10 @@ const BOUNDS = makeCityData().bounds;
 const W = 1000;
 const H = 1000;
 
-// Tokens mínimos — solo buildingFill es relevante para esta capa.
+// Tokens mínimos — buildingFill y buildingStroke son relevantes para esta capa.
 const MOCK_TOKENS = {
   buildingFill: '#c8bfb5',
+  buildingStroke: '#a09585',
 } as unknown as Parameters<typeof renderBuildingsLayer>[3];
 
 /** Footprint triangular válido (3 vértices distintos) en world-space. */
@@ -77,7 +82,7 @@ describe('renderBuildingsLayer', () => {
     }
   });
 
-  it('Test 4 — edificio válido renderiza polígono', () => {
+  it('Test 4 — edificio válido renderiza polígono con fill y stroke', () => {
     const ctx = makeCtx();
     render(ctx, [makeBuilding({ itemClass: 'Residential' })]);
     expect(ctx.beginPath).toHaveBeenCalledTimes(1);
@@ -85,6 +90,7 @@ describe('renderBuildingsLayer', () => {
     expect(ctx.lineTo).toHaveBeenCalledTimes(2);
     expect(ctx.closePath).toHaveBeenCalledTimes(1);
     expect(ctx.fill).toHaveBeenCalledTimes(1);
+    expect(ctx.stroke).toHaveBeenCalledTimes(1);
   });
 
   it('Test 5 — edificio de mod con ItemClass desconocido es incluido', () => {
@@ -117,10 +123,11 @@ describe('renderBuildingsLayer', () => {
     expect(ctx.fill).toHaveBeenCalledTimes(2);
   });
 
-  it('Test 8 — fillStyle es asignado al token correcto', () => {
+  it('Test 8 — fillStyle y strokeStyle son asignados a los tokens correctos', () => {
     const ctx = makeCtx();
     const tokens = {
       buildingFill: '#abcdef',
+      buildingStroke: '#123456',
     } as unknown as Parameters<typeof renderBuildingsLayer>[3];
     renderBuildingsLayer(
       ctx,
@@ -131,6 +138,7 @@ describe('renderBuildingsLayer', () => {
       H,
     );
     expect(ctx.fillStyle).toBe('#abcdef');
+    expect(ctx.strokeStyle).toBe('#123456');
   });
 
   // --- Review Follow-ups (code-review 2026-06-02) ---
@@ -177,6 +185,20 @@ describe('renderBuildingsLayer', () => {
     expect(ctx.fill).not.toHaveBeenCalled();
   });
 
+  it('Test 10b — bounds degenerados (rangeZ <= 0, minZ === maxZ) no renderizan', () => {
+    const ctx = makeCtx();
+    const bounds = { minX: 0, maxX: 100, minZ: 500, maxZ: 500, seaLevel: 40 };
+    renderBuildingsLayer(
+      ctx,
+      [makeBuilding({ itemClass: 'Residential' })],
+      bounds,
+      MOCK_TOKENS,
+      W,
+      H,
+    );
+    expect(ctx.fill).not.toHaveBeenCalled();
+  });
+
   it('Test 11 — footprint null/undefined no lanza y se salta', () => {
     const ctx = makeCtx();
     const malformed = makeBuilding({ itemClass: 'Residential' });
@@ -186,7 +208,7 @@ describe('renderBuildingsLayer', () => {
     expect(ctx.fill).not.toHaveBeenCalled();
   });
 
-  it('Test 12 — vértice no-finito (NaN/Infinity) descarta el edificio', () => {
+  it('Test 12 — vértice NaN descarta el edificio', () => {
     const ctx = makeCtx();
     render(ctx, [
       makeBuilding({
@@ -201,10 +223,26 @@ describe('renderBuildingsLayer', () => {
     expect(ctx.fill).not.toHaveBeenCalled();
   });
 
+  it('Test 12b — vértice Infinity descarta el edificio', () => {
+    const ctx = makeCtx();
+    render(ctx, [
+      makeBuilding({
+        itemClass: 'Residential',
+        footprint: [
+          { x: Number.POSITIVE_INFINITY, y: 60, z: -1000 },
+          { x: 1000, y: 60, z: -1000 },
+          { x: 0, y: 60, z: 1000 },
+        ],
+      }),
+    ]);
+    expect(ctx.fill).not.toHaveBeenCalled();
+  });
+
   it('Test 13 — canvasWidth/canvasHeight 0 o negativo no renderiza', () => {
     for (const [w, h] of [
       [0, H],
       [W, 0],
+      [0, 0],
       [-100, H],
       [W, -100],
     ]) {

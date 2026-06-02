@@ -53,10 +53,10 @@ export function renderBuildingsLayer(
   const rangeZ = bounds.maxZ - bounds.minZ;
 
   if (
-    rangeX <= 0 ||
     !Number.isFinite(rangeX) ||
-    rangeZ <= 0 ||
-    !Number.isFinite(rangeZ)
+    rangeX <= 0 ||
+    !Number.isFinite(rangeZ) ||
+    rangeZ <= 0
   )
     return;
 
@@ -68,6 +68,8 @@ export function renderBuildingsLayer(
   }
 
   ctx.fillStyle = tokens.buildingFill;
+  ctx.strokeStyle = tokens.buildingStroke;
+  ctx.lineWidth = 1;
 
   for (const building of buildings) {
     if (BUILDING_EXCLUDED_ITEM_CLASSES.has(building.itemClass)) continue;
@@ -86,5 +88,6 @@ export function renderBuildingsLayer(
     }
     ctx.closePath();
     ctx.fill();
+    ctx.stroke();
   }
 }

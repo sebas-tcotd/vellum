@@ -655,7 +655,7 @@ impl CityDataBuilder {
             }
 
             // Road segment points (bezier control points)
-            b"P" if self.in_seg_points => {
+            b"p" if self.in_seg_points => {
                 if let Some(ref mut seg) = self.current_seg {
                     seg.points.push(Vec3 {
                         x: attr_f64(e, b"x").unwrap_or(0.0),
@@ -703,8 +703,8 @@ impl CityDataBuilder {
                 });
             }
 
-            // Building footprint points: <P x y z /> inside Buil>Points
-            b"P" if self.in_buil_points => {
+            // Building footprint points: <p x y z /> inside Buil>Points
+            b"p" if self.in_buil_points => {
                 self.current_buil_footprint.push(Vec3 {
                     x: attr_f64(e, b"x").unwrap_or(0.0),
                     y: attr_f64(e, b"y").unwrap_or(0.0),
@@ -712,8 +712,8 @@ impl CityDataBuilder {
                 });
             }
 
-            // District boundary points: <P x y z /> directly inside Dist
-            b"P" if self.in_dist => {
+            // District boundary points: <p x y z /> directly inside Dist
+            b"p" if self.in_dist => {
                 self.current_dist_boundary.push(Vec3 {
                     x: attr_f64(e, b"x").unwrap_or(0.0),
                     y: attr_f64(e, b"y").unwrap_or(0.0),
@@ -1298,6 +1298,34 @@ mod tests {
         let result = parse_cslmap_bytes(&with_bom);
         assert!(result.is_ok(), "BOM-prefixed input must parse: {result:?}");
         assert_eq!(result.expect("ok").city_name, "BomCity");
+    }
+
+    // Building footprint points use lowercase <p> — regression for b"P" vs b"p"
+    #[test]
+    fn building_footprint_parsed_from_lowercase_p_tags() {
+        let xml = br#"<CSLExportXML version="4.1"><Buildings>
+            <Buil id="1" name="Test Building" srv="Residential" subsrv="ResidentialLow" icls="Low Residential - Level2">
+              <Points>
+                <p x="100.0" y="10.0" z="200.0" />
+                <p x="200.0" y="10.0" z="200.0" />
+                <p x="200.0" y="10.0" z="300.0" />
+                <p x="100.0" y="10.0" z="300.0" />
+              </Points>
+            </Buil>
+          </Buildings></CSLExportXML>"#;
+        let result = parse_cslmap_bytes(xml);
+        assert!(result.is_ok(), "expected Ok: {result:?}");
+        let city = result.expect("ok");
+        assert_eq!(city.buildings.len(), 1, "expected one building");
+        let footprint = &city.buildings[0].footprint;
+        assert_eq!(
+            footprint.len(),
+            4,
+            "footprint must have 4 vertices, got {}",
+            footprint.len()
+        );
+        assert!((footprint[0].x - 100.0_f64).abs() < f64::EPSILON);
+        assert!((footprint[0].z - 200.0_f64).abs() < f64::EPSILON);
     }
 
     // Transit line color defaults to #FFFFFFFF when <color> element is absent
