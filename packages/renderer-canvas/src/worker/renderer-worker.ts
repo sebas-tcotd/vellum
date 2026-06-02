@@ -3,6 +3,7 @@ import { renderTerrainLayer } from '../layers/terrain-layer';
 import { renderWaterLayer } from '../layers/water-layer';
 import { renderRoadsLayer } from '../layers/roads-layer';
 import { renderTransitLayer } from '../layers/transit-layer';
+import { renderBuildingsLayer } from '../layers/buildings-layer';
 
 interface LayerCanvas {
   offscreen: OffscreenCanvas;
@@ -74,6 +75,15 @@ self.onmessage = (event: MessageEvent<WorkerMessage>) => {
             w,
             h,
             currentZoom,
+          );
+        } else if (layerName === 'buildings' && layerVisibility.buildings) {
+          renderBuildingsLayer(
+            ctx,
+            cityData.buildings ?? [],
+            cityData.bounds,
+            style.tokens,
+            w,
+            h,
           );
         }
 

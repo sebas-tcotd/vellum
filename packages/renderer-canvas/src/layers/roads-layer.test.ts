@@ -50,6 +50,7 @@ const MOCK_TOKENS = {
   roadPedestrianWay: '#8b7d6b',
   roadRailway: '#eceff1',
   roadRailwayCasing: '#455a64',
+  buildingFill: '#c8bfb5',
 };
 
 const BOUNDS = makeCityData().bounds;
