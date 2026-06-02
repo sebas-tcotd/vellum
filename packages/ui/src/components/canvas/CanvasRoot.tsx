@@ -27,8 +27,8 @@ const ACTIVE_LAYERS = {
   roads: true,
   transit: true,
   buildings: true,
-  forests: false,
-  districts: false,
+  forests: true,
+  districts: true,
 } as const;
 
 export function CanvasRoot({
@@ -64,6 +64,8 @@ export function CanvasRoot({
         'roads',
         'transit',
         'buildings',
+        'forests',
+        'districts',
       ] as const) {
         const offscreen = manager.getOffscreen(layerName);
         if (offscreen) renderer.registerLayer(layerName, offscreen);

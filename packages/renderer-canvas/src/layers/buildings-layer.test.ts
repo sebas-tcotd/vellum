@@ -36,6 +36,8 @@ const H = 1000;
 const MOCK_TOKENS = {
   buildingFill: '#c8bfb5',
   buildingStroke: '#a09585',
+  districtFill: '#b4a08c',
+  districtLabel: '#555550',
 } as unknown as Parameters<typeof renderBuildingsLayer>[3];
 
 /** Footprint triangular válido (3 vértices distintos) en world-space. */

@@ -9,6 +9,32 @@ import { renderWaterLayer } from '../layers/water-layer';
 import { renderRoadsLayer } from '../layers/roads-layer';
 import { renderTransitLayer } from '../layers/transit-layer';
 import { renderBuildingsLayer } from '../layers/buildings-layer';
+import { renderForestsLayer } from '../layers/forests-layer';
+import { renderDistrictsLayer } from '../layers/districts-layer';
+import dmMonoWoff2Url from '@fontsource/dm-mono/files/dm-mono-latin-400-normal.woff2?url';
+
+// DM Mono loaded at worker startup for district labels (AC2).
+// Fallback: labels render in system monospace if load fails — not a crash.
+// FontFace constructor is wrapped in try-catch: in environments where FontFace
+// is unavailable the constructor throws synchronously before onmessage is installed.
+let dmMonoPromise: Promise<void>;
+try {
+  dmMonoPromise = new FontFace(
+    'DM Mono',
+    `url('${dmMonoWoff2Url}') format('woff2')`,
+  )
+    .load()
+    .then((font) => {
+      (self as unknown as { fonts: FontFaceSet }).fonts.add(font);
+    })
+    .catch(() => {
+      console.warn(
+        '[renderer-worker] DM Mono font load failed — district labels will use system monospace fallback',
+      );
+    });
+} catch {
+  dmMonoPromise = Promise.resolve();
+}
 
 interface LayerCanvas {
   offscreen: OffscreenCanvas;
@@ -21,7 +47,7 @@ let lastZoomForBuildings = currentZoom;
 let lastCityData: CityData | null = null;
 let lastStyle: RenderStyleParams | null = null;
 
-self.onmessage = (event: MessageEvent<WorkerMessage>) => {
+self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
   const msg = event.data;
 
   try {
@@ -96,6 +122,25 @@ self.onmessage = (event: MessageEvent<WorkerMessage>) => {
             w,
             h,
             currentZoom,
+          );
+        } else if (layerName === 'forests' && layerVisibility.forests) {
+          renderForestsLayer(
+            ctx,
+            cityData.forestCells ?? [],
+            cityData.bounds,
+            style.tokens,
+            w,
+            h,
+          );
+        } else if (layerName === 'districts' && layerVisibility.districts) {
+          await dmMonoPromise;
+          renderDistrictsLayer(
+            ctx,
+            cityData.districts ?? [],
+            cityData.bounds,
+            style.tokens,
+            w,
+            h,
           );
         }
 

@@ -160,12 +160,16 @@ pub struct ForestCell {
     pub density: f64,
 }
 
+/// Named city district.
+/// The `.cslmap` format only exports a single position per district — no polygon
+/// boundaries are available. Render as a label at `position`.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct District {
     pub id: String,
     pub name: String,
-    pub boundary: Vec<Vec3>,
+    /// Label anchor in world-space (first `<p>` element in the Dist XML node).
+    pub position: Vec3,
 }
 
 #[cfg(test)]
