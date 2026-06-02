@@ -1,9 +1,14 @@
 import type { Building, CityData } from '@vellum/core';
 import type { RendererTokens } from '../tokens';
 
-// Defensa en profundidad: el parser ya debería filtrar estos ItemClass,
-// pero el renderer rechaza los que lleguen de todos modos. No asumir que el
-// parser ya filtró.
+/**
+ * ItemClass values excluded from the buildings layer — decorative and utility
+ * assets with no cartographic value.
+ *
+ * Defense-in-depth: the parser should already filter these, but the renderer
+ * rejects any that reach it regardless (never assume the parser filtered).
+ * Exported so tests can assert coverage of every excluded class.
+ */
 export const BUILDING_EXCLUDED_ITEM_CLASSES = new Set([
   'Beautification Item',
   'Airplane Path',
@@ -15,6 +20,16 @@ export const BUILDING_EXCLUDED_ITEM_CLASSES = new Set([
   'Tsunami Buoy',
 ]);
 
+/**
+ * Renders building footprints as filled polygons onto the buildings canvas
+ * (z-index 5). Buildings whose `itemClass` is in {@link BUILDING_EXCLUDED_ITEM_CLASSES}
+ * are skipped; every other class — including unknown classes from mods — renders.
+ *
+ * Hardened against malformed data: non-finite or non-positive canvas dimensions,
+ * degenerate bounds, missing footprints, footprints with fewer than 3 vertices,
+ * and footprints with non-finite vertices are all skipped silently rather than
+ * throwing or producing a corrupt path.
+ */
 export function renderBuildingsLayer(
   ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
   buildings: Building[],
@@ -24,6 +39,15 @@ export function renderBuildingsLayer(
   canvasHeight: number,
 ): void {
   if (buildings.length === 0) return;
+
+  // Canvas degenerado o no-finito → la proyección sería inválida, no renderizar.
+  if (
+    !Number.isFinite(canvasWidth) ||
+    canvasWidth <= 0 ||
+    !Number.isFinite(canvasHeight) ||
+    canvasHeight <= 0
+  )
+    return;
 
   const rangeX = bounds.maxX - bounds.minX;
   const rangeZ = bounds.maxZ - bounds.minZ;
@@ -47,10 +71,13 @@ export function renderBuildingsLayer(
 
   for (const building of buildings) {
     if (BUILDING_EXCLUDED_ITEM_CLASSES.has(building.itemClass)) continue;
-    // Un polígono con menos de 3 vértices no es renderizable — skip silencioso.
-    if (building.footprint.length < 3) continue;
+    // Footprint ausente o con menos de 3 vértices no es un polígono renderizable.
+    if (!building.footprint || building.footprint.length < 3) continue;
 
     const points = building.footprint.map(worldToCanvas);
+    // Un vértice no-finito (NaN/Infinity) produce un path corrupto — descartar.
+    if (points.some(([x, y]) => !Number.isFinite(x) || !Number.isFinite(y)))
+      continue;
 
     ctx.beginPath();
     ctx.moveTo(points[0][0], points[0][1]);
