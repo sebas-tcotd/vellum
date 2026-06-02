@@ -472,7 +472,7 @@ describe('renderTransitLayer', () => {
       const line = makeTransitLine({
         mode: 'Train',
         stops: [stopA, stopB],
-        route: [],
+        route: [], // empty route → drawOffsetPolyline never runs; all moveTo/lineTo come from the stop marker
       });
 
       renderTransitLayer(
@@ -588,7 +588,7 @@ describe('renderTransitLayer', () => {
       const line = makeTransitLine({
         mode: 'CableCar',
         stops: [stopA, stopB],
-        route: [],
+        route: [], // empty route → drawOffsetPolyline never runs; all moveTo/lineTo come from the stop marker
       });
 
       renderTransitLayer(
@@ -659,7 +659,7 @@ describe('renderTransitLayer', () => {
       const line = makeTransitLine({
         mode: 'Ferry',
         stops: [stopA, stopB],
-        route: [],
+        route: [], // empty route → drawOffsetPolyline never runs; all moveTo/lineTo come from the stop marker
       });
 
       renderTransitLayer(
@@ -896,6 +896,45 @@ describe('renderTransitLayer', () => {
 
       // 48m === STOP_MERGE_THRESHOLD → fusionar → 1 solo arc
       expect(ctx.arc).toHaveBeenCalledTimes(1);
+    });
+
+    it('paradas exactamente a 49m NO se fusionan (>threshold)', () => {
+      const ctx = makeCtx();
+      const stopA = makeStop({
+        id: 'stop-a',
+        mode: 'Bus',
+        position: { x: 0, y: 60, z: 0 },
+      });
+      const stopB = makeStop({
+        id: 'stop-b',
+        mode: 'Bus',
+        position: { x: 49, y: 60, z: 0 },
+      });
+
+      const lineA = makeTransitLine({
+        id: 'line-a',
+        stops: [stopA],
+        route: [],
+      });
+      const lineB = makeTransitLine({
+        id: 'line-b',
+        stops: [stopB],
+        route: [],
+      });
+
+      renderTransitLayer(
+        ctx,
+        [lineA, lineB],
+        new Map(),
+        new Map(),
+        BOUNDS,
+        800,
+        800,
+        1,
+      );
+
+      // 49m > STOP_MERGE_THRESHOLD → 2 grupos separados → arc llamado 2 veces
+      expect(ctx.arc).toHaveBeenCalledTimes(2);
     });
 
     it('línea con un solo stop renderiza su marcador', () => {

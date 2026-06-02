@@ -130,6 +130,12 @@ function drawOffsetPolyline(
  * @param fillColor - Fill color (typically '#ffffff')
  * @param strokeColor - Stroke color (typically the line's game color)
  * @param count - Number of stops merged into this group (used to scale circle radius)
+ *
+ * @remarks
+ * Metro inverts the color scheme: strokeColor becomes the fill and fillColor becomes
+ * the stroke, making filled-circle markers visually distinct from Bus/Trolleybus/Unknown.
+ * Circle radius for Bus/Trolleybus/Unknown/Metro scales as `min(6, 3 + floor(count/2))`
+ * to provide a count cue for merged same-mode groups.
  */
 function drawModeMarker(
   ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
@@ -317,6 +323,13 @@ export function renderTransitLayer(
       }
     }
 
+    const modeEntriesMap = new Map<TransitMode, StopEntry[]>();
+    for (const entry of group.entries) {
+      const bucket = modeEntriesMap.get(entry.stop.mode) ?? [];
+      bucket.push(entry);
+      modeEntriesMap.set(entry.stop.mode, bucket);
+    }
+
     if (uniqueModes.length === 1) {
       drawModeMarker(
         ctx,
@@ -331,9 +344,7 @@ export function renderTransitLayer(
       const totalWidth = (uniqueModes.length - 1) * MULTI_STOP_SPACING;
       const startX = cx - totalWidth / 2;
       for (let i = 0; i < uniqueModes.length; i++) {
-        const modeEntries = group.entries.filter(
-          (e) => e.stop.mode === uniqueModes[i],
-        );
+        const modeEntries = modeEntriesMap.get(uniqueModes[i]) ?? [];
         const lineColor =
           modeEntries[0]?.line.color ?? group.entries[0].line.color;
         drawModeMarker(
