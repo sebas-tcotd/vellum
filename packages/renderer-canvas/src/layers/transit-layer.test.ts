@@ -109,7 +109,7 @@ describe('renderTransitLayer', () => {
     expect(ctx.stroke).not.toHaveBeenCalled();
   });
 
-  it('llama stroke una vez por segmento en ruta', () => {
+  it('llama stroke dos veces por segmento en ruta (bg + fg)', () => {
     const ctx = makeCtx();
     const line = makeTransitLine({ route: [{ segmentIds: ['seg-1'] }] });
     renderTransitLayer(
@@ -122,7 +122,7 @@ describe('renderTransitLayer', () => {
       800,
       1,
     );
-    expect(ctx.stroke).toHaveBeenCalledTimes(1);
+    expect(ctx.stroke).toHaveBeenCalledTimes(2);
   });
 
   it('usa el color de la línea como strokeStyle', () => {
@@ -149,11 +149,12 @@ describe('renderTransitLayer', () => {
     expect(colors).toContain('#AA1122');
   });
 
-  it('dos líneas en el mismo segmento tienen offsets distintos', () => {
-    const moveToCalls: [number, number][] = [];
+  it('dos líneas en el mismo segmento tienen anchos de trazo distintos (bandas concéntricas)', () => {
+    const lineWidths: number[] = [];
     const ctx = makeCtx();
-    ctx.moveTo = vi.fn((x: number, y: number) => {
-      moveToCalls.push([x, y]);
+    Object.defineProperty(ctx, 'lineWidth', {
+      set: (v: number) => lineWidths.push(v),
+      get: () => lineWidths.at(-1) ?? 0,
     });
 
     const lineA = makeTransitLine({
@@ -178,8 +179,11 @@ describe('renderTransitLayer', () => {
       1,
     );
 
-    expect(ctx.stroke).toHaveBeenCalledTimes(2);
-    expect(moveToCalls[0]).not.toEqual(moveToCalls[1]);
+    // 2 líneas × 2 passes (bg + fg) = 4 strokes
+    expect(ctx.stroke).toHaveBeenCalledTimes(4);
+    // La primera línea usa un trazo más ancho que la segunda (banda exterior vs interior)
+    const uniqueWidths = new Set(lineWidths);
+    expect(uniqueWidths.size).toBeGreaterThan(1);
   });
 
   it('una sola línea en un segmento NO tiene offset (centrada)', () => {
@@ -243,7 +247,8 @@ describe('renderTransitLayer', () => {
         1,
       ),
     ).not.toThrow();
-    expect(ctx.stroke).toHaveBeenCalledTimes(modes.length);
+    // Cada modo dibuja en bg + fg = 2 strokes por línea
+    expect(ctx.stroke).toHaveBeenCalledTimes(modes.length * 2);
   });
 
   it('no renderiza nada con bounds degenerados (rangeX=0)', () => {
@@ -284,7 +289,8 @@ describe('renderTransitLayer', () => {
       800,
       1,
     );
-    expect(ctx.stroke).toHaveBeenCalledTimes(2);
+    // 2 segmentos × 2 passes (bg + fg) = 4 strokes
+    expect(ctx.stroke).toHaveBeenCalledTimes(4);
   });
 
   describe('geometría de segmento (points)', () => {
@@ -307,9 +313,9 @@ describe('renderTransitLayer', () => {
         1,
       );
 
-      // Con points=[], worldPoints tiene solo 2 elementos → 1 moveTo + 1 lineTo
-      expect(moveToCalls).toHaveLength(1);
-      expect(lineToCalls).toHaveLength(1);
+      // points=[] → 2 worldPoints → 1 moveTo + 1 lineTo por pass; 2 passes → 2 moveTo + 2 lineTo
+      expect(moveToCalls).toHaveLength(2);
+      expect(lineToCalls).toHaveLength(2);
     });
 
     it('segmento con un punto intermedio genera polilínea de 3 puntos', () => {
@@ -335,35 +341,30 @@ describe('renderTransitLayer', () => {
         1,
       );
 
-      // worldPoints = [startNode, midpoint, endNode] → 1 moveTo + 2 lineTo
-      expect(moveToCalls).toHaveLength(1);
-      expect(lineToCalls).toHaveLength(2);
+      // worldPoints = [startNode, midpoint, endNode] → 1 moveTo + 2 lineTo por pass; 2 passes → 2 moveTo + 4 lineTo
+      expect(moveToCalls).toHaveLength(2);
+      expect(lineToCalls).toHaveLength(4);
     });
 
-    it('punto intermedio produce moveTo distinto al de un segmento recto', () => {
-      const straightMoveTo: [number, number][] = [];
-      const curvedMoveTo: [number, number][] = [];
+    it('punto intermedio produce primer lineTo distinto al de un segmento recto', () => {
+      const straightLineTo: [number, number][] = [];
+      const curvedLineTo: [number, number][] = [];
 
       const ctxStraight = makeCtx();
-      ctxStraight.moveTo = vi.fn((x, y) => straightMoveTo.push([x, y]));
+      ctxStraight.lineTo = vi.fn((x: number, y: number) =>
+        straightLineTo.push([x, y]),
+      );
       const ctxCurved = makeCtx();
-      ctxCurved.moveTo = vi.fn((x, y) => curvedMoveTo.push([x, y]));
+      ctxCurved.lineTo = vi.fn((x: number, y: number) =>
+        curvedLineTo.push([x, y]),
+      );
 
-      const lineA = makeTransitLine({
-        id: 'line-a',
-        color: '#FF0000',
-        route: [{ segmentIds: ['seg-1'] }],
-      });
-      const lineB = makeTransitLine({
-        id: 'line-b',
-        color: '#0000FF',
-        route: [{ segmentIds: ['seg-1'] }],
-      });
+      const line = makeTransitLine({ route: [{ segmentIds: ['seg-1'] }] });
 
-      // Dos líneas en segmento recto: offset perpendicular al eje startNode→endNode
+      // Segmento recto: el primer lineTo va directo a node-2
       renderTransitLayer(
         ctxStraight,
-        [lineA, lineB],
+        [line],
         makeSegmentMap([DEFAULT_SEGMENT]),
         makeNodeMap(DEFAULT_NODES),
         BOUNDS,
@@ -372,14 +373,14 @@ describe('renderTransitLayer', () => {
         1,
       );
 
-      // Dos líneas en segmento con curva: offset perpendicular al primer sub-segmento
+      // Segmento curvo: el primer lineTo va al punto intermedio (-500, 500)
       const segCurved: RoadSegment = {
         ...DEFAULT_SEGMENT,
         points: [{ x: -500, y: 60, z: 500 }],
       };
       renderTransitLayer(
         ctxCurved,
-        [lineA, lineB],
+        [line],
         makeSegmentMap([segCurved]),
         makeNodeMap(DEFAULT_NODES),
         BOUNDS,
@@ -388,8 +389,8 @@ describe('renderTransitLayer', () => {
         1,
       );
 
-      // Los moveTos deben diferir porque el vector perpendicular cambió
-      expect(straightMoveTo[0]).not.toEqual(curvedMoveTo[0]);
+      // El primer lineTo difiere: en recto va a node-2, en curvo va al punto intermedio
+      expect(straightLineTo[0]).not.toEqual(curvedLineTo[0]);
     });
   });
 

@@ -7,9 +7,9 @@ import type {
   CityData,
 } from '@vellum/core';
 
-const LINE_WIDTH = 2;
-const LINE_SPACING = 3;
-const MAX_LINES_PER_SEGMENT = 8;
+const MAX_STROKE_UNIT = 8;
+const MIN_STROKE_UNIT = 2;
+const BG_EXTRA = 2;
 
 /** Proximity threshold for merging stops into a single marker, in CS1 world units (meters). */
 export const STOP_MERGE_THRESHOLD = 48;
@@ -80,33 +80,34 @@ function groupStops(lines: TransitLine[]): StopGroup[] {
   return groups;
 }
 
-function drawOffsetPolyline(
+/**
+ * Returns a lighter or darker variant of a CSS hex color for use as an outline.
+ * Dark colors are lightened; light colors are darkened.
+ */
+function highlightColor(cssColor: string): string {
+  const m = cssColor.match(/^#([0-9a-fA-F]{6})$/i);
+  if (!m) return cssColor;
+  const r = parseInt(m[1].slice(0, 2), 16);
+  const g = parseInt(m[1].slice(2, 4), 16);
+  const b = parseInt(m[1].slice(4, 6), 16);
+  const luminance = Math.sqrt(0.299 * r * r + 0.587 * g * g + 0.114 * b * b);
+  const isDark = luminance <= 127;
+  const hr = isDark ? Math.round((r + 255) / 2) : Math.round(r / 2);
+  const hg = isDark ? Math.round((g + 255) / 2) : Math.round(g / 2);
+  const hb = isDark ? Math.round((b + 255) / 2) : Math.round(b / 2);
+  return `rgb(${hr},${hg},${hb})`;
+}
+
+function drawPolyline(
   ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
   canvasPoints: [number, number][],
-  offsetAmount: number,
 ): void {
   if (canvasPoints.length < 2) return;
-
   ctx.beginPath();
-
-  for (let i = 0; i < canvasPoints.length - 1; i++) {
-    const [ax, ay] = canvasPoints[i];
-    const [bx, by] = canvasPoints[i + 1];
-
-    const dx = bx - ax;
-    const dy = by - ay;
-    const len = Math.sqrt(dx * dx + dy * dy);
-    if (len < 0.001) continue;
-
-    const perpX = -dy / len;
-    const perpY = dx / len;
-
-    if (i === 0) {
-      ctx.moveTo(ax + perpX * offsetAmount, ay + perpY * offsetAmount);
-    }
-    ctx.lineTo(bx + perpX * offsetAmount, by + perpY * offsetAmount);
+  ctx.moveTo(canvasPoints[0][0], canvasPoints[0][1]);
+  for (let i = 1; i < canvasPoints.length; i++) {
+    ctx.lineTo(canvasPoints[i][0], canvasPoints[i][1]);
   }
-
   ctx.stroke();
 }
 
@@ -274,38 +275,57 @@ export function renderTransitLayer(
   }
 
   const segmentLineUsers = buildSegmentLineUsers(transitLines);
+  const scale = canvasWidth / rangeX;
 
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
 
-  for (const line of transitLines) {
-    ctx.strokeStyle = line.color;
-    ctx.lineWidth = LINE_WIDTH;
+  // Two-pass rendering mirrors the cslwmv concentric-band approach:
+  // bg pass draws all outline strokes first; fg pass draws all route-color strokes on top.
+  // Per segment, each route gets a successively narrower stroke (widest = first route drawn).
+  for (const pass of ['bg', 'fg'] as const) {
+    const segmentVisits = new Map<string, Set<string>>();
 
-    for (const pathSeg of line.route) {
-      for (const segId of pathSeg.segmentIds) {
-        const seg = segmentMap.get(segId);
-        if (!seg) continue;
-        const startNode = nodeMap.get(seg.startNodeId);
-        const endNode = nodeMap.get(seg.endNodeId);
-        if (!startNode || !endNode) continue;
+    for (const line of transitLines) {
+      for (const pathSeg of line.route) {
+        for (const segId of pathSeg.segmentIds) {
+          const seg = segmentMap.get(segId);
+          if (!seg) continue;
 
-        const worldPoints = [
-          startNode.position,
-          ...seg.points,
-          endNode.position,
-        ];
-        const canvasPoints = worldPoints.map(worldToCanvas);
+          const users = segmentLineUsers.get(segId) ?? [];
+          const lineCount = users.length;
+          const visits = segmentVisits.get(segId) ?? new Set<string>();
+          if (visits.has(line.id)) continue;
 
-        const users = segmentLineUsers.get(segId) ?? [];
-        const lineCount = Math.min(users.length, MAX_LINES_PER_SEGMENT);
-        const lineIndex = Math.min(
-          users.indexOf(line),
-          MAX_LINES_PER_SEGMENT - 1,
-        );
-        const offsetAmount = (lineIndex - (lineCount - 1) / 2) * LINE_SPACING;
+          const startNode = nodeMap.get(seg.startNodeId);
+          const endNode = nodeMap.get(seg.endNodeId);
+          if (!startNode || !endNode) continue;
 
-        drawOffsetPolyline(ctx, canvasPoints, offsetAmount);
+          const roadWidthPx = seg.width * scale;
+          const strokeUnit = Math.max(
+            MIN_STROKE_UNIT,
+            Math.min(roadWidthPx / lineCount, MAX_STROKE_UNIT),
+          );
+          const strokeWidth = strokeUnit * (lineCount - visits.size);
+          visits.add(line.id);
+          segmentVisits.set(segId, visits);
+
+          const worldPoints = [
+            startNode.position,
+            ...seg.points,
+            endNode.position,
+          ];
+          const canvasPoints = worldPoints.map(worldToCanvas);
+
+          if (pass === 'bg') {
+            ctx.lineWidth = strokeWidth + BG_EXTRA;
+            ctx.strokeStyle = highlightColor(line.color);
+          } else {
+            ctx.lineWidth = strokeWidth;
+            ctx.strokeStyle = line.color;
+          }
+          drawPolyline(ctx, canvasPoints);
+        }
       }
     }
   }
