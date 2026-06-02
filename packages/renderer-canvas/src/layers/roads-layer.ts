@@ -211,8 +211,12 @@ export function renderRoadsLayer(
         const scaleFactor = isConnector ? 0.65 : 1.0;
         const baseWidth = (style.fixed + style.scaled * zoom) * scaleFactor;
 
-        const [x0, y0] = worldToCanvas(startNode.position);
-        const [x1, y1] = worldToCanvas(endNode.position);
+        const worldPoints = [
+          startNode.position,
+          ...seg.points,
+          endNode.position,
+        ];
+        const canvasPoints = worldPoints.map(worldToCanvas);
 
         if (pass === 'casing') {
           ctx.strokeStyle = tokens[style.casing as keyof RendererTokens];
@@ -249,8 +253,10 @@ export function renderRoadsLayer(
         }
 
         ctx.beginPath();
-        ctx.moveTo(x0, y0);
-        ctx.lineTo(x1, y1);
+        ctx.moveTo(canvasPoints[0][0], canvasPoints[0][1]);
+        for (let i = 1; i < canvasPoints.length; i++) {
+          ctx.lineTo(canvasPoints[i][0], canvasPoints[i][1]);
+        }
         ctx.stroke();
 
         ctx.setLineDash([]);

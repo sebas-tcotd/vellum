@@ -10,6 +10,7 @@ build/
 .next/
 .cache/
 src-tauri/target/
+.pnpm-store/
 
 # Rust / Tauri artifacts
 target/
