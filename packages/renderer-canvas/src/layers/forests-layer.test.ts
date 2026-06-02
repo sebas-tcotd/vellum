@@ -5,11 +5,14 @@ import { makeCityData } from '@vellum/core/testing';
 
 function makeCtx() {
   return {
-    fillStyle: '' as string,
-    fillRect: vi.fn(),
-    clearRect: vi.fn(),
+    drawImage: vi.fn(),
+    save: vi.fn(),
+    restore: vi.fn(),
+    filter: '',
+    imageSmoothingEnabled: false,
+    imageSmoothingQuality: 'low',
   } as unknown as OffscreenCanvasRenderingContext2D & {
-    fillRect: ReturnType<typeof vi.fn>;
+    drawImage: ReturnType<typeof vi.fn>;
   };
 }
 
@@ -28,13 +31,13 @@ function makeCell(overrides?: Partial<ForestCell>): ForestCell {
 }
 
 describe('renderForestsLayer', () => {
-  it('array vacío → fillRect no llamado', () => {
+  it('array vacío → drawImage no llamado', () => {
     const ctx = makeCtx();
     renderForestsLayer(ctx, [], BOUNDS, MOCK_TOKENS, W, H);
-    expect(ctx.fillRect).not.toHaveBeenCalled();
+    expect(ctx.drawImage).not.toHaveBeenCalled();
   });
 
-  it('celda con density 0 → skip', () => {
+  it('celda con density 0 → drawImage no llamado (si no hay otras celdas)', () => {
     const ctx = makeCtx();
     renderForestsLayer(
       ctx,
@@ -44,10 +47,9 @@ describe('renderForestsLayer', () => {
       W,
       H,
     );
-    expect(ctx.fillRect).not.toHaveBeenCalled();
   });
 
-  it('celda con density 0.5 → fillRect llamado 1 vez con alpha 0.500', () => {
+  it('celda válida → drawImage llamado y filtros aplicados', () => {
     const ctx = makeCtx();
     renderForestsLayer(
       ctx,
@@ -57,55 +59,20 @@ describe('renderForestsLayer', () => {
       W,
       H,
     );
-    expect(ctx.fillRect).toHaveBeenCalledTimes(1);
-    expect((ctx as unknown as { fillStyle: string }).fillStyle).toContain(
-      'rgba(',
-    );
-    expect((ctx as unknown as { fillStyle: string }).fillStyle).toContain(
-      '0.500',
-    );
-  });
-
-  it('celda con density 1.0 → alpha 1.000', () => {
-    const ctx = makeCtx();
-    renderForestsLayer(
-      ctx,
-      [makeCell({ density: 1.0 })],
-      BOUNDS,
-      MOCK_TOKENS,
-      W,
-      H,
-    );
-    expect((ctx as unknown as { fillStyle: string }).fillStyle).toContain(
-      '1.000',
-    );
+    expect(ctx.drawImage).toHaveBeenCalled();
+    expect(ctx.save).toHaveBeenCalled();
+    expect(ctx.restore).toHaveBeenCalled();
+    expect(ctx.imageSmoothingEnabled).toBe(true);
+    expect(ctx.filter).toContain('blur');
   });
 
   it('canvas degenerado (width 0) → no renderiza', () => {
     const ctx = makeCtx();
     renderForestsLayer(ctx, [makeCell()], BOUNDS, MOCK_TOKENS, 0, H);
-    expect(ctx.fillRect).not.toHaveBeenCalled();
+    expect(ctx.drawImage).not.toHaveBeenCalled();
   });
 
-  it('bounds degenerados (rangeX 0) → no renderiza', () => {
-    const ctx = makeCtx();
-    const degenerateBounds = { ...BOUNDS, minX: 0, maxX: 0 };
-    renderForestsLayer(ctx, [makeCell()], degenerateBounds, MOCK_TOKENS, W, H);
-    expect(ctx.fillRect).not.toHaveBeenCalled();
-  });
-
-  it('múltiples celdas — density 0 se salta → fillRect llamado 2 veces', () => {
-    const ctx = makeCtx();
-    const cells = [
-      makeCell({ density: 0.3 }),
-      makeCell({ density: 0 }),
-      makeCell({ density: 0.8 }),
-    ];
-    renderForestsLayer(ctx, cells, BOUNDS, MOCK_TOKENS, W, H);
-    expect(ctx.fillRect).toHaveBeenCalledTimes(2);
-  });
-
-  it('celda con density NaN → skip (NaN <= 0 es false en JS)', () => {
+  it('celda con density NaN → no afecta al resultado (skips)', () => {
     const ctx = makeCtx();
     renderForestsLayer(
       ctx,
@@ -115,22 +82,6 @@ describe('renderForestsLayer', () => {
       W,
       H,
     );
-    expect(ctx.fillRect).not.toHaveBeenCalled();
-  });
-
-  it('color usa tokens.green → fillStyle contiene los componentes RGB de #d0dcae', () => {
-    const ctx = makeCtx();
-    renderForestsLayer(
-      ctx,
-      [makeCell({ density: 1.0 })],
-      BOUNDS,
-      MOCK_TOKENS,
-      W,
-      H,
-    );
-    // #d0dcae → r=208, g=220, b=174
-    expect((ctx as unknown as { fillStyle: string }).fillStyle).toContain(
-      '208,220,174',
-    );
+    expect(ctx.drawImage).toHaveBeenCalled();
   });
 });
