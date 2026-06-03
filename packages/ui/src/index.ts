@@ -30,3 +30,5 @@ export type {
 } from './components/panels/FloatingLayerPanel';
 export { LayerToggleRow } from './components/panels/LayerToggleRow';
 export type { LayerToggleRowProps } from './components/panels/LayerToggleRow';
+export { Switch } from './lib/switch';
+export { Separator } from './lib/separator';

@@ -73,11 +73,12 @@ export const FloatingLayerPanel = ({ cityName }: FloatingLayerPanelProps) => {
 
   const handleExpand = () => {
     setPanelState('expanded');
-    requestAnimationFrame(() => {
+    // Story 4.2 Patch: Use a safer focus strategy when expanding
+    setTimeout(() => {
       const firstSwitch =
         panelRef.current?.querySelector<HTMLElement>('[role="switch"]');
       firstSwitch?.focus();
-    });
+    }, 50);
   };
 
   return (
