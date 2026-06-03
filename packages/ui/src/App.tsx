@@ -8,6 +8,7 @@ import { ProgressBar } from './components/overlays/ProgressBar';
 import { ErrorToast } from './components/overlays/ErrorToast';
 import { PartialParseDialog } from './components/overlays/PartialParseDialog';
 import { DlcWarningToast } from './components/overlays/DlcWarningToast';
+import { FloatingLayerPanel } from './components/panels/FloatingLayerPanel';
 import { initI18n } from './i18n/i18n-setup';
 import { useKeyboardShortcuts } from './hooks/use-keyboard-shortcuts';
 import { cn } from './lib/utils';
@@ -65,6 +66,7 @@ export function App({
   const [renderer, setRenderer] = useState<IRenderer | null>(null);
   const syncActiveLanguage = useVellumStore((s) => s.syncActiveLanguage);
   const cityData = useVellumStore((s) => s.cityData);
+  const activeLayers = useVellumStore((s) => s.activeLayers);
   const loadingState = useVellumStore((s) => s.loadingState);
   const loadingError = useVellumStore((s) => s.loadingError);
   const dlcWarnings = useVellumStore((s) => s.dlcWarnings);
@@ -86,27 +88,20 @@ export function App({
   }, [syncActiveLanguage]);
 
   useEffect(() => {
-    if (!cityData) return;
     const r = new CanvasRenderer();
     rendererRef.current = r;
     setRenderer(r);
-    r.render(cityData, {
-      activeLayers: {
-        terrain: true,
-        water: true,
-        roads: false,
-        transit: false,
-        buildings: false,
-        forests: false,
-        districts: false,
-      },
-    });
     return () => {
       r.dispose();
       rendererRef.current = null;
       setRenderer(null);
     };
-  }, [cityData]);
+  }, []);
+
+  useEffect(() => {
+    if (!cityData || !rendererRef.current) return;
+    rendererRef.current.render(cityData, { activeLayers });
+  }, [cityData, activeLayers]);
 
   const handleDlcDismiss = useCallback(() => {
     setDlcWarnings([]);
@@ -167,6 +162,9 @@ export function App({
             isPartialData={hasPartialData}
             onDismiss={handleDlcDismiss}
           />
+        )}
+        {cityData !== null && loadingState !== 'loading' && (
+          <FloatingLayerPanel cityName={cityData.cityName} />
         )}
       </div>
     </Suspense>

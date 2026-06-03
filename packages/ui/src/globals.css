@@ -98,6 +98,11 @@
 
   /* Radius */
   --radius: 10px; /* = --radius-md */
+
+  /* Tipografía — registradas en @theme para generar font-wordmark, font-ui, font-mono */
+  --font-wordmark: 'Cormorant Garamond', 'Georgia', serif;
+  --font-ui: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'DM Mono', 'Consolas', 'Monaco', monospace;
 }
 
 /* ─── Design tokens ───────────────────────────────────────────────────────── */

@@ -78,6 +78,9 @@
   "a11y": {
     "mapCanvas": "City map canvas",
     "loadingProgress": "Loading progress",
-    "exportProgress": "Export progress"
+    "exportProgress": "Export progress",
+    "layerPanel": "Layer controls panel",
+    "layerPanelCollapse": "Collapse panel",
+    "layerPanelExpand": "Expand panel"
   }
 }
