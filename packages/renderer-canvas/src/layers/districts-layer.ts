@@ -58,9 +58,9 @@ export function renderDistrictsLayer(
   }
 
   // Scale font proportionally to the physical canvas size so labels stay legible
-  // at any devicePixelRatio (e.g. 2× Retina). Clamp to a minimum of 18px.
-  const fontSize = Math.max(18, Math.round(canvasWidth / 80));
-  ctx.font = `${fontSize}px "DM Mono", monospace`;
+  // at any devicePixelRatio (e.g. 2× Retina). Clamp to a minimum of 14px.
+  const fontSize = Math.max(14, Math.round(canvasWidth / 100));
+  ctx.font = `small-caps ${fontSize}px "DM Mono", monospace`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
 
@@ -74,8 +74,8 @@ export function renderDistrictsLayer(
     if (!Number.isFinite(cx) || !Number.isFinite(cy)) continue;
 
     // Stroke pass — dark outline for readability over complex backgrounds
-    ctx.strokeStyle = 'rgba(0,0,0,0.55)';
-    ctx.lineWidth = 3;
+    ctx.strokeStyle = 'rgba(0,0,0,0.75)';
+    ctx.lineWidth = 4;
     ctx.strokeText(district.name, cx, cy);
 
     // Fill pass

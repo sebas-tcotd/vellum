@@ -59,7 +59,7 @@ const FALLBACKS: RendererTokens = {
   buildingFill: '#c8bfb5',
   buildingStroke: '#a09585',
   districtFill: '#b4a08c',
-  districtLabel: '#555550',
+  districtLabel: '#ffffff',
 };
 
 export function readTokensFromDOM(): RendererTokens {
