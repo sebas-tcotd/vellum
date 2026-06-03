@@ -45,6 +45,9 @@ const ACTIVE_LAYERS = {
   districts: true,
 } as const;
 
+const MIN_ZOOM = 0.1;
+const MAX_ZOOM = 20;
+
 export function CanvasRoot({
   onElementHover: _onElementHover,
   onElementLeave: _onElementLeave,
@@ -63,6 +66,11 @@ export function CanvasRoot({
   const activeLayersRef = useRef(activeLayers);
   activeLayersRef.current = activeLayers;
   const [canvasSize, setCanvasSize] = useState(0);
+
+  // Drag state refs — never React state to avoid re-renders at 60fps
+  const isDraggingRef = useRef(false);
+  const dragStartRef = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
+  const isSpaceDownRef = useRef(false);
 
   useEffect(() => {
     rendererRef.current = renderer ?? null;
@@ -171,6 +179,108 @@ export function CanvasRoot({
     };
   }, [loadFile]);
 
+  // Zoom/pan interaction handlers — registered manually to control passive option
+  useEffect(() => {
+    const wrapper = wrapperRef.current;
+    if (!wrapper) return;
+
+    function applyTransform(): void {
+      if (!containerRef.current) return;
+      const { zoom, panX, panY } = viewportRef.current;
+      containerRef.current.style.transform = `translate(${panX}px, ${panY}px) scale(${zoom})`;
+      containerRef.current.style.transformOrigin = '0 0';
+    }
+
+    function setCursor(state: 'default' | 'grab' | 'grabbing'): void {
+      const el = wrapperRef.current;
+      if (!el) return;
+      el.classList.remove('cursor-grab', 'cursor-grabbing');
+      if (state === 'grab') el.classList.add('cursor-grab');
+      if (state === 'grabbing') el.classList.add('cursor-grabbing');
+    }
+
+    function handleWheel(e: WheelEvent): void {
+      e.preventDefault();
+      const factor = e.deltaY < 0 ? 1.1 : 0.9;
+      const newZoom = Math.max(
+        MIN_ZOOM,
+        Math.min(MAX_ZOOM, viewportRef.current.zoom * factor),
+      );
+
+      const rect = wrapperRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const cursorX = e.clientX - rect.left;
+      const cursorY = e.clientY - rect.top;
+
+      // Keep the point under the cursor fixed as zoom changes
+      const ratio = newZoom / viewportRef.current.zoom;
+      viewportRef.current.panX =
+        cursorX - ratio * (cursorX - viewportRef.current.panX);
+      viewportRef.current.panY =
+        cursorY - ratio * (cursorY - viewportRef.current.panY);
+      viewportRef.current.zoom = newZoom;
+
+      applyTransform();
+    }
+
+    function handleMouseDown(e: MouseEvent): void {
+      if (e.button !== 0) return;
+      isDraggingRef.current = true;
+      dragStartRef.current = {
+        x: e.clientX,
+        y: e.clientY,
+        panX: viewportRef.current.panX,
+        panY: viewportRef.current.panY,
+      };
+      setCursor('grabbing');
+    }
+
+    function handleMouseMove(e: MouseEvent): void {
+      if (!isDraggingRef.current) return;
+      viewportRef.current.panX =
+        dragStartRef.current.panX + (e.clientX - dragStartRef.current.x);
+      viewportRef.current.panY =
+        dragStartRef.current.panY + (e.clientY - dragStartRef.current.y);
+      applyTransform();
+    }
+
+    function handleMouseUp(): void {
+      isDraggingRef.current = false;
+      setCursor(isSpaceDownRef.current ? 'grab' : 'default');
+    }
+
+    function handleKeyDown(e: KeyboardEvent): void {
+      if (e.code === 'Space' && !isSpaceDownRef.current) {
+        isSpaceDownRef.current = true;
+        if (!isDraggingRef.current) setCursor('grab');
+      }
+    }
+
+    function handleKeyUp(e: KeyboardEvent): void {
+      if (e.code === 'Space') {
+        isSpaceDownRef.current = false;
+        if (!isDraggingRef.current) setCursor('default');
+      }
+    }
+
+    // mousemove and mouseup on window to capture movement outside canvas during drag
+    wrapper.addEventListener('wheel', handleWheel, { passive: false });
+    wrapper.addEventListener('mousedown', handleMouseDown);
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+
+    return () => {
+      wrapper.removeEventListener('wheel', handleWheel);
+      wrapper.removeEventListener('mousedown', handleMouseDown);
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, []);
+
   const handleTick = useCallback(() => {
     rendererRef.current?.updateViewport(
       viewportRef.current.zoom,
@@ -184,7 +294,7 @@ export function CanvasRoot({
   return (
     <div
       ref={wrapperRef}
-      className="canvas-root relative w-full h-full overflow-auto"
+      className="canvas-root relative w-full h-full overflow-hidden"
       role="region"
       aria-label="Map canvas"
     >

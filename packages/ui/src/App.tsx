@@ -81,9 +81,12 @@ export function App({
   const setLoadingState = useVellumStore((s) => s.setLoadingState);
   const setDlcWarnings = useVellumStore((s) => s.setDlcWarnings);
   const setHasPartialData = useVellumStore((s) => s.setHasPartialData);
+  const toggleLayer = useVellumStore((s) => s.toggleLayer);
 
   useKeyboardShortcuts({
     onOpenFile: openFileDialog,
+    // Layer shortcuts 1-7 only active when a map is loaded
+    ...(cityData !== null ? { onToggleLayer: toggleLayer } : {}),
     enabled: loadingState !== 'loading',
   });
 
