@@ -2,6 +2,17 @@ import { Separator } from '@/lib/separator';
 import { cn } from '@/lib/utils';
 import type { LayerName } from '@vellum/core';
 import { LAYER_NAMES, LayerVisibility } from '@vellum/core';
+import {
+  Building2,
+  Bus,
+  LayoutGrid,
+  Mountain,
+  Route,
+  TreePine,
+  type LucideIcon,
+  Waves,
+  ChevronDown,
+} from 'lucide-react';
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useVellumStore } from '../../store/vellum-store';
@@ -10,9 +21,20 @@ import { LayerToggleRow } from './LayerToggleRow';
 /** Visual state of the floating panel. */
 export type PanelState = 'expanded' | 'collapsed';
 
-/** Color dot hex values per layer (theme: 'day'). Sourced from globals.css design tokens. */
+/** Lucide icon component for each map layer. */
+const LAYER_ICONS: Record<LayerName, LucideIcon> = {
+  terrain: Mountain,
+  water: Waves,
+  roads: Route,
+  transit: Bus,
+  buildings: Building2,
+  forests: TreePine,
+  districts: LayoutGrid,
+};
+
+/** Color hex values per layer (theme: 'day'). Sourced from globals.css design tokens. */
 const LAYER_COLORS: Record<LayerName, string> = {
-  terrain: '#deddbe',
+  terrain: '#c4a06a',
   water: '#6db8b7',
   roads: '#d2938e',
   transit: '#a098b0',
@@ -104,7 +126,6 @@ export const FloatingLayerPanel = ({ cityName }: FloatingLayerPanelProps) => {
           <PanelCollapsedIcons
             activeLayers={activeLayers}
             toggleLayer={toggleLayer}
-            ariaLabel={t('a11y.layerPanelExpand')}
           />
         </button>
       )}
@@ -129,24 +150,19 @@ function PanelHeader({
       <div className="font-wordmark leading-tight">
         <h1 className="text-lg font-medium opacity-90">{cityName}</h1>
         <h3 className="text-xs font-mono opacity-60 truncate">
-          filename.cslmap
+          Archivo CSLMapView
         </h3>
       </div>
       <button
         ref={collapseButtonRef}
         onClick={handleCollapse}
         aria-label={t('a11y.layerPanelCollapse')}
-        className="flex items-center justify-center rounded opacity-60 hover:opacity-100 transition-opacity min-w-6 min-h-6"
+        className={cn([
+          'flex items-center justify-center rounded opacity-60 hover:opacity-100 transition-opacity min-w-6 min-h-6',
+          'hover:rotate-90 transition',
+        ])}
       >
-        <svg
-          width="12"
-          height="12"
-          viewBox="0 0 12 12"
-          fill="currentColor"
-          aria-hidden="true"
-        >
-          <path d="M2 4h8L6 8z" />
-        </svg>
+        <ChevronDown size={16} strokeWidth={1.5} aria-hidden="true" />
       </button>
     </div>
   );
@@ -160,17 +176,21 @@ interface PanelLayerListProps {
 function PanelLayerList({ activeLayers, toggleLayer }: PanelLayerListProps) {
   return (
     <div>
-      {LAYER_NAMES.map((layer) => (
-        <LayerToggleRow
-          key={layer}
-          layer={layer}
-          visible={activeLayers[layer]}
-          onToggle={(l, v) => {
-            if (v !== activeLayers[l]) toggleLayer(l);
-          }}
-          color={LAYER_COLORS[layer]}
-        />
-      ))}
+      {LAYER_NAMES.map((layer) => {
+        const Icon = LAYER_ICONS[layer];
+        return (
+          <LayerToggleRow
+            key={layer}
+            layer={layer}
+            visible={activeLayers[layer]}
+            onToggle={(l, v) => {
+              if (v !== activeLayers[l]) toggleLayer(l);
+            }}
+            color={LAYER_COLORS[layer]}
+            icon={<Icon size={14} strokeWidth={1.5} />}
+          />
+        );
+      })}
     </div>
   );
 }
@@ -186,37 +206,36 @@ function PanelFooter() {
   );
 }
 
-interface PanelCollapsedIconsProps extends PanelLayerListProps {
-  ariaLabel?: string;
-}
+type PanelCollapsedIconsProps = PanelLayerListProps;
 
 function PanelCollapsedIcons({
   activeLayers,
   toggleLayer,
-  ariaLabel,
 }: PanelCollapsedIconsProps) {
+  const { t } = useTranslation();
   return (
     <div className="flex flex-col items-center py-2 gap-1">
-      {LAYER_NAMES.map((layer) => (
-        <div
-          key={layer}
-          onClick={() => toggleLayer(layer)}
-          aria-label={ariaLabel}
-          aria-pressed={activeLayers[layer]}
-          className="flex items-center justify-center rounded min-w-6 min-h-6"
-        >
-          <span
-            style={{
-              width: 8,
-              height: 8,
-              borderRadius: '50%',
-              backgroundColor: LAYER_COLORS[layer],
-              opacity: activeLayers[layer] ? 1 : 0.3,
-              display: 'block',
+      {LAYER_NAMES.map((layer) => {
+        const Icon = LAYER_ICONS[layer];
+        return (
+          <button
+            key={layer}
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleLayer(layer);
             }}
-          />
-        </div>
-      ))}
+            aria-label={t(`layers.${layer}`)}
+            aria-pressed={activeLayers[layer]}
+            className="flex items-center justify-center rounded min-w-6 min-h-6 bg-transparent border-none cursor-pointer p-0 transition"
+            style={{
+              color: LAYER_COLORS[layer],
+              opacity: activeLayers[layer] ? 1 : 0.3,
+            }}
+          >
+            <Icon size={16} strokeWidth={1.5} aria-hidden="true" />
+          </button>
+        );
+      })}
     </div>
   );
 }

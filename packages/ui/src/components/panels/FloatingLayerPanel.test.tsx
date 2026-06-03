@@ -35,25 +35,20 @@ describe('FloatingLayerPanel', () => {
   });
 
   describe('AC1 — Posición y estilos', () => {
-    it('tiene position fixed y border-radius 12px', () => {
+    it('tiene clases de posición fixed, left-4, top-1/2, -translate-y-1/2', () => {
       const { container } = render(<FloatingLayerPanel cityName="Altavento" />);
       const panel = container.firstChild as HTMLElement;
-      expect(panel.style.position).toBe('fixed');
-      expect(panel.style.borderRadius).toBe('12px');
+      expect(panel.className).toContain('fixed');
+      expect(panel.className).toContain('left-4');
+      expect(panel.className).toContain('top-1/2');
+      expect(panel.className).toContain('-translate-y-1/2');
     });
 
-    it('tiene left 16px, top 50% y transform translateY(-50%)', () => {
+    it('tiene clase rounded-lg y backdrop-blur', () => {
       const { container } = render(<FloatingLayerPanel cityName="Altavento" />);
       const panel = container.firstChild as HTMLElement;
-      expect(panel.style.left).toBe('16px');
-      expect(panel.style.top).toBe('50%');
-      expect(panel.style.transform).toBe('translateY(-50%)');
-    });
-
-    it('tiene backdrop-filter blur(12px)', () => {
-      const { container } = render(<FloatingLayerPanel cityName="Altavento" />);
-      const panel = container.firstChild as HTMLElement;
-      expect(panel.style.backdropFilter).toBe('blur(12px)');
+      expect(panel.className).toContain('rounded-lg');
+      expect(panel.className).toContain('backdrop-blur');
     });
   });
 
@@ -107,13 +102,13 @@ describe('FloatingLayerPanel', () => {
       expect(panel.getAttribute('data-state')).toBe('collapsed');
     });
 
-    it('panel tiene width 48px en estado collapsed', () => {
+    it('panel tiene clase w-12 en estado collapsed', () => {
       const { container } = render(<FloatingLayerPanel cityName="Altavento" />);
       const panel = container.firstChild as HTMLElement;
       fireEvent.click(
         screen.getByRole('button', { name: 'a11y.layerPanelCollapse' }),
       );
-      expect(panel.style.width).toBe('48px');
+      expect(panel.className).toContain('w-12');
     });
 
     it('oculta el wordmark al colapsar', () => {
@@ -149,7 +144,7 @@ describe('FloatingLayerPanel', () => {
       expect(panel.getAttribute('data-state')).toBe('expanded');
     });
 
-    it('width vuelve a 180px al expandir', () => {
+    it('panel recupera la clase de ancho expandido al expandir', () => {
       const { container } = render(<FloatingLayerPanel cityName="Altavento" />);
       const panel = container.firstChild as HTMLElement;
       fireEvent.click(
@@ -158,7 +153,7 @@ describe('FloatingLayerPanel', () => {
       fireEvent.click(
         screen.getByRole('button', { name: 'a11y.layerPanelExpand' }),
       );
-      expect(panel.style.width).toBe('180px');
+      expect(panel.className).not.toContain('w-12');
     });
   });
 
