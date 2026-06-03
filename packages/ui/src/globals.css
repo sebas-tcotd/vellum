@@ -105,11 +105,11 @@
   /* Paleta pergamino — Tema Day (OSM Humanitarian) */
   --color-bg: #f7f6f1; /* fondo terreno — @land del OSM Humanitarian .mss */
   --color-terrain: #f7f6f1;
-  --color-terrain-low: #b2c29d; /* vegetación costera/llanos — @wooded del .mss */
+  --color-terrain-low: #95ae79; /* vegetación costera/llanos — variante oscura de @wooded del .mss */
   --color-terrain-mid: #deddbe; /* agricultura/transición — @agriculture del .mss */
-  --color-terrain-high: #eee5b2; /* tierras altas/áridas — @beach del .mss */
+  --color-terrain-high: #c4a06a; /* tierras altas — entre @beach y @peak del .mss */
   --color-water: #6db8b7; /* agua — más oscuro que Humanitarian base para contraste con terreno */
-  --color-green: #d0dcae; /* zonas verdes — @park del .mss */
+  --color-green: #95ae79; /* forests — @wooded oscuro del .mss (más contraste sobre terreno) */
   --color-building: #c8bfb5; /* edificios — OSM Humanitarian building fill */
   --color-building-stroke: #a09585; /* contorno edificios — versión oscurecida del fill */
   --color-district-fill: #b4a08c; /* overlay de distritos — base hex, alpha 0.2 aplicado en renderer */

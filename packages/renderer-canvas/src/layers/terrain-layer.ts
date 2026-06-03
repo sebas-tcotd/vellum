@@ -98,18 +98,18 @@ export function renderTerrainLayer(
   const pixelsPerUnitZ = canvasHeight / rangeZ;
   const CELL_SIZE = 16;
 
-  // Normalize raw elevation to 0-23 range across the actual data range
-  let minElev = Infinity;
+  // Anchor the low end of the ramp to sea level so terrainLow always maps
+  // to land just above water, regardless of the map's actual minimum elevation.
+  const minElev = bounds.seaLevel;
   let maxElev = -Infinity;
   for (const tile of tiles) {
-    if (tile.elevation < minElev) minElev = tile.elevation;
     if (tile.elevation > maxElev) maxElev = tile.elevation;
   }
   const elevRange = maxElev - minElev || 1;
 
   for (const tile of tiles) {
     const normalized = (tile.elevation - minElev) / elevRange;
-    const colorIndex = Math.floor(normalized * 23);
+    const colorIndex = Math.max(0, Math.floor(normalized * 23));
     ctx.fillStyle = ramp[colorIndex];
     // Snap to integer pixels to eliminate sub-pixel gaps between adjacent tiles.
     const x0 = Math.floor((tile.x - bounds.minX) * pixelsPerUnitX);

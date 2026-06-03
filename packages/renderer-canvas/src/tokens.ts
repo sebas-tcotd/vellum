@@ -36,11 +36,11 @@ export interface RendererTokens {
 
 const FALLBACKS: RendererTokens = {
   terrain: '#f7f6f1',
-  terrainLow: '#b2c29d',
+  terrainLow: '#95ae79',
   terrainMid: '#deddbe',
-  terrainHigh: '#eee5b2',
+  terrainHigh: '#c4a06a',
   water: '#6db8b7',
-  green: '#d0dcae',
+  green: '#95ae79',
   text: '#333333',
   transitBg: '#1a1a2e',
   roadHighway: '#a098b0',
