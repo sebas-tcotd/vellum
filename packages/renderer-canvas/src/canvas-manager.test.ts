@@ -32,7 +32,8 @@ describe('CanvasManager', () => {
   it('asigna z-index correcto a cada capa', () => {
     const manager = new CanvasManager(container);
     expect(manager.getCanvas('terrain')?.style.zIndex).toBe('1');
-    expect(manager.getCanvas('water')?.style.zIndex).toBe('2');
+    expect(manager.getCanvas('forests')?.style.zIndex).toBe('2');
+    expect(manager.getCanvas('water')?.style.zIndex).toBe('3');
     manager.destroy();
   });
 

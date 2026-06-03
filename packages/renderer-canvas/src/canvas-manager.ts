@@ -9,21 +9,21 @@ export type LayerName =
 
 const LAYER_Z_INDEX: Record<LayerName, number> = {
   terrain: 1,
-  water: 2,
-  roads: 3,
-  transit: 4,
-  buildings: 5,
-  forests: 6,
+  forests: 2,
+  water: 3,
+  buildings: 4,
+  roads: 5,
+  transit: 6,
   districts: 7,
 };
 
 const LAYERS: LayerName[] = [
   'terrain',
+  'forests',
   'water',
+  'buildings',
   'roads',
   'transit',
-  'buildings',
-  'forests',
   'districts',
 ];
 
