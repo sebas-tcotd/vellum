@@ -27,6 +27,10 @@ export interface RendererTokens {
   // Building fill and stroke — OSM Humanitarian palette
   buildingFill: string; // --color-building
   buildingStroke: string; // --color-building-stroke
+
+  // District overlay and labels
+  districtFill: string; // --color-district-fill
+  districtLabel: string; // --color-district-label
 }
 
 const FALLBACKS: RendererTokens = {
@@ -54,6 +58,8 @@ const FALLBACKS: RendererTokens = {
   roadRailwayCasing: '#455a64',
   buildingFill: '#c8bfb5',
   buildingStroke: '#a09585',
+  districtFill: '#b4a08c',
+  districtLabel: '#555550',
 };
 
 export function readTokensFromDOM(): RendererTokens {
@@ -125,5 +131,11 @@ export function readTokensFromDOM(): RendererTokens {
     buildingStroke:
       style.getPropertyValue('--color-building-stroke').trim() ||
       FALLBACKS.buildingStroke,
+    districtFill:
+      style.getPropertyValue('--color-district-fill').trim() ||
+      FALLBACKS.districtFill,
+    districtLabel:
+      style.getPropertyValue('--color-district-label').trim() ||
+      FALLBACKS.districtLabel,
   };
 }

@@ -1,4 +1,11 @@
-export type LayerName = 'terrain' | 'water' | 'roads' | 'transit' | 'buildings';
+export type LayerName =
+  | 'terrain'
+  | 'water'
+  | 'roads'
+  | 'transit'
+  | 'buildings'
+  | 'forests'
+  | 'districts';
 
 const LAYER_Z_INDEX: Record<LayerName, number> = {
   terrain: 1,
@@ -6,6 +13,8 @@ const LAYER_Z_INDEX: Record<LayerName, number> = {
   roads: 3,
   transit: 4,
   buildings: 5,
+  forests: 6,
+  districts: 7,
 };
 
 const LAYERS: LayerName[] = [
@@ -14,6 +23,8 @@ const LAYERS: LayerName[] = [
   'roads',
   'transit',
   'buildings',
+  'forests',
+  'districts',
 ];
 
 export class CanvasManager {

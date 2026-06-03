@@ -177,15 +177,18 @@ export interface ForestCell {
 }
 
 /**
- * Represents a zoned district with custom boundaries.
+ * Represents a named city district.
+ * @remarks
+ * The `.cslmap` format only exports a single position per district — no polygon
+ * boundaries exist in the data. Render as a text label at `position`.
  */
 export interface District {
   /** Unique identifier for the district. */
   id: string;
   /** Name assigned to the district in-game. */
   name: string;
-  /** Polygon vertices defining the perimeter of the district. */
-  boundary: Vec3[];
+  /** Label anchor in world-space (the single point exported by .cslmap). */
+  position: Vec3;
 }
 
 /**

@@ -17,10 +17,22 @@ class MockPath2D {
     this.calls.push({ method: 'rect', args: [x, y, w, h] });
   }
 }
-global.Path2D = MockPath2D as unknown as typeof Path2D;
+(globalThis as any).Path2D = MockPath2D;
+
+// Mock ImageData
+(globalThis as any).ImageData = class MockImageData {
+  data: Uint8ClampedArray;
+  width: number;
+  height: number;
+  constructor(width: number, height: number) {
+    this.width = width;
+    this.height = height;
+    this.data = new Uint8ClampedArray(width * height * 4);
+  }
+};
 
 // Mock OffscreenCanvas — jsdom does not implement this API
-global.OffscreenCanvas = class MockOffscreenCanvas {
+(globalThis as any).OffscreenCanvas = class MockOffscreenCanvas {
   width = 0;
   height = 0;
   constructor(w: number, h: number) {
@@ -32,16 +44,20 @@ global.OffscreenCanvas = class MockOffscreenCanvas {
       scale: () => {},
       clearRect: () => {},
       fillRect: () => {},
+      putImageData: () => {},
+      drawImage: () => {},
+      save: () => {},
+      restore: () => {},
       fillStyle: '',
+      filter: '',
+      imageSmoothingEnabled: true,
+      imageSmoothingQuality: 'high',
       canvas: this,
     };
   }
-} as unknown as typeof OffscreenCanvas;
+};
 
 // Mock transferControlToOffscreen on HTMLCanvasElement
 HTMLCanvasElement.prototype.transferControlToOffscreen = function () {
-  return new (global.OffscreenCanvas as unknown as new (
-    w: number,
-    h: number,
-  ) => OffscreenCanvas)(this.width, this.height);
+  return new (globalThis as any).OffscreenCanvas(this.width, this.height);
 };

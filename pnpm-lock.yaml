@@ -130,6 +130,9 @@ importers:
 
   packages/renderer-canvas:
     dependencies:
+      '@fontsource/dm-mono':
+        specifier: ^5.2.7
+        version: 5.2.7
       '@vellum/core':
         specifier: workspace:*
         version: link:../core
@@ -168,6 +171,9 @@ importers:
       '@fontsource/cormorant-garamond':
         specifier: ^5.2.11
         version: 5.2.11
+      '@fontsource/dm-mono':
+        specifier: ^5.2.7
+        version: 5.2.7
       '@radix-ui/react-dialog':
         specifier: ^1.1.15
         version: 1.1.15(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -675,6 +681,9 @@ packages:
 
   '@fontsource/cormorant-garamond@5.2.11':
     resolution: {integrity: sha512-5JjpN023lhA5soijgVT0BdRGzmlijm402ppjccMd6h+vRE0mX2lJnE+41UPfnlidrkV9/rCo1mf58WZlHnB0CA==}
+
+  '@fontsource/dm-mono@5.2.7':
+    resolution: {integrity: sha512-Ma1az2atTVgQWuOWwjuxx26p/6A6CU9HBNKq1CFV6YKpKhpswnf9ry9Ql4+T6bTZzkdtSfS6tjJvqZOljVzIFQ==}
 
   '@humanfs/core@0.19.1':
     resolution: {integrity: sha512-5DyQ4+1JEUzejeK1JGICcideyfUbGixgS9jNgex5nqkW+cY7WZhxBigmieN5Qnw9ZosSNVC9KQKyb+GUaGyKUA==}
@@ -2998,6 +3007,8 @@ snapshots:
   '@exodus/bytes@1.15.0': {}
 
   '@fontsource/cormorant-garamond@5.2.11': {}
+
+  '@fontsource/dm-mono@5.2.7': {}
 
   '@humanfs/core@0.19.1': {}
 

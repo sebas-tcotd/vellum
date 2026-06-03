@@ -363,22 +363,29 @@ fn parse_terrain_csv(
     }
 }
 
-/// Parses the `CSLExportXML` forest CSV format: comma-separated integer density values.
-/// Grid matches terrain at 1/8 resolution: 135×135 cells approx.
-fn parse_forest_csv(csv: &str, forest_cells: &mut Vec<ForestCell>) {
-    const TERRAIN_GRID: usize = 1081;
-    const FOREST_DIVISOR: usize = 8;
-    const CELL_SIZE: f64 = 16.0 * 8.0; // 128 world units per forest cell
+/// Parses one row of the `CSLExportXML` forest CSV format.
+///
+/// The `<Forests>` section contains 512 `<Forest>` child elements, each holding one
+/// comma-separated row of 512 density integers (0–255). `row` is the 0-based index
+/// of the current `<Forest>` element (incremented by the caller).
+///
+/// Grid: 512 × 512 cells covering the full 17280 × 17280 world-unit map (-8640…+8640).
+/// Cell size: 17280 / 512 = 33.75 world units per side.
+fn parse_forest_csv(csv: &str, row: usize, forest_cells: &mut Vec<ForestCell>) {
+    const FOREST_GRID: usize = 512;
+    const MAP_SIZE: f64 = 17280.0; // total world span (-8640 to +8640)
+    #[allow(clippy::cast_precision_loss)]
+    const CELL_SIZE: f64 = MAP_SIZE / FOREST_GRID as f64; // 33.75 world units
     const MAP_ORIGIN: f64 = -8640.0;
-    let forest_grid = TERRAIN_GRID.div_ceil(FOREST_DIVISOR); // ≈136
 
-    for (idx, val) in csv.split(',').enumerate() {
+    for (col, val) in csv.split(',').enumerate() {
+        if col >= FOREST_GRID {
+            break; // guard against malformed rows
+        }
         let density_raw: u32 = val.trim().parse().unwrap_or(0);
         if density_raw == 0 {
             continue;
         }
-        let col = idx % forest_grid;
-        let row = idx / forest_grid;
         #[allow(clippy::cast_precision_loss)]
         let x = MAP_ORIGIN + col as f64 * CELL_SIZE;
         #[allow(clippy::cast_precision_loss)]
@@ -462,10 +469,12 @@ struct CityDataBuilder {
     current_buil_footprint: Vec<Vec3>,
 
     // District parsing state
+    forest_row: usize,
+
     in_dist: bool,
     current_dist_id: String,
     current_dist_name: String,
-    current_dist_boundary: Vec<Vec3>,
+    current_dist_position: Option<Vec3>,
 
     // Pending text content for simple text elements
     pending_text: String,
@@ -605,7 +614,7 @@ impl CityDataBuilder {
                 self.in_dist = true;
                 self.current_dist_id = attr_str(e, b"id").unwrap_or_default();
                 self.current_dist_name = attr_str(e, b"name").unwrap_or_default();
-                self.current_dist_boundary.clear();
+                self.current_dist_position = None;
             }
 
             _ => {}
@@ -712,9 +721,9 @@ impl CityDataBuilder {
                 });
             }
 
-            // District boundary points: <p x y z /> directly inside Dist
-            b"p" if self.in_dist => {
-                self.current_dist_boundary.push(Vec3 {
+            // District position: single <p x y z /> inside Dist (cslmap only exports one point)
+            b"p" if self.in_dist && self.current_dist_position.is_none() => {
+                self.current_dist_position = Some(Vec3 {
                     x: attr_f64(e, b"x").unwrap_or(0.0),
                     y: attr_f64(e, b"y").unwrap_or(0.0),
                     z: attr_f64(e, b"z").unwrap_or(0.0),
@@ -855,7 +864,8 @@ impl CityDataBuilder {
             b"Forest" => {
                 let csv = std::mem::take(&mut self.pending_text);
                 if !csv.is_empty() {
-                    parse_forest_csv(&csv, &mut self.forest_cells);
+                    parse_forest_csv(&csv, self.forest_row, &mut self.forest_cells);
+                    self.forest_row += 1;
                 }
             }
 
@@ -938,10 +948,15 @@ impl CityDataBuilder {
             }
 
             b"Dist" if self.in_dist => {
+                let position = self.current_dist_position.take().unwrap_or(Vec3 {
+                    x: 0.0,
+                    y: 0.0,
+                    z: 0.0,
+                });
                 self.districts.push(District {
                     id: std::mem::take(&mut self.current_dist_id),
                     name: std::mem::take(&mut self.current_dist_name),
-                    boundary: std::mem::take(&mut self.current_dist_boundary),
+                    position,
                 });
                 self.in_dist = false;
             }

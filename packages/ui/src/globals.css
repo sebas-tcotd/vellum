@@ -44,6 +44,17 @@
     U+2215, U+FEFF, U+FFFD;
 }
 
+/* DM Mono — 400 normal — font-display: block para consistencia cross-platform (NFR10).
+   Usado por la capa de distritos en el OffscreenCanvas Worker. */
+@font-face {
+  font-family: 'DM Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url('@fontsource/dm-mono/files/dm-mono-latin-400-normal.woff2')
+    format('woff2');
+}
+
 /* ─── shadcn/ui — variables semánticas (Tailwind v4 @theme) ──────────────── */
 /* Mapeo de la paleta pergamino de Vellum a los tokens semánticos que usan
    los componentes shadcn (bg-primary, bg-destructive, ring-ring, etc.).
@@ -101,6 +112,8 @@
   --color-green: #d0dcae; /* zonas verdes — @park del .mss */
   --color-building: #c8bfb5; /* edificios — OSM Humanitarian building fill */
   --color-building-stroke: #a09585; /* contorno edificios — versión oscurecida del fill */
+  --color-district-fill: #b4a08c; /* overlay de distritos — base hex, alpha 0.2 aplicado en renderer */
+  --color-district-label: #555550; /* etiqueta de nombre del distrito — gris cálido cartográfico */
   --color-text: #333333;
   --color-text-subtle: #777777;
   --color-border: rgba(0, 0, 0, 0.08);
