@@ -30,10 +30,16 @@ const LAYERS: LayerName[] = [
 export class CanvasManager {
   private canvases = new Map<LayerName, HTMLCanvasElement>();
   private offscreens = new Map<LayerName, OffscreenCanvas>();
+  private pendingTimeouts = new Map<LayerName, ReturnType<typeof setTimeout>>();
   private container: HTMLElement;
+  private initialVisibility: Partial<Record<LayerName, boolean>> | undefined;
 
-  constructor(container: HTMLElement) {
+  constructor(
+    container: HTMLElement,
+    initialVisibility?: Partial<Record<LayerName, boolean>>,
+  ) {
     this.container = container;
+    this.initialVisibility = initialVisibility;
     this.create();
   }
 
@@ -47,10 +53,11 @@ export class CanvasManager {
     for (const layer of LAYERS) {
       const canvas = document.createElement('canvas');
       canvas.id = `layer-${layer}`;
-      canvas.className =
-        'absolute top-0 left-0 transition-opacity duration-200';
+      canvas.className = 'absolute top-0 left-0';
+      canvas.style.transition = 'opacity var(--transition-layer, 200ms ease)';
       canvas.style.zIndex = String(LAYER_Z_INDEX[layer]);
-      canvas.style.opacity = '1';
+      canvas.style.opacity =
+        (this.initialVisibility?.[layer] ?? true) ? '1' : '0';
       canvas.style.width = `${size}px`;
       canvas.style.height = `${size}px`;
       canvas.width = Math.round(size * dpr);
@@ -60,6 +67,42 @@ export class CanvasManager {
 
       const offscreen = canvas.transferControlToOffscreen();
       this.offscreens.set(layer, offscreen);
+    }
+  }
+
+  /**
+   * Controls the CSS opacity of a single canvas layer.
+   * Supports delayed application for staggered fade animations.
+   * @remarks
+   * This method only mutates `style.opacity` — it does NOT trigger a worker re-render.
+   * If `layer` is not registered in this manager, the call is a silent no-op.
+   * Any pending timeout for the same layer is cancelled before scheduling a new one.
+   * @param layer - The layer whose visibility to change.
+   * @param visible - `true` fades the canvas in (opacity 1), `false` fades it out (opacity 0).
+   * @param delayMs - Optional delay in milliseconds before applying the change. Defaults to 0.
+   *   Negative or NaN values are treated as 0 (immediate).
+   */
+  setLayerVisibility(layer: LayerName, visible: boolean, delayMs = 0): void {
+    const canvas = this.canvases.get(layer);
+    if (!canvas) return;
+
+    const existing = this.pendingTimeouts.get(layer);
+    if (existing !== undefined) {
+      clearTimeout(existing);
+      this.pendingTimeouts.delete(layer);
+    }
+
+    const safeDelay = Number.isFinite(delayMs) && delayMs > 0 ? delayMs : 0;
+    const apply = (): void => {
+      this.pendingTimeouts.delete(layer);
+      const c = this.canvases.get(layer);
+      if (c) c.style.opacity = visible ? '1' : '0';
+    };
+
+    if (safeDelay > 0) {
+      this.pendingTimeouts.set(layer, setTimeout(apply, safeDelay));
+    } else {
+      apply();
     }
   }
 
@@ -81,6 +124,10 @@ export class CanvasManager {
   }
 
   destroy(): void {
+    for (const timeoutId of this.pendingTimeouts.values()) {
+      clearTimeout(timeoutId);
+    }
+    this.pendingTimeouts.clear();
     for (const [, canvas] of this.canvases) {
       canvas.remove();
     }

@@ -4,7 +4,7 @@ import type { UnlistenFn } from '@tauri-apps/api/event';
 import { useRenderLoop } from './hooks/useRenderLoop';
 import { useVellumStore } from '../../store/vellum-store';
 import { CanvasManager, CanvasRenderer } from '@vellum/renderer-canvas';
-import type { IRenderer } from '@vellum/core';
+import type { IRenderer, LayerName, LayerVisibility } from '@vellum/core';
 
 export interface ViewportState {
   zoom: number;
@@ -14,12 +14,26 @@ export interface ViewportState {
 
 export type MapEntity = Record<string, never>;
 
+/** Props for the `CanvasRoot` component. */
 export interface CanvasRootProps {
   onElementHover?: (element: MapEntity) => void;
   onElementLeave?: () => void;
   loadFile?: ((filePath: string) => Promise<void>) | undefined;
   renderer?: IRenderer | null;
+  /** Current layer visibility state from the Zustand store. When provided, each layer's CSS opacity is updated via `CanvasManager.setLayerVisibility`. Does NOT trigger a worker re-render. */
+  activeLayers?: LayerVisibility;
 }
+
+// Z-order for staggered fade — must match LAYERS order in CanvasManager.
+const LAYER_Z_ORDER: LayerName[] = [
+  'terrain',
+  'forests',
+  'water',
+  'buildings',
+  'roads',
+  'transit',
+  'districts',
+];
 
 const ACTIVE_LAYERS = {
   terrain: true,
@@ -36,6 +50,7 @@ export function CanvasRoot({
   onElementLeave: _onElementLeave,
   loadFile,
   renderer,
+  activeLayers,
 }: CanvasRootProps) {
   const unlistenRef = useRef<UnlistenFn | null>(null);
   const viewportRef = useRef<ViewportState>({ zoom: 1, panX: 0, panY: 0 });
@@ -43,6 +58,10 @@ export function CanvasRoot({
   const wrapperRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const managerRef = useRef<CanvasManager | null>(null);
+  // Ref keeps the latest activeLayers accessible inside the [renderer] effect
+  // without adding it as a dependency (would cause manager recreation on every toggle).
+  const activeLayersRef = useRef(activeLayers);
+  activeLayersRef.current = activeLayers;
   const [canvasSize, setCanvasSize] = useState(0);
 
   useEffect(() => {
@@ -54,7 +73,12 @@ export function CanvasRoot({
     if (!renderer || !containerRef.current) return;
 
     managerRef.current?.destroy();
-    const manager = new CanvasManager(containerRef.current);
+    // Pass current layer visibility so canvases are born with the correct opacity
+    // — prevents a flash of all-visible layers when the manager is recreated.
+    const manager = new CanvasManager(
+      containerRef.current,
+      activeLayersRef.current,
+    );
     managerRef.current = manager;
 
     if (renderer instanceof CanvasRenderer) {
@@ -79,6 +103,19 @@ export function CanvasRoot({
       managerRef.current = null;
     };
   }, [renderer]);
+
+  // Update CSS opacity for each layer when activeLayers changes — no worker re-render
+  useEffect(() => {
+    if (!managerRef.current || !activeLayers) return;
+    LAYER_Z_ORDER.forEach((layer, index) => {
+      // Fallback to true so a partial activeLayers object never accidentally hides a layer
+      managerRef.current?.setLayerVisibility(
+        layer,
+        activeLayers[layer] ?? true,
+        index * 20,
+      );
+    });
+  }, [activeLayers]);
 
   // Track viewport size via wrapperRef; resize canvas to square (max dimension)
   useEffect(() => {

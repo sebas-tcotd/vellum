@@ -2,7 +2,8 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { CanvasRoot } from './components/canvas/CanvasRoot';
 import { CanvasRenderer } from '@vellum/renderer-canvas';
-import type { IRenderer } from '@vellum/core';
+import type { IRenderer, LayerVisibility } from '@vellum/core';
+import { LAYER_NAMES } from '@vellum/core';
 import { EmptyState } from './components/empty-state/EmptyState';
 import { ProgressBar } from './components/overlays/ProgressBar';
 import { ErrorToast } from './components/overlays/ErrorToast';
@@ -25,6 +26,12 @@ import './i18n/types';
 import { useVellumStore } from './store/vellum-store';
 
 const noop = async (): Promise<void> => {};
+
+// All layers visible — used when rendering a new CityData so the worker
+// paints every layer. CSS opacity (controlled by activeLayers) handles visibility.
+const ALL_LAYERS_VISIBLE: LayerVisibility = Object.fromEntries(
+  LAYER_NAMES.map((l) => [l, true]),
+) as LayerVisibility;
 
 /**
  * Props injected from the Tauri composition root (`apps/desktop`).
@@ -100,8 +107,8 @@ export function App({
 
   useEffect(() => {
     if (!cityData || !rendererRef.current) return;
-    rendererRef.current.render(cityData, { activeLayers });
-  }, [cityData, activeLayers]);
+    rendererRef.current.render(cityData, { activeLayers: ALL_LAYERS_VISIBLE });
+  }, [cityData]);
 
   const handleDlcDismiss = useCallback(() => {
     setDlcWarnings([]);
@@ -140,7 +147,11 @@ export function App({
             cityData ? 'opacity-100' : 'opacity-0 pointer-events-none',
           )}
         >
-          <CanvasRoot loadFile={loadFile} renderer={renderer} />
+          <CanvasRoot
+            loadFile={loadFile}
+            renderer={renderer}
+            activeLayers={activeLayers}
+          />
         </div>
         {showEmptyState && <EmptyState />}
         {loadingState === 'loading' && <ProgressBar />}
