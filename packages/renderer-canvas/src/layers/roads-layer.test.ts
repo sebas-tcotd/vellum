@@ -41,6 +41,7 @@ const MOCK_TOKENS = {
   roadLargeArterial: '#d2938e',
   roadLargeArterialCasing: '#b8756e',
   roadMediumArterial: '#d4a882',
+  roadMediumArterialCasing: '#b48a69',
   roadLocal: '#e4e1d1',
   roadLocalCasing: '#8a8278',
   roadGravel: '#e0d5c1',

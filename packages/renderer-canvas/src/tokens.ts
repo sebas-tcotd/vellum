@@ -14,6 +14,7 @@ export interface RendererTokens {
   roadLargeArterial: string; // --color-road-large-arterial
   roadLargeArterialCasing: string; // --color-road-large-arterial-casing
   roadMediumArterial: string; // --color-road-medium-arterial
+  roadMediumArterialCasing: string; // --color-road-medium-arterial-casing
   roadLocal: string; // --color-road-local
   roadLocalCasing: string; // --color-road-local-casing
   roadGravel: string; // --color-road-gravel
@@ -47,6 +48,7 @@ const FALLBACKS: RendererTokens = {
   roadLargeArterial: '#d2938e',
   roadLargeArterialCasing: '#b8756e',
   roadMediumArterial: '#d4a882',
+  roadMediumArterialCasing: '#b48a69',
   roadLocal: '#e4e1d1',
   roadLocalCasing: '#8a8278',
   roadGravel: '#e0d5c1',
@@ -98,6 +100,9 @@ export function readTokensFromDOM(): RendererTokens {
     roadMediumArterial:
       style.getPropertyValue('--color-road-medium-arterial').trim() ||
       FALLBACKS.roadMediumArterial,
+    roadMediumArterialCasing:
+      style.getPropertyValue('--color-road-medium-arterial-casing').trim() ||
+      FALLBACKS.roadMediumArterialCasing,
     roadLocal:
       style.getPropertyValue('--color-road-local').trim() ||
       FALLBACKS.roadLocal,

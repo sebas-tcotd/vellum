@@ -24,7 +24,7 @@ interface RoadStyle {
 // Tiers neutros (local, gravel, pedestrian) sí — sin casing se funden con el terreno.
 const ROAD_STYLES = {
   highway: {
-    fixed: 4,
+    fixed: 2.5,
     scaled: 2,
     fill: 'roadHighway',
     casing: 'roadHighwayCasing',
@@ -39,18 +39,18 @@ const ROAD_STYLES = {
     casingExtra: 5,
   },
   largeArterial: {
-    fixed: 3,
+    fixed: 4,
     scaled: 1,
     fill: 'roadLargeArterial',
     casing: 'roadLargeArterialCasing',
     casingExtra: 1.5,
   },
   mediumArterial: {
-    fixed: 2.5,
+    fixed: 4,
     scaled: 0.8,
     fill: 'roadMediumArterial',
-    casing: null,
-    casingExtra: 0,
+    casing: 'roadMediumArterialCasing',
+    casingExtra: 1.5,
   },
   local: {
     fixed: 2,
