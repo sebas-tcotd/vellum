@@ -141,4 +141,6 @@ Vitest config is per-package (`vitest.config.ts`), aggregated in `vitest.workspa
 
 See `_bmad-output/implementation-artifacts/sprint-status.yaml` for current story status and `_bmad-output/implementation-artifacts/deferred-work.md` for known deferred issues (pre-existing patterns, not bugs to fix now).
 
+If you can't find `_bmad-output` folder, try doing `../vellum-context/_bmad-output/`.
+
 Full planning docs: `_bmad-output/planning-artifacts/` (PRD, architecture, epics, UX spec). Story files: `_bmad-output/implementation-artifacts/`.

@@ -44,6 +44,11 @@ describe('globals.css design tokens', () => {
     expect(css).toContain('Cormorant Garamond');
   });
 
+  it('references DM Mono in the --font-mono token', () => {
+    expect(css).toContain('DM Mono');
+    expect(css).toContain("--font-mono: 'DM Mono'");
+  });
+
   it('usa font-display: block (no swap) para evitar FOUT en el wordmark', () => {
     expect(css).toContain('font-display: block');
     expect(css).not.toContain('font-display: swap');

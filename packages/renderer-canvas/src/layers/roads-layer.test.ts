@@ -362,7 +362,7 @@ describe('casing condicional — solo tiers neutros', () => {
     expect(ctx.stroke).toHaveBeenCalledTimes(2);
   });
 
-  it('Medium Road: sin casing — stroke se llama 1 vez', () => {
+  it('Medium Road: con casing — stroke se llama 2 veces', () => {
     const ctx = makeCtx();
     const seg = makeRoadSegment({
       startNodeId: 'node-1',
@@ -380,7 +380,7 @@ describe('casing condicional — solo tiers neutros', () => {
       800,
       1,
     );
-    expect(ctx.stroke).toHaveBeenCalledTimes(1);
+    expect(ctx.stroke).toHaveBeenCalledTimes(2);
   });
 
   it('Small Road: con casing — stroke se llama 2 veces', () => {
