@@ -8,6 +8,7 @@ import { ProgressBar } from './components/overlays/ProgressBar';
 import { ErrorToast } from './components/overlays/ErrorToast';
 import { PartialParseDialog } from './components/overlays/PartialParseDialog';
 import { DlcWarningToast } from './components/overlays/DlcWarningToast';
+import { FloatingLayerPanel } from './components/panels/FloatingLayerPanel';
 import { initI18n } from './i18n/i18n-setup';
 import { useKeyboardShortcuts } from './hooks/use-keyboard-shortcuts';
 import { cn } from './lib/utils';
@@ -167,6 +168,9 @@ export function App({
             isPartialData={hasPartialData}
             onDismiss={handleDlcDismiss}
           />
+        )}
+        {cityData !== null && loadingState !== 'loading' && (
+          <FloatingLayerPanel cityName={cityData.cityName} />
         )}
       </div>
     </Suspense>

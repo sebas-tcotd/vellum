@@ -23,3 +23,10 @@ export type { DlcWarningToastProps } from './components/overlays/DlcWarningToast
 export { cn } from './lib/utils';
 export { useVellumStore } from './store/vellum-store';
 export { useTauriEvent } from './hooks/use-tauri-event';
+export { FloatingLayerPanel } from './components/panels/FloatingLayerPanel';
+export type {
+  FloatingLayerPanelProps,
+  PanelState,
+} from './components/panels/FloatingLayerPanel';
+export { LayerToggleRow } from './components/panels/LayerToggleRow';
+export type { LayerToggleRowProps } from './components/panels/LayerToggleRow';
