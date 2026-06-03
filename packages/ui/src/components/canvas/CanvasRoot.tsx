@@ -22,6 +22,8 @@ export interface CanvasRootProps {
   renderer?: IRenderer | null;
   /** Current layer visibility state from the Zustand store. When provided, each layer's CSS opacity is updated via `CanvasManager.setLayerVisibility`. Does NOT trigger a worker re-render. */
   activeLayers?: LayerVisibility;
+  /** Ref populated by CanvasRoot with a fitToScreen() function. Call it to reset zoom/pan to defaults. */
+  fitToScreenRef?: React.RefObject<(() => void) | null>;
 }
 
 // Z-order for staggered fade — must match LAYERS order in CanvasManager.
@@ -54,6 +56,7 @@ export function CanvasRoot({
   loadFile,
   renderer,
   activeLayers,
+  fitToScreenRef,
 }: CanvasRootProps) {
   const unlistenRef = useRef<UnlistenFn | null>(null);
   const viewportRef = useRef<ViewportState>({ zoom: 1, panX: 0, panY: 0 });
@@ -67,14 +70,82 @@ export function CanvasRoot({
   activeLayersRef.current = activeLayers;
   const [canvasSize, setCanvasSize] = useState(0);
 
+  // Mirror canvasSize state into a ref so stable callbacks can read the latest value
+  const canvasSizeRef = useRef(0);
+  canvasSizeRef.current = canvasSize;
+
   // Drag state refs — never React state to avoid re-renders at 60fps
   const isDraggingRef = useRef(false);
   const dragStartRef = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
   const isSpaceDownRef = useRef(false);
 
+  /**
+   * Viewport snapshot at which the last full render completed.
+   * @remarks
+   * **CRITICAL INVARIANT:** The physical canvas size is always `canvasSize * dpr`.
+   * It NEVER scales with zoom. Sharpness is achieved by re-rendering vectorially
+   * (coordinates baked with zoom+pan in the worker), NOT by resizing the canvas.
+   *
+   * During scroll, `cssScale = currentZoom / renderZoom` drifts above 1 (slight blur).
+   * When the worker finishes, `renderZoom` catches up → cssScale snaps to 1 → sharp.
+   */
+  const renderZoomRef = useRef(1);
+  const renderPanXRef = useRef(0);
+  const renderPanYRef = useRef(0);
+  const interactionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+
   useEffect(() => {
     rendererRef.current = renderer ?? null;
   }, [renderer]);
+
+  /**
+   * Applies the current viewport state as a CSS transform bridging the gap between
+   * the last completed render (renderZoom/renderPan) and the current live viewport.
+   * @remarks
+   * When `viewportZoom === renderZoom` and pan matches, scale=1 and translate=0:
+   * no CSS distortion, maximum sharpness.
+   */
+  const applyTransform = useCallback(() => {
+    if (!containerRef.current) return;
+    const { zoom, panX, panY } = viewportRef.current;
+    const s = zoom / renderZoomRef.current;
+    const tx = panX - renderPanXRef.current * s;
+    const ty = panY - renderPanYRef.current * s;
+    containerRef.current.style.transform = `translate(${tx}px, ${ty}px) scale(${s})`;
+    containerRef.current.style.transformOrigin = '0 0';
+  }, []);
+
+  /**
+   * Re-renders all layers vectorially at the current zoom/pan level.
+   * @remarks
+   * Called debounced after any interaction settles. Uses stale-while-revalidate:
+   * the old canvas image remains visible until the worker posts render-complete,
+   * at which point the CSS transform snaps to identity — zero flicker.
+   */
+  const reRenderAtViewport = useCallback(() => {
+    const r = rendererRef.current;
+    const data = useVellumStore.getState().cityData;
+    if (!r || !data) return;
+
+    const { zoom, panX, panY } = viewportRef.current;
+
+    void r.render(data, { activeLayers: ACTIVE_LAYERS }).then(() => {
+      // Update render snapshot only after the worker finishes painting.
+      // CSS scale snaps to 1.0 in the same frame the crisp image appears → no flicker.
+      renderZoomRef.current = zoom;
+      renderPanXRef.current = panX;
+      renderPanYRef.current = panY;
+      applyTransform();
+    });
+  }, [applyTransform]);
+
+  /** Schedule a re-render 200ms after the last interaction event. */
+  const scheduleReRender = useCallback(() => {
+    if (interactionTimerRef.current) clearTimeout(interactionTimerRef.current);
+    interactionTimerRef.current = setTimeout(reRenderAtViewport, 200);
+  }, [reRenderAtViewport]);
 
   // Wire CanvasManager to renderer whenever a new renderer is provided
   useEffect(() => {
@@ -103,7 +174,7 @@ export function CanvasRoot({
         if (offscreen) renderer.registerLayer(layerName, offscreen);
       }
       const data = useVellumStore.getState().cityData;
-      if (data) renderer.render(data, { activeLayers: ACTIVE_LAYERS });
+      if (data) void renderer.render(data, { activeLayers: ACTIVE_LAYERS });
     }
 
     return () => {
@@ -125,7 +196,8 @@ export function CanvasRoot({
     });
   }, [activeLayers]);
 
-  // Track viewport size via wrapperRef; resize canvas to square (max dimension)
+  // Track viewport size via wrapperRef; resize canvas to square (max dimension).
+  // Physical size is always canvasSize * dpr — never multiplied by zoom.
   useEffect(() => {
     if (!wrapperRef.current) return;
     const observer = new ResizeObserver(([entry]) => {
@@ -139,7 +211,7 @@ export function CanvasRoot({
       rendererRef.current.resize(physicalSize, physicalSize);
       const data = useVellumStore.getState().cityData;
       if (data)
-        rendererRef.current.render(data, { activeLayers: ACTIVE_LAYERS });
+        void rendererRef.current.render(data, { activeLayers: ACTIVE_LAYERS });
     });
     observer.observe(wrapperRef.current);
     return () => observer.disconnect();
@@ -179,17 +251,36 @@ export function CanvasRoot({
     };
   }, [loadFile]);
 
+  // Register fitToScreen function into the external ref so App.tsx can trigger it.
+  useEffect(() => {
+    const fn = () => {
+      viewportRef.current = { zoom: 1, panX: 0, panY: 0 };
+      renderZoomRef.current = 1;
+      renderPanXRef.current = 0;
+      renderPanYRef.current = 0;
+      applyTransform(); // scale=1, translate=0 — identity
+
+      const size = canvasSizeRef.current;
+      const r = rendererRef.current;
+      if (size > 0 && r) {
+        const dpr = window.devicePixelRatio || 1;
+        r.resize(Math.round(size * dpr), Math.round(size * dpr));
+        const data = useVellumStore.getState().cityData;
+        if (data) void r.render(data, { activeLayers: ACTIVE_LAYERS });
+      }
+    };
+
+    if (fitToScreenRef) fitToScreenRef.current = fn;
+
+    return () => {
+      if (fitToScreenRef) fitToScreenRef.current = null;
+    };
+  }, [fitToScreenRef, applyTransform]);
+
   // Zoom/pan interaction handlers — registered manually to control passive option
   useEffect(() => {
     const wrapper = wrapperRef.current;
     if (!wrapper) return;
-
-    function applyTransform(): void {
-      if (!containerRef.current) return;
-      const { zoom, panX, panY } = viewportRef.current;
-      containerRef.current.style.transform = `translate(${panX}px, ${panY}px) scale(${zoom})`;
-      containerRef.current.style.transformOrigin = '0 0';
-    }
 
     function setCursor(state: 'default' | 'grab' | 'grabbing'): void {
       const el = wrapperRef.current;
@@ -220,7 +311,9 @@ export function CanvasRoot({
         cursorY - ratio * (cursorY - viewportRef.current.panY);
       viewportRef.current.zoom = newZoom;
 
+      // Immediate CSS feedback (slight blur during active scroll — acceptable)
       applyTransform();
+      scheduleReRender();
     }
 
     function handleMouseDown(e: MouseEvent): void {
@@ -245,7 +338,11 @@ export function CanvasRoot({
     }
 
     function handleMouseUp(): void {
-      isDraggingRef.current = false;
+      if (isDraggingRef.current) {
+        isDraggingRef.current = false;
+        // Re-render vectorially after pan settles
+        scheduleReRender();
+      }
       setCursor(isSpaceDownRef.current ? 'grab' : 'default');
     }
 
@@ -278,8 +375,10 @@ export function CanvasRoot({
       window.removeEventListener('mouseup', handleMouseUp);
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
+      if (interactionTimerRef.current)
+        clearTimeout(interactionTimerRef.current);
     };
-  }, []);
+  }, [applyTransform, scheduleReRender]);
 
   const handleTick = useCallback(() => {
     rendererRef.current?.updateViewport(

@@ -52,6 +52,8 @@ export function renderBuildingsLayer(
   canvasWidth: number,
   canvasHeight: number,
   zoom = 1,
+  panX = 0,
+  panY = 0,
 ): void {
   if (buildings.length === 0) return;
 
@@ -76,10 +78,9 @@ export function renderBuildingsLayer(
     return;
 
   function worldToCanvas(pos: { x: number; z: number }): [number, number] {
-    return [
-      ((pos.x - bounds.minX) / rangeX) * canvasWidth,
-      canvasHeight - ((pos.z - bounds.minZ) / rangeZ) * canvasHeight,
-    ];
+    const cx = ((pos.x - bounds.minX) / rangeX) * canvasWidth;
+    const cy = canvasHeight - ((pos.z - bounds.minZ) / rangeZ) * canvasHeight;
+    return [cx * zoom + panX, cy * zoom + panY];
   }
 
   // Stroke alpha fades between zoom 0.15 (invisible) and 0.4 (full opacity).

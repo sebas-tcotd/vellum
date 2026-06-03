@@ -6,6 +6,10 @@ function createMockCtx() {
   return {
     fill: vi.fn(),
     fillStyle: '',
+    save: vi.fn(),
+    restore: vi.fn(),
+    translate: vi.fn(),
+    scale: vi.fn(),
   } as unknown as CanvasRenderingContext2D;
 }
 

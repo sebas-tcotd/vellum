@@ -12,6 +12,7 @@ export interface RenderStyleParams {
 }
 
 export type WorkerMessage =
+  | { type: 'init-layer'; layerName: string; offscreen: OffscreenCanvas }
   | {
       type: 'render';
       cityData: CityData;

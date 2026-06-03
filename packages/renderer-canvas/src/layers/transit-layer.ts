@@ -253,6 +253,8 @@ export function renderTransitLayer(
   canvasWidth: number,
   canvasHeight: number,
   zoom: number,
+  panX = 0,
+  panY = 0,
 ): void {
   if (transitLines.length === 0) return;
 
@@ -268,10 +270,9 @@ export function renderTransitLayer(
     return;
 
   function worldToCanvas(pos: { x: number; z: number }): [number, number] {
-    return [
-      ((pos.x - bounds.minX) / rangeX) * canvasWidth,
-      canvasHeight - ((pos.z - bounds.minZ) / rangeZ) * canvasHeight,
-    ];
+    const cx = ((pos.x - bounds.minX) / rangeX) * canvasWidth;
+    const cy = canvasHeight - ((pos.z - bounds.minZ) / rangeZ) * canvasHeight;
+    return [cx * zoom + panX, cy * zoom + panY];
   }
 
   const segmentLineUsers = buildSegmentLineUsers(transitLines);

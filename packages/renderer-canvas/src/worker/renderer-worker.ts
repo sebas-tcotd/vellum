@@ -43,6 +43,8 @@ interface LayerCanvas {
 
 const layers = new Map<string, LayerCanvas>();
 let currentZoom = 1;
+let currentPanX = 0;
+let currentPanY = 0;
 let lastZoomForBuildings = currentZoom;
 let lastCityData: CityData | null = null;
 let lastStyle: RenderStyleParams | null = null;
@@ -71,6 +73,9 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
             style.tokens,
             w,
             h,
+            currentZoom,
+            currentPanX,
+            currentPanY,
           );
         } else if (layerName === 'water' && layerVisibility.water) {
           renderWaterLayer(
@@ -81,6 +86,9 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
             w,
             h,
             cityData.bounds,
+            currentZoom,
+            currentPanX,
+            currentPanY,
           );
         } else if (layerName === 'roads' && layerVisibility.roads) {
           const segments = cityData.roadSegments ?? [];
@@ -95,6 +103,8 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
             w,
             h,
             currentZoom,
+            currentPanX,
+            currentPanY,
           );
         } else if (layerName === 'transit' && layerVisibility.transit) {
           const segmentMap = new Map(
@@ -112,6 +122,8 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
             w,
             h,
             currentZoom,
+            currentPanX,
+            currentPanY,
           );
         } else if (layerName === 'buildings' && layerVisibility.buildings) {
           renderBuildingsLayer(
@@ -122,6 +134,8 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
             w,
             h,
             currentZoom,
+            currentPanX,
+            currentPanY,
           );
         } else if (layerName === 'forests' && layerVisibility.forests) {
           renderForestsLayer(
@@ -131,6 +145,9 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
             style.tokens,
             w,
             h,
+            currentZoom,
+            currentPanX,
+            currentPanY,
           );
         } else if (layerName === 'districts' && layerVisibility.districts) {
           await dmMonoPromise;
@@ -141,6 +158,9 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
             style.tokens,
             w,
             h,
+            currentZoom,
+            currentPanX,
+            currentPanY,
           );
         }
 
@@ -158,6 +178,8 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
     } else if (msg.type === 'update-viewport') {
       const z = msg.viewport.zoom;
       currentZoom = Number.isFinite(z) && z > 0 ? z : 1;
+      currentPanX = Number.isFinite(msg.viewport.panX) ? msg.viewport.panX : 0;
+      currentPanY = Number.isFinite(msg.viewport.panY) ? msg.viewport.panY : 0;
 
       // Re-render buildings only when zoom changes — stroke alpha depends on zoom.
       if (currentZoom !== lastZoomForBuildings && lastCityData && lastStyle) {
@@ -174,6 +196,8 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
             offscreen.width,
             offscreen.height,
             currentZoom,
+            currentPanX,
+            currentPanY,
           );
         }
       }

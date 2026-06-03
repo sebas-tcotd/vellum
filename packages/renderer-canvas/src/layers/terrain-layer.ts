@@ -87,6 +87,9 @@ export function renderTerrainLayer(
   tokens: RendererTokens,
   canvasWidth: number,
   canvasHeight: number,
+  zoom = 1,
+  panX = 0,
+  panY = 0,
 ): void {
   if (tiles.length === 0) return;
 
@@ -107,6 +110,10 @@ export function renderTerrainLayer(
   }
   const elevRange = maxElev - minElev || 1;
 
+  ctx.save();
+  ctx.translate(panX, panY);
+  ctx.scale(zoom, zoom);
+
   for (const tile of tiles) {
     const normalized = (tile.elevation - minElev) / elevRange;
     const colorIndex = Math.max(0, Math.floor(normalized * 23));
@@ -122,4 +129,6 @@ export function renderTerrainLayer(
     );
     ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
   }
+
+  ctx.restore();
 }

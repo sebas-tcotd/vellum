@@ -11,6 +11,8 @@ export class CanvasRenderer implements IRenderer {
   private worker: Worker | null = null;
   private offscreens = new Map<string, OffscreenCanvas>();
   private pendingRender: WorkerMessage | null = null;
+  /** Queued resolve callbacks waiting for the next render-complete from the worker. */
+  private renderResolvers: Array<() => void> = [];
 
   constructor() {
     this.tokens = readTokensFromDOM();
@@ -20,9 +22,8 @@ export class CanvasRenderer implements IRenderer {
     this.offscreens.set(layerName, offscreen);
     const worker = this.getOrCreateWorker();
     if (!worker) return;
-    worker.postMessage({ type: 'init-layer', layerName, offscreen }, [
-      offscreen,
-    ]);
+    const msg: WorkerMessage = { type: 'init-layer', layerName, offscreen };
+    worker.postMessage(msg, [offscreen]);
     // Flush buffered render only after ALL layers are registered
     if (this.pendingRender && this.offscreens.size >= EXPECTED_LAYERS) {
       worker.postMessage(this.pendingRender);
@@ -35,7 +36,11 @@ export class CanvasRenderer implements IRenderer {
       if (typeof Worker === 'undefined') return null;
       const w = new RenderWorker();
       w.onmessage = (e: MessageEvent<WorkerResponse>) => {
-        if (e.data.type === 'error') {
+        if (e.data.type === 'render-complete') {
+          // Resolve all pending render promises — the canvas is fully painted.
+          const resolvers = this.renderResolvers.splice(0);
+          resolvers.forEach((resolve) => resolve());
+        } else if (e.data.type === 'error') {
           console.error('[RendererWorker]', e.data.error);
         }
       };
@@ -47,20 +52,28 @@ export class CanvasRenderer implements IRenderer {
     return this.worker;
   }
 
-  render(cityData: CityData, params: RenderParams): void {
+  render(cityData: CityData, params: RenderParams): Promise<void> {
     const worker = this.getOrCreateWorker();
-    if (!worker) return;
+    if (!worker) return Promise.resolve();
+
     const msg: WorkerMessage = {
       type: 'render',
       cityData,
       style: { tokens: this.tokens },
       layers: params.activeLayers,
     };
+
     if (this.offscreens.size < EXPECTED_LAYERS) {
+      // Layers not yet registered — buffer and resolve immediately
       this.pendingRender = msg;
-      return;
+      return Promise.resolve();
     }
+
     worker.postMessage(msg);
+
+    return new Promise<void>((resolve) => {
+      this.renderResolvers.push(resolve);
+    });
   }
 
   updateViewport(zoom: number, panX: number, panY: number): void {
@@ -83,5 +96,6 @@ export class CanvasRenderer implements IRenderer {
     this.worker = null;
     this.offscreens.clear();
     this.pendingRender = null;
+    this.renderResolvers = [];
   }
 }

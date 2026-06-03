@@ -71,6 +71,7 @@ export function App({
   const [i18nReady, setI18nReady] = useState(false);
   const rendererRef = useRef<IRenderer | null>(null);
   const [renderer, setRenderer] = useState<IRenderer | null>(null);
+  const fitToScreenRef = useRef<(() => void) | null>(null);
   const syncActiveLanguage = useVellumStore((s) => s.syncActiveLanguage);
   const cityData = useVellumStore((s) => s.cityData);
   const activeLayers = useVellumStore((s) => s.activeLayers);
@@ -87,6 +88,7 @@ export function App({
     onOpenFile: openFileDialog,
     // Layer shortcuts 1-7 only active when a map is loaded
     ...(cityData !== null ? { onToggleLayer: toggleLayer } : {}),
+    onFitToScreen: () => fitToScreenRef.current?.(),
     enabled: loadingState !== 'loading',
   });
 
@@ -110,6 +112,8 @@ export function App({
 
   useEffect(() => {
     if (!cityData || !rendererRef.current) return;
+    // Reset zoom/pan when a new map loads so the user sees the full map
+    fitToScreenRef.current?.();
     rendererRef.current.render(cityData, { activeLayers: ALL_LAYERS_VISIBLE });
   }, [cityData]);
 
@@ -154,6 +158,7 @@ export function App({
             loadFile={loadFile}
             renderer={renderer}
             activeLayers={activeLayers}
+            fitToScreenRef={fitToScreenRef}
           />
         </div>
         {showEmptyState && <EmptyState />}
