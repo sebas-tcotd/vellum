@@ -75,6 +75,8 @@ vi.mock('./i18n/types', () => ({}));
 
 const mockCityData = {
   cityName: 'Test City',
+  fileName: 'test-city.cslmap',
+  generatedAt: '2024-01-01',
   landTiles: [],
   waterTiles: [],
   roadSegments: [],
@@ -154,6 +156,8 @@ describe('App — renderizado condicional', () => {
     act(() => {
       useVellumStore.getState().setCityData({
         cityName: 'Test City',
+        fileName: 'test-city.cslmap',
+        generatedAt: '2024-01-01',
         landTiles: [],
         waterTiles: [],
         roadSegments: [],
@@ -236,5 +240,26 @@ describe('App — error overlays (Story 2.5)', () => {
     expect(screen.queryByTestId('error-toast')).toBeNull();
     expect(screen.queryByTestId('partial-parse-dialog')).toBeNull();
     expect(screen.queryByTestId('dlc-warning-toast')).toBeNull();
+  });
+});
+
+describe('App — document.title (AC1)', () => {
+  it('document.title es "Vellum" cuando no hay cityData', async () => {
+    await act(async () => {
+      render(<App />);
+    });
+    expect(document.title).toBe('Vellum');
+  });
+
+  it('document.title es "Vellum — Test City" cuando hay cityData', async () => {
+    await act(async () => {
+      render(<App />);
+    });
+
+    act(() => {
+      useVellumStore.getState().setCityData(mockCityData);
+    });
+
+    expect(document.title).toBe('Vellum — Test City');
   });
 });

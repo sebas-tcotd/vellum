@@ -18,6 +18,15 @@ const mockMap = vi.hoisted(() => ({
   fitBounds: vi.fn(),
   remove: vi.fn(),
   once: vi.fn(),
+  on: vi.fn(),
+  off: vi.fn(),
+  flyTo: vi.fn(),
+  getBounds: vi.fn(() => ({
+    getWest: vi.fn(() => -0.08),
+    getEast: vi.fn(() => 0.08),
+    getNorth: vi.fn(() => 0.08),
+    getSouth: vi.fn(() => -0.08),
+  })),
 }));
 
 vi.mock('maplibre-gl', () => ({
@@ -219,5 +228,86 @@ describe('MapLibreRenderer', () => {
   it('resize() is a no-op and does not throw', () => {
     const renderer = makeRenderer();
     expect(() => renderer.resize(800, 600)).not.toThrow();
+  });
+
+  describe('subscribeViewport', () => {
+    it('registers move, moveend and idle handlers on the map', () => {
+      const renderer = makeRenderer();
+      const cb = vi.fn();
+      renderer.subscribeViewport(cb);
+      expect(mockMap.on).toHaveBeenCalledWith('move', expect.any(Function));
+      expect(mockMap.on).toHaveBeenCalledWith('moveend', expect.any(Function));
+      expect(mockMap.on).toHaveBeenCalledWith('idle', expect.any(Function));
+    });
+
+    it('cleanup function calls map.off for move, moveend and idle', () => {
+      const renderer = makeRenderer();
+      const cb = vi.fn();
+      const unsub = renderer.subscribeViewport(cb);
+      unsub();
+      expect(mockMap.off).toHaveBeenCalledWith('move', expect.any(Function));
+      expect(mockMap.off).toHaveBeenCalledWith('moveend', expect.any(Function));
+      expect(mockMap.off).toHaveBeenCalledWith('idle', expect.any(Function));
+    });
+
+    it('calls the callback with correct ViewportBounds when move handler fires', () => {
+      const renderer = makeRenderer();
+      const cb = vi.fn();
+      renderer.subscribeViewport(cb);
+      const handler = (mockMap.on as ReturnType<typeof vi.fn>).mock.calls.find(
+        (c: unknown[]) => c[0] === 'move',
+      )?.[1] as () => void;
+      handler();
+      expect(cb).toHaveBeenCalledWith({
+        westLng: -0.08,
+        eastLng: 0.08,
+        northLat: 0.08,
+        southLat: -0.08,
+      });
+    });
+
+    it('idle handler fires callback once and ignores subsequent idle events', () => {
+      const renderer = makeRenderer();
+      const cb = vi.fn();
+      renderer.subscribeViewport(cb);
+      const idleHandler = (
+        mockMap.on as ReturnType<typeof vi.fn>
+      ).mock.calls.find((c: unknown[]) => c[0] === 'idle')?.[1] as () => void;
+      idleHandler();
+      idleHandler(); // second call should be a no-op
+      expect(cb).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('getInitialViewportBounds', () => {
+    it('returns current bounds when map is ready', () => {
+      const renderer = makeRenderer();
+      const bounds = renderer.getInitialViewportBounds();
+      expect(bounds).toEqual({
+        westLng: -0.08,
+        eastLng: 0.08,
+        northLat: 0.08,
+        southLat: -0.08,
+      });
+    });
+
+    it('returns null when getBounds throws', () => {
+      mockMap.getBounds.mockImplementationOnce(() => {
+        throw new Error('not ready');
+      });
+      const renderer = makeRenderer();
+      expect(renderer.getInitialViewportBounds()).toBeNull();
+    });
+  });
+
+  describe('navigateTo', () => {
+    it('calls map.flyTo with center and animate:false', () => {
+      const renderer = makeRenderer();
+      renderer.navigateTo(1.5, -0.5);
+      expect(mockMap.flyTo).toHaveBeenCalledWith({
+        center: [1.5, -0.5],
+        animate: false,
+      });
+    });
   });
 });

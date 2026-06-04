@@ -47,6 +47,8 @@ const LAYER_COLORS: Record<LayerName, string> = {
 export interface FloatingLayerPanelProps {
   /** City name displayed in the panel header, sourced from CityData.cityName. */
   cityName: string;
+  /** File name displayed in the panel header, sourced from CityData.fileName. */
+  fileName: string;
 }
 
 /**
@@ -58,7 +60,10 @@ export interface FloatingLayerPanelProps {
  *
  * @remarks Story 5.x will add the theme selector pills in the panel body.
  */
-export const FloatingLayerPanel = ({ cityName }: FloatingLayerPanelProps) => {
+export const FloatingLayerPanel = ({
+  cityName,
+  fileName,
+}: FloatingLayerPanelProps) => {
   const { t } = useTranslation();
   const [panelState, setPanelState] = useState<PanelState>('expanded');
   const panelRef = useRef<HTMLDivElement>(null);
@@ -101,6 +106,7 @@ export const FloatingLayerPanel = ({ cityName }: FloatingLayerPanelProps) => {
         <>
           <PanelHeader
             cityName={cityName}
+            fileName={fileName}
             collapseButtonRef={collapseButtonRef}
             handleCollapse={handleCollapse}
           />
@@ -141,6 +147,7 @@ interface PanelHeaderProps extends FloatingLayerPanelProps {
 
 function PanelHeader({
   cityName,
+  fileName,
   collapseButtonRef,
   handleCollapse,
 }: PanelHeaderProps) {
@@ -150,8 +157,11 @@ function PanelHeader({
     <div className="flex items-center justify-between">
       <div className="font-wordmark leading-tight">
         <h1 className="text-lg font-medium opacity-90">{cityName}</h1>
-        <h3 className="text-xs font-mono opacity-60 truncate">
-          Archivo CSLMapView
+        <h3
+          className="text-xs font-mono opacity-60 truncate max-w-[140px]"
+          title={fileName}
+        >
+          {fileName}
         </h3>
       </div>
       <button

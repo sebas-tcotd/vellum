@@ -178,6 +178,16 @@ const ROAD_CASING_WIDTH_EXPR: maplibregl.ExpressionSpecification = [
   ['+', ['get', 'fixedWidth'], ['*', ['get', 'scaledWidth'], 3.0], 3],
 ] as unknown as maplibregl.ExpressionSpecification;
 
+// ─── Viewport ─────────────────────────────────────────────────────────────────
+
+/** Geographic viewport state emitted by the minimap subscription. */
+export interface ViewportBounds {
+  westLng: number;
+  eastLng: number;
+  northLat: number;
+  southLat: number;
+}
+
 // ─── Renderer ────────────────────────────────────────────────────────────────
 
 /**
@@ -294,6 +304,75 @@ export class MapLibreRenderer implements IRenderer {
   fitToScreen(): void {
     if (!this.cityData) return;
     this.fitToCityBounds(this.cityData);
+  }
+
+  /**
+   * Subscribes to viewport changes (pan/zoom).
+   *
+   * @remarks
+   * Also fires once on the next `idle` event so that Minimap receives an
+   * initial viewport state even when `render()` deferred `fitBounds` to the
+   * MapLibre `load` event (style not yet ready at render time).
+   *
+   * @param callback - Called on every `move`, `moveend`, and the next `idle` event.
+   * @returns Cleanup function that unregisters all listeners.
+   */
+  subscribeViewport(callback: (bounds: ViewportBounds) => void): () => void {
+    const handler = () => {
+      const b = this.map.getBounds();
+      callback({
+        westLng: b.getWest(),
+        eastLng: b.getEast(),
+        northLat: b.getNorth(),
+        southLat: b.getSouth(),
+      });
+    };
+
+    // Fire once on next `idle` so the minimap gets the initial viewport
+    // even when fitBounds runs after the style load event.
+    let idleFired = false;
+    const idleHandler = () => {
+      if (idleFired) return;
+      idleFired = true;
+      handler();
+    };
+
+    this.map.on('move', handler);
+    this.map.on('moveend', handler);
+    this.map.on('idle', idleHandler);
+
+    return () => {
+      this.map.off('move', handler);
+      this.map.off('moveend', handler);
+      this.map.off('idle', idleHandler);
+    };
+  }
+
+  /**
+   * Returns the current viewport bounds, or `null` if the map is not ready.
+   */
+  getInitialViewportBounds(): ViewportBounds | null {
+    try {
+      const b = this.map.getBounds();
+      return {
+        westLng: b.getWest(),
+        eastLng: b.getEast(),
+        northLat: b.getNorth(),
+        southLat: b.getSouth(),
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Pans the map to the given geographic coordinate without animation.
+   *
+   * @param lng - Longitude.
+   * @param lat - Latitude.
+   */
+  navigateTo(lng: number, lat: number): void {
+    this.map.flyTo({ center: [lng, lat], animate: false });
   }
 
   // ─── Private helpers ────────────────────────────────────────────────────────

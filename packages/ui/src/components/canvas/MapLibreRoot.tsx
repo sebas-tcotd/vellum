@@ -1,9 +1,10 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import type { UnlistenFn } from '@tauri-apps/api/event';
 import { MapLibreRenderer, readTokensFromDOM } from '@vellum/renderer-webgl';
 import type { LayerVisibility } from '@vellum/core';
 import { useVellumStore } from '../../store/vellum-store';
+import { Minimap } from '../minimap/Minimap';
 
 /** Props for the `MapLibreRoot` component. Mirrors `CanvasRoot` props for drop-in replacement. */
 export interface MapLibreRootProps {
@@ -88,6 +89,22 @@ export function MapLibreRoot({
     };
   }, [fitToScreenRef]);
 
+  // Stable callbacks for Minimap — empty deps to avoid re-subscriptions on every render
+  const subscribeViewport = useCallback(
+    (cb: Parameters<MapLibreRenderer['subscribeViewport']>[0]) =>
+      rendererRef.current?.subscribeViewport(cb) ?? (() => {}),
+    [],
+  );
+
+  const getInitialViewportBounds = useCallback(
+    () => rendererRef.current?.getInitialViewportBounds() ?? null,
+    [],
+  );
+
+  const navigateTo = useCallback((lng: number, lat: number) => {
+    rendererRef.current?.navigateTo(lng, lat);
+  }, []);
+
   // Tauri native drag-drop — mirrors CanvasRoot implementation
   useEffect(() => {
     if (!loadFile) return;
@@ -132,6 +149,15 @@ export function MapLibreRoot({
         overflow: 'hidden',
         position: 'relative',
       }}
-    />
+    >
+      {cityData && (
+        <Minimap
+          cityData={cityData}
+          subscribeViewport={subscribeViewport}
+          getInitialViewportBounds={getInitialViewportBounds}
+          navigateTo={navigateTo}
+        />
+      )}
+    </div>
   );
 }

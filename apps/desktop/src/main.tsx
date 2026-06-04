@@ -32,6 +32,7 @@ function AppShell() {
       loadFile={loadFile}
       openFileDialog={openFileDialog}
       loadFilePartial={loadFilePartial}
+      onWindowTitle={(title) => void getCurrentWindow().setTitle(title)}
     />
   );
 }
