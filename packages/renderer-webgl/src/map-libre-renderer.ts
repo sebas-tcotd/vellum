@@ -299,15 +299,16 @@ export class MapLibreRenderer implements IRenderer {
   // ─── Private helpers ────────────────────────────────────────────────────────
 
   private addSourcesAndLayers(cityData: CityData): void {
-    // Layer order (bottom → top): water · terrain · roads · transit · buildings · forests · districts.
-    // Water is a full-world backdrop; terrain polygons paint over it only where land exists.
+    // Layer order (bottom → top):
+    //   water · terrain · forests · buildings · roads · transit lines · transit stops · districts
+    // Each addXLayer call appends to the top of the current stack (no beforeId).
     this.addWaterLayer(cityData);
     this.addTerrainLayer(cityData);
+    this.addForestsLayer(cityData);
+    this.addBuildingsLayer(cityData);
     this.addRoadsLayer(cityData);
     this.addTransitLayer(cityData);
     this.addTransitStopsLayer(cityData);
-    this.addBuildingsLayer(cityData);
-    this.addForestsLayer(cityData);
     this.addDistrictsLayer(cityData);
   }
 

@@ -575,11 +575,13 @@ const TERRAIN_CELL_SIZE = 16;
 
 /**
  * Downsampling factor for terrain GeoJSON. Every Nth tile in both axes is
- * combined into a single polygon, keeping the feature count manageable
- * (~8 000–18 000 land features for a typical CS1 map) while preserving
- * enough resolution for overview rendering.
+ * combined into a single polygon. Lower values give finer water/land boundary
+ * resolution at the cost of more features:
+ *   STEP=8 → 128-unit cells, ~8 000–18 000 features (fast, blocky edges)
+ *   STEP=4 → 64-unit cells,  ~18 000–72 000 features (balanced — current)
+ *   STEP=2 → 32-unit cells,  ~72 000–290 000 features (finer, may be slower)
  */
-const TERRAIN_SAMPLE_STEP = 8;
+const TERRAIN_SAMPLE_STEP = 4;
 
 /** World-unit size of each output terrain polygon (SAMPLE_STEP × source cell). */
 const TERRAIN_POLY_SIZE = TERRAIN_CELL_SIZE * TERRAIN_SAMPLE_STEP;
