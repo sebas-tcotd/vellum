@@ -5,6 +5,9 @@ import { App, AppMetaProvider } from '@vellum/ui';
 // url() a @fontsource y los design tokens se procesen en build time.
 // No puede importarse desde dentro de @vellum/ui (compilado con TSC, no Vite).
 import '@vellum/ui/globals.css';
+// MapLibre GL JS default styles — must be imported at the app entry point.
+// Without this, the map renders without base UI styles (attribution, controls).
+import 'maplibre-gl/dist/maplibre-gl.css';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { version } from '../package.json';
 import { useParseCslmap } from './hooks/use-parse-cslmap';

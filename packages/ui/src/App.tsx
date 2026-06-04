@@ -1,9 +1,6 @@
 // packages/ui/src/App.tsx
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
-import { CanvasRoot } from './components/canvas/CanvasRoot';
-import { CanvasRenderer } from '@vellum/renderer-canvas';
-import type { IRenderer, LayerVisibility } from '@vellum/core';
-import { LAYER_NAMES } from '@vellum/core';
+import { MapLibreRoot } from './components/canvas/MapLibreRoot';
 import { EmptyState } from './components/empty-state/EmptyState';
 import { ProgressBar } from './components/overlays/ProgressBar';
 import { ErrorToast } from './components/overlays/ErrorToast';
@@ -26,12 +23,6 @@ import './i18n/types';
 import { useVellumStore } from './store/vellum-store';
 
 const noop = async (): Promise<void> => {};
-
-// All layers visible — used when rendering a new CityData so the worker
-// paints every layer. CSS opacity (controlled by activeLayers) handles visibility.
-const ALL_LAYERS_VISIBLE: LayerVisibility = Object.fromEntries(
-  LAYER_NAMES.map((l) => [l, true]),
-) as LayerVisibility;
 
 /**
  * Props injected from the Tauri composition root (`apps/desktop`).
@@ -59,9 +50,9 @@ export interface AppProps {
  * the store's `syncActiveLanguage` to align the Zustand state with the implicitly
  * detected OS language at boot time, preventing initialization loops.
  *
- * **Empty State (Story 2.1):** `<EmptyState />` se inyecta como overlay sobre el canvas
- * cuando `loadingState === 'idle'` y `cityData === null`. `CanvasRoot` permanece siempre
- * montado para preservar el contexto canvas al cargar un mapa.
+ * **Empty State (Story 2.1):** `<EmptyState />` se inyecta como overlay sobre el map
+ * cuando `loadingState === 'idle'` y `cityData === null`. `MapLibreRoot` permanece siempre
+ * montado para preservar el contexto WebGL al cargar un mapa.
  */
 export function App({
   loadFile,
@@ -69,8 +60,6 @@ export function App({
   loadFilePartial = noop,
 }: AppProps) {
   const [i18nReady, setI18nReady] = useState(false);
-  const rendererRef = useRef<IRenderer | null>(null);
-  const [renderer, setRenderer] = useState<IRenderer | null>(null);
   const fitToScreenRef = useRef<(() => void) | null>(null);
   const syncActiveLanguage = useVellumStore((s) => s.syncActiveLanguage);
   const cityData = useVellumStore((s) => s.cityData);
@@ -99,24 +88,6 @@ export function App({
     });
   }, [syncActiveLanguage]);
 
-  useEffect(() => {
-    const r = new CanvasRenderer();
-    rendererRef.current = r;
-    setRenderer(r);
-    return () => {
-      r.dispose();
-      rendererRef.current = null;
-      setRenderer(null);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!cityData || !rendererRef.current) return;
-    // Reset zoom/pan when a new map loads so the user sees the full map
-    fitToScreenRef.current?.();
-    rendererRef.current.render(cityData, { activeLayers: ALL_LAYERS_VISIBLE });
-  }, [cityData]);
-
   const handleDlcDismiss = useCallback(() => {
     setDlcWarnings([]);
     setHasPartialData(false);
@@ -125,8 +96,6 @@ export function App({
   // Evitar flash en idioma incorrecto — no renderizar hasta que i18n esté listo
   if (!i18nReady) return null;
 
-  // EmptyState es overlay sobre CanvasRoot — CanvasRoot siempre montado para
-  // no perder el contexto canvas al cargar un mapa.
   // Show EmptyState when there's no city to display — covers both idle (no file loaded)
   // and error (parse failed) states. Never show during active loading.
   const showEmptyState = cityData === null && loadingState !== 'loading';
@@ -154,9 +123,8 @@ export function App({
             cityData ? 'opacity-100' : 'opacity-0 pointer-events-none',
           )}
         >
-          <CanvasRoot
+          <MapLibreRoot
             loadFile={loadFile}
-            renderer={renderer}
             activeLayers={activeLayers}
             fitToScreenRef={fitToScreenRef}
           />
