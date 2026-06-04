@@ -13,6 +13,7 @@
     { "path": "../../packages/theme-engine" },
     { "path": "../../packages/parser-cslmap" },
     { "path": "../../packages/renderer-canvas" },
+    { "path": "../../packages/renderer-webgl" },
     { "path": "../../packages/ui" }
   ]
 }

@@ -14,10 +14,25 @@ export default defineConfig(async () => ({
   },
 
   resolve: {
-    alias: {
+    alias: [
       // Maps `@/*` used by shadcn/ui components to packages/ui/src/*
-      '@': fileURLToPath(new URL('../../packages/ui/src', import.meta.url)),
-    },
+      {
+        find: '@',
+        replacement: fileURLToPath(
+          new URL('../../packages/ui/src', import.meta.url),
+        ),
+      },
+      // Resolve workspace packages from source so Vite HMR works without rebuilding dist
+      {
+        find: '@vellum/renderer-webgl',
+        replacement: fileURLToPath(
+          new URL(
+            '../../packages/renderer-webgl/src/index.ts',
+            import.meta.url,
+          ),
+        ),
+      },
+    ],
   },
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
