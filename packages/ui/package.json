@@ -29,6 +29,7 @@
     "@tauri-apps/api": "^2.10.1",
     "@vellum/core": "workspace:*",
     "@vellum/renderer-canvas": "workspace:*",
+    "@vellum/renderer-webgl": "workspace:*",
     "@vellum/theme-engine": "workspace:*",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

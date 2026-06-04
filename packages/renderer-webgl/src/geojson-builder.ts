@@ -11,8 +11,9 @@
  * not import MapLibre. It can be unit-tested in jsdom without WebGL.
  */
 
-import type { CityData, RoadNode } from '@vellum/core';
-import { csToGeoArray } from './coordinate-transform';
+import type { CityData, RoadNode, WayType } from '@vellum/core';
+import { SEA_LEVEL_DEFAULT } from '@vellum/core';
+import { csToGeoArray, CS1_WORLD_HALF } from './coordinate-transform';
 
 // ─── GeoJSON primitives (minimal subset — avoids importing @types/geojson) ───
 
@@ -22,11 +23,65 @@ interface LineStringGeometry {
   coordinates: [number, number][];
 }
 
+/** A GeoJSON Point geometry. */
+interface PointGeometry {
+  type: 'Point';
+  coordinates: [number, number];
+}
+
+/** A GeoJSON Polygon geometry. */
+interface PolygonGeometry {
+  type: 'Polygon';
+  coordinates: [number, number][][];
+}
+
 /** A GeoJSON Feature wrapping a road segment. */
 interface RoadFeature {
   type: 'Feature';
   geometry: LineStringGeometry;
   properties: RoadFeatureProperties;
+}
+
+/** A GeoJSON Feature wrapping a transit line. */
+interface TransitFeature {
+  type: 'Feature';
+  geometry: LineStringGeometry;
+  properties: TransitFeatureProperties;
+}
+
+/** A GeoJSON Feature wrapping a building footprint. */
+interface BuildingFeature {
+  type: 'Feature';
+  geometry: PolygonGeometry;
+  properties: BuildingFeatureProperties;
+}
+
+/** A GeoJSON Feature wrapping a forest cell point. */
+interface ForestFeature {
+  type: 'Feature';
+  geometry: PointGeometry;
+  properties: ForestFeatureProperties;
+}
+
+/** A GeoJSON Feature wrapping a district label point. */
+interface DistrictFeature {
+  type: 'Feature';
+  geometry: PointGeometry;
+  properties: DistrictFeatureProperties;
+}
+
+/** A GeoJSON Feature wrapping a water polygon. */
+interface WaterFeature {
+  type: 'Feature';
+  geometry: PolygonGeometry;
+  properties: Record<string, never>;
+}
+
+/** A GeoJSON Feature wrapping a transit stop point. */
+interface TransitStopFeature {
+  type: 'Feature';
+  geometry: PointGeometry;
+  properties: TransitStopFeatureProperties;
 }
 
 /**
@@ -42,12 +97,194 @@ export interface RoadFeatureProperties {
   width: number;
   /** Comma-separated WayType flags (e.g. "Road,Bridge"). */
   wayType: string;
+  /** Fixed component of the line width model: totalWidth = fixed + scaled * zoomFactor. */
+  fixedWidth: number;
+  /** Scaled component of the line width model: totalWidth = fixed + scaled * zoomFactor. */
+  scaledWidth: number;
+}
+
+/**
+ * Properties attached to each transit line GeoJSON feature.
+ */
+export interface TransitFeatureProperties {
+  /** The line's unique CS1 identifier. */
+  id: string;
+  /** Hexadecimal color string defined in-game (e.g., '#FF6600'). */
+  color: string;
+  /** Transportation mode (Bus, Tram, Train, etc.). */
+  mode: string;
+}
+
+/**
+ * Properties attached to each building GeoJSON feature.
+ */
+export interface BuildingFeatureProperties {
+  /** The building's unique CS1 identifier. */
+  id: string;
+  /** The original asset class from the game. */
+  itemClass: string;
+}
+
+/**
+ * Properties attached to each forest cell GeoJSON feature.
+ */
+export interface ForestFeatureProperties {
+  /** Normalized density of the forest cover (0.0 to 1.0). */
+  density: number;
+}
+
+/**
+ * Properties attached to each district GeoJSON feature.
+ */
+export interface DistrictFeatureProperties {
+  /** The district's unique CS1 identifier. */
+  id: string;
+  /** Name assigned to the district in-game. */
+  name: string;
 }
 
 /** A GeoJSON FeatureCollection of road segment LineStrings. */
 export interface RoadsFeatureCollection {
   type: 'FeatureCollection';
   features: RoadFeature[];
+}
+
+/** A GeoJSON FeatureCollection of transit line LineStrings. */
+export interface TransitFeatureCollection {
+  type: 'FeatureCollection';
+  features: TransitFeature[];
+}
+
+/** A GeoJSON FeatureCollection of building polygons. */
+export interface BuildingsFeatureCollection {
+  type: 'FeatureCollection';
+  features: BuildingFeature[];
+}
+
+/** A GeoJSON FeatureCollection of forest cell points. */
+export interface ForestsFeatureCollection {
+  type: 'FeatureCollection';
+  features: ForestFeature[];
+}
+
+/** A GeoJSON FeatureCollection of district label points. */
+export interface DistrictsFeatureCollection {
+  type: 'FeatureCollection';
+  features: DistrictFeature[];
+}
+
+/** A GeoJSON FeatureCollection of water polygons. */
+export interface WaterFeatureCollection {
+  type: 'FeatureCollection';
+  features: WaterFeature[];
+}
+
+/**
+ * Properties attached to each transit stop GeoJSON feature.
+ */
+export interface TransitStopFeatureProperties {
+  /** The stop's unique CS1 identifier. */
+  id: string;
+  /** Transportation mode (Bus, Tram, Train, etc.). */
+  mode: string;
+  /** Hexadecimal color string of the first transit line that services this stop. */
+  color: string;
+}
+
+/** A GeoJSON FeatureCollection of transit stop points. */
+export interface TransitStopsFeatureCollection {
+  type: 'FeatureCollection';
+  features: TransitStopFeature[];
+}
+
+/** A GeoJSON Feature wrapping a terrain elevation polygon. */
+interface TerrainFeature {
+  type: 'Feature';
+  geometry: PolygonGeometry;
+  properties: TerrainFeatureProperties;
+}
+
+/**
+ * Properties attached to each terrain elevation GeoJSON feature.
+ * `elev` is normalised [0, 1]: 0 = sea level, 1 = map peak.
+ */
+export interface TerrainFeatureProperties {
+  /** Normalised elevation (0.0 = sea level, 1.0 = highest land point on this map). */
+  elev: number;
+}
+
+/** A GeoJSON FeatureCollection of terrain elevation polygons. */
+export interface TerrainFeatureCollection {
+  type: 'FeatureCollection';
+  features: TerrainFeature[];
+}
+
+// ─── Road tier / width model ──────────────────────────────────────────────────
+
+type RoadTier =
+  | 'highway'
+  | 'railway'
+  | 'largeArterial'
+  | 'mediumArterial'
+  | 'local'
+  | 'gravel'
+  | 'pedestrian'
+  | 'pedestrianWay';
+
+interface RoadWidthStyle {
+  fixed: number;
+  scaled: number;
+}
+
+const ROAD_WIDTH_STYLES: Record<RoadTier, RoadWidthStyle> = {
+  highway: { fixed: 2.5, scaled: 2 },
+  railway: { fixed: 1.2, scaled: 0.2 },
+  largeArterial: { fixed: 4, scaled: 1 },
+  mediumArterial: { fixed: 4, scaled: 0.8 },
+  local: { fixed: 2, scaled: 0.5 },
+  gravel: { fixed: 1.5, scaled: 0.4 },
+  pedestrian: { fixed: 1.5, scaled: 0.3 },
+  pedestrianWay: { fixed: 1, scaled: 0.2 },
+};
+
+const ITEM_CLASS_TIER: Readonly<Record<string, RoadTier>> = {
+  Highway: 'highway',
+  'Large Road': 'largeArterial',
+  'Medium Road': 'mediumArterial',
+  'Small Road': 'local',
+  'Gravel Road': 'gravel',
+  'Pedestrian Way': 'pedestrianWay',
+  'Pedestrian Path': 'pedestrianWay',
+  'Train Track': 'railway',
+  'Highway Tunnel': 'highway',
+  'Large Road Tunnel': 'largeArterial',
+  'Medium Road Tunnel': 'mediumArterial',
+  'Small Road Tunnel': 'local',
+  'Pedestrian Tunnel': 'pedestrianWay',
+  'Pedestrian Bridge': 'pedestrian',
+};
+
+const ROAD_EXCLUDED_ITEM_CLASSES = new Set([
+  'Electricity Wire',
+  'Airplane Path',
+  'Ship Path',
+  'Tram Line',
+  'Tram Facility',
+]);
+
+function classifyRoadTier(
+  itemClass: string,
+  wayType: WayType[],
+  width: number,
+): RoadTier | null {
+  if (ROAD_EXCLUDED_ITEM_CLASSES.has(itemClass)) return null;
+  const tier = ITEM_CLASS_TIER[itemClass];
+  if (tier !== undefined) return tier;
+  if (wayType.includes('Highway')) return 'highway';
+  if (wayType.includes('Pedestrian')) return 'pedestrianWay';
+  if (width >= 28) return 'largeArterial';
+  if (width >= 14) return 'local';
+  return 'pedestrianWay';
 }
 
 // ─── Builder functions ────────────────────────────────────────────────────────
@@ -60,14 +297,13 @@ export interface RoadsFeatureCollection {
  * position, any intermediate curve points, and the end node position — all
  * converted to equatorial WGS-84 via `csToGeoArray`.
  *
- * The caller is responsible for ensuring that `cityData` has already been
- * filtered by the parser (no Bus Line virtual connectors should be present).
+ * Each feature includes `fixedWidth` and `scaledWidth` properties for use in
+ * MapLibre `interpolate` expressions: `totalWidth = fixed + scaled * zoomFactor`.
  *
  * @param cityData - The immutable domain model produced by the CS1 parser.
  * @returns A GeoJSON FeatureCollection ready for `map.addSource()` in MapLibre.
  */
 export function buildRoadsGeoJson(cityData: CityData): RoadsFeatureCollection {
-  // Build a lookup map for O(1) node access
   const nodeById = new Map<string, RoadNode>(
     cityData.roadNodes.map((n) => [n.id, n]),
   );
@@ -75,11 +311,16 @@ export function buildRoadsGeoJson(cityData: CityData): RoadsFeatureCollection {
   const features: RoadFeature[] = [];
 
   for (const segment of cityData.roadSegments) {
+    const tier = classifyRoadTier(
+      segment.itemClass,
+      segment.wayType,
+      segment.width,
+    );
+    if (tier === null) continue;
+
     const startNode = nodeById.get(segment.startNodeId);
     const endNode = nodeById.get(segment.endNodeId);
 
-    // Skip orphaned segments — should not happen with a well-formed parse, but
-    // we must not throw here because a missing node is not a fatal error.
     if (startNode === undefined || endNode === undefined) {
       continue;
     }
@@ -89,6 +330,8 @@ export function buildRoadsGeoJson(cityData: CityData): RoadsFeatureCollection {
       ...segment.points.map((p) => csToGeoArray(p)),
       csToGeoArray(endNode.position),
     ];
+
+    const { fixed, scaled } = ROAD_WIDTH_STYLES[tier];
 
     features.push({
       type: 'Feature',
@@ -101,6 +344,8 @@ export function buildRoadsGeoJson(cityData: CityData): RoadsFeatureCollection {
         itemClass: segment.itemClass,
         width: segment.width,
         wayType: segment.wayType.join(','),
+        fixedWidth: fixed,
+        scaledWidth: scaled,
       },
     });
   }
@@ -109,4 +354,313 @@ export function buildRoadsGeoJson(cityData: CityData): RoadsFeatureCollection {
     type: 'FeatureCollection',
     features,
   };
+}
+
+/**
+ * Builds a GeoJSON FeatureCollection of transit lines from parsed `CityData`.
+ *
+ * @remarks
+ * Each `TransitLine` becomes one or more `LineString` features by reconstructing
+ * geometry from its `route: PathSegment[]` via the road segment graph.
+ * Properties include `id`, `color` (CSS hex from .cslmap), and `mode`.
+ *
+ * @param cityData - The immutable domain model produced by the CS1 parser.
+ * @returns A GeoJSON FeatureCollection ready for `map.addSource()` in MapLibre.
+ */
+export function buildTransitGeoJson(
+  cityData: CityData,
+): TransitFeatureCollection {
+  const nodeById = new Map<string, RoadNode>(
+    cityData.roadNodes.map((n) => [n.id, n]),
+  );
+  const segById = new Map(cityData.roadSegments.map((s) => [s.id, s]));
+
+  const features: TransitFeature[] = [];
+
+  for (const line of cityData.transitLines) {
+    for (const pathSeg of line.route) {
+      for (const segId of pathSeg.segmentIds) {
+        const seg = segById.get(segId);
+        if (seg === undefined) continue;
+
+        const startNode = nodeById.get(seg.startNodeId);
+        const endNode = nodeById.get(seg.endNodeId);
+        if (startNode === undefined || endNode === undefined) continue;
+
+        // One Feature per road segment: avoids diagonal artifacts that appear when
+        // consecutive segments share no common node and coords are merged into one LineString.
+        const coords: [number, number][] = [
+          csToGeoArray(startNode.position),
+          ...seg.points.map((p) => csToGeoArray(p)),
+          csToGeoArray(endNode.position),
+        ];
+
+        features.push({
+          type: 'Feature',
+          geometry: { type: 'LineString', coordinates: coords },
+          properties: { id: line.id, color: line.color, mode: line.mode },
+        });
+      }
+    }
+  }
+
+  return { type: 'FeatureCollection', features };
+}
+
+/**
+ * Builds a GeoJSON FeatureCollection of building footprint polygons.
+ *
+ * @remarks
+ * Each `Building` footprint (`Vec3[]`) is converted to a closed `Polygon` ring.
+ * The parser has already filtered out non-building entities.
+ *
+ * @param cityData - The immutable domain model produced by the CS1 parser.
+ * @returns A GeoJSON FeatureCollection ready for `map.addSource()` in MapLibre.
+ */
+export function buildBuildingsGeoJson(
+  cityData: CityData,
+): BuildingsFeatureCollection {
+  const features: BuildingFeature[] = [];
+
+  for (const building of cityData.buildings) {
+    if (building.footprint.length < 3) continue;
+
+    const ring: [number, number][] = building.footprint.map((v) =>
+      csToGeoArray(v),
+    );
+    // Close the ring per GeoJSON spec
+    ring.push(ring[0]);
+
+    features.push({
+      type: 'Feature',
+      geometry: { type: 'Polygon', coordinates: [ring] },
+      properties: { id: building.id, itemClass: building.itemClass },
+    });
+  }
+
+  return { type: 'FeatureCollection', features };
+}
+
+/**
+ * Builds a GeoJSON FeatureCollection of forest cell points.
+ *
+ * @remarks
+ * Each `ForestCell` becomes a `Point` at its grid centre. The `density`
+ * property (0.0–1.0) is used for data-driven circle-radius and circle-opacity.
+ *
+ * @param cityData - The immutable domain model produced by the CS1 parser.
+ * @returns A GeoJSON FeatureCollection ready for `map.addSource()` in MapLibre.
+ */
+export function buildForestsGeoJson(
+  cityData: CityData,
+): ForestsFeatureCollection {
+  const features: ForestFeature[] = cityData.forestCells.map((cell) => ({
+    type: 'Feature',
+    geometry: {
+      type: 'Point',
+      coordinates: csToGeoArray({ x: cell.x, z: cell.z }),
+    },
+    properties: { density: cell.density },
+  }));
+
+  return { type: 'FeatureCollection', features };
+}
+
+/**
+ * Builds a GeoJSON FeatureCollection of district label points.
+ *
+ * @remarks
+ * `.cslmap` only exports a single position per district (no polygon boundary).
+ * Each district is rendered as a `Point` labelled with `name`.
+ * Actual text labels require `glyphs` in the MapLibre style — for this story
+ * districts are rendered as CircleLayer points; labels are deferred to Story 4-6.
+ *
+ * @param cityData - The immutable domain model produced by the CS1 parser.
+ * @returns A GeoJSON FeatureCollection ready for `map.addSource()` in MapLibre.
+ */
+export function buildDistrictsGeoJson(
+  cityData: CityData,
+): DistrictsFeatureCollection {
+  const features: DistrictFeature[] = cityData.districts.map((district) => ({
+    type: 'Feature',
+    geometry: {
+      type: 'Point',
+      coordinates: csToGeoArray(district.position),
+    },
+    properties: { id: district.id, name: district.name },
+  }));
+
+  return { type: 'FeatureCollection', features };
+}
+
+/**
+ * Builds a GeoJSON FeatureCollection containing a single full-world-extent water polygon.
+ *
+ * @remarks
+ * **Rendering strategy:** Water is rendered as a solid backdrop covering the entire
+ * CS1 world extent. The terrain fill layer (`buildTerrainGeoJson`) is then drawn on
+ * top, covering only actual land cells. The visual result is that water appears
+ * wherever land is absent — ocean, rivers, and lakes all naturally reveal the water
+ * layer beneath without requiring explicit tile-by-tile polygon construction.
+ *
+ * Inland water (LandTile.resolution > SEA_LEVEL_DEFAULT) is excluded from terrain
+ * polygons, so rivers and lakes also fall through to this water backdrop.
+ *
+ * Polygon winding is CCW (geographic exterior) consistent with the south-up convention
+ * (see `CS1_LAT_SIGN` in coordinate-transform).
+ *
+ * @returns A GeoJSON FeatureCollection ready for `map.addSource()` in MapLibre.
+ */
+export function buildWaterGeoJson(): WaterFeatureCollection {
+  // South-up CCW ring covering ±CS1_WORLD_HALF in both axes.
+  const sw = csToGeoArray({ x: -CS1_WORLD_HALF, z: -CS1_WORLD_HALF });
+  const se = csToGeoArray({ x: CS1_WORLD_HALF, z: -CS1_WORLD_HALF });
+  const ne = csToGeoArray({ x: CS1_WORLD_HALF, z: CS1_WORLD_HALF });
+  const nw = csToGeoArray({ x: -CS1_WORLD_HALF, z: CS1_WORLD_HALF });
+  return {
+    type: 'FeatureCollection',
+    features: [
+      {
+        type: 'Feature',
+        geometry: { type: 'Polygon', coordinates: [[sw, se, ne, nw, sw]] },
+        properties: {},
+      },
+    ],
+  };
+}
+
+/**
+ * Builds a GeoJSON FeatureCollection of transit stop points.
+ *
+ * @remarks
+ * Each unique stop (deduplicated by `id`) becomes a `Point` feature. When a stop
+ * is served by multiple lines, the color of the first line encountered is used.
+ * Rendered as circles in MapLibre; shape-per-mode differentiation is deferred to a
+ * later story using symbol layers.
+ *
+ * @param cityData - The immutable domain model produced by the CS1 parser.
+ * @returns A GeoJSON FeatureCollection ready for `map.addSource()` in MapLibre.
+ */
+export function buildTransitStopsGeoJson(
+  cityData: CityData,
+): TransitStopsFeatureCollection {
+  const seen = new Set<string>();
+  const features: TransitStopFeature[] = [];
+
+  for (const line of cityData.transitLines) {
+    for (const stop of line.stops) {
+      if (seen.has(stop.id)) continue;
+      seen.add(stop.id);
+      features.push({
+        type: 'Feature',
+        geometry: {
+          type: 'Point',
+          coordinates: csToGeoArray(stop.position),
+        },
+        properties: { id: stop.id, mode: stop.mode, color: line.color },
+      });
+    }
+  }
+
+  return { type: 'FeatureCollection', features };
+}
+
+// ─── Terrain constants ────────────────────────────────────────────────────────
+
+/** CS1 terrain grid origin in world units (same as -CS1_WORLD_HALF). */
+const TERRAIN_MAP_ORIGIN = -CS1_WORLD_HALF;
+
+/** Source cell size: each terrain CSV entry covers 16 × 16 world units. */
+const TERRAIN_CELL_SIZE = 16;
+
+/**
+ * Downsampling factor for terrain GeoJSON. Every Nth tile in both axes is
+ * combined into a single polygon. Lower values give finer water/land boundary
+ * resolution at the cost of more features:
+ *   STEP=8 → 128-unit cells, ~8 000–18 000 features (fast, blocky edges)
+ *   STEP=4 → 64-unit cells,  ~18 000–72 000 features (balanced — current)
+ *   STEP=2 → 32-unit cells,  ~72 000–290 000 features (finer, may be slower)
+ */
+const TERRAIN_SAMPLE_STEP = 4;
+
+/** World-unit size of each output terrain polygon (SAMPLE_STEP × source cell). */
+const TERRAIN_POLY_SIZE = TERRAIN_CELL_SIZE * TERRAIN_SAMPLE_STEP;
+
+/**
+ * Builds a GeoJSON FeatureCollection of terrain elevation polygons.
+ *
+ * @remarks
+ * Samples the `landTiles` grid at 1-in-8 resolution to balance detail vs feature
+ * count. Each output polygon covers a 128 × 128 world-unit cell and carries a
+ * normalised `elev` property (0 = sea level, 1 = map peak). MapLibre uses an
+ * `interpolate` fill-color expression to shade from `terrainLow` → `terrainMid`
+ * → `terrainHigh`.
+ *
+ * Polygon winding order is CCW (geographic exterior) consistent with the south-up
+ * rendering convention (see `CS1_LAT_SIGN` in coordinate-transform).
+ *
+ * @param cityData - The immutable domain model produced by the CS1 parser.
+ * @returns A GeoJSON FeatureCollection ready for `map.addSource()` in MapLibre.
+ */
+export function buildTerrainGeoJson(
+  cityData: CityData,
+): TerrainFeatureCollection {
+  const { landTiles, bounds } = cityData;
+  if (landTiles.length === 0) {
+    return { type: 'FeatureCollection', features: [] };
+  }
+
+  // Elevation range: anchor low end at seaLevel so the ramp starts at water's edge.
+  const minElev = bounds.seaLevel;
+  let maxElev = minElev;
+  for (const tile of landTiles) {
+    if (tile.elevation > maxElev) maxElev = tile.elevation;
+  }
+  const elevRange = maxElev - minElev || 1;
+
+  // Downsample: group tiles into TERRAIN_POLY_SIZE buckets; keep highest elevation.
+  // Skip inland water tiles (resolution > seaLevel): rivers/lakes fall through to the
+  // water backdrop below the terrain layer, rendering correctly as water.
+  const sampled = new Map<string, { bx: number; bz: number; elev: number }>();
+  for (const tile of landTiles) {
+    if (tile.resolution > SEA_LEVEL_DEFAULT) continue; // inland water — not land
+
+    // Bucket origin aligned to TERRAIN_POLY_SIZE grid starting from map origin.
+    const bx =
+      Math.floor((tile.x - TERRAIN_MAP_ORIGIN) / TERRAIN_POLY_SIZE) *
+        TERRAIN_POLY_SIZE +
+      TERRAIN_MAP_ORIGIN;
+    const bz =
+      Math.floor((tile.z - TERRAIN_MAP_ORIGIN) / TERRAIN_POLY_SIZE) *
+        TERRAIN_POLY_SIZE +
+      TERRAIN_MAP_ORIGIN;
+    const key = `${bx},${bz}`;
+    const existing = sampled.get(key);
+    if (!existing || tile.elevation > existing.elev) {
+      sampled.set(key, { bx, bz, elev: tile.elevation });
+    }
+  }
+
+  // Build one polygon per bucket. CCW south-up ring: SW(bx,bz) → SE → NE → NW → close.
+  const features: TerrainFeature[] = [];
+  for (const { bx, bz, elev } of sampled.values()) {
+    const normalizedElev = Math.max(
+      0,
+      Math.min(1, (elev - minElev) / elevRange),
+    );
+    const sw = csToGeoArray({ x: bx, z: bz });
+    const se = csToGeoArray({ x: bx + TERRAIN_POLY_SIZE, z: bz });
+    const ne = csToGeoArray({
+      x: bx + TERRAIN_POLY_SIZE,
+      z: bz + TERRAIN_POLY_SIZE,
+    });
+    const nw = csToGeoArray({ x: bx, z: bz + TERRAIN_POLY_SIZE });
+    features.push({
+      type: 'Feature',
+      geometry: { type: 'Polygon', coordinates: [[sw, se, ne, nw, sw]] },
+      properties: { elev: normalizedElev },
+    });
+  }
+
+  return { type: 'FeatureCollection', features };
 }

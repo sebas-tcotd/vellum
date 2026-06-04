@@ -5,6 +5,8 @@ export type {
   ViewportState,
   MapEntity,
 } from './components/canvas/CanvasRoot';
+export { MapLibreRoot } from './components/canvas/MapLibreRoot';
+export type { MapLibreRootProps } from './components/canvas/MapLibreRoot';
 export { CanvasLayer } from './components/canvas/CanvasLayer';
 export type { CanvasLayerProps } from './components/canvas/CanvasLayer';
 export { App } from './App';

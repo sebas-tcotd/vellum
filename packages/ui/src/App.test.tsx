@@ -55,6 +55,10 @@ vi.mock('./components/canvas/CanvasRoot', () => ({
   CanvasRoot: () => <div data-testid="canvas-root" />,
 }));
 
+vi.mock('./components/canvas/MapLibreRoot', () => ({
+  MapLibreRoot: () => <div data-testid="maplibre-root" />,
+}));
+
 vi.mock('./components/empty-state/EmptyState', () => ({
   EmptyState: () => <div data-testid="empty-state" />,
 }));

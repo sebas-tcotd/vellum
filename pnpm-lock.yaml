@@ -220,6 +220,9 @@ importers:
       '@vellum/renderer-canvas':
         specifier: workspace:*
         version: link:../renderer-canvas
+      '@vellum/renderer-webgl':
+        specifier: workspace:*
+        version: link:../renderer-webgl
       '@vellum/theme-engine':
         specifier: workspace:*
         version: link:../theme-engine
