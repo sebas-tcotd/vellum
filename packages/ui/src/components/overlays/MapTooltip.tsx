@@ -1,4 +1,5 @@
 import type React from 'react';
+import { useRef } from 'react';
 import type { TooltipInfo } from '@vellum/renderer-webgl';
 import { useTranslation } from 'react-i18next';
 
@@ -13,7 +14,7 @@ export interface MapTooltipProps {
 }
 
 const TOOLTIP_WIDTH = 200;
-const TOOLTIP_HEIGHT_EST = 60;
+const TOOLTIP_HEIGHT_FALLBACK = 60;
 const OFFSET = 12;
 
 function computeStyle(
@@ -21,13 +22,14 @@ function computeStyle(
   y: number,
   cw: number,
   ch: number,
+  tooltipHeight: number,
 ): React.CSSProperties {
   const flipX = x + TOOLTIP_WIDTH + OFFSET > cw;
-  const flipY = y + TOOLTIP_HEIGHT_EST + OFFSET > ch;
+  const flipY = y + tooltipHeight + OFFSET > ch;
   return {
     position: 'absolute',
-    left: flipX ? x - TOOLTIP_WIDTH - OFFSET : x + OFFSET,
-    top: flipY ? y - TOOLTIP_HEIGHT_EST - OFFSET : y + OFFSET,
+    left: Math.max(0, flipX ? x - TOOLTIP_WIDTH - OFFSET : x + OFFSET),
+    top: Math.max(0, flipY ? y - tooltipHeight - OFFSET : y + OFFSET),
     pointerEvents: 'none',
     zIndex: 50,
   };
@@ -47,15 +49,20 @@ export function MapTooltip({
   containerHeight,
 }: MapTooltipProps) {
   const { t } = useTranslation();
+  const divRef = useRef<HTMLDivElement>(null);
   if (!info) return null;
+  const measuredHeight =
+    divRef.current?.offsetHeight || TOOLTIP_HEIGHT_FALLBACK;
   const style = computeStyle(
     info.screenX,
     info.screenY,
     containerWidth,
     containerHeight,
+    measuredHeight,
   );
   return (
     <div
+      ref={divRef}
       style={style}
       className="bg-neutral-900/95 text-white rounded-md shadow-lg px-3 py-2 text-sm min-w-28 max-w-52"
     >

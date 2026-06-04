@@ -428,6 +428,37 @@ describe('buildTransitStopsGeoJson', () => {
     expect(lines[1]).toEqual({ name: 'Bus 2', color: '#0000FF', mode: 'Bus' });
   });
 
+  it('deduplicates a stop that appears twice in the same line (circular route)', () => {
+    const stop: TransitStop = {
+      id: 'terminal',
+      name: '',
+      mode: 'Bus',
+      position: { x: 0, y: 0, z: 0 },
+    };
+    const circularLine: TransitLine = {
+      id: 'L1',
+      name: 'Circular 1',
+      mode: 'Bus',
+      color: '#AABBCC',
+      stops: [stop, stop],
+      route: [],
+    };
+    const city = makeCityData({ transitLines: [circularLine] });
+    const fc = buildTransitStopsGeoJson(city);
+    expect(fc.features).toHaveLength(1);
+    const lines = JSON.parse(fc.features[0].properties.lines) as Array<{
+      name: string;
+      color: string;
+      mode: string;
+    }>;
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toEqual({
+      name: 'Circular 1',
+      color: '#AABBCC',
+      mode: 'Bus',
+    });
+  });
+
   it('produces coordinates in geographic range', () => {
     const stop: TransitStop = {
       id: 's1',

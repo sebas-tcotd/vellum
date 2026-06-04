@@ -429,7 +429,13 @@ export class MapLibreRenderer implements IRenderer {
       for (const feature of nearby) {
         if (!feature.properties) continue;
         const props = feature.properties as TransitStopFeatureProperties;
-        const parsed = JSON.parse(props.lines) as Array<TransitLineInfo>;
+        let parsed: Array<TransitLineInfo>;
+        try {
+          parsed = JSON.parse(props.lines) as Array<TransitLineInfo>;
+        } catch {
+          continue;
+        }
+        if (!Array.isArray(parsed)) continue;
         for (const line of parsed) {
           const key = `${line.name}:${line.color}`;
           if (!linesSeen.has(key)) {

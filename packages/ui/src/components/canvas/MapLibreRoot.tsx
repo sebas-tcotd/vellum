@@ -198,7 +198,7 @@ export function MapLibreRoot({
         />
       )}
       <MapTooltip
-        info={tooltipInfo}
+        info={containerDimRef.current.width > 0 ? tooltipInfo : null}
         containerWidth={containerDimRef.current.width}
         containerHeight={containerDimRef.current.height}
       />

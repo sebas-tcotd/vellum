@@ -314,6 +314,14 @@ describe('MapLibreRenderer', () => {
   });
 
   describe('subscribeHover', () => {
+    beforeEach(() => {
+      vi.clearAllMocks();
+      mockMap.getLayer.mockReturnValue(undefined);
+      mockMap.getSource.mockReturnValue(undefined);
+      mockMap.isStyleLoaded.mockReturnValue(true);
+      mockMap.getCanvas.mockReturnValue({ style: { cursor: '' } });
+    });
+
     it('registers mousemove and mouseleave handlers on transit-stops layer', () => {
       const renderer = makeRenderer();
       const cb = vi.fn();
@@ -421,8 +429,48 @@ describe('MapLibreRenderer', () => {
 
       moveHandler({ point: { x: 50, y: 50 } });
 
-      const result = cb.mock.calls[0][0] as { lines: unknown[] };
+      const result = cb.mock.calls[0][0] as {
+        lines: Array<{ name: string; color: string; mode: string }>;
+      };
       expect(result.lines).toHaveLength(2);
+      expect(result.lines[0]).toEqual({
+        name: 'Line 1',
+        color: '#FF0000',
+        mode: 'Bus',
+      });
+      expect(result.lines[1]).toEqual({
+        name: 'Line 2',
+        color: '#0000FF',
+        mode: 'Bus',
+      });
+    });
+
+    it('mousemove handler does not call callback when all parsed lines are empty', () => {
+      const renderer = makeRenderer();
+      const cb = vi.fn();
+      renderer.subscribeHover(cb);
+
+      const mockFeature = {
+        properties: {
+          id: 'stop-1',
+          mode: 'Bus',
+          color: '#FF0000',
+          lines: JSON.stringify([]),
+        },
+      };
+      mockMap.queryRenderedFeatures.mockReturnValueOnce([
+        mockFeature,
+      ] as unknown as never[]);
+
+      const moveHandler = (
+        mockMap.on as ReturnType<typeof vi.fn>
+      ).mock.calls.find(
+        (c: unknown[]) => c[0] === 'mousemove' && c[1] === 'transit-stops',
+      )?.[2] as (e: { point: { x: number; y: number } }) => void;
+
+      moveHandler({ point: { x: 100, y: 200 } });
+
+      expect(cb).not.toHaveBeenCalled();
     });
 
     it('mouseleave handler calls callback with null and resets cursor', () => {

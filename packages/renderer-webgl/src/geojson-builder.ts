@@ -558,15 +558,17 @@ export function buildTransitStopsGeoJson(
   const stopMap = new Map<string, StopAccumulator>();
 
   for (const line of cityData.transitLines) {
+    const lineEntry = { name: line.name, color: line.color, mode: line.mode };
+    // Deduplicate stops within the same line to handle circular routes where
+    // the terminal stop appears at both the start and end of line.stops.
+    const seenInLine = new Set<string>();
     for (const stop of line.stops) {
+      if (seenInLine.has(stop.id)) continue;
+      seenInLine.add(stop.id);
       if (!stopMap.has(stop.id)) {
         stopMap.set(stop.id, { stop, lines: [] });
       }
-      stopMap.get(stop.id)!.lines.push({
-        name: line.name,
-        color: line.color,
-        mode: line.mode,
-      });
+      stopMap.get(stop.id)!.lines.push(lineEntry);
     }
   }
 
