@@ -73,6 +73,13 @@ export function App({
   const setHasPartialData = useVellumStore((s) => s.setHasPartialData);
   const toggleLayer = useVellumStore((s) => s.toggleLayer);
 
+  useEffect(() => {
+    document.title =
+      cityData && cityData.cityName.trim()
+        ? `Vellum — ${cityData.cityName}`
+        : 'Vellum';
+  }, [cityData]);
+
   useKeyboardShortcuts({
     onOpenFile: openFileDialog,
     // Layer shortcuts 1-7 only active when a map is loaded
@@ -151,7 +158,10 @@ export function App({
           />
         )}
         {cityData !== null && loadingState !== 'loading' && (
-          <FloatingLayerPanel cityName={cityData.cityName} />
+          <FloatingLayerPanel
+            cityName={cityData.cityName}
+            fileName={cityData.fileName}
+          />
         )}
       </div>
     </Suspense>
