@@ -10,6 +10,8 @@ function createMockCanvasContext() {
     drawImage: vi.fn(),
     save: vi.fn(),
     restore: vi.fn(),
+    translate: vi.fn(),
+    scale: vi.fn(),
     filter: '',
     imageSmoothingEnabled: false,
     imageSmoothingQuality: 'low',

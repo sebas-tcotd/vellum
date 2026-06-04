@@ -20,6 +20,9 @@ import type { RendererTokens } from '../tokens';
  * @param tokens - Renderer design tokens.
  * @param canvasWidth - Canvas width in pixels.
  * @param canvasHeight - Canvas height in pixels.
+ * @param zoom - Zoom factor applied to world-to-canvas coordinate projection.
+ * @param panX - Horizontal pan offset in canvas pixels.
+ * @param panY - Vertical pan offset in canvas pixels.
  */
 export function renderDistrictsLayer(
   ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
@@ -28,6 +31,9 @@ export function renderDistrictsLayer(
   tokens: RendererTokens,
   canvasWidth: number,
   canvasHeight: number,
+  zoom = 1,
+  panX = 0,
+  panY = 0,
 ): void {
   if (districts.length === 0) return;
 
@@ -51,14 +57,13 @@ export function renderDistrictsLayer(
     return;
 
   function worldToCanvas(pos: { x: number; z: number }): [number, number] {
-    return [
-      ((pos.x - bounds.minX) / rangeX) * canvasWidth,
-      canvasHeight - ((pos.z - bounds.minZ) / rangeZ) * canvasHeight,
-    ];
+    const cx = ((pos.x - bounds.minX) / rangeX) * canvasWidth;
+    const cy = canvasHeight - ((pos.z - bounds.minZ) / rangeZ) * canvasHeight;
+    return [cx * zoom + panX, cy * zoom + panY];
   }
 
-  // Scale font proportionally to the physical canvas size so labels stay legible
-  // at any devicePixelRatio (e.g. 2× Retina). Clamp to a minimum of 14px.
+  // Font size is fixed in physical pixels — labels stay legible at any zoom level.
+  // The label POSITION moves with zoom+pan, but the text size never scales.
   const fontSize = Math.max(14, Math.round(canvasWidth / 100));
   ctx.font = `small-caps ${fontSize}px "DM Mono", monospace`;
   ctx.textAlign = 'center';

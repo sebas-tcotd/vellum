@@ -26,13 +26,20 @@ export function renderForestsLayer(
   tokens: RendererTokens,
   canvasWidth: number,
   canvasHeight: number,
+  zoom = 1,
+  panX = 0,
+  panY = 0,
 ): void {
   if (!isValidEnvironment(forestCells, canvasWidth, canvasHeight)) return;
 
   const rgb = hexToRgbComponents(tokens.green) ?? DEFAULT_FOREST_COLOR;
   const texture = createDensityTexture(forestCells, bounds, rgb);
 
+  ctx.save();
+  ctx.translate(panX, panY);
+  ctx.scale(zoom, zoom);
   renderTextureToCanvas(ctx, texture, canvasWidth, canvasHeight);
+  ctx.restore();
 }
 
 /**

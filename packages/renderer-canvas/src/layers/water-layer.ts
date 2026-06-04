@@ -11,6 +11,9 @@ export function renderWaterLayer(
   canvasWidth: number,
   canvasHeight: number,
   bounds: CityData['bounds'],
+  zoom = 1,
+  panX = 0,
+  panY = 0,
 ): void {
   if (waterTiles.length === 0 && landTiles.length === 0) return;
 
@@ -19,6 +22,11 @@ export function renderWaterLayer(
   if (polygons.length === 0) return;
 
   const path = buildWaterPath(polygons, canvasWidth, canvasHeight, bounds);
+
+  ctx.save();
+  ctx.translate(panX, panY);
+  ctx.scale(zoom, zoom);
   ctx.fillStyle = tokens.water;
   ctx.fill(path, 'evenodd');
+  ctx.restore();
 }

@@ -30,7 +30,7 @@ export interface IRenderer {
    * @param cityData - The immutable domain model of the city to render.
    * @param params - The dynamic configuration dictating layer visibility and styling.
    */
-  render(cityData: CityData, params: RenderParams): void;
+  render(cityData: CityData, params: RenderParams): Promise<void>;
 
   /**
    * Updates the camera viewport transform without triggering a full geometry re-render.

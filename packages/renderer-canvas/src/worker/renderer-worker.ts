@@ -1,9 +1,4 @@
-import type { CityData } from '@vellum/core';
-import type {
-  WorkerMessage,
-  WorkerResponse,
-  RenderStyleParams,
-} from './messages';
+import type { WorkerMessage, WorkerResponse } from './messages';
 import { renderTerrainLayer } from '../layers/terrain-layer';
 import { renderWaterLayer } from '../layers/water-layer';
 import { renderRoadsLayer } from '../layers/roads-layer';
@@ -11,6 +6,7 @@ import { renderTransitLayer } from '../layers/transit-layer';
 import { renderBuildingsLayer } from '../layers/buildings-layer';
 import { renderForestsLayer } from '../layers/forests-layer';
 import { renderDistrictsLayer } from '../layers/districts-layer';
+import { OVERSCAN_FACTOR } from '../overscan';
 import dmMonoWoff2Url from '@fontsource/dm-mono/files/dm-mono-latin-400-normal.woff2?url';
 
 // DM Mono loaded at worker startup for district labels (AC2).
@@ -43,9 +39,8 @@ interface LayerCanvas {
 
 const layers = new Map<string, LayerCanvas>();
 let currentZoom = 1;
-let lastZoomForBuildings = currentZoom;
-let lastCityData: CityData | null = null;
-let lastStyle: RenderStyleParams | null = null;
+let currentPanX = 0;
+let currentPanY = 0;
 
 self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
   const msg = event.data;
@@ -53,15 +48,20 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
   try {
     if (msg.type === 'render') {
       const { cityData, style, layers: layerVisibility } = msg;
-      lastCityData = cityData;
-      lastStyle = style;
-      lastZoomForBuildings = currentZoom;
 
       for (const [layerName, canvas] of layers) {
         const ctx = canvas.ctx;
-        const w = canvas.offscreen.width;
-        const h = canvas.offscreen.height;
-        ctx.clearRect(0, 0, w, h);
+        const bufferW = canvas.offscreen.width;
+        const bufferH = canvas.offscreen.height;
+        ctx.clearRect(0, 0, bufferW, bufferH);
+
+        // Overscan: project the map to the *fit* size (viewport-aligned) and shift
+        // it by the per-side margin, so it paints centered within the larger buffer.
+        // Panning then reveals the already-painted margin instantly (see overscan.ts).
+        const fitW = bufferW / OVERSCAN_FACTOR;
+        const fitH = bufferH / OVERSCAN_FACTOR;
+        const panX = currentPanX + (bufferW - fitW) / 2;
+        const panY = currentPanY + (bufferH - fitH) / 2;
 
         if (layerName === 'terrain' && layerVisibility.terrain) {
           renderTerrainLayer(
@@ -69,8 +69,11 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
             cityData.landTiles,
             cityData.bounds,
             style.tokens,
-            w,
-            h,
+            fitW,
+            fitH,
+            currentZoom,
+            panX,
+            panY,
           );
         } else if (layerName === 'water' && layerVisibility.water) {
           renderWaterLayer(
@@ -78,9 +81,12 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
             cityData.waterTiles,
             cityData.landTiles,
             style.tokens,
-            w,
-            h,
+            fitW,
+            fitH,
             cityData.bounds,
+            currentZoom,
+            panX,
+            panY,
           );
         } else if (layerName === 'roads' && layerVisibility.roads) {
           const segments = cityData.roadSegments ?? [];
@@ -92,9 +98,11 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
             nodeMap,
             cityData.bounds,
             style.tokens,
-            w,
-            h,
+            fitW,
+            fitH,
             currentZoom,
+            panX,
+            panY,
           );
         } else if (layerName === 'transit' && layerVisibility.transit) {
           const segmentMap = new Map(
@@ -109,9 +117,11 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
             segmentMap,
             nodeMap,
             cityData.bounds,
-            w,
-            h,
+            fitW,
+            fitH,
             currentZoom,
+            panX,
+            panY,
           );
         } else if (layerName === 'buildings' && layerVisibility.buildings) {
           renderBuildingsLayer(
@@ -119,9 +129,11 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
             cityData.buildings ?? [],
             cityData.bounds,
             style.tokens,
-            w,
-            h,
+            fitW,
+            fitH,
             currentZoom,
+            panX,
+            panY,
           );
         } else if (layerName === 'forests' && layerVisibility.forests) {
           renderForestsLayer(
@@ -129,8 +141,11 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
             cityData.forestCells ?? [],
             cityData.bounds,
             style.tokens,
-            w,
-            h,
+            fitW,
+            fitH,
+            currentZoom,
+            panX,
+            panY,
           );
         } else if (layerName === 'districts' && layerVisibility.districts) {
           await dmMonoPromise;
@@ -139,8 +154,11 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
             cityData.districts ?? [],
             cityData.bounds,
             style.tokens,
-            w,
-            h,
+            fitW,
+            fitH,
+            currentZoom,
+            panX,
+            panY,
           );
         }
 
@@ -158,25 +176,8 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
     } else if (msg.type === 'update-viewport') {
       const z = msg.viewport.zoom;
       currentZoom = Number.isFinite(z) && z > 0 ? z : 1;
-
-      // Re-render buildings only when zoom changes — stroke alpha depends on zoom.
-      if (currentZoom !== lastZoomForBuildings && lastCityData && lastStyle) {
-        lastZoomForBuildings = currentZoom;
-        const buildingsLayer = layers.get('buildings');
-        if (buildingsLayer && buildingsLayer.offscreen.width > 0) {
-          const { ctx, offscreen } = buildingsLayer;
-          ctx.clearRect(0, 0, offscreen.width, offscreen.height);
-          renderBuildingsLayer(
-            ctx,
-            lastCityData.buildings ?? [],
-            lastCityData.bounds,
-            lastStyle.tokens,
-            offscreen.width,
-            offscreen.height,
-            currentZoom,
-          );
-        }
-      }
+      currentPanX = Number.isFinite(msg.viewport.panX) ? msg.viewport.panX : 0;
+      currentPanY = Number.isFinite(msg.viewport.panY) ? msg.viewport.panY : 0;
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
