@@ -28,7 +28,7 @@ void win.listen('tauri://drag-enter', () => {
 // Subscribe to the store outside React so `setTitle` is called as soon as
 // cityData changes, independently of any React rendering cycle.
 let prevCityName: string | null = null;
-useVellumStore.subscribe((state) => {
+const unsubTitle = useVellumStore.subscribe((state) => {
   const cityName = state.cityData?.cityName ?? null;
   if (cityName === prevCityName) return;
   prevCityName = cityName;
@@ -37,6 +37,13 @@ useVellumStore.subscribe((state) => {
     .setTitle(title)
     .catch((err) => console.error('Error Tauri setTitle:', err));
 });
+
+// Prevent subscription accumulation during HMR
+if (import.meta.hot) {
+  import.meta.hot.dispose(() => {
+    unsubTitle();
+  });
+}
 
 /**
  * Composition root that wires Tauri-specific hooks into the UI layer.

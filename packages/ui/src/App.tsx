@@ -74,7 +74,10 @@ export function App({
   const toggleLayer = useVellumStore((s) => s.toggleLayer);
 
   useEffect(() => {
-    document.title = cityData ? `Vellum — ${cityData.cityName}` : 'Vellum';
+    document.title =
+      cityData && cityData.cityName.trim()
+        ? `Vellum — ${cityData.cityName}`
+        : 'Vellum';
   }, [cityData]);
 
   useKeyboardShortcuts({
