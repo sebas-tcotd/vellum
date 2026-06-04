@@ -36,12 +36,6 @@ export interface AppProps {
   openFileDialog?: () => Promise<void>;
   /** Retries the last file with allow_partial=true. Injected from the Tauri composition root. */
   loadFilePartial?: () => Promise<void>;
-  /**
-   * Updates the OS-level window title.
-   * In Tauri, `document.title` may not propagate dynamically to the native
-   * title bar — the composition root injects this to call `getCurrentWindow().setTitle()`.
-   */
-  onWindowTitle?: (title: string) => void;
 }
 
 /**
@@ -64,7 +58,6 @@ export function App({
   loadFile,
   openFileDialog = noop,
   loadFilePartial = noop,
-  onWindowTitle,
 }: AppProps) {
   const [i18nReady, setI18nReady] = useState(false);
   const fitToScreenRef = useRef<(() => void) | null>(null);
@@ -81,10 +74,8 @@ export function App({
   const toggleLayer = useVellumStore((s) => s.toggleLayer);
 
   useEffect(() => {
-    const title = cityData ? `Vellum — ${cityData.cityName}` : 'Vellum';
-    document.title = title;
-    onWindowTitle?.(title);
-  }, [cityData, onWindowTitle]);
+    document.title = cityData ? `Vellum — ${cityData.cityName}` : 'Vellum';
+  }, [cityData]);
 
   useKeyboardShortcuts({
     onOpenFile: openFileDialog,

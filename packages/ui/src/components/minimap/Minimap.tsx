@@ -7,7 +7,7 @@ const CANVAS_SIZE = 160;
 
 /** Props for the Minimap component. */
 export interface MinimapProps {
-  /** City data used to compute the geographic bounding box. */
+  /** City data used to compute the geographic bounding box and render city geometry. */
   cityData: CityData;
   /** Subscribes to viewport changes; returns a cleanup function. */
   subscribeViewport: (callback: (bounds: ViewportBounds) => void) => () => void;
@@ -21,9 +21,14 @@ export interface MinimapProps {
  * Minimap navigation widget rendered as a 160×160 Canvas 2D element.
  *
  * @remarks
- * Viewport updates are applied directly to the canvas without going through
- * React state, keeping re-render count at zero during pan/zoom.
- * Supports both click-to-navigate and drag-to-navigate via Pointer Events.
+ * Uses an **offscreen canvas** to pre-render static city geometry (water tiles
+ * and highway roads) once when `cityData` changes. The interactive `drawFrame`
+ * function then stamps this pre-rendered image with a single `drawImage` call
+ * and draws the live viewport rect on top — keeping the hot path at near-zero
+ * CPU cost during pan/zoom.
+ *
+ * Viewport updates bypass React state entirely, so there are zero re-renders
+ * during navigation.
  */
 export function Minimap({
   cityData,
@@ -33,8 +38,9 @@ export function Minimap({
 }: MinimapProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const viewportRef = useRef<ViewportBounds | null>(null);
-  /** Tracks whether the user is currently dragging — no React state to avoid re-renders. */
   const isDraggingRef = useRef(false);
+  /** Holds the pre-rendered static city image; rebuilt only when `cityData` changes. */
+  const staticMapRef = useRef<HTMLCanvasElement | null>(null);
 
   const { swLng, swLat, neLng, neLat } = useMemo(() => {
     const { bounds } = cityData;
@@ -53,6 +59,98 @@ export function Minimap({
     [neLat, swLat],
   );
 
+  // ── Pre-render static city geometry ──────────────────────────────────────────
+  // Runs once per cityData change. Draws terrain, water and major roads onto
+  // an offscreen canvas so drawFrame can use a single cheap drawImage call.
+  useEffect(() => {
+    const offscreen = document.createElement('canvas');
+    offscreen.width = CANVAS_SIZE;
+    offscreen.height = CANVAS_SIZE;
+    const ctx = offscreen.getContext('2d');
+    if (!ctx) return;
+
+    // 1. Fondo de Agua Global (cubre absolutamente todo)
+    ctx.fillStyle = '#6db8b7'; // El color de tu token de agua
+    ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+
+    // 2. Terreno (Máscara de celdas agrupadas)
+    if (cityData.landTiles && cityData.landTiles.length > 0) {
+      const TERRAIN_POLY_SIZE = 64; // El mismo tamaño de bloque de tu geojson-builder
+      const { minX, minZ, seaLevel } = cityData.bounds;
+
+      // Agrupamos las celdas para evitar el colapso del sub-pixel anti-aliasing
+      const sampled = new Map<string, { bx: number; bz: number }>();
+
+      for (const tile of cityData.landTiles) {
+        if (tile.resolution > seaLevel) continue; // Dejamos el "hueco" para que se vea el agua de fondo
+
+        const bx =
+          Math.floor((tile.x - minX) / TERRAIN_POLY_SIZE) * TERRAIN_POLY_SIZE +
+          minX;
+        const bz =
+          Math.floor((tile.z - minZ) / TERRAIN_POLY_SIZE) * TERRAIN_POLY_SIZE +
+          minZ;
+        sampled.set(`${bx},${bz}`, { bx, bz });
+      }
+
+      ctx.fillStyle = '#e2dbcb'; // Color base del terreno
+      for (const { bx, bz } of sampled.values()) {
+        const [lng1, lat1] = csToGeoArray({ x: bx, z: bz });
+        const [lng2, lat2] = csToGeoArray({
+          x: bx + TERRAIN_POLY_SIZE,
+          z: bz + TERRAIN_POLY_SIZE,
+        });
+
+        // Calculamos las 4 coordenadas para prevenir inversiones negativas en el eje Y del canvas
+        const x1 = toCanvasX(lng1);
+        const x2 = toCanvasX(lng2);
+        const y1 = toCanvasY(lat1);
+        const y2 = toCanvasY(lat2);
+
+        const rx = Math.min(x1, x2);
+        const ry = Math.min(y1, y2);
+        const rw = Math.abs(x2 - x1);
+        const rh = Math.abs(y2 - y1);
+
+        // El secreto: Math.ceil() + 0.5 fuerza al canvas a pintar bordes duros
+        // eliminando cualquier rendija o sangrado entre los bloques agrupados.
+        ctx.fillRect(rx, ry, Math.ceil(rw) + 0.5, Math.ceil(rh) + 0.5);
+      }
+    }
+
+    // 3. Highway roads — draw using node position lookup
+    const nodeMap = new Map(cityData.roadNodes.map((n) => [n.id, n]));
+    const highways = cityData.roadSegments.filter(
+      (s) => s.itemClass === 'Highway',
+    );
+    if (highways.length > 0) {
+      ctx.beginPath();
+      ctx.strokeStyle = 'rgba(160, 152, 176, 0.55)'; // muted highway purple
+      ctx.lineWidth = 1;
+      for (const seg of highways) {
+        const start = nodeMap.get(seg.startNodeId);
+        const end = nodeMap.get(seg.endNodeId);
+        if (!start || !end) continue;
+        const [sLng, sLat] = csToGeoArray({
+          x: start.position.x,
+          z: start.position.z,
+        });
+        const [eLng, eLat] = csToGeoArray({
+          x: end.position.x,
+          z: end.position.z,
+        });
+        ctx.moveTo(toCanvasX(sLng), toCanvasY(sLat));
+        ctx.lineTo(toCanvasX(eLng), toCanvasY(eLat));
+      }
+      ctx.stroke();
+    }
+
+    staticMapRef.current = offscreen;
+  }, [cityData, toCanvasX, toCanvasY]);
+
+  // ── Live drawFrame ────────────────────────────────────────────────────────────
+  // Called on every move/moveend/idle event. Stamps the pre-rendered city image
+  // then overlays the viewport rectangle. No React state touched.
   const drawFrame = useCallback(
     (vb: ViewportBounds) => {
       const canvas = canvasRef.current;
@@ -62,9 +160,13 @@ export function Minimap({
 
       ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
 
-      // Terrain background
-      ctx.fillStyle = '#f2efe9';
-      ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+      if (staticMapRef.current) {
+        ctx.drawImage(staticMapRef.current, 0, 0);
+      } else {
+        // Fallback while offscreen is not yet ready
+        ctx.fillStyle = '#f2efe9';
+        ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+      }
 
       // Viewport rect
       const rx1 = toCanvasX(vb.westLng);
@@ -81,6 +183,7 @@ export function Minimap({
     [toCanvasX, toCanvasY],
   );
 
+  // ── Subscribe to viewport changes ─────────────────────────────────────────────
   useEffect(() => {
     const initial = getInitialViewportBounds();
     if (initial) {
@@ -94,7 +197,7 @@ export function Minimap({
     return unsub;
   }, [subscribeViewport, getInitialViewportBounds, drawFrame]);
 
-  /** Converts a pointer event position to LngLat and calls navigateTo. */
+  // ── Pointer navigation ────────────────────────────────────────────────────────
   const navigateFromEvent = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
       const rect = e.currentTarget.getBoundingClientRect();

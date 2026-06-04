@@ -79,12 +79,13 @@ const mockCityData = {
   generatedAt: '2024-01-01',
   landTiles: [],
   waterTiles: [],
+  roadNodes: [],
   roadSegments: [],
   transitLines: [],
   buildings: [],
   forestCells: [],
   districts: [],
-  bounds: { minX: 0, minY: 0, maxX: 100, maxY: 100 },
+  bounds: { minX: -8640, maxX: 8640, minZ: -8640, maxZ: 8640, seaLevel: 40 },
 };
 
 function resetStore() {
@@ -160,12 +161,19 @@ describe('App — renderizado condicional', () => {
         generatedAt: '2024-01-01',
         landTiles: [],
         waterTiles: [],
+        roadNodes: [],
         roadSegments: [],
         transitLines: [],
         buildings: [],
         forestCells: [],
         districts: [],
-        bounds: { minX: 0, minY: 0, maxX: 100, maxY: 100 },
+        bounds: {
+          minX: -8640,
+          maxX: 8640,
+          minZ: -8640,
+          maxZ: 8640,
+          seaLevel: 40,
+        },
       });
     });
 
