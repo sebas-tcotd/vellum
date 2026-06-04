@@ -11,9 +11,9 @@
  * not import MapLibre. It can be unit-tested in jsdom without WebGL.
  */
 
-import type { CityData, RoadNode, WaterTile, WayType } from '@vellum/core';
+import type { CityData, RoadNode, WayType } from '@vellum/core';
 import { SEA_LEVEL_DEFAULT } from '@vellum/core';
-import { csToGeoArray, CS1_WORLD_SIZE } from './coordinate-transform';
+import { csToGeoArray, CS1_WORLD_HALF } from './coordinate-transform';
 
 // ─── GeoJSON primitives (minimal subset — avoids importing @types/geojson) ───
 
@@ -197,6 +197,28 @@ export interface TransitStopsFeatureCollection {
   features: TransitStopFeature[];
 }
 
+/** A GeoJSON Feature wrapping a terrain elevation polygon. */
+interface TerrainFeature {
+  type: 'Feature';
+  geometry: PolygonGeometry;
+  properties: TerrainFeatureProperties;
+}
+
+/**
+ * Properties attached to each terrain elevation GeoJSON feature.
+ * `elev` is normalised [0, 1]: 0 = sea level, 1 = map peak.
+ */
+export interface TerrainFeatureProperties {
+  /** Normalised elevation (0.0 = sea level, 1.0 = highest land point on this map). */
+  elev: number;
+}
+
+/** A GeoJSON FeatureCollection of terrain elevation polygons. */
+export interface TerrainFeatureCollection {
+  type: 'FeatureCollection';
+  features: TerrainFeature[];
+}
+
 // ─── Road tier / width model ──────────────────────────────────────────────────
 
 type RoadTier =
@@ -264,9 +286,6 @@ function classifyRoadTier(
   if (width >= 14) return 'local';
   return 'pedestrianWay';
 }
-
-// Water tile threshold above which we use the bounding-box approximation.
-const WATER_TILE_BBOX_THRESHOLD = 50_000;
 
 // ─── Builder functions ────────────────────────────────────────────────────────
 
@@ -475,75 +494,39 @@ export function buildDistrictsGeoJson(
 }
 
 /**
- * Builds a GeoJSON FeatureCollection of water polygons.
+ * Builds a GeoJSON FeatureCollection containing a single full-world-extent water polygon.
  *
  * @remarks
- * Renders both ocean/sea tiles (`waterTiles`, elevation ≤ sea level) and inland water
- * tiles (`landTiles` where `resolution > SEA_LEVEL_DEFAULT` — rivers and lakes).
+ * **Rendering strategy:** Water is rendered as a solid backdrop covering the entire
+ * CS1 world extent. The terrain fill layer (`buildTerrainGeoJson`) is then drawn on
+ * top, covering only actual land cells. The visual result is that water appears
+ * wherever land is absent — ocean, rivers, and lakes all naturally reveal the water
+ * layer beneath without requiring explicit tile-by-tile polygon construction.
  *
- * If combined count < 50 000: each tile becomes a small square polygon sized to one
- * grid cell (world extent / 1081 columns).
- * If combined count ≥ 50 000: returns a single bounding-box polygon derived from
- * `cityData.bounds` as a performance approximation.
+ * Inland water (LandTile.resolution > SEA_LEVEL_DEFAULT) is excluded from terrain
+ * polygons, so rivers and lakes also fall through to this water backdrop.
  *
- * Polygon corner order is CCW (geographic exterior ring) consistent with the south-up
- * rendering convention used by this renderer (see `CS1_LAT_SIGN` in coordinate-transform).
+ * Polygon winding is CCW (geographic exterior) consistent with the south-up convention
+ * (see `CS1_LAT_SIGN` in coordinate-transform).
  *
- * @param cityData - The immutable domain model produced by the CS1 parser.
  * @returns A GeoJSON FeatureCollection ready for `map.addSource()` in MapLibre.
  */
-export function buildWaterGeoJson(cityData: CityData): WaterFeatureCollection {
-  const { waterTiles, landTiles, bounds } = cityData;
-
-  const inlandTiles = landTiles.filter((t) => t.resolution > SEA_LEVEL_DEFAULT);
-  const totalCount = waterTiles.length + inlandTiles.length;
-
-  if (totalCount === 0) {
-    return { type: 'FeatureCollection', features: [] };
-  }
-
-  if (totalCount >= WATER_TILE_BBOX_THRESHOLD) {
-    // Bounding-box approximation for large cities.
-    // South-up CCW ring: SW(minX, minZ) → SE(maxX, minZ) → NE(maxX, maxZ) → NW(minX, maxZ)
-    const sw = csToGeoArray({ x: bounds.minX, z: bounds.minZ });
-    const se = csToGeoArray({ x: bounds.maxX, z: bounds.minZ });
-    const ne = csToGeoArray({ x: bounds.maxX, z: bounds.maxZ });
-    const nw = csToGeoArray({ x: bounds.minX, z: bounds.maxZ });
-    return {
-      type: 'FeatureCollection',
-      features: [
-        {
-          type: 'Feature',
-          geometry: { type: 'Polygon', coordinates: [[sw, se, ne, nw, sw]] },
-          properties: {},
-        },
-      ],
-    };
-  }
-
-  // One square polygon per tile — cell size = world extent / 1081 grid columns.
-  // South-up CCW ring: SW(x-h, z-h) → SE(x+h, z-h) → NE(x+h, z+h) → NW(x-h, z+h)
-  const cellSize = CS1_WORLD_SIZE / 1081;
-  const halfCell = cellSize / 2;
-
-  function makeTilePolygon(tile: { x: number; z: number }): WaterFeature {
-    const sw = csToGeoArray({ x: tile.x - halfCell, z: tile.z - halfCell });
-    const se = csToGeoArray({ x: tile.x + halfCell, z: tile.z - halfCell });
-    const ne = csToGeoArray({ x: tile.x + halfCell, z: tile.z + halfCell });
-    const nw = csToGeoArray({ x: tile.x - halfCell, z: tile.z + halfCell });
-    return {
-      type: 'Feature',
-      geometry: { type: 'Polygon', coordinates: [[sw, se, ne, nw, sw]] },
-      properties: {},
-    };
-  }
-
-  const features: WaterFeature[] = [
-    ...(waterTiles as WaterTile[]).map(makeTilePolygon),
-    ...inlandTiles.map(makeTilePolygon),
-  ];
-
-  return { type: 'FeatureCollection', features };
+export function buildWaterGeoJson(): WaterFeatureCollection {
+  // South-up CCW ring covering ±CS1_WORLD_HALF in both axes.
+  const sw = csToGeoArray({ x: -CS1_WORLD_HALF, z: -CS1_WORLD_HALF });
+  const se = csToGeoArray({ x: CS1_WORLD_HALF, z: -CS1_WORLD_HALF });
+  const ne = csToGeoArray({ x: CS1_WORLD_HALF, z: CS1_WORLD_HALF });
+  const nw = csToGeoArray({ x: -CS1_WORLD_HALF, z: CS1_WORLD_HALF });
+  return {
+    type: 'FeatureCollection',
+    features: [
+      {
+        type: 'Feature',
+        geometry: { type: 'Polygon', coordinates: [[sw, se, ne, nw, sw]] },
+        properties: {},
+      },
+    ],
+  };
 }
 
 /**
@@ -577,6 +560,104 @@ export function buildTransitStopsGeoJson(
         properties: { id: stop.id, mode: stop.mode, color: line.color },
       });
     }
+  }
+
+  return { type: 'FeatureCollection', features };
+}
+
+// ─── Terrain constants ────────────────────────────────────────────────────────
+
+/** CS1 terrain grid origin in world units (same as -CS1_WORLD_HALF). */
+const TERRAIN_MAP_ORIGIN = -CS1_WORLD_HALF;
+
+/** Source cell size: each terrain CSV entry covers 16 × 16 world units. */
+const TERRAIN_CELL_SIZE = 16;
+
+/**
+ * Downsampling factor for terrain GeoJSON. Every Nth tile in both axes is
+ * combined into a single polygon, keeping the feature count manageable
+ * (~8 000–18 000 land features for a typical CS1 map) while preserving
+ * enough resolution for overview rendering.
+ */
+const TERRAIN_SAMPLE_STEP = 8;
+
+/** World-unit size of each output terrain polygon (SAMPLE_STEP × source cell). */
+const TERRAIN_POLY_SIZE = TERRAIN_CELL_SIZE * TERRAIN_SAMPLE_STEP;
+
+/**
+ * Builds a GeoJSON FeatureCollection of terrain elevation polygons.
+ *
+ * @remarks
+ * Samples the `landTiles` grid at 1-in-8 resolution to balance detail vs feature
+ * count. Each output polygon covers a 128 × 128 world-unit cell and carries a
+ * normalised `elev` property (0 = sea level, 1 = map peak). MapLibre uses an
+ * `interpolate` fill-color expression to shade from `terrainLow` → `terrainMid`
+ * → `terrainHigh`.
+ *
+ * Polygon winding order is CCW (geographic exterior) consistent with the south-up
+ * rendering convention (see `CS1_LAT_SIGN` in coordinate-transform).
+ *
+ * @param cityData - The immutable domain model produced by the CS1 parser.
+ * @returns A GeoJSON FeatureCollection ready for `map.addSource()` in MapLibre.
+ */
+export function buildTerrainGeoJson(
+  cityData: CityData,
+): TerrainFeatureCollection {
+  const { landTiles, bounds } = cityData;
+  if (landTiles.length === 0) {
+    return { type: 'FeatureCollection', features: [] };
+  }
+
+  // Elevation range: anchor low end at seaLevel so the ramp starts at water's edge.
+  const minElev = bounds.seaLevel;
+  let maxElev = minElev;
+  for (const tile of landTiles) {
+    if (tile.elevation > maxElev) maxElev = tile.elevation;
+  }
+  const elevRange = maxElev - minElev || 1;
+
+  // Downsample: group tiles into TERRAIN_POLY_SIZE buckets; keep highest elevation.
+  // Skip inland water tiles (resolution > seaLevel): rivers/lakes fall through to the
+  // water backdrop below the terrain layer, rendering correctly as water.
+  const sampled = new Map<string, { bx: number; bz: number; elev: number }>();
+  for (const tile of landTiles) {
+    if (tile.resolution > SEA_LEVEL_DEFAULT) continue; // inland water — not land
+
+    // Bucket origin aligned to TERRAIN_POLY_SIZE grid starting from map origin.
+    const bx =
+      Math.floor((tile.x - TERRAIN_MAP_ORIGIN) / TERRAIN_POLY_SIZE) *
+        TERRAIN_POLY_SIZE +
+      TERRAIN_MAP_ORIGIN;
+    const bz =
+      Math.floor((tile.z - TERRAIN_MAP_ORIGIN) / TERRAIN_POLY_SIZE) *
+        TERRAIN_POLY_SIZE +
+      TERRAIN_MAP_ORIGIN;
+    const key = `${bx},${bz}`;
+    const existing = sampled.get(key);
+    if (!existing || tile.elevation > existing.elev) {
+      sampled.set(key, { bx, bz, elev: tile.elevation });
+    }
+  }
+
+  // Build one polygon per bucket. CCW south-up ring: SW(bx,bz) → SE → NE → NW → close.
+  const features: TerrainFeature[] = [];
+  for (const { bx, bz, elev } of sampled.values()) {
+    const normalizedElev = Math.max(
+      0,
+      Math.min(1, (elev - minElev) / elevRange),
+    );
+    const sw = csToGeoArray({ x: bx, z: bz });
+    const se = csToGeoArray({ x: bx + TERRAIN_POLY_SIZE, z: bz });
+    const ne = csToGeoArray({
+      x: bx + TERRAIN_POLY_SIZE,
+      z: bz + TERRAIN_POLY_SIZE,
+    });
+    const nw = csToGeoArray({ x: bx, z: bz + TERRAIN_POLY_SIZE });
+    features.push({
+      type: 'Feature',
+      geometry: { type: 'Polygon', coordinates: [[sw, se, ne, nw, sw]] },
+      properties: { elev: normalizedElev },
+    });
   }
 
   return { type: 'FeatureCollection', features };

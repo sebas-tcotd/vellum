@@ -97,6 +97,7 @@ describe('MapLibreRenderer', () => {
     const sourceCalls = (mockMap.addSource as Mock).mock.calls.map(
       (call: unknown[]) => call[0],
     );
+    expect(sourceCalls).toContain('terrain');
     expect(sourceCalls).toContain('water');
     expect(sourceCalls).toContain('roads');
     expect(sourceCalls).toContain('transit');
@@ -104,8 +105,8 @@ describe('MapLibreRenderer', () => {
     expect(sourceCalls).toContain('buildings');
     expect(sourceCalls).toContain('forests');
     expect(sourceCalls).toContain('districts');
-    // 7 named sources (background is handled as a style layer, not a geojson source)
-    expect(mockMap.addSource).toHaveBeenCalledTimes(7);
+    // 8 named sources (background is handled as a style layer, not a geojson source)
+    expect(mockMap.addSource).toHaveBeenCalledTimes(8);
   });
 
   it('calls addLayer for each visible layer on first render', async () => {
@@ -116,6 +117,7 @@ describe('MapLibreRenderer', () => {
     const layerIds = (mockMap.addLayer as Mock).mock.calls.map(
       (call: unknown[]) => (call[0] as { id: string }).id,
     );
+    expect(layerIds).toContain('terrain-fill');
     expect(layerIds).toContain('water-fill');
     expect(layerIds).toContain('roads-casing');
     expect(layerIds).toContain('roads-fill');
@@ -185,16 +187,18 @@ describe('MapLibreRenderer', () => {
     );
   });
 
-  it('setLayerVisibility for terrain calls setPaintProperty on background layer', async () => {
+  it('setLayerVisibility for terrain controls the terrain-fill layer', async () => {
     const renderer = makeRenderer();
     await renderer.render(makeCityData(), { activeLayers: ALL_LAYERS_VISIBLE });
+    mockMap.getLayer.mockReturnValue({ id: 'any' } as unknown as undefined);
     vi.clearAllMocks();
+    mockMap.getLayer.mockReturnValue({ id: 'any' } as unknown as undefined);
+    mockMap.isStyleLoaded.mockReturnValue(true);
     renderer.setLayerVisibility('terrain', false);
-    expect(mockMap.setLayoutProperty).not.toHaveBeenCalled();
-    expect(mockMap.setPaintProperty).toHaveBeenCalledWith(
-      'background',
-      'background-opacity',
-      0,
+    expect(mockMap.setLayoutProperty).toHaveBeenCalledWith(
+      'terrain-fill',
+      'visibility',
+      'none',
     );
   });
 

@@ -31,6 +31,7 @@ import {
   buildForestsGeoJson,
   buildDistrictsGeoJson,
   buildWaterGeoJson,
+  buildTerrainGeoJson,
 } from './geojson-builder';
 import { csToGeoArray } from './coordinate-transform';
 
@@ -42,7 +43,7 @@ import { csToGeoArray } from './coordinate-transform';
  * separate layer, so its array is empty.
  */
 const LAYER_ID_MAP: Record<LayerName, string[]> = {
-  terrain: [],
+  terrain: ['terrain-fill'],
   water: ['water-fill'],
   roads: ['roads-casing', 'roads-fill'],
   transit: ['transit-line', 'transit-stops'],
@@ -278,15 +279,6 @@ export class MapLibreRenderer implements IRenderer {
     // render() — which also waits for load — always fires before real visibility changes.
     if (!this.map.isStyleLoaded()) return;
 
-    if (layer === 'terrain') {
-      // Background layers don't support layout 'visibility'; use paint opacity instead.
-      this.map.setPaintProperty(
-        'background',
-        'background-opacity',
-        visible ? 1 : 0,
-      );
-      return;
-    }
     const ids = LAYER_ID_MAP[layer];
     for (const id of ids) {
       if (!this.map.getLayer(id)) continue;
@@ -307,7 +299,10 @@ export class MapLibreRenderer implements IRenderer {
   // ─── Private helpers ────────────────────────────────────────────────────────
 
   private addSourcesAndLayers(cityData: CityData): void {
+    // Layer order (bottom → top): water · terrain · roads · transit · buildings · forests · districts.
+    // Water is a full-world backdrop; terrain polygons paint over it only where land exists.
     this.addWaterLayer(cityData);
+    this.addTerrainLayer(cityData);
     this.addRoadsLayer(cityData);
     this.addTransitLayer(cityData);
     this.addTransitStopsLayer(cityData);
@@ -331,10 +326,41 @@ export class MapLibreRenderer implements IRenderer {
     }
   }
 
-  private addWaterLayer(cityData: CityData): void {
+  private addTerrainLayer(cityData: CityData): void {
+    this.addSourceIfAbsent('terrain', {
+      type: 'geojson',
+      data: buildTerrainGeoJson(cityData),
+    });
+    if (!this.map.getLayer('terrain-fill')) {
+      // No beforeId: terrain is added to the top of the current stack (above water-fill).
+      // Roads, transit, buildings, etc. are added after and land on top of terrain.
+      this.map.addLayer({
+        id: 'terrain-fill',
+        type: 'fill',
+        source: 'terrain',
+        paint: {
+          'fill-color': [
+            'interpolate',
+            ['linear'],
+            ['get', 'elev'],
+            0,
+            this.tokens.terrainLow,
+            0.5,
+            this.tokens.terrainMid,
+            1.0,
+            this.tokens.terrainHigh,
+          ] as unknown as maplibregl.ExpressionSpecification,
+          'fill-opacity': 1,
+          'fill-antialias': false,
+        },
+      });
+    }
+  }
+
+  private addWaterLayer(_cityData: CityData): void {
     this.addSourceIfAbsent('water', {
       type: 'geojson',
-      data: buildWaterGeoJson(cityData),
+      data: buildWaterGeoJson(), // full-world-extent polygon; terrain renders on top as land mask
     });
     if (!this.map.getLayer('water-fill')) {
       this.map.addLayer({
