@@ -190,16 +190,25 @@ describe('MapLibreRenderer', () => {
   it('setLayerVisibility for terrain controls the terrain-fill layer', async () => {
     const renderer = makeRenderer();
     await renderer.render(makeCityData(), { activeLayers: ALL_LAYERS_VISIBLE });
+    // Simulate layers existing so setLayoutProperty is reached
     mockMap.getLayer.mockReturnValue({ id: 'any' } as unknown as undefined);
     vi.clearAllMocks();
     mockMap.getLayer.mockReturnValue({ id: 'any' } as unknown as undefined);
-    mockMap.isStyleLoaded.mockReturnValue(true);
     renderer.setLayerVisibility('terrain', false);
     expect(mockMap.setLayoutProperty).toHaveBeenCalledWith(
       'terrain-fill',
       'visibility',
       'none',
     );
+  });
+
+  it('setLayerVisibility is a safe no-op when layers do not exist yet', () => {
+    const renderer = makeRenderer();
+    // No render() call — layers never added, getLayer returns undefined
+    mockMap.getLayer.mockReturnValue(undefined);
+    // Should not throw
+    expect(() => renderer.setLayerVisibility('roads', false)).not.toThrow();
+    expect(mockMap.setLayoutProperty).not.toHaveBeenCalled();
   });
 
   it('updateViewport() is a no-op and does not throw', () => {

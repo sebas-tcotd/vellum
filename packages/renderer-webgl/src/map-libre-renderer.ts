@@ -274,11 +274,11 @@ export class MapLibreRenderer implements IRenderer {
    * @param visible - `true` to show, `false` to hide.
    */
   setLayerVisibility(layer: LayerName, visible: boolean): void {
-    // Guard: MapLibre throws "Style is not done loading" if any paint/layout property
-    // is mutated before the style finishes its async load. No-op here is safe because
-    // render() — which also waits for load — always fires before real visibility changes.
-    if (!this.map.isStyleLoaded()) return;
-
+    // No isStyleLoaded() guard: that check was too aggressive — MapLibre temporarily
+    // returns false while processing newly-added sources/layers after render(), causing
+    // the first several layer toggles to be silently dropped.
+    // Safety is provided by `if (!this.map.getLayer(id)) continue` below, which skips
+    // any layer that doesn't exist yet (e.g. if setLayerVisibility is called before render).
     const ids = LAYER_ID_MAP[layer];
     for (const id of ids) {
       if (!this.map.getLayer(id)) continue;
