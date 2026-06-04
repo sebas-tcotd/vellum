@@ -82,5 +82,17 @@
     "layerPanel": "Panel de control de capas",
     "layerPanelCollapse": "Colapsar panel",
     "layerPanelExpand": "Expandir panel"
+  },
+  "transitModes": {
+    "Bus": "Bús",
+    "Tram": "Tranvía",
+    "Train": "Tren",
+    "Metro": "Metro",
+    "CableCar": "Teleférico",
+    "Monorail": "Monorriel",
+    "Ferry": "Ferry",
+    "Blimp": "Dirigible",
+    "Trolleybus": "Trolebús",
+    "Unknown": ""
   }
 }

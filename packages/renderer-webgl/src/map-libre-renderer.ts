@@ -15,28 +15,31 @@
  * the Mercator distortion at zero (scale factor = 1.0 at the equator).
  */
 
-import maplibregl from 'maplibre-gl';
 import type {
-  IRenderer,
   CityData,
-  RenderParams,
+  IRenderer,
   LayerName,
+  RenderParams,
+  TransitMode,
 } from '@vellum/core';
-import type { RendererTokens } from './tokens';
+import maplibregl from 'maplibre-gl';
+import { csToGeoArray } from './coordinate-transform';
+import type { TransitStopFeatureProperties } from './geojson-builder';
 import {
+  buildBuildingsGeoJson,
+  buildDistrictsGeoJson,
+  buildForestsGeoJson,
   buildRoadsGeoJson,
+  buildTerrainGeoJson,
   buildTransitGeoJson,
   buildTransitStopsGeoJson,
-  buildBuildingsGeoJson,
-  buildForestsGeoJson,
-  buildDistrictsGeoJson,
   buildWaterGeoJson,
-  buildTerrainGeoJson,
 } from './geojson-builder';
-import type { TransitStopFeatureProperties } from './geojson-builder';
-import { csToGeoArray } from './coordinate-transform';
+import type { RendererTokens } from './tokens';
 
 // ─── Hover tooltip types ──────────────────────────────────────────────────────
+
+type TransitLineInfo = { name: string; color: string; mode: TransitMode };
 
 /** Info emitted by the hover subscription when the cursor enters a transit-stop feature. */
 export interface TooltipInfo {
@@ -48,7 +51,7 @@ export interface TooltipInfo {
    * All transit lines serving the hovered stop (or cluster of stops).
    * Note: individual stops have no name in the .cslmap — only lines have names.
    */
-  lines: Array<{ name: string; color: string; mode: string }>;
+  lines: TransitLineInfo[];
 }
 
 // ─── Layer ID mapping ─────────────────────────────────────────────────────────
@@ -421,16 +424,12 @@ export class MapLibreRenderer implements IRenderer {
       if (nearby.length === 0) return;
 
       const linesSeen = new Set<string>();
-      const allLines: Array<{ name: string; color: string; mode: string }> = [];
+      const allLines: Array<TransitLineInfo> = [];
 
       for (const feature of nearby) {
         if (!feature.properties) continue;
         const props = feature.properties as TransitStopFeatureProperties;
-        const parsed = JSON.parse(props.lines) as Array<{
-          name: string;
-          color: string;
-          mode: string;
-        }>;
+        const parsed = JSON.parse(props.lines) as Array<TransitLineInfo>;
         for (const line of parsed) {
           const key = `${line.name}:${line.color}`;
           if (!linesSeen.has(key)) {

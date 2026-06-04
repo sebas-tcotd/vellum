@@ -1,5 +1,6 @@
 import type React from 'react';
 import type { TooltipInfo } from '@vellum/renderer-webgl';
+import { useTranslation } from 'react-i18next';
 
 /** Props for the `MapTooltip` component. */
 export interface MapTooltipProps {
@@ -45,6 +46,7 @@ export function MapTooltip({
   containerWidth,
   containerHeight,
 }: MapTooltipProps) {
+  const { t } = useTranslation();
   if (!info) return null;
   const style = computeStyle(
     info.screenX,
@@ -58,19 +60,33 @@ export function MapTooltip({
       className="bg-neutral-900/95 text-white rounded-md shadow-lg px-3 py-2 text-sm min-w-28 max-w-52"
     >
       <ul className="flex flex-col gap-1">
-        {info.lines.map((line) => (
-          <li
-            key={`${line.name}:${line.color}`}
-            className="flex items-center gap-1.5"
-          >
-            <span
-              aria-hidden="true"
-              className="w-2 h-2 rounded-full shrink-0"
-              style={{ backgroundColor: line.color }}
-            />
-            <span className="text-xs opacity-90 truncate">{line.name}</span>
-          </li>
-        ))}
+        {info.lines.map((line) => {
+          const modeLabel = t(`transitModes.${line.mode}`, {
+            defaultValue: '',
+          });
+
+          return (
+            <li
+              key={`${line.name}:${line.color}`}
+              className="flex items-center gap-1.5"
+            >
+              <span
+                aria-hidden="true"
+                className="w-2 h-2 rounded-full shrink-0"
+                style={{ backgroundColor: line.color }}
+              />
+              <span className="text-xs opacity-90 truncate flex-1">
+                {line.name}
+              </span>
+
+              {modeLabel ? (
+                <span className="text-xs opacity-50 italic shrink-0 ml-2">
+                  {modeLabel}
+                </span>
+              ) : null}
+            </li>
+          );
+        })}
       </ul>
     </div>
   );
