@@ -43,29 +43,29 @@ describe('coordinate-transform constants', () => {
   });
 });
 
-// ─── AC-TRANSFORM-001: Z-axis inversion ───────────────────────────────────────
+// ─── AC-TRANSFORM-001: Z-axis south-up orientation ───────────────────────────
 
-describe('AC-TRANSFORM-001 — Z-axis inversion (south/north)', () => {
-  it('positive worldZ (south in CS1) maps to negative latitude', () => {
+describe('AC-TRANSFORM-001 — Z-axis south-up orientation (CS1_LAT_SIGN = +1)', () => {
+  it('positive worldZ (south in CS1) maps to positive latitude (top of south-up map)', () => {
     const result = csToGeo({ x: 0, z: 8640 });
-    expect(result.lat).toBeLessThan(0);
-    expect(result.lng).toBe(0);
-  });
-
-  it('negative worldZ (north in CS1) maps to positive latitude', () => {
-    const result = csToGeo({ x: 0, z: -8640 });
     expect(result.lat).toBeGreaterThan(0);
     expect(result.lng).toBe(0);
   });
 
-  it('south corner maps to south pole of bounding box', () => {
-    const result = csToGeo({ x: 0, z: CS1_WORLD_HALF });
-    expectClose(result.lat, -CS1_HALF_EXTENT_DEG);
+  it('negative worldZ (north in CS1) maps to negative latitude (bottom of south-up map)', () => {
+    const result = csToGeo({ x: 0, z: -8640 });
+    expect(result.lat).toBeLessThan(0);
+    expect(result.lng).toBe(0);
   });
 
-  it('north corner maps to north pole of bounding box', () => {
-    const result = csToGeo({ x: 0, z: -CS1_WORLD_HALF });
+  it('CS1 south corner maps to positive-latitude pole of bounding box', () => {
+    const result = csToGeo({ x: 0, z: CS1_WORLD_HALF });
     expectClose(result.lat, +CS1_HALF_EXTENT_DEG);
+  });
+
+  it('CS1 north corner maps to negative-latitude pole of bounding box', () => {
+    const result = csToGeo({ x: 0, z: -CS1_WORLD_HALF });
+    expectClose(result.lat, -CS1_HALF_EXTENT_DEG);
   });
 });
 
@@ -102,28 +102,28 @@ describe('corner mappings', () => {
     expectClose(result.lat, 0); // same −0 guard
   });
 
-  it('NE corner {x:+8640, z:-8640} maps to {lng:+H, lat:+H}', () => {
+  it('CS1 NE corner {x:+8640, z:-8640} maps to {lng:+H, lat:-H} (north → neg lat in south-up)', () => {
     const result = csToGeo({ x: CS1_WORLD_HALF, z: -CS1_WORLD_HALF });
     expectClose(result.lng, +CS1_HALF_EXTENT_DEG);
-    expectClose(result.lat, +CS1_HALF_EXTENT_DEG);
+    expectClose(result.lat, -CS1_HALF_EXTENT_DEG);
   });
 
-  it('SE corner {x:+8640, z:+8640} maps to {lng:+H, lat:-H}', () => {
+  it('CS1 SE corner {x:+8640, z:+8640} maps to {lng:+H, lat:+H} (south → pos lat in south-up)', () => {
     const result = csToGeo({ x: CS1_WORLD_HALF, z: CS1_WORLD_HALF });
     expectClose(result.lng, +CS1_HALF_EXTENT_DEG);
-    expectClose(result.lat, -CS1_HALF_EXTENT_DEG);
+    expectClose(result.lat, +CS1_HALF_EXTENT_DEG);
   });
 
-  it('SW corner {x:-8640, z:+8640} maps to {lng:-H, lat:-H}', () => {
+  it('CS1 SW corner {x:-8640, z:+8640} maps to {lng:-H, lat:+H}', () => {
     const result = csToGeo({ x: -CS1_WORLD_HALF, z: CS1_WORLD_HALF });
     expectClose(result.lng, -CS1_HALF_EXTENT_DEG);
-    expectClose(result.lat, -CS1_HALF_EXTENT_DEG);
+    expectClose(result.lat, +CS1_HALF_EXTENT_DEG);
   });
 
-  it('NW corner {x:-8640, z:-8640} maps to {lng:-H, lat:+H}', () => {
+  it('CS1 NW corner {x:-8640, z:-8640} maps to {lng:-H, lat:-H}', () => {
     const result = csToGeo({ x: -CS1_WORLD_HALF, z: -CS1_WORLD_HALF });
     expectClose(result.lng, -CS1_HALF_EXTENT_DEG);
-    expectClose(result.lat, +CS1_HALF_EXTENT_DEG);
+    expectClose(result.lat, -CS1_HALF_EXTENT_DEG);
   });
 });
 
@@ -157,9 +157,9 @@ describe('round-trip fidelity (epsilon < 1e-9)', () => {
 describe('csToGeoArray — GeoJSON [lng, lat] order', () => {
   it('returns [longitude, latitude] tuple per RFC 7946', () => {
     const [lng, lat] = csToGeoArray({ x: CS1_WORLD_HALF, z: -CS1_WORLD_HALF });
-    // NE corner: east (+lng) and north (+lat)
+    // CS1 NE corner: east (+lng), CS1-north → negative lat in south-up convention
     expect(lng).toBeGreaterThan(0);
-    expect(lat).toBeGreaterThan(0);
+    expect(lat).toBeLessThan(0);
   });
 
   it('first element is longitude (east-west), second is latitude (north-south)', () => {

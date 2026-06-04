@@ -26,6 +26,7 @@ import type { RendererTokens } from './tokens';
 import {
   buildRoadsGeoJson,
   buildTransitGeoJson,
+  buildTransitStopsGeoJson,
   buildBuildingsGeoJson,
   buildForestsGeoJson,
   buildDistrictsGeoJson,
@@ -44,7 +45,7 @@ const LAYER_ID_MAP: Record<LayerName, string[]> = {
   terrain: [],
   water: ['water-fill'],
   roads: ['roads-casing', 'roads-fill'],
-  transit: ['transit-line'],
+  transit: ['transit-line', 'transit-stops'],
   buildings: ['buildings-fill', 'buildings-outline'],
   forests: ['forests-circles'],
   districts: ['districts-points'],
@@ -272,6 +273,20 @@ export class MapLibreRenderer implements IRenderer {
    * @param visible - `true` to show, `false` to hide.
    */
   setLayerVisibility(layer: LayerName, visible: boolean): void {
+    // Guard: MapLibre throws "Style is not done loading" if any paint/layout property
+    // is mutated before the style finishes its async load. No-op here is safe because
+    // render() — which also waits for load — always fires before real visibility changes.
+    if (!this.map.isStyleLoaded()) return;
+
+    if (layer === 'terrain') {
+      // Background layers don't support layout 'visibility'; use paint opacity instead.
+      this.map.setPaintProperty(
+        'background',
+        'background-opacity',
+        visible ? 1 : 0,
+      );
+      return;
+    }
     const ids = LAYER_ID_MAP[layer];
     for (const id of ids) {
       if (!this.map.getLayer(id)) continue;
@@ -295,6 +310,7 @@ export class MapLibreRenderer implements IRenderer {
     this.addWaterLayer(cityData);
     this.addRoadsLayer(cityData);
     this.addTransitLayer(cityData);
+    this.addTransitStopsLayer(cityData);
     this.addBuildingsLayer(cityData);
     this.addForestsLayer(cityData);
     this.addDistrictsLayer(cityData);
@@ -386,6 +402,29 @@ export class MapLibreRenderer implements IRenderer {
     }
   }
 
+  private addTransitStopsLayer(cityData: CityData): void {
+    this.addSourceIfAbsent('transit-stops', {
+      type: 'geojson',
+      data: buildTransitStopsGeoJson(cityData),
+    });
+    if (!this.map.getLayer('transit-stops')) {
+      this.map.addLayer({
+        id: 'transit-stops',
+        type: 'circle',
+        source: 'transit-stops',
+        paint: {
+          'circle-color': [
+            'get',
+            'color',
+          ] as unknown as maplibregl.ExpressionSpecification,
+          'circle-radius': 4,
+          'circle-stroke-color': '#ffffff',
+          'circle-stroke-width': 1.5,
+        },
+      });
+    }
+  }
+
   private addBuildingsLayer(cityData: CityData): void {
     this.addSourceIfAbsent('buildings', {
       type: 'geojson',
@@ -472,8 +511,9 @@ export class MapLibreRenderer implements IRenderer {
 
   private fitToCityBounds(cityData: CityData): void {
     const { bounds } = cityData;
-    const [swLng, swLat] = csToGeoArray({ x: bounds.minX, z: bounds.maxZ });
-    const [neLng, neLat] = csToGeoArray({ x: bounds.maxX, z: bounds.minZ });
+    // South-up: CS1 minZ (north) → small lat → geographic SW; maxZ (south) → large lat → geographic NE.
+    const [swLng, swLat] = csToGeoArray({ x: bounds.minX, z: bounds.minZ });
+    const [neLng, neLat] = csToGeoArray({ x: bounds.maxX, z: bounds.maxZ });
     this.map.fitBounds(
       [
         [swLng, swLat],

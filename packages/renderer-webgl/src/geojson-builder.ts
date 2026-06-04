@@ -12,6 +12,7 @@
  */
 
 import type { CityData, RoadNode, WaterTile, WayType } from '@vellum/core';
+import { SEA_LEVEL_DEFAULT } from '@vellum/core';
 import { csToGeoArray, CS1_WORLD_SIZE } from './coordinate-transform';
 
 // ─── GeoJSON primitives (minimal subset — avoids importing @types/geojson) ───
@@ -74,6 +75,13 @@ interface WaterFeature {
   type: 'Feature';
   geometry: PolygonGeometry;
   properties: Record<string, never>;
+}
+
+/** A GeoJSON Feature wrapping a transit stop point. */
+interface TransitStopFeature {
+  type: 'Feature';
+  geometry: PointGeometry;
+  properties: TransitStopFeatureProperties;
 }
 
 /**
@@ -169,6 +177,24 @@ export interface DistrictsFeatureCollection {
 export interface WaterFeatureCollection {
   type: 'FeatureCollection';
   features: WaterFeature[];
+}
+
+/**
+ * Properties attached to each transit stop GeoJSON feature.
+ */
+export interface TransitStopFeatureProperties {
+  /** The stop's unique CS1 identifier. */
+  id: string;
+  /** Transportation mode (Bus, Tram, Train, etc.). */
+  mode: string;
+  /** Hexadecimal color string of the first transit line that services this stop. */
+  color: string;
+}
+
+/** A GeoJSON FeatureCollection of transit stop points. */
+export interface TransitStopsFeatureCollection {
+  type: 'FeatureCollection';
+  features: TransitStopFeature[];
 }
 
 // ─── Road tier / width model ──────────────────────────────────────────────────
@@ -333,8 +359,6 @@ export function buildTransitGeoJson(
   const features: TransitFeature[] = [];
 
   for (const line of cityData.transitLines) {
-    const allCoords: [number, number][] = [];
-
     for (const pathSeg of line.route) {
       for (const segId of pathSeg.segmentIds) {
         const seg = segById.get(segId);
@@ -344,22 +368,21 @@ export function buildTransitGeoJson(
         const endNode = nodeById.get(seg.endNodeId);
         if (startNode === undefined || endNode === undefined) continue;
 
+        // One Feature per road segment: avoids diagonal artifacts that appear when
+        // consecutive segments share no common node and coords are merged into one LineString.
         const coords: [number, number][] = [
           csToGeoArray(startNode.position),
           ...seg.points.map((p) => csToGeoArray(p)),
           csToGeoArray(endNode.position),
         ];
-        allCoords.push(...coords);
+
+        features.push({
+          type: 'Feature',
+          geometry: { type: 'LineString', coordinates: coords },
+          properties: { id: line.id, color: line.color, mode: line.mode },
+        });
       }
     }
-
-    if (allCoords.length < 2) continue;
-
-    features.push({
-      type: 'Feature',
-      geometry: { type: 'LineString', coordinates: allCoords },
-      properties: { id: line.id, color: line.color, mode: line.mode },
-    });
   }
 
   return { type: 'FeatureCollection', features };
@@ -455,56 +478,106 @@ export function buildDistrictsGeoJson(
  * Builds a GeoJSON FeatureCollection of water polygons.
  *
  * @remarks
- * If `waterTiles.length < 50 000`: each tile becomes a small square polygon
- * sized to one grid cell (world extent / 1081 columns).
- * If `waterTiles.length ≥ 50 000`: returns a single bounding-box polygon
- * derived from `cityData.bounds` as a performance approximation.
+ * Renders both ocean/sea tiles (`waterTiles`, elevation ≤ sea level) and inland water
+ * tiles (`landTiles` where `resolution > SEA_LEVEL_DEFAULT` — rivers and lakes).
+ *
+ * If combined count < 50 000: each tile becomes a small square polygon sized to one
+ * grid cell (world extent / 1081 columns).
+ * If combined count ≥ 50 000: returns a single bounding-box polygon derived from
+ * `cityData.bounds` as a performance approximation.
+ *
+ * Polygon corner order is CCW (geographic exterior ring) consistent with the south-up
+ * rendering convention used by this renderer (see `CS1_LAT_SIGN` in coordinate-transform).
  *
  * @param cityData - The immutable domain model produced by the CS1 parser.
  * @returns A GeoJSON FeatureCollection ready for `map.addSource()` in MapLibre.
  */
 export function buildWaterGeoJson(cityData: CityData): WaterFeatureCollection {
-  const { waterTiles, bounds } = cityData;
+  const { waterTiles, landTiles, bounds } = cityData;
 
-  if (waterTiles.length >= WATER_TILE_BBOX_THRESHOLD) {
-    // Bounding-box approximation for large cities
-    const sw = csToGeoArray({ x: bounds.minX, z: bounds.maxZ });
-    const se = csToGeoArray({ x: bounds.maxX, z: bounds.maxZ });
-    const ne = csToGeoArray({ x: bounds.maxX, z: bounds.minZ });
-    const nw = csToGeoArray({ x: bounds.minX, z: bounds.minZ });
+  const inlandTiles = landTiles.filter((t) => t.resolution > SEA_LEVEL_DEFAULT);
+  const totalCount = waterTiles.length + inlandTiles.length;
+
+  if (totalCount === 0) {
+    return { type: 'FeatureCollection', features: [] };
+  }
+
+  if (totalCount >= WATER_TILE_BBOX_THRESHOLD) {
+    // Bounding-box approximation for large cities.
+    // South-up CCW ring: SW(minX, minZ) → SE(maxX, minZ) → NE(maxX, maxZ) → NW(minX, maxZ)
+    const sw = csToGeoArray({ x: bounds.minX, z: bounds.minZ });
+    const se = csToGeoArray({ x: bounds.maxX, z: bounds.minZ });
+    const ne = csToGeoArray({ x: bounds.maxX, z: bounds.maxZ });
+    const nw = csToGeoArray({ x: bounds.minX, z: bounds.maxZ });
     return {
       type: 'FeatureCollection',
       features: [
         {
           type: 'Feature',
-          geometry: {
-            type: 'Polygon',
-            coordinates: [[sw, se, ne, nw, sw]],
-          },
+          geometry: { type: 'Polygon', coordinates: [[sw, se, ne, nw, sw]] },
           properties: {},
         },
       ],
     };
   }
 
-  // One square polygon per tile — cell size = world extent / 1081 grid columns
+  // One square polygon per tile — cell size = world extent / 1081 grid columns.
+  // South-up CCW ring: SW(x-h, z-h) → SE(x+h, z-h) → NE(x+h, z+h) → NW(x-h, z+h)
   const cellSize = CS1_WORLD_SIZE / 1081;
   const halfCell = cellSize / 2;
 
-  const features: WaterFeature[] = waterTiles.map((tile: WaterTile) => {
-    const sw = csToGeoArray({ x: tile.x - halfCell, z: tile.z + halfCell });
-    const se = csToGeoArray({ x: tile.x + halfCell, z: tile.z + halfCell });
-    const ne = csToGeoArray({ x: tile.x + halfCell, z: tile.z - halfCell });
-    const nw = csToGeoArray({ x: tile.x - halfCell, z: tile.z - halfCell });
+  function makeTilePolygon(tile: { x: number; z: number }): WaterFeature {
+    const sw = csToGeoArray({ x: tile.x - halfCell, z: tile.z - halfCell });
+    const se = csToGeoArray({ x: tile.x + halfCell, z: tile.z - halfCell });
+    const ne = csToGeoArray({ x: tile.x + halfCell, z: tile.z + halfCell });
+    const nw = csToGeoArray({ x: tile.x - halfCell, z: tile.z + halfCell });
     return {
       type: 'Feature',
-      geometry: {
-        type: 'Polygon',
-        coordinates: [[sw, se, ne, nw, sw]],
-      },
+      geometry: { type: 'Polygon', coordinates: [[sw, se, ne, nw, sw]] },
       properties: {},
     };
-  });
+  }
+
+  const features: WaterFeature[] = [
+    ...(waterTiles as WaterTile[]).map(makeTilePolygon),
+    ...inlandTiles.map(makeTilePolygon),
+  ];
+
+  return { type: 'FeatureCollection', features };
+}
+
+/**
+ * Builds a GeoJSON FeatureCollection of transit stop points.
+ *
+ * @remarks
+ * Each unique stop (deduplicated by `id`) becomes a `Point` feature. When a stop
+ * is served by multiple lines, the color of the first line encountered is used.
+ * Rendered as circles in MapLibre; shape-per-mode differentiation is deferred to a
+ * later story using symbol layers.
+ *
+ * @param cityData - The immutable domain model produced by the CS1 parser.
+ * @returns A GeoJSON FeatureCollection ready for `map.addSource()` in MapLibre.
+ */
+export function buildTransitStopsGeoJson(
+  cityData: CityData,
+): TransitStopsFeatureCollection {
+  const seen = new Set<string>();
+  const features: TransitStopFeature[] = [];
+
+  for (const line of cityData.transitLines) {
+    for (const stop of line.stops) {
+      if (seen.has(stop.id)) continue;
+      seen.add(stop.id);
+      features.push({
+        type: 'Feature',
+        geometry: {
+          type: 'Point',
+          coordinates: csToGeoArray(stop.position),
+        },
+        properties: { id: stop.id, mode: stop.mode, color: line.color },
+      });
+    }
+  }
 
   return { type: 'FeatureCollection', features };
 }

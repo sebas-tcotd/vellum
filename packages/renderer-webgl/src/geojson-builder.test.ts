@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   buildRoadsGeoJson,
   buildTransitGeoJson,
+  buildTransitStopsGeoJson,
   buildBuildingsGeoJson,
   buildForestsGeoJson,
   buildDistrictsGeoJson,
@@ -15,9 +16,12 @@ import type {
   Building,
   ForestCell,
   District,
+  LandTile,
   WaterTile,
   TransitLine,
+  TransitStop,
 } from '@vellum/core';
+import { SEA_LEVEL_DEFAULT } from '@vellum/core';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -287,5 +291,112 @@ describe('buildWaterGeoJson', () => {
     const city = makeCityData({ waterTiles: [] });
     const fc = buildWaterGeoJson(city);
     expect(fc.features).toHaveLength(0);
+  });
+
+  it('includes inland water tiles (LandTile.resolution > SEA_LEVEL_DEFAULT)', () => {
+    const oceanTile: WaterTile = { x: 0, z: 0, depth: 1 };
+    const inlandTile: LandTile = {
+      x: 200,
+      z: 200,
+      elevation: 50,
+      resolution: SEA_LEVEL_DEFAULT + 1,
+    };
+    const dryTile: LandTile = {
+      x: 400,
+      z: 400,
+      elevation: 80,
+      resolution: 0,
+    };
+    const city = makeCityData({
+      waterTiles: [oceanTile],
+      landTiles: [inlandTile, dryTile],
+    });
+    const fc = buildWaterGeoJson(city);
+    // Ocean tile + inland tile only; dry tile excluded
+    expect(fc.features).toHaveLength(2);
+  });
+});
+
+// ─── buildTransitStopsGeoJson ─────────────────────────────────────────────────
+
+describe('buildTransitStopsGeoJson', () => {
+  it('returns empty collection when no transit lines', () => {
+    const city = makeCityData({ transitLines: [] });
+    const fc = buildTransitStopsGeoJson(city);
+    expect(fc.features).toHaveLength(0);
+  });
+
+  it('produces one Point feature per unique stop', () => {
+    const stop: TransitStop = {
+      id: 'stop-1',
+      name: 'Main St',
+      mode: 'Bus',
+      position: { x: 100, y: 0, z: 200 },
+    };
+    const line: TransitLine = {
+      id: 'L1',
+      name: 'Bus 1',
+      mode: 'Bus',
+      color: '#FF6600',
+      stops: [stop],
+      route: [],
+    };
+    const city = makeCityData({ transitLines: [line] });
+    const fc = buildTransitStopsGeoJson(city);
+    expect(fc.features).toHaveLength(1);
+    expect(fc.features[0].geometry.type).toBe('Point');
+    expect(fc.features[0].properties.id).toBe('stop-1');
+    expect(fc.features[0].properties.color).toBe('#FF6600');
+    expect(fc.features[0].properties.mode).toBe('Bus');
+  });
+
+  it('deduplicates stops shared by multiple lines', () => {
+    const stop: TransitStop = {
+      id: 'shared-stop',
+      name: 'Transfer Hub',
+      mode: 'Bus',
+      position: { x: 0, y: 0, z: 0 },
+    };
+    const line1: TransitLine = {
+      id: 'L1',
+      name: 'Bus 1',
+      mode: 'Bus',
+      color: '#FF0000',
+      stops: [stop],
+      route: [],
+    };
+    const line2: TransitLine = {
+      id: 'L2',
+      name: 'Bus 2',
+      mode: 'Bus',
+      color: '#0000FF',
+      stops: [stop],
+      route: [],
+    };
+    const city = makeCityData({ transitLines: [line1, line2] });
+    const fc = buildTransitStopsGeoJson(city);
+    expect(fc.features).toHaveLength(1);
+  });
+
+  it('produces coordinates in geographic range', () => {
+    const stop: TransitStop = {
+      id: 's1',
+      name: 'Edge Stop',
+      mode: 'Train',
+      position: { x: 8000, y: 0, z: -8000 },
+    };
+    const line: TransitLine = {
+      id: 'L1',
+      name: 'Train',
+      mode: 'Train',
+      color: '#333333',
+      stops: [stop],
+      route: [],
+    };
+    const city = makeCityData({ transitLines: [line] });
+    const fc = buildTransitStopsGeoJson(city);
+    const [lng, lat] = fc.features[0].geometry.coordinates;
+    expect(inGeoRange(lng)).toBe(true);
+    expect(inGeoRange(lat)).toBe(true);
   });
 });

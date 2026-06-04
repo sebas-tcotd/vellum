@@ -10,11 +10,14 @@
  * is exactly 1.0, so there is zero Mercator distortion regardless of the longitude extent
  * chosen. This gives us pixel-perfect proportional rendering inside MapLibre.
  *
- * **⚠ Axis inversion — read carefully:**
+ * **⚠ Rendering orientation — read carefully:**
  * In CS1, the Z-axis grows *southward* (positive Z = south).
- * In geography, latitude grows *northward* (positive lat = north).
- * Therefore: `latitude = -(worldZ / WORLD_HALF) * CS1_HALF_EXTENT_DEG`
- * The negation is NOT optional — omitting it mirrors the entire map vertically.
+ * `CS1_LAT_SIGN` controls how Z maps to latitude:
+ *   - `+1` (default, **south-up**): positive Z → positive lat → CS1 south appears at the top
+ *     of the rendered map. Matches the existing Canvas renderer orientation.
+ *   - `-1` (**north-up**, geographic convention): positive Z → negative lat → CS1 south at
+ *     the bottom. To switch, flip `CS1_LAT_SIGN` and swap the Z values used in bounding-box
+ *     polygon corners and `fitToCityBounds`.
  *
  * **GeoJSON coordinate order:** [longitude, latitude] (per RFC 7946 §3.1.1).
  * MapLibre follows this convention. Use `csToGeoArray` when building GeoJSON geometries.
@@ -25,6 +28,18 @@
  */
 
 // ─── Constants ────────────────────────────────────────────────────────────────
+
+/**
+ * Controls the north-south rendering orientation of the map.
+ *
+ * `+1` = **south-up** (default): CS1 positive-Z / south appears at the top of the rendered
+ * map. Matches the existing Canvas renderer so both renderers show the same orientation.
+ *
+ * `-1` = **north-up** (geographic convention): flip this to `-1` *and* swap the Z arguments
+ * in `buildWaterGeoJson` bounding-box corners and `MapLibreRenderer.fitToCityBounds` to
+ * switch the entire renderer to north-up.
+ */
+export const CS1_LAT_SIGN = 1;
 
 /**
  * Half the total world extent along a single axis, in CS1 world units.
@@ -96,8 +111,8 @@ export interface CsPoint {
 export function csToGeo(point: CsPoint): GeoPoint {
   return {
     lng: (point.x / CS1_WORLD_HALF) * CS1_HALF_EXTENT_DEG,
-    // Z grows southward in CS1 → negate to get geographic latitude (north-positive)
-    lat: -(point.z / CS1_WORLD_HALF) * CS1_HALF_EXTENT_DEG,
+    // CS1_LAT_SIGN controls orientation: +1 = south-up (matches Canvas), -1 = north-up (geographic).
+    lat: CS1_LAT_SIGN * (point.z / CS1_WORLD_HALF) * CS1_HALF_EXTENT_DEG,
   };
 }
 
@@ -111,8 +126,8 @@ export function csToGeo(point: CsPoint): GeoPoint {
 export function geoToCs(point: GeoPoint): CsPoint {
   return {
     x: (point.lng / CS1_HALF_EXTENT_DEG) * CS1_WORLD_HALF,
-    // Negate again: geographic latitude (north-positive) → CS1 Z (south-positive)
-    z: -(point.lat / CS1_HALF_EXTENT_DEG) * CS1_WORLD_HALF,
+    // Exact inverse of csToGeo: same CS1_LAT_SIGN applies symmetrically.
+    z: CS1_LAT_SIGN * (point.lat / CS1_HALF_EXTENT_DEG) * CS1_WORLD_HALF,
   };
 }
 

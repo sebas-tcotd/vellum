@@ -14,6 +14,7 @@ const mockMap = vi.hoisted(() => ({
   addLayer: vi.fn(),
   getLayer: vi.fn(() => undefined),
   setLayoutProperty: vi.fn(),
+  setPaintProperty: vi.fn(),
   fitBounds: vi.fn(),
   remove: vi.fn(),
   once: vi.fn(),
@@ -99,11 +100,12 @@ describe('MapLibreRenderer', () => {
     expect(sourceCalls).toContain('water');
     expect(sourceCalls).toContain('roads');
     expect(sourceCalls).toContain('transit');
+    expect(sourceCalls).toContain('transit-stops');
     expect(sourceCalls).toContain('buildings');
     expect(sourceCalls).toContain('forests');
     expect(sourceCalls).toContain('districts');
-    // 6 named sources (background is handled as a style layer, not a geojson source)
-    expect(mockMap.addSource).toHaveBeenCalledTimes(6);
+    // 7 named sources (background is handled as a style layer, not a geojson source)
+    expect(mockMap.addSource).toHaveBeenCalledTimes(7);
   });
 
   it('calls addLayer for each visible layer on first render', async () => {
@@ -118,6 +120,7 @@ describe('MapLibreRenderer', () => {
     expect(layerIds).toContain('roads-casing');
     expect(layerIds).toContain('roads-fill');
     expect(layerIds).toContain('transit-line');
+    expect(layerIds).toContain('transit-stops');
     expect(layerIds).toContain('buildings-fill');
     expect(layerIds).toContain('buildings-outline');
     expect(layerIds).toContain('forests-circles');
@@ -182,12 +185,17 @@ describe('MapLibreRenderer', () => {
     );
   });
 
-  it('setLayerVisibility is a no-op for terrain (no layer IDs)', async () => {
+  it('setLayerVisibility for terrain calls setPaintProperty on background layer', async () => {
     const renderer = makeRenderer();
     await renderer.render(makeCityData(), { activeLayers: ALL_LAYERS_VISIBLE });
     vi.clearAllMocks();
     renderer.setLayerVisibility('terrain', false);
     expect(mockMap.setLayoutProperty).not.toHaveBeenCalled();
+    expect(mockMap.setPaintProperty).toHaveBeenCalledWith(
+      'background',
+      'background-opacity',
+      0,
+    );
   });
 
   it('updateViewport() is a no-op and does not throw', () => {
