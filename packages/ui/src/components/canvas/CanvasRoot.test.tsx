@@ -130,12 +130,11 @@ describe('CanvasRoot — zoom/pan interactions', () => {
     useVellumStore.setState({ cityData: null, loadingState: 'idle' });
   });
 
-  it('pan aplica transform CSS inmediato y programa render nítido diferido', async () => {
+  it('pan a zoom predeterminado aplica transform CSS y NO dispara re-render (el buffer overscan cubre el mapa)', async () => {
     const renderer = new TestCanvasRenderer();
     const { container } = render(<CanvasRoot renderer={renderer} />);
     await act(async () => {});
     renderer.render.mockClear();
-    renderer.updateViewport.mockClear();
 
     const root = container.querySelector('.canvas-root');
     expect(root).not.toBeNull();
@@ -144,27 +143,48 @@ describe('CanvasRoot — zoom/pan interactions', () => {
     fireEvent.mouseDown(root!, { button: 0, clientX: 100, clientY: 100 });
     fireEvent.mouseMove(window, { clientX: 130, clientY: 140 });
 
-    // Feedback inmediato: transform CSS aplicado, sin render aún
+    // Feedback inmediato: el transform CSS revela el margen ya pintado.
     expect((root!.firstElementChild as HTMLElement).style.transform).toBe(
       'translate(30px, 40px) scale(1)',
     );
-    expect(renderer.render).not.toHaveBeenCalled();
 
     fireEvent.mouseUp(window);
-
-    // Antes de RE_RENDER_DEBOUNCE_MS (300) el re-render no se dispara
     act(() => {
-      vi.advanceTimersByTime(250);
+      vi.advanceTimersByTime(300); // > RE_RENDER_DEBOUNCE_MS
     });
+
+    // A zoom 1 el mapa entero cabe en el buffer → ningún pan re-renderiza.
     expect(renderer.render).not.toHaveBeenCalled();
+  });
 
-    // Pasado el debounce: re-render vectorial a la nueva posición de pan
-    // (rellena las zonas que quedaban recortadas fuera del canvas → sin blanco)
-    act(() => {
-      vi.advanceTimersByTime(50);
+  it('pan con zoom fuerte (> factor de overscan) dispara un re-render diferido', async () => {
+    const renderer = new TestCanvasRenderer();
+    const { container } = render(<CanvasRoot renderer={renderer} />);
+    await act(async () => {});
+
+    const root = container.querySelector('.canvas-root');
+    expect(root).not.toBeNull();
+    setCanvasRootRect(root!);
+
+    // Sube el zoom por encima de OVERSCAN_FACTOR (1.5): 1.1^6 ≈ 1.77.
+    for (let i = 0; i < 6; i++) {
+      fireEvent.wheel(root!, { deltaY: -1, clientX: 500, clientY: 500 });
+    }
+    // Dispara y completa el re-render de zoom → renderZoom se actualiza (> 1.5).
+    await act(async () => {
+      vi.advanceTimersByTime(300);
     });
-    expect(renderer.updateViewport).toHaveBeenCalledWith(1, 30, 40);
-    expect(renderer.render).toHaveBeenCalledTimes(1);
+
+    renderer.render.mockClear();
+
+    // Con zoom alto, un pan debe recentrar el buffer → re-render diferido.
+    fireEvent.mouseDown(root!, { button: 0, clientX: 100, clientY: 100 });
+    fireEvent.mouseMove(window, { clientX: 60, clientY: 60 });
+    fireEvent.mouseUp(window);
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
+    expect(renderer.render).toHaveBeenCalled();
   });
 
   it('zoom aplica feedback inmediato y programa render nítido diferido', async () => {

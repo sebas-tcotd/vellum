@@ -1,5 +1,6 @@
 import type { IRenderer, CityData, RenderParams } from '@vellum/core';
 import { readTokensFromDOM, type RendererTokens } from './tokens';
+import { overscanLayout } from './overscan';
 import type { WorkerMessage, WorkerResponse } from './worker/messages';
 // Vite ?worker syntax — bundled as a separate chunk by the app's bundler
 import RenderWorker from './worker/renderer-worker?worker';
@@ -87,9 +88,20 @@ export class CanvasRenderer implements IRenderer {
     this.worker.postMessage(msg);
   }
 
+  /**
+   * Resizes the offscreen canvases to an overscan **buffer** larger than the
+   * fit (viewport) size, so the worker paints a margin of map content around the
+   * viewport. `width`/`height` are the fit dimensions (physical px); the buffer is
+   * `round(fit · OVERSCAN_FACTOR)`. The worker derives the margin from the shared
+   * factor — see `overscan.ts`.
+   */
   resize(width: number, height: number): void {
     if (!this.worker) return;
-    const msg: WorkerMessage = { type: 'resize', width, height };
+    const msg: WorkerMessage = {
+      type: 'resize',
+      width: overscanLayout(width).buffer,
+      height: overscanLayout(height).buffer,
+    };
     this.worker.postMessage(msg);
   }
 

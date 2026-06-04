@@ -6,6 +6,7 @@ import { renderTransitLayer } from '../layers/transit-layer';
 import { renderBuildingsLayer } from '../layers/buildings-layer';
 import { renderForestsLayer } from '../layers/forests-layer';
 import { renderDistrictsLayer } from '../layers/districts-layer';
+import { OVERSCAN_FACTOR } from '../overscan';
 import dmMonoWoff2Url from '@fontsource/dm-mono/files/dm-mono-latin-400-normal.woff2?url';
 
 // DM Mono loaded at worker startup for district labels (AC2).
@@ -50,9 +51,17 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
 
       for (const [layerName, canvas] of layers) {
         const ctx = canvas.ctx;
-        const w = canvas.offscreen.width;
-        const h = canvas.offscreen.height;
-        ctx.clearRect(0, 0, w, h);
+        const bufferW = canvas.offscreen.width;
+        const bufferH = canvas.offscreen.height;
+        ctx.clearRect(0, 0, bufferW, bufferH);
+
+        // Overscan: project the map to the *fit* size (viewport-aligned) and shift
+        // it by the per-side margin, so it paints centered within the larger buffer.
+        // Panning then reveals the already-painted margin instantly (see overscan.ts).
+        const fitW = bufferW / OVERSCAN_FACTOR;
+        const fitH = bufferH / OVERSCAN_FACTOR;
+        const panX = currentPanX + (bufferW - fitW) / 2;
+        const panY = currentPanY + (bufferH - fitH) / 2;
 
         if (layerName === 'terrain' && layerVisibility.terrain) {
           renderTerrainLayer(
@@ -60,11 +69,11 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
             cityData.landTiles,
             cityData.bounds,
             style.tokens,
-            w,
-            h,
+            fitW,
+            fitH,
             currentZoom,
-            currentPanX,
-            currentPanY,
+            panX,
+            panY,
           );
         } else if (layerName === 'water' && layerVisibility.water) {
           renderWaterLayer(
@@ -72,12 +81,12 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
             cityData.waterTiles,
             cityData.landTiles,
             style.tokens,
-            w,
-            h,
+            fitW,
+            fitH,
             cityData.bounds,
             currentZoom,
-            currentPanX,
-            currentPanY,
+            panX,
+            panY,
           );
         } else if (layerName === 'roads' && layerVisibility.roads) {
           const segments = cityData.roadSegments ?? [];
@@ -89,11 +98,11 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
             nodeMap,
             cityData.bounds,
             style.tokens,
-            w,
-            h,
+            fitW,
+            fitH,
             currentZoom,
-            currentPanX,
-            currentPanY,
+            panX,
+            panY,
           );
         } else if (layerName === 'transit' && layerVisibility.transit) {
           const segmentMap = new Map(
@@ -108,11 +117,11 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
             segmentMap,
             nodeMap,
             cityData.bounds,
-            w,
-            h,
+            fitW,
+            fitH,
             currentZoom,
-            currentPanX,
-            currentPanY,
+            panX,
+            panY,
           );
         } else if (layerName === 'buildings' && layerVisibility.buildings) {
           renderBuildingsLayer(
@@ -120,11 +129,11 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
             cityData.buildings ?? [],
             cityData.bounds,
             style.tokens,
-            w,
-            h,
+            fitW,
+            fitH,
             currentZoom,
-            currentPanX,
-            currentPanY,
+            panX,
+            panY,
           );
         } else if (layerName === 'forests' && layerVisibility.forests) {
           renderForestsLayer(
@@ -132,11 +141,11 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
             cityData.forestCells ?? [],
             cityData.bounds,
             style.tokens,
-            w,
-            h,
+            fitW,
+            fitH,
             currentZoom,
-            currentPanX,
-            currentPanY,
+            panX,
+            panY,
           );
         } else if (layerName === 'districts' && layerVisibility.districts) {
           await dmMonoPromise;
@@ -145,11 +154,11 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
             cityData.districts ?? [],
             cityData.bounds,
             style.tokens,
-            w,
-            h,
+            fitW,
+            fitH,
             currentZoom,
-            currentPanX,
-            currentPanY,
+            panX,
+            panY,
           );
         }
 

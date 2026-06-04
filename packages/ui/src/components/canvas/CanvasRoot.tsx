@@ -3,7 +3,12 @@ import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import type { UnlistenFn } from '@tauri-apps/api/event';
 import { useRenderLoop } from './hooks/useRenderLoop';
 import { useVellumStore } from '../../store/vellum-store';
-import { CanvasManager, CanvasRenderer } from '@vellum/renderer-canvas';
+import {
+  CanvasManager,
+  CanvasRenderer,
+  OVERSCAN_FACTOR,
+  overscanLayout,
+} from '@vellum/renderer-canvas';
 import type { IRenderer, LayerName, LayerVisibility } from '@vellum/core';
 
 export interface ViewportState {
@@ -53,6 +58,12 @@ const MAX_ZOOM = 20;
 /** Delay in ms after the last zoom/pan interaction before a crisp vector re-render fires. */
 const RE_RENDER_DEBOUNCE_MS = 300;
 
+/** Fraction of the overscan margin the pan may drift before a recenter re-render fires. */
+const PAN_RERENDER_THRESHOLD = 0.5;
+
+/** Minimum ms between mid-drag recenter re-renders (throttle — keeps firing during a long drag). */
+const PAN_RERENDER_THROTTLE_MS = 150;
+
 export function CanvasRoot({
   onElementHover: _onElementHover,
   onElementLeave: _onElementLeave,
@@ -85,9 +96,10 @@ export function CanvasRoot({
   /**
    * Viewport snapshot at which the last full render completed.
    * @remarks
-   * **CRITICAL INVARIANT:** The physical canvas size is always `canvasSize * dpr`.
-   * It NEVER scales with zoom. Sharpness is achieved by re-rendering vectorially
-   * (coordinates baked with zoom+pan in the worker), NOT by resizing the canvas.
+   * **CRITICAL INVARIANT:** The physical canvas size is the overscan buffer
+   * (`canvasSize * OVERSCAN_FACTOR * dpr`). It NEVER scales with zoom. Sharpness is
+   * achieved by re-rendering vectorially (coordinates baked with zoom+pan in the
+   * worker), NOT by resizing the canvas.
    *
    * During scroll, `cssScale = currentZoom / renderZoom` drifts above 1 (slight blur).
    * When the worker finishes, `renderZoom` catches up → cssScale snaps to 1 → sharp.
@@ -98,6 +110,21 @@ export function CanvasRoot({
   const interactionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
+  // Overscan margin (CSS px) of the last render, mirrored into a ref so the
+  // interaction handlers can read it without being re-created each render.
+  const marginCssRef = useRef(0);
+  // Timestamp of the last mid-drag recenter re-render (throttle gate).
+  const lastReRenderAtRef = useRef(0);
+
+  // Overscan buffer geometry derived from the viewport size — see overscan.ts.
+  // The container is sized to `bufferCss` and offset by `-marginCss` so the painted
+  // margin sits just outside the viewport, ready to be revealed by panning.
+  const dpr = typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1;
+  const overscan =
+    canvasSize > 0 ? overscanLayout(Math.round(canvasSize * dpr)) : null;
+  const bufferCss = overscan ? overscan.buffer / dpr : 0;
+  const marginCss = overscan ? overscan.margin / dpr : 0;
+  marginCssRef.current = marginCss;
 
   useEffect(() => {
     rendererRef.current = renderer ?? null;
@@ -207,8 +234,8 @@ export function CanvasRoot({
     });
   }, [activeLayers]);
 
-  // Track viewport size via wrapperRef; resize canvas to square (max dimension).
-  // Physical size is always canvasSize * dpr — never multiplied by zoom.
+  // Track viewport size via wrapperRef; resize canvases to the overscan BUFFER
+  // (square, max dimension · OVERSCAN_FACTOR). Physical size never scales with zoom.
   useEffect(() => {
     if (!wrapperRef.current) return;
     const observer = new ResizeObserver(([entry]) => {
@@ -216,10 +243,12 @@ export function CanvasRoot({
       const size = Math.max(width, height);
       setCanvasSize(size);
       if (!managerRef.current || !rendererRef.current) return;
-      managerRef.current.resizeDisplay(size);
       const dpr = window.devicePixelRatio || 1;
-      const physicalSize = Math.round(size * dpr);
-      rendererRef.current.resize(physicalSize, physicalSize);
+      const fitPhysical = Math.round(size * dpr);
+      const { buffer } = overscanLayout(fitPhysical);
+      managerRef.current.resizeDisplay(buffer / dpr);
+      // resize() receives the FIT size; the renderer upsizes to the buffer internally.
+      rendererRef.current.resize(fitPhysical, fitPhysical);
       const data = useVellumStore.getState().cityData;
       if (data) {
         const { zoom, panX, panY } = viewportRef.current;
@@ -307,6 +336,30 @@ export function CanvasRoot({
       if (state === 'grabbing') el.classList.add('cursor-grabbing');
     }
 
+    // True when the pan has drifted far enough that the painted overscan margin can
+    // no longer cover the viewport, so a recenter re-render is needed. When the whole
+    // map already fits the buffer (renderZoom <= OVERSCAN_FACTOR) panning never reveals
+    // unpainted map → returns false (the far-zoom "no unnecessary re-render" case).
+    function panExceedsBuffer(): boolean {
+      if (renderZoomRef.current <= OVERSCAN_FACTOR) return false;
+      const margin = marginCssRef.current;
+      if (margin <= 0) return true; // overscan unknown → fall back to always re-render
+      const limit = margin * PAN_RERENDER_THRESHOLD;
+      return (
+        Math.abs(viewportRef.current.panX - renderPanXRef.current) > limit ||
+        Math.abs(viewportRef.current.panY - renderPanYRef.current) > limit
+      );
+    }
+
+    // Recenter the buffer mid-drag, throttled so it keeps firing during a long drag
+    // (unlike the debounced scheduleReRender, which would never fire while moving).
+    function recenterDuringDrag(): void {
+      const now = performance.now();
+      if (now - lastReRenderAtRef.current < PAN_RERENDER_THROTTLE_MS) return;
+      lastReRenderAtRef.current = now;
+      reRenderAtViewport();
+    }
+
     function handleWheel(e: WheelEvent): void {
       e.preventDefault();
       const factor = e.deltaY < 0 ? 1.1 : 0.9;
@@ -351,15 +404,18 @@ export function CanvasRoot({
         dragStartRef.current.panX + (e.clientX - dragStartRef.current.x);
       viewportRef.current.panY =
         dragStartRef.current.panY + (e.clientY - dragStartRef.current.y);
+      // Instant feedback: the CSS transform reveals the pre-painted overscan margin.
       applyTransform();
+      // Recenter the buffer before the margin runs out (throttled, no white edges).
+      if (panExceedsBuffer()) recenterDuringDrag();
     }
 
     function handleMouseUp(): void {
       if (isDraggingRef.current) {
         isDraggingRef.current = false;
-        // Re-render vectorially at the settled pan so map areas that were clipped
-        // outside the fixed canvas window get painted — fixes the white edges.
-        scheduleReRender();
+        // Recenter the buffer only if the pan drifted past what the painted margin
+        // covers. When the whole map already fits the buffer, skip — nothing to fill.
+        if (panExceedsBuffer()) scheduleReRender();
       }
       setCursor(isSpaceDownRef.current ? 'grab' : 'default');
     }
@@ -396,7 +452,7 @@ export function CanvasRoot({
       if (interactionTimerRef.current)
         clearTimeout(interactionTimerRef.current);
     };
-  }, [applyTransform, scheduleReRender]);
+  }, [applyTransform, scheduleReRender, reRenderAtViewport]);
 
   const handleTick = useCallback(() => {
     rendererRef.current?.updateViewport(
@@ -420,7 +476,12 @@ export function CanvasRoot({
         className="relative"
         style={
           canvasSize > 0
-            ? { width: canvasSize, height: canvasSize }
+            ? {
+                width: bufferCss,
+                height: bufferCss,
+                left: -marginCss,
+                top: -marginCss,
+              }
             : { width: '100%', height: '100%' }
         }
       />
