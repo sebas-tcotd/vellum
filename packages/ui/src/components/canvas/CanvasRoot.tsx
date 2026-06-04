@@ -50,6 +50,9 @@ const ACTIVE_LAYERS = {
 const MIN_ZOOM = 0.1;
 const MAX_ZOOM = 20;
 
+/** Delay in ms after the last zoom/pan interaction before a crisp vector re-render fires. */
+const RE_RENDER_DEBOUNCE_MS = 300;
+
 export function CanvasRoot({
   onElementHover: _onElementHover,
   onElementLeave: _onElementLeave,
@@ -142,10 +145,13 @@ export function CanvasRoot({
     });
   }, [applyTransform]);
 
-  /** Schedule a crisp vector re-render 200ms after the last zoom event. */
+  /** Schedule a crisp vector re-render `RE_RENDER_DEBOUNCE_MS` after the last zoom/pan interaction. */
   const scheduleReRender = useCallback(() => {
     if (interactionTimerRef.current) clearTimeout(interactionTimerRef.current);
-    interactionTimerRef.current = setTimeout(reRenderAtViewport, 200);
+    interactionTimerRef.current = setTimeout(
+      reRenderAtViewport,
+      RE_RENDER_DEBOUNCE_MS,
+    );
   }, [reRenderAtViewport]);
 
   // Wire CanvasManager to renderer whenever a new renderer is provided
@@ -351,6 +357,9 @@ export function CanvasRoot({
     function handleMouseUp(): void {
       if (isDraggingRef.current) {
         isDraggingRef.current = false;
+        // Re-render vectorially at the settled pan so map areas that were clipped
+        // outside the fixed canvas window get painted — fixes the white edges.
+        scheduleReRender();
       }
       setCursor(isSpaceDownRef.current ? 'grab' : 'default');
     }

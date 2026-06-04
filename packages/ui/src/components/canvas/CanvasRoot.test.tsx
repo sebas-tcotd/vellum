@@ -130,11 +130,12 @@ describe('CanvasRoot — zoom/pan interactions', () => {
     useVellumStore.setState({ cityData: null, loadingState: 'idle' });
   });
 
-  it('pan aplica solo transform CSS y no programa render completo', async () => {
+  it('pan aplica transform CSS inmediato y programa render nítido diferido', async () => {
     const renderer = new TestCanvasRenderer();
     const { container } = render(<CanvasRoot renderer={renderer} />);
     await act(async () => {});
     renderer.render.mockClear();
+    renderer.updateViewport.mockClear();
 
     const root = container.querySelector('.canvas-root');
     expect(root).not.toBeNull();
@@ -142,15 +143,28 @@ describe('CanvasRoot — zoom/pan interactions', () => {
 
     fireEvent.mouseDown(root!, { button: 0, clientX: 100, clientY: 100 });
     fireEvent.mouseMove(window, { clientX: 130, clientY: 140 });
-    fireEvent.mouseUp(window);
-    act(() => {
-      vi.advanceTimersByTime(250);
-    });
 
-    expect(renderer.render).not.toHaveBeenCalled();
+    // Feedback inmediato: transform CSS aplicado, sin render aún
     expect((root!.firstElementChild as HTMLElement).style.transform).toBe(
       'translate(30px, 40px) scale(1)',
     );
+    expect(renderer.render).not.toHaveBeenCalled();
+
+    fireEvent.mouseUp(window);
+
+    // Antes de RE_RENDER_DEBOUNCE_MS (300) el re-render no se dispara
+    act(() => {
+      vi.advanceTimersByTime(250);
+    });
+    expect(renderer.render).not.toHaveBeenCalled();
+
+    // Pasado el debounce: re-render vectorial a la nueva posición de pan
+    // (rellena las zonas que quedaban recortadas fuera del canvas → sin blanco)
+    act(() => {
+      vi.advanceTimersByTime(50);
+    });
+    expect(renderer.updateViewport).toHaveBeenCalledWith(1, 30, 40);
+    expect(renderer.render).toHaveBeenCalledTimes(1);
   });
 
   it('zoom aplica feedback inmediato y programa render nítido diferido', async () => {
@@ -171,8 +185,9 @@ describe('CanvasRoot — zoom/pan interactions', () => {
     );
     expect(renderer.render).not.toHaveBeenCalled();
 
+    // RE_RENDER_DEBOUNCE_MS = 300
     act(() => {
-      vi.advanceTimersByTime(200);
+      vi.advanceTimersByTime(300);
     });
 
     expect(renderer.updateViewport).toHaveBeenCalledWith(1.1, -50, -50);
