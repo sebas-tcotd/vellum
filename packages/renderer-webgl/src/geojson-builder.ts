@@ -183,12 +183,19 @@ export interface WaterFeatureCollection {
  * Properties attached to each transit stop GeoJSON feature.
  */
 export interface TransitStopFeatureProperties {
-  /** The stop's unique CS1 identifier. */
+  /** The stop's unique CS1 identifier (road node ID). */
   id: string;
-  /** Transportation mode (Bus, Tram, Train, etc.). */
+  /** Transportation mode (Bus, Tram, Train, etc.) — used for circle styling. */
   mode: string;
-  /** Hexadecimal color string of the first transit line that services this stop. */
+  /** Hexadecimal color string of the first transit line (used for circle fill). */
   color: string;
+  /**
+   * JSON-encoded array of all lines serving this stop.
+   * Parsed in hover callbacks to display multi-line tooltips.
+   * Note: stop names are not available in the .cslmap format.
+   * Format: Array<{ name: string; color: string; mode: string }>
+   */
+  lines: string;
 }
 
 /** A GeoJSON FeatureCollection of transit stop points. */
@@ -544,22 +551,40 @@ export function buildWaterGeoJson(): WaterFeatureCollection {
 export function buildTransitStopsGeoJson(
   cityData: CityData,
 ): TransitStopsFeatureCollection {
-  const seen = new Set<string>();
-  const features: TransitStopFeature[] = [];
+  interface StopAccumulator {
+    stop: (typeof cityData.transitLines)[number]['stops'][number];
+    lines: Array<{ name: string; color: string; mode: string }>;
+  }
+  const stopMap = new Map<string, StopAccumulator>();
 
   for (const line of cityData.transitLines) {
     for (const stop of line.stops) {
-      if (seen.has(stop.id)) continue;
-      seen.add(stop.id);
-      features.push({
-        type: 'Feature',
-        geometry: {
-          type: 'Point',
-          coordinates: csToGeoArray(stop.position),
-        },
-        properties: { id: stop.id, mode: stop.mode, color: line.color },
+      if (!stopMap.has(stop.id)) {
+        stopMap.set(stop.id, { stop, lines: [] });
+      }
+      stopMap.get(stop.id)!.lines.push({
+        name: line.name,
+        color: line.color,
+        mode: line.mode,
       });
     }
+  }
+
+  const features: TransitStopFeature[] = [];
+  for (const { stop, lines } of stopMap.values()) {
+    features.push({
+      type: 'Feature',
+      geometry: {
+        type: 'Point',
+        coordinates: csToGeoArray(stop.position),
+      },
+      properties: {
+        id: stop.id,
+        mode: stop.mode,
+        color: lines[0].color,
+        lines: JSON.stringify(lines),
+      },
+    });
   }
 
   return { type: 'FeatureCollection', features };

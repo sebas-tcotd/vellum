@@ -33,7 +33,23 @@ import {
   buildWaterGeoJson,
   buildTerrainGeoJson,
 } from './geojson-builder';
+import type { TransitStopFeatureProperties } from './geojson-builder';
 import { csToGeoArray } from './coordinate-transform';
+
+// ─── Hover tooltip types ──────────────────────────────────────────────────────
+
+/** Info emitted by the hover subscription when the cursor enters a transit-stop feature. */
+export interface TooltipInfo {
+  /** Canvas-relative X pixel of the cursor (matches MapLibre event.point.x). */
+  screenX: number;
+  /** Canvas-relative Y pixel of the cursor (matches MapLibre event.point.y). */
+  screenY: number;
+  /**
+   * All transit lines serving the hovered stop (or cluster of stops).
+   * Note: individual stops have no name in the .cslmap — only lines have names.
+   */
+  lines: Array<{ name: string; color: string; mode: string }>;
+}
 
 // ─── Layer ID mapping ─────────────────────────────────────────────────────────
 
@@ -373,6 +389,75 @@ export class MapLibreRenderer implements IRenderer {
    */
   navigateTo(lng: number, lat: number): void {
     this.map.flyTo({ center: [lng, lat], animate: false });
+  }
+
+  /**
+   * Subscribes to hover events over transit-stop features.
+   *
+   * @remarks
+   * Uses layer-filtered MapLibre events (`mousemove`/`mouseleave` on
+   * `transit-stops`) so the handler only fires when the cursor is over a stop
+   * feature — not on every pixel of mouse movement. A ±6px bbox query handles
+   * visually overlapping stops (cluster case described in AC2).
+   *
+   * @param callback - Called with `TooltipInfo` when entering a stop, `null` when leaving.
+   * @returns Cleanup function that unregisters both listeners.
+   *
+   * @errors Does not throw — if the layer does not exist, MapLibre events simply never fire.
+   */
+  subscribeHover(callback: (info: TooltipInfo | null) => void): () => void {
+    const handleMove = (
+      e: maplibregl.MapMouseEvent & {
+        features?: maplibregl.MapGeoJSONFeature[];
+      },
+    ) => {
+      const bbox: [maplibregl.PointLike, maplibregl.PointLike] = [
+        [e.point.x - 6, e.point.y - 6],
+        [e.point.x + 6, e.point.y + 6],
+      ];
+      const nearby = this.map.queryRenderedFeatures(bbox, {
+        layers: ['transit-stops'],
+      });
+      if (nearby.length === 0) return;
+
+      const linesSeen = new Set<string>();
+      const allLines: Array<{ name: string; color: string; mode: string }> = [];
+
+      for (const feature of nearby) {
+        if (!feature.properties) continue;
+        const props = feature.properties as TransitStopFeatureProperties;
+        const parsed = JSON.parse(props.lines) as Array<{
+          name: string;
+          color: string;
+          mode: string;
+        }>;
+        for (const line of parsed) {
+          const key = `${line.name}:${line.color}`;
+          if (!linesSeen.has(key)) {
+            linesSeen.add(key);
+            allLines.push(line);
+          }
+        }
+      }
+
+      if (allLines.length === 0) return;
+
+      this.map.getCanvas().style.cursor = 'pointer';
+      callback({ screenX: e.point.x, screenY: e.point.y, lines: allLines });
+    };
+
+    const handleLeave = () => {
+      this.map.getCanvas().style.cursor = '';
+      callback(null);
+    };
+
+    this.map.on('mousemove', 'transit-stops', handleMove);
+    this.map.on('mouseleave', 'transit-stops', handleLeave);
+
+    return () => {
+      this.map.off('mousemove', 'transit-stops', handleMove);
+      this.map.off('mouseleave', 'transit-stops', handleLeave);
+    };
   }
 
   // ─── Private helpers ────────────────────────────────────────────────────────

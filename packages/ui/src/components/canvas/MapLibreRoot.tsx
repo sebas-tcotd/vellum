@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import type { UnlistenFn } from '@tauri-apps/api/event';
 import { MapLibreRenderer, readTokensFromDOM } from '@vellum/renderer-webgl';
+import type { TooltipInfo } from '@vellum/renderer-webgl';
 import type { LayerVisibility } from '@vellum/core';
 import { useVellumStore } from '../../store/vellum-store';
 import { Minimap } from '../minimap/Minimap';
+import { MapTooltip } from '../overlays/MapTooltip';
 
 /** Props for the `MapLibreRoot` component. Mirrors `CanvasRoot` props for drop-in replacement. */
 export interface MapLibreRootProps {
@@ -33,6 +35,12 @@ export function MapLibreRoot({
   const containerRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<MapLibreRenderer | null>(null);
   const unlistenRef = useRef<UnlistenFn | null>(null);
+  const containerDimRef = useRef<{ width: number; height: number }>({
+    width: 0,
+    height: 0,
+  });
+
+  const [tooltipInfo, setTooltipInfo] = useState<TooltipInfo | null>(null);
 
   const cityData = useVellumStore((s) => s.cityData);
 
@@ -105,6 +113,37 @@ export function MapLibreRoot({
     rendererRef.current?.navigateTo(lng, lat);
   }, []);
 
+  const subscribeHover = useCallback(
+    (cb: Parameters<MapLibreRenderer['subscribeHover']>[0]) =>
+      rendererRef.current?.subscribeHover(cb) ?? (() => {}),
+    [],
+  );
+
+  // Track container dimensions for edge-aware tooltip positioning
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (entry) {
+        containerDimRef.current = {
+          width: entry.contentRect.width,
+          height: entry.contentRect.height,
+        };
+      }
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  // Subscribe to hover events for tooltip
+  useEffect(() => {
+    const unsub = subscribeHover((info) => {
+      setTooltipInfo(info);
+    });
+    return unsub;
+  }, [subscribeHover]);
+
   // Tauri native drag-drop — mirrors CanvasRoot implementation
   useEffect(() => {
     if (!loadFile) return;
@@ -158,6 +197,11 @@ export function MapLibreRoot({
           navigateTo={navigateTo}
         />
       )}
+      <MapTooltip
+        info={tooltipInfo}
+        containerWidth={containerDimRef.current.width}
+        containerHeight={containerDimRef.current.height}
+      />
     </div>
   );
 }

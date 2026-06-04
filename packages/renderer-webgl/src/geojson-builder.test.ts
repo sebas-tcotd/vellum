@@ -381,9 +381,16 @@ describe('buildTransitStopsGeoJson', () => {
     expect(fc.features[0].properties.id).toBe('stop-1');
     expect(fc.features[0].properties.color).toBe('#FF6600');
     expect(fc.features[0].properties.mode).toBe('Bus');
+    const lines = JSON.parse(fc.features[0].properties.lines) as Array<{
+      name: string;
+      color: string;
+      mode: string;
+    }>;
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toEqual({ name: 'Bus 1', color: '#FF6600', mode: 'Bus' });
   });
 
-  it('deduplicates stops shared by multiple lines', () => {
+  it('deduplicates stops shared by multiple lines and includes all lines in properties', () => {
     const stop: TransitStop = {
       id: 'shared-stop',
       name: 'Transfer Hub',
@@ -409,6 +416,16 @@ describe('buildTransitStopsGeoJson', () => {
     const city = makeCityData({ transitLines: [line1, line2] });
     const fc = buildTransitStopsGeoJson(city);
     expect(fc.features).toHaveLength(1);
+    // color is from the first line
+    expect(fc.features[0].properties.color).toBe('#FF0000');
+    const lines = JSON.parse(fc.features[0].properties.lines) as Array<{
+      name: string;
+      color: string;
+      mode: string;
+    }>;
+    expect(lines).toHaveLength(2);
+    expect(lines[0]).toEqual({ name: 'Bus 1', color: '#FF0000', mode: 'Bus' });
+    expect(lines[1]).toEqual({ name: 'Bus 2', color: '#0000FF', mode: 'Bus' });
   });
 
   it('produces coordinates in geographic range', () => {
