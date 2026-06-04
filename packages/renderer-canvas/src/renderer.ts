@@ -78,9 +78,11 @@ export class CanvasRenderer implements IRenderer {
 
   updateViewport(zoom: number, panX: number, panY: number): void {
     if (!this.worker) return;
+    const dpr =
+      typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1;
     const msg: WorkerMessage = {
       type: 'update-viewport',
-      viewport: { zoom, panX, panY },
+      viewport: { zoom, panX: panX * dpr, panY: panY * dpr },
     };
     this.worker.postMessage(msg);
   }

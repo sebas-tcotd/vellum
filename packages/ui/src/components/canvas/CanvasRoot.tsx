@@ -120,7 +120,7 @@ export function CanvasRoot({
   /**
    * Re-renders all layers vectorially at the current zoom/pan level.
    * @remarks
-   * Called debounced after any interaction settles. Uses stale-while-revalidate:
+   * Called debounced after zoom settles. Uses stale-while-revalidate:
    * the old canvas image remains visible until the worker posts render-complete,
    * at which point the CSS transform snaps to identity — zero flicker.
    */
@@ -131,6 +131,7 @@ export function CanvasRoot({
 
     const { zoom, panX, panY } = viewportRef.current;
 
+    r.updateViewport(zoom, panX, panY);
     void r.render(data, { activeLayers: ACTIVE_LAYERS }).then(() => {
       // Update render snapshot only after the worker finishes painting.
       // CSS scale snaps to 1.0 in the same frame the crisp image appears → no flicker.
@@ -141,7 +142,7 @@ export function CanvasRoot({
     });
   }, [applyTransform]);
 
-  /** Schedule a re-render 200ms after the last interaction event. */
+  /** Schedule a crisp vector re-render 200ms after the last zoom event. */
   const scheduleReRender = useCallback(() => {
     if (interactionTimerRef.current) clearTimeout(interactionTimerRef.current);
     interactionTimerRef.current = setTimeout(reRenderAtViewport, 200);
@@ -174,7 +175,11 @@ export function CanvasRoot({
         if (offscreen) renderer.registerLayer(layerName, offscreen);
       }
       const data = useVellumStore.getState().cityData;
-      if (data) void renderer.render(data, { activeLayers: ACTIVE_LAYERS });
+      if (data) {
+        const { zoom, panX, panY } = viewportRef.current;
+        renderer.updateViewport(zoom, panX, panY);
+        void renderer.render(data, { activeLayers: ACTIVE_LAYERS });
+      }
     }
 
     return () => {
@@ -210,8 +215,11 @@ export function CanvasRoot({
       const physicalSize = Math.round(size * dpr);
       rendererRef.current.resize(physicalSize, physicalSize);
       const data = useVellumStore.getState().cityData;
-      if (data)
+      if (data) {
+        const { zoom, panX, panY } = viewportRef.current;
+        rendererRef.current.updateViewport(zoom, panX, panY);
         void rendererRef.current.render(data, { activeLayers: ACTIVE_LAYERS });
+      }
     });
     observer.observe(wrapperRef.current);
     return () => observer.disconnect();
@@ -266,7 +274,10 @@ export function CanvasRoot({
         const dpr = window.devicePixelRatio || 1;
         r.resize(Math.round(size * dpr), Math.round(size * dpr));
         const data = useVellumStore.getState().cityData;
-        if (data) void r.render(data, { activeLayers: ACTIVE_LAYERS });
+        if (data) {
+          r.updateViewport(1, 0, 0);
+          void r.render(data, { activeLayers: ACTIVE_LAYERS });
+        }
       }
     };
 
@@ -340,8 +351,6 @@ export function CanvasRoot({
     function handleMouseUp(): void {
       if (isDraggingRef.current) {
         isDraggingRef.current = false;
-        // Re-render vectorially after pan settles
-        scheduleReRender();
       }
       setCursor(isSpaceDownRef.current ? 'grab' : 'default');
     }
