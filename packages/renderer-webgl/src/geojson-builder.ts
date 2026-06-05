@@ -11,8 +11,7 @@
  * not import MapLibre. It can be unit-tested in jsdom without WebGL.
  */
 
-import type { CityData, RoadNode, WayType } from '@vellum/core';
-import { SEA_LEVEL_DEFAULT } from '@vellum/core';
+import type { CityData, RoadNode, TerrainPolygon, WayType } from '@vellum/core';
 import { csToGeoArray, CS1_WORLD_HALF } from './coordinate-transform';
 
 // ─── GeoJSON primitives (minimal subset — avoids importing @types/geojson) ───
@@ -204,26 +203,28 @@ export interface TransitStopsFeatureCollection {
   features: TransitStopFeature[];
 }
 
-/** A GeoJSON Feature wrapping a terrain elevation polygon. */
-interface TerrainFeature {
-  type: 'Feature';
-  geometry: PolygonGeometry;
-  properties: TerrainFeatureProperties;
+// Terrain GeoJSON types for vectorized polygon sources.
+
+/** Properties on a land or inland-water polygon feature. */
+export interface LandPolygonProperties {
+  type: 'land' | 'inland_water';
 }
 
-/**
- * Properties attached to each terrain elevation GeoJSON feature.
- * `elev` is normalised [0, 1]: 0 = sea level, 1 = map peak.
- */
-export interface TerrainFeatureProperties {
-  /** Normalised elevation (0.0 = sea level, 1.0 = highest land point on this map). */
-  elev: number;
+/** Properties on a terrain elevation band feature. */
+export interface TerrainBandProperties {
+  type: 'terrain_band';
+  elevationMin: number;
+  elevationMax: number;
 }
 
-/** A GeoJSON FeatureCollection of terrain elevation polygons. */
-export interface TerrainFeatureCollection {
+/** A GeoJSON FeatureCollection of vectorized land / inland-water polygons. */
+export interface LandPolygonFeatureCollection {
   type: 'FeatureCollection';
-  features: TerrainFeature[];
+  features: Array<{
+    type: 'Feature';
+    geometry: PolygonGeometry;
+    properties: LandPolygonProperties | TerrainBandProperties;
+  }>;
 }
 
 // ─── Road tier / width model ──────────────────────────────────────────────────
@@ -505,13 +506,12 @@ export function buildDistrictsGeoJson(
  *
  * @remarks
  * **Rendering strategy:** Water is rendered as a solid backdrop covering the entire
- * CS1 world extent. The terrain fill layer (`buildTerrainGeoJson`) is then drawn on
- * top, covering only actual land cells. The visual result is that water appears
- * wherever land is absent — ocean, rivers, and lakes all naturally reveal the water
- * layer beneath without requiring explicit tile-by-tile polygon construction.
+ * CS1 world extent. The `land_polygon` fill layer (`buildLandPolygonGeoJson`) is then
+ * drawn on top, covering actual land. The visual result is that water appears wherever
+ * land is absent — ocean, rivers, and lakes all reveal the water layer beneath.
  *
- * Inland water (LandTile.resolution > SEA_LEVEL_DEFAULT) is excluded from terrain
- * polygons, so rivers and lakes also fall through to this water backdrop.
+ * Inland water bodies appear through this water backdrop naturally, since
+ * `inlandWaterPolygons` renders above `landPolygon` in the layer stack.
  *
  * Polygon winding is CCW (geographic exterior) consistent with the south-up convention
  * (see `CS1_LAT_SIGN` in coordinate-transform).
@@ -592,102 +592,66 @@ export function buildTransitStopsGeoJson(
   return { type: 'FeatureCollection', features };
 }
 
-// ─── Terrain constants ────────────────────────────────────────────────────────
+// ─── Terrain vectorized polygon builders ─────────────────────────────────────
 
-/** CS1 terrain grid origin in world units (same as -CS1_WORLD_HALF). */
-const TERRAIN_MAP_ORIGIN = -CS1_WORLD_HALF;
-
-/** Source cell size: each terrain CSV entry covers 16 × 16 world units. */
-const TERRAIN_CELL_SIZE = 16;
-
-/**
- * Downsampling factor for terrain GeoJSON. Every Nth tile in both axes is
- * combined into a single polygon. Lower values give finer water/land boundary
- * resolution at the cost of more features:
- *   STEP=8 → 128-unit cells, ~8 000–18 000 features (fast, blocky edges)
- *   STEP=4 → 64-unit cells,  ~18 000–72 000 features (balanced — current)
- *   STEP=2 → 32-unit cells,  ~72 000–290 000 features (finer, may be slower)
- */
-const TERRAIN_SAMPLE_STEP = 4;
-
-/** World-unit size of each output terrain polygon (SAMPLE_STEP × source cell). */
-const TERRAIN_POLY_SIZE = TERRAIN_CELL_SIZE * TERRAIN_SAMPLE_STEP;
+/** Converts a `TerrainPolygon` (already in WGS-84) to a GeoJSON Polygon geometry. */
+function terrainPolygonToGeometry(poly: TerrainPolygon): PolygonGeometry {
+  return {
+    type: 'Polygon',
+    coordinates: [poly.exterior, ...poly.holes],
+  };
+}
 
 /**
- * Builds a GeoJSON FeatureCollection of terrain elevation polygons.
+ * Builds a GeoJSON FeatureCollection from `cityData.landPolygon`.
  *
  * @remarks
- * Samples the `landTiles` grid at 1-in-8 resolution to balance detail vs feature
- * count. Each output polygon covers a 128 × 128 world-unit cell and carries a
- * normalised `elev` property (0 = sea level, 1 = map peak). MapLibre uses an
- * `interpolate` fill-color expression to shade from `terrainLow` → `terrainMid`
- * → `terrainHigh`.
- *
- * Polygon winding order is CCW (geographic exterior) consistent with the south-up
- * rendering convention (see `CS1_LAT_SIGN` in coordinate-transform).
+ * The coordinates are already in WGS-84 `[lng, lat]` — no conversion needed.
+ * The Rust parser emits `{ type: 'land' }` as the semantic property.
  *
  * @param cityData - The immutable domain model produced by the CS1 parser.
  * @returns A GeoJSON FeatureCollection ready for `map.addSource()` in MapLibre.
  */
-export function buildTerrainGeoJson(
+export function buildLandPolygonGeoJson(
   cityData: CityData,
-): TerrainFeatureCollection {
-  const { landTiles, bounds } = cityData;
-  if (landTiles.length === 0) {
-    return { type: 'FeatureCollection', features: [] };
-  }
+): LandPolygonFeatureCollection {
+  return {
+    type: 'FeatureCollection',
+    features: cityData.landPolygon.map((poly) => ({
+      type: 'Feature',
+      geometry: terrainPolygonToGeometry(poly),
+      properties: { type: 'land' as const },
+    })),
+  };
+}
 
-  // Elevation range: anchor low end at seaLevel so the ramp starts at water's edge.
-  const minElev = bounds.seaLevel;
-  let maxElev = minElev;
-  for (const tile of landTiles) {
-    if (tile.elevation > maxElev) maxElev = tile.elevation;
-  }
-  const elevRange = maxElev - minElev || 1;
-
-  // Downsample: group tiles into TERRAIN_POLY_SIZE buckets; keep highest elevation.
-  // Skip inland water tiles (resolution > seaLevel): rivers/lakes fall through to the
-  // water backdrop below the terrain layer, rendering correctly as water.
-  const sampled = new Map<string, { bx: number; bz: number; elev: number }>();
-  for (const tile of landTiles) {
-    if (tile.resolution > SEA_LEVEL_DEFAULT) continue; // inland water — not land
-
-    // Bucket origin aligned to TERRAIN_POLY_SIZE grid starting from map origin.
-    const bx =
-      Math.floor((tile.x - TERRAIN_MAP_ORIGIN) / TERRAIN_POLY_SIZE) *
-        TERRAIN_POLY_SIZE +
-      TERRAIN_MAP_ORIGIN;
-    const bz =
-      Math.floor((tile.z - TERRAIN_MAP_ORIGIN) / TERRAIN_POLY_SIZE) *
-        TERRAIN_POLY_SIZE +
-      TERRAIN_MAP_ORIGIN;
-    const key = `${bx},${bz}`;
-    const existing = sampled.get(key);
-    if (!existing || tile.elevation > existing.elev) {
-      sampled.set(key, { bx, bz, elev: tile.elevation });
+/**
+ * Builds a GeoJSON FeatureCollection from `cityData.terrainBands`.
+ *
+ * @remarks
+ * Each feature carries `{ type: 'terrain_band', elevationMin, elevationMax }`.
+ * The MapLibre style maps `elevationMin`/`elevationMax` to `terrainLow/Mid/High` tokens.
+ * Coordinates are already in WGS-84 — no conversion needed.
+ *
+ * @param cityData - The immutable domain model produced by the CS1 parser.
+ * @returns A GeoJSON FeatureCollection ready for `map.addSource()` in MapLibre.
+ */
+export function buildTerrainBandsGeoJson(
+  cityData: CityData,
+): LandPolygonFeatureCollection {
+  const features: LandPolygonFeatureCollection['features'] = [];
+  for (const band of cityData.terrainBands) {
+    for (const poly of band.polygons) {
+      features.push({
+        type: 'Feature',
+        geometry: terrainPolygonToGeometry(poly),
+        properties: {
+          type: 'terrain_band' as const,
+          elevationMin: band.elevationMin,
+          elevationMax: band.elevationMax,
+        },
+      });
     }
   }
-
-  // Build one polygon per bucket. CCW south-up ring: SW(bx,bz) → SE → NE → NW → close.
-  const features: TerrainFeature[] = [];
-  for (const { bx, bz, elev } of sampled.values()) {
-    const normalizedElev = Math.max(
-      0,
-      Math.min(1, (elev - minElev) / elevRange),
-    );
-    const sw = csToGeoArray({ x: bx, z: bz });
-    const se = csToGeoArray({ x: bx + TERRAIN_POLY_SIZE, z: bz });
-    const ne = csToGeoArray({
-      x: bx + TERRAIN_POLY_SIZE,
-      z: bz + TERRAIN_POLY_SIZE,
-    });
-    const nw = csToGeoArray({ x: bx, z: bz + TERRAIN_POLY_SIZE });
-    features.push({
-      type: 'Feature',
-      geometry: { type: 'Polygon', coordinates: [[sw, se, ne, nw, sw]] },
-      properties: { elev: normalizedElev },
-    });
-  }
-
   return { type: 'FeatureCollection', features };
 }

@@ -1,4 +1,7 @@
-import type { WaterTile, LandTile, CityData } from '@vellum/core';
+// renderer-canvas is a zombie package — LandTile/WaterTile removed from @vellum/core.
+type LandTile = { x: number; z: number; elevation: number; resolution: number };
+type WaterTile = { x: number; z: number; depth: number };
+import type { CityData } from '@vellum/core';
 import type { RendererTokens } from '../tokens';
 import { buildPresenceGrid } from '../geometry/PresenceGrid';
 import { traceWaterContours, buildWaterPath } from '../geometry/WaterContour';

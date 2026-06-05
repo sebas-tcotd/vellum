@@ -13,34 +13,36 @@ export interface Vec3 {
 }
 
 /**
- * Represents a dry terrain cell with a discrete elevation level.
- * @remarks
- * Domain Invariant: Land and water data are strictly kept in separate arrays.
- * They must never be merged into a unified heightmap.
+ * A ring of WGS-84 `[longitude, latitude]` coordinate pairs forming a polygon boundary.
+ * Uses south-up convention: positive CS1 Z maps to positive latitude.
  */
-export interface LandTile {
-  /** Raw elevation value from the terrain CSV (not in game-unit meters). */
-  elevation: number;
-  /** Raw water-surface height from the terrain CSV. When this exceeds `SEA_LEVEL_DEFAULT`, the cell has an inland water body (river or lake) sitting above the ground — used to detect non-ocean water. */
-  resolution: number;
-  /** X-coordinate in the global grid. */
-  x: number;
-  /** Z-coordinate in the global grid. */
-  z: number;
+export type TerrainRing = [number, number][];
+
+/**
+ * A single terrain polygon with an exterior boundary and optional interior holes.
+ * @remarks
+ * Holes represent inland water bodies (rivers, lakes) cut out of the landmass.
+ * Coordinates are in WGS-84 `[lng, lat]` order, ready for direct use in GeoJSON.
+ */
+export interface TerrainPolygon {
+  /** Outer boundary ring in WGS-84 `[lng, lat]`. */
+  exterior: TerrainRing;
+  /** Interior rings (holes) for inland water bodies. */
+  holes: TerrainRing[];
 }
 
 /**
- * Represents a water cell containing depth information.
+ * An elevation isoband covering a `[elevationMin, elevationMax)` range in raw game units.
  * @remarks
- * Domain Invariant: This is maintained separately from `LandTile` data.
+ * Only dry-land cells (above sea level and not covered by inland water) are included.
  */
-export interface WaterTile {
-  /** Depth of the water in game units. */
-  depth: number;
-  /** X-coordinate in the global grid. */
-  x: number;
-  /** Z-coordinate in the global grid. */
-  z: number;
+export interface TerrainBand {
+  /** Lower bound of this elevation range (inclusive), in raw game elevation units. */
+  elevationMin: number;
+  /** Upper bound of this elevation range (exclusive), in raw game elevation units. */
+  elevationMax: number;
+  /** Polygon geometry for this elevation band. */
+  polygons: TerrainPolygon[];
 }
 
 /**
@@ -194,8 +196,8 @@ export interface District {
 /**
  * The core domain model representing a completely parsed `.cslmap` city.
  * @remarks
- * This structure is strictly immutable once constructed. The Rust parser produces it,
- * and the Canvas renderer consumes it. Arrays may be empty, but must never be `null`.
+ * This structure is strictly immutable once constructed. The Rust parser produces it
+ * and renderers consume it. Arrays may be empty, but must never be `null`.
  */
 export interface CityData {
   /** The name of the city as defined in the save file. */
@@ -219,10 +221,12 @@ export interface CityData {
     seaLevel: number;
   };
 
-  /** Grid cells representing dry terrain elevation. */
-  landTiles: LandTile[];
-  /** Grid cells representing water bodies and their depths. */
-  waterTiles: WaterTile[];
+  /** Vectorized landmass polygon in WGS-84. Holes represent inland water bodies. */
+  landPolygon: TerrainPolygon[];
+  /** Vectorized inland water bodies (rivers and lakes) in WGS-84. Rendered above `landPolygon`. */
+  inlandWaterPolygons: TerrainPolygon[];
+  /** Elevation isobands for the optional terrain-shading layer, in WGS-84. */
+  terrainBands: TerrainBand[];
   /** Intersections and terminuses for the road network. */
   roadNodes: RoadNode[];
   /** Valid physical road segments (virtual connectors like 'Bus Line' are pre-filtered). */

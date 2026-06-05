@@ -4,3 +4,33 @@ members = [
   "packages/parser-cslmap",
 ]
 resolver = "2"
+
+# Heavy compute crates — optimized in both dev and test profiles so vectorization
+# (Marching Squares + simplification on 1M+ cells) doesn't freeze during development.
+# [profile.dev.package.*] applies to `cargo build`; [profile.test.package.*] applies
+# to `cargo test`. Both must be set — test does NOT inherit dev package overrides.
+
+[profile.dev.package.contour-isobands]
+opt-level = 3
+[profile.test.package.contour-isobands]
+opt-level = 3
+
+[profile.dev.package.geo]
+opt-level = 3
+[profile.test.package.geo]
+opt-level = 3
+
+[profile.dev.package.geo-types]
+opt-level = 3
+[profile.test.package.geo-types]
+opt-level = 3
+
+[profile.dev.package.quick-xml]
+opt-level = 3
+[profile.test.package.quick-xml]
+opt-level = 3
+
+[profile.dev.package.parser-cslmap]
+opt-level = 2
+[profile.test.package.parser-cslmap]
+opt-level = 2

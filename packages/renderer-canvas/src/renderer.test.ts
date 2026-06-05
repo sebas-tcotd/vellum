@@ -63,12 +63,11 @@ describe('CityData factory', () => {
 
     expect(cityData.cityName).toBe('Test City');
     expect(cityData.roadSegments).toEqual([]);
-    expect(cityData.landTiles).toEqual([]);
-    // LandArray y WaterArray siempre presentes y separados — nunca undefined
-    expect(cityData.waterTiles).toBeDefined();
-    expect(cityData.landTiles).toBeDefined();
-    expect(Array.isArray(cityData.waterTiles)).toBe(true);
-    expect(Array.isArray(cityData.landTiles)).toBe(true);
+    // Terrain is now vectorized — landPolygon/inlandWaterPolygons replace tiles
+    expect(cityData.landPolygon).toBeDefined();
+    expect(cityData.inlandWaterPolygons).toBeDefined();
+    expect(Array.isArray(cityData.landPolygon)).toBe(true);
+    expect(Array.isArray(cityData.inlandWaterPolygons)).toBe(true);
   });
 
   it('applies overrides correctly', () => {

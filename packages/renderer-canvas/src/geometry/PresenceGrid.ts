@@ -1,4 +1,7 @@
-import type { WaterTile, LandTile } from '@vellum/core';
+// renderer-canvas is a zombie package — LandTile/WaterTile removed from @vellum/core.
+// Local stubs keep the file compilable without changing the rendering logic.
+type LandTile = { x: number; z: number; elevation: number; resolution: number };
+type WaterTile = { x: number; z: number; depth: number };
 import { SEA_LEVEL_DEFAULT } from '@vellum/core';
 
 export const GRID_SIZE = 1081;

@@ -29,8 +29,8 @@ import {
   buildBuildingsGeoJson,
   buildDistrictsGeoJson,
   buildForestsGeoJson,
+  buildLandPolygonGeoJson,
   buildRoadsGeoJson,
-  buildTerrainGeoJson,
   buildTransitGeoJson,
   buildTransitStopsGeoJson,
   buildWaterGeoJson,
@@ -509,7 +509,7 @@ export class MapLibreRenderer implements IRenderer {
   private addTerrainLayer(cityData: CityData): void {
     this.addSourceIfAbsent('terrain', {
       type: 'geojson',
-      data: buildTerrainGeoJson(cityData),
+      data: buildLandPolygonGeoJson(cityData),
     });
     if (!this.map.getLayer('terrain-fill')) {
       // No beforeId: terrain is added to the top of the current stack (above water-fill).

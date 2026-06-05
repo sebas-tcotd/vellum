@@ -73,49 +73,27 @@ export function Minimap({
     ctx.fillStyle = '#6db8b7'; // El color de tu token de agua
     ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
 
-    // 2. Terreno (Máscara de celdas agrupadas)
-    if (cityData.landTiles && cityData.landTiles.length > 0) {
-      const TERRAIN_POLY_SIZE = 64; // El mismo tamaño de bloque de tu geojson-builder
-      const { minX, minZ, seaLevel } = cityData.bounds;
+    // 2. Terreno — renderizado vectorial con Path2D desde landPolygon (WGS-84).
+    // Los huecos (ríos, lagos) se manejan con la regla evenodd.
+    if (cityData.landPolygon.length > 0) {
+      ctx.fillStyle = '#e2dbcb';
+      const path = new Path2D();
 
-      // Agrupamos las celdas para evitar el colapso del sub-pixel anti-aliasing
-      const sampled = new Map<string, { bx: number; bz: number }>();
+      const drawRing = (ring: [number, number][]) => {
+        if (ring.length === 0) return;
+        path.moveTo(toCanvasX(ring[0][0]), toCanvasY(ring[0][1]));
+        for (let i = 1; i < ring.length; i++) {
+          path.lineTo(toCanvasX(ring[i][0]), toCanvasY(ring[i][1]));
+        }
+        path.closePath();
+      };
 
-      for (const tile of cityData.landTiles) {
-        if (tile.resolution > seaLevel) continue; // Dejamos el "hueco" para que se vea el agua de fondo
-
-        const bx =
-          Math.floor((tile.x - minX) / TERRAIN_POLY_SIZE) * TERRAIN_POLY_SIZE +
-          minX;
-        const bz =
-          Math.floor((tile.z - minZ) / TERRAIN_POLY_SIZE) * TERRAIN_POLY_SIZE +
-          minZ;
-        sampled.set(`${bx},${bz}`, { bx, bz });
+      for (const polygon of cityData.landPolygon) {
+        drawRing(polygon.exterior);
+        for (const hole of polygon.holes) drawRing(hole);
       }
 
-      ctx.fillStyle = '#e2dbcb'; // Color base del terreno
-      for (const { bx, bz } of sampled.values()) {
-        const [lng1, lat1] = csToGeoArray({ x: bx, z: bz });
-        const [lng2, lat2] = csToGeoArray({
-          x: bx + TERRAIN_POLY_SIZE,
-          z: bz + TERRAIN_POLY_SIZE,
-        });
-
-        // Calculamos las 4 coordenadas para prevenir inversiones negativas en el eje Y del canvas
-        const x1 = toCanvasX(lng1);
-        const x2 = toCanvasX(lng2);
-        const y1 = toCanvasY(lat1);
-        const y2 = toCanvasY(lat2);
-
-        const rx = Math.min(x1, x2);
-        const ry = Math.min(y1, y2);
-        const rw = Math.abs(x2 - x1);
-        const rh = Math.abs(y2 - y1);
-
-        // El secreto: Math.ceil() + 0.5 fuerza al canvas a pintar bordes duros
-        // eliminando cualquier rendija o sangrado entre los bloques agrupados.
-        ctx.fillRect(rx, ry, Math.ceil(rw) + 0.5, Math.ceil(rh) + 0.5);
-      }
+      ctx.fill(path, 'evenodd');
     }
 
     // 3. Highway roads — draw using node position lookup

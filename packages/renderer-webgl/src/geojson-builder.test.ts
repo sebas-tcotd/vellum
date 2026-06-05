@@ -7,7 +7,8 @@ import {
   buildForestsGeoJson,
   buildDistrictsGeoJson,
   buildWaterGeoJson,
-  buildTerrainGeoJson,
+  buildLandPolygonGeoJson,
+  buildTerrainBandsGeoJson,
 } from './geojson-builder';
 import { makeCityData } from '@vellum/core/testing';
 import { CS1_HALF_EXTENT_DEG } from './coordinate-transform';
@@ -17,11 +18,11 @@ import type {
   Building,
   ForestCell,
   District,
-  LandTile,
+  TerrainPolygon,
+  TerrainBand,
   TransitLine,
   TransitStop,
 } from '@vellum/core';
-import { SEA_LEVEL_DEFAULT } from '@vellum/core';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -288,65 +289,105 @@ describe('buildWaterGeoJson', () => {
   });
 });
 
-// ─── buildTerrainGeoJson ──────────────────────────────────────────────────────
+// ─── buildLandPolygonGeoJson ──────────────────────────────────────────────────
 
-describe('buildTerrainGeoJson', () => {
-  it('returns empty FeatureCollection when no land tiles', () => {
-    const city = makeCityData({ landTiles: [] });
-    const fc = buildTerrainGeoJson(city);
+describe('buildLandPolygonGeoJson', () => {
+  it('returns empty FeatureCollection when landPolygon is empty', () => {
+    const city = makeCityData({ landPolygon: [] });
+    const fc = buildLandPolygonGeoJson(city);
     expect(fc.features).toHaveLength(0);
   });
 
-  it('produces Polygon features with normalised elev property', () => {
-    const tiles: LandTile[] = [
-      { x: 0, z: 0, elevation: 50, resolution: 0 },
-      { x: 1000, z: 1000, elevation: 200, resolution: 0 },
-    ];
-    const city = makeCityData({ landTiles: tiles });
-    const fc = buildTerrainGeoJson(city);
-    expect(fc.features.length).toBeGreaterThan(0);
+  it('produces one Polygon feature per TerrainPolygon with type=land', () => {
+    const poly: TerrainPolygon = {
+      exterior: [
+        [0.01, 0.01],
+        [0.02, 0.01],
+        [0.02, 0.02],
+        [0.01, 0.02],
+        [0.01, 0.01],
+      ],
+      holes: [],
+    };
+    const city = makeCityData({ landPolygon: [poly] });
+    const fc = buildLandPolygonGeoJson(city);
+    expect(fc.features).toHaveLength(1);
     expect(fc.features[0].geometry.type).toBe('Polygon');
-    const elevValues = fc.features.map((f) => f.properties.elev);
-    for (const e of elevValues) {
-      expect(e).toBeGreaterThanOrEqual(0);
-      expect(e).toBeLessThanOrEqual(1);
-    }
+    expect(fc.features[0].properties).toMatchObject({ type: 'land' });
   });
 
-  it('excludes inland water tiles (resolution > SEA_LEVEL_DEFAULT)', () => {
-    const dryTile: LandTile = {
-      x: 0,
-      z: 0,
-      elevation: 80,
-      resolution: 0, // dry land
+  it('passes through WGS-84 coordinates unchanged', () => {
+    const poly: TerrainPolygon = {
+      exterior: [
+        [0.05, 0.03],
+        [0.06, 0.03],
+        [0.06, 0.04],
+        [0.05, 0.03],
+      ],
+      holes: [],
     };
-    const inlandWaterTile: LandTile = {
-      x: 10000, // far enough to be in a different sample bucket
-      z: 0,
-      elevation: 50,
-      resolution: SEA_LEVEL_DEFAULT + 10, // river / lake
-    };
-    const city = makeCityData({ landTiles: [dryTile, inlandWaterTile] });
-    const fcWithBoth = buildTerrainGeoJson(city);
-    const cityDryOnly = makeCityData({ landTiles: [dryTile] });
-    const fcDryOnly = buildTerrainGeoJson(cityDryOnly);
-    // Inland water tile must not add any terrain polygon
-    expect(fcWithBoth.features).toHaveLength(fcDryOnly.features.length);
+    const city = makeCityData({ landPolygon: [poly] });
+    const fc = buildLandPolygonGeoJson(city);
+    const coords = fc.features[0].geometry.coordinates[0];
+    expect(coords[0]).toEqual([0.05, 0.03]);
   });
 
-  it('produces coordinates in geographic range', () => {
-    const tiles: LandTile[] = [
-      { x: 5000, z: -5000, elevation: 100, resolution: 0 },
-    ];
-    const city = makeCityData({ landTiles: tiles });
-    const fc = buildTerrainGeoJson(city);
-    expect(fc.features.length).toBeGreaterThan(0);
-    for (const feature of fc.features) {
-      for (const [lng, lat] of feature.geometry.coordinates[0]) {
-        expect(inGeoRange(lng)).toBe(true);
-        expect(inGeoRange(lat)).toBe(true);
-      }
-    }
+  it('includes hole rings in polygon coordinates', () => {
+    const poly: TerrainPolygon = {
+      exterior: [
+        [0.01, 0.01],
+        [0.05, 0.01],
+        [0.05, 0.05],
+        [0.01, 0.01],
+      ],
+      holes: [
+        [
+          [0.02, 0.02],
+          [0.03, 0.02],
+          [0.03, 0.03],
+          [0.02, 0.02],
+        ],
+      ],
+    };
+    const city = makeCityData({ landPolygon: [poly] });
+    const fc = buildLandPolygonGeoJson(city);
+    // coordinates[0] = exterior, coordinates[1] = hole
+    expect(fc.features[0].geometry.coordinates).toHaveLength(2);
+  });
+});
+
+// ─── buildTerrainBandsGeoJson ─────────────────────────────────────────────────
+
+describe('buildTerrainBandsGeoJson', () => {
+  it('returns empty FeatureCollection when terrainBands is empty', () => {
+    const city = makeCityData({ terrainBands: [] });
+    const fc = buildTerrainBandsGeoJson(city);
+    expect(fc.features).toHaveLength(0);
+  });
+
+  it('produces one feature per polygon with semantic elevation properties', () => {
+    const poly: TerrainPolygon = {
+      exterior: [
+        [0.01, 0.01],
+        [0.02, 0.01],
+        [0.02, 0.02],
+        [0.01, 0.01],
+      ],
+      holes: [],
+    };
+    const band: TerrainBand = {
+      elevationMin: 40,
+      elevationMax: 50,
+      polygons: [poly],
+    };
+    const city = makeCityData({ terrainBands: [band] });
+    const fc = buildTerrainBandsGeoJson(city);
+    expect(fc.features).toHaveLength(1);
+    expect(fc.features[0].properties).toMatchObject({
+      type: 'terrain_band',
+      elevationMin: 40,
+      elevationMax: 50,
+    });
   });
 });
 

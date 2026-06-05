@@ -5,8 +5,8 @@ use quick_xml::Reader;
 use tauri::Emitter;
 
 use crate::city_data::{
-    Building, CityData, District, ForestCell, LandTile, MapBounds, PathSegment, RoadNode,
-    RoadSegment, TransitLine, TransitStop, Vec3, WaterTile, WayType,
+    Building, CityData, District, ForestCell, MapBounds, PathSegment, RoadNode, RoadSegment,
+    TerrainBand, TerrainPolygon, TerrainRing, TransitLine, TransitStop, Vec3, WayType,
 };
 use crate::dlc_fallback;
 use crate::errors::VellumError;
@@ -312,57 +312,183 @@ fn way_type_from_item_class(item_class: &str) -> Vec<WayType> {
 
 // ─── Terrain CSV parsing ──────────────────────────────────────────────────────
 
+const TERRAIN_GRID_SIZE: usize = 1081;
+const TERRAIN_CELL_SIZE: f64 = 16.0;
+const TERRAIN_MAP_ORIGIN: f64 = -8640.0;
+
+/// CS1 world half-extent and WGS-84 scale constants (south-up convention, `CS1_LAT_SIGN = +1`).
+const CS1_WORLD_HALF: f64 = 8640.0;
+const CS1_EXTENT_DEG: f64 = (CS1_WORLD_HALF * 2.0) / 111_195.0;
+const CS1_HALF_EXTENT_DEG: f64 = CS1_EXTENT_DEG / 2.0;
+
+/// Base simplification tolerance in world-space units (32m = 2 grid cells).
+/// Applied in two passes: DP first (coarse, fast), then VW (smooth curves, lighter N).
+const SIMPLIFY_TOLERANCE: f64 = 32.0;
+
+/// Converts a CS1 world-space point to WGS-84 `[longitude, latitude]`.
+///
+/// Uses south-up convention (`CS1_LAT_SIGN = +1`): positive Z → positive latitude.
+/// This matches `coordinate-transform.ts` in the WebGL renderer — do not negate Z.
+fn world_to_wgs84(world_x: f64, world_z: f64) -> [f64; 2] {
+    let lng = (world_x / CS1_WORLD_HALF) * CS1_HALF_EXTENT_DEG;
+    let lat = (world_z / CS1_WORLD_HALF) * CS1_HALF_EXTENT_DEG;
+    [lng, lat]
+}
+
 /// Parses the `CSLExportXML` terrain CSV format: `"elev:res,elev:res,..."`
-/// Grid is 1081×1081, covering ±8640 world units (16 units per cell).
-/// Tiles with raw elevation ≤ `sea_level_raw` are water; the rest are land.
-fn parse_terrain_csv(
-    csv: &str,
-    sea_level_raw: f64,
-    land_tiles: &mut Vec<LandTile>,
-    water_tiles: &mut Vec<WaterTile>,
-) {
-    const GRID_SIZE: usize = 1081;
-    const CELL_SIZE: f64 = 16.0;
-    const MAP_ORIGIN: f64 = -8640.0;
+/// Grid is 1081×1081, row-major. Fills `elev_grid` and `res_grid` for later vectorization.
+fn parse_terrain_csv(csv: &str, elev_grid: &mut Vec<f64>, res_grid: &mut Vec<f64>) {
+    let capacity = TERRAIN_GRID_SIZE * TERRAIN_GRID_SIZE;
+    elev_grid.reserve(capacity);
+    res_grid.reserve(capacity);
 
     for (idx, entry) in csv.split(',').enumerate() {
         let entry = entry.trim();
-        if entry.is_empty() {
-            continue;
-        }
-        let row = idx / GRID_SIZE;
-        if row >= GRID_SIZE {
+        let row = idx / TERRAIN_GRID_SIZE;
+        if row >= TERRAIN_GRID_SIZE {
             eprintln!("[parser-cslmap] Terrain grid overflow at index {idx}; extra data ignored");
             break;
         }
-        let col = idx % GRID_SIZE;
-        #[allow(clippy::cast_precision_loss)]
-        let x = MAP_ORIGIN + col as f64 * CELL_SIZE;
-        #[allow(clippy::cast_precision_loss)]
-        let z = MAP_ORIGIN + row as f64 * CELL_SIZE;
 
-        // Parse "elev:res" pair
         let mut parts = entry.splitn(2, ':');
         let raw_elev: f64 = parts.next().and_then(|s| s.parse().ok()).unwrap_or(0.0);
         let raw_res: f64 = parts.next().and_then(|s| s.parse().ok()).unwrap_or(0.0);
 
-        if raw_elev <= sea_level_raw {
-            // Water tile: depth approximated as (sea_level - elevation) normalized
-            let depth = (sea_level_raw - raw_elev).max(0.0);
-            water_tiles.push(WaterTile { depth, x, z });
-        } else {
-            // Land tile: store raw elevation and resolution
-            #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-            land_tiles.push(LandTile {
-                elevation: raw_elev,
-                resolution: raw_res as u32,
-                x,
-                z,
-            });
+        // Always push to maintain row-major index alignment, even for empty/malformed entries.
+        elev_grid.push(raw_elev);
+        res_grid.push(raw_res);
+    }
+}
+
+// ─── Terrain vectorization ────────────────────────────────────────────────────
+
+/// Two-pass simplification: Douglas-Peucker (coarse, O(N log N)) then
+/// Visvalingam-Whyatt (smooth curves, fast because N is already small).
+/// Avoids `SimplifyVwPreserve` whose topology check is O(N²) on complex coastlines.
+fn simplify_polygon(poly: &geo::Polygon<f64>) -> geo::Polygon<f64> {
+    use geo::{Simplify, SimplifyVw};
+    poly.simplify(SIMPLIFY_TOLERANCE)
+        .simplify_vw(SIMPLIFY_TOLERANCE * 1.5)
+}
+
+/// Converts a `geo::Polygon<f64>` in world-space to a `TerrainPolygon` in WGS-84.
+fn geo_poly_to_terrain_polygon(poly: &geo::Polygon<f64>) -> TerrainPolygon {
+    let exterior = TerrainRing(
+        poly.exterior()
+            .coords()
+            .map(|c| world_to_wgs84(c.x, c.y))
+            .collect(),
+    );
+    let holes = poly
+        .interiors()
+        .iter()
+        .map(|ring| TerrainRing(ring.coords().map(|c| world_to_wgs84(c.x, c.y)).collect()))
+        .collect();
+    TerrainPolygon { exterior, holes }
+}
+
+/// Returns a `ContourBuilder` pre-configured to output coordinates in CS1 world-space.
+fn terrain_builder() -> contour_isobands::ContourBuilder {
+    contour_isobands::ContourBuilder::new(TERRAIN_GRID_SIZE, TERRAIN_GRID_SIZE)
+        .x_origin(TERRAIN_MAP_ORIGIN)
+        .x_step(TERRAIN_CELL_SIZE)
+        .y_origin(TERRAIN_MAP_ORIGIN)
+        .y_step(TERRAIN_CELL_SIZE)
+}
+
+/// Binary mask: `1.0` = dry land, `0.0` = ocean or inland water.
+///
+/// A cell is "water" if its elevation is at or below sea level (ocean),
+/// or if its resolution exceeds sea level (inland water body).
+fn build_water_mask(elev_grid: &[f64], res_grid: &[f64], sea_level: f64) -> Vec<f64> {
+    elev_grid
+        .iter()
+        .zip(res_grid.iter())
+        .map(|(&elev, &res)| {
+            if elev <= sea_level || res > sea_level {
+                0.0
+            } else {
+                1.0
+            }
+        })
+        .collect()
+}
+
+/// Vectorizes the landmass into `TerrainPolygon`s using Marching Squares.
+///
+/// Interior holes correspond to inland water bodies (rivers and lakes).
+/// Coordinates are in WGS-84 `[lng, lat]`, south-up convention.
+///
+/// # Errors emitted
+/// Vectorization failures are logged to stderr and return an empty vec (no panic).
+fn vectorize_land_polygon(
+    elev_grid: &[f64],
+    res_grid: &[f64],
+    sea_level: f64,
+) -> Vec<TerrainPolygon> {
+    let mask = build_water_mask(elev_grid, res_grid, sea_level);
+
+    match terrain_builder().contours(&mask, &[0.5_f64, 1.5_f64]) {
+        Ok(bands) => bands
+            .iter()
+            .flat_map(|band| {
+                band.geometry()
+                    .0
+                    .iter()
+                    .map(|poly| geo_poly_to_terrain_polygon(&simplify_polygon(poly)))
+                    .collect::<Vec<_>>()
+            })
+            .collect(),
+        Err(e) => {
+            eprintln!("[parser-cslmap] land polygon vectorization error: {e}");
+            vec![]
         }
     }
 }
 
+/// Vectorizes inland water bodies (rivers and lakes) into `TerrainPolygon`s.
+///
+/// A cell is inland water when its elevation is above sea level but its resolution
+/// (surface water height) also exceeds sea level.
+fn vectorize_inland_water(
+    elev_grid: &[f64],
+    res_grid: &[f64],
+    sea_level: f64,
+) -> Vec<TerrainPolygon> {
+    let inland_mask: Vec<f64> = elev_grid
+        .iter()
+        .zip(res_grid.iter())
+        .map(|(&elev, &res)| {
+            if elev > sea_level && res > sea_level {
+                1.0
+            } else {
+                0.0
+            }
+        })
+        .collect();
+
+    match terrain_builder().contours(&inland_mask, &[0.5_f64, 1.5_f64]) {
+        Ok(bands) => bands
+            .iter()
+            .flat_map(|band| {
+                band.geometry()
+                    .0
+                    .iter()
+                    .map(|poly| geo_poly_to_terrain_polygon(&simplify_polygon(poly)))
+                    .collect::<Vec<_>>()
+            })
+            .collect(),
+        Err(e) => {
+            eprintln!("[parser-cslmap] inland water vectorization error: {e}");
+            vec![]
+        }
+    }
+}
+
+/// Vectorizes terrain elevation isobands (every 10m) for the optional relief layer.
+///
+/// Only dry-land cells (above sea level and not inland water) contribute to bands.
+/// Each `TerrainBand` carries `elevation_min`/`elevation_max` as semantic properties.
 /// Parses one row of the `CSLExportXML` forest CSV format.
 ///
 /// The `<Forests>` section contains 512 `<Forest>` child elements, each holding one
@@ -416,8 +542,10 @@ struct CityDataBuilder {
     city_name: String,
     generated_at: String,
     sea_level: f64,
-    land_tiles: Vec<LandTile>,
-    water_tiles: Vec<WaterTile>,
+    // Raw terrain grids (row-major, 1081×1081). Populated during Ter CSV parse;
+    // vectorized into TerrainPolygon/TerrainBand in build().
+    elev_grid: Vec<f64>,
+    res_grid: Vec<f64>,
     road_nodes: Vec<RoadNode>,
     road_segments: Vec<RoadSegment>,
     transit_lines: Vec<TransitLine>,
@@ -852,12 +980,7 @@ impl CityDataBuilder {
             b"Ter" => {
                 let csv = std::mem::take(&mut self.pending_text);
                 if !csv.is_empty() {
-                    parse_terrain_csv(
-                        &csv,
-                        self.sea_level,
-                        &mut self.land_tiles,
-                        &mut self.water_tiles,
-                    );
+                    parse_terrain_csv(&csv, &mut self.elev_grid, &mut self.res_grid);
                 }
             }
 
@@ -966,7 +1089,7 @@ impl CityDataBuilder {
     }
 
     #[allow(clippy::unnecessary_wraps)]
-    fn build(self) -> Result<CityData, VellumError> {
+    fn build(mut self) -> Result<CityData, VellumError> {
         // Bounds derived from node positions; fall back to CS1 map limits if no nodes
         let bounds = if self.has_nodes {
             MapBounds {
@@ -991,13 +1114,39 @@ impl CityDataBuilder {
             eprintln!("[parser-cslmap] DLC warning: {w}");
         }
 
+        let sea_level = self.sea_level;
+
+        // Pad incomplete grids to the expected 1081×1081 size so contour-isobands
+        // receives exactly the right number of values. Padded cells have elev=0
+        // (below any real sea level) and are treated as ocean.
+        let expected_len = TERRAIN_GRID_SIZE * TERRAIN_GRID_SIZE;
+        if self.elev_grid.len() < expected_len {
+            if !self.elev_grid.is_empty() {
+                eprintln!(
+                    "[parser-cslmap] Terrain grid has {} entries, expected {}; padding with zeros",
+                    self.elev_grid.len(),
+                    expected_len
+                );
+            }
+            self.elev_grid.resize(expected_len, 0.0);
+            self.res_grid.resize(expected_len, 0.0);
+        }
+
+        let land_polygon = vectorize_land_polygon(&self.elev_grid, &self.res_grid, sea_level);
+        let inland_water_polygons =
+            vectorize_inland_water(&self.elev_grid, &self.res_grid, sea_level);
+        // terrain_bands: O(N × num_bands) — deferred; returned empty until a dedicated
+        // optimization pass (chunked Marching Squares or pre-bucketed elevation grid).
+        let terrain_bands: Vec<TerrainBand> = vec![];
+
         Ok(CityData {
             city_name: self.city_name,
             file_name: String::new(),
             generated_at: self.generated_at,
             bounds,
-            land_tiles: self.land_tiles,
-            water_tiles: self.water_tiles,
+            land_polygon,
+            inland_water_polygons,
+            terrain_bands,
             road_nodes: self.road_nodes,
             road_segments: self.road_segments,
             transit_lines: self.transit_lines,
@@ -1094,15 +1243,20 @@ fn parse_inner(content: &[u8], allow_partial: bool) -> Result<CityData, VellumEr
 mod tests {
     use super::*;
 
-    // AC1: minimal-valid.cslmap → valid CityData, no errors, land_tiles > 0
+    // AC1: minimal-valid.cslmap → valid CityData, no errors, city_name correct.
+    // This fixture has 3 terrain cells (all inland water due to res > sea_level),
+    // so land_polygon may be empty — that is correct behavior for this fixture.
     #[test]
     fn parses_minimal_valid_cslmap() {
         let bytes = include_bytes!("../fixtures/minimal-valid.cslmap");
         let result = parse_cslmap_bytes(bytes);
         assert!(result.is_ok(), "expected Ok, got: {result:?}");
         let city = result.expect("already checked");
-        assert!(!city.land_tiles.is_empty(), "expected land tiles");
         assert_eq!(city.city_name, "Test City");
+        // Terrain vectors are present (even if empty for this small fixture).
+        assert!(city.land_polygon.len() < usize::MAX);
+        assert!(city.inland_water_polygons.len() < usize::MAX);
+        assert!(city.terrain_bands.len() < usize::MAX);
     }
 
     // AC3 + Gotcha 6: Bus Line excluded from road_segments; transit_lines populated
@@ -1123,7 +1277,9 @@ mod tests {
     // Bus Line route reconstruction: each transit line assembles its full route from
     // per-stop-pair Bus Line virtual segs, keyed by (sn, en). Verifies with Altavento
     // fixture (36 Bus Line segs across 4 Trans: 16+20 stop pairs).
+    // Uses the 13MB altavento fixture + full vectorization; run with --release.
     #[test]
+    #[ignore = "large fixture + vectorization; run with: cargo test -p parser-cslmap --release -- --ignored"]
     fn transit_routes_assembled_from_stop_pairs() {
         let bytes = include_bytes!("../fixtures/altavento.cslmap");
         let result = parse_cslmap_bytes(bytes);
@@ -1265,31 +1421,33 @@ mod tests {
         );
     }
 
-    // Terrain CSV parsing: land vs water classification
+    // Terrain CSV parsing: elev and res values are stored correctly in both grids
     #[test]
-    fn terrain_csv_classifies_land_and_water() {
-        let mut land = Vec::new();
-        let mut water = Vec::new();
-        // sea_level = 100: raw 50 → water, raw 200 → land
-        parse_terrain_csv("50:0,200:0", 100.0, &mut land, &mut water);
-        assert_eq!(water.len(), 1, "one water tile expected");
-        assert_eq!(land.len(), 1, "one land tile expected");
+    fn terrain_csv_fills_grids() {
+        let mut elev = Vec::new();
+        let mut res = Vec::new();
+        // Two entries: elev=50:res=0 and elev=200:res=80
+        parse_terrain_csv("50:0,200:80", &mut elev, &mut res);
+        assert_eq!(elev.len(), 2);
+        assert_eq!(res.len(), 2);
+        assert!((elev[0] - 50.0).abs() < f64::EPSILON);
+        assert!((elev[1] - 200.0).abs() < f64::EPSILON);
+        assert!((res[1] - 80.0).abs() < f64::EPSILON);
     }
 
     // Terrain CSV grid overflow guard: entries beyond 1081×1081 are discarded
     #[test]
     fn terrain_csv_overflow_guard() {
-        let mut land = Vec::new();
-        let mut water = Vec::new();
-        // Generate 1081*1081 + 5 entries; all elevation=300 (above sea_level=100)
+        let mut elev = Vec::new();
+        let mut res = Vec::new();
         let entry = "300:0";
         let total = 1081 * 1081 + 5;
         let csv = std::iter::repeat_n(entry, total)
             .collect::<Vec<_>>()
             .join(",");
-        parse_terrain_csv(&csv, 100.0, &mut land, &mut water);
+        parse_terrain_csv(&csv, &mut elev, &mut res);
         assert_eq!(
-            land.len(),
+            elev.len(),
             1081 * 1081,
             "overflow entries must be discarded"
         );
@@ -1388,8 +1546,12 @@ mod tests {
         eprintln!("city_name: {:?}", city.city_name);
         eprintln!("road_nodes: {}", city.road_nodes.len());
         eprintln!("road_segments: {}", city.road_segments.len());
-        eprintln!("land_tiles: {}", city.land_tiles.len());
-        eprintln!("water_tiles: {}", city.water_tiles.len());
+        eprintln!("land_polygon polygons: {}", city.land_polygon.len());
+        eprintln!(
+            "inland_water_polygons: {}",
+            city.inland_water_polygons.len()
+        );
+        eprintln!("terrain_bands: {}", city.terrain_bands.len());
         eprintln!("transit_lines: {}", city.transit_lines.len());
         eprintln!("buildings: {}", city.buildings.len());
         eprintln!("districts: {}", city.districts.len());

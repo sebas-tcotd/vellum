@@ -64,9 +64,10 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
         const panY = currentPanY + (bufferH - fitH) / 2;
 
         if (layerName === 'terrain' && layerVisibility.terrain) {
+          // renderer-canvas is zombie — landTiles removed; terrain layer is a no-op.
           renderTerrainLayer(
             ctx,
-            cityData.landTiles,
+            [],
             cityData.bounds,
             style.tokens,
             fitW,
@@ -76,10 +77,11 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
             panY,
           );
         } else if (layerName === 'water' && layerVisibility.water) {
+          // renderer-canvas is zombie — waterTiles/landTiles removed; water layer is a no-op.
           renderWaterLayer(
             ctx,
-            cityData.waterTiles,
-            cityData.landTiles,
+            [],
+            [],
             style.tokens,
             fitW,
             fitH,
