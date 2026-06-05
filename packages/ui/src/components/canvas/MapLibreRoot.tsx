@@ -4,6 +4,7 @@ import type { UnlistenFn } from '@tauri-apps/api/event';
 import { MapLibreRenderer, readTokensFromDOM } from '@vellum/renderer-webgl';
 import type { TooltipInfo } from '@vellum/renderer-webgl';
 import type { LayerVisibility } from '@vellum/core';
+import { useTranslation } from 'react-i18next';
 import { useVellumStore } from '../../store/vellum-store';
 import { Minimap } from '../minimap/Minimap';
 import { MapTooltip } from '../overlays/MapTooltip';
@@ -41,6 +42,7 @@ export function MapLibreRoot({
   zoomOutRef,
   isCleanMode = false,
 }: MapLibreRootProps) {
+  const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<MapLibreRenderer | null>(null);
   const unlistenRef = useRef<UnlistenFn | null>(null);
@@ -213,6 +215,12 @@ export function MapLibreRoot({
   return (
     <div
       ref={containerRef}
+      role="img"
+      aria-label={
+        cityData?.cityName
+          ? t('a11y.mapCanvasCity', { cityName: cityData.cityName })
+          : t('a11y.mapCanvas')
+      }
       style={{
         width: '100%',
         height: '100%',

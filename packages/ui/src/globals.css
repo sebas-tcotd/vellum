@@ -79,7 +79,7 @@
 
   /* Muted — fondo apagado para estados disabled / placeholders */
   --color-muted: #e0ddd7;
-  --color-muted-foreground: #777777; /* = --color-text-subtle */
+  --color-muted-foreground: #626262; /* = --color-text-subtle; #626262 cumple WCAG 2.1 AA: 5.64:1 contra #f7f6f1, 4.50:1 contra #e0ddd7 */
 
   /* Accent — hover states */
   --color-accent: #d9d3c8;
@@ -120,7 +120,7 @@
   --color-district-fill: #b4a08c; /* overlay de distritos — base hex, alpha 0.2 aplicado en renderer */
   --color-district-label: #ffffff; /* etiqueta de nombre del distrito — blanco con stroke oscuro */
   --color-text: #333333;
-  --color-text-subtle: #777777;
+  --color-text-subtle: #626262; /* WCAG 2.1 AA: 5.64:1 contra #f7f6f1, 4.50:1 contra #e0ddd7 */
   --color-border: rgba(0, 0, 0, 0.08);
 
   /* Paleta Transit — Tema oscuro */

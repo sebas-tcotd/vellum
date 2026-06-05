@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import userEvent from '@testing-library/user-event';
 import { render, screen, fireEvent } from '../../test-utils';
 import { FloatingLayerPanel } from './FloatingLayerPanel';
 import type { LayerVisibility } from '@vellum/core';
@@ -32,6 +33,14 @@ vi.mock('../../store/vellum-store', () => ({
 describe('FloatingLayerPanel', () => {
   beforeEach(() => {
     mockToggleLayer.mockClear();
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+      cb(0);
+      return 0;
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   describe('AC1 — Posición y estilos', () => {
@@ -61,7 +70,7 @@ describe('FloatingLayerPanel', () => {
       render(
         <FloatingLayerPanel cityName="Altavento" fileName="altavento.cslmap" />,
       );
-      expect(screen.getByText('Altavento')).toBeDefined();
+      expect(screen.getByText('Altavento')).toBeInTheDocument();
     });
 
     it('muestra el nombre de ciudad correcto con nombre largo', () => {
@@ -71,7 +80,7 @@ describe('FloatingLayerPanel', () => {
           fileName="aurelia.cslmap"
         />,
       );
-      expect(screen.getByText('Aurelia del Delta')).toBeDefined();
+      expect(screen.getByText('Aurelia del Delta')).toBeInTheDocument();
     });
   });
 
@@ -109,7 +118,7 @@ describe('FloatingLayerPanel', () => {
       );
       expect(
         screen.getByRole('button', { name: 'a11y.layerPanelCollapse' }),
-      ).toBeDefined();
+      ).toBeInTheDocument();
     });
 
     it('cambia data-state a collapsed al hacer click en colapso', () => {
@@ -155,7 +164,7 @@ describe('FloatingLayerPanel', () => {
       );
       expect(
         screen.getByRole('button', { name: 'a11y.layerPanelExpand' }),
-      ).toBeDefined();
+      ).toBeInTheDocument();
     });
 
     it('vuelve a expanded al hacer click en expandir', () => {
@@ -193,7 +202,7 @@ describe('FloatingLayerPanel', () => {
       render(
         <FloatingLayerPanel cityName="Altavento" fileName="altavento.cslmap" />,
       );
-      expect(screen.getByText('Cartógrafos de CS1 →')).toBeDefined();
+      expect(screen.getByText('Cartógrafos de CS1 →')).toBeInTheDocument();
     });
 
     it('no muestra el footer en estado collapsed', () => {
@@ -233,7 +242,134 @@ describe('FloatingLayerPanel', () => {
       );
       expect(
         screen.getByRole('region', { name: 'a11y.layerPanel' }),
-      ).toBeDefined();
+      ).toBeInTheDocument();
+    });
+  });
+
+  describe('WCAG 1.3.1 — Estructura semántica y HTML válido', () => {
+    it('en estado collapsed, el wrapper de iconos no tiene rol interactivo', () => {
+      const { container } = render(
+        <FloatingLayerPanel cityName="Altavento" fileName="altavento.cslmap" />,
+      );
+      const panel = container.firstChild as HTMLElement;
+      fireEvent.click(
+        screen.getByRole('button', { name: 'a11y.layerPanelCollapse' }),
+      );
+      const innerContainer = panel.firstChild as HTMLElement;
+      // El contenedor no tiene role="button" — no es un elemento interactivo
+      expect(innerContainer).not.toHaveAttribute('role', 'button');
+      // El botón de expandir es hijo directo del wrapper, no padre de los botones de capa
+      const expandBtn = screen.getByRole('button', {
+        name: 'a11y.layerPanelExpand',
+      });
+      expect(expandBtn.parentElement).toBe(innerContainer);
+    });
+
+    it('en estado collapsed, ningún botón contiene otros botones', () => {
+      render(
+        <FloatingLayerPanel cityName="Altavento" fileName="altavento.cslmap" />,
+      );
+      fireEvent.click(
+        screen.getByRole('button', { name: 'a11y.layerPanelCollapse' }),
+      );
+      const allButtons = screen.getAllByRole('button');
+      for (const btn of allButtons) {
+        const nestedButtons = btn.querySelectorAll('button');
+        expect(nestedButtons.length).toBe(0);
+      }
+    });
+
+    it('el botón de expandir existe como elemento separado en estado collapsed', () => {
+      render(
+        <FloatingLayerPanel cityName="Altavento" fileName="altavento.cslmap" />,
+      );
+      fireEvent.click(
+        screen.getByRole('button', { name: 'a11y.layerPanelCollapse' }),
+      );
+      expect(
+        screen.getByRole('button', { name: 'a11y.layerPanelExpand' }),
+      ).toBeInTheDocument();
+    });
+
+    it('el heading de fileName es h2 (jerarquía h1→h2 correcta)', () => {
+      const { container } = render(
+        <FloatingLayerPanel cityName="Altavento" fileName="altavento.cslmap" />,
+      );
+      const h2 = container.querySelector('h2');
+      expect(h2).not.toBeNull();
+      expect(h2?.textContent).toBe('altavento.cslmap');
+    });
+
+    it('el heading h2 sigue presente tras ciclo colapsar→expandir', () => {
+      const { container } = render(
+        <FloatingLayerPanel cityName="Altavento" fileName="altavento.cslmap" />,
+      );
+      fireEvent.click(
+        screen.getByRole('button', { name: 'a11y.layerPanelCollapse' }),
+      );
+      fireEvent.click(
+        screen.getByRole('button', { name: 'a11y.layerPanelExpand' }),
+      );
+      const h2 = container.querySelector('h2');
+      expect(h2).not.toBeNull();
+      expect(h2?.textContent).toBe('altavento.cslmap');
+    });
+  });
+
+  describe('AC1 — Navegación de teclado', () => {
+    it('todos los controles interactivos son alcanzables por teclado en estado expanded', () => {
+      const { container } = render(
+        <FloatingLayerPanel cityName="Altavento" fileName="altavento.cslmap" />,
+      );
+      const focusable = container.querySelectorAll<HTMLElement>(
+        'button:not([tabindex="-1"]), [role="switch"]:not([tabindex="-1"]), a[href]:not([tabindex="-1"])',
+      );
+      // Botón colapsar + 7 switches + link footer = 9 elementos
+      expect(focusable.length).toBeGreaterThanOrEqual(9);
+    });
+
+    it('el botón de expansión es focusable en estado collapsed', () => {
+      render(
+        <FloatingLayerPanel cityName="Altavento" fileName="altavento.cslmap" />,
+      );
+      fireEvent.click(
+        screen.getByRole('button', { name: 'a11y.layerPanelCollapse' }),
+      );
+      const expandBtn = screen.getByRole('button', {
+        name: 'a11y.layerPanelExpand',
+      });
+      expandBtn.focus();
+      expect(document.activeElement).toBe(expandBtn);
+    });
+
+    it('Tab desde el botón colapsar llega al primer switch', async () => {
+      const user = userEvent.setup();
+      render(
+        <FloatingLayerPanel cityName="Altavento" fileName="altavento.cslmap" />,
+      );
+      const collapseBtn = screen.getByRole('button', {
+        name: 'a11y.layerPanelCollapse',
+      });
+      collapseBtn.focus();
+      await user.tab();
+      const firstSwitch = screen.getAllByRole('switch')[0];
+      expect(document.activeElement).toBe(firstSwitch);
+    });
+
+    it('los botones de capa en estado collapsed son focusables (aria-pressed)', () => {
+      render(
+        <FloatingLayerPanel cityName="Altavento" fileName="altavento.cslmap" />,
+      );
+      fireEvent.click(
+        screen.getByRole('button', { name: 'a11y.layerPanelCollapse' }),
+      );
+      const layerButtons = screen
+        .getAllByRole('button')
+        .filter((b) => b.hasAttribute('aria-pressed'));
+      expect(layerButtons).toHaveLength(7);
+      layerButtons.forEach((btn) => {
+        expect(btn).not.toHaveAttribute('tabindex', '-1');
+      });
     });
   });
 });

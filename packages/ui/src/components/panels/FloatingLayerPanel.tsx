@@ -5,13 +5,14 @@ import { LAYER_NAMES, LayerVisibility } from '@vellum/core';
 import {
   Building2,
   Bus,
+  ChevronDown,
+  ChevronRight,
   LayoutGrid,
   Mountain,
   Route,
   TreePine,
   type LucideIcon,
   Waves,
-  ChevronDown,
 } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -78,12 +79,13 @@ export const FloatingLayerPanel = ({
 
   const handleExpand = () => {
     setPanelState('expanded');
-    // Story 4.2 Patch: Use a safer focus strategy when expanding
-    setTimeout(() => {
-      const firstSwitch =
-        panelRef.current?.querySelector<HTMLElement>('[role="switch"]');
-      firstSwitch?.focus();
-    }, 50);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const firstSwitch =
+          panelRef.current?.querySelector<HTMLElement>('[role="switch"]');
+        firstSwitch?.focus();
+      });
+    });
   };
 
   return (
@@ -124,17 +126,20 @@ export const FloatingLayerPanel = ({
           {/* Story 5.x: theme selector pills */}
         </>
       ) : (
-        <button
-          ref={collapseButtonRef}
-          onClick={handleExpand}
-          aria-label={t('a11y.layerPanelExpand')}
-          className="w-full h-full flex flex-col items-center | bg-transparent border-none cursor-pointer p-0"
-        >
+        <div className="flex flex-col items-center py-1 gap-1">
+          <button
+            ref={collapseButtonRef}
+            onClick={handleExpand}
+            aria-label={t('a11y.layerPanelExpand')}
+            className="w-6 h-6 flex items-center justify-center rounded opacity-60 hover:opacity-100 transition-opacity bg-transparent border-none cursor-pointer p-0"
+          >
+            <ChevronRight size={14} strokeWidth={1.5} aria-hidden="true" />
+          </button>
           <PanelCollapsedIcons
             activeLayers={activeLayers}
             toggleLayer={toggleLayer}
           />
-        </button>
+        </div>
       )}
     </div>
   );
@@ -157,12 +162,12 @@ function PanelHeader({
     <div className="flex items-center justify-between">
       <div className="font-wordmark leading-tight">
         <h1 className="text-lg font-medium opacity-90">{cityName}</h1>
-        <h3
-          className="text-xs font-mono opacity-60 truncate max-w-[140px]"
+        <h2
+          className="text-xs font-mono opacity-70 truncate max-w-[140px]"
           title={fileName}
         >
           {fileName}
-        </h3>
+        </h2>
       </div>
       <button
         ref={collapseButtonRef}
@@ -210,7 +215,7 @@ function PanelFooter() {
   return (
     <a
       href="#"
-      className="font-ui text-xs opacity-50 hover:opacity-80 transition-opacity"
+      className="font-ui text-xs opacity-70 hover:opacity-100 transition-opacity"
     >
       Cartógrafos de CS1 →
     </a>
@@ -231,10 +236,7 @@ function PanelCollapsedIcons({
         return (
           <button
             key={layer}
-            onClick={(e) => {
-              e.stopPropagation();
-              toggleLayer(layer);
-            }}
+            onClick={() => toggleLayer(layer)}
             aria-label={t(`layers.${layer}`)}
             aria-pressed={activeLayers[layer]}
             className="flex items-center justify-center rounded min-w-6 min-h-6 bg-transparent border-none cursor-pointer p-0 transition"
