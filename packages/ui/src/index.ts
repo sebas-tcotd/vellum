@@ -15,6 +15,8 @@ export { AppMetaProvider } from './context/AppMetaContext';
 export { initI18n } from './i18n/i18n-setup';
 export { Button, buttonVariants } from './lib/button';
 export type { ButtonProps } from './lib/button';
+export { MapTooltip } from './components/overlays/MapTooltip';
+export type { MapTooltipProps } from './components/overlays/MapTooltip';
 export { ProgressBar } from './components/overlays/ProgressBar';
 export { ErrorToast } from './components/overlays/ErrorToast';
 export type { ErrorToastProps } from './components/overlays/ErrorToast';

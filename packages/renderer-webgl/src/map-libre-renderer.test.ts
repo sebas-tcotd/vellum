@@ -21,12 +21,14 @@ const mockMap = vi.hoisted(() => ({
   on: vi.fn(),
   off: vi.fn(),
   flyTo: vi.fn(),
+  queryRenderedFeatures: vi.fn(() => []),
   getBounds: vi.fn(() => ({
     getWest: vi.fn(() => -0.08),
     getEast: vi.fn(() => 0.08),
     getNorth: vi.fn(() => 0.08),
     getSouth: vi.fn(() => -0.08),
   })),
+  getCanvas: vi.fn(() => ({ style: { cursor: '' } })),
 }));
 
 vi.mock('maplibre-gl', () => ({
@@ -308,6 +310,205 @@ describe('MapLibreRenderer', () => {
         center: [1.5, -0.5],
         animate: false,
       });
+    });
+  });
+
+  describe('subscribeHover', () => {
+    beforeEach(() => {
+      vi.clearAllMocks();
+      mockMap.getLayer.mockReturnValue(undefined);
+      mockMap.getSource.mockReturnValue(undefined);
+      mockMap.isStyleLoaded.mockReturnValue(true);
+      mockMap.getCanvas.mockReturnValue({ style: { cursor: '' } });
+    });
+
+    it('registers mousemove and mouseleave handlers on transit-stops layer', () => {
+      const renderer = makeRenderer();
+      const cb = vi.fn();
+      renderer.subscribeHover(cb);
+      expect(mockMap.on).toHaveBeenCalledWith(
+        'mousemove',
+        'transit-stops',
+        expect.any(Function),
+      );
+      expect(mockMap.on).toHaveBeenCalledWith(
+        'mouseleave',
+        'transit-stops',
+        expect.any(Function),
+      );
+    });
+
+    it('cleanup function calls map.off for mousemove and mouseleave', () => {
+      const renderer = makeRenderer();
+      const cb = vi.fn();
+      const unsub = renderer.subscribeHover(cb);
+      unsub();
+      expect(mockMap.off).toHaveBeenCalledWith(
+        'mousemove',
+        'transit-stops',
+        expect.any(Function),
+      );
+      expect(mockMap.off).toHaveBeenCalledWith(
+        'mouseleave',
+        'transit-stops',
+        expect.any(Function),
+      );
+    });
+
+    it('mousemove handler calls callback with TooltipInfo when queryRenderedFeatures returns a feature', () => {
+      const renderer = makeRenderer();
+      const cb = vi.fn();
+      renderer.subscribeHover(cb);
+
+      const mockFeature = {
+        properties: {
+          id: 'stop-1',
+          mode: 'Bus',
+          color: '#FF0000',
+          lines: JSON.stringify([
+            { name: 'Line 1', color: '#FF0000', mode: 'Bus' },
+          ]),
+        },
+      };
+      mockMap.queryRenderedFeatures.mockReturnValueOnce([
+        mockFeature,
+      ] as unknown as never[]);
+
+      const moveHandler = (
+        mockMap.on as ReturnType<typeof vi.fn>
+      ).mock.calls.find(
+        (c: unknown[]) => c[0] === 'mousemove' && c[1] === 'transit-stops',
+      )?.[2] as (e: { point: { x: number; y: number } }) => void;
+
+      moveHandler({ point: { x: 100, y: 200 } });
+
+      expect(cb).toHaveBeenCalledWith({
+        screenX: 100,
+        screenY: 200,
+        lines: [{ name: 'Line 1', color: '#FF0000', mode: 'Bus' }],
+      });
+    });
+
+    it('mousemove handler deduplicates lines across multiple nearby features', () => {
+      const renderer = makeRenderer();
+      const cb = vi.fn();
+      renderer.subscribeHover(cb);
+
+      const features = [
+        {
+          properties: {
+            id: 'stop-1',
+            mode: 'Bus',
+            color: '#FF0000',
+            lines: JSON.stringify([
+              { name: 'Line 1', color: '#FF0000', mode: 'Bus' },
+            ]),
+          },
+        },
+        {
+          properties: {
+            id: 'stop-2',
+            mode: 'Bus',
+            color: '#0000FF',
+            lines: JSON.stringify([
+              { name: 'Line 1', color: '#FF0000', mode: 'Bus' }, // duplicate
+              { name: 'Line 2', color: '#0000FF', mode: 'Bus' },
+            ]),
+          },
+        },
+      ];
+      mockMap.queryRenderedFeatures.mockReturnValueOnce(
+        features as unknown as never[],
+      );
+
+      const moveHandler = (
+        mockMap.on as ReturnType<typeof vi.fn>
+      ).mock.calls.find(
+        (c: unknown[]) => c[0] === 'mousemove' && c[1] === 'transit-stops',
+      )?.[2] as (e: { point: { x: number; y: number } }) => void;
+
+      moveHandler({ point: { x: 50, y: 50 } });
+
+      const result = cb.mock.calls[0][0] as {
+        lines: Array<{ name: string; color: string; mode: string }>;
+      };
+      expect(result.lines).toHaveLength(2);
+      expect(result.lines[0]).toEqual({
+        name: 'Line 1',
+        color: '#FF0000',
+        mode: 'Bus',
+      });
+      expect(result.lines[1]).toEqual({
+        name: 'Line 2',
+        color: '#0000FF',
+        mode: 'Bus',
+      });
+    });
+
+    it('mousemove handler does not call callback when all parsed lines are empty', () => {
+      const renderer = makeRenderer();
+      const cb = vi.fn();
+      renderer.subscribeHover(cb);
+
+      const mockFeature = {
+        properties: {
+          id: 'stop-1',
+          mode: 'Bus',
+          color: '#FF0000',
+          lines: JSON.stringify([]),
+        },
+      };
+      mockMap.queryRenderedFeatures.mockReturnValueOnce([
+        mockFeature,
+      ] as unknown as never[]);
+
+      const moveHandler = (
+        mockMap.on as ReturnType<typeof vi.fn>
+      ).mock.calls.find(
+        (c: unknown[]) => c[0] === 'mousemove' && c[1] === 'transit-stops',
+      )?.[2] as (e: { point: { x: number; y: number } }) => void;
+
+      moveHandler({ point: { x: 100, y: 200 } });
+
+      expect(cb).not.toHaveBeenCalled();
+    });
+
+    it('mouseleave handler calls callback with null and resets cursor', () => {
+      const canvasStyle = { cursor: 'pointer' };
+      mockMap.getCanvas.mockReturnValue({ style: canvasStyle });
+
+      const renderer = makeRenderer();
+      const cb = vi.fn();
+      renderer.subscribeHover(cb);
+
+      const leaveHandler = (
+        mockMap.on as ReturnType<typeof vi.fn>
+      ).mock.calls.find(
+        (c: unknown[]) => c[0] === 'mouseleave' && c[1] === 'transit-stops',
+      )?.[2] as () => void;
+
+      leaveHandler();
+
+      expect(cb).toHaveBeenCalledWith(null);
+      expect(canvasStyle.cursor).toBe('');
+    });
+
+    it('mousemove handler does not call callback when queryRenderedFeatures returns empty', () => {
+      const renderer = makeRenderer();
+      const cb = vi.fn();
+      renderer.subscribeHover(cb);
+
+      mockMap.queryRenderedFeatures.mockReturnValueOnce([]);
+
+      const moveHandler = (
+        mockMap.on as ReturnType<typeof vi.fn>
+      ).mock.calls.find(
+        (c: unknown[]) => c[0] === 'mousemove' && c[1] === 'transit-stops',
+      )?.[2] as (e: { point: { x: number; y: number } }) => void;
+
+      moveHandler({ point: { x: 100, y: 200 } });
+
+      expect(cb).not.toHaveBeenCalled();
     });
   });
 });
