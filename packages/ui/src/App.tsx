@@ -88,15 +88,23 @@ export function App({
     if (cityData !== null) setIsCleanMode(false);
   }, [cityData]);
 
+  const handleFitToScreen = useCallback(
+    () => fitToScreenRef.current?.(),
+    [fitToScreenRef],
+  );
+  const handleZoomIn = useCallback(() => zoomInRef.current?.(), [zoomInRef]);
+  const handleZoomOut = useCallback(() => zoomOutRef.current?.(), [zoomOutRef]);
+  const handleHidePanel = useCallback(() => setIsCleanMode((v) => !v), []);
+
   useKeyboardShortcuts({
     onOpenFile: openFileDialog,
     // Layer shortcuts 1-7 only active when a map is loaded
     ...(cityData !== null ? { onToggleLayer: toggleLayer } : {}),
-    onFitToScreen: () => fitToScreenRef.current?.(),
-    ...(cityData !== null ? { onZoomIn: () => zoomInRef.current?.() } : {}),
-    ...(cityData !== null ? { onZoomOut: () => zoomOutRef.current?.() } : {}),
+    onFitToScreen: handleFitToScreen,
+    ...(cityData !== null ? { onZoomIn: handleZoomIn } : {}),
+    ...(cityData !== null ? { onZoomOut: handleZoomOut } : {}),
     ...(cityData !== null && loadingState !== 'loading'
-      ? { onHidePanel: () => setIsCleanMode((v) => !v) }
+      ? { onHidePanel: handleHidePanel }
       : {}),
     enabled: loadingState !== 'loading',
   });
