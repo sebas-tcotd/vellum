@@ -16,8 +16,14 @@ interface UseKeyboardShortcutsOptions {
   onOpenFile: () => void;
   /** Called when the user presses keys 1–7 to toggle the corresponding layer. */
   onToggleLayer?: (layer: LayerName) => void;
-  /** Called when the user presses Ctrl+0 to reset the viewport to fit-to-screen. */
+  /** Called when the user presses Ctrl+0 or Ctrl+9 to reset the viewport to fit-to-screen. */
   onFitToScreen?: () => void;
+  /** Called when the user presses Ctrl/Cmd + + or = to zoom in. */
+  onZoomIn?: () => void;
+  /** Called when the user presses Ctrl/Cmd + - to zoom out. */
+  onZoomOut?: () => void;
+  /** Called when the user presses H (no modifiers) to toggle clean mode. */
+  onHidePanel?: () => void;
   /**
    * When false, the shortcut handler does nothing without removing the listener.
    * @default true
@@ -29,6 +35,9 @@ export function useKeyboardShortcuts({
   onOpenFile,
   onToggleLayer,
   onFitToScreen,
+  onZoomIn,
+  onZoomOut,
+  onHidePanel,
   enabled = true,
 }: UseKeyboardShortcutsOptions) {
   useEffect(() => {
@@ -42,9 +51,42 @@ export function useKeyboardShortcuts({
         return;
       }
 
-      if (isModKey && !e.shiftKey && !e.altKey && e.key === '0') {
+      if (
+        isModKey &&
+        !e.shiftKey &&
+        !e.altKey &&
+        (e.key === '0' || e.key === '9')
+      ) {
         e.preventDefault();
         onFitToScreen?.();
+        return;
+      }
+
+      // Zoom in: Ctrl/Cmd + + (also covers Ctrl+= for keyboards without numpad)
+      if (isModKey && !e.altKey && (e.key === '+' || e.key === '=')) {
+        e.preventDefault();
+        onZoomIn?.();
+        return;
+      }
+
+      // Zoom out: Ctrl/Cmd + - (no shift to avoid conflict)
+      if (isModKey && !e.shiftKey && !e.altKey && e.key === '-') {
+        e.preventDefault();
+        onZoomOut?.();
+        return;
+      }
+
+      // Clean mode: H without any modifiers
+      if (
+        !isModKey &&
+        !e.shiftKey &&
+        !e.altKey &&
+        e.key.toLowerCase() === 'h'
+      ) {
+        if (onHidePanel) {
+          e.preventDefault();
+          onHidePanel();
+        }
         return;
       }
 
@@ -63,5 +105,13 @@ export function useKeyboardShortcuts({
 
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
-  }, [onOpenFile, onToggleLayer, onFitToScreen, enabled]);
+  }, [
+    onOpenFile,
+    onToggleLayer,
+    onFitToScreen,
+    onZoomIn,
+    onZoomOut,
+    onHidePanel,
+    enabled,
+  ]);
 }

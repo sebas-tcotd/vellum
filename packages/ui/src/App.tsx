@@ -60,7 +60,10 @@ export function App({
   loadFilePartial = noop,
 }: AppProps) {
   const [i18nReady, setI18nReady] = useState(false);
+  const [isCleanMode, setIsCleanMode] = useState(false);
   const fitToScreenRef = useRef<(() => void) | null>(null);
+  const zoomInRef = useRef<(() => void) | null>(null);
+  const zoomOutRef = useRef<(() => void) | null>(null);
   const syncActiveLanguage = useVellumStore((s) => s.syncActiveLanguage);
   const cityData = useVellumStore((s) => s.cityData);
   const activeLayers = useVellumStore((s) => s.activeLayers);
@@ -80,11 +83,29 @@ export function App({
         : 'Vellum';
   }, [cityData]);
 
+  // Reset clean mode when a new map is loaded so the chrome is always visible on first render
+  useEffect(() => {
+    if (cityData !== null) setIsCleanMode(false);
+  }, [cityData]);
+
+  const handleFitToScreen = useCallback(
+    () => fitToScreenRef.current?.(),
+    [fitToScreenRef],
+  );
+  const handleZoomIn = useCallback(() => zoomInRef.current?.(), [zoomInRef]);
+  const handleZoomOut = useCallback(() => zoomOutRef.current?.(), [zoomOutRef]);
+  const handleHidePanel = useCallback(() => setIsCleanMode((v) => !v), []);
+
   useKeyboardShortcuts({
     onOpenFile: openFileDialog,
     // Layer shortcuts 1-7 only active when a map is loaded
     ...(cityData !== null ? { onToggleLayer: toggleLayer } : {}),
-    onFitToScreen: () => fitToScreenRef.current?.(),
+    onFitToScreen: handleFitToScreen,
+    ...(cityData !== null ? { onZoomIn: handleZoomIn } : {}),
+    ...(cityData !== null ? { onZoomOut: handleZoomOut } : {}),
+    ...(cityData !== null && loadingState !== 'loading'
+      ? { onHidePanel: handleHidePanel }
+      : {}),
     enabled: loadingState !== 'loading',
   });
 
@@ -134,6 +155,9 @@ export function App({
             loadFile={loadFile}
             activeLayers={activeLayers}
             fitToScreenRef={fitToScreenRef}
+            zoomInRef={zoomInRef}
+            zoomOutRef={zoomOutRef}
+            isCleanMode={isCleanMode}
           />
         </div>
         {showEmptyState && <EmptyState />}
@@ -158,10 +182,16 @@ export function App({
           />
         )}
         {cityData !== null && loadingState !== 'loading' && (
-          <FloatingLayerPanel
-            cityName={cityData.cityName}
-            fileName={cityData.fileName}
-          />
+          <div
+            className={
+              isCleanMode ? 'invisible pointer-events-none' : undefined
+            }
+          >
+            <FloatingLayerPanel
+              cityName={cityData.cityName}
+              fileName={cityData.fileName}
+            />
+          </div>
         )}
       </div>
     </Suspense>
