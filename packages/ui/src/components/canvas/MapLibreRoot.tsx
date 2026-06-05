@@ -16,6 +16,12 @@ export interface MapLibreRootProps {
   activeLayers?: LayerVisibility;
   /** Ref populated with a `fitToScreen()` callback. App.tsx calls it after a new map loads. */
   fitToScreenRef?: React.RefObject<(() => void) | null>;
+  /** Ref populated with a `zoomIn()` callback. */
+  zoomInRef?: React.RefObject<(() => void) | null>;
+  /** Ref populated with a `zoomOut()` callback. */
+  zoomOutRef?: React.RefObject<(() => void) | null>;
+  /** When true, hides Minimap and MapTooltip for an unobstructed view of the map. */
+  isCleanMode?: boolean;
 }
 
 /**
@@ -31,6 +37,9 @@ export function MapLibreRoot({
   loadFile,
   activeLayers,
   fitToScreenRef,
+  zoomInRef,
+  zoomOutRef,
+  isCleanMode = false,
 }: MapLibreRootProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<MapLibreRenderer | null>(null);
@@ -96,6 +105,28 @@ export function MapLibreRoot({
       if (fitToScreenRef.current) fitToScreenRef.current = null;
     };
   }, [fitToScreenRef]);
+
+  // Register zoomIn into the external ref
+  useEffect(() => {
+    if (!zoomInRef) return;
+    zoomInRef.current = () => {
+      rendererRef.current?.zoomIn();
+    };
+    return () => {
+      if (zoomInRef.current) zoomInRef.current = null;
+    };
+  }, [zoomInRef]);
+
+  // Register zoomOut into the external ref
+  useEffect(() => {
+    if (!zoomOutRef) return;
+    zoomOutRef.current = () => {
+      rendererRef.current?.zoomOut();
+    };
+    return () => {
+      if (zoomOutRef.current) zoomOutRef.current = null;
+    };
+  }, [zoomOutRef]);
 
   // Stable callbacks for Minimap — empty deps to avoid re-subscriptions on every render
   const subscribeViewport = useCallback(
@@ -189,7 +220,7 @@ export function MapLibreRoot({
         position: 'relative',
       }}
     >
-      {cityData && (
+      {cityData && !isCleanMode && (
         <Minimap
           cityData={cityData}
           subscribeViewport={subscribeViewport}
@@ -198,7 +229,9 @@ export function MapLibreRoot({
         />
       )}
       <MapTooltip
-        info={containerDimRef.current.width > 0 ? tooltipInfo : null}
+        info={
+          containerDimRef.current.width > 0 && !isCleanMode ? tooltipInfo : null
+        }
         containerWidth={containerDimRef.current.width}
         containerHeight={containerDimRef.current.height}
       />

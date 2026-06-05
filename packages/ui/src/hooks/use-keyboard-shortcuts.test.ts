@@ -128,4 +128,93 @@ describe('useKeyboardShortcuts', () => {
 
     expect(onFitToScreen).toHaveBeenCalledOnce();
   });
+
+  it('Ctrl+9 llama onFitToScreen (alias)', () => {
+    const onOpenFile = vi.fn();
+    const onFitToScreen = vi.fn();
+    renderHook(() => useKeyboardShortcuts({ onOpenFile, onFitToScreen }));
+
+    document.dispatchEvent(ctrl('9'));
+
+    expect(onFitToScreen).toHaveBeenCalledOnce();
+  });
+
+  it('Ctrl++ llama onZoomIn', () => {
+    const onOpenFile = vi.fn();
+    const onZoomIn = vi.fn();
+    renderHook(() => useKeyboardShortcuts({ onOpenFile, onZoomIn }));
+
+    document.dispatchEvent(ctrl('+'));
+
+    expect(onZoomIn).toHaveBeenCalledOnce();
+  });
+
+  it('Ctrl+= llama onZoomIn (sin numpad)', () => {
+    const onOpenFile = vi.fn();
+    const onZoomIn = vi.fn();
+    renderHook(() => useKeyboardShortcuts({ onOpenFile, onZoomIn }));
+
+    document.dispatchEvent(ctrl('='));
+
+    expect(onZoomIn).toHaveBeenCalledOnce();
+  });
+
+  it('Ctrl+- llama onZoomOut', () => {
+    const onOpenFile = vi.fn();
+    const onZoomOut = vi.fn();
+    renderHook(() => useKeyboardShortcuts({ onOpenFile, onZoomOut }));
+
+    document.dispatchEvent(ctrl('-'));
+
+    expect(onZoomOut).toHaveBeenCalledOnce();
+  });
+
+  it('H (sin modificadores) llama onHidePanel', () => {
+    const onOpenFile = vi.fn();
+    const onHidePanel = vi.fn();
+    renderHook(() => useKeyboardShortcuts({ onOpenFile, onHidePanel }));
+
+    document.dispatchEvent(key('H'));
+
+    expect(onHidePanel).toHaveBeenCalledOnce();
+  });
+
+  it('h minúscula también llama onHidePanel', () => {
+    const onOpenFile = vi.fn();
+    const onHidePanel = vi.fn();
+    renderHook(() => useKeyboardShortcuts({ onOpenFile, onHidePanel }));
+
+    document.dispatchEvent(key('h'));
+
+    expect(onHidePanel).toHaveBeenCalledOnce();
+  });
+
+  it('Ctrl+H no llama onHidePanel', () => {
+    const onOpenFile = vi.fn();
+    const onHidePanel = vi.fn();
+    renderHook(() => useKeyboardShortcuts({ onOpenFile, onHidePanel }));
+
+    document.dispatchEvent(ctrl('H'));
+
+    expect(onHidePanel).not.toHaveBeenCalled();
+  });
+
+  it('H sin onHidePanel definido no falla', () => {
+    const onOpenFile = vi.fn();
+    renderHook(() => useKeyboardShortcuts({ onOpenFile }));
+
+    expect(() => document.dispatchEvent(key('H'))).not.toThrow();
+  });
+
+  it('H con enabled=false no llama onHidePanel', () => {
+    const onOpenFile = vi.fn();
+    const onHidePanel = vi.fn();
+    renderHook(() =>
+      useKeyboardShortcuts({ onOpenFile, onHidePanel, enabled: false }),
+    );
+
+    document.dispatchEvent(key('H'));
+
+    expect(onHidePanel).not.toHaveBeenCalled();
+  });
 });

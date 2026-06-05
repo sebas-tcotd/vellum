@@ -325,6 +325,16 @@ export class MapLibreRenderer implements IRenderer {
     this.fitToCityBounds(this.cityData);
   }
 
+  /** Zooms the map in by one step. */
+  zoomIn(): void {
+    this.map.zoomIn();
+  }
+
+  /** Zooms the map out by one step. */
+  zoomOut(): void {
+    this.map.zoomOut();
+  }
+
   /**
    * Subscribes to viewport changes (pan/zoom).
    *
