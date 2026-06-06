@@ -23,13 +23,13 @@ import type {
   TransitMode,
 } from '@vellum/core';
 import maplibregl from 'maplibre-gl';
-import { csToGeoArray } from './coordinate-transform';
+import { CS1_HALF_EXTENT_DEG, csToGeoArray } from './coordinate-transform';
 import type { TransitStopFeatureProperties } from './geojson-builder';
 import {
   buildBuildingsGeoJson,
+  buildContourLinesGeoJson,
   buildDistrictsGeoJson,
   buildForestsGeoJson,
-  buildLandPolygonGeoJson,
   buildRoadsGeoJson,
   buildTransitGeoJson,
   buildTransitStopsGeoJson,
@@ -507,34 +507,70 @@ export class MapLibreRenderer implements IRenderer {
   }
 
   private addTerrainLayer(cityData: CityData): void {
-    this.addSourceIfAbsent('terrain', {
-      type: 'geojson',
-      data: buildLandPolygonGeoJson(cityData),
-    });
+    // The terrain_texture is a 1081×1081 RGBA PNG covering the full CS1 world extent
+    // (±8640 units = ±CS1_HALF_EXTENT_DEG degrees at the equator). Water pixels are
+    // transparent, so the water-fill layer underneath shows through.
+    //
+    // MapLibre image-source corners: [top-left, top-right, bottom-right, bottom-left] as [lng, lat].
+    // CS1_LAT_SIGN=+1 (south-up): positive Z maps to positive lat, so:
+    //   top-left  = [-half, +half]  (west, north in geo = low-X, high-Z in CS1)
+    //   top-right = [+half, +half]
+    //   bottom-right = [+half, -half]
+    //   bottom-left  = [-half, -half]
+    const h = CS1_HALF_EXTENT_DEG;
+    const imageCoordinates: [
+      [number, number],
+      [number, number],
+      [number, number],
+      [number, number],
+    ] = [
+      [-h, h],
+      [h, h],
+      [h, -h],
+      [-h, -h],
+    ];
+
+    if (!this.map.getSource('terrain')) {
+      this.map.addSource('terrain', {
+        type: 'image',
+        url: cityData.terrainTexture,
+        coordinates: imageCoordinates,
+      });
+    } else {
+      (this.map.getSource('terrain') as maplibregl.ImageSource).updateImage({
+        url: cityData.terrainTexture,
+        coordinates: imageCoordinates,
+      });
+    }
+
     if (!this.map.getLayer('terrain-fill')) {
-      // No beforeId: terrain is added to the top of the current stack (above water-fill).
-      // Roads, transit, buildings, etc. are added after and land on top of terrain.
       this.map.addLayer({
         id: 'terrain-fill',
-        type: 'fill',
+        type: 'raster',
         source: 'terrain',
         paint: {
-          'fill-color': [
-            'interpolate',
-            ['linear'],
-            ['get', 'elev'],
-            0,
-            this.tokens.terrainLow,
-            0.5,
-            this.tokens.terrainMid,
-            1.0,
-            this.tokens.terrainHigh,
-          ] as unknown as maplibregl.ExpressionSpecification,
-          'fill-opacity': 1,
-          'fill-antialias': false,
+          'raster-opacity': 1,
+          'raster-fade-duration': 0,
+          'raster-resampling': 'nearest',
         },
       });
     }
+
+    this.map.addSource('terrain-lines-source', {
+      type: 'geojson',
+      data: buildContourLinesGeoJson(cityData),
+    });
+
+    this.map.addLayer({
+      id: 'terrain-lines-layer',
+      type: 'line',
+      source: 'terrain-lines-source',
+      paint: {
+        'line-color': '#000000', // Color de la línea de relieve
+        'line-width': 1, // Siempre será de 1px sin importar el zoom
+        'line-opacity': 0.15, // Transparencia sutil para que no opaque el mapa
+      },
+    }); // Ponlo justo por encima del raster, pero debajo del agua y calles
   }
 
   private addWaterLayer(_cityData: CityData): void {
@@ -671,7 +707,7 @@ export class MapLibreRenderer implements IRenderer {
         type: 'circle',
         source: 'forests',
         paint: {
-          'circle-color': this.tokens.green,
+          'circle-color': '#14592a',
           'circle-radius': [
             'interpolate',
             ['linear'],

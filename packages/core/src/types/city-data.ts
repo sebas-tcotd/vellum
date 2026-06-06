@@ -32,17 +32,16 @@ export interface TerrainPolygon {
 }
 
 /**
- * An elevation isoband covering a `[elevationMin, elevationMax)` range in raw game units.
+ * An elevation isoline grouping all polylines at a single elevation.
  * @remarks
- * Only dry-land cells (above sea level and not covered by inland water) are included.
+ * Mirrors the Rust `TerrainIsoline` struct. Each entry in `lines` is one
+ * disconnected polyline segment expressed as an array of WGS-84 `[lng, lat]` pairs.
  */
-export interface TerrainBand {
-  /** Lower bound of this elevation range (inclusive), in raw game elevation units. */
-  elevationMin: number;
-  /** Upper bound of this elevation range (exclusive), in raw game elevation units. */
-  elevationMax: number;
-  /** Polygon geometry for this elevation band. */
-  polygons: TerrainPolygon[];
+export interface TerrainIsoline {
+  /** Elevation value in raw game units. */
+  elevation: number;
+  /** Array of polylines at this elevation; each polyline is an array of `[lng, lat]` pairs. */
+  lines: [number, number][][];
 }
 
 /**
@@ -225,8 +224,13 @@ export interface CityData {
   landPolygon: TerrainPolygon[];
   /** Vectorized inland water bodies (rivers and lakes) in WGS-84. Rendered above `landPolygon`. */
   inlandWaterPolygons: TerrainPolygon[];
-  /** Elevation isobands for the optional terrain-shading layer, in WGS-84. */
-  terrainBands: TerrainBand[];
+  /** Elevation isolines for the optional contour-line layer, in WGS-84. */
+  contourLines: TerrainIsoline[];
+  /**
+   * Base64-encoded PNG data URL (`data:image/png;base64,…`) of the baked terrain texture.
+   * 1081×1081 RGBA pixels: elevation-tinted land with baked contour lines; water = transparent.
+   */
+  terrainTexture: string;
   /** Intersections and terminuses for the road network. */
   roadNodes: RoadNode[];
   /** Valid physical road segments (virtual connectors like 'Bus Line' are pre-filtered). */

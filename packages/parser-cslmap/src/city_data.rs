@@ -37,6 +37,14 @@ pub struct TerrainPolygon {
     pub holes: Vec<TerrainRing>,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct TerrainIsoline {
+    pub elevation: f64,
+    /// Un arreglo de líneas. Cada línea es un arreglo de coordenadas [lng, lat]
+    pub lines: Vec<Vec<[f64; 2]>>,
+}
+
 /// An elevation isoband covering a `[elevation_min, elevation_max)` range in raw game units.
 /// Only land cells (above sea level, not covered by inland water) are included.
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -59,10 +67,16 @@ pub struct CityData {
     pub bounds: MapBounds,
     /// Vectorized landmass polygon in WGS-84. Holes represent inland water bodies.
     pub land_polygon: Vec<TerrainPolygon>,
+
+    pub contour_lines: Vec<TerrainIsoline>,
+
     /// Vectorized inland water bodies (rivers and lakes) in WGS-84. Rendered above `land_polygon`.
     pub inland_water_polygons: Vec<TerrainPolygon>,
     /// Elevation isobands for the optional terrain-shading layer, in WGS-84.
-    pub terrain_bands: Vec<TerrainBand>,
+    //pub terrain_bands: Vec<TerrainBand>,
+    /// Base64-encoded PNG data URL (`data:image/png;base64,…`) of the baked terrain texture.
+    /// 1081×1081 RGBA pixels: elevation-tinted land with baked contour lines; water = transparent.
+    pub terrain_texture: String,
     pub road_nodes: Vec<RoadNode>,
     /// Physical road segments. Bus Line virtual connectors are pre-filtered out.
     pub road_segments: Vec<RoadSegment>,

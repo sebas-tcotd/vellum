@@ -1,4 +1,7 @@
+use contour::ContourBuilder;
+use geo::Simplify;
 use std::collections::{HashMap, VecDeque};
+use std::io::Cursor;
 
 use quick_xml::events::Event;
 use quick_xml::Reader;
@@ -6,7 +9,7 @@ use tauri::Emitter;
 
 use crate::city_data::{
     Building, CityData, District, ForestCell, MapBounds, PathSegment, RoadNode, RoadSegment,
-    TerrainBand, TerrainPolygon, TerrainRing, TransitLine, TransitStop, Vec3, WayType,
+    TerrainIsoline, TerrainPolygon, TerrainRing, TransitLine, TransitStop, Vec3, WayType,
 };
 use crate::dlc_fallback;
 use crate::errors::VellumError;
@@ -65,6 +68,66 @@ pub fn parse_cslmap_file(
 
     emit_progress(app_handle, "done", 100.0);
     Ok(result)
+}
+
+pub fn vectorize_contour_lines(
+    elev_grid: &[f64],
+    sea_level: f64,
+    step: f64,
+) -> Vec<TerrainIsoline> {
+    let max_elev = elev_grid.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+
+    if max_elev <= sea_level {
+        return vec![];
+    }
+
+    // Calcular los umbrales de elevación
+    let mut thresholds = Vec::new();
+    let mut current = sea_level + step;
+    while current <= max_elev {
+        thresholds.push(current);
+        current += step;
+    }
+
+    // Constructor de la cuadrícula (ajusta orígenes/pasos según tu parse_cslmap)
+    let builder = ContourBuilder::new(1081, 1081, true)
+        .x_origin(-8640.0) // Tu TERRAIN_MAP_ORIGIN
+        .y_origin(-8640.0)
+        .x_step(16.0) // Tu TERRAIN_CELL_SIZE
+        .y_step(16.0);
+
+    match builder.lines(elev_grid, &thresholds) {
+        Ok(contour_lines) => contour_lines
+            .into_iter()
+            .map(|contour_line| {
+                let lines: Vec<Vec<[f64; 2]>> = contour_line
+                    .geometry()
+                    .0 // MultiLineString contiene un vector de LineStrings
+                    .iter()
+                    .map(|linestring| {
+                        // 1. Simplificar la línea para matar el ruido y bajar el peso
+                        let simplified = linestring.simplify(SIMPLIFY_TOLERANCE);
+
+                        // 2. Convertir coordenadas a WGS-84 (reutilizando tu world_to_wgs84)
+                        simplified
+                            .into_iter()
+                            .map(|c| world_to_wgs84(c.x, c.y))
+                            .collect()
+                    })
+                    .filter(|line: &Vec<[f64; 2]>| line.len() > 1) // Descartar puntos solitarios
+                    .collect();
+
+                TerrainIsoline {
+                    elevation: contour_line.threshold(),
+                    lines,
+                }
+            })
+            .collect(),
+        Err(e) => {
+            eprintln!("[parser-cslmap] error vectorizando isolíneas: {e}");
+            vec![]
+        }
+    }
 }
 
 /// Pure parsing function (no `AppHandle`, no `allow_partial)`: used directly by unit tests.
@@ -519,6 +582,109 @@ fn parse_forest_csv(csv: &str, row: usize, forest_cells: &mut Vec<ForestCell>) {
         let density = f64::from(density_raw) / 255.0;
         forest_cells.push(ForestCell { x, z, density });
     }
+}
+
+// ─── Terrain texture ─────────────────────────────────────────────────────────
+
+/// Colour stops for the elevation palette (`elevation_threshold`, R, G, B).
+/// Elevations below `sea_level` are transparent. Values in game units.
+const ELEVATION_PALETTE: &[(f64, u8, u8, u8)] = &[
+    (0.0, 149, 174, 121), // low: #95ae79
+    (0.4, 222, 221, 190), // mid: #deddbe
+    (0.8, 196, 160, 106), // high:rgb(196, 160, 106)
+    (1.0, 160, 115, 48),  // clamp top: rgb(160, 115, 48)
+];
+
+/// Linear-interpolates between two colours by `t ∈ [0.0, 1.0]`.
+fn lerp_color(a: (u8, u8, u8), b: (u8, u8, u8), t: f64) -> (u8, u8, u8) {
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    let lerp = |lo: u8, hi: u8| (f64::from(lo) + (f64::from(hi) - f64::from(lo)) * t) as u8;
+    (lerp(a.0, b.0), lerp(a.1, b.1), lerp(a.2, b.2))
+}
+
+/// Maps a normalised elevation `t ∈ [0.0, 1.0]` to an RGB colour via the palette.
+fn elevation_color(t: f64) -> (u8, u8, u8) {
+    for i in 0..ELEVATION_PALETTE.len().saturating_sub(1) {
+        let (t0, r0, g0, b0) = ELEVATION_PALETTE[i];
+        let (t1, r1, g1, b1) = ELEVATION_PALETTE[i + 1];
+        if t <= t1 {
+            let seg_t = if (t1 - t0).abs() < f64::EPSILON {
+                0.0
+            } else {
+                (t - t0) / (t1 - t0)
+            };
+            return lerp_color((r0, g0, b0), (r1, g1, b1), seg_t);
+        }
+    }
+    let (_, r, g, b) = *ELEVATION_PALETTE.last().unwrap_or(&(1.0, 196, 160, 106));
+    (r, g, b)
+}
+
+// Contour step in game elevation units. One line every 10 units.
+//const CONTOUR_STEP: f64 = 100.0;
+// Proximity to a contour threshold (in game units) that triggers line darkening.
+//const CONTOUR_HALF_WIDTH: f64 = 0.1;
+
+/// Bakes a 1081×1081 RGBA terrain texture from the elevation grid.
+///
+/// Land pixels are tinted by elevation with contour lines baked in. Water pixels
+/// (below sea level or covered by inland water) are fully transparent so the
+/// `MapLibre` water layer shows through.
+///
+/// Returns a `data:image/png;base64,…` string ready for use as a `MapLibre` image source.
+///
+/// # Errors
+/// Returns `VellumError::InternalError` if PNG encoding fails (should not happen in practice).
+pub fn generate_terrain_texture(
+    elev_grid: &[f64],
+    res_grid: &[f64],
+    sea_level: f64,
+) -> Result<String, VellumError> {
+    use base64::{engine::general_purpose::STANDARD, Engine as _};
+    use image::{ImageBuffer, ImageOutputFormat, Rgba, RgbaImage};
+
+    #[allow(clippy::cast_possible_truncation)]
+    const GRID: u32 = TERRAIN_GRID_SIZE as u32;
+
+    let max_elev = elev_grid
+        .iter()
+        .copied()
+        .filter(|&e| e > sea_level)
+        .fold(sea_level + 1.0, f64::max);
+    let elev_range = (max_elev - sea_level).max(1.0);
+
+    let mut img: RgbaImage = ImageBuffer::new(GRID, GRID);
+
+    #[allow(clippy::many_single_char_names)]
+    for (i, (&elev, &res)) in elev_grid.iter().zip(res_grid.iter()).enumerate() {
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+        let px = (i as u32) % GRID;
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+        let py = (i as u32) / GRID;
+
+        let render_y = GRID - 1 - py; // Inversión del eje Y
+
+        let is_water = elev <= sea_level || res > sea_level;
+        if is_water {
+            img.put_pixel(px, render_y, Rgba([0, 0, 0, 0]));
+            continue;
+        }
+
+        let norm_t = ((elev - sea_level) / elev_range).clamp(0.0, 1.0);
+        let (red, green, blue) = elevation_color(norm_t);
+
+        // Píxel puro, sin líneas negras
+        img.put_pixel(px, render_y, Rgba([red, green, blue, 255]));
+    }
+
+    let mut buf = Cursor::new(Vec::new());
+    img.write_to(&mut buf, ImageOutputFormat::Png)
+        .map_err(|e| VellumError::ExportFailed {
+            reason: format!("terrain texture encode failed: {e}"),
+        })?;
+
+    let encoded = STANDARD.encode(buf.into_inner());
+    Ok(format!("data:image/png;base64,{encoded}"))
 }
 
 // ─── Builder ─────────────────────────────────────────────────────────────────
@@ -1137,7 +1303,9 @@ impl CityDataBuilder {
             vectorize_inland_water(&self.elev_grid, &self.res_grid, sea_level);
         // terrain_bands: O(N × num_bands) — deferred; returned empty until a dedicated
         // optimization pass (chunked Marching Squares or pre-bucketed elevation grid).
-        let terrain_bands: Vec<TerrainBand> = vec![];
+        let contour_lines = vectorize_contour_lines(&self.elev_grid, sea_level, 3000.0);
+        println!("{contour_lines:?}");
+        let terrain_texture = generate_terrain_texture(&self.elev_grid, &self.res_grid, sea_level)?;
 
         Ok(CityData {
             city_name: self.city_name,
@@ -1146,7 +1314,8 @@ impl CityDataBuilder {
             bounds,
             land_polygon,
             inland_water_polygons,
-            terrain_bands,
+            contour_lines,
+            terrain_texture,
             road_nodes: self.road_nodes,
             road_segments: self.road_segments,
             transit_lines: self.transit_lines,
@@ -1256,7 +1425,7 @@ mod tests {
         // Terrain vectors are present (even if empty for this small fixture).
         assert!(city.land_polygon.len() < usize::MAX);
         assert!(city.inland_water_polygons.len() < usize::MAX);
-        assert!(city.terrain_bands.len() < usize::MAX);
+        assert!(city.contour_lines.len() < usize::MAX);
     }
 
     // AC3 + Gotcha 6: Bus Line excluded from road_segments; transit_lines populated
@@ -1551,7 +1720,7 @@ mod tests {
             "inland_water_polygons: {}",
             city.inland_water_polygons.len()
         );
-        eprintln!("terrain_bands: {}", city.terrain_bands.len());
+        eprintln!("terrain_bands: {}", city.contour_lines.len());
         eprintln!("transit_lines: {}", city.transit_lines.len());
         eprintln!("buildings: {}", city.buildings.len());
         eprintln!("districts: {}", city.districts.len());

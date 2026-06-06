@@ -83,6 +83,12 @@ interface TransitStopFeature {
   properties: TransitStopFeatureProperties;
 }
 
+interface ContourLineFeature {
+  type: 'Feature';
+  geometry: LineStringGeometry;
+  properties: { elevation: number };
+}
+
 /**
  * Properties attached to each road segment GeoJSON feature.
  * Used by MapLibre Data-Driven Styling expressions (e.g., `['get', 'hierarchy']`).
@@ -225,6 +231,11 @@ export interface LandPolygonFeatureCollection {
     geometry: PolygonGeometry;
     properties: LandPolygonProperties | TerrainBandProperties;
   }>;
+}
+
+export interface ContourLineCollection {
+  type: 'FeatureCollection';
+  features: Array<ContourLineFeature>;
 }
 
 // ─── Road tier / width model ──────────────────────────────────────────────────
@@ -636,7 +647,7 @@ export function buildLandPolygonGeoJson(
  * @param cityData - The immutable domain model produced by the CS1 parser.
  * @returns A GeoJSON FeatureCollection ready for `map.addSource()` in MapLibre.
  */
-export function buildTerrainBandsGeoJson(
+/*export function buildTerrainBandsGeoJson(
   cityData: CityData,
 ): LandPolygonFeatureCollection {
   const features: LandPolygonFeatureCollection['features'] = [];
@@ -654,4 +665,22 @@ export function buildTerrainBandsGeoJson(
     }
   }
   return { type: 'FeatureCollection', features };
+}*/
+
+export function buildContourLinesGeoJson(
+  city: CityData,
+): ContourLineCollection {
+  return {
+    type: 'FeatureCollection',
+    features: city.contourLines.flatMap((isoline) =>
+      isoline.lines.map((lineCoords) => ({
+        type: 'Feature',
+        properties: { elevation: isoline.elevation },
+        geometry: {
+          type: 'LineString',
+          coordinates: lineCoords,
+        },
+      })),
+    ),
+  };
 }
