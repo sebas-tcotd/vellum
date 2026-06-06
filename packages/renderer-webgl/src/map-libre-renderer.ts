@@ -569,8 +569,8 @@ export class MapLibreRenderer implements IRenderer {
         source: 'terrain-lines-source',
         paint: {
           'line-color': '#000000',
-          'line-width': 1,
-          'line-opacity': 0.15,
+          'line-width': 0.5,
+          'line-opacity': 0.125,
         },
       });
     }

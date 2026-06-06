@@ -29,7 +29,7 @@ pub fn world_to_wgs84(world_x: f64, world_z: f64) -> [f64; 2] {
 /// Avoids `SimplifyVwPreserve` whose topology check is O(N²) on complex coastlines.
 pub fn simplify_polygon(poly: &geo::Polygon<f64>) -> geo::Polygon<f64> {
     use geo::{Simplify, SimplifyVw};
-    poly.simplify(SIMPLIFY_TOLERANCE)
+    poly.simplify(SIMPLIFY_TOLERANCE / 3.0)
         .simplify_vw(SIMPLIFY_TOLERANCE * 1.5)
 }
 
@@ -140,9 +140,9 @@ pub fn vectorize_contour_lines(
                     .iter()
                     .map(|linestring| {
                         // 1. Simplificar la línea para matar el ruido y bajar el peso
-                        let simplified = linestring.simplify(SIMPLIFY_TOLERANCE);
+                        let simplified = linestring.simplify(SIMPLIFY_TOLERANCE / 512.0);
 
-                        // 2. Convertir coordenadas a WGS-84 (reutilizando tu world_to_wgs84)
+                        // 2. Convertir coordenadas a WGS-84 (reutilizando world_to_wgs84)
                         simplified
                             .into_iter()
                             .map(|c| world_to_wgs84(c.x, c.y))

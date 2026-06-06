@@ -164,7 +164,7 @@ impl CityDataBuilder {
             vectorizer::vectorize_land_polygon(&self.elev_grid, &self.res_grid, sea_level);
         let inland_water_polygons =
             vectorizer::vectorize_inland_water(&self.elev_grid, &self.res_grid, sea_level);
-        let contour_lines = vectorizer::vectorize_contour_lines(&self.elev_grid, sea_level, 3000.0);
+        let contour_lines = vectorizer::vectorize_contour_lines(&self.elev_grid, sea_level, 3200.0);
         let terrain_texture =
             texture::generate_terrain_texture(&self.elev_grid, &self.res_grid, sea_level)?;
 
