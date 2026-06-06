@@ -1,36 +1,20 @@
-use contour::ContourBuilder;
-use geo::Simplify;
-use std::collections::{HashMap, VecDeque};
-use std::io::Cursor;
+mod builder;
+mod events;
+mod handlers;
+mod terrain;
+mod types;
+mod utils;
 
+#[cfg(test)]
+mod tests;
+
+use crate::city_data::CityData;
+use crate::errors::VellumError;
+use builder::CityDataBuilder;
+use events::{ParseWarningsPayload, ProgressPayload};
 use quick_xml::events::Event;
 use quick_xml::Reader;
 use tauri::Emitter;
-
-use crate::city_data::{
-    Building, CityData, District, ForestCell, MapBounds, PathSegment, RoadNode, RoadSegment,
-    TerrainIsoline, TerrainPolygon, TerrainRing, TransitLine, TransitStop, Vec3, WayType,
-};
-use crate::dlc_fallback;
-use crate::errors::VellumError;
-use crate::types::transit::normalize_debug_segs;
-
-// ─── Progress payload (mirrors ipc_contract.rs in src-tauri) ──────────────────
-
-#[derive(serde::Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
-struct ProgressPayload {
-    current_step: String,
-    percent: f32,
-}
-
-// ─── Parse warnings payload (mirrors ipc_contract.rs in src-tauri) ────────────
-
-#[derive(serde::Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
-struct ParseWarningsPayload {
-    warnings: Vec<String>,
-}
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
@@ -50,98 +34,25 @@ pub fn parse_cslmap_file(
     app_handle: &tauri::AppHandle,
     allow_partial: bool,
 ) -> Result<CityData, VellumError> {
-    emit_progress(app_handle, "reading", 0.0);
-
     let bytes = std::fs::read(path).map_err(|e| VellumError::IoError {
         reason: e.to_string(),
     })?;
+    let content = strip_bom(&bytes);
 
-    // Strip UTF-8 BOM (EF BB BF) — present in real .cslmap files (Gotcha 3)
-    let content = if bytes.starts_with(b"\xEF\xBB\xBF") {
-        &bytes[3..]
-    } else {
-        &bytes[..]
-    };
-
-    let total_len = content.len();
-    let result = parse_inner_with_progress(content, total_len, app_handle, allow_partial)?;
-
-    emit_progress(app_handle, "done", 100.0);
+    let mut observer = TauriObserver::new(app_handle);
+    observer.emit_lifecycle("reading", 0.0);
+    let result = run_parse_loop(content, allow_partial, &mut observer)?;
+    observer.emit_lifecycle("done", 100.0);
     Ok(result)
 }
 
-pub fn vectorize_contour_lines(
-    elev_grid: &[f64],
-    sea_level: f64,
-    step: f64,
-) -> Vec<TerrainIsoline> {
-    let max_elev = elev_grid.iter().copied().fold(f64::NEG_INFINITY, f64::max);
-
-    if max_elev <= sea_level {
-        return vec![];
-    }
-
-    // Calcular los umbrales de elevación
-    let mut thresholds = Vec::new();
-    let mut current = sea_level + step;
-    while current <= max_elev {
-        thresholds.push(current);
-        current += step;
-    }
-
-    // Constructor de la cuadrícula (ajusta orígenes/pasos según tu parse_cslmap)
-    let builder = ContourBuilder::new(1081, 1081, true)
-        .x_origin(-8640.0) // Tu TERRAIN_MAP_ORIGIN
-        .y_origin(-8640.0)
-        .x_step(16.0) // Tu TERRAIN_CELL_SIZE
-        .y_step(16.0);
-
-    match builder.lines(elev_grid, &thresholds) {
-        Ok(contour_lines) => contour_lines
-            .into_iter()
-            .map(|contour_line| {
-                let lines: Vec<Vec<[f64; 2]>> = contour_line
-                    .geometry()
-                    .0 // MultiLineString contiene un vector de LineStrings
-                    .iter()
-                    .map(|linestring| {
-                        // 1. Simplificar la línea para matar el ruido y bajar el peso
-                        let simplified = linestring.simplify(SIMPLIFY_TOLERANCE);
-
-                        // 2. Convertir coordenadas a WGS-84 (reutilizando tu world_to_wgs84)
-                        simplified
-                            .into_iter()
-                            .map(|c| world_to_wgs84(c.x, c.y))
-                            .collect()
-                    })
-                    .filter(|line: &Vec<[f64; 2]>| line.len() > 1) // Descartar puntos solitarios
-                    .collect();
-
-                TerrainIsoline {
-                    elevation: contour_line.threshold(),
-                    lines,
-                }
-            })
-            .collect(),
-        Err(e) => {
-            eprintln!("[parser-cslmap] error vectorizando isolíneas: {e}");
-            vec![]
-        }
-    }
-}
-
-/// Pure parsing function (no `AppHandle`, no `allow_partial)`: used directly by unit tests.
+/// Pure parsing function (no `AppHandle`): used directly by unit tests.
 ///
 /// # Errors
 /// Returns `VellumError::InvalidFile` for completely unreadable XML.
 /// Returns `VellumError::PartialParse` for XML valid at root but with damaged sections.
 pub fn parse_cslmap_bytes(content: &[u8]) -> Result<CityData, VellumError> {
-    let content = if content.starts_with(b"\xEF\xBB\xBF") {
-        &content[3..]
-    } else {
-        content
-    };
-    parse_inner(content, false)
+    run_parse_loop(strip_bom(content), false, &mut NoopObserver)
 }
 
 /// Lenient variant of `parse_cslmap_bytes` for testing partial-parse mode.
@@ -150,1243 +61,112 @@ pub fn parse_cslmap_bytes(content: &[u8]) -> Result<CityData, VellumError> {
 /// # Errors
 /// Returns `VellumError::InvalidFile` if the root element is missing or the XML is fatally malformed.
 pub fn parse_cslmap_bytes_lenient(content: &[u8]) -> Result<CityData, VellumError> {
-    let content = if content.starts_with(b"\xEF\xBB\xBF") {
-        &content[3..]
-    } else {
-        content
-    };
-    parse_inner(content, true)
+    run_parse_loop(strip_bom(content), true, &mut NoopObserver)
 }
 
-// ─── Internal helpers ─────────────────────────────────────────────────────────
+// ─── BOM stripping ────────────────────────────────────────────────────────────
 
-fn emit_progress(app_handle: &tauri::AppHandle, step: &str, percent: f32) {
-    if let Err(e) = app_handle.emit(
-        "vellum://progress",
-        ProgressPayload {
-            current_step: step.to_string(),
-            percent,
-        },
-    ) {
-        eprintln!("[parser-cslmap] Failed to emit progress event: {e}");
+/// Strips the UTF-8 BOM (EF BB BF) present in real `.cslmap` files (Gotcha 3).
+fn strip_bom(bytes: &[u8]) -> &[u8] {
+    bytes.strip_prefix(b"\xEF\xBB\xBF").unwrap_or(bytes)
+}
+
+// ─── Observer ─────────────────────────────────────────────────────────────────
+
+/// Receives parse events from `run_parse_loop`, decoupling the loop from Tauri.
+trait ParseObserver {
+    /// Called after each XML event with the current parse progress (0–100).
+    fn on_progress(&mut self, pct: f32);
+    /// Called once with accumulated DLC/parse warnings before the result is built.
+    fn on_warnings(&mut self, warnings: &[String]);
+}
+
+// ─── TauriObserver ───────────────────────────────────────────────────────────
+
+struct TauriObserver<'a> {
+    app_handle: &'a tauri::AppHandle,
+}
+
+impl<'a> TauriObserver<'a> {
+    fn new(app_handle: &'a tauri::AppHandle) -> Self {
+        Self { app_handle }
+    }
+
+    fn emit_lifecycle(&self, step: &str, percent: f32) {
+        if let Err(e) = self.app_handle.emit(
+            "vellum://progress",
+            ProgressPayload {
+                current_step: step.to_string(),
+                percent,
+            },
+        ) {
+            eprintln!("[parser-cslmap] Failed to emit progress event: {e}");
+        }
     }
 }
 
-fn parse_inner_with_progress(
+impl ParseObserver for TauriObserver<'_> {
+    fn on_progress(&mut self, pct: f32) {
+        self.emit_lifecycle("parsing", pct);
+    }
+
+    fn on_warnings(&mut self, warnings: &[String]) {
+        if warnings.is_empty() {
+            return;
+        }
+        if let Err(e) = self.app_handle.emit(
+            "vellum://parse-warnings",
+            ParseWarningsPayload {
+                warnings: warnings.to_vec(),
+            },
+        ) {
+            eprintln!("[parser-cslmap] Failed to emit parse-warnings: {e}");
+        }
+    }
+}
+
+// ─── NoopObserver ─────────────────────────────────────────────────────────────
+
+struct NoopObserver;
+
+impl ParseObserver for NoopObserver {
+    fn on_progress(&mut self, _pct: f32) {}
+    fn on_warnings(&mut self, _warnings: &[String]) {}
+}
+
+// ─── Core parse loop ──────────────────────────────────────────────────────────
+
+fn run_parse_loop<O: ParseObserver>(
     content: &[u8],
-    total_len: usize,
-    app_handle: &tauri::AppHandle,
     allow_partial: bool,
+    observer: &mut O,
 ) -> Result<CityData, VellumError> {
     let mut reader = Reader::from_reader(content);
     reader.config_mut().trim_text(true);
 
     let mut builder = CityDataBuilder::default();
     let mut buf = Vec::new();
+    let mut has_parsed_root = false;
     let mut last_pct: i32 = -1;
-    let mut has_parsed_root = false;
-    let mut partial_errors: Vec<String> = Vec::new();
+    let total_len = content.len();
 
     loop {
         match reader.read_event_into(&mut buf) {
             Ok(Event::Start(ref e)) => {
                 has_parsed_root = true;
-                if let Err(err) = builder.handle_start(e) {
-                    if allow_partial {
-                        partial_errors.push(err.to_string());
-                    } else {
-                        return Err(VellumError::PartialParse {
-                            warnings: vec![err.to_string()],
-                        });
-                    }
-                }
+                handle_element_result(builder.handle_start(e), allow_partial)?;
             }
             Ok(Event::Empty(ref e)) => {
                 has_parsed_root = true;
-                if let Err(err) = builder.handle_empty(e) {
-                    if allow_partial {
-                        partial_errors.push(err.to_string());
-                    } else {
-                        return Err(VellumError::PartialParse {
-                            warnings: vec![err.to_string()],
-                        });
-                    }
-                }
+                handle_element_result(builder.handle_empty(e), allow_partial)?;
             }
-            Ok(Event::Text(ref e)) => match e.unescape() {
-                Ok(text) => builder.handle_text(&text),
-                Err(err) => {
-                    let msg = format!(
-                        "XML text error at position {}: {err}",
-                        reader.buffer_position()
-                    );
-                    if allow_partial {
-                        partial_errors.push(msg);
-                    } else if has_parsed_root {
-                        return Err(VellumError::PartialParse {
-                            warnings: vec![msg],
-                        });
-                    } else {
-                        return Err(VellumError::InvalidFile { reason: msg });
-                    }
-                }
-            },
+            Ok(Event::Text(ref e)) => {
+                dispatch_text_event(e, &mut builder, &reader, allow_partial, has_parsed_root)?;
+            }
             Ok(Event::End(ref e)) => builder.handle_end(e),
             Ok(Event::Eof) => break,
-            Err(e) => {
-                let msg = format!(
-                    "XML parse error at position {}: {e}",
-                    reader.buffer_position()
-                );
-                if allow_partial {
-                    // Stop parsing but continue to build with what we have
-                    partial_errors.push(msg);
-                    break;
-                } else if has_parsed_root {
-                    return Err(VellumError::PartialParse {
-                        warnings: vec![msg],
-                    });
-                }
-                return Err(VellumError::InvalidFile { reason: msg });
-            }
-            _ => {}
-        }
-        buf.clear();
-
-        // Real progress based on byte position in the stream
-        #[allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
-        if total_len > 0 {
-            let pct = (reader.buffer_position() as f64 / total_len as f64 * 100.0) as i32;
-            if pct > last_pct {
-                last_pct = pct;
-                #[allow(clippy::cast_precision_loss)]
-                emit_progress(app_handle, "parsing", pct as f32);
-            }
-        }
-    }
-
-    // Emit DLC warnings event (before consuming builder)
-    let warnings_to_emit = builder.warnings.clone();
-    if !warnings_to_emit.is_empty() {
-        if let Err(e) = app_handle.emit(
-            "vellum://parse-warnings",
-            ParseWarningsPayload {
-                warnings: warnings_to_emit,
-            },
-        ) {
-            eprintln!("[parser-cslmap] Failed to emit parse-warnings: {e}");
-        }
-    }
-
-    let _ = partial_errors; // already captured in PartialParse path or logged via eprintln
-    builder.build()
-}
-
-// ─── Attribute helpers ────────────────────────────────────────────────────────
-
-fn attr_str(e: &quick_xml::events::BytesStart, name: &[u8]) -> Option<String> {
-    e.attributes().find_map(|a| {
-        let a = match a {
-            Ok(attr) => attr,
-            Err(e) => {
-                eprintln!("[parser-cslmap] Malformed attribute in XML: {e}");
-                return None;
-            }
-        };
-        if a.key.local_name().as_ref() == name {
-            a.unescape_value().ok().map(std::borrow::Cow::into_owned)
-        } else {
-            None
-        }
-    })
-}
-
-fn attr_f64(e: &quick_xml::events::BytesStart, name: &[u8]) -> Option<f64> {
-    attr_str(e, name)
-        .and_then(|s| s.parse::<f64>().ok())
-        .filter(|v| v.is_finite())
-}
-
-// ─── Transit mode classifier ──────────────────────────────────────────────────
-
-fn parse_transit_mode(s: &str) -> crate::city_data::TransitMode {
-    use crate::city_data::TransitMode;
-    match s {
-        "Bus" => TransitMode::Bus,
-        "Tram" => TransitMode::Tram,
-        "Train" => TransitMode::Train,
-        "Metro" => TransitMode::Metro,
-        "CableCar" => TransitMode::CableCar,
-        "Monorail" => TransitMode::Monorail,
-        "Ferry" => TransitMode::Ferry,
-        "Blimp" => TransitMode::Blimp,
-        "Trolleybus" => TransitMode::Trolleybus,
-        _ => TransitMode::Unknown,
-    }
-}
-
-// Converts RGBA components to an 8-digit hex color string (e.g. "#FF6600FF").
-fn rgba_to_hex(r: u8, g: u8, b: u8, a: u8) -> String {
-    format!("#{r:02X}{g:02X}{b:02X}{a:02X}")
-}
-
-// ─── WayType derivation ───────────────────────────────────────────────────────
-
-/// Derives `WayType` flags from an `item_class` string.
-/// Strips `[Deprecated]` prefix (AC2 / Gotcha 5) before matching.
-/// Returns a non-empty Vec — unknown items get `[None]`.
-fn way_type_from_item_class(item_class: &str) -> Vec<WayType> {
-    let s = item_class.trim_start_matches("[Deprecated]");
-
-    if s.contains("Pedestrian") {
-        return vec![WayType::Pedestrian];
-    }
-    if s.contains("Bicycle") {
-        return vec![WayType::Bicycle];
-    }
-
-    let mut types = Vec::new();
-
-    if s.contains("Highway") {
-        types.push(WayType::Highway);
-    } else if s.contains("Road") || s.contains("Alley") || s.contains("Gravel") {
-        types.push(WayType::Road);
-    }
-
-    if s.contains("Elevated") {
-        types.push(WayType::Elevated);
-    }
-    if s.contains("Underground") {
-        types.push(WayType::Underground);
-    }
-    if s.contains("Bridge") {
-        types.push(WayType::Bridge);
-    }
-    if s.contains("Tunnel") {
-        types.push(WayType::Tunnel);
-    }
-
-    if types.is_empty() {
-        types.push(WayType::None);
-    }
-
-    types
-}
-
-// ─── Terrain CSV parsing ──────────────────────────────────────────────────────
-
-const TERRAIN_GRID_SIZE: usize = 1081;
-const TERRAIN_CELL_SIZE: f64 = 16.0;
-const TERRAIN_MAP_ORIGIN: f64 = -8640.0;
-
-/// CS1 world half-extent and WGS-84 scale constants (south-up convention, `CS1_LAT_SIGN = +1`).
-const CS1_WORLD_HALF: f64 = 8640.0;
-const CS1_EXTENT_DEG: f64 = (CS1_WORLD_HALF * 2.0) / 111_195.0;
-const CS1_HALF_EXTENT_DEG: f64 = CS1_EXTENT_DEG / 2.0;
-
-/// Base simplification tolerance in world-space units (32m = 2 grid cells).
-/// Applied in two passes: DP first (coarse, fast), then VW (smooth curves, lighter N).
-const SIMPLIFY_TOLERANCE: f64 = 32.0;
-
-/// Converts a CS1 world-space point to WGS-84 `[longitude, latitude]`.
-///
-/// Uses south-up convention (`CS1_LAT_SIGN = +1`): positive Z → positive latitude.
-/// This matches `coordinate-transform.ts` in the WebGL renderer — do not negate Z.
-fn world_to_wgs84(world_x: f64, world_z: f64) -> [f64; 2] {
-    let lng = (world_x / CS1_WORLD_HALF) * CS1_HALF_EXTENT_DEG;
-    let lat = (world_z / CS1_WORLD_HALF) * CS1_HALF_EXTENT_DEG;
-    [lng, lat]
-}
-
-/// Parses the `CSLExportXML` terrain CSV format: `"elev:res,elev:res,..."`
-/// Grid is 1081×1081, row-major. Fills `elev_grid` and `res_grid` for later vectorization.
-fn parse_terrain_csv(csv: &str, elev_grid: &mut Vec<f64>, res_grid: &mut Vec<f64>) {
-    let capacity = TERRAIN_GRID_SIZE * TERRAIN_GRID_SIZE;
-    elev_grid.reserve(capacity);
-    res_grid.reserve(capacity);
-
-    for (idx, entry) in csv.split(',').enumerate() {
-        let entry = entry.trim();
-        let row = idx / TERRAIN_GRID_SIZE;
-        if row >= TERRAIN_GRID_SIZE {
-            eprintln!("[parser-cslmap] Terrain grid overflow at index {idx}; extra data ignored");
-            break;
-        }
-
-        let mut parts = entry.splitn(2, ':');
-        let raw_elev: f64 = parts.next().and_then(|s| s.parse().ok()).unwrap_or(0.0);
-        let raw_res: f64 = parts.next().and_then(|s| s.parse().ok()).unwrap_or(0.0);
-
-        // Always push to maintain row-major index alignment, even for empty/malformed entries.
-        elev_grid.push(raw_elev);
-        res_grid.push(raw_res);
-    }
-}
-
-// ─── Terrain vectorization ────────────────────────────────────────────────────
-
-/// Two-pass simplification: Douglas-Peucker (coarse, O(N log N)) then
-/// Visvalingam-Whyatt (smooth curves, fast because N is already small).
-/// Avoids `SimplifyVwPreserve` whose topology check is O(N²) on complex coastlines.
-fn simplify_polygon(poly: &geo::Polygon<f64>) -> geo::Polygon<f64> {
-    use geo::{Simplify, SimplifyVw};
-    poly.simplify(SIMPLIFY_TOLERANCE)
-        .simplify_vw(SIMPLIFY_TOLERANCE * 1.5)
-}
-
-/// Converts a `geo::Polygon<f64>` in world-space to a `TerrainPolygon` in WGS-84.
-fn geo_poly_to_terrain_polygon(poly: &geo::Polygon<f64>) -> TerrainPolygon {
-    let exterior = TerrainRing(
-        poly.exterior()
-            .coords()
-            .map(|c| world_to_wgs84(c.x, c.y))
-            .collect(),
-    );
-    let holes = poly
-        .interiors()
-        .iter()
-        .map(|ring| TerrainRing(ring.coords().map(|c| world_to_wgs84(c.x, c.y)).collect()))
-        .collect();
-    TerrainPolygon { exterior, holes }
-}
-
-/// Returns a `ContourBuilder` pre-configured to output coordinates in CS1 world-space.
-fn terrain_builder() -> contour_isobands::ContourBuilder {
-    contour_isobands::ContourBuilder::new(TERRAIN_GRID_SIZE, TERRAIN_GRID_SIZE)
-        .x_origin(TERRAIN_MAP_ORIGIN)
-        .x_step(TERRAIN_CELL_SIZE)
-        .y_origin(TERRAIN_MAP_ORIGIN)
-        .y_step(TERRAIN_CELL_SIZE)
-}
-
-/// Binary mask: `1.0` = dry land, `0.0` = ocean or inland water.
-///
-/// A cell is "water" if its elevation is at or below sea level (ocean),
-/// or if its resolution exceeds sea level (inland water body).
-fn build_water_mask(elev_grid: &[f64], res_grid: &[f64], sea_level: f64) -> Vec<f64> {
-    elev_grid
-        .iter()
-        .zip(res_grid.iter())
-        .map(|(&elev, &res)| {
-            if elev <= sea_level || res > sea_level {
-                0.0
-            } else {
-                1.0
-            }
-        })
-        .collect()
-}
-
-/// Vectorizes the landmass into `TerrainPolygon`s using Marching Squares.
-///
-/// Interior holes correspond to inland water bodies (rivers and lakes).
-/// Coordinates are in WGS-84 `[lng, lat]`, south-up convention.
-///
-/// # Errors emitted
-/// Vectorization failures are logged to stderr and return an empty vec (no panic).
-fn vectorize_land_polygon(
-    elev_grid: &[f64],
-    res_grid: &[f64],
-    sea_level: f64,
-) -> Vec<TerrainPolygon> {
-    let mask = build_water_mask(elev_grid, res_grid, sea_level);
-
-    match terrain_builder().contours(&mask, &[0.5_f64, 1.5_f64]) {
-        Ok(bands) => bands
-            .iter()
-            .flat_map(|band| {
-                band.geometry()
-                    .0
-                    .iter()
-                    .map(|poly| geo_poly_to_terrain_polygon(&simplify_polygon(poly)))
-                    .collect::<Vec<_>>()
-            })
-            .collect(),
-        Err(e) => {
-            eprintln!("[parser-cslmap] land polygon vectorization error: {e}");
-            vec![]
-        }
-    }
-}
-
-/// Vectorizes inland water bodies (rivers and lakes) into `TerrainPolygon`s.
-///
-/// A cell is inland water when its elevation is above sea level but its resolution
-/// (surface water height) also exceeds sea level.
-fn vectorize_inland_water(
-    elev_grid: &[f64],
-    res_grid: &[f64],
-    sea_level: f64,
-) -> Vec<TerrainPolygon> {
-    let inland_mask: Vec<f64> = elev_grid
-        .iter()
-        .zip(res_grid.iter())
-        .map(|(&elev, &res)| {
-            if elev > sea_level && res > sea_level {
-                1.0
-            } else {
-                0.0
-            }
-        })
-        .collect();
-
-    match terrain_builder().contours(&inland_mask, &[0.5_f64, 1.5_f64]) {
-        Ok(bands) => bands
-            .iter()
-            .flat_map(|band| {
-                band.geometry()
-                    .0
-                    .iter()
-                    .map(|poly| geo_poly_to_terrain_polygon(&simplify_polygon(poly)))
-                    .collect::<Vec<_>>()
-            })
-            .collect(),
-        Err(e) => {
-            eprintln!("[parser-cslmap] inland water vectorization error: {e}");
-            vec![]
-        }
-    }
-}
-
-/// Vectorizes terrain elevation isobands (every 10m) for the optional relief layer.
-///
-/// Only dry-land cells (above sea level and not inland water) contribute to bands.
-/// Each `TerrainBand` carries `elevation_min`/`elevation_max` as semantic properties.
-/// Parses one row of the `CSLExportXML` forest CSV format.
-///
-/// The `<Forests>` section contains 512 `<Forest>` child elements, each holding one
-/// comma-separated row of 512 density integers (0–255). `row` is the 0-based index
-/// of the current `<Forest>` element (incremented by the caller).
-///
-/// Grid: 512 × 512 cells covering the full 17280 × 17280 world-unit map (-8640…+8640).
-/// Cell size: 17280 / 512 = 33.75 world units per side.
-fn parse_forest_csv(csv: &str, row: usize, forest_cells: &mut Vec<ForestCell>) {
-    const FOREST_GRID: usize = 512;
-    const MAP_SIZE: f64 = 17280.0; // total world span (-8640 to +8640)
-    #[allow(clippy::cast_precision_loss)]
-    const CELL_SIZE: f64 = MAP_SIZE / FOREST_GRID as f64; // 33.75 world units
-    const MAP_ORIGIN: f64 = -8640.0;
-
-    for (col, val) in csv.split(',').enumerate() {
-        if col >= FOREST_GRID {
-            break; // guard against malformed rows
-        }
-        let density_raw: u32 = val.trim().parse().unwrap_or(0);
-        if density_raw == 0 {
-            continue;
-        }
-        #[allow(clippy::cast_precision_loss)]
-        let x = MAP_ORIGIN + col as f64 * CELL_SIZE;
-        #[allow(clippy::cast_precision_loss)]
-        let z = MAP_ORIGIN + row as f64 * CELL_SIZE;
-        let density = f64::from(density_raw) / 255.0;
-        forest_cells.push(ForestCell { x, z, density });
-    }
-}
-
-// ─── Terrain texture ─────────────────────────────────────────────────────────
-
-/// Colour stops for the elevation palette (`elevation_threshold`, R, G, B).
-/// Elevations below `sea_level` are transparent. Values in game units.
-const ELEVATION_PALETTE: &[(f64, u8, u8, u8)] = &[
-    (0.0, 149, 174, 121), // low: #95ae79
-    (0.4, 222, 221, 190), // mid: #deddbe
-    (0.8, 196, 160, 106), // high:rgb(196, 160, 106)
-    (1.0, 160, 115, 48),  // clamp top: rgb(160, 115, 48)
-];
-
-/// Linear-interpolates between two colours by `t ∈ [0.0, 1.0]`.
-fn lerp_color(a: (u8, u8, u8), b: (u8, u8, u8), t: f64) -> (u8, u8, u8) {
-    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-    let lerp = |lo: u8, hi: u8| (f64::from(lo) + (f64::from(hi) - f64::from(lo)) * t) as u8;
-    (lerp(a.0, b.0), lerp(a.1, b.1), lerp(a.2, b.2))
-}
-
-/// Maps a normalised elevation `t ∈ [0.0, 1.0]` to an RGB colour via the palette.
-fn elevation_color(t: f64) -> (u8, u8, u8) {
-    for i in 0..ELEVATION_PALETTE.len().saturating_sub(1) {
-        let (t0, r0, g0, b0) = ELEVATION_PALETTE[i];
-        let (t1, r1, g1, b1) = ELEVATION_PALETTE[i + 1];
-        if t <= t1 {
-            let seg_t = if (t1 - t0).abs() < f64::EPSILON {
-                0.0
-            } else {
-                (t - t0) / (t1 - t0)
-            };
-            return lerp_color((r0, g0, b0), (r1, g1, b1), seg_t);
-        }
-    }
-    let (_, r, g, b) = *ELEVATION_PALETTE.last().unwrap_or(&(1.0, 196, 160, 106));
-    (r, g, b)
-}
-
-// Contour step in game elevation units. One line every 10 units.
-//const CONTOUR_STEP: f64 = 100.0;
-// Proximity to a contour threshold (in game units) that triggers line darkening.
-//const CONTOUR_HALF_WIDTH: f64 = 0.1;
-
-/// Bakes a 1081×1081 RGBA terrain texture from the elevation grid.
-///
-/// Land pixels are tinted by elevation with contour lines baked in. Water pixels
-/// (below sea level or covered by inland water) are fully transparent so the
-/// `MapLibre` water layer shows through.
-///
-/// Returns a `data:image/png;base64,…` string ready for use as a `MapLibre` image source.
-///
-/// # Errors
-/// Returns `VellumError::InternalError` if PNG encoding fails (should not happen in practice).
-pub fn generate_terrain_texture(
-    elev_grid: &[f64],
-    res_grid: &[f64],
-    sea_level: f64,
-) -> Result<String, VellumError> {
-    use base64::{engine::general_purpose::STANDARD, Engine as _};
-    use image::{ImageBuffer, ImageOutputFormat, Rgba, RgbaImage};
-
-    #[allow(clippy::cast_possible_truncation)]
-    const GRID: u32 = TERRAIN_GRID_SIZE as u32;
-
-    let max_elev = elev_grid
-        .iter()
-        .copied()
-        .filter(|&e| e > sea_level)
-        .fold(sea_level + 1.0, f64::max);
-    let elev_range = (max_elev - sea_level).max(1.0);
-
-    let mut img: RgbaImage = ImageBuffer::new(GRID, GRID);
-
-    #[allow(clippy::many_single_char_names)]
-    for (i, (&elev, &res)) in elev_grid.iter().zip(res_grid.iter()).enumerate() {
-        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-        let px = (i as u32) % GRID;
-        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-        let py = (i as u32) / GRID;
-
-        let render_y = GRID - 1 - py; // Inversión del eje Y
-
-        let is_water = elev <= sea_level || res > sea_level;
-        if is_water {
-            img.put_pixel(px, render_y, Rgba([0, 0, 0, 0]));
-            continue;
-        }
-
-        let norm_t = ((elev - sea_level) / elev_range).clamp(0.0, 1.0);
-        let (red, green, blue) = elevation_color(norm_t);
-
-        // Píxel puro, sin líneas negras
-        img.put_pixel(px, render_y, Rgba([red, green, blue, 255]));
-    }
-
-    let mut buf = Cursor::new(Vec::new());
-    img.write_to(&mut buf, ImageOutputFormat::Png)
-        .map_err(|e| VellumError::ExportFailed {
-            reason: format!("terrain texture encode failed: {e}"),
-        })?;
-
-    let encoded = STANDARD.encode(buf.into_inner());
-    Ok(format!("data:image/png;base64,{encoded}"))
-}
-
-// ─── Builder ─────────────────────────────────────────────────────────────────
-
-/// Intermediate road segment with raw parsed fields before classification.
-#[derive(Default)]
-struct ParsedSeg {
-    id: String,
-    start_node_id: String,
-    end_node_id: String,
-    item_class: String,
-    width: f64,
-    path_segs: Vec<String>,
-    points: Vec<Vec3>,
-}
-
-#[derive(Default)]
-#[allow(clippy::struct_excessive_bools)]
-struct CityDataBuilder {
-    // Output data
-    city_name: String,
-    generated_at: String,
-    sea_level: f64,
-    // Raw terrain grids (row-major, 1081×1081). Populated during Ter CSV parse;
-    // vectorized into TerrainPolygon/TerrainBand in build().
-    elev_grid: Vec<f64>,
-    res_grid: Vec<f64>,
-    road_nodes: Vec<RoadNode>,
-    road_segments: Vec<RoadSegment>,
-    transit_lines: Vec<TransitLine>,
-    buildings: Vec<Building>,
-    forest_cells: Vec<ForestCell>,
-    districts: Vec<District>,
-    warnings: Vec<String>,
-    // Virtual transit connector segs (e.g. "Bus Line", "Tram Line"), keyed by (sn, en).
-    // Each entry holds a queue of road-segment-ID lists — one per connector seg with that node pair.
-    // Queued because two different transit lines can share the same stop pair.
-    transit_route_by_nodes: HashMap<(String, String), VecDeque<Vec<String>>>,
-
-    // Bounds tracking (derived from node positions)
-    min_x: f64,
-    max_x: f64,
-    min_z: f64,
-    max_z: f64,
-    has_nodes: bool,
-
-    // Node lookup index: built during Nodes parsing, used for transit stop positions
-    node_position_index: HashMap<String, Vec3>,
-
-    // Node parsing state: Node start → wait for Pos child
-    in_node: bool,
-    current_node_id: String,
-
-    // Segment parsing state
-    current_seg: Option<ParsedSeg>,
-    in_seg_points: bool, // inside Seg>Points
-    in_seg_path: bool,   // inside Seg>Path
-    in_seg_segs: bool,   // inside Seg>Path>Segs
-
-    // Transit parsing state
-    in_trans: bool,
-    current_trans_id: String,
-    current_trans_name: String,
-    current_trans_mode: String,
-    current_trans_color: String,
-    current_trans_stops: Vec<TransitStop>,
-    current_trans_routes: Vec<PathSegment>,
-    current_route_seg_ids: Vec<String>,
-
-    // Building parsing state
-    in_buil: bool,
-    current_buil_id: String,
-    current_buil_name: String,
-    current_buil_icls: String,
-    in_buil_points: bool,
-    current_buil_footprint: Vec<Vec3>,
-
-    // District parsing state
-    forest_row: usize,
-
-    in_dist: bool,
-    current_dist_id: String,
-    current_dist_name: String,
-    current_dist_position: Option<Vec3>,
-
-    // Pending text content for simple text elements
-    pending_text: String,
-    // Tag whose text content we're currently accumulating
-    text_element: TextElement,
-}
-
-#[derive(Default, PartialEq)]
-enum TextElement {
-    #[default]
-    None,
-    City,
-    SeaLevel,
-    Generated,
-    Sg,     // segment ID inside Seg>Path>Segs
-    Ter,    // terrain CSV
-    Forest, // forest density CSV
-}
-
-impl CityDataBuilder {
-    fn in_seg(&self) -> bool {
-        self.current_seg.is_some()
-    }
-
-    fn in_transit(&self) -> bool {
-        self.in_trans
-    }
-
-    #[allow(
-        clippy::too_many_lines,
-        clippy::unnecessary_wraps,
-        clippy::match_same_arms
-    )]
-    fn handle_start(&mut self, e: &quick_xml::events::BytesStart<'_>) -> Result<(), VellumError> {
-        let local = e.name().local_name();
-        self.pending_text.clear();
-        self.text_element = TextElement::None;
-
-        match local.as_ref() {
-            // Root element — ignore, no attributes to parse
-            b"CSLExportXML" => {}
-
-            // Simple text elements — set flag, accumulate in handle_text
-            b"City" => {
-                self.text_element = TextElement::City;
-            }
-            b"Generated" => {
-                self.text_element = TextElement::Generated;
-            }
-            b"SeaLevel" => {
-                self.text_element = TextElement::SeaLevel;
-            }
-
-            // Node: start tag has id; Pos child provides coordinates
-            b"Node" => {
-                self.in_node = true;
-                self.current_node_id = attr_str(e, b"id").unwrap_or_default();
-            }
-
-            // Road segment
-            b"Seg" => {
-                if self.current_seg.is_some() {
-                    eprintln!("[parser-cslmap] Nested <Seg> start encountered — discarding previous state");
-                    self.current_seg = None;
-                    self.in_seg_points = false;
-                    self.in_seg_path = false;
-                    self.in_seg_segs = false;
-                }
-                let id = attr_str(e, b"id").unwrap_or_default();
-                let sn = attr_str(e, b"sn").unwrap_or_default();
-                let en = attr_str(e, b"en").unwrap_or_default();
-                if sn.is_empty() || en.is_empty() {
-                    eprintln!("[parser-cslmap] <Seg id='{id}'> missing required attrs sn/en");
-                }
-                self.current_seg = Some(ParsedSeg {
-                    id,
-                    start_node_id: sn,
-                    end_node_id: en,
-                    item_class: attr_str(e, b"icls").unwrap_or_default(),
-                    width: attr_f64(e, b"width").unwrap_or(0.0),
-                    path_segs: Vec::new(),
-                    points: Vec::new(),
-                });
-            }
-            b"Points" if self.in_seg() => {
-                self.in_seg_points = true;
-            }
-            b"Path" if self.in_seg() => {
-                self.in_seg_path = true;
-            }
-            b"Segs" if self.in_seg_path => {
-                self.in_seg_segs = true;
-            }
-            b"Sg" if self.in_seg_segs => {
-                self.text_element = TextElement::Sg;
-            }
-
-            // Terrain text block
-            b"Ter" => {
-                self.text_element = TextElement::Ter;
-            }
-
-            // Forest text block
-            b"Forest" => {
-                self.text_element = TextElement::Forest;
-            }
-
-            // Transit line
-            b"Trans" => {
-                if self.in_trans {
-                    eprintln!("[parser-cslmap] Nested <Trans> start encountered — discarding previous state");
-                }
-                self.in_trans = true;
-                self.current_trans_id = attr_str(e, b"id").unwrap_or_default();
-                self.current_trans_name = attr_str(e, b"name").unwrap_or_default();
-                self.current_trans_mode = attr_str(e, b"type").unwrap_or_default();
-                self.current_trans_color = String::new();
-                self.current_trans_stops.clear();
-                self.current_trans_routes.clear();
-                self.current_route_seg_ids.clear();
-            }
-
-            // Building
-            b"Buil" => {
-                self.in_buil = true;
-                self.current_buil_id = attr_str(e, b"id").unwrap_or_default();
-                self.current_buil_name = attr_str(e, b"name").unwrap_or_default();
-                self.current_buil_icls = attr_str(e, b"icls").unwrap_or_default();
-                self.current_buil_footprint.clear();
-            }
-            b"Points" if self.in_buil => {
-                self.in_buil_points = true;
-            }
-
-            // District
-            b"Dist" => {
-                self.in_dist = true;
-                self.current_dist_id = attr_str(e, b"id").unwrap_or_default();
-                self.current_dist_name = attr_str(e, b"name").unwrap_or_default();
-                self.current_dist_position = None;
-            }
-
-            _ => {}
-        }
-
-        Ok(())
-    }
-
-    #[allow(clippy::unnecessary_wraps)]
-    fn handle_empty(&mut self, e: &quick_xml::events::BytesStart<'_>) -> Result<(), VellumError> {
-        let local = e.name().local_name();
-
-        match local.as_ref() {
-            // Node position (child of Node start element)
-            b"Pos" if self.in_node => {
-                let x = attr_f64(e, b"x").unwrap_or(0.0);
-                let y = attr_f64(e, b"y").unwrap_or(0.0);
-                let z = attr_f64(e, b"z").unwrap_or(0.0);
-                let position = Vec3 { x, y, z };
-                self.node_position_index
-                    .insert(self.current_node_id.clone(), position.clone());
-                self.road_nodes.push(RoadNode {
-                    id: self.current_node_id.clone(),
-                    position,
-                });
-                // Track bounds
-                if self.has_nodes {
-                    if x < self.min_x {
-                        self.min_x = x;
-                    }
-                    if x > self.max_x {
-                        self.max_x = x;
-                    }
-                    if z < self.min_z {
-                        self.min_z = z;
-                    }
-                    if z > self.max_z {
-                        self.max_z = z;
-                    }
-                } else {
-                    self.min_x = x;
-                    self.max_x = x;
-                    self.min_z = z;
-                    self.max_z = z;
-                    self.has_nodes = true;
-                }
-            }
-
-            // Road segment points (bezier control points)
-            b"p" if self.in_seg_points => {
-                if let Some(ref mut seg) = self.current_seg {
-                    seg.points.push(Vec3 {
-                        x: attr_f64(e, b"x").unwrap_or(0.0),
-                        y: attr_f64(e, b"y").unwrap_or(0.0),
-                        z: attr_f64(e, b"z").unwrap_or(0.0),
-                    });
-                }
-            }
-
-            // Transit line color element: <color a="255" r="44" g="85" b="191" />
-            b"color" if self.in_transit() => {
-                let a = attr_str(e, b"a")
-                    .and_then(|s| s.parse::<u8>().ok())
-                    .unwrap_or(255);
-                let r = attr_str(e, b"r")
-                    .and_then(|s| s.parse::<u8>().ok())
-                    .unwrap_or(0);
-                let g = attr_str(e, b"g")
-                    .and_then(|s| s.parse::<u8>().ok())
-                    .unwrap_or(0);
-                let b_val = attr_str(e, b"b")
-                    .and_then(|s| s.parse::<u8>().ok())
-                    .unwrap_or(0);
-                self.current_trans_color = rgba_to_hex(r, g, b_val, a);
-            }
-
-            // Transit stop: <Stop node="3560" />
-            b"Stop" if self.in_transit() => {
-                let node_id = attr_str(e, b"node").unwrap_or_default();
-                let mode = parse_transit_mode(&self.current_trans_mode.clone());
-                let position = self
-                    .node_position_index
-                    .get(&node_id)
-                    .cloned()
-                    .unwrap_or(Vec3 {
-                        x: 0.0,
-                        y: 0.0,
-                        z: 0.0,
-                    });
-                self.current_trans_stops.push(TransitStop {
-                    id: node_id,
-                    mode,
-                    position,
-                    name: String::new(),
-                });
-            }
-
-            // Building footprint points: <p x y z /> inside Buil>Points
-            b"p" if self.in_buil_points => {
-                self.current_buil_footprint.push(Vec3 {
-                    x: attr_f64(e, b"x").unwrap_or(0.0),
-                    y: attr_f64(e, b"y").unwrap_or(0.0),
-                    z: attr_f64(e, b"z").unwrap_or(0.0),
-                });
-            }
-
-            // District position: single <p x y z /> inside Dist (cslmap only exports one point)
-            b"p" if self.in_dist && self.current_dist_position.is_none() => {
-                self.current_dist_position = Some(Vec3 {
-                    x: attr_f64(e, b"x").unwrap_or(0.0),
-                    y: attr_f64(e, b"y").unwrap_or(0.0),
-                    z: attr_f64(e, b"z").unwrap_or(0.0),
-                });
-            }
-
-            _ => {}
-        }
-
-        Ok(())
-    }
-
-    fn handle_text(&mut self, text: &str) {
-        let trimmed = text.trim();
-        if trimmed.is_empty() {
-            return;
-        }
-        match self.text_element {
-            TextElement::City => {
-                self.city_name.push_str(trimmed);
-            }
-            TextElement::Generated => {
-                self.generated_at.push_str(trimmed);
-            }
-            TextElement::SeaLevel => {
-                // Accumulate in case text arrives split across events; parsed at End
-                self.pending_text.push_str(trimmed);
-            }
-            TextElement::Sg => {
-                // Segment ID inside Seg>Path>Segs
-                if let Some(ref mut seg) = self.current_seg {
-                    seg.path_segs.push(trimmed.to_string());
-                }
-            }
-            TextElement::Ter => {
-                // Terrain CSV — may arrive in chunks; accumulate then parse on End
-                // (parse on end so we have the complete sea_level)
-                // Buffer is flushed in handle_end for Ter
-                self.pending_text.push_str(trimmed);
-            }
-            TextElement::Forest => {
-                self.pending_text.push_str(trimmed);
-            }
-            TextElement::None => {}
-        }
-    }
-
-    #[allow(clippy::too_many_lines)]
-    fn handle_end(&mut self, e: &quick_xml::events::BytesEnd<'_>) {
-        let local = e.name().local_name();
-        self.text_element = TextElement::None;
-
-        match local.as_ref() {
-            b"Node" => {
-                self.in_node = false;
-                self.current_node_id.clear();
-            }
-
-            b"SeaLevel" => {
-                let text = std::mem::take(&mut self.pending_text);
-                if let Ok(v) = text.trim().parse::<f64>() {
-                    if v.is_finite() {
-                        self.sea_level = v;
-                    } else {
-                        eprintln!("[parser-cslmap] SeaLevel value is not finite: {text:?}");
-                    }
-                } else if !text.is_empty() {
-                    eprintln!("[parser-cslmap] SeaLevel parse failed: {text:?}");
-                }
-            }
-
-            b"Points" if self.in_seg_points => {
-                self.in_seg_points = false;
-            }
-            b"Points" if self.in_buil_points => {
-                self.in_buil_points = false;
-            }
-
-            b"Segs" if self.in_seg_segs => {
-                self.in_seg_segs = false;
-            }
-            b"Path" if self.in_seg_path => {
-                self.in_seg_path = false;
-            }
-
-            b"Seg" => {
-                // Always reset sub-element state even if Seg was malformed
-                self.in_seg_points = false;
-                self.in_seg_path = false;
-                self.in_seg_segs = false;
-
-                if let Some(seg) = self.current_seg.take() {
-                    // AC3 + Gotcha 6: transit virtual connector segs (e.g. "Bus Line",
-                    // "Tram Line") carry route geometry — extract and skip road_segments.
-                    if seg.item_class.ends_with(" Line") {
-                        let mut segs = seg.path_segs;
-                        normalize_debug_segs(&mut segs); // AC5 + Gotcha 4
-                        self.transit_route_by_nodes
-                            .entry((seg.start_node_id, seg.end_node_id))
-                            .or_default()
-                            .push_back(segs);
-                        return;
-                    }
-
-                    // AC4 + Gotcha 7: fallback for unknown DLC ItemClass
-                    if !dlc_fallback::is_known_item_class(&seg.item_class) {
-                        let hierarchy = dlc_fallback::classify_by_width(seg.width);
-                        self.warnings.push(format!(
-                            "Unknown ItemClass '{}' (width {:.1}) classified as {:?}",
-                            seg.item_class, seg.width, hierarchy
-                        ));
-                    }
-
-                    self.road_segments.push(RoadSegment {
-                        id: seg.id,
-                        start_node_id: seg.start_node_id,
-                        end_node_id: seg.end_node_id,
-                        way_type: way_type_from_item_class(&seg.item_class),
-                        item_class: seg.item_class,
-                        width: seg.width,
-                        points: seg.points,
-                    });
-                }
-            }
-
-            b"Ter" => {
-                let csv = std::mem::take(&mut self.pending_text);
-                if !csv.is_empty() {
-                    parse_terrain_csv(&csv, &mut self.elev_grid, &mut self.res_grid);
-                }
-            }
-
-            b"Forest" => {
-                let csv = std::mem::take(&mut self.pending_text);
-                if !csv.is_empty() {
-                    parse_forest_csv(&csv, self.forest_row, &mut self.forest_cells);
-                    self.forest_row += 1;
-                }
-            }
-
-            b"Trans" => {
-                let id = std::mem::take(&mut self.current_trans_id);
-                let name = std::mem::take(&mut self.current_trans_name);
-                let mode_str = std::mem::take(&mut self.current_trans_mode);
-                let raw_color = std::mem::take(&mut self.current_trans_color);
-                // Default to opaque white when <color> element is absent
-                let color = if raw_color.is_empty() {
-                    "#FFFFFFFF".to_string()
-                } else {
-                    raw_color
-                };
-                let mode = parse_transit_mode(&mode_str);
-
-                // Reconstruct the full route by looking up each consecutive stop pair.
-                // Each Bus Line virtual seg connects two adjacent stops and carries the
-                // road segment IDs for that leg. Circular routes close from last→first stop.
-                let stop_ids: Vec<String> = self
-                    .current_trans_stops
-                    .iter()
-                    .map(|s| s.id.clone())
-                    .collect();
-                let n = stop_ids.len();
-                let mut all_seg_ids: Vec<String> = Vec::new();
-                for i in 0..n {
-                    let key = (stop_ids[i].clone(), stop_ids[(i + 1) % n].clone());
-                    if let Some(queue) = self.transit_route_by_nodes.get_mut(&key) {
-                        if let Some(leg_segs) = queue.pop_front() {
-                            all_seg_ids.extend(leg_segs);
-                        }
-                        if queue.is_empty() {
-                            self.transit_route_by_nodes.remove(&key);
-                        }
-                    }
-                }
-                let route = if all_seg_ids.is_empty() {
-                    Vec::new()
-                } else {
-                    vec![PathSegment {
-                        segment_ids: all_seg_ids,
-                    }]
-                };
-
-                self.transit_lines.push(TransitLine {
-                    id,
-                    name,
-                    mode,
-                    color,
-                    stops: std::mem::take(&mut self.current_trans_stops),
-                    route,
-                });
-                self.in_trans = false;
-            }
-
-            b"Buil" if self.in_buil => {
-                let footprint = std::mem::take(&mut self.current_buil_footprint);
-                let position = if let Some(first) = footprint.first() {
-                    first.clone()
-                } else {
-                    eprintln!(
-                        "[parser-cslmap] Building id='{}' has empty footprint — position defaulting to origin",
-                        self.current_buil_id
-                    );
-                    Vec3 {
-                        x: 0.0,
-                        y: 0.0,
-                        z: 0.0,
-                    }
-                };
-                self.buildings.push(Building {
-                    id: std::mem::take(&mut self.current_buil_id),
-                    name: std::mem::take(&mut self.current_buil_name),
-                    position,
-                    item_class: std::mem::take(&mut self.current_buil_icls),
-                    footprint,
-                });
-                self.in_buil = false;
-            }
-
-            b"Dist" if self.in_dist => {
-                let position = self.current_dist_position.take().unwrap_or(Vec3 {
-                    x: 0.0,
-                    y: 0.0,
-                    z: 0.0,
-                });
-                self.districts.push(District {
-                    id: std::mem::take(&mut self.current_dist_id),
-                    name: std::mem::take(&mut self.current_dist_name),
-                    position,
-                });
-                self.in_dist = false;
-            }
-
-            _ => {}
-        }
-    }
-
-    #[allow(clippy::unnecessary_wraps)]
-    fn build(mut self) -> Result<CityData, VellumError> {
-        // Bounds derived from node positions; fall back to CS1 map limits if no nodes
-        let bounds = if self.has_nodes {
-            MapBounds {
-                min_x: self.min_x,
-                max_x: self.max_x,
-                min_z: self.min_z,
-                max_z: self.max_z,
-                sea_level: self.sea_level,
-            }
-        } else {
-            MapBounds {
-                min_x: -8640.0,
-                max_x: 8640.0,
-                min_z: -8640.0,
-                max_z: 8640.0,
-                sea_level: self.sea_level,
-            }
-        };
-
-        // Unknown DLC assets: log to stderr; Story 2.5 will surface these as UI warnings.
-        for w in &self.warnings {
-            eprintln!("[parser-cslmap] DLC warning: {w}");
-        }
-
-        let sea_level = self.sea_level;
-
-        // Pad incomplete grids to the expected 1081×1081 size so contour-isobands
-        // receives exactly the right number of values. Padded cells have elev=0
-        // (below any real sea level) and are treated as ocean.
-        let expected_len = TERRAIN_GRID_SIZE * TERRAIN_GRID_SIZE;
-        if self.elev_grid.len() < expected_len {
-            if !self.elev_grid.is_empty() {
-                eprintln!(
-                    "[parser-cslmap] Terrain grid has {} entries, expected {}; padding with zeros",
-                    self.elev_grid.len(),
-                    expected_len
-                );
-            }
-            self.elev_grid.resize(expected_len, 0.0);
-            self.res_grid.resize(expected_len, 0.0);
-        }
-
-        let land_polygon = vectorize_land_polygon(&self.elev_grid, &self.res_grid, sea_level);
-        let inland_water_polygons =
-            vectorize_inland_water(&self.elev_grid, &self.res_grid, sea_level);
-        // terrain_bands: O(N × num_bands) — deferred; returned empty until a dedicated
-        // optimization pass (chunked Marching Squares or pre-bucketed elevation grid).
-        let contour_lines = vectorize_contour_lines(&self.elev_grid, sea_level, 3000.0);
-        println!("{contour_lines:?}");
-        let terrain_texture = generate_terrain_texture(&self.elev_grid, &self.res_grid, sea_level)?;
-
-        Ok(CityData {
-            city_name: self.city_name,
-            file_name: String::new(),
-            generated_at: self.generated_at,
-            bounds,
-            land_polygon,
-            inland_water_polygons,
-            contour_lines,
-            terrain_texture,
-            road_nodes: self.road_nodes,
-            road_segments: self.road_segments,
-            transit_lines: self.transit_lines,
-            buildings: self.buildings,
-            forest_cells: self.forest_cells,
-            districts: self.districts,
-        })
-    }
-}
-
-// ─── Core parse loop (no progress events) ────────────────────────────────────
-
-fn parse_inner(content: &[u8], allow_partial: bool) -> Result<CityData, VellumError> {
-    let mut reader = Reader::from_reader(content);
-    reader.config_mut().trim_text(true);
-
-    let mut builder = CityDataBuilder::default();
-    let mut buf = Vec::new();
-    let mut has_parsed_root = false;
-
-    loop {
-        match reader.read_event_into(&mut buf) {
-            Ok(Event::Start(ref e)) => {
-                has_parsed_root = true;
-                if let Err(err) = builder.handle_start(e) {
-                    if allow_partial {
-                        eprintln!("[parser-cslmap] Partial: section start error: {err}");
-                    } else {
-                        return Err(VellumError::PartialParse {
-                            warnings: vec![err.to_string()],
-                        });
-                    }
-                }
-            }
-            Ok(Event::Empty(ref e)) => {
-                has_parsed_root = true;
-                if let Err(err) = builder.handle_empty(e) {
-                    if allow_partial {
-                        eprintln!("[parser-cslmap] Partial: section empty error: {err}");
-                    } else {
-                        return Err(VellumError::PartialParse {
-                            warnings: vec![err.to_string()],
-                        });
-                    }
-                }
-            }
-            Ok(Event::Text(ref e)) => match e.unescape() {
-                Ok(text) => builder.handle_text(&text),
-                Err(err) => {
-                    let msg = format!(
-                        "XML text error at position {}: {err}",
-                        reader.buffer_position()
-                    );
-                    if allow_partial {
-                        eprintln!("[parser-cslmap] Partial: {msg}");
-                    } else if has_parsed_root {
-                        return Err(VellumError::PartialParse {
-                            warnings: vec![msg],
-                        });
-                    } else {
-                        return Err(VellumError::InvalidFile { reason: msg });
-                    }
-                }
-            },
-            Ok(Event::End(ref e)) => builder.handle_end(e),
-            Ok(Event::Eof) => break,
-            Err(e) => {
-                let msg = format!(
-                    "XML parse error at position {}: {e}",
-                    reader.buffer_position()
-                );
+            Err(ref e) => {
+                let msg = format_xml_error(&reader, e);
                 if allow_partial {
                     eprintln!("[parser-cslmap] Partial: stopping early — {msg}");
                     break;
@@ -1400,337 +180,81 @@ fn parse_inner(content: &[u8], allow_partial: bool) -> Result<CityData, VellumEr
             _ => {}
         }
         buf.clear();
+        tick_progress(&reader, total_len, &mut last_pct, observer);
     }
 
+    observer.on_warnings(&builder.warnings);
     builder.build()
 }
 
-// ─── Tests ────────────────────────────────────────────────────────────────────
+// ─── Loop-level helpers ───────────────────────────────────────────────────────
 
-#[cfg(test)]
-#[allow(clippy::expect_used)]
-mod tests {
-    use super::*;
-
-    // AC1: minimal-valid.cslmap → valid CityData, no errors, city_name correct.
-    // This fixture has 3 terrain cells (all inland water due to res > sea_level),
-    // so land_polygon may be empty — that is correct behavior for this fixture.
-    #[test]
-    fn parses_minimal_valid_cslmap() {
-        let bytes = include_bytes!("../fixtures/minimal-valid.cslmap");
-        let result = parse_cslmap_bytes(bytes);
-        assert!(result.is_ok(), "expected Ok, got: {result:?}");
-        let city = result.expect("already checked");
-        assert_eq!(city.city_name, "Test City");
-        // Terrain vectors are present (even if empty for this small fixture).
-        assert!(city.land_polygon.len() < usize::MAX);
-        assert!(city.inland_water_polygons.len() < usize::MAX);
-        assert!(city.contour_lines.len() < usize::MAX);
+/// Translates a builder result into a loop-level control-flow decision.
+fn handle_element_result(
+    result: Result<(), VellumError>,
+    allow_partial: bool,
+) -> Result<(), VellumError> {
+    match result {
+        Ok(()) => Ok(()),
+        Err(err) if allow_partial => {
+            eprintln!("[parser-cslmap] Partial: element error: {err}");
+            Ok(())
+        }
+        Err(err) => Err(VellumError::PartialParse {
+            warnings: vec![err.to_string()],
+        }),
     }
+}
 
-    // AC3 + Gotcha 6: Bus Line excluded from road_segments; transit_lines populated
-    #[test]
-    fn bus_line_excluded_from_road_segments() {
-        let bytes = include_bytes!("../fixtures/with-transit.cslmap");
-        let result = parse_cslmap_bytes(bytes);
-        assert!(result.is_ok(), "expected Ok, got: {result:?}");
-        let city = result.expect("already checked");
-        let has_bus_line = city
-            .road_segments
-            .iter()
-            .any(|s| s.item_class == "Bus Line");
-        assert!(!has_bus_line, "Bus Line must not appear in road_segments");
-        assert!(!city.transit_lines.is_empty(), "expected transit lines");
-    }
-
-    // Bus Line route reconstruction: each transit line assembles its full route from
-    // per-stop-pair Bus Line virtual segs, keyed by (sn, en). Verifies with Altavento
-    // fixture (36 Bus Line segs across 4 Trans: 16+20 stop pairs).
-    // Uses the 13MB altavento fixture + full vectorization; run with --release.
-    #[test]
-    #[ignore = "large fixture + vectorization; run with: cargo test -p parser-cslmap --release -- --ignored"]
-    fn transit_routes_assembled_from_stop_pairs() {
-        let bytes = include_bytes!("../fixtures/altavento.cslmap");
-        let result = parse_cslmap_bytes(bytes);
-        assert!(result.is_ok(), "expected Ok, got: {result:?}");
-        let city = result.expect("already checked");
-        assert!(!city.transit_lines.is_empty(), "expected transit lines");
-        // Every transit line with stops must have a non-empty route
-        for line in &city.transit_lines {
-            if !line.stops.is_empty() {
-                let total_segs: usize = line.route.iter().map(|p| p.segment_ids.len()).sum();
-                assert!(
-                    total_segs > 1,
-                    "transit line '{}' has {} stops but only {} route segments — expected full route",
-                    line.name,
-                    line.stops.len(),
-                    total_segs,
-                );
+/// Decodes a text event and forwards the content to the builder.
+fn dispatch_text_event(
+    e: &quick_xml::events::BytesText<'_>,
+    builder: &mut CityDataBuilder,
+    reader: &Reader<&[u8]>,
+    allow_partial: bool,
+    has_parsed_root: bool,
+) -> Result<(), VellumError> {
+    match e.unescape() {
+        Ok(text) => {
+            builder.handle_text(&text);
+            Ok(())
+        }
+        Err(err) => {
+            let msg = format_xml_error(reader, &err);
+            if allow_partial {
+                eprintln!("[parser-cslmap] Partial: {msg}");
+                Ok(())
+            } else if has_parsed_root {
+                Err(VellumError::PartialParse {
+                    warnings: vec![msg],
+                })
+            } else {
+                Err(VellumError::InvalidFile { reason: msg })
             }
         }
     }
+}
 
-    // AC5 + Gotcha 4: debug-format fixture → no duplicate leading segment in route
-    #[test]
-    fn debug_format_has_no_duplicate_leading_segment() {
-        let bytes = include_bytes!("../fixtures/with-transit-paths-debug.cslmap");
-        let result = parse_cslmap_bytes(bytes);
-        assert!(result.is_ok(), "expected Ok, got: {result:?}");
-        let city = result.expect("already checked");
-        for line in &city.transit_lines {
-            for path in &line.route {
-                if path.segment_ids.len() >= 2 {
-                    assert_ne!(
-                        path.segment_ids[0], path.segment_ids[1],
-                        "duplicate leading segment must be removed in debug format"
-                    );
-                }
-            }
-        }
+/// Formats an XML error with its byte position for diagnostics.
+fn format_xml_error(reader: &Reader<&[u8]>, err: &impl std::fmt::Display) -> String {
+    format!("XML error at position {}: {err}", reader.buffer_position())
+}
+
+/// Emits a progress tick when the percentage has advanced by at least one point.
+fn tick_progress<O: ParseObserver>(
+    reader: &Reader<&[u8]>,
+    total_len: usize,
+    last_pct: &mut i32,
+    observer: &mut O,
+) {
+    if total_len == 0 {
+        return;
     }
-
-    // Story 2.5: corrupted.cslmap → PartialParse (XML started valid before error)
-    #[test]
-    fn corrupted_cslmap_returns_partial_parse_error() {
-        let bytes = include_bytes!("../fixtures/corrupted.cslmap");
-        let result = parse_cslmap_bytes(bytes);
-        assert!(
-            matches!(result, Err(VellumError::PartialParse { .. })),
-            "expected PartialParse error (XML was partially valid before corruption), got: {result:?}"
-        );
-    }
-
-    // Story 2.5: XML that fails immediately (no root element processed) → InvalidFile
-    #[test]
-    fn totally_invalid_file_returns_invalid_file_error() {
-        // Quick-xml fails on unclosed tags before any element is opened
-        let bytes = b"<unclosed";
-        let result = parse_cslmap_bytes(bytes);
-        assert!(
-            matches!(result, Err(VellumError::InvalidFile { .. })),
-            "expected InvalidFile error for XML that fails before root, got: {result:?}"
-        );
-    }
-
-    // Story 2.5: allow_partial mode on corrupted.cslmap → Ok with partial data
-    #[test]
-    fn allow_partial_returns_ok_with_partial_data() {
-        let bytes = include_bytes!("../fixtures/corrupted.cslmap");
-        let result = parse_cslmap_bytes_lenient(bytes);
-        assert!(
-            result.is_ok(),
-            "expected Ok in lenient mode, got: {result:?}"
-        );
-        let city = result.expect("already checked");
-        assert_eq!(
-            city.city_name, "Corrupted",
-            "city_name should be populated from the valid section before corruption"
-        );
-    }
-
-    // AC4 + Gotcha 7: unknown DLC assets → Ok with fallback (non-fatal)
-    #[test]
-    fn unknown_dlc_assets_returns_ok_with_fallback() {
-        let bytes = include_bytes!("../fixtures/unknown-dlc-assets.cslmap");
-        let result = parse_cslmap_bytes(bytes);
-        assert!(
-            result.is_ok(),
-            "expected Ok (DLC fallback non-fatal), got: {result:?}"
-        );
-    }
-
-    // AC2 + Gotcha 5: [Deprecated] prefix stripped before WayType classification
-    #[test]
-    fn deprecated_prefix_stripped_in_way_type() {
-        use crate::city_data::WayType;
-        let types = way_type_from_item_class("[Deprecated]Basic Road");
-        assert!(
-            matches!(types[0], WayType::Road),
-            "expected Road, got {types:?}"
-        );
-
-        let types = way_type_from_item_class("[Deprecated]Highway");
-        assert!(
-            matches!(types[0], WayType::Highway),
-            "expected Highway, got {types:?}"
-        );
-    }
-
-    #[test]
-    fn way_type_from_item_class_covers_main_cases() {
-        use crate::city_data::WayType;
-        let cases: &[(&str, WayType)] = &[
-            ("Basic Road", WayType::Road),
-            ("Medium Road Elevated", WayType::Road),
-            ("Highway", WayType::Highway),
-            ("Highway Elevated", WayType::Highway),
-            ("Pedestrian Way", WayType::Pedestrian),
-            ("Bicycle Lane", WayType::Bicycle),
-        ];
-        for (icls, expected) in cases {
-            let types = way_type_from_item_class(icls);
-            assert!(
-                std::mem::discriminant(&types[0]) == std::mem::discriminant(expected),
-                "{icls}: expected {expected:?}, got {types:?}"
-            );
-        }
-
-        // "Medium Road Elevated" → [Road, Elevated]
-        let elevated = way_type_from_item_class("Medium Road Elevated");
-        assert!(
-            elevated.iter().any(|t| matches!(t, WayType::Elevated)),
-            "expected Elevated flag in {elevated:?}"
-        );
-
-        // Truly unknown (no road/highway/pedestrian/bicycle keyword) → [None]
-        let unknown = way_type_from_item_class("Electricity Wire");
-        assert!(
-            matches!(unknown[0], WayType::None),
-            "expected None, got {unknown:?}"
-        );
-    }
-
-    // Terrain CSV parsing: elev and res values are stored correctly in both grids
-    #[test]
-    fn terrain_csv_fills_grids() {
-        let mut elev = Vec::new();
-        let mut res = Vec::new();
-        // Two entries: elev=50:res=0 and elev=200:res=80
-        parse_terrain_csv("50:0,200:80", &mut elev, &mut res);
-        assert_eq!(elev.len(), 2);
-        assert_eq!(res.len(), 2);
-        assert!((elev[0] - 50.0).abs() < f64::EPSILON);
-        assert!((elev[1] - 200.0).abs() < f64::EPSILON);
-        assert!((res[1] - 80.0).abs() < f64::EPSILON);
-    }
-
-    // Terrain CSV grid overflow guard: entries beyond 1081×1081 are discarded
-    #[test]
-    fn terrain_csv_overflow_guard() {
-        let mut elev = Vec::new();
-        let mut res = Vec::new();
-        let entry = "300:0";
-        let total = 1081 * 1081 + 5;
-        let csv = std::iter::repeat_n(entry, total)
-            .collect::<Vec<_>>()
-            .join(",");
-        parse_terrain_csv(&csv, &mut elev, &mut res);
-        assert_eq!(
-            elev.len(),
-            1081 * 1081,
-            "overflow entries must be discarded"
-        );
-    }
-
-    // Color hex conversion — 8-digit format with alpha
-    #[test]
-    fn rgba_to_hex_formats_correctly() {
-        assert_eq!(rgba_to_hex(255, 102, 0, 255), "#FF6600FF");
-        assert_eq!(rgba_to_hex(44, 85, 191, 255), "#2C55BFFF");
-        assert_eq!(rgba_to_hex(0, 0, 0, 0), "#00000000");
-    }
-
-    // parse_cslmap_bytes transparently strips UTF-8 BOM
-    #[test]
-    fn parse_cslmap_bytes_strips_bom() {
-        let mut with_bom: Vec<u8> = b"\xEF\xBB\xBF".to_vec();
-        with_bom.extend_from_slice(
-            b"<CSLExportXML version=\"4.1\"><City>BomCity</City></CSLExportXML>",
-        );
-        let result = parse_cslmap_bytes(&with_bom);
-        assert!(result.is_ok(), "BOM-prefixed input must parse: {result:?}");
-        assert_eq!(result.expect("ok").city_name, "BomCity");
-    }
-
-    // Building footprint points use lowercase <p> — regression for b"P" vs b"p"
-    #[test]
-    fn building_footprint_parsed_from_lowercase_p_tags() {
-        let xml = br#"<CSLExportXML version="4.1"><Buildings>
-            <Buil id="1" name="Test Building" srv="Residential" subsrv="ResidentialLow" icls="Low Residential - Level2">
-              <Points>
-                <p x="100.0" y="10.0" z="200.0" />
-                <p x="200.0" y="10.0" z="200.0" />
-                <p x="200.0" y="10.0" z="300.0" />
-                <p x="100.0" y="10.0" z="300.0" />
-              </Points>
-            </Buil>
-          </Buildings></CSLExportXML>"#;
-        let result = parse_cslmap_bytes(xml);
-        assert!(result.is_ok(), "expected Ok: {result:?}");
-        let city = result.expect("ok");
-        assert_eq!(city.buildings.len(), 1, "expected one building");
-        let footprint = &city.buildings[0].footprint;
-        assert_eq!(
-            footprint.len(),
-            4,
-            "footprint must have 4 vertices, got {}",
-            footprint.len()
-        );
-        assert!((footprint[0].x - 100.0_f64).abs() < f64::EPSILON);
-        assert!((footprint[0].z - 200.0_f64).abs() < f64::EPSILON);
-    }
-
-    // Transit line color defaults to #FFFFFFFF when <color> element is absent
-    #[test]
-    fn transit_line_color_defaults_when_absent() {
-        let xml =
-            b"<CSLExportXML version=\"4.1\"><Transports><Trans id=\"1\" name=\"Bus 1\" type=\"Bus\"></Trans></Transports></CSLExportXML>";
-        let result = parse_cslmap_bytes(xml);
-        assert!(result.is_ok(), "expected Ok: {result:?}");
-        let city = result.expect("ok");
-        assert_eq!(city.transit_lines.len(), 1);
-        assert_eq!(city.transit_lines[0].color, "#FFFFFFFF");
-    }
-
-    #[test]
-    #[ignore = "requires large fixture; run manually with cargo test -- --ignored"]
-    fn perf_10mb_file() {
-        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/fixtures/large-city.cslmap");
-        assert!(
-            std::path::Path::new(path).exists(),
-            "Fixture not found: {path}. Create a ~10MB .cslmap file to enable this benchmark."
-        );
-        let bytes = std::fs::read(path).expect("read file");
-        let start = std::time::Instant::now();
-        let _ = parse_cslmap_bytes(&bytes); // BOM stripped internally
-        let elapsed = start.elapsed();
-        assert!(
-            elapsed.as_millis() < 100,
-            "Parser took {}ms, expected <100ms",
-            elapsed.as_millis()
-        );
-    }
-
-    #[test]
-    #[ignore = "manual only - validates against real .cslmap files in test-maps/"]
-    fn validate_real_altavento() {
-        let path = concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/../../test-maps/Altavento-20260404-020217.cslmap"
-        );
-        let bytes = std::fs::read(path).expect("read altavento");
-        let result = parse_cslmap_bytes(&bytes); // BOM stripped internally
-        assert!(result.is_ok(), "Altavento parse failed: {result:?}");
-        let city = result.expect("ok");
-        eprintln!("city_name: {:?}", city.city_name);
-        eprintln!("road_nodes: {}", city.road_nodes.len());
-        eprintln!("road_segments: {}", city.road_segments.len());
-        eprintln!("land_polygon polygons: {}", city.land_polygon.len());
-        eprintln!(
-            "inland_water_polygons: {}",
-            city.inland_water_polygons.len()
-        );
-        eprintln!("terrain_bands: {}", city.contour_lines.len());
-        eprintln!("transit_lines: {}", city.transit_lines.len());
-        eprintln!("buildings: {}", city.buildings.len());
-        eprintln!("districts: {}", city.districts.len());
-        assert_eq!(city.city_name, "Altavento");
-        assert!(city.road_nodes.len() > 1000, "expected many nodes");
-        assert!(city.road_segments.len() > 1000, "expected many segments");
-        let has_bus_line = city
-            .road_segments
-            .iter()
-            .any(|s| s.item_class == "Bus Line");
-        assert!(!has_bus_line, "Bus Line must not be in road_segments");
+    #[allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
+    let pct = (reader.buffer_position() as f64 / total_len as f64 * 100.0) as i32;
+    if pct > *last_pct {
+        *last_pct = pct;
+        #[allow(clippy::cast_precision_loss)]
+        observer.on_progress(pct as f32);
     }
 }
