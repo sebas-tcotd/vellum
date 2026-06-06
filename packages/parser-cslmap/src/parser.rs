@@ -183,7 +183,7 @@ fn run_parse_loop<O: ParseObserver>(
         tick_progress(&reader, total_len, &mut last_pct, observer);
     }
 
-    observer.on_warnings(&builder.warnings);
+    observer.on_warnings(builder.warnings());
     builder.build()
 }
 
