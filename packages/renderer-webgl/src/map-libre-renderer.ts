@@ -30,6 +30,7 @@ import {
   buildContourLinesGeoJson,
   buildDistrictsGeoJson,
   buildForestsGeoJson,
+  buildLandPolygonGeoJson,
   buildRoadsGeoJson,
   buildTransitGeoJson,
   buildTransitStopsGeoJson,
@@ -62,8 +63,8 @@ export interface TooltipInfo {
  * separate layer, so its array is empty.
  */
 const LAYER_ID_MAP: Record<LayerName, string[]> = {
-  terrain: ['terrain-fill'],
-  water: ['water-fill'],
+  terrain: ['terrain-fill', 'terrain-lines-layer'],
+  water: ['base-water', 'base-land'],
   roads: ['roads-casing', 'roads-fill'],
   transit: ['transit-line', 'transit-stops'],
   buildings: ['buildings-fill', 'buildings-outline'],
@@ -481,7 +482,7 @@ export class MapLibreRenderer implements IRenderer {
     // Layer order (bottom → top):
     //   water · terrain · forests · buildings · roads · transit lines · transit stops · districts
     // Each addXLayer call appends to the top of the current stack (no beforeId).
-    this.addWaterLayer(cityData);
+    this.addBaseLayer(cityData);
     this.addTerrainLayer(cityData);
     this.addForestsLayer(cityData);
     this.addBuildingsLayer(cityData);
@@ -556,34 +557,75 @@ export class MapLibreRenderer implements IRenderer {
       });
     }
 
-    this.map.addSource('terrain-lines-source', {
+    this.addSourceIfAbsent('terrain-lines-source', {
       type: 'geojson',
       data: buildContourLinesGeoJson(cityData),
     });
 
-    this.map.addLayer({
-      id: 'terrain-lines-layer',
-      type: 'line',
-      source: 'terrain-lines-source',
-      paint: {
-        'line-color': '#000000', // Color de la línea de relieve
-        'line-width': 1, // Siempre será de 1px sin importar el zoom
-        'line-opacity': 0.15, // Transparencia sutil para que no opaque el mapa
-      },
-    }); // Ponlo justo por encima del raster, pero debajo del agua y calles
+    if (!this.map.getLayer('terrain-lines-layer')) {
+      this.map.addLayer({
+        id: 'terrain-lines-layer',
+        type: 'line',
+        source: 'terrain-lines-source',
+        paint: {
+          'line-color': '#000000',
+          'line-width': 1,
+          'line-opacity': 0.15,
+        },
+      });
+    }
   }
 
-  private addWaterLayer(_cityData: CityData): void {
-    this.addSourceIfAbsent('water', {
+  /**
+   * Adds the base background layer: a single GeoJSON source that holds both the
+   * full-world-extent water polygon and the vectorised land polygons. Two fill
+   * layers (`base-water`, `base-land`) filter by `kind` property so each can be
+   * styled independently while sharing one source update path.
+   *
+   * Toggling the `water` logical layer hides/shows both sub-layers together.
+   */
+  private addBaseLayer(cityData: CityData): void {
+    const waterFeatures = buildWaterGeoJson().features.map((f) => ({
+      ...f,
+      properties: { kind: 'water' as const },
+    }));
+    const landFeatures = buildLandPolygonGeoJson(cityData).features.map(
+      (f) => ({ ...f, properties: { kind: 'land' as const } }),
+    );
+
+    this.addSourceIfAbsent('base', {
       type: 'geojson',
-      data: buildWaterGeoJson(), // full-world-extent polygon; terrain renders on top as land mask
+      data: {
+        type: 'FeatureCollection',
+        features: [...waterFeatures, ...landFeatures],
+      },
     });
-    if (!this.map.getLayer('water-fill')) {
+
+    if (!this.map.getLayer('base-water')) {
       this.map.addLayer({
-        id: 'water-fill',
+        id: 'base-water',
         type: 'fill',
-        source: 'water',
+        source: 'base',
+        filter: [
+          '==',
+          ['get', 'kind'],
+          'water',
+        ] as unknown as maplibregl.ExpressionSpecification,
         paint: { 'fill-color': this.tokens.water, 'fill-opacity': 0.9 },
+      });
+    }
+
+    if (!this.map.getLayer('base-land')) {
+      this.map.addLayer({
+        id: 'base-land',
+        type: 'fill',
+        source: 'base',
+        filter: [
+          '==',
+          ['get', 'kind'],
+          'land',
+        ] as unknown as maplibregl.ExpressionSpecification,
+        paint: { 'fill-color': this.tokens.terrain, 'fill-opacity': 1 },
       });
     }
   }
