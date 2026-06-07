@@ -38,13 +38,15 @@ pub fn simplify_polygon(poly: &geo::Polygon<f64>) -> geo::Polygon<f64> {
 /// # Errors emitted
 /// Vectorization failures are logged to stderr and return an empty vec (no panic).
 pub fn vectorize_land_polygon(
-    elev_grid: &[f64],
+    _elev_grid: &[f64],
     res_grid: &[f64],
     sea_level: f64,
 ) -> Vec<TerrainPolygon> {
-    let mask = build_water_mask(elev_grid, res_grid, sea_level);
-
-    match terrain_builder().contours(&mask, &[0.5_f64, 1.5_f64]) {
+    // res_grid is continuous: 0.0 on dry land, > sea_level where water is present.
+    // Using res_grid directly (vs. binary water mask) gives smooth sub-cell interpolation
+    // at polygon boundaries — same organic quality as the coastline isoline.
+    // Inland water bodies (res > sea_level) emerge naturally as holes in the isoband.
+    match terrain_builder().contours(res_grid, &[0.0_f64, sea_level]) {
         Ok(bands) => bands
             .iter()
             .flat_map(|band| {
@@ -235,22 +237,4 @@ pub fn terrain_builder() -> contour_isobands::ContourBuilder {
         .x_step(TERRAIN_CELL_SIZE)
         .y_origin(TERRAIN_MAP_ORIGIN)
         .y_step(TERRAIN_CELL_SIZE)
-}
-
-/// Binary mask: `1.0` = dry land, `0.0` = ocean or inland water.
-///
-/// A cell is "water" if its elevation is at or below sea level (ocean),
-/// or if its resolution exceeds sea level (inland water body).
-pub fn build_water_mask(elev_grid: &[f64], res_grid: &[f64], sea_level: f64) -> Vec<f64> {
-    elev_grid
-        .iter()
-        .zip(res_grid.iter())
-        .map(|(&elev, &res)| {
-            if elev <= sea_level || res > sea_level {
-                0.0
-            } else {
-                1.0
-            }
-        })
-        .collect()
 }
