@@ -11,7 +11,8 @@
   "references": [
     { "path": "../core" },
     { "path": "../renderer-canvas" },
-    { "path": "../theme-engine" }
+    { "path": "../theme-engine" },
+    { "path": "../renderer-webgl" }
   ],
   "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.json"],
   "exclude": [
