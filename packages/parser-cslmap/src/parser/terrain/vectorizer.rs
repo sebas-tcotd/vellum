@@ -179,54 +179,22 @@ pub fn geo_poly_to_terrain_polygon(poly: &geo::Polygon<f64>) -> TerrainPolygon {
     TerrainPolygon { exterior, holes }
 }
 
-/// Vectorizes the coastline as a smooth `TerrainIsoline` using marching squares
-/// line interpolation (threshold 0.5 on the water mask).
+/// Extracts the coastline as a `TerrainIsoline` from the already-built land polygons.
 ///
-/// Uses `contour::ContourBuilder` (not `contour_isobands`) because its linear
-/// interpolation at cell boundaries produces organic curves, unlike the
-/// step-like edges of isoband polygon boundaries. Open `LineStrings` at the map
-/// edge are valid — a coastline line that hits the boundary simply stops there.
-/// `res_grid` stores surface water height per cell. Ocean and lake cells have
-/// `res > sea_level`; dry land has `res <= sea_level`. Tracing `res_grid` at
-/// threshold `sea_level` gives the exact land-water boundary with smooth
-/// sub-cell interpolation — the same organic quality as other contour lines.
-pub fn vectorize_coastline_isoline(res_grid: &[f64], sea_level: f64) -> TerrainIsoline {
-    let builder = ContourBuilder::new(TERRAIN_GRID_SIZE, TERRAIN_GRID_SIZE, true)
-        .x_origin(TERRAIN_MAP_ORIGIN)
-        .x_step(TERRAIN_CELL_SIZE)
-        .y_origin(TERRAIN_MAP_ORIGIN)
-        .y_step(TERRAIN_CELL_SIZE);
-
-    match builder.lines(res_grid, &[sea_level]) {
-        Ok(contour_lines) => {
-            let lines = contour_lines
-                .into_iter()
-                .flat_map(|cl| {
-                    cl.geometry()
-                        .0
-                        .iter()
-                        .map(|ls| {
-                            ls.simplify(SIMPLIFY_TOLERANCE / 512.0)
-                                .into_iter()
-                                .map(|c| world_to_wgs84(c.x, c.y))
-                                .collect::<Vec<_>>()
-                        })
-                        .filter(|l: &Vec<[f64; 2]>| l.len() > 1)
-                        .collect::<Vec<_>>()
-                })
-                .collect();
-            TerrainIsoline {
-                elevation: sea_level,
-                lines,
-            }
-        }
-        Err(e) => {
-            eprintln!("[parser-cslmap] coastline isoline error: {e}");
-            TerrainIsoline {
-                elevation: sea_level,
-                lines: vec![],
-            }
-        }
+/// Since `land_polygon` is now derived from `res_grid` via `contour_isobands` (smooth
+/// interpolation), its rings are organically curved. Extracting them as lines guarantees
+/// zero geometric offset between the fill polygon and the coastline stroke.
+pub fn coastline_from_land_polygons(polygons: &[TerrainPolygon], sea_level: f64) -> TerrainIsoline {
+    let lines = polygons
+        .iter()
+        .flat_map(|poly| {
+            std::iter::once(poly.exterior.0.clone()).chain(poly.holes.iter().map(|h| h.0.clone()))
+        })
+        .filter(|l| l.len() > 1)
+        .collect();
+    TerrainIsoline {
+        elevation: sea_level,
+        lines,
     }
 }
 
