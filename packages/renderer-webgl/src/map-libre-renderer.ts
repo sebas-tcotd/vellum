@@ -234,6 +234,8 @@ export class MapLibreRenderer implements IRenderer {
       dragRotate: false,
       pitchWithRotate: false,
       attributionControl: false,
+      renderWorldCopies: false,
+      maxZoom: 18,
       style: {
         version: 8,
         sources: {},
@@ -262,6 +264,7 @@ export class MapLibreRenderer implements IRenderer {
       const doRender = (): void => {
         this.addSourcesAndLayers(cityData);
         this.fitToCityBounds(cityData);
+        this.applyNavigationConstraints(cityData);
         resolve();
       };
 
@@ -325,6 +328,7 @@ export class MapLibreRenderer implements IRenderer {
   fitToScreen(): void {
     if (!this.cityData) return;
     this.fitToCityBounds(this.cityData);
+    this.applyNavigationConstraints(this.cityData);
   }
 
   /** Zooms the map in by one step. */
@@ -825,5 +829,25 @@ export class MapLibreRenderer implements IRenderer {
       ],
       { padding: 20, animate: false },
     );
+  }
+
+  /**
+   * Applies pan and zoom constraints derived from the city's geographic bounds.
+   *
+   * @remarks
+   * Must be called **after** {@link fitToCityBounds} so that `minZoom` reflects
+   * the zoom level required to fit the entire city in the viewport.
+   *
+   * @param cityData - The city whose bounds define the navigation limits.
+   */
+  private applyNavigationConstraints(cityData: CityData): void {
+    const { bounds } = cityData;
+    const [swLng, swLat] = csToGeoArray({ x: bounds.minX, z: bounds.minZ });
+    const [neLng, neLat] = csToGeoArray({ x: bounds.maxX, z: bounds.maxZ });
+    this.map.setMaxBounds([
+      [swLng, swLat],
+      [neLng, neLat],
+    ]);
+    this.map.setMinZoom(this.map.getZoom());
   }
 }
