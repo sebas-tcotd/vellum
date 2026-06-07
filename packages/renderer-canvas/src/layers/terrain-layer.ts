@@ -1,4 +1,6 @@
-import type { LandTile, CityData } from '@vellum/core';
+// renderer-canvas is a zombie package — LandTile removed from @vellum/core.
+type LandTile = { x: number; z: number; elevation: number; resolution: number };
+import type { CityData } from '@vellum/core';
 import type { RendererTokens } from '../tokens';
 
 function parseHsl(color: string): { h: number; s: number; l: number } | null {

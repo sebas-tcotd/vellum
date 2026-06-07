@@ -23,14 +23,16 @@ import type {
   TransitMode,
 } from '@vellum/core';
 import maplibregl from 'maplibre-gl';
-import { csToGeoArray } from './coordinate-transform';
+import { CS1_HALF_EXTENT_DEG, csToGeoArray } from './coordinate-transform';
 import type { TransitStopFeatureProperties } from './geojson-builder';
 import {
   buildBuildingsGeoJson,
+  buildCoastlineGeoJson,
+  buildContourLinesGeoJson,
   buildDistrictsGeoJson,
   buildForestsGeoJson,
+  buildLandPolygonGeoJson,
   buildRoadsGeoJson,
-  buildTerrainGeoJson,
   buildTransitGeoJson,
   buildTransitStopsGeoJson,
   buildWaterGeoJson,
@@ -62,8 +64,8 @@ export interface TooltipInfo {
  * separate layer, so its array is empty.
  */
 const LAYER_ID_MAP: Record<LayerName, string[]> = {
-  terrain: ['terrain-fill'],
-  water: ['water-fill'],
+  terrain: ['terrain-fill', 'terrain-lines-layer', 'coastline-layer'],
+  water: ['base-water', 'base-land'],
   roads: ['roads-casing', 'roads-fill'],
   transit: ['transit-line', 'transit-stops'],
   buildings: ['buildings-fill', 'buildings-outline'],
@@ -481,7 +483,7 @@ export class MapLibreRenderer implements IRenderer {
     // Layer order (bottom → top):
     //   water · terrain · forests · buildings · roads · transit lines · transit stops · districts
     // Each addXLayer call appends to the top of the current stack (no beforeId).
-    this.addWaterLayer(cityData);
+    this.addBaseLayer(cityData);
     this.addTerrainLayer(cityData);
     this.addForestsLayer(cityData);
     this.addBuildingsLayer(cityData);
@@ -507,47 +509,143 @@ export class MapLibreRenderer implements IRenderer {
   }
 
   private addTerrainLayer(cityData: CityData): void {
-    this.addSourceIfAbsent('terrain', {
-      type: 'geojson',
-      data: buildTerrainGeoJson(cityData),
-    });
+    // The terrain_texture is a 1081×1081 RGBA PNG covering the full CS1 world extent
+    // (±8640 units = ±CS1_HALF_EXTENT_DEG degrees at the equator). Water pixels are
+    // transparent, so the water-fill layer underneath shows through.
+    //
+    // MapLibre image-source corners: [top-left, top-right, bottom-right, bottom-left] as [lng, lat].
+    // CS1_LAT_SIGN=+1 (south-up): positive Z maps to positive lat, so:
+    //   top-left  = [-half, +half]  (west, north in geo = low-X, high-Z in CS1)
+    //   top-right = [+half, +half]
+    //   bottom-right = [+half, -half]
+    //   bottom-left  = [-half, -half]
+    const h = CS1_HALF_EXTENT_DEG;
+    const imageCoordinates: [
+      [number, number],
+      [number, number],
+      [number, number],
+      [number, number],
+    ] = [
+      [-h, h],
+      [h, h],
+      [h, -h],
+      [-h, -h],
+    ];
+
+    if (!this.map.getSource('terrain')) {
+      this.map.addSource('terrain', {
+        type: 'image',
+        url: cityData.terrainTexture,
+        coordinates: imageCoordinates,
+      });
+    } else {
+      (this.map.getSource('terrain') as maplibregl.ImageSource).updateImage({
+        url: cityData.terrainTexture,
+        coordinates: imageCoordinates,
+      });
+    }
+
     if (!this.map.getLayer('terrain-fill')) {
-      // No beforeId: terrain is added to the top of the current stack (above water-fill).
-      // Roads, transit, buildings, etc. are added after and land on top of terrain.
-      this.map.addLayer({
+      /*this.map.addLayer({
         id: 'terrain-fill',
-        type: 'fill',
+        type: 'raster',
         source: 'terrain',
         paint: {
-          'fill-color': [
-            'interpolate',
-            ['linear'],
-            ['get', 'elev'],
-            0,
-            this.tokens.terrainLow,
-            0.5,
-            this.tokens.terrainMid,
-            1.0,
-            this.tokens.terrainHigh,
-          ] as unknown as maplibregl.ExpressionSpecification,
-          'fill-opacity': 1,
-          'fill-antialias': false,
+          'raster-opacity': 1,
+          'raster-fade-duration': 0,
+          'raster-resampling': 'nearest',
+        },
+      });*/
+    }
+
+    this.addSourceIfAbsent('coastline-source', {
+      type: 'geojson',
+      data: buildCoastlineGeoJson(cityData),
+    });
+
+    if (!this.map.getLayer('coastline-layer')) {
+      this.map.addLayer({
+        id: 'coastline-layer',
+        type: 'line',
+        source: 'coastline-source',
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: {
+          'line-color': this.tokens.coastlineStroke,
+          'line-width': 4,
+          'line-opacity': 0.8,
+        },
+      });
+    }
+
+    this.addSourceIfAbsent('terrain-lines-source', {
+      type: 'geojson',
+      data: buildContourLinesGeoJson(cityData),
+    });
+
+    if (!this.map.getLayer('terrain-lines-layer')) {
+      this.map.addLayer({
+        id: 'terrain-lines-layer',
+        type: 'line',
+        source: 'terrain-lines-source',
+        paint: {
+          'line-color': '#000000',
+          'line-width': 0.5,
+          'line-opacity': 0.5,
         },
       });
     }
   }
 
-  private addWaterLayer(_cityData: CityData): void {
-    this.addSourceIfAbsent('water', {
+  /**
+   * Adds the base background layer: a single GeoJSON source that holds both the
+   * full-world-extent water polygon and the vectorised land polygons. Two fill
+   * layers (`base-water`, `base-land`) filter by `kind` property so each can be
+   * styled independently while sharing one source update path.
+   *
+   * Toggling the `water` logical layer hides/shows both sub-layers together.
+   */
+  private addBaseLayer(cityData: CityData): void {
+    const waterFeatures = buildWaterGeoJson().features.map((f) => ({
+      ...f,
+      properties: { kind: 'water' as const },
+    }));
+    const landFeatures = buildLandPolygonGeoJson(cityData).features.map(
+      (f) => ({ ...f, properties: { kind: 'land' as const } }),
+    );
+
+    this.addSourceIfAbsent('base', {
       type: 'geojson',
-      data: buildWaterGeoJson(), // full-world-extent polygon; terrain renders on top as land mask
+      data: {
+        type: 'FeatureCollection',
+        features: [...waterFeatures, ...landFeatures],
+      },
     });
-    if (!this.map.getLayer('water-fill')) {
+
+    if (!this.map.getLayer('base-water')) {
       this.map.addLayer({
-        id: 'water-fill',
+        id: 'base-water',
         type: 'fill',
-        source: 'water',
+        source: 'base',
+        filter: [
+          '==',
+          ['get', 'kind'],
+          'water',
+        ] as unknown as maplibregl.ExpressionSpecification,
         paint: { 'fill-color': this.tokens.water, 'fill-opacity': 0.9 },
+      });
+    }
+
+    if (!this.map.getLayer('base-land')) {
+      this.map.addLayer({
+        id: 'base-land',
+        type: 'fill',
+        source: 'base',
+        filter: [
+          '==',
+          ['get', 'kind'],
+          'land',
+        ] as unknown as maplibregl.ExpressionSpecification,
+        paint: { 'fill-color': this.tokens.terrain, 'fill-opacity': 1 },
       });
     }
   }
@@ -671,7 +769,7 @@ export class MapLibreRenderer implements IRenderer {
         type: 'circle',
         source: 'forests',
         paint: {
-          'circle-color': this.tokens.green,
+          'circle-color': '#14592a',
           'circle-radius': [
             'interpolate',
             ['linear'],

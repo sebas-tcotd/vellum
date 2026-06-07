@@ -21,6 +21,43 @@ pub struct MapBounds {
     pub sea_level: f64,
 }
 
+/// A ring of WGS-84 `[longitude, latitude]` coordinate pairs forming a polygon boundary.
+/// Coordinates use the south-up convention: positive Z maps to positive latitude.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct TerrainRing(pub Vec<[f64; 2]>);
+
+/// A single terrain polygon with an exterior boundary and optional interior holes.
+/// Holes represent inland water bodies (rivers, lakes) cut out of the landmass.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct TerrainPolygon {
+    /// Outer boundary ring in WGS-84 `[lng, lat]`.
+    pub exterior: TerrainRing,
+    /// Interior rings (holes) for inland water bodies.
+    pub holes: Vec<TerrainRing>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct TerrainIsoline {
+    pub elevation: f64,
+    /// Un arreglo de líneas. Cada línea es un arreglo de coordenadas [lng, lat]
+    pub lines: Vec<Vec<[f64; 2]>>,
+}
+
+/// An elevation isoband covering a `[elevation_min, elevation_max)` range in raw game units.
+/// Only land cells (above sea level, not covered by inland water) are included.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct TerrainBand {
+    /// Lower bound of this elevation range (inclusive), in raw game elevation units.
+    pub elevation_min: f64,
+    /// Upper bound of this elevation range (exclusive), in raw game elevation units.
+    pub elevation_max: f64,
+    /// Polygon geometry for this elevation band.
+    pub polygons: Vec<TerrainPolygon>,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct CityData {
@@ -28,8 +65,21 @@ pub struct CityData {
     pub file_name: String,
     pub generated_at: String,
     pub bounds: MapBounds,
-    pub land_tiles: Vec<LandTile>,
-    pub water_tiles: Vec<WaterTile>,
+    /// Vectorized landmass polygon in WGS-84. Holes represent inland water bodies.
+    pub land_polygon: Vec<TerrainPolygon>,
+    /// Coastline isoline extracted from `land_polygon` rings — the exact land-water boundary.
+    /// Elevation equals `sea_level`. Used by the renderer as a styled stroke layer.
+    pub coastline: TerrainIsoline,
+
+    pub contour_lines: Vec<TerrainIsoline>,
+
+    /// Vectorized inland water bodies (rivers and lakes) in WGS-84. Rendered above `land_polygon`.
+    pub inland_water_polygons: Vec<TerrainPolygon>,
+    /// Elevation isobands for the optional terrain-shading layer, in WGS-84.
+    //pub terrain_bands: Vec<TerrainBand>,
+    /// Base64-encoded PNG data URL (`data:image/png;base64,…`) of the baked terrain texture.
+    /// 1081×1081 RGBA pixels: elevation-tinted land with baked contour lines; water = transparent.
+    pub terrain_texture: String,
     pub road_nodes: Vec<RoadNode>,
     /// Physical road segments. Bus Line virtual connectors are pre-filtered out.
     pub road_segments: Vec<RoadSegment>,
@@ -37,31 +87,6 @@ pub struct CityData {
     pub buildings: Vec<Building>,
     pub forest_cells: Vec<ForestCell>,
     pub districts: Vec<District>,
-}
-
-/// Land and water tiles are always kept as separate arrays — never merged into a heightmap.
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct LandTile {
-    /// Raw elevation value from the terrain CSV (not in game-unit meters).
-    pub elevation: f64,
-    /// Raw resolution (surface) value from the terrain CSV.
-    pub resolution: u32,
-    /// X-coordinate in world space, derived from grid index (origin -8640, step 16).
-    pub x: f64,
-    /// Z-coordinate in world space, derived from grid index (origin -8640, step 16).
-    pub z: f64,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct WaterTile {
-    /// Depth approximated as (`sea_level_raw` - `elevation_raw`).
-    pub depth: f64,
-    /// X-coordinate in world space, derived from grid index.
-    pub x: f64,
-    /// Z-coordinate in world space, derived from grid index.
-    pub z: f64,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

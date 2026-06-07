@@ -39,6 +39,7 @@ export interface RendererTokens {
   buildingStroke: string;
   districtFill: string;
   districtLabel: string;
+  coastlineStroke: string;
 }
 
 const FALLBACKS: RendererTokens = {
@@ -69,6 +70,7 @@ const FALLBACKS: RendererTokens = {
   buildingStroke: '#a09585',
   districtFill: '#b4a08c',
   districtLabel: '#ffffff',
+  coastlineStroke: '#4a8f8e',
 };
 
 /** Reads `RendererTokens` from CSS custom properties on `:root`. Falls back to defaults in non-DOM environments (tests, workers). */
@@ -150,5 +152,8 @@ export function readTokensFromDOM(): RendererTokens {
     districtLabel:
       style.getPropertyValue('--color-district-label').trim() ||
       FALLBACKS.districtLabel,
+    coastlineStroke:
+      style.getPropertyValue('--color-coastline-stroke').trim() ||
+      FALLBACKS.coastlineStroke,
   };
 }
