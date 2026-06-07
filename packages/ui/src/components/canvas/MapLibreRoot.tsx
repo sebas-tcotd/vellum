@@ -21,6 +21,8 @@ export interface MapLibreRootProps {
   zoomInRef?: React.RefObject<(() => void) | null>;
   /** Ref populated with a `zoomOut()` callback. */
   zoomOutRef?: React.RefObject<(() => void) | null>;
+  /** Ref populated with a `toggleNavigationMode()` callback. */
+  toggleNavigationModeRef?: React.RefObject<(() => void) | null>;
   /** When true, hides Minimap and MapTooltip for an unobstructed view of the map. */
   isCleanMode?: boolean;
 }
@@ -40,6 +42,7 @@ export function MapLibreRoot({
   fitToScreenRef,
   zoomInRef,
   zoomOutRef,
+  toggleNavigationModeRef,
   isCleanMode = false,
 }: MapLibreRootProps) {
   const { t } = useTranslation();
@@ -129,6 +132,18 @@ export function MapLibreRoot({
       if (zoomOutRef.current) zoomOutRef.current = null;
     };
   }, [zoomOutRef]);
+
+  // Register toggleNavigationMode into the external ref
+  useEffect(() => {
+    if (!toggleNavigationModeRef) return;
+    toggleNavigationModeRef.current = () => {
+      rendererRef.current?.toggleNavigationMode();
+    };
+    return () => {
+      if (toggleNavigationModeRef.current)
+        toggleNavigationModeRef.current = null;
+    };
+  }, [toggleNavigationModeRef]);
 
   // Stable callbacks for Minimap — empty deps to avoid re-subscriptions on every render
   const subscribeViewport = useCallback(

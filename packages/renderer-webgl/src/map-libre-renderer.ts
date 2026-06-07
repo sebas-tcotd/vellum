@@ -219,6 +219,9 @@ export class MapLibreRenderer implements IRenderer {
   private readonly map: maplibregl.Map;
   private readonly tokens: RendererTokens;
   private cityData: CityData | null = null;
+  private navigationMode: 'strict' | 'soft' = 'soft';
+  private isSnappingBack = false;
+  private fitToScreenZoom = 0;
 
   /**
    * Creates a new `MapLibreRenderer` and attaches it to the given container.
@@ -264,7 +267,9 @@ export class MapLibreRenderer implements IRenderer {
       const doRender = (): void => {
         this.addSourcesAndLayers(cityData);
         this.fitToCityBounds(cityData);
+        this.fitToScreenZoom = this.map.getZoom();
         this.applyNavigationConstraints(cityData);
+        this.registerMoveEndListener();
         resolve();
       };
 
@@ -329,6 +334,20 @@ export class MapLibreRenderer implements IRenderer {
     if (!this.cityData) return;
     this.fitToCityBounds(this.cityData);
     this.applyNavigationConstraints(this.cityData);
+  }
+
+  /**
+   * Toggles between strict and soft navigation boundary modes.
+   *
+   * @remarks
+   * Strict mode: hard pan/zoom bounds. Soft mode: allows overpanning with
+   * snap-back and underzooming down to 25% of fit-to-screen zoom.
+   */
+  toggleNavigationMode(): void {
+    this.navigationMode = this.navigationMode === 'strict' ? 'soft' : 'strict';
+    if (this.cityData) {
+      this.applyNavigationConstraints(this.cityData);
+    }
   }
 
   /** Zooms the map in by one step. */
@@ -838,16 +857,68 @@ export class MapLibreRenderer implements IRenderer {
    * Must be called **after** {@link fitToCityBounds} so that `minZoom` reflects
    * the zoom level required to fit the entire city in the viewport.
    *
+   * In strict mode: sets `maxBounds` to city bounds (hard pan limit).
+   * In soft mode: removes `maxBounds` (allows overpanning) and sets `minZoom`
+   * to 25% of the fit-to-screen zoom.
+   *
    * @param cityData - The city whose bounds define the navigation limits.
    */
   private applyNavigationConstraints(cityData: CityData): void {
-    const { bounds } = cityData;
-    const [swLng, swLat] = csToGeoArray({ x: bounds.minX, z: bounds.minZ });
-    const [neLng, neLat] = csToGeoArray({ x: bounds.maxX, z: bounds.maxZ });
-    this.map.setMaxBounds([
-      [swLng, swLat],
-      [neLng, neLat],
-    ]);
-    this.map.setMinZoom(this.map.getZoom());
+    if (this.navigationMode === 'strict') {
+      const { bounds } = cityData;
+      const [swLng, swLat] = csToGeoArray({ x: bounds.minX, z: bounds.minZ });
+      const [neLng, neLat] = csToGeoArray({ x: bounds.maxX, z: bounds.maxZ });
+      this.map.setMaxBounds([
+        [swLng, swLat],
+        [neLng, neLat],
+      ]);
+      this.map.setMinZoom(this.map.getZoom());
+    } else {
+      this.map.setMaxBounds(undefined);
+      this.map.setMinZoom(Math.max(this.fitToScreenZoom * 0.25, 0));
+    }
+  }
+
+  /**
+   * Registers the `moveend` listener for soft-boundary snap-back.
+   *
+   * @remarks
+   * In soft mode, when the user releases the pan and the map center is outside
+   * the city bounds, the map snaps back to fit the city at the current zoom.
+   */
+  private registerMoveEndListener(): void {
+    this.map.on('moveend', () => {
+      if (
+        this.navigationMode !== 'soft' ||
+        !this.cityData ||
+        this.isSnappingBack
+      )
+        return;
+
+      const center = this.map.getCenter();
+      const { bounds } = this.cityData;
+      const [swLng, swLat] = csToGeoArray({ x: bounds.minX, z: bounds.minZ });
+      const [neLng, neLat] = csToGeoArray({ x: bounds.maxX, z: bounds.maxZ });
+
+      const isOutside =
+        center.lng < swLng ||
+        center.lng > neLng ||
+        center.lat < swLat ||
+        center.lat > neLat;
+
+      if (isOutside) {
+        this.isSnappingBack = true;
+        this.map.fitBounds(
+          [
+            [swLng, swLat],
+            [neLng, neLat],
+          ],
+          { padding: 20, animate: true, duration: 300 },
+        );
+        this.map.once('moveend', () => {
+          this.isSnappingBack = false;
+        });
+      }
+    });
   }
 }
