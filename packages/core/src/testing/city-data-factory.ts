@@ -18,6 +18,7 @@ const MINIMAL_CITY_DATA: CityData = {
   generatedAt: '2026-01-01T00:00:00Z',
   bounds: DEFAULT_BOUNDS,
   landPolygon: [],
+  coastline: { elevation: 40, lines: [] },
   inlandWaterPolygons: [],
   contourLines: [],
   terrainTexture: 'data:image/png;base64,',

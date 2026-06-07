@@ -70,6 +70,7 @@ const MOCK_TOKENS: RendererTokens = {
   buildingStroke: '#a09585',
   districtFill: '#b4a08c',
   districtLabel: '#ffffff',
+  coastlineStroke: '#4a8f8e',
 };
 
 const ALL_LAYERS_VISIBLE = {

@@ -222,6 +222,8 @@ export interface CityData {
 
   /** Vectorized landmass polygon in WGS-84. Holes represent inland water bodies. */
   landPolygon: TerrainPolygon[];
+  /** Coastline isoline extracted from `landPolygon` rings. Elevation equals `seaLevel`. */
+  coastline: TerrainIsoline;
   /** Vectorized inland water bodies (rivers and lakes) in WGS-84. Rendered above `landPolygon`. */
   inlandWaterPolygons: TerrainPolygon[];
   /** Elevation isolines for the optional contour-line layer, in WGS-84. */

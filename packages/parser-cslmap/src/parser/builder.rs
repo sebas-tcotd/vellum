@@ -162,6 +162,7 @@ impl CityDataBuilder {
         let bounds = self.roads.bounds.into_bounds(sea_level);
         let land_polygon =
             vectorizer::vectorize_land_polygon(&self.elev_grid, &self.res_grid, sea_level);
+        let coastline = vectorizer::vectorize_coastline_isoline(&self.res_grid, sea_level);
         let inland_water_polygons =
             vectorizer::vectorize_inland_water(&self.elev_grid, &self.res_grid, sea_level);
         let contour_lines = vectorizer::vectorize_contour_lines(&self.elev_grid, sea_level, 3200.0);
@@ -174,6 +175,7 @@ impl CityDataBuilder {
             generated_at: self.generated_at,
             bounds,
             land_polygon,
+            coastline,
             inland_water_polygons,
             contour_lines,
             terrain_texture,

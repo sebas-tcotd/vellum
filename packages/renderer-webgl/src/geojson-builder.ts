@@ -684,3 +684,28 @@ export function buildContourLinesGeoJson(
     ),
   };
 }
+
+/**
+ * Builds a GeoJSON FeatureCollection from `cityData.coastline`.
+ *
+ * @remarks
+ * The coastline isoline is extracted directly from the land polygon rings,
+ * so its geometry is guaranteed to be pixel-perfect aligned with `landPolygon`.
+ * Coordinates are already in WGS-84 — no conversion needed.
+ *
+ * @param cityData - The immutable domain model produced by the CS1 parser.
+ * @returns A GeoJSON FeatureCollection ready for `map.addSource()` in MapLibre.
+ */
+export function buildCoastlineGeoJson(city: CityData): ContourLineCollection {
+  return {
+    type: 'FeatureCollection',
+    features: city.coastline.lines.map((lineCoords) => ({
+      type: 'Feature',
+      properties: { elevation: city.coastline.elevation },
+      geometry: {
+        type: 'LineString',
+        coordinates: lineCoords,
+      },
+    })),
+  };
+}

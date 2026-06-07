@@ -67,6 +67,9 @@ pub struct CityData {
     pub bounds: MapBounds,
     /// Vectorized landmass polygon in WGS-84. Holes represent inland water bodies.
     pub land_polygon: Vec<TerrainPolygon>,
+    /// Coastline isoline extracted from `land_polygon` rings — the exact land-water boundary.
+    /// Elevation equals `sea_level`. Used by the renderer as a styled stroke layer.
+    pub coastline: TerrainIsoline,
 
     pub contour_lines: Vec<TerrainIsoline>,
 

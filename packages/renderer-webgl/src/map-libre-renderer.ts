@@ -27,6 +27,7 @@ import { CS1_HALF_EXTENT_DEG, csToGeoArray } from './coordinate-transform';
 import type { TransitStopFeatureProperties } from './geojson-builder';
 import {
   buildBuildingsGeoJson,
+  buildCoastlineGeoJson,
   buildContourLinesGeoJson,
   buildDistrictsGeoJson,
   buildForestsGeoJson,
@@ -63,7 +64,7 @@ export interface TooltipInfo {
  * separate layer, so its array is empty.
  */
 const LAYER_ID_MAP: Record<LayerName, string[]> = {
-  terrain: ['terrain-fill', 'terrain-lines-layer'],
+  terrain: ['terrain-fill', 'terrain-lines-layer', 'coastline-layer'],
   water: ['base-water', 'base-land'],
   roads: ['roads-casing', 'roads-fill'],
   transit: ['transit-line', 'transit-stops'],
@@ -545,7 +546,7 @@ export class MapLibreRenderer implements IRenderer {
     }
 
     if (!this.map.getLayer('terrain-fill')) {
-      this.map.addLayer({
+      /*this.map.addLayer({
         id: 'terrain-fill',
         type: 'raster',
         source: 'terrain',
@@ -553,6 +554,25 @@ export class MapLibreRenderer implements IRenderer {
           'raster-opacity': 1,
           'raster-fade-duration': 0,
           'raster-resampling': 'nearest',
+        },
+      });*/
+    }
+
+    this.addSourceIfAbsent('coastline-source', {
+      type: 'geojson',
+      data: buildCoastlineGeoJson(cityData),
+    });
+
+    if (!this.map.getLayer('coastline-layer')) {
+      this.map.addLayer({
+        id: 'coastline-layer',
+        type: 'line',
+        source: 'coastline-source',
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: {
+          'line-color': this.tokens.coastlineStroke,
+          'line-width': 4,
+          'line-opacity': 0.8,
         },
       });
     }
@@ -570,7 +590,7 @@ export class MapLibreRenderer implements IRenderer {
         paint: {
           'line-color': '#000000',
           'line-width': 0.5,
-          'line-opacity': 0.125,
+          'line-opacity': 0.5,
         },
       });
     }
