@@ -21,15 +21,15 @@ export const ROAD_WIDTH_EXPR: maplibregl.ExpressionSpecification = [
   ['+', ['get', 'fixedWidth'], ['*', ['get', 'scaledWidth'], 3.0]],
 ] as unknown as maplibregl.ExpressionSpecification;
 
-/** Casing line width expression (fill width + 1–3px depending on zoom). */
+/** Casing line width expression (fill width + 0.5–2px depending on zoom). */
 export const ROAD_CASING_WIDTH_EXPR: maplibregl.ExpressionSpecification = [
   'interpolate',
   ['linear'],
   ['zoom'],
   8,
-  ['+', ['get', 'fixedWidth'], ['*', ['get', 'scaledWidth'], 0.1], 1],
+  ['+', ['get', 'fixedWidth'], ['*', ['get', 'scaledWidth'], 0.1], 0.5],
   14,
-  ['+', ['get', 'fixedWidth'], ['*', ['get', 'scaledWidth'], 1.0], 2],
+  ['+', ['get', 'fixedWidth'], ['*', ['get', 'scaledWidth'], 1.0], 1.0],
   18,
-  ['+', ['get', 'fixedWidth'], ['*', ['get', 'scaledWidth'], 3.0], 3],
+  ['+', ['get', 'fixedWidth'], ['*', ['get', 'scaledWidth'], 3.0], 2.0],
 ] as unknown as maplibregl.ExpressionSpecification;

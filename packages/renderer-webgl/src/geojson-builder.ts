@@ -256,14 +256,14 @@ interface RoadWidthStyle {
 }
 
 const ROAD_WIDTH_STYLES: Record<RoadTier, RoadWidthStyle> = {
-  highway: { fixed: 2.5, scaled: 2 },
-  railway: { fixed: 1.2, scaled: 0.2 },
-  largeArterial: { fixed: 4, scaled: 1 },
-  mediumArterial: { fixed: 4, scaled: 0.8 },
-  local: { fixed: 2, scaled: 0.5 },
-  gravel: { fixed: 1.5, scaled: 0.4 },
-  pedestrian: { fixed: 1.5, scaled: 0.3 },
-  pedestrianWay: { fixed: 1, scaled: 0.2 },
+  highway: { fixed: 0.3, scaled: 3.0 },
+  railway: { fixed: 0.3, scaled: 1.2 },
+  largeArterial: { fixed: 0.3, scaled: 2.0 },
+  mediumArterial: { fixed: 0.3, scaled: 1.5 },
+  local: { fixed: 0.2, scaled: 0.8 },
+  gravel: { fixed: 0.2, scaled: 0.5 },
+  pedestrian: { fixed: 0.2, scaled: 0.4 },
+  pedestrianWay: { fixed: 0.1, scaled: 0.3 },
 };
 
 const ITEM_CLASS_TIER: Readonly<Record<string, RoadTier>> = {
