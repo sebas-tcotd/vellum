@@ -1,41 +1,85 @@
 # Vellum
 
-Visor de escritorio para archivos **CSLMap** — exportaciones de mapas de Cities: Skylines.
+**Desktop viewer for Cities: Skylines `.cslmap` files.** Drag in a map export and explore it with smooth WebGL rendering, layer controls, and keyboard navigation.
 
-Aplicación nativa multiplataforma construida con Tauri 2 (Rust) + React 19 + TypeScript, organizada como monorepo con pnpm workspaces y Turborepo.
-
-> Estado actual: **scaffolding funcional** — monorepo, dev y build desktop validados en Windows y macOS.
+Built with Tauri 2 (Rust) + React 19 + TypeScript, organized as a pnpm + Turborepo monorepo.
 
 ---
 
-## Stack Tecnológico
+## For Users
 
-| Capa                 | Tecnología   | Versión            |
-| -------------------- | ------------ | ------------------ |
-| Shell de escritorio  | Tauri + Rust | 2.x / Edition 2021 |
-| UI                   | React        | ^19.1.0            |
-| Lenguaje             | TypeScript   | ~5.8.3             |
-| Build / Dev server   | Vite         | ^7.0.4             |
-| Orquestador de build | Turborepo    | latest             |
-| Gestor de paquetes   | pnpm         | 10.33.0            |
+### Features
+
+- **Open `.cslmap` files** — drag & drop or use `Ctrl+O` / `Cmd+O`
+- **7 map layers** — toggle terrain, water, roads, transit, buildings, forests, and districts on/off
+- **Smooth WebGL rendering** — GPU-accelerated via MapLibre GL JS, 30+ fps pan/zoom
+- **Transit explorer** — inspect bus, metro, train, tram, and other transit line routes
+- **Map tooltips** — hover transit stops to see which lines serve them
+- **Minimap** — orient yourself with a small overview in the corner
+- **Keyboard shortcuts** — `1-7` toggle layers, `+/-` zoom, `Tab` clean mode, `H` hide panel
+- **Clean mode** — `Tab` hides all UI chrome for an unobstructed map view
+- **Dual language** — English and Spanish UI
+- **Partial loading** — opens damaged or DLC-heavy maps with graceful fallback
+
+### Requirements
+
+| Tool      | Version               | Check                  |
+| --------- | --------------------- | ---------------------- |
+| Node.js   | LTS ≥ 18              | `node --version`       |
+| pnpm      | 10.33.0               | `pnpm --version`       |
+| Rust      | stable (edition 2021) | `rustc --version`      |
+| Tauri CLI | ^2.x                  | `pnpm tauri --version` |
+
+> Tauri 2 requires platform-specific build dependencies. See [Tauri prerequisites](https://tauri.app/start/prerequisites/).
+
+### Quick Start
+
+```bash
+git clone <repo-url>
+cd vellum
+pnpm install          # or pnpm approve-builds && pnpm install if esbuild is blocked
+pnpm dev              # opens the native window
+```
+
+### Status
+
+| Epic | Area                    | Status      |
+| ---- | ----------------------- | ----------- |
+| 1    | Project foundation      | ✅ Complete |
+| 2    | File loading & parser   | ✅ Complete |
+| 3    | Cartographic rendering  | ✅ Complete |
+| 4    | Exploration & UI        | ✅ Complete |
+| 5    | Theme system            | 🔜 Planned  |
+| 6    | PNG/SVG export          | 🔜 Planned  |
+| 7    | i18n, settings, updates | 🔜 Planned  |
 
 ---
 
-## Arquitectura del Monorepo
+## For Developers
+
+### Architecture
+
+The project follows Clean Architecture with strict unidirectional dependencies. Every `@vellum/*` package is a self-contained module with a single responsibility.
 
 ```
 vellum/
 ├── apps/
-│   └── desktop/            ← App principal (Tauri shell + Vite/React)
-└── packages/
-    ├── core/               ← Tipos y lógica base del dominio
-    ├── parser-cslmap/      ← Parser del formato CSLMap
-    ├── renderer-canvas/    ← Renderizador Canvas 2D
-    ├── theme-engine/       ← Motor de temas y design tokens
-    └── ui/                 ← Componentes React reutilizables
+│   └── desktop/                ← Tauri shell + Vite/React (Composition Root)
+│       ├── src/                ← React entry: main.tsx, hooks
+│       └── src-tauri/          ← Rust backend: IPC commands, Tauri plugins
+├── packages/
+│   ├── core/                   ← Domain types, IPC contract, interfaces
+│   ├── parser-cslmap/          ← Rust + TS adapter: .cslmap XML → CityData
+│   ├── renderer-webgl/         ← MapLibre GL JS renderer (active)
+│   ├── renderer-canvas/        ← Canvas 2D renderer (legacy — superseded by WebGL)
+│   ├── theme-engine/           ← .vellumstyle → RenderStyleParams (in progress)
+│   └── ui/                     ← React components, Zustand store, i18n
+├── docs/                       ← Documentation
+├── _bmad-output/               ← Planning artifacts
+└── _bmad/                      ← Workflow configuration
 ```
 
-### Grafo de dependencias
+### Dependency Graph
 
 ```mermaid
 graph TD
@@ -43,12 +87,15 @@ graph TD
   desktop --> core
   desktop --> parser-cslmap
   desktop --> renderer-canvas
+  desktop --> renderer-webgl
   desktop --> theme-engine
 
   ui --> core
   ui --> renderer-canvas
+  ui --> renderer-webgl
   ui --> theme-engine
 
+  renderer-webgl --> core
   renderer-canvas --> core
   renderer-canvas --> theme-engine
 
@@ -56,202 +103,105 @@ graph TD
   parser-cslmap --> core
 ```
 
-`@vellum/core` es la dependencia base de todos los paquetes.
+`@vellum/core` has zero internal dependencies — it is the pure entity layer. `desktop` is the only Composition Root and may import any package.
 
----
-
-## Flujo de datos
+### Data Flow
 
 ```
-Archivo .cslmap (disco)
-        │
-        ▼
- parser-cslmap          → Documento tipado (@vellum/core)
-                                  │
-                                  ▼
-                    renderer-canvas + theme-engine
-                                  │
-                                  ▼
-                           Canvas 2D / SVG
-                                  │
-                                  ▼
-                            @vellum/ui (React)
-                                  │
-                                  ▼
-                        apps/desktop (ventana Tauri)
+.cslmap file (disk)
+       │
+       ▼
+ parser-cslmap (Rust via Tauri IPC)
+       │
+       ▼
+ CityData (immutable domain model — @vellum/core)
+       │
+       ▼
+ MapLibreRenderer (WebGL via MapLibre GL JS — @vellum/renderer-webgl)
+       │
+       ▼
+ MapLibreRoot (React — @vellum/ui)
+       │
+       ▼
+ Tauri native window (apps/desktop)
 ```
 
----
+### Key Stack
 
-## Requisitos Previos
+| Layer              | Technology                            |
+| ------------------ | ------------------------------------- |
+| Desktop shell      | Tauri 2 + Rust                        |
+| UI                 | React 19 + TypeScript                 |
+| Rendering          | MapLibre GL JS (WebGL)                |
+| Build / Dev server | Vite 7                                |
+| Orchestrator       | Turborepo                             |
+| Package manager    | pnpm 10.33.0                          |
+| XML parser         | quick-xml 0.36 (Rust)                 |
+| State              | Zustand 5                             |
+| i18n               | react-i18next + i18next               |
+| Styling            | Tailwind CSS 4 + shadcn/ui (Radix)    |
+| Testing (TS)       | Vitest                                |
+| Testing (Rust)     | cargo test                            |
+| Testing (E2E)      | Playwright (configured, no tests yet) |
 
-| Herramienta | Versión               | Verificar              |
-| ----------- | --------------------- | ---------------------- |
-| Node.js     | LTS ≥ 18              | `node --version`       |
-| pnpm        | 10.33.0               | `pnpm --version`       |
-| Rust        | stable (Edition 2021) | `rustc --version`      |
-| Tauri CLI   | ^2.x                  | `pnpm tauri --version` |
+### Commands
 
-> Tauri 2 requiere dependencias del sistema operativo para compilar el shell nativo. Consulta la [documentación oficial de Tauri](https://tauri.app/start/prerequisites/) para tu plataforma.
+| Command                    | Description                                                |
+| -------------------------- | ---------------------------------------------------------- |
+| `pnpm dev`                 | Start dev mode (Vite + Tauri, hot-reload)                  |
+| `pnpm build`               | Build all packages in topological order                    |
+| `pnpm lint`                | TypeScript type-check (`tsc --noEmit`) across all packages |
+| `pnpm check:architecture`  | Enforce cross-package import rules                         |
+| `pnpm test`                | Run all tests (Vitest + cargo test)                        |
+| `pnpm format`              | Prettier --write                                           |
+| `cargo clippy --workspace` | Rust linter                                                |
+| `pnpm --filter <pkg> test` | Test a single package                                      |
 
----
-
-## Instalación
+#### Frontend-only (no Tauri process)
 
 ```bash
-git clone <repo-url>
-cd Vellum
-pnpm install
+cd apps/desktop && pnpm dev:vite
 ```
 
-`pnpm install` instala dependencias de todos los workspaces y crea los symlinks entre paquetes internos.
-
-### Paso adicional en macOS con pnpm 10
-
-Si `pnpm install` muestra un aviso como `Ignored build scripts: esbuild`, aprueba ese build script antes de continuar:
-
-```bash
-pnpm approve-builds
-pnpm install
-```
-
-Esto es necesario para que `vite` y `esbuild` funcionen correctamente en `pnpm dev` y `pnpm build`.
-
----
-
-## Comandos Principales
-
-| Comando                   | Descripción                                                      |
-| ------------------------- | ---------------------------------------------------------------- |
-| `pnpm dev`                | Inicia la app en modo desarrollo (Vite + Tauri con hot-reload)   |
-| `pnpm build`              | Compila todo el monorepo en orden topológico                     |
-| `pnpm lint`               | Verifica tipos TypeScript en todos los paquetes (`tsc --noEmit`) |
-| `pnpm check:architecture` | Verifica reglas de Clean Architecture e imports entre packages   |
-| `pnpm test`               | Ejecuta pruebas _(framework aún no configurado)_                 |
-
-### Solo frontend (sin proceso Tauri)
-
-```bash
-cd apps/desktop
-pnpm dev:vite
-```
-
-### Verificación de arquitectura
-
-La story 1-2 deja dos barreras activas para proteger el grafo del monorepo:
-
-- `packages/core` sobreescribe `compilerOptions.paths` con `{}` para no heredar aliases a otros `@vellum/*`.
-- `eslint.config.mjs` bloquea imports a subpaths internos como `@vellum/core/src/...` o `../../core/src/...`.
-
-Usa este comando antes de cerrar una story que toque dependencias entre packages:
-
-```bash
-pnpm check:architecture
-```
-
-Reglas rápidas:
-
-- Importa otros packages solo desde su barrel público: `@vellum/core`, `@vellum/ui`, etc.
-- No importes desde `src/`, `dist/` ni por rutas relativas que crucen packages.
-- `@vellum/core` no debe depender de ningún otro package del monorepo.
-
----
-
-## Ejecución por Plataforma
-
-### macOS
-
-1. Instala los prerrequisitos de Tauri para macOS y Rust estable.
-2. Ejecuta `pnpm install`.
-3. Si pnpm bloquea scripts de build, corre `pnpm approve-builds` y aprueba `esbuild`.
-4. Inicia desarrollo con `pnpm dev`.
-5. Genera el bundle instalable con `pnpm build`.
-
-Resultado esperado:
-
-- `pnpm dev` abre la ventana de Vellum.
-- `pnpm build` genera la app instalable `.app` / bundle para arrastrar a `Applications`.
-
-### Windows
-
-1. Instala Node.js, pnpm 10.33.0 y Rust estable.
-2. Instala los prerrequisitos de Tauri para Windows (MSVC build tools / WebView2 si aplica).
-3. Ejecuta `pnpm install`.
-4. Inicia desarrollo con `pnpm dev`.
-5. Genera instaladores con `pnpm build`.
-
-Resultado esperado:
-
-- `pnpm dev` abre la ventana de Vellum.
-- `pnpm build` produce instaladores como `.msi` y `-setup.exe`.
-
-### Solución rápida de problemas
-
-- Si aparece `TS6305`, limpia artefactos locales y vuelve a compilar:
+#### Clean stale build artifacts
 
 ```bash
 rm -rf .turbo apps/desktop/dist packages/*/dist
-find . -name "tsconfig.tsbuildinfo" -delete
-pnpm build
+find . -name "tsconfig.tsbuildinfo" -delete && pnpm build
 ```
 
-- Si `pnpm install` bloquea `esbuild`, ejecuta `pnpm approve-builds`.
+### Architecture Rules
 
----
+- **Barrel imports only** — always `import { X } from '@vellum/core'`, never `from '@vellum/core/src/...'`
+- **No `any`** — `@typescript-eslint/no-explicit-any: error`. Use `unknown` + type guards.
+- **`unwrap()` / `expect()` prohibited** in Rust production code — all errors are `Result<T, VellumError>`
+- **`LandArray` and `WaterArray`** are separate structures — never merge them into a single heightmap
+- **`Bus Line` segments** are virtual connectors — never render as road geometry
+- **Road widths** always expose `fixed + scaled` components, never a single pre-calculated value
+- **`VellumError.reason`** is for logging only — map `type` to i18n keys in the UI, never display the raw string
 
-## Documentación
+### Testing
 
-La documentación técnica generada se encuentra en [`docs/`](docs/):
+- **Vitest** configured at root via `vitest.workspace.ts` — ~20 test files across packages
+- **Rust tests** via `cargo test --workspace` — parser unit tests with real `.cslmap` fixtures
+- **E2E** Playwright configured in `apps/desktop` but no tests written yet
+- Real `.cslmap` test files live in `packages/parser-cslmap/fixtures/`
 
-| Documento                                                             | Descripción                                   |
-| --------------------------------------------------------------------- | --------------------------------------------- |
-| [project-overview.md](docs/project-overview.md)                       | Visión general, stack y estructura            |
-| [development-guide.md](docs/development-guide.md)                     | Setup, comandos y guías de desarrollo         |
-| [integration-architecture.md](docs/integration-architecture.md)       | Grafo de integración y comunicación Tauri IPC |
-| [architecture-desktop.md](docs/architecture-desktop.md)               | Arquitectura interna de la app desktop        |
-| [source-tree-analysis.md](docs/source-tree-analysis.md)               | Árbol de fuentes anotado                      |
-| [component-inventory-desktop.md](docs/component-inventory-desktop.md) | Inventario de componentes React               |
-| [index.md](docs/index.md)                                             | Índice completo de documentación              |
+### CI/CD
 
-Los artefactos de planificación (PRD, arquitectura, épicas, UX) están en [`_bmad-output/planning-artifacts/`](_bmad-output/planning-artifacts/).
+| Workflow                                     | Trigger           | Purpose                                     |
+| -------------------------------------------- | ----------------- | ------------------------------------------- |
+| [ci.yml](.github/workflows/ci.yml)           | Push/PR to `main` | Build, test (Rust + TS), lint (TS + Clippy) |
+| [release.yml](.github/workflows/release.yml) | Tag `v*`          | Multi-platform build + GitHub Release draft |
 
----
+### Docs
 
-## CI/CD Setup
+Additional documentation in [`docs/`](docs/):
 
-El proyecto usa **GitHub Actions** con dos workflows:
-
-| Workflow                                       | Trigger          | Propósito                                    |
-| ---------------------------------------------- | ---------------- | -------------------------------------------- |
-| [`ci.yml`](.github/workflows/ci.yml)           | Push/PR a `main` | Build, tests Rust, lint TypeScript + Clippy  |
-| [`release.yml`](.github/workflows/release.yml) | Tag `v*`         | Build multiplataforma + GitHub Release draft |
-
-### Secrets requeridos en GitHub
-
-Ir a **Settings → Secrets and variables → Actions** y configurar:
-
-| Secret                               | Requerido | Descripción                                                               |
-| ------------------------------------ | --------- | ------------------------------------------------------------------------- |
-| `TAURI_SIGNING_PRIVATE_KEY`          | Sí        | Clave privada del auto-updater (generar con `pnpm tauri signer generate`) |
-| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | Sí        | Contraseña de la clave privada del updater                                |
-| `WINDOWS_CERTIFICATE`                | No (v1)   | Certificado PFX en base64 para code signing Windows                       |
-| `WINDOWS_CERTIFICATE_PASSWORD`       | No (v1)   | Contraseña del certificado Windows                                        |
-
-> **Sin `WINDOWS_CERTIFICATE`**, el `.msi` se construye sin firma — SmartScreen mostrará advertencia al instalar. Requerido para v1.0 (Story 7.5).
-
-> **macOS sin notarización en v1:** Los builds de macOS se generan sin notarizar. Al instalar en macOS, ejecutar `xattr -cr /Applications/Vellum.app` si Gatekeeper bloquea la app.
-
-### Generar las claves del auto-updater
-
-Ejecutar una sola vez desde la raíz del proyecto:
-
-```bash
-pnpm tauri signer generate -w ~/.tauri/vellum-updater.key
-```
-
-El comando muestra:
-
-- **Public key** → copiar a `apps/desktop/src-tauri/tauri.conf.json` en `plugins.updater.pubkey`
-- **Private key** → añadir como secret `TAURI_SIGNING_PRIVATE_KEY` en GitHub
-
-> **CRÍTICO:** La clave privada (`~/.tauri/vellum-updater.key`) nunca se commitea al repositorio.
+- [Project Overview](docs/project-overview.md)
+- [Development Guide](docs/development-guide.md)
+- [Integration Architecture](docs/integration-architecture.md)
+- [Architecture — Desktop](docs/architecture-desktop.md)
+- [Source Tree Analysis](docs/source-tree-analysis.md)
+- [Component Inventory](docs/component-inventory-desktop.md)
+- [README (Español)](docs/README.es.md)
