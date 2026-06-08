@@ -57,6 +57,7 @@ export function MapLibreRoot({
   const [tooltipInfo, setTooltipInfo] = useState<TooltipInfo | null>(null);
 
   const cityData = useVellumStore((s) => s.cityData);
+  const loadingState = useVellumStore((s) => s.loadingState);
 
   // Mount / unmount the renderer
   useEffect(() => {
@@ -87,6 +88,21 @@ export function MapLibreRoot({
       },
     });
   }, [cityData]); // activeLayers intentionally excluded — layer visibility is set separately
+
+  // Clear the map when loading starts so the old map doesn't linger
+  useEffect(() => {
+    if (loadingState !== 'loading' || !rendererRef.current) return;
+
+    setTooltipInfo(null);
+
+    // Keep the old map visible during the CSS opacity transition (500ms) so the
+    // fade-out looks smooth, then clean up the map data once the transition completes
+    const timer = setTimeout(() => {
+      rendererRef.current?.clear();
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [loadingState]);
 
   // Sync layer visibility whenever activeLayers changes
   useEffect(() => {

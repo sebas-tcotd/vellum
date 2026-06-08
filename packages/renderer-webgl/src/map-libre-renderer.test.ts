@@ -12,8 +12,10 @@ const mockMap = vi.hoisted(() => ({
   isStyleLoaded: vi.fn(() => true),
   addSource: vi.fn(),
   getSource: vi.fn(() => undefined),
+  removeSource: vi.fn(),
   addLayer: vi.fn(),
   getLayer: vi.fn(() => undefined),
+  removeLayer: vi.fn(),
   setLayoutProperty: vi.fn(),
   setPaintProperty: vi.fn(),
   fitBounds: vi.fn(),
@@ -229,6 +231,78 @@ describe('MapLibreRenderer', () => {
     // Should not throw
     expect(() => renderer.setLayerVisibility('roads', false)).not.toThrow();
     expect(mockMap.setLayoutProperty).not.toHaveBeenCalled();
+  });
+
+  describe('clear()', () => {
+    const ALL_CITY_SOURCE_IDS = [
+      'base',
+      'terrain',
+      'coastline-source',
+      'terrain-lines-source',
+      'forests',
+      'buildings',
+      'roads',
+      'transit',
+      'transit-stops',
+      'districts',
+    ];
+
+    it('removes all city-specific layers when they exist', () => {
+      const renderer = makeRenderer();
+      mockMap.getLayer.mockReturnValue({ id: 'any' } as unknown as undefined);
+      renderer.clear();
+      // RemoveLayer should be called for every layer in LAYER_ID_MAP + roads-railway-casing
+      expect(mockMap.removeLayer).toHaveBeenCalledWith('base-water');
+      expect(mockMap.removeLayer).toHaveBeenCalledWith('base-land');
+      expect(mockMap.removeLayer).toHaveBeenCalledWith('roads-casing');
+      expect(mockMap.removeLayer).toHaveBeenCalledWith('roads-fill');
+      expect(mockMap.removeLayer).toHaveBeenCalledWith('roads-railway-casing');
+      expect(mockMap.removeLayer).toHaveBeenCalledWith('transit-line');
+      expect(mockMap.removeLayer).toHaveBeenCalledWith('transit-stops');
+      expect(mockMap.removeLayer).toHaveBeenCalledWith('buildings-fill');
+      expect(mockMap.removeLayer).toHaveBeenCalledWith('buildings-outline');
+      expect(mockMap.removeLayer).toHaveBeenCalledWith('forests-circles');
+      expect(mockMap.removeLayer).toHaveBeenCalledWith('districts-points');
+      expect(mockMap.removeLayer).toHaveBeenCalledWith('coastline-layer');
+      expect(mockMap.removeLayer).toHaveBeenCalledWith('terrain-lines-layer');
+    });
+
+    it('removes all city-specific sources when they exist', () => {
+      const renderer = makeRenderer();
+      mockMap.getSource.mockReturnValue({} as unknown as undefined);
+      renderer.clear();
+      for (const id of ALL_CITY_SOURCE_IDS) {
+        expect(mockMap.removeSource).toHaveBeenCalledWith(id);
+      }
+    });
+
+    it('resets background-pattern to null', () => {
+      const renderer = makeRenderer();
+      renderer.clear();
+      expect(mockMap.setPaintProperty).toHaveBeenCalledWith(
+        'background',
+        'background-pattern',
+        null,
+      );
+    });
+
+    it('is safe to call when no layers or sources exist (idempotent)', () => {
+      mockMap.getLayer.mockReturnValue(undefined);
+      mockMap.getSource.mockReturnValue(undefined);
+      const renderer = makeRenderer();
+      expect(() => renderer.clear()).not.toThrow();
+      expect(mockMap.removeLayer).not.toHaveBeenCalled();
+      expect(mockMap.removeSource).not.toHaveBeenCalled();
+    });
+
+    it('sets cityData to null', () => {
+      const renderer = makeRenderer();
+      void renderer.render(makeCityData(), {
+        activeLayers: ALL_LAYERS_VISIBLE,
+      });
+      renderer.clear();
+      expect(renderer).toBeDefined();
+    });
   });
 
   it('updateViewport() is a no-op and does not throw', () => {

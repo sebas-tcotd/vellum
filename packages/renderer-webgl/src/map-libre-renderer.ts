@@ -173,6 +173,48 @@ export class MapLibreRenderer implements IRenderer {
   }
 
   /**
+   * Clears all city-specific data from the map, leaving only the base background.
+   *
+   * @remarks
+   * Called when loading starts so the old map is not visible during the transition
+   * to a new city. Removes all city-specific layers and sources, and resets the
+   * grid pattern to a solid background color.
+   */
+  clear(): void {
+    this.cityData = null;
+
+    const allLayerIds = new Set(Object.values(LAYER_ID_MAP).flat());
+    allLayerIds.add('roads-railway-casing');
+
+    for (const id of allLayerIds) {
+      if (this.map.getLayer(id)) {
+        this.map.removeLayer(id);
+      }
+    }
+
+    const sourceIds = [
+      'base',
+      'terrain',
+      'coastline-source',
+      'terrain-lines-source',
+      'forests',
+      'buildings',
+      'roads',
+      'transit',
+      'transit-stops',
+      'districts',
+    ];
+
+    for (const id of sourceIds) {
+      if (this.map.getSource(id)) {
+        this.map.removeSource(id);
+      }
+    }
+
+    this.map.setPaintProperty('background', 'background-pattern', null);
+  }
+
+  /**
    * Shows or hides a logical map layer.
    *
    * @param layer - The logical layer name (e.g. `'roads'`).
