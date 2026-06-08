@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import type { UnlistenFn } from '@tauri-apps/api/event';
-import { MapLibreRenderer, readTokensFromDOM } from '@vellum/renderer-webgl';
-import type { TooltipInfo } from '@vellum/renderer-webgl';
+import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import type { LayerVisibility } from '@vellum/core';
+import type { TooltipInfo } from '@vellum/renderer-webgl';
+import { MapLibreRenderer, readTokensFromDOM } from '@vellum/renderer-webgl';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useVellumStore } from '../../store/vellum-store';
 import { Minimap } from '../minimap/Minimap';

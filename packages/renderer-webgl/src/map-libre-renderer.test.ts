@@ -50,6 +50,7 @@ vi.mock('maplibre-gl', () => ({
 // ─── Test tokens ──────────────────────────────────────────────────────────────
 
 const MOCK_TOKENS: RendererTokens = {
+  background: '#f7f6f1',
   terrain: '#f7f6f1',
   terrainLow: '#95ae79',
   terrainMid: '#deddbe',

@@ -33,9 +33,11 @@ import {
   addBuildingsLayer,
   addDistrictsLayer,
   addForestsLayer,
+  addGridPattern,
   addRoadsLayer,
   addTerrainLayers,
   addTransitLayers,
+  createBaseStyle,
 } from './layers';
 import type { RendererTokens } from './tokens';
 
@@ -113,17 +115,7 @@ export class MapLibreRenderer implements IRenderer {
       attributionControl: false,
       renderWorldCopies: false,
       maxZoom: 18,
-      style: {
-        version: 8,
-        sources: {},
-        layers: [
-          {
-            id: 'background',
-            type: 'background',
-            paint: { 'background-color': tokens.terrain },
-          },
-        ],
-      },
+      style: createBaseStyle(tokens),
     });
   }
 
@@ -138,8 +130,8 @@ export class MapLibreRenderer implements IRenderer {
     this.cityData = cityData;
 
     return new Promise((resolve) => {
-      const doRender = (): void => {
-        this.addSourcesAndLayers(cityData);
+      const doRender = async (): Promise<void> => {
+        await this.addSourcesAndLayers(cityData);
         this.fitToCityBounds(cityData);
         this.fitToScreenZoom = this.map.getZoom();
         this.applyNavigationConstraints(cityData);
@@ -278,7 +270,8 @@ export class MapLibreRenderer implements IRenderer {
 
   // ─── Private helpers ────────────────────────────────────────────────────────
 
-  private addSourcesAndLayers(cityData: CityData): void {
+  private async addSourcesAndLayers(cityData: CityData): Promise<void> {
+    await addGridPattern(this.map);
     addBaseLayer(this.map, cityData, this.tokens);
     addTerrainLayers(this.map, cityData, this.tokens);
     addForestsLayer(this.map, cityData);

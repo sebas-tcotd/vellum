@@ -47,7 +47,7 @@ export function addBaseLayer(
       ['get', 'kind'],
       'water',
     ] as unknown as maplibregl.ExpressionSpecification,
-    paint: { 'fill-color': tokens.water, 'fill-opacity': 0.9 },
+    paint: { 'fill-color': tokens.water, 'fill-opacity': 1 },
   });
 
   addLayerIfAbsent(map, {
