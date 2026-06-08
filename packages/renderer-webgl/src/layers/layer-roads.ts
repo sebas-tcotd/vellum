@@ -48,4 +48,17 @@ export function addRoadsLayer(
       'line-width': ROAD_WIDTH_EXPR,
     },
   });
+
+  addLayerIfAbsent(map, {
+    id: 'roads-railway-casing',
+    type: 'line',
+    source: 'roads',
+    filter: ['==', ['get', 'itemClass'], 'Train Track'],
+    layout: { 'line-cap': 'butt', 'line-join': 'round' },
+    paint: {
+      'line-color': buildRoadColorExpression(tokens, 'casing'),
+      'line-width': ROAD_CASING_WIDTH_EXPR,
+      'line-dasharray': [1, 1],
+    },
+  });
 }
