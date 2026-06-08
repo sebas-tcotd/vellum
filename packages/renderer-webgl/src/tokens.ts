@@ -12,6 +12,7 @@
 
 /** Theme design tokens consumed by the renderer. */
 export interface RendererTokens {
+  background: string;
   terrain: string;
   terrainLow: string;
   terrainMid: string;
@@ -43,6 +44,7 @@ export interface RendererTokens {
 }
 
 const FALLBACKS: RendererTokens = {
+  background: '#f7f6f1',
   terrain: '#f7f6f1',
   terrainLow: '#95ae79',
   terrainMid: '#deddbe',
@@ -78,6 +80,8 @@ export function readTokensFromDOM(): RendererTokens {
   if (typeof document === 'undefined') return FALLBACKS;
   const style = getComputedStyle(document.documentElement);
   return {
+    background:
+      style.getPropertyValue('--color-bg').trim() || FALLBACKS.background,
     terrain:
       style.getPropertyValue('--color-terrain').trim() || FALLBACKS.terrain,
     terrainLow:

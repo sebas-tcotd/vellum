@@ -64,6 +64,7 @@ export function App({
   const fitToScreenRef = useRef<(() => void) | null>(null);
   const zoomInRef = useRef<(() => void) | null>(null);
   const zoomOutRef = useRef<(() => void) | null>(null);
+  const toggleNavigationModeRef = useRef<(() => void) | null>(null);
   const syncActiveLanguage = useVellumStore((s) => s.syncActiveLanguage);
   const cityData = useVellumStore((s) => s.cityData);
   const activeLayers = useVellumStore((s) => s.activeLayers);
@@ -95,6 +96,10 @@ export function App({
   const handleZoomIn = useCallback(() => zoomInRef.current?.(), [zoomInRef]);
   const handleZoomOut = useCallback(() => zoomOutRef.current?.(), [zoomOutRef]);
   const handleHidePanel = useCallback(() => setIsCleanMode((v) => !v), []);
+  const handleToggleNavigationMode = useCallback(
+    () => toggleNavigationModeRef.current?.(),
+    [toggleNavigationModeRef],
+  );
 
   useKeyboardShortcuts({
     onOpenFile: openFileDialog,
@@ -105,6 +110,9 @@ export function App({
     ...(cityData !== null ? { onZoomOut: handleZoomOut } : {}),
     ...(cityData !== null && loadingState !== 'loading'
       ? { onHidePanel: handleHidePanel }
+      : {}),
+    ...(cityData !== null
+      ? { onToggleNavigationMode: handleToggleNavigationMode }
       : {}),
     enabled: loadingState !== 'loading',
   });
@@ -157,6 +165,7 @@ export function App({
             fitToScreenRef={fitToScreenRef}
             zoomInRef={zoomInRef}
             zoomOutRef={zoomOutRef}
+            toggleNavigationModeRef={toggleNavigationModeRef}
             isCleanMode={isCleanMode}
           />
         </div>

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Mock } from 'vitest';
+import maplibregl from 'maplibre-gl';
 import { MapLibreRenderer } from './map-libre-renderer';
 import { makeCityData } from '@vellum/core/testing';
 import type { RendererTokens } from './tokens';
@@ -29,6 +30,12 @@ const mockMap = vi.hoisted(() => ({
     getSouth: vi.fn(() => -0.08),
   })),
   getCanvas: vi.fn(() => ({ style: { cursor: '' } })),
+  setMaxBounds: vi.fn(),
+  setMinZoom: vi.fn(),
+  setMaxZoom: vi.fn(),
+  getZoom: vi.fn(() => 12),
+  getMinZoom: vi.fn(() => 0),
+  getMaxZoom: vi.fn(() => 18),
 }));
 
 vi.mock('maplibre-gl', () => ({
@@ -43,6 +50,7 @@ vi.mock('maplibre-gl', () => ({
 // ─── Test tokens ──────────────────────────────────────────────────────────────
 
 const MOCK_TOKENS: RendererTokens = {
+  background: '#f7f6f1',
   terrain: '#f7f6f1',
   terrainLow: '#95ae79',
   terrainMid: '#deddbe',
@@ -510,6 +518,137 @@ describe('MapLibreRenderer', () => {
       moveHandler({ point: { x: 100, y: 200 } });
 
       expect(cb).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Navigation Constraints', () => {
+    it('sets renderWorldCopies to false in constructor', () => {
+      const container = document.createElement('div');
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const MapMock = (maplibregl as any).Map as ReturnType<typeof vi.fn>;
+      MapMock.mockClear();
+      new MapLibreRenderer(container, MOCK_TOKENS);
+      expect(MapMock).toHaveBeenCalledWith(
+        expect.objectContaining({ renderWorldCopies: false }),
+      );
+    });
+
+    it('sets maxZoom to 18 in constructor', () => {
+      const container = document.createElement('div');
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const MapMock = (maplibregl as any).Map as ReturnType<typeof vi.fn>;
+      MapMock.mockClear();
+      new MapLibreRenderer(container, MOCK_TOKENS);
+      expect(MapMock).toHaveBeenCalledWith(
+        expect.objectContaining({ maxZoom: 18 }),
+      );
+    });
+
+    it('calls setMaxBounds after render()', async () => {
+      const renderer = makeRenderer();
+      await renderer.render(makeCityData(), {
+        activeLayers: ALL_LAYERS_VISIBLE,
+      });
+      // Soft mode (default): setMaxBounds(undefined) to clear bounds
+      expect(mockMap.setMaxBounds).toHaveBeenCalledOnce();
+      expect(mockMap.setMaxBounds).toHaveBeenCalledWith(undefined);
+    });
+
+    it('calls setMinZoom after render()', async () => {
+      const renderer = makeRenderer();
+      mockMap.getZoom.mockReturnValue(12);
+      await renderer.render(makeCityData(), {
+        activeLayers: ALL_LAYERS_VISIBLE,
+      });
+      // Soft mode: minZoom = fitToScreenZoom * 0.25 = 12 * 0.25 = 3
+      expect(mockMap.setMinZoom).toHaveBeenCalledOnce();
+      expect(mockMap.setMinZoom).toHaveBeenCalledWith(3);
+    });
+
+    it('updates constraints when rendering a new city', async () => {
+      const renderer = makeRenderer();
+      mockMap.getZoom.mockReturnValue(12);
+      await renderer.render(makeCityData(), {
+        activeLayers: ALL_LAYERS_VISIBLE,
+      });
+      expect(mockMap.setMaxBounds).toHaveBeenCalledTimes(1);
+
+      mockMap.getZoom.mockReturnValue(14);
+      await renderer.render(makeCityData(), {
+        activeLayers: ALL_LAYERS_VISIBLE,
+      });
+      expect(mockMap.setMaxBounds).toHaveBeenCalledTimes(2);
+      // Soft mode: minZoom = 14 * 0.25 = 3.5
+      expect(mockMap.setMinZoom).toHaveBeenLastCalledWith(3.5);
+    });
+
+    it('re-applies constraints on fitToScreen()', async () => {
+      const renderer = makeRenderer();
+      await renderer.render(makeCityData(), {
+        activeLayers: ALL_LAYERS_VISIBLE,
+      });
+      vi.clearAllMocks();
+
+      renderer.fitToScreen();
+      expect(mockMap.fitBounds).toHaveBeenCalledOnce();
+      // Soft mode (default): setMaxBounds(undefined) + setMinZoom
+      expect(mockMap.setMaxBounds).toHaveBeenCalledOnce();
+      expect(mockMap.setMinZoom).toHaveBeenCalledOnce();
+    });
+  });
+
+  describe('Navigation Mode Toggle', () => {
+    it('defaults to soft boundary mode', async () => {
+      const renderer = makeRenderer();
+      await renderer.render(makeCityData(), {
+        activeLayers: ALL_LAYERS_VISIBLE,
+      });
+      // Soft mode: setMaxBounds(undefined) to clear bounds
+      expect(mockMap.setMaxBounds).toHaveBeenCalledWith(undefined);
+    });
+
+    it('toggleNavigationMode switches to strict mode', async () => {
+      const renderer = makeRenderer();
+      await renderer.render(makeCityData(), {
+        activeLayers: ALL_LAYERS_VISIBLE,
+      });
+      vi.clearAllMocks();
+
+      renderer.toggleNavigationMode();
+      // Strict mode: setMaxBounds with actual bounds
+      expect(mockMap.setMaxBounds).toHaveBeenCalledOnce();
+      expect(mockMap.setMaxBounds).not.toHaveBeenCalledWith(undefined);
+    });
+
+    it('toggleNavigationMode switches back to soft mode', async () => {
+      const renderer = makeRenderer();
+      await renderer.render(makeCityData(), {
+        activeLayers: ALL_LAYERS_VISIBLE,
+      });
+
+      renderer.toggleNavigationMode(); // → strict
+      vi.clearAllMocks();
+      renderer.toggleNavigationMode(); // → soft
+
+      expect(mockMap.setMaxBounds).toHaveBeenCalledWith(undefined);
+    });
+
+    it('soft mode sets minZoom to 25% of fit-to-screen zoom', async () => {
+      const renderer = makeRenderer();
+      mockMap.getZoom.mockReturnValue(12);
+      await renderer.render(makeCityData(), {
+        activeLayers: ALL_LAYERS_VISIBLE,
+      });
+      // fitToScreenZoom = 12, minZoom = 12 * 0.25 = 3
+      expect(mockMap.setMinZoom).toHaveBeenCalledWith(3);
+    });
+
+    it('registers moveend listener on render', async () => {
+      const renderer = makeRenderer();
+      await renderer.render(makeCityData(), {
+        activeLayers: ALL_LAYERS_VISIBLE,
+      });
+      expect(mockMap.on).toHaveBeenCalledWith('moveend', expect.any(Function));
     });
   });
 });

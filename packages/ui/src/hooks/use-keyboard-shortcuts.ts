@@ -24,6 +24,8 @@ interface UseKeyboardShortcutsOptions {
   onZoomOut?: () => void;
   /** Called when the user presses H (no modifiers) to toggle clean mode. */
   onHidePanel?: () => void;
+  /** Called when the user presses Ctrl/Cmd + B to toggle navigation mode. */
+  onToggleNavigationMode?: () => void;
   /**
    * When false, the shortcut handler does nothing without removing the listener.
    * @default true
@@ -38,6 +40,7 @@ export function useKeyboardShortcuts({
   onZoomIn,
   onZoomOut,
   onHidePanel,
+  onToggleNavigationMode,
   enabled = true,
 }: UseKeyboardShortcutsOptions) {
   useEffect(() => {
@@ -90,6 +93,15 @@ export function useKeyboardShortcuts({
         return;
       }
 
+      // Toggle navigation mode: Ctrl/Cmd + B
+      if (isModKey && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'b') {
+        if (onToggleNavigationMode) {
+          e.preventDefault();
+          onToggleNavigationMode();
+        }
+        return;
+      }
+
       // Layer shortcuts 1–7 — no modifier keys
       if (!isModKey && !e.shiftKey && !e.altKey) {
         const layerIdx = parseInt(e.key, 10) - 1;
@@ -112,6 +124,7 @@ export function useKeyboardShortcuts({
     onZoomIn,
     onZoomOut,
     onHidePanel,
+    onToggleNavigationMode,
     enabled,
   ]);
 }
