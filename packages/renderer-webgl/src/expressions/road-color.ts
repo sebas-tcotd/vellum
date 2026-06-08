@@ -1,7 +1,12 @@
 /**
- * Builds MapLibre data-driven color expressions mapping road itemClass → color.
+ * Builds MapLibre data-driven color expressions mapping road tier → color.
  *
  * @remarks
+ * The tier is computed at GeoJSON build time by `classifyRoadTier` in
+ * `geojson-builder.ts`, which includes fallback logic via `wayType` and width
+ * heuristics for unknown itemClass values. This module only maps tier values
+ * to design tokens — no itemClass knowledge needed.
+ *
  * Internal module — not exported from the package barrel.
  */
 
@@ -17,23 +22,6 @@ type RoadTier =
   | 'gravel'
   | 'pedestrian'
   | 'pedestrianWay';
-
-const ITEM_CLASS_TIER: Readonly<Record<string, RoadTier>> = {
-  Highway: 'highway',
-  'Large Road': 'largeArterial',
-  'Medium Road': 'mediumArterial',
-  'Small Road': 'local',
-  'Gravel Road': 'gravel',
-  'Pedestrian Way': 'pedestrianWay',
-  'Pedestrian Path': 'pedestrianWay',
-  'Train Track': 'railway',
-  'Highway Tunnel': 'highway',
-  'Large Road Tunnel': 'largeArterial',
-  'Medium Road Tunnel': 'mediumArterial',
-  'Small Road Tunnel': 'local',
-  'Pedestrian Tunnel': 'pedestrianWay',
-  'Pedestrian Bridge': 'pedestrian',
-};
 
 const TIER_FILL_TOKEN: Record<RoadTier, keyof RendererTokens> = {
   highway: 'roadHighway',
@@ -57,25 +45,24 @@ const TIER_CASING_TOKEN: Record<RoadTier, keyof RendererTokens> = {
   pedestrianWay: 'roadPedestrianWay',
 };
 
-/** Builds a MapLibre data-driven color expression mapping itemClass → color. */
+/** Builds a MapLibre data-driven color expression mapping tier → color. */
 export function buildRoadColorExpression(
   tokens: RendererTokens,
   type: 'fill' | 'casing',
 ): maplibregl.ExpressionSpecification {
   const tierMap = type === 'fill' ? TIER_FILL_TOKEN : TIER_CASING_TOKEN;
-  const itemClasses = Object.keys(ITEM_CLASS_TIER);
 
   const matchArgs: (string | maplibregl.ExpressionSpecification)[] = [
-    ['get', 'itemClass'] as maplibregl.ExpressionSpecification,
+    ['get', 'tier'] as maplibregl.ExpressionSpecification,
   ];
 
-  for (const cls of itemClasses) {
-    const tier = ITEM_CLASS_TIER[cls]!;
-    matchArgs.push(cls);
+  const tiers = Object.keys(TIER_FILL_TOKEN) as RoadTier[];
+  for (const tier of tiers) {
+    matchArgs.push(tier);
     matchArgs.push(tokens[tierMap[tier]]);
   }
 
-  matchArgs.push(tokens.roadLocal);
+  matchArgs.push(type === 'fill' ? tokens.roadLocal : tokens.roadLocalCasing);
 
   return [
     'match',

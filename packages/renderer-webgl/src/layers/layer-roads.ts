@@ -31,6 +31,11 @@ export function addRoadsLayer(
     id: 'roads-casing',
     type: 'line',
     source: 'roads',
+    filter: [
+      'all',
+      ['!=', ['get', 'isTunnel'], true],
+      ['!=', ['get', 'isBridge'], true],
+    ],
     layout: { 'line-cap': 'round', 'line-join': 'round' },
     paint: {
       'line-color': buildRoadColorExpression(tokens, 'casing'),
@@ -42,10 +47,49 @@ export function addRoadsLayer(
     id: 'roads-fill',
     type: 'line',
     source: 'roads',
+    filter: [
+      'all',
+      ['!=', ['get', 'isTunnel'], true],
+      ['!=', ['get', 'isBridge'], true],
+    ],
     layout: { 'line-cap': 'round', 'line-join': 'round' },
     paint: {
       'line-color': buildRoadColorExpression(tokens, 'fill'),
       'line-width': ROAD_WIDTH_EXPR,
+    },
+  });
+
+  addLayerIfAbsent(map, {
+    id: 'roads-tunnel-bridge-casing',
+    type: 'line',
+    source: 'roads',
+    filter: [
+      'any',
+      ['==', ['get', 'isTunnel'], true],
+      ['==', ['get', 'isBridge'], true],
+    ],
+    layout: { 'line-cap': 'round', 'line-join': 'round' },
+    paint: {
+      'line-color': buildRoadColorExpression(tokens, 'casing'),
+      'line-width': ROAD_CASING_WIDTH_EXPR,
+      'line-dasharray': [6, 3],
+    },
+  });
+
+  addLayerIfAbsent(map, {
+    id: 'roads-tunnel-bridge-fill',
+    type: 'line',
+    source: 'roads',
+    filter: [
+      'any',
+      ['==', ['get', 'isTunnel'], true],
+      ['==', ['get', 'isBridge'], true],
+    ],
+    layout: { 'line-cap': 'round', 'line-join': 'round' },
+    paint: {
+      'line-color': buildRoadColorExpression(tokens, 'fill'),
+      'line-width': ROAD_WIDTH_EXPR,
+      'line-dasharray': [6, 3],
     },
   });
 

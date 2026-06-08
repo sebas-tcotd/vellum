@@ -68,7 +68,12 @@ export interface TooltipInfo {
 const LAYER_ID_MAP: Record<LayerName, string[]> = {
   terrain: ['terrain-fill', 'terrain-lines-layer', 'coastline-layer'],
   water: ['base-water', 'base-land'],
-  roads: ['roads-casing', 'roads-fill'],
+  roads: [
+    'roads-casing',
+    'roads-fill',
+    'roads-tunnel-bridge-casing',
+    'roads-tunnel-bridge-fill',
+  ],
   transit: ['transit-line', 'transit-stops'],
   buildings: ['buildings-fill', 'buildings-outline'],
   forests: ['forests-circles'],

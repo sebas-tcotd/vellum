@@ -91,13 +91,19 @@ interface ContourLineFeature {
 
 /**
  * Properties attached to each road segment GeoJSON feature.
- * Used by MapLibre Data-Driven Styling expressions (e.g., `['get', 'hierarchy']`).
+ * Used by MapLibre Data-Driven Styling expressions (e.g., `['get', 'tier']`).
  */
 export interface RoadFeatureProperties {
   /** The segment's unique CS1 identifier. */
   id: string;
-  /** The item class from CS1 (e.g. "Large Road", "Highway"). Used for color mapping. */
+  /** The item class from CS1 (e.g. "Large Road", "Highway"). */
   itemClass: string;
+  /** Classified road tier used for color and width expressions. */
+  tier: RoadTier;
+  /** Whether the segment's wayType includes Tunnel. */
+  isTunnel: boolean;
+  /** Whether the segment's wayType includes Bridge. */
+  isBridge: boolean;
   /** Physical base width in CS1 world units. Used for `line-width` expressions. */
   width: number;
   /** Comma-separated WayType flags (e.g. "Road,Bridge"). */
@@ -240,7 +246,7 @@ export interface ContourLineCollection {
 
 // ─── Road tier / width model ──────────────────────────────────────────────────
 
-type RoadTier =
+export type RoadTier =
   | 'highway'
   | 'railway'
   | 'largeArterial'
@@ -361,6 +367,9 @@ export function buildRoadsGeoJson(cityData: CityData): RoadsFeatureCollection {
       properties: {
         id: segment.id,
         itemClass: segment.itemClass,
+        tier,
+        isTunnel: segment.wayType.includes('Tunnel'),
+        isBridge: segment.wayType.includes('Bridge'),
         width: segment.width,
         wayType: segment.wayType.join(','),
         fixedWidth: fixed,
