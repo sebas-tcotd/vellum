@@ -22,10 +22,10 @@ function makePathSeg(segmentIds: string[]) {
   return { segmentIds };
 }
 
-// ─── buildTransitGeoJson — offsetMultiplier assignment ───────────────────────
+// ─── buildTransitGeoJson — lineWidthMultiplier assignment ───────────────────────
 
-describe('buildTransitGeoJson — offsetMultiplier', () => {
-  it('single line on a segment → offsetMultiplier is 0', () => {
+describe('buildTransitGeoJson — lineWidthMultiplier', () => {
+  it('single line on a segment → lineWidthMultiplier is 1', () => {
     const line = makeTransitLine({
       id: 'line-1',
       mode: 'Bus',
@@ -39,10 +39,10 @@ describe('buildTransitGeoJson — offsetMultiplier', () => {
 
     const fc = buildTransitGeoJson(city);
     expect(fc.features).toHaveLength(1);
-    expect(fc.features[0].properties.offsetMultiplier).toBe(0);
+    expect(fc.features[0].properties.lineWidthMultiplier).toBe(1);
   });
 
-  it('two lines sharing a segment → offsets are -0.5 and +0.5', () => {
+  it('two lines sharing a segment → lineWidthMultipliers are [2, 1]', () => {
     const lineA = makeTransitLine({
       id: 'line-a',
       mode: 'Bus',
@@ -64,13 +64,13 @@ describe('buildTransitGeoJson — offsetMultiplier', () => {
     const fc = buildTransitGeoJson(city);
     expect(fc.features).toHaveLength(2);
 
-    const offsets = fc.features
-      .map((f) => f.properties.offsetMultiplier)
-      .sort((a, b) => a - b);
-    expect(offsets).toEqual([-0.5, 0.5]);
+    const multipliers = fc.features
+      .map((f) => f.properties.lineWidthMultiplier)
+      .sort((a, b) => b - a);
+    expect(multipliers).toEqual([2, 1]);
   });
 
-  it('three lines sharing a segment → offsets are -1, 0, +1', () => {
+  it('three lines sharing a segment → lineWidthMultipliers are [3, 2, 1]', () => {
     const lines = ['a', 'b', 'c'].map((id) =>
       makeTransitLine({
         id: `line-${id}`,
@@ -85,13 +85,13 @@ describe('buildTransitGeoJson — offsetMultiplier', () => {
     });
 
     const fc = buildTransitGeoJson(city);
-    const offsets = fc.features
-      .map((f) => f.properties.offsetMultiplier)
-      .sort((a, b) => a - b);
-    expect(offsets).toEqual([-1, 0, 1]);
+    const multipliers = fc.features
+      .map((f) => f.properties.lineWidthMultiplier)
+      .sort((a, b) => b - a);
+    expect(multipliers).toEqual([3, 2, 1]);
   });
 
-  it('four lines sharing a segment → offsets are -1.5, -0.5, +0.5, +1.5', () => {
+  it('four lines sharing a segment → lineWidthMultipliers are [4, 3, 2, 1]', () => {
     const lines = ['a', 'b', 'c', 'd'].map((id) =>
       makeTransitLine({
         id: `line-${id}`,
@@ -106,13 +106,13 @@ describe('buildTransitGeoJson — offsetMultiplier', () => {
     });
 
     const fc = buildTransitGeoJson(city);
-    const offsets = fc.features
-      .map((f) => f.properties.offsetMultiplier)
-      .sort((a, b) => a - b);
-    expect(offsets).toEqual([-1.5, -0.5, 0.5, 1.5]);
+    const multipliers = fc.features
+      .map((f) => f.properties.lineWidthMultiplier)
+      .sort((a, b) => b - a);
+    expect(multipliers).toEqual([4, 3, 2, 1]);
   });
 
-  it('lines on different segments each get offsetMultiplier 0', () => {
+  it('lines on different segments each get lineWidthMultiplier 1', () => {
     const NODE_C: RoadNode = { id: 'node-c', position: { x: 200, y: 0, z: 0 } };
     const SEG_2 = makeRoadSegment({
       id: 'seg-2',
@@ -135,9 +135,9 @@ describe('buildTransitGeoJson — offsetMultiplier', () => {
 
     const fc = buildTransitGeoJson(city);
     expect(fc.features).toHaveLength(2);
-    expect(fc.features.every((f) => f.properties.offsetMultiplier === 0)).toBe(
-      true,
-    );
+    expect(
+      fc.features.every((f) => f.properties.lineWidthMultiplier === 1),
+    ).toBe(true);
   });
 
   it('mode priority: Train ranks before Bus on the same segment', () => {
@@ -164,9 +164,9 @@ describe('buildTransitGeoJson — offsetMultiplier', () => {
     );
     const busFeature = fc.features.find((f) => f.properties.id === 'line-bus');
 
-    // Train is rank 0, Bus is rank 1 → train offset = -0.5, bus offset = +0.5
-    expect(trainFeature?.properties.offsetMultiplier).toBe(-0.5);
-    expect(busFeature?.properties.offsetMultiplier).toBe(0.5);
+    // Train is rank 0 (background) → lineWidthMultiplier = 2; Bus rank 1 → 1
+    expect(trainFeature?.properties.lineWidthMultiplier).toBe(2);
+    expect(busFeature?.properties.lineWidthMultiplier).toBe(1);
   });
 
   it('same mode, stable sort by id: alphabetically earlier id gets lower offset', () => {
@@ -190,11 +190,12 @@ describe('buildTransitGeoJson — offsetMultiplier', () => {
     const featA = fc.features.find((f) => f.properties.id === 'line-a');
     const featZ = fc.features.find((f) => f.properties.id === 'line-z');
 
-    expect(featA?.properties.offsetMultiplier).toBe(-0.5);
-    expect(featZ?.properties.offsetMultiplier).toBe(0.5);
+    // line-a rank 0 (background) → lineWidthMultiplier = 2; line-z rank 1 → 1
+    expect(featA?.properties.lineWidthMultiplier).toBe(2);
+    expect(featZ?.properties.lineWidthMultiplier).toBe(1);
   });
 
-  it('emits correct color and mode properties alongside offsetMultiplier', () => {
+  it('emits correct color and mode properties alongside lineWidthMultiplier', () => {
     const line = makeTransitLine({
       id: 'l1',
       mode: 'Tram',
@@ -211,7 +212,7 @@ describe('buildTransitGeoJson — offsetMultiplier', () => {
     const props = fc.features[0].properties;
     expect(props.color).toBe('#00FF00');
     expect(props.mode).toBe('Tram');
-    expect(props.offsetMultiplier).toBe(0);
+    expect(props.lineWidthMultiplier).toBe(1);
   });
 });
 
@@ -291,54 +292,5 @@ describe('buildTransitGeoJson — canonical direction normalization', () => {
     // Even though stored as node-b→node-a, canonical order is node-a→node-b,
     // so first coord (NODE_A, x≈0) should come before last (NODE_B, x≈some larger lng)
     expect(coords[0][0]).toBeLessThan(coords[coords.length - 1][0]);
-  });
-});
-
-// ─── buildTransitGeoJson — local tangent perpendicular displacement ───────────
-
-describe('buildTransitGeoJson — local tangent displacement', () => {
-  it('L-shaped segment: first point lng is unchanged (perpendicular to horizontal leg)', () => {
-    // L-shape in CS1 world units: A(0,0) → corner(8640,0) → B(8640,8640).
-    // The first leg is horizontal (x increases, z constant) so its perpendicular is
-    // purely vertical — no longitude displacement. Old uniform-direction code would
-    // displace along the diagonal A→B direction, producing non-zero lng at the first point.
-    const NODE_L: RoadNode = { id: 'node-l', position: { x: 0, y: 0, z: 0 } };
-    const NODE_R: RoadNode = {
-      id: 'node-r',
-      position: { x: 8640, y: 0, z: 8640 },
-    };
-    const SEG_L = makeRoadSegment({
-      id: 'seg-l',
-      startNodeId: 'node-l',
-      endNodeId: 'node-r',
-      points: [{ x: 8640, y: 0, z: 0 }],
-    });
-    const lineA = makeTransitLine({
-      id: 'line-a',
-      mode: 'Bus',
-      route: [makePathSeg(['seg-l'])],
-    });
-    const lineB = makeTransitLine({
-      id: 'line-b',
-      mode: 'Bus',
-      route: [makePathSeg(['seg-l'])],
-    });
-    const city = makeCityData({
-      roadNodes: [NODE_L, NODE_R],
-      roadSegments: [SEG_L],
-      transitLines: [lineA, lineB],
-    });
-
-    const fc = buildTransitGeoJson(city, 1);
-    expect(fc.features).toHaveLength(2);
-
-    for (const feat of fc.features) {
-      const disp = feat.geometry.coordinates;
-      expect(disp).toHaveLength(3); // start, corner, end
-
-      // First point: horizontal tangent → perpendicular is vertical → dispLng must be 0.
-      // NODE_L is at CS1 origin so its geographic lng is exactly 0.
-      expect(disp[0][0]).toBeCloseTo(0, 10);
-    }
   });
 });

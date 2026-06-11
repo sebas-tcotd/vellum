@@ -132,11 +132,13 @@ export interface TransitFeatureProperties {
   /** Transportation mode (Bus, Tram, Train, etc.). */
   mode: string;
   /**
-   * Signed index used with MapLibre `line-offset`: `offset = offsetMultiplier × spacingPx`.
-   * Formula: `(i - (N-1)/2)` where i is this line's sorted rank among the N lines sharing
-   * this road segment, and N is the total count. Zero means centred; ±0.5 means 2-line pair.
+   * Decreasing-width multiplier for MapLibre stacked-band rendering.
+   * Among N lines sharing a segment, the first (background) gets N and the
+   * last (foreground) gets 1.  Paint: `lineWidthMultiplier × baseWidth(zoom)`.
+   * Features must be sorted descending by this value so wide strokes are drawn
+   * before narrow ones, producing equal-width visible colour bands.
    */
-  offsetMultiplier: number;
+  lineWidthMultiplier: number;
 }
 
 /**
@@ -597,22 +599,17 @@ function computeGreedyOrder(
  * ```
  *
  * where `perpUnitVector` is the 90°-clockwise rotation of the segment's
- * direction unit vector in `[lng, lat]` space — i.e. the right-hand side of the
- * canonical direction. This is equivalent to `line-offset` in pixel intent but
- * applied in world space, so adjacent segments in a curved corridor displace
- * consistently to the same physical side instead of swapping sides at every bend.
- *
- * Pass `spacingDeg = 0` (default) to emit un-displaced coordinates — used by
- * tests that check coordinate order without caring about parallel separation.
+ * stacking approach: the N lines sharing a segment are assigned decreasing
+ * `lineWidthMultiplier` values (N … 1). Each is painted at `multiplier × baseWidth`
+ * pixels, so they are drawn widest-first (background) to narrowest-last (foreground),
+ * producing equal-width visible colour bands — identical to CSLMapView's SVG technique.
+ * No perpendicular coordinate displacement is applied, so curves look clean.
  *
  * @param cityData - The immutable domain model produced by the CS1 parser.
- * @param spacingDeg - Per-unit-offset displacement in WGS-84 degrees.
- *   Use `transitSpacingDeg(zoom)` from `layer-transit` to match `line-width`.
  * @returns A GeoJSON FeatureCollection ready for `map.addSource()` in MapLibre.
  */
 export function buildTransitGeoJson(
   cityData: CityData,
-  spacingDeg = 0,
 ): TransitFeatureCollection {
   const nodeById = new Map<string, RoadNode>(
     cityData.roadNodes.map((n) => [n.id, n]),
@@ -695,40 +692,29 @@ export function buildTransitGeoJson(
         const ids = orderConfig.get(segId) ?? [line.id];
         const n = ids.length;
         const i = ids.indexOf(line.id);
-        const offsetMultiplier = i - (n - 1) / 2;
-
-        // Pre-displace coordinates in geographic space so all features for the
-        // same corridor stay on a consistent physical side regardless of bends.
-        // The CW-perpendicular of direction [dlng, dlat] is [dlat, -dlng].
-        // This matches the MapLibre `line-offset` sign convention (positive = right).
-        let displayCoords = coords;
-        if (spacingDeg !== 0 && coords.length >= 2) {
-          displayCoords = coords.map(([lng, lat], idx) => {
-            const prev = coords[Math.max(0, idx - 1)];
-            const next = coords[Math.min(coords.length - 1, idx + 1)];
-            const dlng = next[0] - prev[0];
-            const dlat = next[1] - prev[1];
-            const len = Math.sqrt(dlng * dlng + dlat * dlat);
-            if (len === 0) return [lng, lat] as [number, number];
-            const dispLng = (dlat / len) * spacingDeg * offsetMultiplier;
-            const dispLat = (-dlng / len) * spacingDeg * offsetMultiplier;
-            return [lng + dispLng, lat + dispLat] as [number, number];
-          });
-        }
+        // Background route (rank 0) gets the widest stroke (n); foreground (rank n-1) gets 1.
+        const lineWidthMultiplier = n - i;
 
         features.push({
           type: 'Feature',
-          geometry: { type: 'LineString', coordinates: displayCoords },
+          geometry: { type: 'LineString', coordinates: coords },
           properties: {
             id: line.id,
             color: line.color,
             mode: line.mode,
-            offsetMultiplier,
+            lineWidthMultiplier,
           },
         });
       }
     }
   }
+
+  // Sort widest-first so MapLibre draws background strokes before foreground ones,
+  // producing equal-width visible colour bands via the painter's algorithm.
+  features.sort(
+    (a, b) =>
+      b.properties.lineWidthMultiplier - a.properties.lineWidthMultiplier,
+  );
 
   return { type: 'FeatureCollection', features };
 }
