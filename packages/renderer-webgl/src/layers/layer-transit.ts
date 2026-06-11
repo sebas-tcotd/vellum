@@ -36,10 +36,18 @@ export function addTransitLayers(
       // Stacked-band rendering: each feature's lineWidthMultiplier scales the
       // base width so that N lines on the same segment produce N equal-width
       // visible colour bands (widest feature drawn first, narrowest on top).
+      // The interpolate MUST be at the top level (zoom expr cannot be nested
+      // inside a data expr like ['*', ['get', ...], ['interpolate', ...]]).
       'line-width': [
-        '*',
-        ['get', 'lineWidthMultiplier'],
-        ['interpolate', ['exponential', 1.5], ['zoom'], 10, 1.5, 14, 3, 18, 6],
+        'interpolate',
+        ['exponential', 1.5],
+        ['zoom'],
+        10,
+        ['*', 1.5, ['get', 'lineWidthMultiplier']],
+        14,
+        ['*', 3, ['get', 'lineWidthMultiplier']],
+        18,
+        ['*', 6, ['get', 'lineWidthMultiplier']],
       ] as unknown as maplibregl.ExpressionSpecification,
       'line-opacity': 0.85,
     },
