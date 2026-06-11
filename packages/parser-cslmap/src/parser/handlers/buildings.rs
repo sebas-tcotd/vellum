@@ -37,7 +37,7 @@ impl BuildingBuilder {
 
     pub(crate) fn handle_empty(&mut self, e: &quick_xml::events::BytesStart<'_>) {
         let local = e.name().local_name();
-        if local.as_ref() == b"p" && self.in_points {
+        if matches!(local.as_ref(), b"p" | b"P") && self.in_points {
             self.current_footprint.push(Vec3 {
                 x: attr_f64(e, b"x").unwrap_or(0.0),
                 y: attr_f64(e, b"y").unwrap_or(0.0),

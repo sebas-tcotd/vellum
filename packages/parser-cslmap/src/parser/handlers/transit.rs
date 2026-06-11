@@ -6,13 +6,13 @@ use super::super::utils::{attr_str, rgba_to_hex};
 pub fn parse_transit_mode(s: &str) -> crate::city_data::TransitMode {
     use crate::city_data::TransitMode;
     match s {
-        "Bus" => TransitMode::Bus,
+        "Bus" | "EvacuationBus" => TransitMode::Bus,
         "Tram" => TransitMode::Tram,
         "Train" => TransitMode::Train,
         "Metro" => TransitMode::Metro,
         "CableCar" => TransitMode::CableCar,
         "Monorail" => TransitMode::Monorail,
-        "Ferry" => TransitMode::Ferry,
+        "Ferry" | "Ship" => TransitMode::Ferry,
         "Blimp" => TransitMode::Blimp,
         "Trolleybus" => TransitMode::Trolleybus,
         _ => TransitMode::Unknown,

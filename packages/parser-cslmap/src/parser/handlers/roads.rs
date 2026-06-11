@@ -201,7 +201,7 @@ impl RoadBuilder {
                 });
                 self.bounds.update(x, z);
             }
-            b"p" if self.in_seg_points => {
+            b"p" | b"P" if self.in_seg_points => {
                 if let Some(ref mut seg) = self.current_seg {
                     seg.points.push(Vec3 {
                         x: attr_f64(e, b"x").unwrap_or(0.0),
@@ -215,6 +215,9 @@ impl RoadBuilder {
     }
 
     pub(crate) fn handle_text_sg(&mut self, trimmed: &str) {
+        if trimmed == "0" {
+            return;
+        }
         if let Some(ref mut seg) = self.current_seg {
             seg.path_segs.push(trimmed.to_string());
         }

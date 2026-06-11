@@ -37,6 +37,7 @@ import {
   addRoadsLayer,
   addTerrainLayers,
   addTransitLayers,
+  updateTransitSource,
   createBaseStyle,
 } from './layers';
 import type { RendererTokens } from './tokens';
@@ -103,6 +104,7 @@ export class MapLibreRenderer implements IRenderer {
   private navigationMode: 'strict' | 'soft' = 'soft';
   private isSnappingBack = false;
   private fitToScreenZoom = 0;
+  private hasZoomListener = false;
 
   /**
    * Creates a new `MapLibreRenderer` and attaches it to the given container.
@@ -139,8 +141,11 @@ export class MapLibreRenderer implements IRenderer {
         await this.addSourcesAndLayers(cityData);
         this.fitToCityBounds(cityData);
         this.fitToScreenZoom = this.map.getZoom();
+        // Transit was built before fitBounds set the correct zoom; rebuild now.
+        updateTransitSource(this.map, cityData, this.map.getZoom());
         this.applyNavigationConstraints(cityData);
         this.registerMoveEndListener();
+        this.registerZoomListener();
         resolve();
       };
 
@@ -324,7 +329,7 @@ export class MapLibreRenderer implements IRenderer {
     addForestsLayer(this.map, cityData);
     addBuildingsLayer(this.map, cityData, this.tokens);
     addRoadsLayer(this.map, cityData, this.tokens);
-    addTransitLayers(this.map, cityData);
+    addTransitLayers(this.map, cityData, this.map.getZoom());
     addDistrictsLayer(this.map, cityData, this.tokens);
   }
 
@@ -355,6 +360,21 @@ export class MapLibreRenderer implements IRenderer {
       this.map.setMaxBounds(undefined);
       this.map.setMinZoom(Math.max(this.fitToScreenZoom * 0.25, 0));
     }
+  }
+
+  /**
+   * Registers a single `zoomend` listener that recomputes transit GeoJSON
+   * coordinates for the new zoom so the world-space parallel offset stays
+   * proportional to `line-width` throughout the zoom range.
+   * Safe to call on every `render()` — only registers once.
+   */
+  private registerZoomListener(): void {
+    if (this.hasZoomListener) return;
+    this.hasZoomListener = true;
+    this.map.on('zoomend', () => {
+      if (!this.cityData) return;
+      updateTransitSource(this.map, this.cityData, this.map.getZoom());
+    });
   }
 
   /**
