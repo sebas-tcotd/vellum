@@ -32,6 +32,11 @@ export function addRoadsLayer(
     ['get', 'itemClass'],
     'Ferry Path',
   ] as unknown as maplibregl.ExpressionSpecification;
+  const notRailway = [
+    '!=',
+    ['get', 'itemClass'],
+    'Train Track',
+  ] as unknown as maplibregl.ExpressionSpecification;
 
   addLayerIfAbsent(map, {
     id: 'roads-casing',
@@ -42,6 +47,7 @@ export function addRoadsLayer(
       ['!=', ['get', 'isTunnel'], true],
       ['!=', ['get', 'isBridge'], true],
       notFerry,
+      notRailway,
     ],
     layout: { 'line-cap': 'round', 'line-join': 'round' },
     paint: {
@@ -59,6 +65,7 @@ export function addRoadsLayer(
       ['!=', ['get', 'isTunnel'], true],
       ['!=', ['get', 'isBridge'], true],
       notFerry,
+      notRailway,
     ],
     layout: { 'line-cap': 'round', 'line-join': 'round' },
     paint: {
