@@ -74,6 +74,7 @@ const LAYER_ID_MAP: Record<LayerName, string[]> = {
     'roads-tunnel-bridge-casing',
     'roads-tunnel-bridge-fill',
     'roads-ferry',
+    'roads-railway-casing',
   ],
   transit: ['transit-line', 'transit-stops'],
   buildings: ['buildings-fill', 'buildings-outline'],
@@ -190,7 +191,6 @@ export class MapLibreRenderer implements IRenderer {
     this.cityData = null;
 
     const allLayerIds = new Set(Object.values(LAYER_ID_MAP).flat());
-    allLayerIds.add('roads-railway-casing');
 
     for (const id of allLayerIds) {
       if (this.map.getLayer(id)) {
