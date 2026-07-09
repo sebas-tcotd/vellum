@@ -27,6 +27,16 @@ export function addRoadsLayer(
     data: buildRoadsGeoJson(cityData),
   });
 
+  const notFerry = [
+    '!=',
+    ['get', 'itemClass'],
+    'Ferry Path',
+  ] as unknown as maplibregl.ExpressionSpecification;
+  const notRailway = [
+    '!',
+    ['in', ['get', 'itemClass'], ['literal', ['Train Track', 'Metro Track']]],
+  ] as unknown as maplibregl.ExpressionSpecification;
+
   addLayerIfAbsent(map, {
     id: 'roads-casing',
     type: 'line',
@@ -35,6 +45,8 @@ export function addRoadsLayer(
       'all',
       ['!=', ['get', 'isTunnel'], true],
       ['!=', ['get', 'isBridge'], true],
+      notFerry,
+      notRailway,
     ],
     layout: { 'line-cap': 'round', 'line-join': 'round' },
     paint: {
@@ -51,6 +63,8 @@ export function addRoadsLayer(
       'all',
       ['!=', ['get', 'isTunnel'], true],
       ['!=', ['get', 'isBridge'], true],
+      notFerry,
+      notRailway,
     ],
     layout: { 'line-cap': 'round', 'line-join': 'round' },
     paint: {
@@ -64,9 +78,13 @@ export function addRoadsLayer(
     type: 'line',
     source: 'roads',
     filter: [
-      'any',
-      ['==', ['get', 'isTunnel'], true],
-      ['==', ['get', 'isBridge'], true],
+      'all',
+      [
+        'any',
+        ['==', ['get', 'isTunnel'], true],
+        ['==', ['get', 'isBridge'], true],
+      ],
+      notFerry,
     ],
     layout: { 'line-cap': 'round', 'line-join': 'round' },
     paint: {
@@ -81,9 +99,13 @@ export function addRoadsLayer(
     type: 'line',
     source: 'roads',
     filter: [
-      'any',
-      ['==', ['get', 'isTunnel'], true],
-      ['==', ['get', 'isBridge'], true],
+      'all',
+      [
+        'any',
+        ['==', ['get', 'isTunnel'], true],
+        ['==', ['get', 'isBridge'], true],
+      ],
+      notFerry,
     ],
     layout: { 'line-cap': 'round', 'line-join': 'round' },
     paint: {
@@ -94,10 +116,38 @@ export function addRoadsLayer(
   });
 
   addLayerIfAbsent(map, {
+    id: 'roads-ferry',
+    type: 'line',
+    source: 'roads',
+    filter: ['==', ['get', 'itemClass'], 'Ferry Path'],
+    layout: { 'line-cap': 'butt', 'line-join': 'round' },
+    paint: {
+      'line-color': '#1A5276',
+      'line-opacity': 0.65,
+      'line-width': [
+        'interpolate',
+        ['exponential', 1.5],
+        ['zoom'],
+        10,
+        1,
+        14,
+        2,
+        18,
+        4,
+      ] as unknown as maplibregl.ExpressionSpecification,
+      'line-dasharray': [3, 1],
+    },
+  });
+
+  addLayerIfAbsent(map, {
     id: 'roads-railway-casing',
     type: 'line',
     source: 'roads',
-    filter: ['==', ['get', 'itemClass'], 'Train Track'],
+    filter: [
+      'in',
+      ['get', 'itemClass'],
+      ['literal', ['Train Track', 'Metro Track']],
+    ],
     layout: { 'line-cap': 'butt', 'line-join': 'round' },
     paint: {
       'line-color': buildRoadColorExpression(tokens, 'casing'),

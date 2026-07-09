@@ -11,7 +11,14 @@
  * not import MapLibre. It can be unit-tested in jsdom without WebGL.
  */
 
-import type { CityData, RoadNode, TerrainPolygon, WayType } from '@vellum/core';
+import type {
+  CityData,
+  RoadNode,
+  RoadSegment,
+  TerrainPolygon,
+  TransitMode,
+  WayType,
+} from '@vellum/core';
 import { csToGeoArray, CS1_WORLD_HALF } from './coordinate-transform';
 
 // ─── GeoJSON primitives (minimal subset — avoids importing @types/geojson) ───
@@ -124,6 +131,14 @@ export interface TransitFeatureProperties {
   color: string;
   /** Transportation mode (Bus, Tram, Train, etc.). */
   mode: string;
+  /**
+   * Decreasing-width multiplier for MapLibre stacked-band rendering.
+   * Among N lines sharing a segment, the first (background) gets N and the
+   * last (foreground) gets 1.  Paint: `lineWidthMultiplier × baseWidth(zoom)`.
+   * Features must be sorted descending by this value so wide strokes are drawn
+   * before narrow ones, producing equal-width visible colour bands.
+   */
+  lineWidthMultiplier: number;
 }
 
 /**
@@ -281,6 +296,7 @@ const ITEM_CLASS_TIER: Readonly<Record<string, RoadTier>> = {
   'Pedestrian Way': 'pedestrianWay',
   'Pedestrian Path': 'pedestrianWay',
   'Train Track': 'railway',
+  'Metro Track': 'railway',
   'Highway Tunnel': 'highway',
   'Large Road Tunnel': 'largeArterial',
   'Medium Road Tunnel': 'mediumArterial',
@@ -384,13 +400,211 @@ export function buildRoadsGeoJson(cityData: CityData): RoadsFeatureCollection {
   };
 }
 
+// ─── LOOM-style greedy ordering ──────────────────────────────────────────────
+
+// Priority order for transit modes when assigning parallel offsets.
+// Lower value = closer to centre of the bundle (higher visual priority).
+const MODE_PRIORITY: Record<TransitMode, number> = {
+  Metro: 0,
+  Train: 1,
+  Monorail: 2,
+  Tram: 3,
+  Trolleybus: 4,
+  CableCar: 5,
+  Ferry: 6,
+  Blimp: 7,
+  Bus: 8,
+  Unknown: 9,
+};
+
+/**
+ * When looking at a segment from `nodeId`, returns true if the canonical
+ * ordering (position 0 = leftmost in canonical direction) must be reversed.
+ * Canonical direction: smaller nodeId → larger nodeId.
+ */
+function isReversedFromNode(seg: RoadSegment, nodeId: string): boolean {
+  const canonicalStart =
+    seg.startNodeId < seg.endNodeId ? seg.startNodeId : seg.endNodeId;
+  return nodeId !== canonicalStart;
+}
+
+/**
+ * LOOM `smallerThanAt`: asks "should l1 come before l2 in this segment's
+ * ordering?" by consulting already-settled adjacent segments at `nodeId`.
+ * Returns `before=null` when there is no evidence.
+ */
+function smallerThanAtNode(
+  l1Id: string,
+  l2Id: string,
+  nodeId: string,
+  orderConfig: Map<string, string[]>,
+  nodeSegIds: Map<string, string[]>,
+  segById: Map<string, RoadSegment>,
+  segLineIds: Map<string, string[]>,
+): { before: boolean | null; evidence: number } {
+  const positionsL1: number[] = [];
+  const positionsL2: number[] = [];
+  let offset = 0;
+
+  for (const adjSegId of nodeSegIds.get(nodeId) ?? []) {
+    const cardinality = (segLineIds.get(adjSegId) ?? []).length;
+    const order = orderConfig.get(adjSegId);
+    if (order !== undefined) {
+      const idxL1 = order.indexOf(l1Id);
+      const idxL2 = order.indexOf(l2Id);
+      if (idxL1 !== -1 && idxL2 !== -1) {
+        const adjSeg = segById.get(adjSegId);
+        if (adjSeg !== undefined) {
+          const rev = isReversedFromNode(adjSeg, nodeId);
+          const n = order.length;
+          positionsL1.push(offset + (rev ? n - 1 - idxL1 : idxL1));
+          positionsL2.push(offset + (rev ? n - 1 - idxL2 : idxL2));
+        }
+      }
+    }
+    offset += cardinality;
+  }
+
+  if (positionsL1.length === 0) return { before: null, evidence: 0 };
+
+  const maxL1 = Math.max(...positionsL1);
+  const minL1 = Math.min(...positionsL1);
+  const maxL2 = Math.max(...positionsL2);
+  const minL2 = Math.min(...positionsL2);
+
+  if (maxL1 < minL2) return { before: true, evidence: positionsL1.length };
+  if (minL1 > maxL2) return { before: false, evidence: positionsL1.length };
+  return { before: null, evidence: 0 };
+}
+
+/**
+ * LOOM-style greedy ordering. Propagates ordering decisions from settled
+ * segments to their neighbours, minimising visual line crossings at nodes.
+ * Falls back to mode-priority + ID sort when there is no settled evidence.
+ *
+ * @returns OrderConfig — `segId → lineIds[]` in left-to-right display order.
+ */
+function computeGreedyOrder(
+  segLineIds: Map<string, string[]>,
+  nodeSegIds: Map<string, string[]>,
+  segById: Map<string, RoadSegment>,
+  lineMode: Map<string, TransitMode>,
+): Map<string, string[]> {
+  const orderConfig = new Map<string, string[]>();
+  const settled = new Set<string>();
+
+  const modeIdCmp = (a: string, b: string): number => {
+    const pa = MODE_PRIORITY[lineMode.get(a) ?? 'Unknown'];
+    const pb = MODE_PRIORITY[lineMode.get(b) ?? 'Unknown'];
+    return pa !== pb ? pa - pb : a.localeCompare(b);
+  };
+
+  const remaining = new Set(segLineIds.keys());
+
+  while (remaining.size > 0) {
+    // Pick: adjacent-to-settled first, then highest cardinality, then id
+    let bestId: string | null = null;
+    let bestIsAdj = false;
+    let bestCard = -1;
+
+    for (const segId of remaining) {
+      const seg = segById.get(segId);
+      if (seg === undefined) continue;
+      const card = (segLineIds.get(segId) ?? []).length;
+      const isAdj =
+        (nodeSegIds.get(seg.startNodeId) ?? []).some((s) => settled.has(s)) ||
+        (nodeSegIds.get(seg.endNodeId) ?? []).some((s) => settled.has(s));
+
+      if (
+        bestId === null ||
+        (!bestIsAdj && isAdj) ||
+        (bestIsAdj === isAdj && card > bestCard)
+      ) {
+        bestId = segId;
+        bestIsAdj = isAdj;
+        bestCard = card;
+      }
+    }
+
+    if (bestId === null) break;
+    remaining.delete(bestId);
+
+    const lineIds = segLineIds.get(bestId) ?? [];
+    if (lineIds.length <= 1) {
+      orderConfig.set(bestId, [...lineIds]);
+      settled.add(bestId);
+      continue;
+    }
+
+    const seg = segById.get(bestId);
+    if (seg === undefined) {
+      orderConfig.set(bestId, [...lineIds].sort(modeIdCmp));
+      settled.add(bestId);
+      continue;
+    }
+
+    // For each ordered pair, gather votes from both endpoints; prefer the
+    // endpoint with more settled neighbours (higher evidence count).
+    const pairBefore = new Map<string, boolean | null>();
+    for (const l1 of lineIds) {
+      for (const l2 of lineIds) {
+        if (l1 === l2) continue;
+        const fromV = smallerThanAtNode(
+          l1,
+          l2,
+          seg.startNodeId,
+          orderConfig,
+          nodeSegIds,
+          segById,
+          segLineIds,
+        );
+        const toV = smallerThanAtNode(
+          l1,
+          l2,
+          seg.endNodeId,
+          orderConfig,
+          nodeSegIds,
+          segById,
+          segLineIds,
+        );
+        const winner = fromV.evidence >= toV.evidence ? fromV : toV;
+        pairBefore.set(`${l1}\0${l2}`, winner.before);
+      }
+    }
+
+    const sorted = [...lineIds].sort((a, b) => {
+      const vote = pairBefore.get(`${a}\0${b}`);
+      if (vote === true) return -1;
+      if (vote === false) return 1;
+      return modeIdCmp(a, b);
+    });
+
+    orderConfig.set(bestId, sorted);
+    settled.add(bestId);
+  }
+
+  return orderConfig;
+}
+
 /**
  * Builds a GeoJSON FeatureCollection of transit lines from parsed `CityData`.
  *
  * @remarks
- * Each `TransitLine` becomes one or more `LineString` features by reconstructing
- * geometry from its `route: PathSegment[]` via the road segment graph.
- * Properties include `id`, `color` (CSS hex from .cslmap), and `mode`.
+ * Each `TransitLine` becomes one `LineString` feature **per road segment** it
+ * traverses. When multiple lines share the same road segment, their coordinates
+ * are pre-displaced in **geographic space** (WGS-84 degrees) perpendicular to
+ * the segment's actual direction, using:
+ *
+ * ```
+ * displacement = offsetMultiplier × spacingDeg × perpUnitVector
+ * ```
+ *
+ * where `perpUnitVector` is the 90°-clockwise rotation of the segment's
+ * stacking approach: the N lines sharing a segment are assigned decreasing
+ * `lineWidthMultiplier` values (N … 1). Each is painted at `multiplier × baseWidth`
+ * pixels, so they are drawn widest-first (background) to narrowest-last (foreground),
+ * producing equal-width visible colour bands — identical to CSLMapView's SVG technique.
+ * No perpendicular coordinate displacement is applied, so curves look clean.
  *
  * @param cityData - The immutable domain model produced by the CS1 parser.
  * @returns A GeoJSON FeatureCollection ready for `map.addSource()` in MapLibre.
@@ -403,6 +617,49 @@ export function buildTransitGeoJson(
   );
   const segById = new Map(cityData.roadSegments.map((s) => [s.id, s]));
 
+  // ── Step 1: collect unique line IDs per road segment ─────────────────────
+  // segmentId → ordered, deduplicated list of line IDs sharing that segment.
+  const segLineIds = new Map<string, string[]>();
+  const lineMode = new Map<string, TransitMode>();
+
+  for (const line of cityData.transitLines) {
+    lineMode.set(line.id, line.mode);
+    for (const pathSeg of line.route) {
+      for (const segId of pathSeg.segmentIds) {
+        let ids = segLineIds.get(segId);
+        if (ids === undefined) {
+          ids = [];
+          segLineIds.set(segId, ids);
+        }
+        if (!ids.includes(line.id)) ids.push(line.id);
+      }
+    }
+  }
+
+  // ── Step 1b: node → transit-segment adjacency (needed by greedy ordering) ──
+  const nodeSegIds = new Map<string, string[]>();
+  for (const segId of segLineIds.keys()) {
+    const seg = segById.get(segId);
+    if (seg === undefined) continue;
+    for (const nodeId of [seg.startNodeId, seg.endNodeId]) {
+      let bucket = nodeSegIds.get(nodeId);
+      if (bucket === undefined) {
+        bucket = [];
+        nodeSegIds.set(nodeId, bucket);
+      }
+      bucket.push(segId);
+    }
+  }
+
+  // ── Step 2: LOOM-style greedy ordering to minimise visual crossings ────────
+  const orderConfig = computeGreedyOrder(
+    segLineIds,
+    nodeSegIds,
+    segById,
+    lineMode,
+  );
+
+  // ── Step 3: emit one Feature per (line × road-segment) ───────────────────
   const features: TransitFeature[] = [];
 
   for (const line of cityData.transitLines) {
@@ -415,22 +672,50 @@ export function buildTransitGeoJson(
         const endNode = nodeById.get(seg.endNodeId);
         if (startNode === undefined || endNode === undefined) continue;
 
-        // One Feature per road segment: avoids diagonal artifacts that appear when
-        // consecutive segments share no common node and coords are merged into one LineString.
-        const coords: [number, number][] = [
-          csToGeoArray(startNode.position),
-          ...seg.points.map((p) => csToGeoArray(p)),
-          csToGeoArray(endNode.position),
-        ];
+        // Canonicalize direction: always emit coords from the lexicographically-smaller
+        // nodeId to the larger. This guarantees that every transit feature for the same
+        // road segment points in the same direction, so a consistent offsetMultiplier
+        // always lands on the same physical side of the road — even when the game stores
+        // adjacent segments in opposite directions along the same corridor.
+        const isCanonical = seg.startNodeId <= seg.endNodeId;
+        const coords: [number, number][] = isCanonical
+          ? [
+              csToGeoArray(startNode.position),
+              ...seg.points.map((p) => csToGeoArray(p)),
+              csToGeoArray(endNode.position),
+            ]
+          : [
+              csToGeoArray(endNode.position),
+              ...[...seg.points].reverse().map((p) => csToGeoArray(p)),
+              csToGeoArray(startNode.position),
+            ];
+
+        const ids = orderConfig.get(segId) ?? [line.id];
+        const n = ids.length;
+        const i = ids.indexOf(line.id);
+        // Background route (rank 0) gets the widest stroke (n); foreground (rank n-1) gets 1.
+        const lineWidthMultiplier = n - i;
 
         features.push({
           type: 'Feature',
           geometry: { type: 'LineString', coordinates: coords },
-          properties: { id: line.id, color: line.color, mode: line.mode },
+          properties: {
+            id: line.id,
+            color: line.color,
+            mode: line.mode,
+            lineWidthMultiplier,
+          },
         });
       }
     }
   }
+
+  // Sort widest-first so MapLibre draws background strokes before foreground ones,
+  // producing equal-width visible colour bands via the painter's algorithm.
+  features.sort(
+    (a, b) =>
+      b.properties.lineWidthMultiplier - a.properties.lineWidthMultiplier,
+  );
 
   return { type: 'FeatureCollection', features };
 }

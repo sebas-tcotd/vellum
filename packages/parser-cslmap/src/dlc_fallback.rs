@@ -65,6 +65,10 @@ pub fn is_known_item_class(item_class: &str) -> bool {
             | "Gravel Road"
             | "Landscaping Canal"
             | "Landscaping Flood Wall"
+            // Maritime infrastructure
+            | "Ferry Path"
+            // Pedestrian infrastructure
+            | "Pedestrian Bridge"
             // Invisible / virtual paths
             | "Airplane Path"
             | "Ship Path"

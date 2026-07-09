@@ -28,7 +28,8 @@ impl DistrictBuilder {
 
     pub(crate) fn handle_empty(&mut self, e: &quick_xml::events::BytesStart<'_>) {
         let local = e.name().local_name();
-        if local.as_ref() == b"p" && self.in_dist && self.current_position.is_none() {
+        if matches!(local.as_ref(), b"p" | b"P") && self.in_dist && self.current_position.is_none()
+        {
             self.current_position = Some(Vec3 {
                 x: attr_f64(e, b"x").unwrap_or(0.0),
                 y: attr_f64(e, b"y").unwrap_or(0.0),

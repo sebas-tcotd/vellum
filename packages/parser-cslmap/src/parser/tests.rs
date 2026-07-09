@@ -36,6 +36,27 @@ fn bus_line_excluded_from_road_segments() {
     assert!(!city.transit_lines.is_empty(), "expected transit lines");
 }
 
+// Landscaping tools (canals, flood walls, quays) are terrain-shaping geometry,
+// not roads — must never leak into road_segments (was rendering as fake 6-lane
+// roads). Quays are not inherently walkable/driveable per game docs.
+#[test]
+fn landscaping_structures_excluded_from_road_segments() {
+    let bytes = include_bytes!("../../fixtures/Island Hopping-20260610-173558.cslmap");
+    let result = parse_cslmap_bytes(bytes);
+    assert!(result.is_ok(), "expected Ok, got: {result:?}");
+    let city = result.expect("already checked");
+    let has_landscaping = city.road_segments.iter().any(|s| {
+        matches!(
+            s.item_class.as_str(),
+            "Landscaping Canal" | "Landscaping Flood Wall" | "Landscaping Quay"
+        )
+    });
+    assert!(
+        !has_landscaping,
+        "Landscaping Canal/Flood Wall/Quay must not appear in road_segments"
+    );
+}
+
 // Bus Line route reconstruction: each transit line assembles its full route from
 // per-stop-pair Bus Line virtual segs, keyed by (sn, en). Verifies with Altavento
 // fixture (36 Bus Line segs across 4 Trans: 16+20 stop pairs).
@@ -290,6 +311,90 @@ fn perf_10mb_file() {
         elapsed.as_millis() < 100,
         "Parser took {}ms, expected <100ms",
         elapsed.as_millis()
+    );
+}
+
+// Uppercase <P> tags (new CSLMapView exports, 2026-06) must parse segment points
+#[test]
+fn seg_points_parsed_from_uppercase_p_tags() {
+    let xml = br#"<CSLExportXML version="4.1">
+      <Nodes>
+        <Node id="1"><Pos x="0" y="0" z="0" /></Node>
+        <Node id="2"><Pos x="100" y="0" z="100" /></Node>
+      </Nodes>
+      <Segments>
+        <Seg id="1" sn="1" en="2" icls="Basic Road" width="8">
+          <Points>
+            <P x="10.0" y="5.0" z="20.0" />
+            <P x="50.0" y="5.0" z="50.0" />
+          </Points>
+        </Seg>
+      </Segments>
+    </CSLExportXML>"#;
+    let result = parse_cslmap_bytes(xml);
+    assert!(result.is_ok(), "expected Ok: {result:?}");
+    let city = result.expect("ok");
+    assert!(
+        !city.road_segments.is_empty(),
+        "expected at least one road segment"
+    );
+    assert!(
+        !city.road_segments[0].points.is_empty(),
+        "segment points must be non-empty when parsed from uppercase <P> tags, got 0 points"
+    );
+}
+
+// Game exports type="Ship" for all ferry/boat transit; must map to TransitMode::Ferry
+#[test]
+fn ship_transit_mode_maps_to_ferry() {
+    use crate::city_data::TransitMode;
+    let xml =
+        b"<CSLExportXML version=\"4.1\"><Transports><Trans id=\"1\" name=\"Ferry 1\" type=\"Ship\"></Trans></Transports></CSLExportXML>";
+    let result = parse_cslmap_bytes(xml);
+    assert!(result.is_ok(), "expected Ok: {result:?}");
+    let city = result.expect("ok");
+    assert_eq!(city.transit_lines.len(), 1);
+    assert!(
+        matches!(city.transit_lines[0].mode, TransitMode::Ferry),
+        "Ship type must map to TransitMode::Ferry, got {:?}",
+        city.transit_lines[0].mode
+    );
+}
+
+// Ship Line connectors emit <Sg>0</Sg> for open-water legs; must be filtered
+#[test]
+fn sg_zero_filtered_from_path_segs() {
+    let xml = br#"<CSLExportXML version="4.1">
+      <Nodes>
+        <Node id="1"><Pos x="0" y="0" z="0" /></Node>
+        <Node id="2"><Pos x="100" y="0" z="100" /></Node>
+      </Nodes>
+      <Segments>
+        <Seg id="99" sn="1" en="2" icls="Bus Line" width="0">
+          <Path><Segs><Sg>0</Sg><Sg>5</Sg></Segs></Path>
+        </Seg>
+      </Segments>
+      <Transports>
+        <Trans id="1" name="Bus 1" type="Bus">
+          <Stops>
+            <Stop node="1" />
+            <Stop node="2" />
+          </Stops>
+        </Trans>
+      </Transports>
+    </CSLExportXML>"#;
+    let result = parse_cslmap_bytes(xml);
+    assert!(result.is_ok(), "expected Ok: {result:?}");
+    let city = result.expect("ok");
+    assert!(!city.transit_lines.is_empty(), "expected transit lines");
+    let has_zero = city.transit_lines.iter().any(|line| {
+        line.route
+            .iter()
+            .any(|path| path.segment_ids.contains(&"0".to_string()))
+    });
+    assert!(
+        !has_zero,
+        "<Sg>0</Sg> null references must be filtered from route segment_ids"
     );
 }
 
