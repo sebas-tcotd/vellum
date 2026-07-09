@@ -36,21 +36,24 @@ fn bus_line_excluded_from_road_segments() {
     assert!(!city.transit_lines.is_empty(), "expected transit lines");
 }
 
-// Landscaping tools (canals, flood walls) are terrain-shaping geometry, not
-// roads — must never leak into road_segments (was rendering as fake 6-lane roads).
+// Landscaping tools (canals, flood walls, quays) are terrain-shaping geometry,
+// not roads — must never leak into road_segments (was rendering as fake 6-lane
+// roads). Quays are not inherently walkable/driveable per game docs.
 #[test]
 fn landscaping_structures_excluded_from_road_segments() {
     let bytes = include_bytes!("../../fixtures/Island Hopping-20260610-173558.cslmap");
     let result = parse_cslmap_bytes(bytes);
     assert!(result.is_ok(), "expected Ok, got: {result:?}");
     let city = result.expect("already checked");
-    let has_landscaping = city
-        .road_segments
-        .iter()
-        .any(|s| s.item_class == "Landscaping Canal" || s.item_class == "Landscaping Flood Wall");
+    let has_landscaping = city.road_segments.iter().any(|s| {
+        matches!(
+            s.item_class.as_str(),
+            "Landscaping Canal" | "Landscaping Flood Wall" | "Landscaping Quay"
+        )
+    });
     assert!(
         !has_landscaping,
-        "Landscaping Canal/Flood Wall must not appear in road_segments"
+        "Landscaping Canal/Flood Wall/Quay must not appear in road_segments"
     );
 }
 

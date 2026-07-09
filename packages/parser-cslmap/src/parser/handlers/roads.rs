@@ -254,11 +254,13 @@ impl RoadBuilder {
                         return;
                     }
 
-                    // Landscaping tools (canals, flood walls) are terrain-shaping
+                    // Landscaping tools (canals, flood walls, quays) are terrain-shaping
                     // geometry, not traversable roads — never rendered as road segments.
+                    // Quays are not inherently walkable/driveable per game docs:
+                    // https://skylines.paradoxwikis.com/Landscaping_and_Disasters
                     if matches!(
                         seg.item_class.as_str(),
-                        "Landscaping Canal" | "Landscaping Flood Wall"
+                        "Landscaping Canal" | "Landscaping Flood Wall" | "Landscaping Quay"
                     ) {
                         return;
                     }
