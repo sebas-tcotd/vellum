@@ -54,6 +54,7 @@ function makeBuilding(overrides?: Partial<Building>): Building {
     id: 'building-1',
     position: { x: -1000, y: 60, z: -1000 },
     itemClass: 'Residential',
+    serviceType: 'unknown',
     footprint: triangleFootprint(),
     ...overrides,
   };

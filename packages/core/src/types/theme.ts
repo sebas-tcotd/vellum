@@ -1,9 +1,10 @@
-// Stubs — full implementation will be completed in Story 5.x (theme-engine)
+import type { BuildingServiceType } from './city-data';
+import type { ColorToken } from './color-tokens';
 
 /**
  * Describes the structural definition of a `.vellumstyle` file.
  * @remarks
- * Currently a stub. The complete style field schema will be defined in Story 5.x.
+ * Currently a stub. The complete style field schema will be defined in Story 5.1.
  */
 export interface VellumStyle {
   /** Schema version for backward compatibility and validation.
@@ -13,37 +14,189 @@ export interface VellumStyle {
   name: string;
 }
 
-/**
- * Defines the visual appearance of a stroked path or line using the `fixed + scaled` sizing model.
- * * @remarks
- * **CRITICAL INVARIANT:** Never precalculate or flatten the width into a single value.
- * The rendering engine must dynamically compute the final width on every frame using the formula:
- * `totalWidth = fixedWidth + (scaledWidth * zoomFactor)`
- */
-export interface LineStyle {
-  /** Hexadecimal color string (e.g., '#FFFFFF'). */
-  colorHex: string;
-  /** The baseline width in canvas pixels that remains constant regardless of the camera's zoom level.
-   * Ensures the line remains visible even when fully zoomed out. */
-  fixedWidth: number;
-  /** The proportional width component that scales linearly with the camera's zoom factor. */
-  scaledWidth: number;
-  /** Alpha transparency level, ranging from 0.0 (fully transparent) to 1.0 (fully opaque). */
-  opacity: number;
+/** Fill and casing (outline) colors shared by every road tier leaf. */
+export interface RoadCategoryColors {
+  /** Color of the road surface itself. */
+  fill: ColorToken;
+  /** Color of the outline drawn around the fill — creates figure-ground contrast on neutral terrain. */
+  casing: ColorToken;
 }
 
-/** A mapping dictionary that associates specific `WayType` string keys to their visual representation. */
-export interface RoadStyleParams {
-  [wayType: string]: LineStyle;
+/**
+ * Road colors grouped by semantic tier, mirroring the `ITEM_CLASS_TIER` classification
+ * used by `classifyRoadSegment`/`classifyRoadTier` in the renderer.
+ * @remarks
+ * Widths are NOT part of this contract — they are renderer constants following the
+ * `fixed + scaled` model (see `road-width.ts`). Never add a `width` field here.
+ */
+export interface RoadColorParams {
+  /** Mainline highways and their connector ramps. */
+  highway: { generic: RoadCategoryColors; industrial: RoadCategoryColors };
+  /** 6-lane-equivalent arterials. */
+  largeArterial: {
+    generic: RoadCategoryColors;
+    industrial: RoadCategoryColors;
+  };
+  /** 4-lane-equivalent arterials (same physical width as `largeArterial` in-game — distinguished by color, not width). */
+  mediumArterial: {
+    generic: RoadCategoryColors;
+    industrial: RoadCategoryColors;
+  };
+  /** 2-lane local streets. */
+  local: {
+    generic: RoadCategoryColors;
+    industrial: RoadCategoryColors;
+    gravel: RoadCategoryColors;
+  };
+  /** Pedestrian-only ways. */
+  pedestrian: {
+    path: RoadCategoryColors;
+    way: RoadCategoryColors;
+    street: RoadCategoryColors;
+  };
+  /** Rail-based transit infrastructure. */
+  rail: {
+    train: RoadCategoryColors;
+    tram: RoadCategoryColors;
+    monorail: RoadCategoryColors;
+    metro: RoadCategoryColors;
+  };
+}
+
+/** Fill and stroke colors shared by every building category leaf. */
+export interface BuildingCategoryColors {
+  /** Fill color of the building footprint. */
+  fill: ColorToken;
+  /** Stroke color of the building outline. */
+  stroke: ColorToken;
+}
+
+/**
+ * Building colors grouped by zoning category, keyed off `Building.serviceType`
+ * (mapped from the `.cslmap` `subsrv` attribute). See `BUILDING_SERVICE_TYPE_CATEGORY`
+ * for the `serviceType` → category lookup used when resolving a `Building` to its colors.
+ */
+export interface BuildingColorParams {
+  /** Residential zoning density variants. */
+  residential: {
+    low: BuildingCategoryColors;
+    high: BuildingCategoryColors;
+    selfSufficient: BuildingCategoryColors;
+  };
+  /** Commercial zoning variants. */
+  commercial: {
+    low: BuildingCategoryColors;
+    high: BuildingCategoryColors;
+    leisure: BuildingCategoryColors;
+    tourism: BuildingCategoryColors;
+    organic: BuildingCategoryColors;
+  };
+  /** Office zoning variants. */
+  office: {
+    generic: BuildingCategoryColors;
+    tech: BuildingCategoryColors;
+    financial: BuildingCategoryColors;
+  };
+  /** Industrial zoning variants (yellow-hued palette shades). */
+  industry: {
+    generic: BuildingCategoryColors;
+    forestry: BuildingCategoryColors;
+    ore: BuildingCategoryColors;
+    oil: BuildingCategoryColors;
+    farming: BuildingCategoryColors;
+  };
+  /** Civic and service buildings. */
+  civic: {
+    publicTransport: BuildingCategoryColors;
+    education: BuildingCategoryColors;
+    services: BuildingCategoryColors;
+  };
+  /** Landmarks and unzoned buildings (`subsrv="None"` — the most frequent case). */
+  none: BuildingCategoryColors;
 }
 
 /**
  * The comprehensive styling configuration produced by the `@vellum/theme-engine`.
  * @remarks
- * Passed directly to the rendering engine to dictate visual output independently of the immutable `CityData`.
- * Additional style groupings (transit, buildings, etc.) will be added in Story 5.x.
+ * Passed directly to `IRenderer.applyTheme()` to dictate visual output independently
+ * of the immutable `CityData`. Renderer-agnostic by design: applies equally to
+ * `map.setPaintProperty()` calls (MapLibre) or any future rendering backend.
  */
 export interface RenderStyleParams {
-  /** Style mappings specifically for the road network. */
-  roads: RoadStyleParams;
+  /** Background color behind the terrain (visible outside the map bounds). */
+  mapBackground: ColorToken;
+  /** Elevation-gradient colors for the terrain texture. */
+  terrain: {
+    /** Base/flat elevation color. */
+    base: ColorToken;
+    /** Low elevation color. */
+    low: ColorToken;
+    /** Mid elevation color. */
+    mid: ColorToken;
+    /** High elevation color. */
+    high: ColorToken;
+  };
+  /** Color of water bodies (sea and inland water). */
+  water: ColorToken;
+  /** Color of forest/vegetation density markers. */
+  forests: ColorToken;
+  /** Background color for the transit layer's dimming overlay. */
+  transitBackground: ColorToken;
+  /** Road network colors, grouped by tier. */
+  roads: RoadColorParams;
+  /** Building colors, grouped by zoning category. */
+  buildings: BuildingColorParams;
+  /** District overlay colors. */
+  districts: {
+    /** Fill color of the district marker. */
+    fill: ColorToken;
+    /** Text color of the district label. */
+    label: ColorToken;
+  };
 }
+
+/**
+ * Lookup from `Building.serviceType` (raw `.cslmap` `subsrv` value) to the
+ * `BuildingColorParams` path that should color it.
+ * @remarks
+ * This is consumption logic for the renderer/theme-engine — the parser never
+ * normalizes `subsrv`, it copies the raw string into `serviceType` as-is.
+ * Unrecognized values (including the `'unknown'` fallback) resolve to `civic.services`.
+ */
+export const BUILDING_SERVICE_TYPE_CATEGORY: Record<
+  Exclude<BuildingServiceType, 'unknown'>,
+  string
+> = {
+  ResidentialLow: 'residential.low',
+  ResidentialHigh: 'residential.high',
+  ResidentialLowEco: 'residential.selfSufficient',
+  ResidentialHighEco: 'residential.selfSufficient',
+  CommercialLow: 'commercial.low',
+  CommercialHigh: 'commercial.high',
+  CommercialLeisure: 'commercial.leisure',
+  CommercialTourist: 'commercial.tourism',
+  CommercialEco: 'commercial.organic',
+  IndustrialGeneric: 'industry.generic',
+  IndustrialForestry: 'industry.forestry',
+  IndustrialOre: 'industry.ore',
+  IndustrialOil: 'industry.oil',
+  IndustrialFarming: 'industry.farming',
+  PlayerIndustryForestry: 'industry.forestry',
+  OfficeGeneric: 'office.generic',
+  OfficeHightech: 'office.tech',
+  OfficeFinancial: 'office.financial',
+  PublicTransportBus: 'civic.publicTransport',
+  PublicTransportTrain: 'civic.publicTransport',
+  PublicTransportTram: 'civic.publicTransport',
+  PublicTransportMetro: 'civic.publicTransport',
+  PublicTransportShip: 'civic.publicTransport',
+  PublicTransportPlane: 'civic.publicTransport',
+  PublicTransportCableCar: 'civic.publicTransport',
+  PublicTransportTaxi: 'civic.publicTransport',
+  PublicTransportTours: 'civic.publicTransport',
+  PublicTransportPost: 'civic.publicTransport',
+  PlayerEducationTradeSchool: 'civic.education',
+  PlayerEducationUniversity: 'civic.education',
+  BeautificationParks: 'civic.services',
+  None: 'none',
+};

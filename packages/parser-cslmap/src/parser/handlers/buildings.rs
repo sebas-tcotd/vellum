@@ -11,6 +11,7 @@ pub(crate) struct BuildingBuilder {
     current_id: String,
     current_name: String,
     current_icls: String,
+    current_subsrv: String,
     in_points: bool,
     current_footprint: Vec<Vec3>,
 
@@ -26,6 +27,7 @@ impl BuildingBuilder {
                 self.current_id = attr_str(e, b"id").unwrap_or_default();
                 self.current_name = attr_str(e, b"name").unwrap_or_default();
                 self.current_icls = attr_str(e, b"icls").unwrap_or_default();
+                self.current_subsrv = attr_str(e, b"subsrv").unwrap_or_default();
                 self.current_footprint.clear();
             }
             b"Points" if self.in_buil => {
@@ -71,6 +73,7 @@ impl BuildingBuilder {
                     name: std::mem::take(&mut self.current_name),
                     position,
                     item_class: std::mem::take(&mut self.current_icls),
+                    service_type: std::mem::take(&mut self.current_subsrv),
                     footprint,
                 });
                 self.in_buil = false;

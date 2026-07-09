@@ -9,13 +9,13 @@ import type { CityData } from '@vellum/core';
 import type maplibregl from 'maplibre-gl';
 import { buildDistrictsGeoJson } from '../geojson-builder';
 import { addLayerIfAbsent, addSourceIfAbsent } from '../helpers';
-import type { RendererTokens } from '../tokens';
+import type { ResolvedColors } from '../style-adapter';
 
 /** Adds districts source and circle layer with fill + stroke. */
 export function addDistrictsLayer(
   map: maplibregl.Map,
   cityData: CityData,
-  tokens: RendererTokens,
+  colors: ResolvedColors,
 ): void {
   addSourceIfAbsent(map, 'districts', {
     type: 'geojson',
@@ -27,9 +27,9 @@ export function addDistrictsLayer(
     type: 'circle',
     source: 'districts',
     paint: {
-      'circle-color': tokens.districtFill,
+      'circle-color': colors.districtFill,
       'circle-radius': 6,
-      'circle-stroke-color': tokens.districtLabel,
+      'circle-stroke-color': colors.districtLabel,
       'circle-stroke-width': 1,
     },
   });

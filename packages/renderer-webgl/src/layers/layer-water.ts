@@ -9,7 +9,7 @@ import type { CityData } from '@vellum/core';
 import type maplibregl from 'maplibre-gl';
 import { buildLandPolygonGeoJson, buildWaterGeoJson } from '../geojson-builder';
 import { addLayerIfAbsent, addSourceIfAbsent } from '../helpers';
-import type { RendererTokens } from '../tokens';
+import type { ResolvedColors } from '../style-adapter';
 
 /**
  * Adds a single GeoJSON source holding both the full-world-extent water polygon
@@ -19,7 +19,7 @@ import type { RendererTokens } from '../tokens';
 export function addBaseLayer(
   map: maplibregl.Map,
   cityData: CityData,
-  tokens: RendererTokens,
+  colors: ResolvedColors,
 ): void {
   const waterFeatures = buildWaterGeoJson().features.map((f) => ({
     ...f,
@@ -47,7 +47,7 @@ export function addBaseLayer(
       ['get', 'kind'],
       'water',
     ] as unknown as maplibregl.ExpressionSpecification,
-    paint: { 'fill-color': tokens.water, 'fill-opacity': 1 },
+    paint: { 'fill-color': colors.water, 'fill-opacity': 1 },
   });
 
   addLayerIfAbsent(map, {
@@ -59,6 +59,6 @@ export function addBaseLayer(
       ['get', 'kind'],
       'land',
     ] as unknown as maplibregl.ExpressionSpecification,
-    paint: { 'fill-color': tokens.terrain, 'fill-opacity': 1 },
+    paint: { 'fill-color': colors.land, 'fill-opacity': 1 },
   });
 }

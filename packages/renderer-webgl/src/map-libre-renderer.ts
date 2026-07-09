@@ -21,9 +21,11 @@ import {
   type IRenderer,
   type LayerName,
   type RenderParams,
+  type RenderStyleParams,
   type TransitMode,
 } from '@vellum/core';
 import maplibregl from 'maplibre-gl';
+import { buildRoadColorExpression } from './expressions/road-color';
 import { getCityBoundsGeoJSON } from './helpers';
 import {
   subscribeHover as subscribeHoverImpl,
@@ -40,7 +42,7 @@ import {
   addTransitLayers,
   createBaseStyle,
 } from './layers';
-import type { RendererTokens } from './tokens';
+import { resolveColors, type ResolvedColors } from './style-adapter';
 
 // ─── Hover tooltip types ──────────────────────────────────────────────────────
 
@@ -101,7 +103,7 @@ export interface ViewportBounds {
  */
 export class MapLibreRenderer implements IRenderer {
   private readonly map: maplibregl.Map;
-  private readonly tokens: RendererTokens;
+  private colors: ResolvedColors;
   private cityData: CityData | null = null;
   private navigationMode: 'strict' | 'soft' = 'soft';
   private isSnappingBack = false;
@@ -111,10 +113,10 @@ export class MapLibreRenderer implements IRenderer {
    * Creates a new `MapLibreRenderer` and attaches it to the given container.
    *
    * @param container - A DOM div that MapLibre will populate.
-   * @param tokens - Design tokens read from CSS custom properties at mount time.
+   * @param style - Initial theme colors, applied to the base map style at construction.
    */
-  constructor(container: HTMLDivElement, tokens: RendererTokens) {
-    this.tokens = tokens;
+  constructor(container: HTMLDivElement, style: RenderStyleParams) {
+    this.colors = resolveColors(style);
 
     this.map = new maplibregl.Map({
       container,
@@ -123,7 +125,7 @@ export class MapLibreRenderer implements IRenderer {
       attributionControl: false,
       renderWorldCopies: false,
       maxZoom: 18,
-      style: createBaseStyle(tokens),
+      style: createBaseStyle(this.colors),
     });
   }
 
@@ -176,6 +178,46 @@ export class MapLibreRenderer implements IRenderer {
    */
   resize(_width: number, _height: number): void {
     // MapLibre listens to container resize via ResizeObserver automatically.
+  }
+
+  /**
+   * Applies a new set of theme colors to every currently-registered layer via
+   * `map.setPaintProperty()` — no source re-processing, no renderer teardown.
+   *
+   * @remarks
+   * Safe to call before a city is loaded (layers that don't exist yet are
+   * skipped) and safe to call repeatedly. Road colors are re-derived as
+   * data-driven `match` expressions since road color varies by tier.
+   */
+  async applyTheme(style: RenderStyleParams): Promise<void> {
+    this.colors = resolveColors(style);
+    const c = this.colors;
+
+    this.setPaintIfExists('background', 'background-color', c.background);
+    this.setPaintIfExists('base-water', 'fill-color', c.water);
+    this.setPaintIfExists('base-land', 'fill-color', c.land);
+    this.setPaintIfExists('coastline-layer', 'line-color', c.coastlineStroke);
+    this.setPaintIfExists('forests-circles', 'circle-color', c.forests);
+    this.setPaintIfExists('buildings-fill', 'fill-color', c.buildingFill);
+    this.setPaintIfExists('buildings-outline', 'line-color', c.buildingStroke);
+    this.setPaintIfExists('districts-points', 'circle-color', c.districtFill);
+    this.setPaintIfExists(
+      'districts-points',
+      'circle-stroke-color',
+      c.districtLabel,
+    );
+
+    const fillExpr = buildRoadColorExpression(c, 'fill');
+    const casingExpr = buildRoadColorExpression(c, 'casing');
+    this.setPaintIfExists('roads-fill', 'line-color', fillExpr);
+    this.setPaintIfExists('roads-tunnel-bridge-fill', 'line-color', fillExpr);
+    this.setPaintIfExists('roads-casing', 'line-color', casingExpr);
+    this.setPaintIfExists(
+      'roads-tunnel-bridge-casing',
+      'line-color',
+      casingExpr,
+    );
+    this.setPaintIfExists('roads-railway-casing', 'line-color', casingExpr);
   }
 
   /** Removes the MapLibre map and releases all GPU resources. */
@@ -324,13 +366,23 @@ export class MapLibreRenderer implements IRenderer {
 
   private async addSourcesAndLayers(cityData: CityData): Promise<void> {
     await addGridPattern(this.map);
-    addBaseLayer(this.map, cityData, this.tokens);
-    addTerrainLayers(this.map, cityData, this.tokens);
-    addForestsLayer(this.map, cityData);
-    addBuildingsLayer(this.map, cityData, this.tokens);
-    addRoadsLayer(this.map, cityData, this.tokens);
+    addBaseLayer(this.map, cityData, this.colors);
+    addTerrainLayers(this.map, cityData, this.colors);
+    addForestsLayer(this.map, cityData, this.colors);
+    addBuildingsLayer(this.map, cityData, this.colors);
+    addRoadsLayer(this.map, cityData, this.colors);
     addTransitLayers(this.map, cityData);
-    addDistrictsLayer(this.map, cityData, this.tokens);
+    addDistrictsLayer(this.map, cityData, this.colors);
+  }
+
+  /** Sets a paint property only if the layer currently exists (a theme may be applied before a city is loaded). */
+  private setPaintIfExists(
+    layerId: string,
+    prop: string,
+    value: unknown,
+  ): void {
+    if (!this.map.getLayer(layerId)) return;
+    this.map.setPaintProperty(layerId, prop as never, value as never);
   }
 
   /** Fits the MapLibre viewport to the city's geographic bounding box. */

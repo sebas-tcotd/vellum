@@ -13,7 +13,7 @@ import {
   buildContourLinesGeoJson,
 } from '../geojson-builder';
 import { addLayerIfAbsent, addSourceIfAbsent } from '../helpers';
-import type { RendererTokens } from '../tokens';
+import type { ResolvedColors } from '../style-adapter';
 
 /**
  * Adds terrain image source, coastline layer, and contour lines layer.
@@ -26,10 +26,10 @@ import type { RendererTokens } from '../tokens';
 export function addTerrainLayers(
   map: maplibregl.Map,
   cityData: CityData,
-  tokens: RendererTokens,
+  colors: ResolvedColors,
 ): void {
   addTerrainImageSource(map, cityData);
-  addCoastlineLayer(map, cityData, tokens);
+  addCoastlineLayer(map, cityData, colors);
   addContourLinesLayer(map, cityData);
 }
 
@@ -78,7 +78,7 @@ function addTerrainImageSource(map: maplibregl.Map, cityData: CityData): void {
 function addCoastlineLayer(
   map: maplibregl.Map,
   cityData: CityData,
-  tokens: RendererTokens,
+  colors: ResolvedColors,
 ): void {
   addSourceIfAbsent(map, 'coastline-source', {
     type: 'geojson',
@@ -91,7 +91,7 @@ function addCoastlineLayer(
     source: 'coastline-source',
     layout: { 'line-cap': 'round', 'line-join': 'round' },
     paint: {
-      'line-color': tokens.coastlineStroke,
+      'line-color': colors.coastlineStroke,
       'line-width': 4,
       'line-opacity': 0.8,
     },

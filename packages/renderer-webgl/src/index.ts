@@ -6,4 +6,3 @@ export {
   TooltipInfo,
   ViewportBounds,
 } from './map-libre-renderer';
-export * from './tokens';
