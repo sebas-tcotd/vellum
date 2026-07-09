@@ -5,7 +5,7 @@ import {
   makeTransitLine,
 } from '@vellum/core/testing';
 import type { RoadNode } from '@vellum/core';
-import { buildTransitGeoJson } from './geojson-builder';
+import { buildRoadsGeoJson, buildTransitGeoJson } from './geojson-builder';
 
 // ─── Shared fixtures ──────────────────────────────────────────────────────────
 
@@ -292,5 +292,43 @@ describe('buildTransitGeoJson — canonical direction normalization', () => {
     // Even though stored as node-b→node-a, canonical order is node-a→node-b,
     // so first coord (NODE_A, x≈0) should come before last (NODE_B, x≈some larger lng)
     expect(coords[0][0]).toBeLessThan(coords[coords.length - 1][0]);
+  });
+});
+
+// ─── buildRoadsGeoJson — road tier classification ───────────────────────────
+
+describe('buildRoadsGeoJson — tier classification', () => {
+  it('classifies Metro Track as railway tier, not width-based fallback', () => {
+    const segment = makeRoadSegment({
+      id: 'metro-1',
+      startNodeId: 'node-a',
+      endNodeId: 'node-b',
+      itemClass: 'Metro Track',
+      width: 30, // wide enough to fall into 'largeArterial' via width fallback if unmapped
+    });
+    const city = makeCityData({
+      roadNodes: [NODE_A, NODE_B],
+      roadSegments: [segment],
+    });
+
+    const fc = buildRoadsGeoJson(city);
+    expect(fc.features[0].properties.tier).toBe('railway');
+  });
+
+  it('classifies Train Track as railway tier (baseline, unchanged)', () => {
+    const segment = makeRoadSegment({
+      id: 'train-1',
+      startNodeId: 'node-a',
+      endNodeId: 'node-b',
+      itemClass: 'Train Track',
+      width: 30,
+    });
+    const city = makeCityData({
+      roadNodes: [NODE_A, NODE_B],
+      roadSegments: [segment],
+    });
+
+    const fc = buildRoadsGeoJson(city);
+    expect(fc.features[0].properties.tier).toBe('railway');
   });
 });

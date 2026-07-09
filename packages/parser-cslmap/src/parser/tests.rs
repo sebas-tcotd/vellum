@@ -36,6 +36,24 @@ fn bus_line_excluded_from_road_segments() {
     assert!(!city.transit_lines.is_empty(), "expected transit lines");
 }
 
+// Landscaping tools (canals, flood walls) are terrain-shaping geometry, not
+// roads — must never leak into road_segments (was rendering as fake 6-lane roads).
+#[test]
+fn landscaping_structures_excluded_from_road_segments() {
+    let bytes = include_bytes!("../../fixtures/Island Hopping-20260610-173558.cslmap");
+    let result = parse_cslmap_bytes(bytes);
+    assert!(result.is_ok(), "expected Ok, got: {result:?}");
+    let city = result.expect("already checked");
+    let has_landscaping = city
+        .road_segments
+        .iter()
+        .any(|s| s.item_class == "Landscaping Canal" || s.item_class == "Landscaping Flood Wall");
+    assert!(
+        !has_landscaping,
+        "Landscaping Canal/Flood Wall must not appear in road_segments"
+    );
+}
+
 // Bus Line route reconstruction: each transit line assembles its full route from
 // per-stop-pair Bus Line virtual segs, keyed by (sn, en). Verifies with Altavento
 // fixture (36 Bus Line segs across 4 Trans: 16+20 stop pairs).

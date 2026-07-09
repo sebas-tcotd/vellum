@@ -296,6 +296,7 @@ const ITEM_CLASS_TIER: Readonly<Record<string, RoadTier>> = {
   'Pedestrian Way': 'pedestrianWay',
   'Pedestrian Path': 'pedestrianWay',
   'Train Track': 'railway',
+  'Metro Track': 'railway',
   'Highway Tunnel': 'highway',
   'Large Road Tunnel': 'largeArterial',
   'Medium Road Tunnel': 'mediumArterial',

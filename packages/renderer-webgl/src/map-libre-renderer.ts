@@ -15,12 +15,13 @@
  * the Mercator distortion at zero (scale factor = 1.0 at the equator).
  */
 
-import type {
-  CityData,
-  IRenderer,
-  LayerName,
-  RenderParams,
-  TransitMode,
+import {
+  LAYER_NAMES,
+  type CityData,
+  type IRenderer,
+  type LayerName,
+  type RenderParams,
+  type TransitMode,
 } from '@vellum/core';
 import maplibregl from 'maplibre-gl';
 import { getCityBoundsGeoJSON } from './helpers';
@@ -133,12 +134,15 @@ export class MapLibreRenderer implements IRenderer {
    * If the style is not yet loaded, rendering is deferred to the `load` event.
    * After sources are added, the map is fitted to the city bounding box.
    */
-  render(cityData: CityData, _params: RenderParams): Promise<void> {
+  render(cityData: CityData, params: RenderParams): Promise<void> {
     this.cityData = cityData;
 
     return new Promise((resolve) => {
       const doRender = async (): Promise<void> => {
         await this.addSourcesAndLayers(cityData);
+        for (const layer of LAYER_NAMES) {
+          this.setLayerVisibility(layer, params.activeLayers[layer]);
+        }
         this.fitToCityBounds(cityData);
         this.fitToScreenZoom = this.map.getZoom();
         this.applyNavigationConstraints(cityData);

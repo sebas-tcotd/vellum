@@ -254,6 +254,15 @@ impl RoadBuilder {
                         return;
                     }
 
+                    // Landscaping tools (canals, flood walls) are terrain-shaping
+                    // geometry, not traversable roads — never rendered as road segments.
+                    if matches!(
+                        seg.item_class.as_str(),
+                        "Landscaping Canal" | "Landscaping Flood Wall"
+                    ) {
+                        return;
+                    }
+
                     if !dlc_fallback::is_known_item_class(&seg.item_class) {
                         let hierarchy = dlc_fallback::classify_by_width(seg.width);
                         self.warnings.push(format!(

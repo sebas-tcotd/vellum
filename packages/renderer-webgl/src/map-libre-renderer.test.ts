@@ -224,6 +224,31 @@ describe('MapLibreRenderer', () => {
     );
   });
 
+  it('render() applies activeLayers immediately, without a second toggle', async () => {
+    const renderer = makeRenderer();
+    mockMap.getLayer.mockReturnValue({ id: 'any' } as unknown as undefined);
+
+    await renderer.render(makeCityData(), {
+      activeLayers: { ...ALL_LAYERS_VISIBLE, roads: false },
+    });
+
+    expect(mockMap.setLayoutProperty).toHaveBeenCalledWith(
+      'roads-casing',
+      'visibility',
+      'none',
+    );
+    expect(mockMap.setLayoutProperty).toHaveBeenCalledWith(
+      'roads-fill',
+      'visibility',
+      'none',
+    );
+    expect(mockMap.setLayoutProperty).toHaveBeenCalledWith(
+      'terrain-fill',
+      'visibility',
+      'visible',
+    );
+  });
+
   it('setLayerVisibility is a safe no-op when layers do not exist yet', () => {
     const renderer = makeRenderer();
     // No render() call — layers never added, getLayer returns undefined
