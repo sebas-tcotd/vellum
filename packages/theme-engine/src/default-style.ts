@@ -56,6 +56,7 @@ export const DEFAULT_RENDER_STYLE_PARAMS: RenderStyleParams = {
       monorail: road('#eceff1', '#455a64'),
       metro: road('#eceff1', '#455a64'),
     },
+    ferry: road('#1A5276', '#1A5276'),
   },
   buildings: {
     residential: {

@@ -54,6 +54,8 @@ export interface ResolvedColors {
   roadFill: Record<RoadTier, string>;
   /** Road casing (outline) color per tier, keyed by `RoadTier`. */
   roadCasing: Record<RoadTier, string>;
+  /** Ferry / ship path line color. */
+  ferry: string;
 }
 
 /** Derives the flat `ResolvedColors` lookup from a `RenderStyleParams` theme. */
@@ -90,5 +92,6 @@ export function resolveColors(style: RenderStyleParams): ResolvedColors {
       pedestrianWay: roads.pedestrian.way.casing,
       railway: roads.rail.train.casing,
     },
+    ferry: roads.ferry.fill,
   };
 }

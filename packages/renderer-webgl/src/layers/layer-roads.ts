@@ -122,7 +122,7 @@ export function addRoadsLayer(
     filter: ['==', ['get', 'itemClass'], 'Ferry Path'],
     layout: { 'line-cap': 'butt', 'line-join': 'round' },
     paint: {
-      'line-color': '#1A5276',
+      'line-color': colors.ferry,
       'line-opacity': 0.65,
       'line-width': [
         'interpolate',

@@ -218,6 +218,7 @@ export class MapLibreRenderer implements IRenderer {
       casingExpr,
     );
     this.setPaintIfExists('roads-railway-casing', 'line-color', casingExpr);
+    this.setPaintIfExists('roads-ferry', 'line-color', c.ferry);
   }
 
   /** Removes the MapLibre map and releases all GPU resources. */

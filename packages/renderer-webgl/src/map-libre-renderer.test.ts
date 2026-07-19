@@ -95,6 +95,7 @@ const MOCK_STYLE: RenderStyleParams = {
       monorail: roadColors('#eceff1', '#455a64'),
       metro: roadColors('#eceff1', '#455a64'),
     },
+    ferry: roadColors('#1A5276', '#1A5276'),
   },
   buildings: {
     residential: {

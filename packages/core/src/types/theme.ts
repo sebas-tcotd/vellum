@@ -61,6 +61,8 @@ export interface RoadColorParams {
     monorail: RoadCategoryColors;
     metro: RoadCategoryColors;
   };
+  /** Ferry / ship path water transit routes. */
+  ferry: RoadCategoryColors;
 }
 
 /** Fill and stroke colors shared by every building category leaf. */
