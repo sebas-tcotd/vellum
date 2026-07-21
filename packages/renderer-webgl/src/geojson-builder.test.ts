@@ -355,10 +355,10 @@ describe('buildTransitRenderData — connectors and stations', () => {
     expect(stations.features).toHaveLength(1);
     const station = stations.features[0];
     expect(station.geometry.type).toBe('Polygon');
-    // Closed ring of the rotated rectangle.
+    // Closed rounded ring (more than 4 corners of a plain rectangle).
     const ring = station.geometry.coordinates[0];
-    expect(ring).toHaveLength(5);
-    expect(ring[0]).toEqual(ring[4]);
+    expect(ring.length).toBeGreaterThan(5);
+    expect(ring[0]).toEqual(ring[ring.length - 1]);
     const lines = JSON.parse(station.properties.lines) as Array<{
       name: string;
     }>;

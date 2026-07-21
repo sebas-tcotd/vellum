@@ -292,8 +292,8 @@ describe('buildRenderGeometry — inner connections (Bézier)', () => {
   });
 });
 
-describe('buildRenderGeometry — stations (§5.4 rotated rectangles)', () => {
-  it('produces a closed rectangle centered near the stop, spanning the bundle', () => {
+describe('buildRenderGeometry — stations (§5.4 rounded markers)', () => {
+  it('produces a closed rounded ring centered near the stop', () => {
     const line = makeTransitLine({
       id: 'L1',
       route: [{ segmentIds: ['seg-1'] }],
@@ -309,13 +309,92 @@ describe('buildRenderGeometry — stations (§5.4 rotated rectangles)', () => {
     const { geometry } = buildGeom(city);
     expect(geometry.stations).toHaveLength(1);
     const ring = geometry.stations[0].polygon;
-    expect(ring).toHaveLength(5);
-    expect(ring[0]).toEqual(ring[4]);
-    // Centroid of the rectangle projects onto the corridor (z≈0), near x=50.
-    const cx = ring.slice(0, 4).reduce((s, p) => s + p.x, 0) / 4;
-    const cz = ring.slice(0, 4).reduce((s, p) => s + p.z, 0) / 4;
+    // Rounded ring: 4 corners × (steps+1) points + closing vertex.
+    expect(ring.length).toBeGreaterThan(5);
+    expect(ring[0]).toEqual(ring[ring.length - 1]);
+    // Marker centroid projects onto the corridor (z≈0), near x=50.
+    const body = ring.slice(0, ring.length - 1);
+    const cx = body.reduce((s, p) => s + p.x, 0) / body.length;
+    const cz = body.reduce((s, p) => s + p.z, 0) / body.length;
     expect(cx).toBeCloseTo(50, 0);
     expect(cz).toBeCloseTo(0, 1);
+  });
+
+  it('REGRESSION: marker spans ONLY the stopping lines, not the whole bundle', () => {
+    // Corridor carries 4 lines (A,B,C,D). Only B stops here. The marker must
+    // hug B's single slot — its perpendicular extent must be far smaller than
+    // the full 4-line bundle width, and its lines list must be exactly [B].
+    const stops = [
+      {
+        id: 'sB',
+        mode: 'Bus' as const,
+        position: { x: 50, y: 0, z: 0 },
+        name: '',
+      },
+    ];
+    const mk = (id: string, withStop: boolean) =>
+      makeTransitLine({
+        id,
+        name: id,
+        mode: 'Bus',
+        route: [{ segmentIds: ['seg-1'] }],
+        stops: withStop ? stops : [],
+      });
+    const city = makeCityData({
+      roadNodes: [node('node-a', 0, 0), node('node-b', 100, 0)],
+      roadSegments: [seg('seg-1', 'node-a', 'node-b')],
+      transitLines: [
+        mk('A', false),
+        mk('B', true),
+        mk('C', false),
+        mk('D', false),
+      ],
+    });
+    const { geometry } = buildGeom(city);
+    expect(geometry.stations).toHaveLength(1);
+    const station = geometry.stations[0];
+    expect(station.lines.map((l) => l.name)).toEqual(['B']);
+
+    // Perpendicular (across-corridor, z) extent of the marker.
+    const zs = station.polygon.map((p) => p.z);
+    const acrossExtent = Math.max(...zs) - Math.min(...zs);
+    // A single stopping line ⇒ roughly one line width, well under the 4-line
+    // bundle span (~4×SLOT_M). Guard generously but decisively.
+    expect(acrossExtent).toBeLessThan(2 * SLOT_M);
+    const fullBundle = 4 * SLOT_M;
+    expect(acrossExtent).toBeLessThan(fullBundle * 0.6);
+  });
+
+  it('marker for a contiguous subset spans that subset, centered on it', () => {
+    // 4 lines A,B,C,D; B and C stop (adjacent slots). Marker spans ~2 slots,
+    // offset from centre toward B/C, and lists exactly [B, C].
+    const stopBC = {
+      mode: 'Bus' as const,
+      position: { x: 50, y: 0, z: 0 },
+      name: '',
+    };
+    const mk = (id: string, stops: boolean) =>
+      makeTransitLine({
+        id,
+        name: id,
+        mode: 'Bus',
+        route: [{ segmentIds: ['seg-1'] }],
+        stops: stops ? [{ id: `s${id}`, ...stopBC }] : [],
+      });
+    const city = makeCityData({
+      roadNodes: [node('node-a', 0, 0), node('node-b', 100, 0)],
+      roadSegments: [seg('seg-1', 'node-a', 'node-b')],
+      transitLines: [
+        mk('A', false),
+        mk('B', true),
+        mk('C', true),
+        mk('D', false),
+      ],
+    });
+    const { geometry } = buildGeom(city);
+    const station = geometry.stations.find((s) => s.lines.length === 2);
+    expect(station).toBeDefined();
+    expect(station?.lines.map((l) => l.name).sort()).toEqual(['B', 'C']);
   });
 
   it('groups nearby stops of different lines into a single station', () => {

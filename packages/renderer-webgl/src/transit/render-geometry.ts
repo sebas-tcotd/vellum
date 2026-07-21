@@ -46,6 +46,12 @@ const BEZIER_SAMPLES = 8;
 const MAX_TRIM_FRACTION = 0.4;
 /** Stops closer than this (world meters) are merged into one station (CSLMap convention). */
 export const STATION_MERGE_THRESHOLD_M = 48;
+/** Half-length of a station marker along its corridor, in world meters. */
+const STATION_HALF_ALONG_M = SLOT_M * 0.9;
+/** Extra perpendicular margin so the marker slightly overhangs the lines it covers. */
+const STATION_ACROSS_MARGIN_M = LINE_WIDTH_M / 2;
+/** Arc segments per rounded corner of a station marker (higher = smoother). */
+const STATION_CORNER_STEPS = 4;
 
 /** A trimmed corridor centerline ready for offset rendering. */
 export interface CorridorGeometry {
@@ -75,13 +81,17 @@ export interface StationLineInfo {
   mode: TransitMode;
 }
 
-/** A station polygon (paper §5 step 4, rotated-rectangle variant). */
+/**
+ * A station marker (paper §5 step 4, buffered/rounded variant): a rounded
+ * rectangle (capsule) spanning only the corridor slots of the lines that
+ * actually stop here — never the whole bundle.
+ */
 export interface StationGeometry {
-  /** Deterministic station id (first member stop id). */
+  /** Deterministic station id (`stopId:corridorId`). */
   id: string;
-  /** Closed polygon ring in world space. */
+  /** Closed rounded-rectangle ring in world space. */
   polygon: CsPoint[];
-  /** Lines serving this station. */
+  /** Lines that stop here (exactly those the marker spans). */
   lines: StationLineInfo[];
 }
 
@@ -354,59 +364,130 @@ function buildStations(
     );
     const groupLineIds = [...new Set(group.map((e) => e.lineId))].sort();
 
-    // Nearest corridor carrying any of the group's lines.
-    let best: {
+    // Partition the *stopping* lines by the corridor each actually runs on near
+    // the stop (a group can touch stops on more than one corridor). Each
+    // corridor bucket becomes its own marker sized to only its stopping lines,
+    // so the geometry, the stopping lines, and the tooltip always agree — the
+    // marker never spans lines that merely pass through.
+    interface Bucket {
       corridor: CorridorGeometry;
       point: CsPoint;
       dir: CsPoint;
-    } | null = null;
-    let bestDist = Number.POSITIVE_INFINITY;
-    for (const eid of [...corridors.keys()].sort()) {
-      const c = corridors.get(eid);
-      if (c === undefined) continue;
-      if (!groupLineIds.some((l) => c.lineIds.includes(l))) continue;
-      const proj = projectOnPath(centroid, c.path);
-      if (proj !== null && proj.dist < bestDist) {
-        bestDist = proj.dist;
-        best = { corridor: c, point: proj.point, dir: proj.dir };
-      }
+      lineIds: string[];
     }
-    if (best === null) continue;
+    const buckets = new Map<string, Bucket>();
+    for (const lineId of groupLineIds) {
+      let best: Omit<Bucket, 'lineIds'> | null = null;
+      let bestDist = Number.POSITIVE_INFINITY;
+      for (const eid of [...corridors.keys()].sort()) {
+        const c = corridors.get(eid);
+        if (c === undefined || !c.lineIds.includes(lineId)) continue;
+        const proj = projectOnPath(centroid, c.path);
+        if (proj !== null && proj.dist < bestDist) {
+          bestDist = proj.dist;
+          best = { corridor: c, point: proj.point, dir: proj.dir };
+        }
+      }
+      if (best === null) continue;
+      let bucket = buckets.get(best.corridor.edgeId);
+      if (bucket === undefined) {
+        bucket = { ...best, lineIds: [] };
+        buckets.set(best.corridor.edgeId, bucket);
+      }
+      bucket.lineIds.push(lineId);
+    }
 
-    const n = best.corridor.lineIds.length;
-    const halfAcross = (n * SLOT_M) / 2 + LINE_WIDTH_M / 2;
-    const halfAlong = SLOT_M * 0.9;
-    const along = unit(best.dir);
-    const across = rightOf(along);
-    const c0 = add(
-      add(best.point, scale(along, -halfAlong)),
-      scale(across, -halfAcross),
-    );
-    const c1 = add(
-      add(best.point, scale(along, halfAlong)),
-      scale(across, -halfAcross),
-    );
-    const c2 = add(
-      add(best.point, scale(along, halfAlong)),
-      scale(across, halfAcross),
-    );
-    const c3 = add(
-      add(best.point, scale(along, -halfAlong)),
-      scale(across, halfAcross),
-    );
+    for (const bucket of buckets.values()) {
+      const total = bucket.corridor.lineIds.length;
+      // Signed slot offsets of the stopping lines within the corridor ordering
+      // (same convention as the rendered line-offset: p − (n−1)/2).
+      const offsets = bucket.lineIds
+        .map((l) => bucket.corridor.lineIds.indexOf(l))
+        .filter((i) => i >= 0)
+        .map((i) => i - (total - 1) / 2);
+      if (offsets.length === 0) continue;
 
-    const lines = groupLineIds
-      .map((id) => lineInfoById.get(id))
-      .filter((l): l is StationLineInfo => l !== undefined);
+      const minOff = Math.min(...offsets);
+      const maxOff = Math.max(...offsets);
+      const centerOffset = ((minOff + maxOff) / 2) * SLOT_M;
+      const halfAcross =
+        ((maxOff - minOff) / 2) * SLOT_M + STATION_ACROSS_MARGIN_M;
+      const along = unit(bucket.dir);
+      const across = rightOf(along);
+      const center = add(bucket.point, scale(across, centerOffset));
 
-    stations.push({
-      id: group[0].stopId,
-      polygon: [c0, c1, c2, c3, c0],
-      lines,
-    });
+      const lines = [...bucket.lineIds]
+        .sort()
+        .map((id) => lineInfoById.get(id))
+        .filter((l): l is StationLineInfo => l !== undefined);
+
+      stations.push({
+        id: `${group[0].stopId}:${bucket.corridor.edgeId}`,
+        polygon: roundedRectRing(
+          center,
+          along,
+          across,
+          STATION_HALF_ALONG_M,
+          halfAcross,
+          STATION_CORNER_STEPS,
+        ),
+        lines,
+      });
+    }
   }
 
   return stations;
+}
+
+/**
+ * A closed rounded-rectangle (stadium/capsule) ring in world space, centered at
+ * `center` with local axes `along`/`across` and half-extents `halfAlong`/`halfAcross`. The
+ * corner radius is the smaller half-extent, so a marker much longer in one axis
+ * becomes a capsule and a near-square one becomes a rounded square. `stepsPerCorner` arc
+ * segments approximate each 90° corner.
+ */
+function roundedRectRing(
+  center: CsPoint,
+  along: CsPoint,
+  across: CsPoint,
+  halfAlong: number,
+  halfAcross: number,
+  stepsPerCorner: number,
+): CsPoint[] {
+  const cornerRadius = Math.max(0, Math.min(halfAlong, halfAcross));
+
+  const innerAlong = halfAlong - cornerRadius;
+  const innerAcross = halfAcross - cornerRadius;
+
+  const toWorldSpace = (offsetAlong: number, offsetAcross: number): CsPoint => {
+    const alongVector = scale(along, offsetAlong);
+    const acrossVector = scale(across, offsetAcross);
+    return add(add(center, alongVector), acrossVector);
+  };
+
+  const HALF_PI = Math.PI / 2;
+  const corners = [
+    { centerU: innerAlong, centerV: innerAcross, startAngle: 0 }, // +along / +across
+    { centerU: -innerAlong, centerV: innerAcross, startAngle: HALF_PI }, // -along / +across
+    { centerU: -innerAlong, centerV: -innerAcross, startAngle: Math.PI }, // -along / -across
+    { centerU: innerAlong, centerV: -innerAcross, startAngle: 3 * HALF_PI }, // +along / -across
+  ];
+
+  const ring: CsPoint[] = [];
+
+  for (const corner of corners) {
+    for (let step = 0; step <= stepsPerCorner; step++) {
+      const angle = corner.startAngle + (step / stepsPerCorner) * HALF_PI;
+
+      const localU = corner.centerU + cornerRadius * Math.cos(angle);
+      const localV = corner.centerV + cornerRadius * Math.sin(angle);
+
+      ring.push(toWorldSpace(localU, localV));
+    }
+  }
+
+  ring.push(ring[0]);
+  return ring;
 }
 
 /** Projects `p` onto a polyline; returns closest point, segment direction, and distance. */
