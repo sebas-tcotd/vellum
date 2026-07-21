@@ -5,7 +5,7 @@ import {
   makeTransitLine,
 } from '@vellum/core/testing';
 import type { RoadNode } from '@vellum/core';
-import { buildTransitLineGraph } from './line-graph';
+import { buildTransitLineGraph, continuationKey } from './line-graph';
 
 function node(id: string, x: number, z: number): RoadNode {
   return { id, position: { x, y: 0, z } };
@@ -242,5 +242,109 @@ describe('buildTransitLineGraph — determinism', () => {
       expect(e2?.bundleIds).toEqual(e1.bundleIds);
       expect(e2?.segmentIds).toEqual(e1.segmentIds);
     }
+  });
+});
+
+describe('buildTransitLineGraph — route-based transitions (paper §5 continuations)', () => {
+  it('a simple 2-segment route yields exactly one transition (not falsely wrapped)', () => {
+    const city = makeCityData({
+      roadNodes: [
+        node('a', 0, 0),
+        node('b', 100, 0),
+        node('c', 200, 0),
+        node('d', 100, 100),
+      ],
+      roadSegments: [
+        seg('s1', 'a', 'b'),
+        seg('s2', 'b', 'c'),
+        seg('s3', 'b', 'd'), // spur keeps b a junction (no contraction)
+      ],
+      transitLines: [
+        makeTransitLine({ id: 'L1', route: [{ segmentIds: ['s1', 's2'] }] }),
+        makeTransitLine({ id: 'L2', route: [{ segmentIds: ['s3'] }] }),
+      ],
+    });
+    const g = buildTransitLineGraph(city);
+    const l1 = g.transitions.filter((t) => t.lineId === 'L1');
+    // One corridor change (s1's corridor → s2's corridor) at node b. The route
+    // is open (a≠c), so NO wrap transition is added.
+    expect(l1).toHaveLength(1);
+    expect(l1[0].nodeId).toBe('b');
+  });
+
+  it('resolves a unique continuation at a node where a line occupies 3 corridors', () => {
+    // Lollipop: T→J→P→Q→J→R. The P-Q loop contracts to a self-loop at J, so L
+    // is in 3 corridors at J. Set-membership could not resolve continuation
+    // (it is ambiguous); the route index must return exactly one edge per side.
+    const city = makeCityData({
+      roadNodes: [
+        node('T', -200, 0),
+        node('J', 0, 0),
+        node('P', 100, 80),
+        node('Q', 100, -80),
+        node('R', 200, 0),
+      ],
+      roadSegments: [
+        seg('sTJ', 'T', 'J'),
+        seg('sJP', 'J', 'P'),
+        seg('sPQ', 'P', 'Q'),
+        seg('sQJ', 'Q', 'J'),
+        seg('sJR', 'J', 'R'),
+      ],
+      transitLines: [
+        makeTransitLine({
+          id: 'L',
+          route: [{ segmentIds: ['sTJ', 'sJP', 'sPQ', 'sQJ', 'sJR'] }],
+        }),
+      ],
+    });
+    const g = buildTransitLineGraph(city);
+    const bid = g.bundleOfLine.get('L') ?? 'L';
+    const cStem = g.segmentToCorridor.get('sTJ')!;
+    const cLoop = g.segmentToCorridor.get('sJP')!;
+    const cOut = g.segmentToCorridor.get('sJR')!;
+    // From the incoming stem, L continues uniquely into the self-loop.
+    const fromStem = g.continuationIndex.get(continuationKey('J', cStem, bid));
+    expect(fromStem && [...fromStem]).toEqual([cLoop]);
+    // From the loop it continues into exactly {stem, out} across its two ends.
+    const fromLoop = g.continuationIndex.get(continuationKey('J', cLoop, bid));
+    expect(fromLoop && [...fromLoop].sort()).toEqual([cStem, cOut].sort());
+  });
+
+  it('adds the wrap-around transition for a closed loop', () => {
+    const city = makeCityData({
+      roadNodes: [
+        node('A', 0, 0),
+        node('B', 200, 0),
+        node('C', 100, 170),
+        node('sa', -60, -60),
+        node('sb', 260, -60),
+        node('sc', 100, 240),
+      ],
+      roadSegments: [
+        seg('AB', 'A', 'B'),
+        seg('BC', 'B', 'C'),
+        seg('CA', 'C', 'A'),
+        seg('spurA', 'A', 'sa'),
+        seg('spurB', 'B', 'sb'),
+        seg('spurC', 'C', 'sc'),
+      ],
+      transitLines: [
+        makeTransitLine({
+          id: 'L',
+          route: [{ segmentIds: ['AB', 'BC', 'CA'] }],
+        }),
+        makeTransitLine({ id: 'spA', route: [{ segmentIds: ['spurA'] }] }),
+        makeTransitLine({ id: 'spB', route: [{ segmentIds: ['spurB'] }] }),
+        makeTransitLine({ id: 'spC', route: [{ segmentIds: ['spurC'] }] }),
+      ],
+    });
+    const g = buildTransitLineGraph(city);
+    const loop = g.transitions.filter((t) => t.lineId === 'L');
+    // Three corner transitions incl. the CA→AB wrap at node A.
+    expect(loop).toHaveLength(3);
+    expect(new Set(loop.map((t) => t.nodeId))).toEqual(
+      new Set(['A', 'B', 'C']),
+    );
   });
 });

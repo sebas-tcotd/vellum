@@ -35,7 +35,11 @@
  */
 
 import type { TransitMode } from '@vellum/core';
-import type { LineGraphEdge, TransitLineGraph } from './line-graph';
+import {
+  continuationKey,
+  type LineGraphEdge,
+  type TransitLineGraph,
+} from './line-graph';
 
 /** Bundle ordering per edge: edge id → bundle ids left-to-right along nodeA→nodeB. */
 export type BundleOrderConfig = Map<string, string[]>;
@@ -100,9 +104,11 @@ function seenFrom(
 }
 
 /**
- * The unique other edge at `nodeId` carrying `bundleId`, or null when there is
- * none or more than one (a line passing a node several times is ambiguous —
- * documented limitation, such pairs are skipped).
+ * The corridor `bundleId` continues to from `edgeId` across `nodeId`, taken
+ * from the route-derived continuation index (paper §5). Returns null when the
+ * bundle does not continue there, or when it continues to more than one edge
+ * from `edgeId` (the line passes the node through `edgeId` more than once —
+ * genuinely ambiguous for pairwise scoring, so the pair is skipped).
  */
 function continuationAt(
   graph: TransitLineGraph,
@@ -110,18 +116,11 @@ function continuationAt(
   edgeId: string,
   bundleId: string,
 ): string | null {
-  const node = graph.nodes.get(nodeId);
-  if (node === undefined) return null;
-  let found: string | null = null;
-  for (const other of node.edgeIds) {
-    if (other === edgeId) continue;
-    const e = graph.edges.get(other);
-    if (e !== undefined && e.bundleIds.includes(bundleId)) {
-      if (found !== null) return null;
-      found = other;
-    }
-  }
-  return found;
+  const set = graph.continuationIndex.get(
+    continuationKey(nodeId, edgeId, bundleId),
+  );
+  if (set === undefined || set.size !== 1) return null;
+  return [...set][0];
 }
 
 /**

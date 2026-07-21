@@ -253,60 +253,44 @@ export function buildRenderGeometry(
     corridors.set(eid, { edgeId: eid, path, lineIds });
   }
 
-  // ── Inner connections at junction nodes ────────────────────────────────────
+  // ── Inner connections (paper §5 step 3) ────────────────────────────────────
+  // One cubic Bézier per route transition, connecting the line's ports on the
+  // two corridors it continues between. Driven by the route-derived
+  // transitions, so lines that touch 3+ corridors at a node (loops,
+  // roundabouts, revisited hubs) still connect correctly — the case that the
+  // old line-set-membership pairing dropped.
   const connectors: ConnectorGeometry[] = [];
-  for (const nodeId of [...graph.nodes.keys()].sort()) {
-    const node = graph.nodes.get(nodeId);
-    if (node === undefined || node.edgeIds.length < 2) continue;
+  for (const t of graph.transitions) {
+    const ce = corridors.get(t.fromEdge);
+    const cf = corridors.get(t.toEdge);
+    if (ce === undefined || cf === undefined) continue;
+    if (!ce.lineIds.includes(t.lineId) || !cf.lineIds.includes(t.lineId))
+      continue;
 
-    const incident = node.edgeIds
-      .map((eid) => corridors.get(eid))
-      .filter((c): c is CorridorGeometry => c !== undefined);
+    const p = portAt(ce, t.lineId, t.fromEnd);
+    const q = portAt(cf, t.lineId, t.toEnd);
+    const d = norm(sub(q, p));
+    if (d < 1e-6) continue;
 
-    for (let i = 0; i < incident.length; i++) {
-      for (let j = i + 1; j < incident.length; j++) {
-        const ce = incident[i];
-        const cf = incident[j];
-        const ee = graph.edges.get(ce.edgeId);
-        const ef = graph.edges.get(cf.edgeId);
-        if (ee === undefined || ef === undefined) continue;
+    // Tangents continuing the travel direction into the node area.
+    const inwardE =
+      t.fromEnd === 'end'
+        ? endDirection(ce.path, 'end')
+        : scale(endDirection(ce.path, 'start'), -1);
+    const inwardF =
+      t.toEnd === 'end'
+        ? endDirection(cf.path, 'end')
+        : scale(endDirection(cf.path, 'start'), -1);
 
-        const endE: 'start' | 'end' = ee.nodeA === nodeId ? 'start' : 'end';
-        const endF: 'start' | 'end' = ef.nodeA === nodeId ? 'start' : 'end';
-
-        for (const lineId of ce.lineIds) {
-          if (!cf.lineIds.includes(lineId)) continue;
-          // Unique-continuation check: skip lines present in a third edge here.
-          const presentIn = incident.filter((c) => c.lineIds.includes(lineId));
-          if (presentIn.length !== 2) continue;
-
-          const p = portAt(ce, lineId, endE);
-          const q = portAt(cf, lineId, endF);
-          const d = norm(sub(q, p));
-          if (d < 1e-6) continue;
-
-          // Tangents continuing the travel direction into the node area.
-          const inwardE =
-            endE === 'end'
-              ? endDirection(ce.path, 'end')
-              : scale(endDirection(ce.path, 'start'), -1);
-          const inwardF =
-            endF === 'end'
-              ? endDirection(cf.path, 'end')
-              : scale(endDirection(cf.path, 'start'), -1);
-
-          const arm = d * BEZIER_ARM_FACTOR;
-          const path = cubicBezier(
-            p,
-            add(p, scale(inwardE, arm)),
-            add(q, scale(inwardF, arm)),
-            q,
-            BEZIER_SAMPLES,
-          );
-          connectors.push({ lineId, path });
-        }
-      }
-    }
+    const arm = d * BEZIER_ARM_FACTOR;
+    const path = cubicBezier(
+      p,
+      add(p, scale(inwardE, arm)),
+      add(q, scale(inwardF, arm)),
+      q,
+      BEZIER_SAMPLES,
+    );
+    connectors.push({ lineId: t.lineId, path });
   }
 
   // ── Stations: proximity-grouped stops projected onto their corridor ────────

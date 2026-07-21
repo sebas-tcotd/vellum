@@ -47,6 +47,175 @@ function buildGeom(city: ReturnType<typeof makeCityData>) {
   return { graph, geometry: buildRenderGeometry(graph, lineOrder, city) };
 }
 
+// ─── Complex-node regression suite (route-based continuations) ────────────────
+// These reproduce the screenshot bugs: at nodes where a line touches 3+
+// corridors (loops, roundabouts, revisited hubs) the old line-set-membership
+// pairing dropped ALL inner connections, leaving visual gaps. Route-based
+// continuations must connect them.
+
+describe('buildRenderGeometry — inner connections at complex nodes', () => {
+  it('REGRESSION: line passing a junction twice (lollipop) connects both passes, not across', () => {
+    // Route T→J→P→Q→J→R. The J-P-Q-J loop contracts to a self-loop at J, so
+    // line L occupies 3 corridors at J: stem-TJ, self-loop, stem-JR.
+    // The old `presentIn !== 2` guard dropped all 3 → gaps. Correct output:
+    // exactly 2 connectors (TJ↔loop and loop↔JR), never TJ↔JR directly.
+    const city = makeCityData({
+      roadNodes: [
+        node('T', -200, 0),
+        node('J', 0, 0),
+        node('P', 100, 80),
+        node('Q', 100, -80),
+        node('R', 200, 0),
+      ],
+      roadSegments: [
+        seg('sTJ', 'T', 'J'),
+        seg('sJP', 'J', 'P'),
+        seg('sPQ', 'P', 'Q'),
+        seg('sQJ', 'Q', 'J'),
+        seg('sJR', 'J', 'R'),
+      ],
+      transitLines: [
+        makeTransitLine({
+          id: 'L',
+          route: [{ segmentIds: ['sTJ', 'sJP', 'sPQ', 'sQJ', 'sJR'] }],
+        }),
+      ],
+    });
+    const graph = buildTransitLineGraph(city);
+
+    // Confirm the topology that used to break: L is in 3 corridors at J.
+    const atJ = graph.nodes.get('J');
+    expect(atJ?.edgeIds.length).toBe(3);
+
+    const { geometry } = buildGeom(city);
+    const connectors = geometry.connectors.filter((c) => c.lineId === 'L');
+    // One connector per route transition at J (enter loop, exit loop): 2.
+    expect(connectors).toHaveLength(2);
+    // Every connector must start/end near J (bridging the trimmed gap there).
+    for (const c of connectors) {
+      const near = (p: { x: number; z: number }) => Math.hypot(p.x, p.z) < 120;
+      expect(near(c.path[0]) || near(c.path[c.path.length - 1])).toBe(true);
+    }
+  });
+
+  it('REGRESSION: roundabout (ring + two stems) bridges ring arcs to stems', () => {
+    // North & south stems meet a ring at N and S. A line runs down the north
+    // stem, around the east arc, out the south stem. The ring's west arc is
+    // used by a second line so the ring does not fully contract into the stems.
+    const city = makeCityData({
+      roadNodes: [
+        node('nTop', 0, 300),
+        node('N', 0, 100),
+        node('E', 120, 0),
+        node('S', 0, -100),
+        node('W', -120, 0),
+        node('nBot', 0, -300),
+      ],
+      roadSegments: [
+        seg('sN', 'nTop', 'N'),
+        seg('rNE', 'N', 'E'),
+        seg('rES', 'E', 'S'),
+        seg('rNW', 'N', 'W'),
+        seg('rWS', 'W', 'S'),
+        seg('sS', 'S', 'nBot'),
+      ],
+      transitLines: [
+        // Through line: north stem → east arc → south stem.
+        makeTransitLine({
+          id: 'thru',
+          route: [{ segmentIds: ['sN', 'rNE', 'rES', 'sS'] }],
+        }),
+        // Ring line: full loop, keeps both arcs alive as corridors.
+        makeTransitLine({
+          id: 'ring',
+          route: [{ segmentIds: ['rNE', 'rES', 'rWS', 'rNW'] }],
+        }),
+      ],
+    });
+    const { geometry, graph } = buildGeom(city);
+
+    // N and S are genuine junctions (stem + 2 arcs).
+    expect(graph.nodes.get('N')?.edgeIds.length).toBeGreaterThanOrEqual(3);
+
+    // The through line must have a connector at N (stem→east arc) and at S
+    // (east arc→stem): no gap where it meets the ring.
+    const thruConns = geometry.connectors.filter((c) => c.lineId === 'thru');
+    expect(thruConns.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('REGRESSION: closed triangular loop connects at every corner incl. the wrap', () => {
+    // A closed loop L over 3 corridors meeting at 3 junction nodes (each has a
+    // spur, so none contract). All three corners — including the last→first
+    // wrap — must produce a connector.
+    const city = makeCityData({
+      roadNodes: [
+        node('A', 0, 0),
+        node('B', 200, 0),
+        node('C', 100, 170),
+        node('sa', -60, -60),
+        node('sb', 260, -60),
+        node('sc', 100, 240),
+      ],
+      roadSegments: [
+        seg('AB', 'A', 'B'),
+        seg('BC', 'B', 'C'),
+        seg('CA', 'C', 'A'),
+        seg('spurA', 'A', 'sa'),
+        seg('spurB', 'B', 'sb'),
+        seg('spurC', 'C', 'sc'),
+      ],
+      transitLines: [
+        // Closed loop A→B→C→A.
+        makeTransitLine({
+          id: 'L',
+          route: [{ segmentIds: ['AB', 'BC', 'CA'] }],
+        }),
+        // Spur lines to keep A, B, C as degree-3 junctions (no contraction).
+        makeTransitLine({ id: 'spA', route: [{ segmentIds: ['spurA'] }] }),
+        makeTransitLine({ id: 'spB', route: [{ segmentIds: ['spurB'] }] }),
+        makeTransitLine({ id: 'spC', route: [{ segmentIds: ['spurC'] }] }),
+      ],
+    });
+    const { geometry } = buildGeom(city);
+    const loopConns = geometry.connectors.filter((c) => c.lineId === 'L');
+    // Three corners: AB↔BC at B, BC↔CA at C, CA↔AB at A (wrap). None dropped.
+    expect(loopConns).toHaveLength(3);
+  });
+
+  it('INVARIANT: every route transition yields a connector when both corridors survive', () => {
+    const city = makeCityData({
+      roadNodes: [
+        node('T', -200, 0),
+        node('J', 0, 0),
+        node('P', 100, 80),
+        node('Q', 100, -80),
+        node('R', 200, 0),
+      ],
+      roadSegments: [
+        seg('sTJ', 'T', 'J'),
+        seg('sJP', 'J', 'P'),
+        seg('sPQ', 'P', 'Q'),
+        seg('sQJ', 'Q', 'J'),
+        seg('sJR', 'J', 'R'),
+      ],
+      transitLines: [
+        makeTransitLine({
+          id: 'L',
+          route: [{ segmentIds: ['sTJ', 'sJP', 'sPQ', 'sQJ', 'sJR'] }],
+        }),
+      ],
+    });
+    const graph = buildTransitLineGraph(city);
+    const { lineOrder } = computeLineOrder(graph);
+    const geometry = buildRenderGeometry(graph, lineOrder, city);
+    const surviving = new Set(geometry.corridors.map((c) => c.edgeId));
+    const expected = graph.transitions.filter(
+      (t) => surviving.has(t.fromEdge) && surviving.has(t.toEdge),
+    ).length;
+    expect(geometry.connectors).toHaveLength(expected);
+  });
+});
+
 describe('buildRenderGeometry — corridor trimming (node fronts)', () => {
   it('trims shared corridors back from junction nodes but leaves the geometry valid', () => {
     const { geometry } = buildGeom(tJunctionCity());
