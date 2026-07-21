@@ -79,7 +79,12 @@ const LAYER_ID_MAP: Record<LayerName, string[]> = {
     'roads-ferry',
     'roads-railway-casing',
   ],
-  transit: ['transit-connector', 'transit-line', 'transit-stops'],
+  transit: [
+    'transit-connector',
+    'transit-line',
+    'transit-stops',
+    'transit-stops-outline',
+  ],
   buildings: ['buildings-fill', 'buildings-outline'],
   forests: ['forests-circles'],
   districts: ['districts-points'],

@@ -17,10 +17,10 @@
  *    GPU-offset line ends because `line-offset` is calibrated to exactly
  *    `SLOT_M` meters per index unit (see layer-transit.ts).
  * 4. *Stations* — the paper draws station polygons on line-graph nodes;
- *    CSLMap stops sit mid-corridor instead, so stations are rendered as
- *    rotated rectangles centered on the stop's projection onto its corridor,
- *    spanning the full bundle width (the paper's §5.4 rotated-rectangle
- *    variant, relocated to where CS1 stations actually live).
+ *    CSLMap stops sit mid-corridor instead, so each station is a rounded
+ *    capsule oriented perpendicular to the corridor (long axis across the
+ *    lines, paper §5.4 / Fig. 10), centered on the stop's projection and
+ *    spanning only the lines that actually stop there.
  *
  * All geometry is produced in CS1 world space `{x, z}`; the GeoJSON builder
  * converts to WGS-84 on emission. The world frame maps 1:1 onto the rendered
@@ -46,8 +46,15 @@ const BEZIER_SAMPLES = 8;
 const MAX_TRIM_FRACTION = 0.4;
 /** Stops closer than this (world meters) are merged into one station (CSLMap convention). */
 export const STATION_MERGE_THRESHOLD_M = 48;
-/** Half-length of a station marker along its corridor, in world meters. */
-const STATION_HALF_ALONG_M = SLOT_M * 0.9;
+/**
+ * Half-thickness of a station marker *along* its corridor, in world meters —
+ * the capsule's short (minor) axis. The long axis runs *across* the corridor,
+ * spanning the stopping lines, so the capsule sits perpendicular to the line
+ * (paper §5.4 / Fig. 10). Equal to half a line width, so a single-line stop
+ * degenerates to a small circle and multi-line stops become perpendicular
+ * capsules.
+ */
+const STATION_HALF_THICKNESS_M = LINE_WIDTH_M / 2;
 /** Extra perpendicular margin so the marker slightly overhangs the lines it covers. */
 const STATION_ACROSS_MARGIN_M = LINE_WIDTH_M / 2;
 /** Arc segments per rounded corner of a station marker (higher = smoother). */
@@ -410,8 +417,14 @@ function buildStations(
       const minOff = Math.min(...offsets);
       const maxOff = Math.max(...offsets);
       const centerOffset = ((minOff + maxOff) / 2) * SLOT_M;
-      const halfAcross =
-        ((maxOff - minOff) / 2) * SLOT_M + STATION_ACROSS_MARGIN_M;
+      // Long axis runs ACROSS the corridor (spans the stopping lines); short
+      // axis is a fixed thickness ALONG it → the capsule sits perpendicular to
+      // the line. `across` never falls below the thickness, so the capsule
+      // never flips back to line-aligned (a lone stop becomes a small circle).
+      const halfAcross = Math.max(
+        ((maxOff - minOff) / 2) * SLOT_M + STATION_ACROSS_MARGIN_M,
+        STATION_HALF_THICKNESS_M,
+      );
       const along = unit(bucket.dir);
       const across = rightOf(along);
       const center = add(bucket.point, scale(across, centerOffset));
@@ -427,7 +440,7 @@ function buildStations(
           center,
           along,
           across,
-          STATION_HALF_ALONG_M,
+          STATION_HALF_THICKNESS_M,
           halfAcross,
           STATION_CORNER_STEPS,
         ),

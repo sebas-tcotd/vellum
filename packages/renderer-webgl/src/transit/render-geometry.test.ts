@@ -365,6 +365,37 @@ describe('buildRenderGeometry — stations (§5.4 rounded markers)', () => {
     expect(acrossExtent).toBeLessThan(fullBundle * 0.6);
   });
 
+  it('marker is oriented PERPENDICULAR to the corridor (long axis across)', () => {
+    // Horizontal corridor (along x). Three lines all stop → the marker must be
+    // wider across the corridor (z) than along it (x): a perpendicular capsule.
+    const stop = {
+      mode: 'Bus' as const,
+      position: { x: 50, y: 0, z: 0 },
+      name: '',
+    };
+    const mk = (id: string) =>
+      makeTransitLine({
+        id,
+        name: id,
+        mode: 'Bus',
+        route: [{ segmentIds: ['seg-1'] }],
+        stops: [{ id: `s${id}`, ...stop }],
+      });
+    const city = makeCityData({
+      roadNodes: [node('node-a', 0, 0), node('node-b', 100, 0)],
+      roadSegments: [seg('seg-1', 'node-a', 'node-b')],
+      transitLines: [mk('A'), mk('B'), mk('C')],
+    });
+    const { geometry } = buildGeom(city);
+    expect(geometry.stations).toHaveLength(1);
+    const ring = geometry.stations[0].polygon;
+    const xs = ring.map((p) => p.x);
+    const zs = ring.map((p) => p.z);
+    const alongExtent = Math.max(...xs) - Math.min(...xs); // along corridor
+    const acrossExtent = Math.max(...zs) - Math.min(...zs); // perpendicular
+    expect(acrossExtent).toBeGreaterThan(alongExtent);
+  });
+
   it('marker for a contiguous subset spans that subset, centered on it', () => {
     // 4 lines A,B,C,D; B and C stop (adjacent slots). Marker spans ~2 slots,
     // offset from centre toward B/C, and lists exactly [B, C].
