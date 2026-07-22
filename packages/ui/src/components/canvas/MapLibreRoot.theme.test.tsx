@@ -98,4 +98,24 @@ describe('MapLibreRoot — Story 5.1: aplicación de tema (AC #2, #4)', () => {
     await act(async () => {});
     expect(applyThemeSpy).not.toHaveBeenCalled();
   });
+
+  it('un rechazo de applyTheme (ej. WebGL context lost) se loguea y no crashea', async () => {
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => {});
+    applyThemeSpy.mockRejectedValueOnce(new Error('GPU context lost'));
+    mockActiveTheme = 'transit';
+    render(
+      <MapLibreRoot
+        themes={[theme('day', 'Day'), theme('transit', 'Transit')]}
+      />,
+    );
+    await waitFor(() =>
+      expect(consoleError).toHaveBeenCalledWith(
+        '[MapLibreRoot] applyTheme failed:',
+        expect.any(Error),
+      ),
+    );
+    consoleError.mockRestore();
+  });
 });

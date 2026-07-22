@@ -11,10 +11,17 @@ import type { VellumStyle } from '@vellum/core';
  *
  * @param raw - The result of `JSON.parse()` on a `.vellumstyle` file.
  * @returns The migrated value, shaped as `VellumStyle` (contents still unvalidated).
+ * @example
+ * ```ts
+ * migrateTheme({ name: 'Day', water: '#6db8b7' });
+ * // → { schemaVersion: 1, name: 'Day', water: '#6db8b7' }
+ * ```
  */
 export function migrateTheme(raw: unknown): VellumStyle {
+  // Arrays are `typeof 'object'` too — excluded explicitly so a malformed array
+  // `.vellumstyle` is treated as empty (like `null`), not spread as numeric-keyed props.
   const obj: Record<string, unknown> =
-    typeof raw === 'object' && raw !== null
+    typeof raw === 'object' && raw !== null && !Array.isArray(raw)
       ? (raw as Record<string, unknown>)
       : {};
   const schemaVersion =

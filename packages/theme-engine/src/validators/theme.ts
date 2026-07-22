@@ -15,7 +15,13 @@ export type ValidateThemeResult =
 /**
  * Walks the `template` (the canonical shape) against `value`, returning the first
  * field path whose expected color leaf is missing or not a valid `ColorToken`.
- * @internal
+ * @remarks Module-private helper, not exported — `@internal` doesn't apply since it
+ * never crosses a package boundary.
+ * @param template - The canonical shape to walk (a `RenderStyleParams`-shaped object
+ * whose string leaves mark expected `ColorToken` fields).
+ * @param value - The candidate value being validated against `template`.
+ * @param path - The dotted field path accumulated so far (start with `''`).
+ * @returns The first invalid field path found, or `null` if every leaf validates.
  */
 function firstInvalidColorPath(
   template: unknown,

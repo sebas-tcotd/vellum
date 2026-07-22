@@ -41,7 +41,7 @@ describe('useThemes', () => {
       { id: 'day', name: 'Day', source: 'built-in' },
     ]);
     expect(setThemeWarnings).toHaveBeenCalledWith([
-      { themeId: 'bad', field: 'JSON' },
+      { themeId: 'bad', themeName: 'bad', field: 'JSON' },
     ]);
   });
 
@@ -50,5 +50,13 @@ describe('useThemes', () => {
     const { result } = renderHook(() => useThemes());
     await waitFor(() => expect(invokeMock).toHaveBeenCalled());
     expect(result.current).toEqual([]);
+  });
+
+  it('does not throw when the IPC command resolves with a non-array', async () => {
+    invokeMock.mockResolvedValue(null);
+    const { result } = renderHook(() => useThemes());
+    await waitFor(() => expect(invokeMock).toHaveBeenCalled());
+    expect(result.current).toEqual([]);
+    expect(setAvailableThemes).not.toHaveBeenCalled();
   });
 });

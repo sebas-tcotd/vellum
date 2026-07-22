@@ -17,8 +17,18 @@ export type LoadedTheme = VellumStyle & {
 export interface ThemeWarning {
   /** The offending theme's id (filename without extension). */
   themeId: string;
+  /** Human-readable theme name for the toast (AC #5). Falls back to `themeId` when the
+   * file couldn't be parsed at all, or didn't parse to an object with a `name` string. */
+  themeName: string;
   /** The field path that failed validation, or `'JSON'` for a parse failure. */
   field: string;
+}
+
+/** Reads `parsed.name` if `parsed` is an object with a non-empty string `name`, else `null`. */
+function readThemeName(parsed: unknown): string | null {
+  if (typeof parsed !== 'object' || parsed === null) return null;
+  const name = (parsed as Record<string, unknown>).name;
+  return typeof name === 'string' && name.length > 0 ? name : null;
 }
 
 /** Outcome of loading a batch of raw theme files: the valid themes and per-file warnings. */
@@ -41,21 +51,40 @@ export interface LoadThemesResult {
 export function loadThemes(rawFiles: RawThemeFile[]): LoadThemesResult {
   const themes: LoadedTheme[] = [];
   const warnings: ThemeWarning[] = [];
+  const indexById = new Map<string, number>();
 
   for (const file of rawFiles) {
     let parsed: unknown;
     try {
       parsed = JSON.parse(file.rawJson);
     } catch {
-      warnings.push({ themeId: file.id, field: 'JSON' });
+      warnings.push({ themeId: file.id, themeName: file.id, field: 'JSON' });
       continue;
     }
     const result = validateVellumStyle(migrateTheme(parsed));
     if (!result.valid) {
-      warnings.push({ themeId: file.id, field: result.error });
+      warnings.push({
+        themeId: file.id,
+        themeName: readThemeName(parsed) ?? file.id,
+        field: result.error,
+      });
       continue;
     }
-    themes.push({ ...result.theme, id: file.id, source: file.source });
+    const loaded: LoadedTheme = {
+      ...result.theme,
+      id: file.id,
+      source: file.source,
+    };
+    // Same id from two directories (a user theme overriding a built-in placeholder) —
+    // last one wins. Rust always lists built-in files before user files, so this means
+    // a user's `.vellumstyle` silently takes precedence over a bundled theme of the same name.
+    const existingIndex = indexById.get(file.id);
+    if (existingIndex !== undefined) {
+      themes[existingIndex] = loaded;
+      continue;
+    }
+    indexById.set(file.id, themes.length);
+    themes.push(loaded);
   }
 
   return { themes, warnings };

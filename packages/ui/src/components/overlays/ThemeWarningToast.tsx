@@ -30,16 +30,18 @@ export function ThemeWarningToast({
       aria-live="polite"
       className={cn(
         'fixed bottom-6 left-1/2 -translate-x-1/2 z-50',
-        'flex flex-col gap-1',
+        'flex flex-col gap-1 max-h-[40vh] overflow-y-auto',
         'rounded-xl bg-black/75 px-5 py-3 text-sm text-white shadow-lg backdrop-blur-sm',
       )}
     >
       {warnings.map((warning) => (
         <span key={`${warning.themeId}:${warning.field}`}>
-          {t('toasts.invalidTheme', {
-            themeName: warning.themeId,
-            field: warning.field,
-          })}
+          {warning.field === 'JSON'
+            ? t('toasts.invalidThemeJson', { themeName: warning.themeName })
+            : t('toasts.invalidTheme', {
+                themeName: warning.themeName,
+                field: warning.field,
+              })}
         </span>
       ))}
       <button
@@ -48,7 +50,7 @@ export function ThemeWarningToast({
         aria-label={t('common.close')}
         className="self-end shrink-0 opacity-70 hover:opacity-100 transition-opacity text-base leading-none"
       >
-        ✕
+        <span aria-hidden="true">✕</span>
       </button>
     </div>
   );

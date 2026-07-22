@@ -136,6 +136,12 @@ export function App({
     setHasPartialData(false);
   }, [setDlcWarnings, setHasPartialData]);
 
+  // Stable reference — an inline arrow here would re-run ThemeWarningToast's auto-dismiss
+  // effect (which depends on onDismiss) on every unrelated App re-render, never firing.
+  const handleThemeWarningsDismiss = useCallback(() => {
+    setThemeWarnings([]);
+  }, [setThemeWarnings]);
+
   // Evitar flash en idioma incorrecto — no renderizar hasta que i18n esté listo
   if (!i18nReady) return null;
 
@@ -201,7 +207,7 @@ export function App({
         {themeWarnings.length > 0 && (
           <ThemeWarningToast
             warnings={themeWarnings}
-            onDismiss={() => setThemeWarnings([])}
+            onDismiss={handleThemeWarningsDismiss}
           />
         )}
         {cityData !== null && loadingState !== 'loading' && (

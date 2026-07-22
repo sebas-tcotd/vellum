@@ -104,14 +104,8 @@ export function MapLibreRoot({
     if (!renderer || themes.length === 0) return;
     const style = themes.find((theme) => theme.id === activeTheme);
     if (!style) return;
-    const start = performance.now();
-    void renderer.applyTheme(style).then(() => {
-      // AC #2: <500ms end-to-end — logged as the renderer-side portion for manual verification.
-      console.debug(
-        `[MapLibreRoot] applyTheme(${activeTheme}) took ${(
-          performance.now() - start
-        ).toFixed(1)}ms`,
-      );
+    void renderer.applyTheme(style).catch((err: unknown) => {
+      console.error('[MapLibreRoot] applyTheme failed:', err);
     });
   }, [activeTheme, themes]);
 

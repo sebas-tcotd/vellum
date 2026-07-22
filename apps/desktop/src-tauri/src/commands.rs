@@ -68,6 +68,21 @@ pub async fn parse_cslmap(
 
 // ─── Theme loading ───────────────────────────────────────────────────────────
 
+/// Origin of a `.vellumstyle` file.
+///
+/// **CRITICAL RULE:** Serializes via `kebab-case` to exactly `"built-in"` / `"user"`,
+/// matching the `'built-in' | 'user'` literal union of `RawThemeFile['source']` in
+/// `@vellum/core/ipc-contract.ts` — a plain `String` field here would let Rust produce
+/// values the TypeScript side can't type-check against.
+#[derive(Debug, Serialize, Clone, Copy, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+pub enum ThemeSource {
+    /// Bundled with the app under `resources/themes`.
+    BuiltIn,
+    /// Installed by the user under `{app_data_dir}/themes`.
+    User,
+}
+
 /// A single `.vellumstyle` file read from disk, passed verbatim to the TS theme-engine.
 ///
 /// **CRITICAL RULE:** Must remain synchronized with `RawThemeFile` in `ipc-contract.ts`.
@@ -77,15 +92,15 @@ pub async fn parse_cslmap(
 pub struct RawThemeFile {
     /// Stable identifier — the filename without the `.vellumstyle` extension.
     pub id: String,
-    /// Origin of the file: `"built-in"` (bundled) or `"user"` (third-party).
-    pub source: String,
+    /// Origin of the file: bundled or user-installed.
+    pub source: ThemeSource,
     /// The raw, unparsed JSON contents of the file.
     pub raw_json: String,
 }
 
 /// Reads a single `.vellumstyle` file into a `RawThemeFile`, or `None` if it should be skipped.
 /// Non-`.vellumstyle` files, files without a valid stem, and unreadable/non-UTF-8 files are skipped.
-fn read_theme_file(path: &std::path::Path, source: &str) -> Option<RawThemeFile> {
+fn read_theme_file(path: &std::path::Path, source: ThemeSource) -> Option<RawThemeFile> {
     if path.extension().and_then(|e| e.to_str()) != Some("vellumstyle") {
         return None;
     }
@@ -93,7 +108,7 @@ fn read_theme_file(path: &std::path::Path, source: &str) -> Option<RawThemeFile>
     match std::fs::read_to_string(path) {
         Ok(raw_json) => Some(RawThemeFile {
             id,
-            source: source.to_string(),
+            source,
             raw_json,
         }),
         Err(e) => {
@@ -105,7 +120,7 @@ fn read_theme_file(path: &std::path::Path, source: &str) -> Option<RawThemeFile>
 
 /// Reads every `.vellumstyle` file in `dir`, tagging each with `source`.
 /// A missing or unreadable directory yields an empty list (never fatal).
-fn read_theme_dir(dir: &std::path::Path, source: &str) -> Vec<RawThemeFile> {
+fn read_theme_dir(dir: &std::path::Path, source: ThemeSource) -> Vec<RawThemeFile> {
     let Ok(entries) = std::fs::read_dir(dir) else {
         return Vec::new();
     };
@@ -115,17 +130,9 @@ fn read_theme_dir(dir: &std::path::Path, source: &str) -> Vec<RawThemeFile> {
         .collect()
 }
 
-/// Loads all bundled and user `.vellumstyle` files as raw JSON strings.
-///
-/// Reads two directories: the bundled `resources/themes` (5 built-in themes) and the
-/// user's `{app_data_dir}/themes` (third-party themes, created if missing). Files are
-/// returned verbatim — content validation happens in the TypeScript theme-engine.
-/// Unreadable or non-UTF-8 files are skipped individually without aborting the load.
-///
-/// # Errors
-/// - `VellumError::IoError` — if the resource or app-data base directory cannot be resolved.
-#[tauri::command]
-pub async fn load_themes(app_handle: tauri::AppHandle) -> Result<Vec<RawThemeFile>, VellumError> {
+/// Synchronous body of `load_themes` — reads both theme directories from disk.
+/// Run on a blocking thread via `spawn_blocking`; never call directly from async code.
+fn load_themes_blocking(app_handle: &tauri::AppHandle) -> Result<Vec<RawThemeFile>, VellumError> {
     let resource_dir = app_handle
         .path()
         .resource_dir()
@@ -140,9 +147,29 @@ pub async fn load_themes(app_handle: tauri::AppHandle) -> Result<Vec<RawThemeFil
         })?
         .join("themes");
     let _ = std::fs::create_dir_all(&user_dir); // best-effort; empty/missing is not fatal
-    let mut themes = read_theme_dir(&resource_dir.join("themes"), "built-in");
-    themes.extend(read_theme_dir(&user_dir, "user"));
+    let mut themes = read_theme_dir(&resource_dir.join("themes"), ThemeSource::BuiltIn);
+    themes.extend(read_theme_dir(&user_dir, ThemeSource::User));
     Ok(themes)
+}
+
+/// Loads all bundled and user `.vellumstyle` files as raw JSON strings.
+///
+/// Reads two directories: the bundled `resources/themes` (5 built-in themes) and the
+/// user's `{app_data_dir}/themes` (third-party themes, created if missing). Files are
+/// returned verbatim — content validation happens in the TypeScript theme-engine.
+/// Unreadable or non-UTF-8 files are skipped individually without aborting the load.
+/// Runs the directory reads on a blocking thread (same pattern as `parse_cslmap`) to avoid
+/// stalling the Tokio async runtime on filesystem I/O.
+///
+/// # Errors
+/// - `VellumError::IoError` — if the resource or app-data base directory cannot be resolved.
+#[tauri::command]
+pub async fn load_themes(app_handle: tauri::AppHandle) -> Result<Vec<RawThemeFile>, VellumError> {
+    tokio::task::spawn_blocking(move || load_themes_blocking(&app_handle))
+        .await
+        .map_err(|e| VellumError::IoError {
+            reason: format!("Theme loading task failed: {e}"),
+        })?
 }
 
 /// Exports the current map rendering state to a rasterized PNG image.
@@ -199,7 +226,7 @@ mod tests {
         std::fs::write(dir.join("broken.vellumstyle"), "{ not valid json").unwrap();
         std::fs::write(dir.join("ignore.txt"), "not a theme").unwrap();
 
-        let mut themes = read_theme_dir(&dir, "built-in");
+        let mut themes = read_theme_dir(&dir, ThemeSource::BuiltIn);
         themes.sort_by(|a, b| a.id.cmp(&b.id));
 
         assert_eq!(
@@ -208,7 +235,7 @@ mod tests {
             "reads all 3 .vellumstyle files, ignores .txt"
         );
         assert_eq!(themes[0].id, "broken");
-        assert_eq!(themes[0].source, "built-in");
+        assert_eq!(themes[0].source, ThemeSource::BuiltIn);
         assert!(themes.iter().any(|t| t.raw_json.contains("Day")));
 
         std::fs::remove_dir_all(&dir).unwrap();
@@ -217,6 +244,15 @@ mod tests {
     #[test]
     fn read_theme_dir_missing_dir_yields_empty() {
         let dir = std::env::temp_dir().join("vellum_nonexistent_theme_dir_xyz");
-        assert!(read_theme_dir(&dir, "user").is_empty());
+        assert!(read_theme_dir(&dir, ThemeSource::User).is_empty());
+    }
+
+    #[test]
+    fn theme_source_serializes_kebab_case() {
+        let built_in =
+            serde_json::to_value(ThemeSource::BuiltIn).expect("serialization must not fail");
+        assert_eq!(built_in, "built-in");
+        let user = serde_json::to_value(ThemeSource::User).expect("serialization must not fail");
+        assert_eq!(user, "user");
     }
 }

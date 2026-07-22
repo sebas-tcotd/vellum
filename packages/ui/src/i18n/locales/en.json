@@ -70,7 +70,8 @@
     "partialLoad": "Some elements (DLC or mods) displayed in simplified form.",
     "partialDataWarning": "Map partially loaded. Some sections could not be read.",
     "tabHint": "Tab · focus mode",
-    "invalidTheme": "{{themeName}}.vellumstyle is not valid: field {{field}} not recognized"
+    "invalidTheme": "{{themeName}}.vellumstyle is not valid: field {{field}} not recognized",
+    "invalidThemeJson": "{{themeName}}.vellumstyle is not valid: malformed JSON"
   },
   "common": {
     "cancel": "Cancel",

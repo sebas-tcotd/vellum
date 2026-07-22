@@ -17,4 +17,9 @@ describe('migrateTheme', () => {
     expect(migrateTheme(null).schemaVersion).toBe(1);
     expect(migrateTheme('nope').schemaVersion).toBe(1);
   });
+
+  it('treats a raw array like an invalid/empty object instead of spreading its indices', () => {
+    const result = migrateTheme([1, 2, 3]);
+    expect(result).toEqual({ schemaVersion: 1 });
+  });
 });

@@ -32,12 +32,25 @@ describe('loadThemes', () => {
     expect(themes.map((t) => t.id)).toEqual(['day', 'classic']);
     expect(themes[1]?.source).toBe('user');
     expect(warnings).toEqual([
-      { themeId: 'broken', field: 'water' },
-      { themeId: 'garbage', field: 'JSON' },
+      { themeId: 'broken', themeName: 'Broken', field: 'water' },
+      { themeId: 'garbage', themeName: 'garbage', field: 'JSON' },
     ]);
   });
 
   it('returns empty results for empty input', () => {
     expect(loadThemes([])).toEqual({ themes: [], warnings: [] });
+  });
+
+  it('a user theme overrides a built-in theme with the same id', () => {
+    const files = [
+      rawFile('day', validJson('Day'), 'built-in'),
+      rawFile('day', validJson('Custom Day'), 'user'),
+    ];
+
+    const { themes } = loadThemes(files);
+
+    expect(themes).toHaveLength(1);
+    expect(themes[0]?.name).toBe('Custom Day');
+    expect(themes[0]?.source).toBe('user');
   });
 });

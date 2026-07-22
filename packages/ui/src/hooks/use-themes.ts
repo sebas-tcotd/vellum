@@ -25,6 +25,7 @@ export function useThemes(): LoadedTheme[] {
     invoke<RawThemeFile[]>(IPC_COMMANDS.LOAD_THEMES)
       .then((rawFiles) => {
         if (cancelled) return;
+        if (!Array.isArray(rawFiles)) return;
         const { themes: loaded, warnings } = loadThemes(rawFiles);
         setThemes(loaded);
         setAvailableThemes(
