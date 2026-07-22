@@ -43,7 +43,25 @@ const STATION_STROKE_M = LINE_WIDTH_M * 0.5;
 /** Minimum on-screen stroke width in px, so the outline stays visible when zoomed out. */
 const STATION_STROKE_MIN_PX = 1.6;
 
-/** Geographic exponential width expression scaled by `factor`, clamped at low zoom. */
+/**
+ * Minimum on-screen transit-line width, in px. Derived to match the largest
+ * arterial road at overview zoom (~2 px at z13: fixed 0.3 + scaled 2.0 ×
+ * zoomFactor 0.85), so the transit system stays at least as prominent as the
+ * major road grid at every zoom instead of collapsing to a hairline. Above the
+ * detail zooms the geographic width takes over, keeping `line-offset` (which is
+ * geographic) and the line width in agreement so bundles fill their slots.
+ */
+const TRANSIT_LINE_MIN_PX = 2.2;
+
+// Station capsule ⇆ dot cross-fade. The world-locked capsule only reads at
+// detail zoom (its thickness is geographic); below that it is sub-pixel, so a
+// floored-size `circle` dot stands in. They cross-fade over [Z_FADE_LO, Z_FADE_HI].
+const Z_FADE_LO = 15.5;
+const Z_FADE_HI = 16.5;
+/** Minimum station-dot radius in px — keeps stops discoverable/clickable at overview. */
+const STATION_DOT_MIN_PX = 3.4;
+
+/** Geographic exponential width expression scaled by `factor`, floored at `minPx`. */
 function scaledWidthExpression(
   worldMeters: number,
   minPx: number,
@@ -55,15 +73,31 @@ function scaledWidthExpression(
     Z_LO,
     Math.max(minPx, worldMeters * PX_PER_M_Z13),
     16,
-    worldMeters * PX_PER_M_Z13 * 2 ** (16 - Z_LO),
+    Math.max(minPx, worldMeters * PX_PER_M_Z13 * 2 ** (16 - Z_LO)),
     Z_HI,
     worldMeters * PX_PER_M_Z13 * SCALE_HI,
   ] as unknown as maplibregl.ExpressionSpecification;
 }
 
-/** Geographic exponential width expression, clamped at low zoom. */
+/** Transit-line width: geographic at detail, floored to arterial parity at overview. */
 function widthExpression(): maplibregl.ExpressionSpecification {
-  return scaledWidthExpression(LINE_WIDTH_M, 0.9);
+  return scaledWidthExpression(LINE_WIDTH_M, TRANSIT_LINE_MIN_PX);
+}
+
+/** Linear zoom cross-fade from `lo` opacity to `hi` opacity over [Z_FADE_LO, Z_FADE_HI]. */
+function fadeExpression(
+  lo: number,
+  hi: number,
+): maplibregl.ExpressionSpecification {
+  return [
+    'interpolate',
+    ['linear'],
+    ['zoom'],
+    Z_FADE_LO,
+    lo,
+    Z_FADE_HI,
+    hi,
+  ] as unknown as maplibregl.ExpressionSpecification;
 }
 
 /** Adds transit corridor lines, inner connections, and station polygons. */
@@ -81,6 +115,10 @@ export function addTransitLayers(
   addSourceIfAbsent(map, 'transit-stops', {
     type: 'geojson',
     data: data.stations,
+  });
+  addSourceIfAbsent(map, 'transit-stops-dots', {
+    type: 'geojson',
+    data: data.stationDots,
   });
 
   // Inner connections first (under the corridor lines): their geometry is
@@ -124,14 +162,15 @@ export function addTransitLayers(
     },
   });
 
-  // Station markers on top (paper §5 step 4): solid white body…
+  // Station markers on top (paper §5 step 4): solid white capsule body, faded
+  // IN at detail zoom where the world-locked geometry is large enough to read…
   addLayerIfAbsent(map, {
     id: 'transit-stops',
     type: 'fill',
     source: 'transit-stops',
     paint: {
       'fill-color': STATION_FILL,
-      'fill-opacity': 1,
+      'fill-opacity': fadeExpression(0, 1),
     },
   });
 
@@ -149,6 +188,40 @@ export function addTransitLayers(
         STATION_STROKE_M,
         STATION_STROKE_MIN_PX,
       ),
+      'line-opacity': fadeExpression(0, 1),
+    },
+  });
+
+  // Min-size dot: the overview-zoom stand-in for the capsule. Floored radius
+  // keeps stops visible and clickable when the capsule is sub-pixel; it fades
+  // OUT as the capsule fades in, so exactly one marker reads at any zoom.
+  addLayerIfAbsent(map, {
+    id: 'transit-stops-dot',
+    type: 'circle',
+    source: 'transit-stops-dots',
+    paint: {
+      'circle-color': STATION_FILL,
+      'circle-stroke-color': STATION_STROKE,
+      'circle-radius': [
+        'interpolate',
+        ['linear'],
+        ['zoom'],
+        10,
+        STATION_DOT_MIN_PX,
+        16,
+        STATION_DOT_MIN_PX + 1,
+      ] as unknown as maplibregl.ExpressionSpecification,
+      'circle-stroke-width': [
+        'interpolate',
+        ['linear'],
+        ['zoom'],
+        10,
+        1.2,
+        16,
+        1.8,
+      ] as unknown as maplibregl.ExpressionSpecification,
+      'circle-opacity': fadeExpression(1, 0),
+      'circle-stroke-opacity': fadeExpression(1, 0),
     },
   });
 }

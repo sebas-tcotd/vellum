@@ -12,6 +12,9 @@ import type { ViewportBounds } from '../map-libre-renderer';
 
 type TransitLineInfo = { name: string; color: string; mode: TransitMode };
 
+/** Station hit-test layers: the detail-zoom capsule and the overview-zoom dot. */
+const STATION_HIT_LAYERS = ['transit-stops', 'transit-stops-dot'];
+
 /**
  * Subscribes to viewport changes (pan/zoom).
  *
@@ -80,7 +83,7 @@ export function subscribeHover(
       [e.point.x + 6, e.point.y + 6],
     ];
     const nearby = map.queryRenderedFeatures(bbox, {
-      layers: ['transit-stops'],
+      layers: STATION_HIT_LAYERS,
     });
     if (nearby.length === 0) return;
 
@@ -117,11 +120,18 @@ export function subscribeHover(
     callback(null);
   };
 
-  map.on('mousemove', 'transit-stops', handleMove);
-  map.on('mouseleave', 'transit-stops', handleLeave);
+  // Both markers are hit targets: the capsule reads at detail zoom, the floored
+  // dot at overview zoom (where the capsule is sub-pixel). Registering on both
+  // keeps stops interactive at every zoom, matching the visible geometry.
+  for (const layer of STATION_HIT_LAYERS) {
+    map.on('mousemove', layer, handleMove);
+    map.on('mouseleave', layer, handleLeave);
+  }
 
   return () => {
-    map.off('mousemove', 'transit-stops', handleMove);
-    map.off('mouseleave', 'transit-stops', handleLeave);
+    for (const layer of STATION_HIT_LAYERS) {
+      map.off('mousemove', layer, handleMove);
+      map.off('mouseleave', layer, handleLeave);
+    }
   };
 }

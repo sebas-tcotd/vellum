@@ -405,14 +405,33 @@ export interface TransitConnectorsFeatureCollection {
   features: TransitFeature[];
 }
 
-/** All three GeoJSON products of the transit rendering pipeline. */
+/** A GeoJSON Feature wrapping a station center point (min-size dot marker). */
+interface StationDotFeature {
+  type: 'Feature';
+  geometry: PointGeometry;
+  properties: TransitStopFeatureProperties;
+}
+
+/** A GeoJSON FeatureCollection of station center points. */
+export interface StationDotsFeatureCollection {
+  type: 'FeatureCollection';
+  features: StationDotFeature[];
+}
+
+/** All GeoJSON products of the transit rendering pipeline. */
 export interface TransitRenderData {
   /** Trimmed corridor centerlines, one feature per (line × corridor). */
   lines: TransitFeatureCollection;
   /** Precomputed inner connections (Bézier) at junction nodes. */
   connectors: TransitConnectorsFeatureCollection;
-  /** Station polygons (rotated rectangles across their corridor). */
+  /** Station capsule polygons (detail-zoom marker). */
   stations: TransitStopsFeatureCollection;
+  /**
+   * Station center points, carrying the same properties as the capsules. Drawn
+   * as a min-pixel-size `circle` marker so stations stay discoverable and
+   * clickable when zoomed out, where the world-locked capsule is sub-pixel.
+   */
+  stationDots: StationDotsFeatureCollection;
 }
 
 /**
@@ -473,26 +492,39 @@ export function buildTransitRenderData(cityData: CityData): TransitRenderData {
     },
   );
 
-  const stationFeatures: TransitStopFeature[] = geometry.stations.map(
-    (station) => ({
+  const stationFeatures: TransitStopFeature[] = [];
+  const stationDotFeatures: StationDotFeature[] = [];
+  for (const station of geometry.stations) {
+    const properties: TransitStopFeatureProperties = {
+      id: station.id,
+      mode: station.lines[0]?.mode ?? 'Unknown',
+      color: station.lines[0]?.color ?? '#ffffff',
+      lines: JSON.stringify(station.lines),
+    };
+    stationFeatures.push({
       type: 'Feature',
       geometry: {
         type: 'Polygon',
         coordinates: [station.polygon.map((pt) => csToGeoArray(pt))],
       },
-      properties: {
-        id: station.id,
-        mode: station.lines[0]?.mode ?? 'Unknown',
-        color: station.lines[0]?.color ?? '#ffffff',
-        lines: JSON.stringify(station.lines),
-      },
-    }),
-  );
+      properties,
+    });
+    // Centroid of the capsule ring (excluding the repeated closing vertex).
+    const ring = station.polygon.slice(0, -1);
+    const cx = ring.reduce((s, p) => s + p.x, 0) / ring.length;
+    const cz = ring.reduce((s, p) => s + p.z, 0) / ring.length;
+    stationDotFeatures.push({
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: csToGeoArray({ x: cx, z: cz }) },
+      properties,
+    });
+  }
 
   return {
     lines: { type: 'FeatureCollection', features: lineFeatures },
     connectors: { type: 'FeatureCollection', features: connectorFeatures },
     stations: { type: 'FeatureCollection', features: stationFeatures },
+    stationDots: { type: 'FeatureCollection', features: stationDotFeatures },
   };
 }
 

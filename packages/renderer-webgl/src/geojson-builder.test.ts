@@ -322,6 +322,46 @@ describe('buildTransitRenderData — connectors and stations', () => {
     ).toBe(true);
   });
 
+  it('emits one station dot per capsule, at its centroid, with matching lines', () => {
+    const line = makeTransitLine({
+      id: 'line-1',
+      name: 'Ruta 1',
+      route: [makePathSeg(['seg-1'])],
+      stops: [
+        {
+          id: 'stop-1',
+          mode: 'Bus',
+          position: { x: 50, y: 0, z: 4 },
+          name: '',
+        },
+      ],
+    });
+    const city = makeCityData({
+      roadNodes: [NODE_A, NODE_B],
+      roadSegments: [SEG_1],
+      transitLines: [line],
+    });
+
+    const data = buildTransitRenderData(city);
+    // One capsule polygon and one dot point, sharing id + lines.
+    expect(data.stations.features).toHaveLength(1);
+    expect(data.stationDots.features).toHaveLength(1);
+    const dot = data.stationDots.features[0];
+    expect(dot.geometry.type).toBe('Point');
+    expect(dot.properties.id).toBe(data.stations.features[0].properties.id);
+    expect(dot.properties.lines).toBe(
+      data.stations.features[0].properties.lines,
+    );
+
+    // The dot sits at the centroid of the capsule ring (average of its vertices,
+    // excluding the closing vertex).
+    const ring = data.stations.features[0].geometry.coordinates[0].slice(0, -1);
+    const cx = ring.reduce((s, p) => s + p[0], 0) / ring.length;
+    const cy = ring.reduce((s, p) => s + p[1], 0) / ring.length;
+    expect(dot.geometry.coordinates[0]).toBeCloseTo(cx, 6);
+    expect(dot.geometry.coordinates[1]).toBeCloseTo(cy, 6);
+  });
+
   it('emits station polygons for stops, grouped and JSON-annotated', () => {
     const line = makeTransitLine({
       id: 'line-1',

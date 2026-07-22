@@ -84,6 +84,7 @@ const LAYER_ID_MAP: Record<LayerName, string[]> = {
     'transit-line',
     'transit-stops',
     'transit-stops-outline',
+    'transit-stops-dot',
   ],
   buildings: ['buildings-fill', 'buildings-outline'],
   forests: ['forests-circles'],
@@ -261,6 +262,7 @@ export class MapLibreRenderer implements IRenderer {
       'transit',
       'transit-connectors',
       'transit-stops',
+      'transit-stops-dots',
       'districts',
     ];
 
