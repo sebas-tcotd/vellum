@@ -2,6 +2,7 @@ use crate::city_data::CityData;
 use crate::errors::VellumError;
 use parser_cslmap::parser::parse_cslmap_file;
 use serde::{Deserialize, Serialize};
+use tauri::Manager;
 
 // ─── Export types (mirrors of ExportOptions/ExportResult in ipc-contract.ts) ─
 
@@ -65,6 +66,85 @@ pub async fn parse_cslmap(
         })?
 }
 
+// ─── Theme loading ───────────────────────────────────────────────────────────
+
+/// A single `.vellumstyle` file read from disk, passed verbatim to the TS theme-engine.
+///
+/// **CRITICAL RULE:** Must remain synchronized with `RawThemeFile` in `ipc-contract.ts`.
+/// Serializes to `camelCase`. Content is NOT validated here — that is the theme-engine's job.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RawThemeFile {
+    /// Stable identifier — the filename without the `.vellumstyle` extension.
+    pub id: String,
+    /// Origin of the file: `"built-in"` (bundled) or `"user"` (third-party).
+    pub source: String,
+    /// The raw, unparsed JSON contents of the file.
+    pub raw_json: String,
+}
+
+/// Reads a single `.vellumstyle` file into a `RawThemeFile`, or `None` if it should be skipped.
+/// Non-`.vellumstyle` files, files without a valid stem, and unreadable/non-UTF-8 files are skipped.
+fn read_theme_file(path: &std::path::Path, source: &str) -> Option<RawThemeFile> {
+    if path.extension().and_then(|e| e.to_str()) != Some("vellumstyle") {
+        return None;
+    }
+    let id = path.file_stem().and_then(|s| s.to_str())?.to_string();
+    match std::fs::read_to_string(path) {
+        Ok(raw_json) => Some(RawThemeFile {
+            id,
+            source: source.to_string(),
+            raw_json,
+        }),
+        Err(e) => {
+            eprintln!("[load_themes] skipping {}: {e}", path.display());
+            None
+        }
+    }
+}
+
+/// Reads every `.vellumstyle` file in `dir`, tagging each with `source`.
+/// A missing or unreadable directory yields an empty list (never fatal).
+fn read_theme_dir(dir: &std::path::Path, source: &str) -> Vec<RawThemeFile> {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return Vec::new();
+    };
+    entries
+        .flatten()
+        .filter_map(|entry| read_theme_file(&entry.path(), source))
+        .collect()
+}
+
+/// Loads all bundled and user `.vellumstyle` files as raw JSON strings.
+///
+/// Reads two directories: the bundled `resources/themes` (5 built-in themes) and the
+/// user's `{app_data_dir}/themes` (third-party themes, created if missing). Files are
+/// returned verbatim — content validation happens in the TypeScript theme-engine.
+/// Unreadable or non-UTF-8 files are skipped individually without aborting the load.
+///
+/// # Errors
+/// - `VellumError::IoError` — if the resource or app-data base directory cannot be resolved.
+#[tauri::command]
+pub async fn load_themes(app_handle: tauri::AppHandle) -> Result<Vec<RawThemeFile>, VellumError> {
+    let resource_dir = app_handle
+        .path()
+        .resource_dir()
+        .map_err(|e| VellumError::IoError {
+            reason: format!("resource_dir unavailable: {e}"),
+        })?;
+    let user_dir = app_handle
+        .path()
+        .app_data_dir()
+        .map_err(|e| VellumError::IoError {
+            reason: format!("app_data_dir unavailable: {e}"),
+        })?
+        .join("themes");
+    let _ = std::fs::create_dir_all(&user_dir); // best-effort; empty/missing is not fatal
+    let mut themes = read_theme_dir(&resource_dir.join("themes"), "built-in");
+    themes.extend(read_theme_dir(&user_dir, "user"));
+    Ok(themes)
+}
+
 /// Exports the current map rendering state to a rasterized PNG image.
 ///
 /// **Future Implementation (Story 6.2):** /// Currently a stub. Will handle offscreen rasterization based on the provided `ExportOptions`.
@@ -92,4 +172,51 @@ pub async fn export_svg(_options: ExportOptions) -> Result<ExportResult, VellumE
     Err(VellumError::ExportFailed {
         reason: "SVG export not yet implemented".to_string(),
     })
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::unwrap_used)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn read_theme_dir_reads_all_vellumstyle_files_verbatim() {
+        let dir = std::env::temp_dir().join("vellum_themes_read_test");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(
+            dir.join("day.vellumstyle"),
+            r#"{"schemaVersion":1,"name":"Day"}"#,
+        )
+        .unwrap();
+        std::fs::write(
+            dir.join("transit.vellumstyle"),
+            r#"{"schemaVersion":1,"name":"Transit"}"#,
+        )
+        .unwrap();
+        // A "corrupt" (invalid JSON) but readable file is still returned — content
+        // validation is the TypeScript theme-engine's job, not Rust's.
+        std::fs::write(dir.join("broken.vellumstyle"), "{ not valid json").unwrap();
+        std::fs::write(dir.join("ignore.txt"), "not a theme").unwrap();
+
+        let mut themes = read_theme_dir(&dir, "built-in");
+        themes.sort_by(|a, b| a.id.cmp(&b.id));
+
+        assert_eq!(
+            themes.len(),
+            3,
+            "reads all 3 .vellumstyle files, ignores .txt"
+        );
+        assert_eq!(themes[0].id, "broken");
+        assert_eq!(themes[0].source, "built-in");
+        assert!(themes.iter().any(|t| t.raw_json.contains("Day")));
+
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn read_theme_dir_missing_dir_yields_empty() {
+        let dir = std::env::temp_dir().join("vellum_nonexistent_theme_dir_xyz");
+        assert!(read_theme_dir(&dir, "user").is_empty());
+    }
 }

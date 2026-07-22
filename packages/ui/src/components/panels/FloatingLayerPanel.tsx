@@ -122,8 +122,11 @@ export const FloatingLayerPanel = ({
 
           <Separator className="h-px mt-3 mb-2 w-full" />
 
+          <PanelThemeSelector />
+
+          <Separator className="h-px mt-3 mb-2 w-full" />
+
           <PanelFooter />
-          {/* Story 5.x: theme selector pills */}
         </>
       ) : (
         <div className="flex flex-col items-center py-1 gap-1">
@@ -205,6 +208,49 @@ function PanelLayerList({ activeLayers, toggleLayer }: PanelLayerListProps) {
             color={LAYER_COLORS[layer]}
             icon={<Icon size={14} strokeWidth={1.5} />}
           />
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * Theme selector rendered as a row of pills (per `ux-design-specification.md`: pills, not a dropdown).
+ * @remarks
+ * Sources pills from `store.availableThemes` (populated by `useThemes` at startup). Clicking a pill
+ * sets `activeTheme`; the renderer host (`MapLibreRoot`) applies the matching `RenderStyleParams`.
+ */
+function PanelThemeSelector() {
+  const { t } = useTranslation();
+  const availableThemes = useVellumStore((s) => s.availableThemes);
+  const activeTheme = useVellumStore((s) => s.activeTheme);
+  const setActiveTheme = useVellumStore((s) => s.setActiveTheme);
+
+  if (availableThemes.length === 0) return null;
+
+  return (
+    <div
+      role="group"
+      aria-label={t('a11y.themeSelector')}
+      className="flex flex-wrap gap-1.5 mt-1"
+    >
+      {availableThemes.map((theme) => {
+        const active = theme.id === activeTheme;
+        return (
+          <button
+            key={theme.id}
+            type="button"
+            aria-pressed={active}
+            onClick={() => setActiveTheme(theme.id)}
+            className={cn(
+              'font-ui text-xs rounded-full px-2.5 py-1 border transition-colors cursor-pointer',
+              active
+                ? 'bg-accent-foreground/90 text-background border-transparent'
+                : 'bg-transparent border-[#2c28251f] opacity-70 hover:opacity-100',
+            )}
+          >
+            {theme.name}
+          </button>
         );
       })}
     </div>

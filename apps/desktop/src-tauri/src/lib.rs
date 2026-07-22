@@ -32,6 +32,7 @@ pub fn run() {
             commands::parse_cslmap,
             commands::export_png,
             commands::export_svg,
+            commands::load_themes,
         ])
         .run(tauri::generate_context!())
     {

@@ -69,7 +69,8 @@
     "cityLoaded": "{{cityName}} cargada",
     "partialLoad": "Algunos elementos (DLC o mods) se mostraron de forma simplificada.",
     "partialDataWarning": "Mapa parcialmente cargado. Algunas secciones no pudieron leerse.",
-    "tabHint": "Tab · modo limpio"
+    "tabHint": "Tab · modo limpio",
+    "invalidTheme": "{{themeName}}.vellumstyle no es válido: campo {{field}} no reconocido"
   },
   "common": {
     "cancel": "Cancelar",
@@ -82,7 +83,8 @@
     "exportProgress": "Progreso de exportación",
     "layerPanel": "Panel de control de capas",
     "layerPanelCollapse": "Colapsar panel",
-    "layerPanelExpand": "Expandir panel"
+    "layerPanelExpand": "Expandir panel",
+    "themeSelector": "Selector de tema"
   },
   "transitModes": {
     "Bus": "Autobús",

@@ -2,11 +2,32 @@ import type { BuildingServiceType } from './city-data';
 import type { ColorToken } from './color-tokens';
 
 /**
- * Describes the structural definition of a `.vellumstyle` file.
- * @remarks
- * Currently a stub. The complete style field schema will be defined in Story 5.1.
+ * Origin of a theme — bundled with the app or supplied by the user.
  */
-export interface VellumStyle {
+export type ThemeSource = 'built-in' | 'user';
+
+/**
+ * Identification metadata for a loaded theme, consumed by the theme selector pills
+ * and the `availableThemes` list in the store.
+ */
+export interface ThemeMetadata {
+  /** Stable identifier (the `.vellumstyle` filename without extension). */
+  id: string;
+  /** Human-readable display name shown on the pill. */
+  name: string;
+  /** Whether the theme ships with the app or was installed by the user. */
+  source: ThemeSource;
+}
+
+/**
+ * The structural definition of a `.vellumstyle` file.
+ * @remarks
+ * A `.vellumstyle` is simply a complete `RenderStyleParams` plus identifying metadata
+ * (`schemaVersion` + `name`). The theme-engine validates and migrates the raw file,
+ * then the UI passes the `RenderStyleParams` fields straight to `IRenderer.applyTheme()` —
+ * there is no separate "resolution" step because the shapes are identical.
+ */
+export interface VellumStyle extends RenderStyleParams {
   /** Schema version for backward compatibility and validation.
    * Guaranteed to be present starting from v1. */
   schemaVersion: number;

@@ -10,7 +10,24 @@ export const IPC_COMMANDS = {
   PARSE_CSLMAP: 'parse_cslmap',
   EXPORT_PNG: 'export_png',
   EXPORT_SVG: 'export_svg',
+  LOAD_THEMES: 'load_themes',
 } as const;
+
+/**
+ * A single `.vellumstyle` file read from disk by the `load_themes` command.
+ * @remarks
+ * Exact mirror of the Rust `RawThemeFile` struct (`camelCase` via serde). The Rust
+ * side does NOT validate the JSON — `raw_json` is the file's contents verbatim. Field
+ * validation (`isColorToken()` etc.) is the exclusive responsibility of `@vellum/theme-engine`.
+ */
+export interface RawThemeFile {
+  /** Stable identifier — the filename without the `.vellumstyle` extension. */
+  id: string;
+  /** Whether the file came from the bundled resources or the user themes directory. */
+  source: 'built-in' | 'user';
+  /** The raw, unparsed JSON contents of the file. */
+  rawJson: string;
+}
 
 /**
  * Registry of Tauri IPC event names emitted from the Rust backend.
