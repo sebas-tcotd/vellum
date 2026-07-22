@@ -36,12 +36,14 @@ export function ThemeWarningToast({
     >
       {warnings.map((warning) => (
         <span key={`${warning.themeId}:${warning.field}`}>
-          {warning.field === 'JSON'
-            ? t('toasts.invalidThemeJson', { themeName: warning.themeName })
-            : t('toasts.invalidTheme', {
-                themeName: warning.themeName,
-                field: warning.field,
-              })}
+          {warning.field === 'LOAD_FAILED'
+            ? t('toasts.themeLoadFailed')
+            : warning.field === 'JSON'
+              ? t('toasts.invalidThemeJson', { themeName: warning.themeName })
+              : t('toasts.invalidTheme', {
+                  themeName: warning.themeName,
+                  field: warning.field,
+                })}
         </span>
       ))}
       <button

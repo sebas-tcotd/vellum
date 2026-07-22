@@ -100,13 +100,23 @@ export function MapLibreRoot({
   // Apply the active theme's RenderStyleParams whenever it (or the loaded set) changes.
   // The renderer is constructed with DEFAULT_RENDER_STYLE_PARAMS as fallback until themes resolve.
   useEffect(() => {
+    let cancelled = false;
     const renderer = rendererRef.current;
     if (!renderer || themes.length === 0) return;
     const style = themes.find((theme) => theme.id === activeTheme);
     if (!style) return;
-    void renderer.applyTheme(style).catch((err: unknown) => {
-      console.error('[MapLibreRoot] applyTheme failed:', err);
-    });
+    renderer
+      .applyTheme(style)
+      .then(() => {
+        if (cancelled) return;
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        console.error('[MapLibreRoot] applyTheme failed:', err);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [activeTheme, themes]);
 
   // Clear the map when loading starts so the old map doesn't linger

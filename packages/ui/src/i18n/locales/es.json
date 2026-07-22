@@ -71,7 +71,8 @@
     "partialDataWarning": "Mapa parcialmente cargado. Algunas secciones no pudieron leerse.",
     "tabHint": "Tab · modo limpio",
     "invalidTheme": "{{themeName}}.vellumstyle no es válido: campo {{field}} no reconocido",
-    "invalidThemeJson": "{{themeName}}.vellumstyle no es válido: JSON malformado"
+    "invalidThemeJson": "{{themeName}}.vellumstyle no es válido: JSON malformado",
+    "themeLoadFailed": "Error al cargar temas — no hay temas visuales disponibles"
   },
   "common": {
     "cancel": "Cancelar",

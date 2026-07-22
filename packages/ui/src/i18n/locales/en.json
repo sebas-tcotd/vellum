@@ -71,7 +71,8 @@
     "partialDataWarning": "Map partially loaded. Some sections could not be read.",
     "tabHint": "Tab · focus mode",
     "invalidTheme": "{{themeName}}.vellumstyle is not valid: field {{field}} not recognized",
-    "invalidThemeJson": "{{themeName}}.vellumstyle is not valid: malformed JSON"
+    "invalidThemeJson": "{{themeName}}.vellumstyle is not valid: malformed JSON",
+    "themeLoadFailed": "Failed to load themes — no visual themes available"
   },
   "common": {
     "cancel": "Cancel",

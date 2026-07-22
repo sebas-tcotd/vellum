@@ -92,6 +92,11 @@ export function loadThemes(rawFiles: RawThemeFile[]): LoadThemesResult {
     const existingIndex = indexById.get(file.id);
     if (existingIndex !== undefined) {
       themes[existingIndex] = loaded;
+      // Remove any warning emitted for the built-in theme being overridden — the user's
+      // valid file "fixes" it, so the stale warning would be confusing.
+      for (let i = warnings.length - 1; i >= 0; i--) {
+        if (warnings[i]?.themeId === file.id) warnings.splice(i, 1);
+      }
       continue;
     }
     indexById.set(file.id, themes.length);

@@ -146,6 +146,24 @@ fn combine_theme_dirs(
     themes
 }
 
+/// Resolves the bundled themes directory under `resource_dir`.
+///
+/// **CRITICAL RULE:** In a packaged app, `resource_dir()` already points at the
+/// platform resource root (e.g. macOS `Contents/Resources`), and `tauri.conf.json`'s
+/// `bundle.resources` glob (`resources/themes/*`) is flattened into it — so the themes
+/// live directly at `resource_dir/themes`. In an unbundled `cargo run`/`tauri dev`
+/// session, Tauri copies resources into `target/debug/resources/` instead (preserving
+/// the `resources/` prefix), while `resource_dir()` there resolves to `target/debug/`
+/// itself — one directory short. Try the packaged layout first, fall back to the dev
+/// layout so both `pnpm dev` and a real installed build find the same 5 built-in themes.
+fn resolve_builtin_themes_dir(resource_dir: &std::path::Path) -> std::path::PathBuf {
+    let packaged = resource_dir.join("themes");
+    if packaged.is_dir() {
+        return packaged;
+    }
+    resource_dir.join("resources").join("themes")
+}
+
 /// Synchronous body of `load_themes` — reads both theme directories from disk.
 /// Run on a blocking thread via `spawn_blocking`; never call directly from async code.
 fn load_themes_blocking(app_handle: &tauri::AppHandle) -> Result<Vec<RawThemeFile>, VellumError> {
@@ -155,6 +173,7 @@ fn load_themes_blocking(app_handle: &tauri::AppHandle) -> Result<Vec<RawThemeFil
         .map_err(|e| VellumError::IoError {
             reason: format!("resource_dir unavailable: {e}"),
         })?;
+    let builtin_dir = resolve_builtin_themes_dir(&resource_dir);
     let user_dir = app_handle
         .path()
         .app_data_dir()
@@ -163,7 +182,7 @@ fn load_themes_blocking(app_handle: &tauri::AppHandle) -> Result<Vec<RawThemeFil
         })?
         .join("themes");
     let _ = std::fs::create_dir_all(&user_dir); // best-effort; empty/missing is not fatal
-    Ok(combine_theme_dirs(&resource_dir.join("themes"), &user_dir))
+    Ok(combine_theme_dirs(&builtin_dir, &user_dir))
 }
 
 /// Loads all bundled and user `.vellumstyle` files as raw JSON strings.

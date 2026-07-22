@@ -1,7 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { IPC_COMMANDS, type RawThemeFile } from '@vellum/core';
 import { loadThemes, type LoadedTheme } from '@vellum/theme-engine';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useVellumStore } from '../store/vellum-store';
 
 /**
@@ -19,25 +19,48 @@ export function useThemes(): LoadedTheme[] {
   const setAvailableThemes = useVellumStore((s) => s.setAvailableThemes);
   const setThemeWarnings = useVellumStore((s) => s.setThemeWarnings);
   const [themes, setThemes] = useState<LoadedTheme[]>([]);
+  // React.StrictMode (apps/desktop/src/main.tsx) double-invokes this effect on mount
+  // (setup → cleanup → setup). `hasInvoked` skips the redundant second `invoke()` call —
+  // two near-simultaneous calls to the same command can race in Tauri's IPC callback
+  // registry and drop a response. `isMounted` is reset to `true` at the *start* of every
+  // effect run (including the StrictMode no-op second run) and only cleared in cleanup —
+  // so the single in-flight invoke's `.then()` still sees `isMounted === true` once
+  // StrictMode's second setup has run, even though its own throwaway cleanup fired first.
+  // A plain per-run `cancelled` closure variable would stay stuck at `true` forever in
+  // that scenario, silently discarding a successful response.
+  const hasInvoked = useRef(false);
+  const isMounted = useRef(true);
 
   useEffect(() => {
-    let cancelled = false;
-    invoke<RawThemeFile[]>(IPC_COMMANDS.LOAD_THEMES)
-      .then((rawFiles) => {
-        if (cancelled) return;
-        if (!Array.isArray(rawFiles)) return;
-        const { themes: loaded, warnings } = loadThemes(rawFiles);
-        setThemes(loaded);
-        setAvailableThemes(
-          loaded.map(({ id, name, source }) => ({ id, name, source })),
-        );
-        setThemeWarnings(warnings);
-      })
-      .catch((err: unknown) => {
-        console.error('[useThemes] Failed to load themes:', err);
-      });
+    isMounted.current = true;
+    if (!hasInvoked.current) {
+      hasInvoked.current = true;
+      invoke<RawThemeFile[]>(IPC_COMMANDS.LOAD_THEMES)
+        .then((rawFiles) => {
+          if (!isMounted.current) return;
+          if (!Array.isArray(rawFiles)) return;
+          const { themes: loaded, warnings } = loadThemes(rawFiles);
+          setThemes(loaded);
+          setAvailableThemes(
+            loaded.map(({ id, name, source }) => ({ id, name, source })),
+          );
+          setThemeWarnings(warnings);
+        })
+        .catch((err: unknown) => {
+          console.error('[useThemes] Failed to load themes:', err);
+          if (isMounted.current) {
+            setThemeWarnings([
+              {
+                themeId: '*',
+                themeName: 'Themes',
+                field: 'LOAD_FAILED',
+              },
+            ]);
+          }
+        });
+    }
     return () => {
-      cancelled = true;
+      isMounted.current = false;
     };
   }, [setAvailableThemes, setThemeWarnings]);
 

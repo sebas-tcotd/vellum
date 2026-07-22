@@ -1,183 +1,183 @@
 {
   "schemaVersion": 1,
   "name": "Day",
-  "mapBackground": "#f7f6f1",
+  "mapBackground": "#f2efe9",
   "terrain": {
-    "base": "#f7f6f1",
-    "low": "#95ae79",
-    "mid": "#deddbe",
-    "high": "#c4a06a"
+    "base": "#f2efe9",
+    "low": "#9fd17a",
+    "mid": "#e4dfc9",
+    "high": "#c9ad7f"
   },
-  "water": "#6db8b7",
-  "forests": "#14592a",
+  "water": "#aad3df",
+  "forests": "#cdebb0",
   "transitBackground": "#1a1a2e",
   "roads": {
     "highway": {
       "generic": {
-        "fill": "#a098b0",
-        "casing": "#7d748e"
+        "fill": "#4a4a4a",
+        "casing": "#2e2e2e"
       },
       "industrial": {
-        "fill": "#a098b0",
-        "casing": "#7d748e"
+        "fill": "#5a5248",
+        "casing": "#39332c"
       }
     },
     "largeArterial": {
       "generic": {
-        "fill": "#d2938e",
-        "casing": "#b8756e"
+        "fill": "#6b6b6b",
+        "casing": "#4a4a4a"
       },
       "industrial": {
-        "fill": "#d2938e",
-        "casing": "#b8756e"
+        "fill": "#786d5e",
+        "casing": "#544c41"
       }
     },
     "mediumArterial": {
       "generic": {
-        "fill": "#d4a882",
-        "casing": "#b48a69"
+        "fill": "#8c8c8c",
+        "casing": "#6b6b6b"
       },
       "industrial": {
-        "fill": "#d4a882",
-        "casing": "#b48a69"
+        "fill": "#948a78",
+        "casing": "#6d6455"
       }
     },
     "local": {
       "generic": {
-        "fill": "#e4e1d1",
-        "casing": "#8a8278"
+        "fill": "#b0afaa",
+        "casing": "#8c8c8c"
       },
       "industrial": {
-        "fill": "#e4e1d1",
-        "casing": "#8a8278"
+        "fill": "#b3a993",
+        "casing": "#8c8271"
       },
       "gravel": {
-        "fill": "#e0d5c1",
-        "casing": "#c4b89e"
+        "fill": "#c9c2b0",
+        "casing": "#a69c88"
       }
     },
     "pedestrian": {
       "path": {
-        "fill": "#7a6e60",
-        "casing": "#5d5550"
+        "fill": "#a08770",
+        "casing": "#7a6754"
       },
       "way": {
-        "fill": "#8b7d6b",
+        "fill": "#b09d88",
         "casing": "#8b7d6b"
       },
       "street": {
-        "fill": "#7a6e60",
-        "casing": "#5d5550"
+        "fill": "#a08770",
+        "casing": "#7a6754"
       }
     },
     "rail": {
       "train": {
-        "fill": "#eceff1",
-        "casing": "#455a64"
+        "fill": "#ececec",
+        "casing": "#4a4a4a"
       },
       "tram": {
-        "fill": "#eceff1",
-        "casing": "#455a64"
+        "fill": "#ececec",
+        "casing": "#555555"
       },
       "monorail": {
-        "fill": "#eceff1",
-        "casing": "#455a64"
+        "fill": "#ececec",
+        "casing": "#555555"
       },
       "metro": {
-        "fill": "#eceff1",
-        "casing": "#455a64"
+        "fill": "#ececec",
+        "casing": "#e4572e"
       }
     },
     "ferry": {
-      "fill": "#1A5276",
-      "casing": "#1A5276"
+      "fill": "#4a90a4",
+      "casing": "#4a90a4"
     }
   },
   "buildings": {
     "residential": {
       "low": {
-        "fill": "#c8bfb5",
-        "stroke": "#a09585"
+        "fill": "#d9cba3",
+        "stroke": "#b8a47d"
       },
       "high": {
-        "fill": "#c8bfb5",
-        "stroke": "#a09585"
+        "fill": "#c9b48a",
+        "stroke": "#a38f68"
       },
       "selfSufficient": {
-        "fill": "#c8bfb5",
-        "stroke": "#a09585"
+        "fill": "#c3d9a8",
+        "stroke": "#9db885"
       }
     },
     "commercial": {
       "low": {
-        "fill": "#c8bfb5",
-        "stroke": "#a09585"
+        "fill": "#e8b4a0",
+        "stroke": "#c98f7a"
       },
       "high": {
-        "fill": "#c8bfb5",
-        "stroke": "#a09585"
+        "fill": "#de9c86",
+        "stroke": "#ba7a65"
       },
       "leisure": {
-        "fill": "#c8bfb5",
-        "stroke": "#a09585"
+        "fill": "#e8c4e0",
+        "stroke": "#c29ab8"
       },
       "tourism": {
-        "fill": "#c8bfb5",
-        "stroke": "#a09585"
+        "fill": "#e8d4a0",
+        "stroke": "#c2ad78"
       },
       "organic": {
-        "fill": "#c8bfb5",
-        "stroke": "#a09585"
+        "fill": "#b8d4a8",
+        "stroke": "#94ad82"
       }
     },
     "office": {
       "generic": {
-        "fill": "#c8bfb5",
-        "stroke": "#a09585"
+        "fill": "#a8c4d9",
+        "stroke": "#7fa0b8"
       },
       "tech": {
-        "fill": "#c8bfb5",
-        "stroke": "#a09585"
+        "fill": "#8fb8d9",
+        "stroke": "#6b93b8"
       },
       "financial": {
-        "fill": "#c8bfb5",
-        "stroke": "#a09585"
+        "fill": "#7a9cc2",
+        "stroke": "#5c7da3"
       }
     },
     "industry": {
       "generic": {
-        "fill": "#c8bfb5",
-        "stroke": "#a09585"
+        "fill": "#d9c97a",
+        "stroke": "#b8a85c"
       },
       "forestry": {
-        "fill": "#c8bfb5",
-        "stroke": "#a09585"
+        "fill": "#a8c47a",
+        "stroke": "#86a35c"
       },
       "ore": {
-        "fill": "#c8bfb5",
-        "stroke": "#a09585"
+        "fill": "#b89478",
+        "stroke": "#96755c"
       },
       "oil": {
-        "fill": "#c8bfb5",
-        "stroke": "#a09585"
+        "fill": "#8c8570",
+        "stroke": "#6b6554"
       },
       "farming": {
-        "fill": "#c8bfb5",
-        "stroke": "#a09585"
+        "fill": "#c4b87a",
+        "stroke": "#a3985c"
       }
     },
     "civic": {
       "publicTransport": {
-        "fill": "#c8bfb5",
-        "stroke": "#a09585"
+        "fill": "#c2a8d9",
+        "stroke": "#9c82b8"
       },
       "education": {
-        "fill": "#c8bfb5",
-        "stroke": "#a09585"
+        "fill": "#a8d9c4",
+        "stroke": "#82b89c"
       },
       "services": {
-        "fill": "#c8bfb5",
-        "stroke": "#a09585"
+        "fill": "#d9a8a8",
+        "stroke": "#b88282"
       }
     },
     "none": {
@@ -186,7 +186,7 @@
     }
   },
   "districts": {
-    "fill": "#b4a08c",
-    "label": "#ffffff"
+    "fill": "#e8d97a",
+    "label": "#2e2e2e"
   }
 }
