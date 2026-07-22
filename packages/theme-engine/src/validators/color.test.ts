@@ -39,6 +39,13 @@ describe('isHslColor', () => {
     expect(isHslColor('hsl(210, 40%, 60%, 50%)')).toBe(true);
   });
 
+  it('accepts modern CSS space-separated syntax', () => {
+    expect(isHslColor('hsl(210 40% 60%)')).toBe(true);
+    expect(isHslColor('hsl(0 0% 0%)')).toBe(true);
+    expect(isHslColor('hsl(210 40% 60% / 0.5)')).toBe(true);
+    expect(isHslColor('hsl(210.5 40.2% 60.8%)')).toBe(true);
+  });
+
   it('rejects malformed hsl() strings', () => {
     expect(isHslColor('hsl(210, 40, 60)')).toBe(false); // missing '%'
     expect(isHslColor('rgb(255, 0, 0)')).toBe(false);
