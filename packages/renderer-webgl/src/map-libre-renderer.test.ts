@@ -3,7 +3,7 @@ import type { Mock } from 'vitest';
 import maplibregl from 'maplibre-gl';
 import { MapLibreRenderer } from './map-libre-renderer';
 import { makeCityData } from '@vellum/core/testing';
-import type { RendererTokens } from './tokens';
+import type { RenderStyleParams, RoadCategoryColors } from '@vellum/core';
 
 // ─── Mock maplibre-gl ─────────────────────────────────────────────────────────
 // vi.mock() is hoisted; use vi.hoisted() so mockMap is available in the factory.
@@ -49,38 +49,87 @@ vi.mock('maplibre-gl', () => ({
   },
 }));
 
-// ─── Test tokens ──────────────────────────────────────────────────────────────
+// ─── Test theme ───────────────────────────────────────────────────────────────
 
-const MOCK_TOKENS: RendererTokens = {
-  background: '#f7f6f1',
-  terrain: '#f7f6f1',
-  terrainLow: '#95ae79',
-  terrainMid: '#deddbe',
-  terrainHigh: '#c4a06a',
+function roadColors(fill: string, casing: string): RoadCategoryColors {
+  return { fill: fill as `#${string}`, casing: casing as `#${string}` };
+}
+
+const MOCK_STYLE: RenderStyleParams = {
+  mapBackground: '#f7f6f1',
+  terrain: {
+    base: '#f7f6f1',
+    low: '#95ae79',
+    mid: '#deddbe',
+    high: '#c4a06a',
+  },
   water: '#6db8b7',
-  green: '#95ae79',
-  text: '#333333',
-  transitBg: '#1a1a2e',
-  roadHighway: '#a098b0',
-  roadHighwayCasing: '#7d748e',
-  roadLargeArterial: '#d2938e',
-  roadLargeArterialCasing: '#b8756e',
-  roadMediumArterial: '#d4a882',
-  roadMediumArterialCasing: '#b48a69',
-  roadLocal: '#e4e1d1',
-  roadLocalCasing: '#8a8278',
-  roadGravel: '#e0d5c1',
-  roadGravelCasing: '#c4b89e',
-  roadPedestrian: '#7a6e60',
-  roadPedestrianCasing: '#5d5550',
-  roadPedestrianWay: '#8b7d6b',
-  roadRailway: '#eceff1',
-  roadRailwayCasing: '#455a64',
-  buildingFill: '#c8bfb5',
-  buildingStroke: '#a09585',
-  districtFill: '#b4a08c',
-  districtLabel: '#ffffff',
-  coastlineStroke: '#4a8f8e',
+  forests: '#14592a',
+  transitBackground: '#1a1a2e',
+  roads: {
+    highway: {
+      generic: roadColors('#a098b0', '#7d748e'),
+      industrial: roadColors('#a098b0', '#7d748e'),
+    },
+    largeArterial: {
+      generic: roadColors('#d2938e', '#b8756e'),
+      industrial: roadColors('#d2938e', '#b8756e'),
+    },
+    mediumArterial: {
+      generic: roadColors('#d4a882', '#b48a69'),
+      industrial: roadColors('#d4a882', '#b48a69'),
+    },
+    local: {
+      generic: roadColors('#e4e1d1', '#8a8278'),
+      industrial: roadColors('#e4e1d1', '#8a8278'),
+      gravel: roadColors('#e0d5c1', '#c4b89e'),
+    },
+    pedestrian: {
+      path: roadColors('#7a6e60', '#5d5550'),
+      way: roadColors('#8b7d6b', '#8b7d6b'),
+      street: roadColors('#7a6e60', '#5d5550'),
+    },
+    rail: {
+      train: roadColors('#eceff1', '#455a64'),
+      tram: roadColors('#eceff1', '#455a64'),
+      monorail: roadColors('#eceff1', '#455a64'),
+      metro: roadColors('#eceff1', '#455a64'),
+    },
+    ferry: roadColors('#1A5276', '#1A5276'),
+  },
+  buildings: {
+    residential: {
+      low: { fill: '#c8bfb5', stroke: '#a09585' },
+      high: { fill: '#c8bfb5', stroke: '#a09585' },
+      selfSufficient: { fill: '#c8bfb5', stroke: '#a09585' },
+    },
+    commercial: {
+      low: { fill: '#c8bfb5', stroke: '#a09585' },
+      high: { fill: '#c8bfb5', stroke: '#a09585' },
+      leisure: { fill: '#c8bfb5', stroke: '#a09585' },
+      tourism: { fill: '#c8bfb5', stroke: '#a09585' },
+      organic: { fill: '#c8bfb5', stroke: '#a09585' },
+    },
+    office: {
+      generic: { fill: '#c8bfb5', stroke: '#a09585' },
+      tech: { fill: '#c8bfb5', stroke: '#a09585' },
+      financial: { fill: '#c8bfb5', stroke: '#a09585' },
+    },
+    industry: {
+      generic: { fill: '#c8bfb5', stroke: '#a09585' },
+      forestry: { fill: '#c8bfb5', stroke: '#a09585' },
+      ore: { fill: '#c8bfb5', stroke: '#a09585' },
+      oil: { fill: '#c8bfb5', stroke: '#a09585' },
+      farming: { fill: '#c8bfb5', stroke: '#a09585' },
+    },
+    civic: {
+      publicTransport: { fill: '#c8bfb5', stroke: '#a09585' },
+      education: { fill: '#c8bfb5', stroke: '#a09585' },
+      services: { fill: '#c8bfb5', stroke: '#a09585' },
+    },
+    none: { fill: '#c8bfb5', stroke: '#a09585' },
+  },
+  districts: { fill: '#b4a08c', label: '#ffffff' },
 };
 
 const ALL_LAYERS_VISIBLE = {
@@ -97,7 +146,7 @@ const ALL_LAYERS_VISIBLE = {
 
 function makeRenderer(): MapLibreRenderer {
   const container = document.createElement('div');
-  return new MapLibreRenderer(container, MOCK_TOKENS);
+  return new MapLibreRenderer(container, MOCK_STYLE);
 }
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
@@ -626,7 +675,7 @@ describe('MapLibreRenderer', () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const MapMock = (maplibregl as any).Map as ReturnType<typeof vi.fn>;
       MapMock.mockClear();
-      new MapLibreRenderer(container, MOCK_TOKENS);
+      new MapLibreRenderer(container, MOCK_STYLE);
       expect(MapMock).toHaveBeenCalledWith(
         expect.objectContaining({ renderWorldCopies: false }),
       );
@@ -637,7 +686,7 @@ describe('MapLibreRenderer', () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const MapMock = (maplibregl as any).Map as ReturnType<typeof vi.fn>;
       MapMock.mockClear();
-      new MapLibreRenderer(container, MOCK_TOKENS);
+      new MapLibreRenderer(container, MOCK_STYLE);
       expect(MapMock).toHaveBeenCalledWith(
         expect.objectContaining({ maxZoom: 18 }),
       );
@@ -748,6 +797,78 @@ describe('MapLibreRenderer', () => {
         activeLayers: ALL_LAYERS_VISIBLE,
       });
       expect(mockMap.on).toHaveBeenCalledWith('moveend', expect.any(Function));
+    });
+  });
+
+  describe('applyTheme', () => {
+    it('is a safe no-op when no layers exist yet (theme applied before a city loads)', async () => {
+      const renderer = makeRenderer();
+      await expect(renderer.applyTheme(MOCK_STYLE)).resolves.toBeUndefined();
+      expect(mockMap.setPaintProperty).not.toHaveBeenCalled();
+    });
+
+    it('calls setPaintProperty for every themed layer that currently exists', async () => {
+      const renderer = makeRenderer();
+      mockMap.getLayer.mockReturnValue({ id: 'any' } as unknown as undefined);
+
+      await renderer.applyTheme(MOCK_STYLE);
+
+      expect(mockMap.setPaintProperty).toHaveBeenCalledWith(
+        'background',
+        'background-color',
+        MOCK_STYLE.mapBackground,
+      );
+      expect(mockMap.setPaintProperty).toHaveBeenCalledWith(
+        'base-water',
+        'fill-color',
+        MOCK_STYLE.water,
+      );
+      expect(mockMap.setPaintProperty).toHaveBeenCalledWith(
+        'base-land',
+        'fill-color',
+        MOCK_STYLE.terrain.base,
+      );
+      expect(mockMap.setPaintProperty).toHaveBeenCalledWith(
+        'forests-circles',
+        'circle-color',
+        MOCK_STYLE.forests,
+      );
+      expect(mockMap.setPaintProperty).toHaveBeenCalledWith(
+        'buildings-fill',
+        'fill-color',
+        MOCK_STYLE.buildings.none.fill,
+      );
+      expect(mockMap.setPaintProperty).toHaveBeenCalledWith(
+        'districts-points',
+        'circle-color',
+        MOCK_STYLE.districts.fill,
+      );
+      expect(mockMap.setPaintProperty).toHaveBeenCalledWith(
+        'roads-fill',
+        'line-color',
+        expect.any(Array),
+      );
+      expect(mockMap.setPaintProperty).toHaveBeenCalledWith(
+        'roads-casing',
+        'line-color',
+        expect.any(Array),
+      );
+      expect(mockMap.setPaintProperty).toHaveBeenCalledWith(
+        'roads-railway-casing',
+        'line-color',
+        expect.any(Array),
+      );
+    });
+
+    it('completes in well under one frame (~16ms)', async () => {
+      const renderer = makeRenderer();
+      mockMap.getLayer.mockReturnValue({ id: 'any' } as unknown as undefined);
+
+      const start = performance.now();
+      await renderer.applyTheme(MOCK_STYLE);
+      const elapsed = performance.now() - start;
+
+      expect(elapsed).toBeLessThan(16);
     });
   });
 });

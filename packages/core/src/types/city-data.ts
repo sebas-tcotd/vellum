@@ -152,6 +152,51 @@ export interface TransitLine {
 }
 
 /**
+ * The building's service/zoning sub-type, mapped verbatim from the `.cslmap` `subsrv`
+ * attribute.
+ * @remarks
+ * Covers every `subsrv` value observed across real `.cslmap` exports (including
+ * DLC-specific variants), plus `'unknown'` as a graceful fallback for values not
+ * yet catalogued. The parser never normalizes this value — it copies `subsrv` as-is.
+ * Category grouping for rendering (e.g. `residential.low`) is resolved separately by
+ * `BUILDING_SERVICE_TYPE_CATEGORY` in `theme.ts`.
+ */
+export type BuildingServiceType =
+  | 'ResidentialLow'
+  | 'ResidentialHigh'
+  | 'ResidentialLowEco'
+  | 'ResidentialHighEco'
+  | 'CommercialLow'
+  | 'CommercialHigh'
+  | 'CommercialLeisure'
+  | 'CommercialTourist'
+  | 'CommercialEco'
+  | 'IndustrialGeneric'
+  | 'IndustrialForestry'
+  | 'IndustrialOre'
+  | 'IndustrialOil'
+  | 'IndustrialFarming'
+  | 'PlayerIndustryForestry'
+  | 'OfficeGeneric'
+  | 'OfficeHightech'
+  | 'OfficeFinancial'
+  | 'PublicTransportBus'
+  | 'PublicTransportTrain'
+  | 'PublicTransportTram'
+  | 'PublicTransportMetro'
+  | 'PublicTransportShip'
+  | 'PublicTransportPlane'
+  | 'PublicTransportCableCar'
+  | 'PublicTransportTaxi'
+  | 'PublicTransportTours'
+  | 'PublicTransportPost'
+  | 'PlayerEducationTradeSchool'
+  | 'PlayerEducationUniversity'
+  | 'BeautificationParks'
+  | 'None'
+  | 'unknown';
+
+/**
  * Represents a building asset with its physical footprint.
  */
 export interface Building {
@@ -161,6 +206,8 @@ export interface Building {
   position: Vec3;
   /** The original asset class, used to filter out entities like 'Beautification Item'. */
   itemClass: string;
+  /** The building's service/zoning sub-type, mapped from the `.cslmap` `subsrv` attribute. */
+  serviceType: BuildingServiceType;
   /** Polygon vertices defining the building's physical boundaries. */
   footprint: Vec3[];
 }

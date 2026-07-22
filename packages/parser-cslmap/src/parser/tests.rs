@@ -281,6 +281,7 @@ fn building_footprint_parsed_from_lowercase_p_tags() {
     );
     assert!((footprint[0].x - 100.0_f64).abs() < f64::EPSILON);
     assert!((footprint[0].z - 200.0_f64).abs() < f64::EPSILON);
+    assert_eq!(city.buildings[0].service_type, "ResidentialLow");
 }
 
 // Transit line color defaults to #FFFFFFFF when <color> element is absent

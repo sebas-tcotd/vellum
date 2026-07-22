@@ -1,4 +1,9 @@
-import type { IRenderer, CityData, RenderParams } from '@vellum/core';
+import type {
+  IRenderer,
+  CityData,
+  RenderParams,
+  RenderStyleParams,
+} from '@vellum/core';
 import { readTokensFromDOM, type RendererTokens } from './tokens';
 import { overscanLayout } from './overscan';
 import type { WorkerMessage, WorkerResponse } from './worker/messages';
@@ -111,5 +116,15 @@ export class CanvasRenderer implements IRenderer {
     this.offscreens.clear();
     this.pendingRender = null;
     this.renderResolvers = [];
+  }
+
+  /**
+   * No-op: `CanvasRenderer` is the legacy renderer, superseded by
+   * `MapLibreRenderer` (`@vellum/renderer-webgl`) since Story 4-5. It reads its
+   * own `RendererTokens` once via `readTokensFromDOM()` at construction and does
+   * not support live re-theming — implemented only to satisfy `IRenderer`.
+   */
+  async applyTheme(_style: RenderStyleParams): Promise<void> {
+    // No-op — legacy renderer, not wired to the RenderStyleParams theme contract.
   }
 }

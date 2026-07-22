@@ -174,6 +174,9 @@ pub struct Building {
     /// Anchor position derived from the first footprint point.
     pub position: Vec3,
     pub item_class: String,
+    /// Raw `subsrv` attribute value (e.g. `"ResidentialLow"`). Copied verbatim —
+    /// normalization to a rendering category happens in the renderer/theme-engine.
+    pub service_type: String,
     pub footprint: Vec<Vec3>,
 }
 

@@ -11,15 +11,11 @@
  * not import MapLibre. It can be unit-tested in jsdom without WebGL.
  */
 
-import type {
-  CityData,
-  RoadNode,
-  RoadSegment,
-  TerrainPolygon,
-  TransitMode,
-  WayType,
-} from '@vellum/core';
+import type { CityData, RoadNode, TerrainPolygon, WayType } from '@vellum/core';
 import { csToGeoArray, CS1_WORLD_HALF } from './coordinate-transform';
+import { buildTransitLineGraph } from './transit/line-graph';
+import { computeLineOrder } from './transit/ordering';
+import { buildRenderGeometry } from './transit/render-geometry';
 
 // ─── GeoJSON primitives (minimal subset — avoids importing @types/geojson) ───
 
@@ -83,10 +79,10 @@ interface WaterFeature {
   properties: Record<string, never>;
 }
 
-/** A GeoJSON Feature wrapping a transit stop point. */
+/** A GeoJSON Feature wrapping a station polygon (rotated rectangle across its corridor). */
 interface TransitStopFeature {
   type: 'Feature';
-  geometry: PointGeometry;
+  geometry: PolygonGeometry;
   properties: TransitStopFeatureProperties;
 }
 
@@ -132,13 +128,14 @@ export interface TransitFeatureProperties {
   /** Transportation mode (Bus, Tram, Train, etc.). */
   mode: string;
   /**
-   * Decreasing-width multiplier for MapLibre stacked-band rendering.
-   * Among N lines sharing a segment, the first (background) gets N and the
-   * last (foreground) gets 1.  Paint: `lineWidthMultiplier × baseWidth(zoom)`.
-   * Features must be sorted descending by this value so wide strokes are drawn
-   * before narrow ones, producing equal-width visible colour bands.
+   * Signed slot index of this line within its corridor bundle — the paper's
+   * `p − (|L(e)|−1)/2`. Position 0 is the leftmost line relative to the
+   * feature's coordinate direction; the index is consumed by MapLibre
+   * `line-offset` calibrated to `SLOT_M` world meters per unit
+   * (see layers/layer-transit.ts). Inner-connection features carry 0 —
+   * their displacement is baked into the geometry.
    */
-  lineWidthMultiplier: number;
+  offsetIdx: number;
 }
 
 /**
@@ -206,14 +203,14 @@ export interface WaterFeatureCollection {
 }
 
 /**
- * Properties attached to each transit stop GeoJSON feature.
+ * Properties attached to each station GeoJSON feature.
  */
 export interface TransitStopFeatureProperties {
-  /** The stop's unique CS1 identifier (road node ID). */
+  /** Deterministic station identifier (first member stop's CS1 node ID). */
   id: string;
-  /** Transportation mode (Bus, Tram, Train, etc.) — used for circle styling. */
+  /** Transportation mode of the first serving line. */
   mode: string;
-  /** Hexadecimal color string of the first transit line (used for circle fill). */
+  /** Hexadecimal color string of the first serving transit line. */
   color: string;
   /**
    * JSON-encoded array of all lines serving this stop.
@@ -224,7 +221,7 @@ export interface TransitStopFeatureProperties {
   lines: string;
 }
 
-/** A GeoJSON FeatureCollection of transit stop points. */
+/** A GeoJSON FeatureCollection of station polygons. */
 export interface TransitStopsFeatureCollection {
   type: 'FeatureCollection';
   features: TransitStopFeature[];
@@ -400,211 +397,145 @@ export function buildRoadsGeoJson(cityData: CityData): RoadsFeatureCollection {
   };
 }
 
-// ─── LOOM-style greedy ordering ──────────────────────────────────────────────
+// ─── Transit pipeline (paper-faithful: line graph → MLNCM-S → render geometry) ─
 
-// Priority order for transit modes when assigning parallel offsets.
-// Lower value = closer to centre of the bundle (higher visual priority).
-const MODE_PRIORITY: Record<TransitMode, number> = {
-  Metro: 0,
-  Train: 1,
-  Monorail: 2,
-  Tram: 3,
-  Trolleybus: 4,
-  CableCar: 5,
-  Ferry: 6,
-  Blimp: 7,
-  Bus: 8,
-  Unknown: 9,
-};
+/** A GeoJSON FeatureCollection of inner-connection LineStrings at junction nodes. */
+export interface TransitConnectorsFeatureCollection {
+  type: 'FeatureCollection';
+  features: TransitFeature[];
+}
 
-/**
- * When looking at a segment from `nodeId`, returns true if the canonical
- * ordering (position 0 = leftmost in canonical direction) must be reversed.
- * Canonical direction: smaller nodeId → larger nodeId.
- */
-function isReversedFromNode(seg: RoadSegment, nodeId: string): boolean {
-  const canonicalStart =
-    seg.startNodeId < seg.endNodeId ? seg.startNodeId : seg.endNodeId;
-  return nodeId !== canonicalStart;
+/** A GeoJSON Feature wrapping a station center point (min-size dot marker). */
+interface StationDotFeature {
+  type: 'Feature';
+  geometry: PointGeometry;
+  properties: TransitStopFeatureProperties;
+}
+
+/** A GeoJSON FeatureCollection of station center points. */
+export interface StationDotsFeatureCollection {
+  type: 'FeatureCollection';
+  features: StationDotFeature[];
+}
+
+/** All GeoJSON products of the transit rendering pipeline. */
+export interface TransitRenderData {
+  /** Trimmed corridor centerlines, one feature per (line × corridor). */
+  lines: TransitFeatureCollection;
+  /** Precomputed inner connections (Bézier) at junction nodes. */
+  connectors: TransitConnectorsFeatureCollection;
+  /** Station capsule polygons (detail-zoom marker). */
+  stations: TransitStopsFeatureCollection;
+  /**
+   * Station center points, carrying the same properties as the capsules. Drawn
+   * as a min-pixel-size `circle` marker so stations stay discoverable and
+   * clickable when zoomed out, where the world-locked capsule is sub-pixel.
+   */
+  stationDots: StationDotsFeatureCollection;
 }
 
 /**
- * LOOM `smallerThanAt`: asks "should l1 come before l2 in this segment's
- * ordering?" by consulting already-settled adjacent segments at `nodeId`.
- * Returns `before=null` when there is no evidence.
- */
-function smallerThanAtNode(
-  l1Id: string,
-  l2Id: string,
-  nodeId: string,
-  orderConfig: Map<string, string[]>,
-  nodeSegIds: Map<string, string[]>,
-  segById: Map<string, RoadSegment>,
-  segLineIds: Map<string, string[]>,
-): { before: boolean | null; evidence: number } {
-  const positionsL1: number[] = [];
-  const positionsL2: number[] = [];
-  let offset = 0;
-
-  for (const adjSegId of nodeSegIds.get(nodeId) ?? []) {
-    const cardinality = (segLineIds.get(adjSegId) ?? []).length;
-    const order = orderConfig.get(adjSegId);
-    if (order !== undefined) {
-      const idxL1 = order.indexOf(l1Id);
-      const idxL2 = order.indexOf(l2Id);
-      if (idxL1 !== -1 && idxL2 !== -1) {
-        const adjSeg = segById.get(adjSegId);
-        if (adjSeg !== undefined) {
-          const rev = isReversedFromNode(adjSeg, nodeId);
-          const n = order.length;
-          positionsL1.push(offset + (rev ? n - 1 - idxL1 : idxL1));
-          positionsL2.push(offset + (rev ? n - 1 - idxL2 : idxL2));
-        }
-      }
-    }
-    offset += cardinality;
-  }
-
-  if (positionsL1.length === 0) return { before: null, evidence: 0 };
-
-  const maxL1 = Math.max(...positionsL1);
-  const minL1 = Math.min(...positionsL1);
-  const maxL2 = Math.max(...positionsL2);
-  const minL2 = Math.min(...positionsL2);
-
-  if (maxL1 < minL2) return { before: true, evidence: positionsL1.length };
-  if (minL1 > maxL2) return { before: false, evidence: positionsL1.length };
-  return { before: null, evidence: 0 };
-}
-
-/**
- * LOOM-style greedy ordering. Propagates ordering decisions from settled
- * segments to their neighbours, minimising visual line crossings at nodes.
- * Falls back to mode-priority + ID sort when there is no settled evidence.
+ * Runs the full transit pipeline: line graph construction (with corridor
+ * contraction and Lemma-4.1 bundling), MLNCM-S line ordering, and render
+ * geometry (trims, inner connections, stations). See the modules under
+ * `./transit/` for the methodology references.
  *
- * @returns OrderConfig — `segId → lineIds[]` in left-to-right display order.
+ * @param cityData - The immutable domain model produced by the CS1 parser.
+ * @returns Line, connector, and station FeatureCollections for MapLibre.
  */
-function computeGreedyOrder(
-  segLineIds: Map<string, string[]>,
-  nodeSegIds: Map<string, string[]>,
-  segById: Map<string, RoadSegment>,
-  lineMode: Map<string, TransitMode>,
-): Map<string, string[]> {
-  const orderConfig = new Map<string, string[]>();
-  const settled = new Set<string>();
+export function buildTransitRenderData(cityData: CityData): TransitRenderData {
+  const graph = buildTransitLineGraph(cityData);
+  const { lineOrder } = computeLineOrder(graph);
+  const geometry = buildRenderGeometry(graph, lineOrder, cityData);
 
-  const modeIdCmp = (a: string, b: string): number => {
-    const pa = MODE_PRIORITY[lineMode.get(a) ?? 'Unknown'];
-    const pb = MODE_PRIORITY[lineMode.get(b) ?? 'Unknown'];
-    return pa !== pb ? pa - pb : a.localeCompare(b);
-  };
-
-  const remaining = new Set(segLineIds.keys());
-
-  while (remaining.size > 0) {
-    // Pick: adjacent-to-settled first, then highest cardinality, then id
-    let bestId: string | null = null;
-    let bestIsAdj = false;
-    let bestCard = -1;
-
-    for (const segId of remaining) {
-      const seg = segById.get(segId);
-      if (seg === undefined) continue;
-      const card = (segLineIds.get(segId) ?? []).length;
-      const isAdj =
-        (nodeSegIds.get(seg.startNodeId) ?? []).some((s) => settled.has(s)) ||
-        (nodeSegIds.get(seg.endNodeId) ?? []).some((s) => settled.has(s));
-
-      if (
-        bestId === null ||
-        (!bestIsAdj && isAdj) ||
-        (bestIsAdj === isAdj && card > bestCard)
-      ) {
-        bestId = segId;
-        bestIsAdj = isAdj;
-        bestCard = card;
-      }
+  const lineFeatures: TransitFeature[] = [];
+  for (const corridor of geometry.corridors) {
+    const coordinates: [number, number][] = corridor.path.map((pt) =>
+      csToGeoArray(pt),
+    );
+    const n = corridor.lineIds.length;
+    for (let p = 0; p < n; p++) {
+      const info = graph.lines.get(corridor.lineIds[p]);
+      if (info === undefined) continue;
+      lineFeatures.push({
+        type: 'Feature',
+        geometry: { type: 'LineString', coordinates },
+        properties: {
+          id: info.id,
+          color: info.color,
+          mode: info.mode,
+          offsetIdx: p - (n - 1) / 2,
+        },
+      });
     }
-
-    if (bestId === null) break;
-    remaining.delete(bestId);
-
-    const lineIds = segLineIds.get(bestId) ?? [];
-    if (lineIds.length <= 1) {
-      orderConfig.set(bestId, [...lineIds]);
-      settled.add(bestId);
-      continue;
-    }
-
-    const seg = segById.get(bestId);
-    if (seg === undefined) {
-      orderConfig.set(bestId, [...lineIds].sort(modeIdCmp));
-      settled.add(bestId);
-      continue;
-    }
-
-    // For each ordered pair, gather votes from both endpoints; prefer the
-    // endpoint with more settled neighbours (higher evidence count).
-    const pairBefore = new Map<string, boolean | null>();
-    for (const l1 of lineIds) {
-      for (const l2 of lineIds) {
-        if (l1 === l2) continue;
-        const fromV = smallerThanAtNode(
-          l1,
-          l2,
-          seg.startNodeId,
-          orderConfig,
-          nodeSegIds,
-          segById,
-          segLineIds,
-        );
-        const toV = smallerThanAtNode(
-          l1,
-          l2,
-          seg.endNodeId,
-          orderConfig,
-          nodeSegIds,
-          segById,
-          segLineIds,
-        );
-        const winner = fromV.evidence >= toV.evidence ? fromV : toV;
-        pairBefore.set(`${l1}\0${l2}`, winner.before);
-      }
-    }
-
-    const sorted = [...lineIds].sort((a, b) => {
-      const vote = pairBefore.get(`${a}\0${b}`);
-      if (vote === true) return -1;
-      if (vote === false) return 1;
-      return modeIdCmp(a, b);
-    });
-
-    orderConfig.set(bestId, sorted);
-    settled.add(bestId);
   }
 
-  return orderConfig;
+  const connectorFeatures: TransitFeature[] = geometry.connectors.flatMap(
+    (conn) => {
+      const info = graph.lines.get(conn.lineId);
+      if (info === undefined) return [];
+      return [
+        {
+          type: 'Feature' as const,
+          geometry: {
+            type: 'LineString' as const,
+            coordinates: conn.path.map((pt) => csToGeoArray(pt)),
+          },
+          properties: {
+            id: info.id,
+            color: info.color,
+            mode: info.mode,
+            offsetIdx: 0,
+          },
+        },
+      ];
+    },
+  );
+
+  const stationFeatures: TransitStopFeature[] = [];
+  const stationDotFeatures: StationDotFeature[] = [];
+  for (const station of geometry.stations) {
+    const properties: TransitStopFeatureProperties = {
+      id: station.id,
+      mode: station.lines[0]?.mode ?? 'Unknown',
+      color: station.lines[0]?.color ?? '#ffffff',
+      lines: JSON.stringify(station.lines),
+    };
+    stationFeatures.push({
+      type: 'Feature',
+      geometry: {
+        type: 'Polygon',
+        coordinates: [station.polygon.map((pt) => csToGeoArray(pt))],
+      },
+      properties,
+    });
+    // Centroid of the capsule ring (excluding the repeated closing vertex).
+    const ring = station.polygon.slice(0, -1);
+    const cx = ring.reduce((s, p) => s + p.x, 0) / ring.length;
+    const cz = ring.reduce((s, p) => s + p.z, 0) / ring.length;
+    stationDotFeatures.push({
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: csToGeoArray({ x: cx, z: cz }) },
+      properties,
+    });
+  }
+
+  return {
+    lines: { type: 'FeatureCollection', features: lineFeatures },
+    connectors: { type: 'FeatureCollection', features: connectorFeatures },
+    stations: { type: 'FeatureCollection', features: stationFeatures },
+    stationDots: { type: 'FeatureCollection', features: stationDotFeatures },
+  };
 }
 
 /**
- * Builds a GeoJSON FeatureCollection of transit lines from parsed `CityData`.
+ * Builds the transit-line FeatureCollection (corridor centerlines with
+ * `offsetIdx` for `line-offset` rendering).
  *
  * @remarks
- * Each `TransitLine` becomes one `LineString` feature **per road segment** it
- * traverses. When multiple lines share the same road segment, their coordinates
- * are pre-displaced in **geographic space** (WGS-84 degrees) perpendicular to
- * the segment's actual direction, using:
- *
- * ```
- * displacement = offsetMultiplier × spacingDeg × perpUnitVector
- * ```
- *
- * where `perpUnitVector` is the 90°-clockwise rotation of the segment's
- * stacking approach: the N lines sharing a segment are assigned decreasing
- * `lineWidthMultiplier` values (N … 1). Each is painted at `multiplier × baseWidth`
- * pixels, so they are drawn widest-first (background) to narrowest-last (foreground),
- * producing equal-width visible colour bands — identical to CSLMapView's SVG technique.
- * No perpendicular coordinate displacement is applied, so curves look clean.
+ * Thin wrapper over {@link buildTransitRenderData}; prefer that function when
+ * the connector and station collections are also needed, to avoid running the
+ * ordering pipeline three times.
  *
  * @param cityData - The immutable domain model produced by the CS1 parser.
  * @returns A GeoJSON FeatureCollection ready for `map.addSource()` in MapLibre.
@@ -612,112 +543,7 @@ function computeGreedyOrder(
 export function buildTransitGeoJson(
   cityData: CityData,
 ): TransitFeatureCollection {
-  const nodeById = new Map<string, RoadNode>(
-    cityData.roadNodes.map((n) => [n.id, n]),
-  );
-  const segById = new Map(cityData.roadSegments.map((s) => [s.id, s]));
-
-  // ── Step 1: collect unique line IDs per road segment ─────────────────────
-  // segmentId → ordered, deduplicated list of line IDs sharing that segment.
-  const segLineIds = new Map<string, string[]>();
-  const lineMode = new Map<string, TransitMode>();
-
-  for (const line of cityData.transitLines) {
-    lineMode.set(line.id, line.mode);
-    for (const pathSeg of line.route) {
-      for (const segId of pathSeg.segmentIds) {
-        let ids = segLineIds.get(segId);
-        if (ids === undefined) {
-          ids = [];
-          segLineIds.set(segId, ids);
-        }
-        if (!ids.includes(line.id)) ids.push(line.id);
-      }
-    }
-  }
-
-  // ── Step 1b: node → transit-segment adjacency (needed by greedy ordering) ──
-  const nodeSegIds = new Map<string, string[]>();
-  for (const segId of segLineIds.keys()) {
-    const seg = segById.get(segId);
-    if (seg === undefined) continue;
-    for (const nodeId of [seg.startNodeId, seg.endNodeId]) {
-      let bucket = nodeSegIds.get(nodeId);
-      if (bucket === undefined) {
-        bucket = [];
-        nodeSegIds.set(nodeId, bucket);
-      }
-      bucket.push(segId);
-    }
-  }
-
-  // ── Step 2: LOOM-style greedy ordering to minimise visual crossings ────────
-  const orderConfig = computeGreedyOrder(
-    segLineIds,
-    nodeSegIds,
-    segById,
-    lineMode,
-  );
-
-  // ── Step 3: emit one Feature per (line × road-segment) ───────────────────
-  const features: TransitFeature[] = [];
-
-  for (const line of cityData.transitLines) {
-    for (const pathSeg of line.route) {
-      for (const segId of pathSeg.segmentIds) {
-        const seg = segById.get(segId);
-        if (seg === undefined) continue;
-
-        const startNode = nodeById.get(seg.startNodeId);
-        const endNode = nodeById.get(seg.endNodeId);
-        if (startNode === undefined || endNode === undefined) continue;
-
-        // Canonicalize direction: always emit coords from the lexicographically-smaller
-        // nodeId to the larger. This guarantees that every transit feature for the same
-        // road segment points in the same direction, so a consistent offsetMultiplier
-        // always lands on the same physical side of the road — even when the game stores
-        // adjacent segments in opposite directions along the same corridor.
-        const isCanonical = seg.startNodeId <= seg.endNodeId;
-        const coords: [number, number][] = isCanonical
-          ? [
-              csToGeoArray(startNode.position),
-              ...seg.points.map((p) => csToGeoArray(p)),
-              csToGeoArray(endNode.position),
-            ]
-          : [
-              csToGeoArray(endNode.position),
-              ...[...seg.points].reverse().map((p) => csToGeoArray(p)),
-              csToGeoArray(startNode.position),
-            ];
-
-        const ids = orderConfig.get(segId) ?? [line.id];
-        const n = ids.length;
-        const i = ids.indexOf(line.id);
-        // Background route (rank 0) gets the widest stroke (n); foreground (rank n-1) gets 1.
-        const lineWidthMultiplier = n - i;
-
-        features.push({
-          type: 'Feature',
-          geometry: { type: 'LineString', coordinates: coords },
-          properties: {
-            id: line.id,
-            color: line.color,
-            mode: line.mode,
-            lineWidthMultiplier,
-          },
-        });
-      }
-    }
-  }
-
-  // Sort widest-first so MapLibre draws background strokes before foreground ones,
-  // producing equal-width visible colour bands via the painter's algorithm.
-  features.sort(
-    (a, b) =>
-      b.properties.lineWidthMultiplier - a.properties.lineWidthMultiplier,
-  );
-
-  return { type: 'FeatureCollection', features };
+  return buildTransitRenderData(cityData).lines;
 }
 
 /**
@@ -842,13 +668,13 @@ export function buildWaterGeoJson(): WaterFeatureCollection {
 }
 
 /**
- * Builds a GeoJSON FeatureCollection of transit stop points.
+ * Builds the station-polygon FeatureCollection (paper §5.4 adapted to CSLMap:
+ * proximity-grouped stops rendered as rotated rectangles across their
+ * corridor's full bundle width).
  *
  * @remarks
- * Each unique stop (deduplicated by `id`) becomes a `Point` feature. When a stop
- * is served by multiple lines, the color of the first line encountered is used.
- * Rendered as circles in MapLibre; shape-per-mode differentiation is deferred to a
- * later story using symbol layers.
+ * Thin wrapper over {@link buildTransitRenderData}; prefer that function when
+ * the line and connector collections are also needed.
  *
  * @param cityData - The immutable domain model produced by the CS1 parser.
  * @returns A GeoJSON FeatureCollection ready for `map.addSource()` in MapLibre.
@@ -856,45 +682,7 @@ export function buildWaterGeoJson(): WaterFeatureCollection {
 export function buildTransitStopsGeoJson(
   cityData: CityData,
 ): TransitStopsFeatureCollection {
-  interface StopAccumulator {
-    stop: (typeof cityData.transitLines)[number]['stops'][number];
-    lines: Array<{ name: string; color: string; mode: string }>;
-  }
-  const stopMap = new Map<string, StopAccumulator>();
-
-  for (const line of cityData.transitLines) {
-    const lineEntry = { name: line.name, color: line.color, mode: line.mode };
-    // Deduplicate stops within the same line to handle circular routes where
-    // the terminal stop appears at both the start and end of line.stops.
-    const seenInLine = new Set<string>();
-    for (const stop of line.stops) {
-      if (seenInLine.has(stop.id)) continue;
-      seenInLine.add(stop.id);
-      if (!stopMap.has(stop.id)) {
-        stopMap.set(stop.id, { stop, lines: [] });
-      }
-      stopMap.get(stop.id)!.lines.push(lineEntry);
-    }
-  }
-
-  const features: TransitStopFeature[] = [];
-  for (const { stop, lines } of stopMap.values()) {
-    features.push({
-      type: 'Feature',
-      geometry: {
-        type: 'Point',
-        coordinates: csToGeoArray(stop.position),
-      },
-      properties: {
-        id: stop.id,
-        mode: stop.mode,
-        color: lines[0].color,
-        lines: JSON.stringify(lines),
-      },
-    });
-  }
-
-  return { type: 'FeatureCollection', features };
+  return buildTransitRenderData(cityData).stations;
 }
 
 // ─── Terrain vectorized polygon builders ─────────────────────────────────────

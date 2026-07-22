@@ -9,13 +9,13 @@ import type { CityData } from '@vellum/core';
 import type maplibregl from 'maplibre-gl';
 import { buildBuildingsGeoJson } from '../geojson-builder';
 import { addLayerIfAbsent, addSourceIfAbsent } from '../helpers';
-import type { RendererTokens } from '../tokens';
+import type { ResolvedColors } from '../style-adapter';
 
 /** Adds buildings source and both fill + outline layers. */
 export function addBuildingsLayer(
   map: maplibregl.Map,
   cityData: CityData,
-  tokens: RendererTokens,
+  colors: ResolvedColors,
 ): void {
   addSourceIfAbsent(map, 'buildings', {
     type: 'geojson',
@@ -27,7 +27,7 @@ export function addBuildingsLayer(
     type: 'fill',
     source: 'buildings',
     paint: {
-      'fill-color': tokens.buildingFill,
+      'fill-color': colors.buildingFill,
       'fill-opacity': 0.85,
     },
   });
@@ -37,7 +37,7 @@ export function addBuildingsLayer(
     type: 'line',
     source: 'buildings',
     paint: {
-      'line-color': tokens.buildingStroke,
+      'line-color': colors.buildingStroke,
       'line-width': 0.5,
     },
   });

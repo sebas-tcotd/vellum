@@ -1,11 +1,12 @@
 import type { CityData } from './city-data';
 import type { LayerVisibility } from './layer';
+import type { RenderStyleParams } from './theme';
 
 /**
  * Rendering parameters supplied to the renderer engine for each frame.
  * @remarks
  * This configuration controls what aspects of the `CityData` are visually processed.
- * Future iterations (Story 5.x) will introduce `styleParams` provided by the `theme-engine`.
+ * Visual styling (colors) is supplied separately via `IRenderer.applyTheme()`.
  */
 export interface RenderParams {
   /** Determines which logical map layers are actively processed and drawn onto the canvas. */
@@ -16,9 +17,9 @@ export interface RenderParams {
  * Outbound port definition for the rendering engine.
  * @remarks
  * Following Clean Architecture principles, `@vellum/core` only declares this contract.
- * The concrete implementation resides in `@vellum/renderer-canvas`. The React UI layer
- * (`@vellum/ui`) must strictly depend on this interface and never directly instantiate
- * the concrete adapter.
+ * The concrete implementation resides in `@vellum/renderer-webgl` (`MapLibreRenderer`).
+ * The React UI layer (`@vellum/ui`) must strictly depend on this interface and never
+ * directly instantiate the concrete adapter.
  */
 export interface IRenderer {
   /**
@@ -49,6 +50,17 @@ export interface IRenderer {
    * @param height - The new logical height of the canvas in pixels.
    */
   resize(width: number, height: number): void;
+
+  /**
+   * Applies a new set of visual style colors to the already-rendered city, without
+   * re-processing `CityData` or reconstructing the renderer.
+   * @remarks
+   * Must complete in under one frame (~16ms at 60fps) since it runs on theme switch,
+   * a user-facing interaction that must feel instantaneous.
+   *
+   * @param style - The complete color configuration to apply.
+   */
+  applyTheme(style: RenderStyleParams): Promise<void>;
 
   /**
    * Releases all internal resources, offscreen buffers, or contexts held by the renderer.

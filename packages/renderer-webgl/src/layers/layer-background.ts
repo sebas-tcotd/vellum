@@ -13,7 +13,7 @@
  */
 
 import type maplibregl from 'maplibre-gl';
-import type { RendererTokens } from '../tokens';
+import type { ResolvedColors } from '../style-adapter';
 
 const GRID_IMAGE_ID = 'grid-pattern';
 
@@ -28,7 +28,7 @@ const GRID_SVG = `<svg width="40" height="40" xmlns="http://www.w3.org/2000/svg"
 
 /** Returns the minimal MapLibre style containing only the solid background. */
 export function createBaseStyle(
-  tokens: RendererTokens,
+  colors: ResolvedColors,
 ): maplibregl.StyleSpecification {
   return {
     version: 8,
@@ -37,7 +37,7 @@ export function createBaseStyle(
       {
         id: 'background',
         type: 'background',
-        paint: { 'background-color': tokens.background },
+        paint: { 'background-color': colors.background },
       },
     ],
   };

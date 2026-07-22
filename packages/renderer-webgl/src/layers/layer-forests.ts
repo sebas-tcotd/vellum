@@ -9,9 +9,14 @@ import type { CityData } from '@vellum/core';
 import type maplibregl from 'maplibre-gl';
 import { buildForestsGeoJson } from '../geojson-builder';
 import { addLayerIfAbsent, addSourceIfAbsent } from '../helpers';
+import type { ResolvedColors } from '../style-adapter';
 
 /** Adds forests source and circle layer with density-driven radius/opacity. */
-export function addForestsLayer(map: maplibregl.Map, cityData: CityData): void {
+export function addForestsLayer(
+  map: maplibregl.Map,
+  cityData: CityData,
+  colors: ResolvedColors,
+): void {
   addSourceIfAbsent(map, 'forests', {
     type: 'geojson',
     data: buildForestsGeoJson(cityData),
@@ -22,7 +27,7 @@ export function addForestsLayer(map: maplibregl.Map, cityData: CityData): void {
     type: 'circle',
     source: 'forests',
     paint: {
-      'circle-color': '#14592a',
+      'circle-color': colors.forests,
       'circle-radius': [
         'interpolate',
         ['linear'],

@@ -14,13 +14,13 @@ import {
 } from '../expressions/road-width';
 import { buildRoadsGeoJson } from '../geojson-builder';
 import { addLayerIfAbsent, addSourceIfAbsent } from '../helpers';
-import type { RendererTokens } from '../tokens';
+import type { ResolvedColors } from '../style-adapter';
 
 /** Adds roads source and both casing + fill layers. */
 export function addRoadsLayer(
   map: maplibregl.Map,
   cityData: CityData,
-  tokens: RendererTokens,
+  colors: ResolvedColors,
 ): void {
   addSourceIfAbsent(map, 'roads', {
     type: 'geojson',
@@ -50,7 +50,7 @@ export function addRoadsLayer(
     ],
     layout: { 'line-cap': 'round', 'line-join': 'round' },
     paint: {
-      'line-color': buildRoadColorExpression(tokens, 'casing'),
+      'line-color': buildRoadColorExpression(colors, 'casing'),
       'line-width': ROAD_CASING_WIDTH_EXPR,
     },
   });
@@ -68,7 +68,7 @@ export function addRoadsLayer(
     ],
     layout: { 'line-cap': 'round', 'line-join': 'round' },
     paint: {
-      'line-color': buildRoadColorExpression(tokens, 'fill'),
+      'line-color': buildRoadColorExpression(colors, 'fill'),
       'line-width': ROAD_WIDTH_EXPR,
     },
   });
@@ -88,7 +88,7 @@ export function addRoadsLayer(
     ],
     layout: { 'line-cap': 'round', 'line-join': 'round' },
     paint: {
-      'line-color': buildRoadColorExpression(tokens, 'casing'),
+      'line-color': buildRoadColorExpression(colors, 'casing'),
       'line-width': ROAD_CASING_WIDTH_EXPR,
       'line-dasharray': [6, 3],
     },
@@ -109,7 +109,7 @@ export function addRoadsLayer(
     ],
     layout: { 'line-cap': 'round', 'line-join': 'round' },
     paint: {
-      'line-color': buildRoadColorExpression(tokens, 'fill'),
+      'line-color': buildRoadColorExpression(colors, 'fill'),
       'line-width': ROAD_WIDTH_EXPR,
       'line-dasharray': [6, 3],
     },
@@ -122,7 +122,7 @@ export function addRoadsLayer(
     filter: ['==', ['get', 'itemClass'], 'Ferry Path'],
     layout: { 'line-cap': 'butt', 'line-join': 'round' },
     paint: {
-      'line-color': '#1A5276',
+      'line-color': colors.ferry,
       'line-opacity': 0.65,
       'line-width': [
         'interpolate',
@@ -150,7 +150,7 @@ export function addRoadsLayer(
     ],
     layout: { 'line-cap': 'butt', 'line-join': 'round' },
     paint: {
-      'line-color': buildRoadColorExpression(tokens, 'casing'),
+      'line-color': buildRoadColorExpression(colors, 'casing'),
       'line-width': ROAD_CASING_WIDTH_EXPR,
       'line-dasharray': [1, 1],
     },
