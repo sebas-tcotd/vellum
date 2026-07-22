@@ -37,6 +37,19 @@ describe('loadThemes', () => {
     ]);
   });
 
+  it('preserves the original rawJson on a loaded theme (audit trail)', () => {
+    const json = validJson('Day');
+    const { themes } = loadThemes([rawFile('day', json)]);
+    expect(themes[0]?.rawJson).toBe(json);
+  });
+
+  it('falls back themeName to the file id when the raw JSON is a top-level array', () => {
+    const { warnings } = loadThemes([rawFile('weird', '[1,2,3]')]);
+    expect(warnings).toEqual([
+      { themeId: 'weird', themeName: 'weird', field: 'name' },
+    ]);
+  });
+
   it('returns empty results for empty input', () => {
     expect(loadThemes([])).toEqual({ themes: [], warnings: [] });
   });

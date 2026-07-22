@@ -130,6 +130,22 @@ fn read_theme_dir(dir: &std::path::Path, source: ThemeSource) -> Vec<RawThemeFil
         .collect()
 }
 
+/// Combines built-in and user theme files into a single ordered list.
+///
+/// **CRITICAL RULE:** Built-in entries MUST come before user entries — the TypeScript
+/// `loadThemes()` loader (`packages/theme-engine/src/loader.ts`) relies on this order for
+/// its "last id wins" override semantics: a user `.vellumstyle` with the same id as a
+/// built-in one is expected to silently take precedence. Changing this order would flip
+/// that precedence.
+fn combine_theme_dirs(
+    resource_themes_dir: &std::path::Path,
+    user_dir: &std::path::Path,
+) -> Vec<RawThemeFile> {
+    let mut themes = read_theme_dir(resource_themes_dir, ThemeSource::BuiltIn);
+    themes.extend(read_theme_dir(user_dir, ThemeSource::User));
+    themes
+}
+
 /// Synchronous body of `load_themes` — reads both theme directories from disk.
 /// Run on a blocking thread via `spawn_blocking`; never call directly from async code.
 fn load_themes_blocking(app_handle: &tauri::AppHandle) -> Result<Vec<RawThemeFile>, VellumError> {
@@ -147,9 +163,7 @@ fn load_themes_blocking(app_handle: &tauri::AppHandle) -> Result<Vec<RawThemeFil
         })?
         .join("themes");
     let _ = std::fs::create_dir_all(&user_dir); // best-effort; empty/missing is not fatal
-    let mut themes = read_theme_dir(&resource_dir.join("themes"), ThemeSource::BuiltIn);
-    themes.extend(read_theme_dir(&user_dir, ThemeSource::User));
-    Ok(themes)
+    Ok(combine_theme_dirs(&resource_dir.join("themes"), &user_dir))
 }
 
 /// Loads all bundled and user `.vellumstyle` files as raw JSON strings.
@@ -206,10 +220,20 @@ pub async fn export_svg(_options: ExportOptions) -> Result<ExportResult, VellumE
 mod tests {
     use super::*;
 
+    /// A temp dir unique per call (pid + nanosecond timestamp) — a fixed literal name
+    /// would risk collisions if tests ever run concurrently across processes or if two
+    /// tests reused the same label.
+    fn unique_temp_dir(label: &str) -> std::path::PathBuf {
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("system clock is before UNIX_EPOCH")
+            .as_nanos();
+        std::env::temp_dir().join(format!("vellum_{label}_{}_{nanos}", std::process::id()))
+    }
+
     #[test]
     fn read_theme_dir_reads_all_vellumstyle_files_verbatim() {
-        let dir = std::env::temp_dir().join("vellum_themes_read_test");
-        let _ = std::fs::remove_dir_all(&dir);
+        let dir = unique_temp_dir("themes_read_test");
         std::fs::create_dir_all(&dir).unwrap();
         std::fs::write(
             dir.join("day.vellumstyle"),
@@ -243,7 +267,7 @@ mod tests {
 
     #[test]
     fn read_theme_dir_missing_dir_yields_empty() {
-        let dir = std::env::temp_dir().join("vellum_nonexistent_theme_dir_xyz");
+        let dir = unique_temp_dir("nonexistent_theme_dir");
         assert!(read_theme_dir(&dir, ThemeSource::User).is_empty());
     }
 
@@ -254,5 +278,36 @@ mod tests {
         assert_eq!(built_in, "built-in");
         let user = serde_json::to_value(ThemeSource::User).expect("serialization must not fail");
         assert_eq!(user, "user");
+    }
+
+    #[test]
+    fn combine_theme_dirs_lists_built_in_before_user() {
+        let resource_dir = unique_temp_dir("combine_builtin");
+        let user_dir = unique_temp_dir("combine_user");
+        std::fs::create_dir_all(&resource_dir).unwrap();
+        std::fs::create_dir_all(&user_dir).unwrap();
+        std::fs::write(
+            resource_dir.join("day.vellumstyle"),
+            r#"{"schemaVersion":1,"name":"Day"}"#,
+        )
+        .unwrap();
+        std::fs::write(
+            user_dir.join("day.vellumstyle"),
+            r#"{"schemaVersion":1,"name":"Custom Day"}"#,
+        )
+        .unwrap();
+
+        let themes = combine_theme_dirs(&resource_dir, &user_dir);
+
+        assert_eq!(themes.len(), 2, "both same-id files are returned verbatim");
+        assert_eq!(
+            themes[0].source,
+            ThemeSource::BuiltIn,
+            "built-in entries must be listed first — loadThemes()'s override semantics depend on it"
+        );
+        assert_eq!(themes[1].source, ThemeSource::User);
+
+        std::fs::remove_dir_all(&resource_dir).unwrap();
+        std::fs::remove_dir_all(&user_dir).unwrap();
     }
 }

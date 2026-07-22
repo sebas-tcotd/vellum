@@ -50,6 +50,7 @@ const theme = (id: string, name: string): LoadedTheme => ({
   name,
   id,
   source: 'built-in',
+  rawJson: '{}',
 });
 
 describe('MapLibreRoot — Story 5.1: aplicación de tema (AC #2, #4)', () => {

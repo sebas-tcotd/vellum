@@ -97,7 +97,7 @@ export const FloatingLayerPanel = ({
       role="region"
       className={cn(
         'fixed left-4 top-1/2 -translate-y-1/2 backdrop-blur-lg rounded-lg',
-        'bg-background/72 border border-[#2c28251f] text-accent-foreground overflow-hidden z-50',
+        'bg-background/72 border border-panel-border text-accent-foreground overflow-hidden z-50',
         'px-3 py-2',
         'shadow-lg',
         '[transition:width_var(--transition-panel)]',
@@ -246,7 +246,7 @@ function PanelThemeSelector() {
               'font-ui text-xs rounded-full px-2.5 py-1 border transition-colors cursor-pointer',
               active
                 ? 'bg-accent-foreground/90 text-background border-transparent'
-                : 'bg-transparent border-[#2c28251f] opacity-70 hover:opacity-100',
+                : 'bg-transparent border-panel-border opacity-70 hover:opacity-100',
             )}
           >
             {theme.name}

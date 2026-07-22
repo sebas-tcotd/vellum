@@ -8,6 +8,9 @@ export type LoadedTheme = VellumStyle & {
   id: string;
   /** Whether the theme is bundled or user-installed. */
   source: ThemeSource;
+  /** The original, unparsed JSON contents of the file — kept as an audit trail so a
+   * theme that renders incorrectly can be traced back to exactly what was on disk. */
+  rawJson: string;
 };
 
 /**
@@ -26,7 +29,12 @@ export interface ThemeWarning {
 
 /** Reads `parsed.name` if `parsed` is an object with a non-empty string `name`, else `null`. */
 function readThemeName(parsed: unknown): string | null {
-  if (typeof parsed !== 'object' || parsed === null) return null;
+  // Same array exclusion as `migrateTheme` — `typeof [] === 'object'` too, so without this
+  // an array would fall through to the property read below (harmless since arrays have no
+  // `.name`, but exclude it explicitly rather than relying on that being incidental).
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    return null;
+  }
   const name = (parsed as Record<string, unknown>).name;
   return typeof name === 'string' && name.length > 0 ? name : null;
 }
@@ -74,10 +82,13 @@ export function loadThemes(rawFiles: RawThemeFile[]): LoadThemesResult {
       ...result.theme,
       id: file.id,
       source: file.source,
+      rawJson: file.rawJson,
     };
     // Same id from two directories (a user theme overriding a built-in placeholder) —
-    // last one wins. Rust always lists built-in files before user files, so this means
-    // a user's `.vellumstyle` silently takes precedence over a bundled theme of the same name.
+    // last one wins. This relies on the ordering contract of the Rust `load_themes`
+    // command (`combine_theme_dirs` in commands.rs): built-in files are always listed
+    // before user files, so a user's `.vellumstyle` silently takes precedence over a
+    // bundled theme of the same name.
     const existingIndex = indexById.get(file.id);
     if (existingIndex !== undefined) {
       themes[existingIndex] = loaded;
