@@ -54,9 +54,9 @@ export const STATION_MERGE_THRESHOLD_M = 48;
  * degenerates to a small circle and multi-line stops become perpendicular
  * capsules.
  */
-const STATION_HALF_THICKNESS_M = LINE_WIDTH_M / 2;
+const STATION_HALF_THICKNESS_M = LINE_WIDTH_M * 1.25;
 /** Extra perpendicular margin so the marker slightly overhangs the lines it covers. */
-const STATION_ACROSS_MARGIN_M = LINE_WIDTH_M / 2;
+const STATION_ACROSS_MARGIN_M = LINE_WIDTH_M * 1.25;
 /** Arc segments per rounded corner of a station marker (higher = smoother). */
 const STATION_CORNER_STEPS = 4;
 

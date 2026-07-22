@@ -39,9 +39,9 @@ const SCALE_HI = 2 ** (Z_HI - Z_LO);
 const STATION_FILL = '#ffffff';
 const STATION_STROKE = '#111111';
 /** Black outline width in world meters (drawn as a scaled line on the ring). */
-const STATION_STROKE_M = LINE_WIDTH_M * 0.5;
+const STATION_STROKE_M = LINE_WIDTH_M * 0.4;
 /** Minimum on-screen stroke width in px, so the outline stays visible when zoomed out. */
-const STATION_STROKE_MIN_PX = 1.6;
+const STATION_STROKE_MIN_PX = 1.2;
 
 /**
  * Minimum on-screen transit-line width, in px. Derived to match the largest
