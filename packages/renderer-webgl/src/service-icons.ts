@@ -118,8 +118,16 @@ export function resolveServiceGroup(itemClass: string): ServiceGroup | null {
 /** Every service group with an icon — the MapLibre image ids to register, and the layer's filter list. */
 export const SERVICE_GROUPS = Object.keys(SERVICE_ICON_DEFS) as ServiceGroup[];
 
-/** Builds the recolored `<svg>` markup for a service icon. */
+/**
+ * Builds the recolored `<svg>` markup for a service icon: the group's color
+ * as a rounded-square background with a white glyph on top.
+ *
+ * @remarks
+ * Structure copied from the Maki "meta" icon export (background + stroke
+ * props) — see `assets/maki-icons/*.svg` — with the background rect's fill
+ * swapped for the group's fixed color instead of its default `#000`.
+ */
 export function buildServiceIconSvg(group: ServiceGroup): string {
   const { icon, color } = SERVICE_ICON_DEFS[group];
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 15 15"><path d="${MAKI_PATHS[icon]}" fill="${color}"/></svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="21" height="21" viewBox="0 0 21 21"><rect x="1" y="1" rx="4" ry="4" width="19" height="19" fill="#fff" stroke="#fff" stroke-width="2"/><rect x="1" y="1" rx="4" ry="4" width="19" height="19" fill="${color}"/><path fill="#fff" transform="translate(3 3)" d="${MAKI_PATHS[icon]}"/></svg>`;
 }

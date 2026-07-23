@@ -73,6 +73,7 @@ export async function addServiceIconsLayer(map: maplibregl.Map): Promise<void> {
     id: 'service-icons',
     type: 'symbol',
     source: 'buildings',
+    minzoom: 14,
     filter: [
       'in',
       ['get', 'serviceGroup'],
@@ -82,6 +83,17 @@ export async function addServiceIconsLayer(map: maplibregl.Map): Promise<void> {
       'icon-image': ['get', 'serviceGroup'] as unknown as string,
       'icon-size': 1,
       'icon-allow-overlap': true,
+    },
+    paint: {
+      'icon-opacity': [
+        'interpolate',
+        ['linear'],
+        ['zoom'],
+        14,
+        0,
+        16,
+        1,
+      ] as unknown as number,
     },
   });
 }
