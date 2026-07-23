@@ -144,3 +144,6 @@ See `_bmad-output/implementation-artifacts/sprint-status.yaml` for current story
 If you can't find `_bmad-output` folder, try doing `../vellum-context/_bmad-output/`.
 
 Full planning docs: `_bmad-output/planning-artifacts/` (PRD, architecture, epics, UX spec). Story files: `_bmad-output/implementation-artifacts/`.
+
+Usar operaciones LSP (goToDefinition, findReferences, etc.) para navegación de código.
+Solo usar grep para búsquedas de patrones de texto o strings.

@@ -69,7 +69,10 @@
     "cityLoaded": "{{cityName}} loaded",
     "partialLoad": "Some elements (DLC or mods) displayed in simplified form.",
     "partialDataWarning": "Map partially loaded. Some sections could not be read.",
-    "tabHint": "Tab · focus mode"
+    "tabHint": "Tab · focus mode",
+    "invalidTheme": "{{themeName}}.vellumstyle is not valid: field {{field}} not recognized",
+    "invalidThemeJson": "{{themeName}}.vellumstyle is not valid: malformed JSON",
+    "themeLoadFailed": "Failed to load themes — no visual themes available"
   },
   "common": {
     "cancel": "Cancel",
@@ -82,7 +85,8 @@
     "exportProgress": "Export progress",
     "layerPanel": "Layer controls panel",
     "layerPanelCollapse": "Collapse panel",
-    "layerPanelExpand": "Expand panel"
+    "layerPanelExpand": "Expand panel",
+    "themeSelector": "Theme selector"
   },
   "transitModes": {
     "Bus": "Bus",

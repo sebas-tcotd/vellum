@@ -96,6 +96,10 @@
   --color-input: rgba(0, 0, 0, 0.12);
   --color-ring: #4a4035;
 
+  /* Panel — borde cálido de FloatingLayerPanel (distinto del --color-border genérico
+     de shadcn), usado tanto en el marco del panel como en los pills de tema inactivos. */
+  --color-panel-border: #2c28251f;
+
   /* Radius */
   --radius: 10px; /* = --radius-md */
 

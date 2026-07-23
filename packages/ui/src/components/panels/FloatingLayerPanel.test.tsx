@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import userEvent from '@testing-library/user-event';
 import { render, screen, fireEvent } from '../../test-utils';
 import { FloatingLayerPanel } from './FloatingLayerPanel';
-import type { LayerVisibility } from '@vellum/core';
+import type { LayerVisibility, ThemeMetadata } from '@vellum/core';
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -21,18 +21,27 @@ const mockActiveLayers: LayerVisibility = {
 };
 
 const mockToggleLayer = vi.fn();
+const mockSetActiveTheme = vi.fn();
+let mockAvailableThemes: ThemeMetadata[] = [];
+let mockActiveTheme = 'day';
 
 vi.mock('../../store/vellum-store', () => ({
   useVellumStore: (selector: (s: unknown) => unknown) =>
     selector({
       activeLayers: mockActiveLayers,
       toggleLayer: mockToggleLayer,
+      availableThemes: mockAvailableThemes,
+      activeTheme: mockActiveTheme,
+      setActiveTheme: mockSetActiveTheme,
     }),
 }));
 
 describe('FloatingLayerPanel', () => {
   beforeEach(() => {
     mockToggleLayer.mockClear();
+    mockSetActiveTheme.mockClear();
+    mockAvailableThemes = [];
+    mockActiveTheme = 'day';
     vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
       cb(0);
       return 0;
@@ -213,6 +222,55 @@ describe('FloatingLayerPanel', () => {
         screen.getByRole('button', { name: 'a11y.layerPanelCollapse' }),
       );
       expect(screen.queryByText('Cartógrafos de CS1 →')).toBeNull();
+    });
+  });
+
+  describe('Story 5.1 — Selector de temas (pills)', () => {
+    const themes: ThemeMetadata[] = [
+      { id: 'day', name: 'Day', source: 'built-in' },
+      { id: 'transit', name: 'Transit', source: 'built-in' },
+    ];
+
+    it('no renderiza el grupo de temas cuando availableThemes está vacío', () => {
+      render(
+        <FloatingLayerPanel cityName="Altavento" fileName="altavento.cslmap" />,
+      );
+      expect(
+        screen.queryByRole('group', { name: 'a11y.themeSelector' }),
+      ).toBeNull();
+    });
+
+    it('renderiza un pill por cada tema disponible', () => {
+      mockAvailableThemes = themes;
+      render(
+        <FloatingLayerPanel cityName="Altavento" fileName="altavento.cslmap" />,
+      );
+      const group = screen.getByRole('group', { name: 'a11y.themeSelector' });
+      expect(group.querySelectorAll('button')).toHaveLength(2);
+      expect(screen.getByText('Day')).toBeInTheDocument();
+      expect(screen.getByText('Transit')).toBeInTheDocument();
+    });
+
+    it('marca aria-pressed en el tema activo', () => {
+      mockAvailableThemes = themes;
+      mockActiveTheme = 'transit';
+      render(
+        <FloatingLayerPanel cityName="Altavento" fileName="altavento.cslmap" />,
+      );
+      expect(screen.getByText('Transit')).toHaveAttribute(
+        'aria-pressed',
+        'true',
+      );
+      expect(screen.getByText('Day')).toHaveAttribute('aria-pressed', 'false');
+    });
+
+    it('llama setActiveTheme con el id al hacer click en un pill', () => {
+      mockAvailableThemes = themes;
+      render(
+        <FloatingLayerPanel cityName="Altavento" fileName="altavento.cslmap" />,
+      );
+      fireEvent.click(screen.getByText('Transit'));
+      expect(mockSetActiveTheme).toHaveBeenCalledWith('transit');
     });
   });
 

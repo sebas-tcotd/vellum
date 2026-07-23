@@ -6,9 +6,11 @@ import { ProgressBar } from './components/overlays/ProgressBar';
 import { ErrorToast } from './components/overlays/ErrorToast';
 import { PartialParseDialog } from './components/overlays/PartialParseDialog';
 import { DlcWarningToast } from './components/overlays/DlcWarningToast';
+import { ThemeWarningToast } from './components/overlays/ThemeWarningToast';
 import { FloatingLayerPanel } from './components/panels/FloatingLayerPanel';
 import { initI18n } from './i18n/i18n-setup';
 import { useKeyboardShortcuts } from './hooks/use-keyboard-shortcuts';
+import { useThemes } from './hooks/use-themes';
 import { cn } from './lib/utils';
 
 /**
@@ -76,6 +78,11 @@ export function App({
   const setDlcWarnings = useVellumStore((s) => s.setDlcWarnings);
   const setHasPartialData = useVellumStore((s) => s.setHasPartialData);
   const toggleLayer = useVellumStore((s) => s.toggleLayer);
+  const themeWarnings = useVellumStore((s) => s.themeWarnings);
+  const setThemeWarnings = useVellumStore((s) => s.setThemeWarnings);
+
+  // Load all .vellumstyle themes once at startup (populates the store + returns full styles).
+  const themes = useThemes();
 
   useEffect(() => {
     document.title =
@@ -129,6 +136,12 @@ export function App({
     setHasPartialData(false);
   }, [setDlcWarnings, setHasPartialData]);
 
+  // Stable reference — an inline arrow here would re-run ThemeWarningToast's auto-dismiss
+  // effect (which depends on onDismiss) on every unrelated App re-render, never firing.
+  const handleThemeWarningsDismiss = useCallback(() => {
+    setThemeWarnings([]);
+  }, [setThemeWarnings]);
+
   // Evitar flash en idioma incorrecto — no renderizar hasta que i18n esté listo
   if (!i18nReady) return null;
 
@@ -167,6 +180,7 @@ export function App({
             zoomOutRef={zoomOutRef}
             toggleNavigationModeRef={toggleNavigationModeRef}
             isCleanMode={isCleanMode}
+            themes={themes}
           />
         </div>
         {showEmptyState && <EmptyState />}
@@ -188,6 +202,12 @@ export function App({
           <DlcWarningToast
             isPartialData={hasPartialData}
             onDismiss={handleDlcDismiss}
+          />
+        )}
+        {themeWarnings.length > 0 && (
+          <ThemeWarningToast
+            warnings={themeWarnings}
+            onDismiss={handleThemeWarningsDismiss}
           />
         )}
         {cityData !== null && loadingState !== 'loading' && (

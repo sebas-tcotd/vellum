@@ -2,9 +2,11 @@ import type {
   CityData,
   LayerName,
   LayerVisibility,
+  ThemeMetadata,
   VellumError,
 } from '@vellum/core';
 import { LAYER_NAMES } from '@vellum/core';
+import type { ThemeWarning } from '@vellum/theme-engine';
 import { create } from 'zustand';
 import { i18n } from '../i18n/i18n-setup';
 
@@ -46,10 +48,12 @@ interface VellumStore {
   /** Identifier of the currently active visual theme (e.g., 'day', 'night'). */
   activeTheme: string;
 
-  /** Collection of all available themes loaded by the system.
-   * @remarks
-   * Currently typed as `unknown[]`. The concrete `ThemeMetadata` type will be implemented in Story 5.x. */
-  availableThemes: unknown[]; // será ThemeMetadata[] (Story 5.x)
+  /** Metadata for every theme loaded at startup — drives the selector pills. */
+  availableThemes: ThemeMetadata[];
+
+  /** Warnings for `.vellumstyle` files that were skipped as invalid (AC #5).
+   * Non-empty triggers the ThemeWarningToast. */
+  themeWarnings: ThemeWarning[];
 
   /** Indicates whether the automatic update checker is enabled. */
   autoUpdateEnabled: boolean;
@@ -77,8 +81,16 @@ interface VellumStore {
   /** Toggles the visibility state of a specific map layer. */
   toggleLayer: (layer: LayerName) => void;
 
-  /** Applies a new visual theme.  */
+  /** Applies a new visual theme.
+   * @remarks Pure setter — the `applyTheme()` side effect lives in the renderer host (`MapLibreRoot`),
+   * not here, to keep the store unaware of the renderer. */
   setActiveTheme: (theme: string) => void;
+
+  /** Replaces the list of available themes (populated once at startup by `useThemes`). */
+  setAvailableThemes: (themes: ThemeMetadata[]) => void;
+
+  /** Replaces the theme-loading warnings. Pass [] to clear. */
+  setThemeWarnings: (warnings: ThemeWarning[]) => void;
 
   /**
    * Updates the application language globally.
@@ -130,6 +142,7 @@ export const useVellumStore = create<VellumStore>((set, get) => ({
   activeLayers: DEFAULT_ACTIVE_LAYERS,
   activeTheme: 'day',
   availableThemes: [],
+  themeWarnings: [],
   autoUpdateEnabled: false,
   activeLanguage: 'en',
   dlcWarnings: [],
@@ -160,6 +173,10 @@ export const useVellumStore = create<VellumStore>((set, get) => ({
     })),
 
   setActiveTheme: (theme) => set({ activeTheme: theme }),
+
+  setAvailableThemes: (themes) => set({ availableThemes: themes }),
+
+  setThemeWarnings: (warnings) => set({ themeWarnings: warnings }),
 
   setLanguage: (lang) => {
     i18n.changeLanguage(lang); // hot-swap inmediato de todos los strings (NFR16)

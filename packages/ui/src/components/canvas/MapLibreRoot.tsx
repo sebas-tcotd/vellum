@@ -3,7 +3,10 @@ import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import type { LayerVisibility } from '@vellum/core';
 import type { TooltipInfo } from '@vellum/renderer-webgl';
 import { MapLibreRenderer } from '@vellum/renderer-webgl';
-import { DEFAULT_RENDER_STYLE_PARAMS } from '@vellum/theme-engine';
+import {
+  DEFAULT_RENDER_STYLE_PARAMS,
+  type LoadedTheme,
+} from '@vellum/theme-engine';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useVellumStore } from '../../store/vellum-store';
@@ -26,6 +29,8 @@ export interface MapLibreRootProps {
   toggleNavigationModeRef?: React.RefObject<(() => void) | null>;
   /** When true, hides Minimap and MapTooltip for an unobstructed view of the map. */
   isCleanMode?: boolean;
+  /** All loaded themes. The active one (by `activeTheme` in the store) is applied via `applyTheme`. */
+  themes?: LoadedTheme[];
 }
 
 /**
@@ -45,6 +50,7 @@ export function MapLibreRoot({
   zoomOutRef,
   toggleNavigationModeRef,
   isCleanMode = false,
+  themes = [],
 }: MapLibreRootProps) {
   const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -59,6 +65,7 @@ export function MapLibreRoot({
 
   const cityData = useVellumStore((s) => s.cityData);
   const loadingState = useVellumStore((s) => s.loadingState);
+  const activeTheme = useVellumStore((s) => s.activeTheme);
 
   // Mount / unmount the renderer
   useEffect(() => {
@@ -89,6 +96,23 @@ export function MapLibreRoot({
       },
     });
   }, [cityData]); // activeLayers intentionally excluded — layer visibility is set separately
+
+  // Apply the active theme's RenderStyleParams whenever it (or the loaded set) changes.
+  // The renderer is constructed with DEFAULT_RENDER_STYLE_PARAMS as fallback until themes resolve.
+  useEffect(() => {
+    let cancelled = false;
+    const renderer = rendererRef.current;
+    if (!renderer || themes.length === 0) return;
+    const style = themes.find((theme) => theme.id === activeTheme);
+    if (!style) return;
+    renderer.applyTheme(style).catch((err: unknown) => {
+      if (cancelled) return;
+      console.error('[MapLibreRoot] applyTheme failed:', err);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTheme, themes]);
 
   // Clear the map when loading starts so the old map doesn't linger
   useEffect(() => {
