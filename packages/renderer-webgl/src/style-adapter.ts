@@ -9,11 +9,6 @@
  * to keep the <16ms theme-switch budget.
  *
  * Known simplifications (documented, not bugs):
- * - `roads.*.industrial` variants and `roads.rail.{tram,monorail,metro}` are
- *   accepted by the contract but not yet wired to a distinct rendering path —
- *   `geojson-builder`'s `RoadTier` union has no industrial/per-rail-mode
- *   classification yet. The `railway` tier (used for both Train Track and
- *   Metro Track today) resolves to `roads.rail.train`.
  * - Buildings are rendered as a single flat fill/stroke (no per-`serviceType`
  *   data-driven expression yet) — resolves to `buildings.none`, the most
  *   frequent case (`subsrv="None"`). Wiring `Building.serviceType` into the
@@ -80,7 +75,8 @@ export function resolveColors(style: RenderStyleParams): ResolvedColors {
       gravel: roads.local.gravel.fill,
       pedestrian: roads.pedestrian.path.fill,
       pedestrianWay: roads.pedestrian.way.fill,
-      railway: roads.rail.train.fill,
+      train: roads.rail.train.fill,
+      metro: roads.rail.metro.fill,
       // NOTE: `pedestrian.street` exists in `RoadColorParams` but has no
       // distinct `RoadTier` — it's accepted by the contract for future use
       // (Story 5.1+) but not wired to any layer today.
@@ -93,7 +89,8 @@ export function resolveColors(style: RenderStyleParams): ResolvedColors {
       gravel: roads.local.gravel.casing,
       pedestrian: roads.pedestrian.path.casing,
       pedestrianWay: roads.pedestrian.way.casing,
-      railway: roads.rail.train.casing,
+      train: roads.rail.train.casing,
+      metro: roads.rail.metro.casing,
       // NOTE: `pedestrian.street` exists in `RoadColorParams` but has no
       // distinct `RoadTier` — accepted by contract, not wired today.
     },

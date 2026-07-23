@@ -52,23 +52,13 @@ export interface RoadCategoryColors {
  */
 export interface RoadColorParams {
   /** Mainline highways and their connector ramps. */
-  highway: { generic: RoadCategoryColors; industrial: RoadCategoryColors };
+  highway: { generic: RoadCategoryColors };
   /** 6-lane-equivalent arterials. */
-  largeArterial: {
-    generic: RoadCategoryColors;
-    industrial: RoadCategoryColors;
-  };
+  largeArterial: { generic: RoadCategoryColors };
   /** 4-lane-equivalent arterials (same physical width as `largeArterial` in-game — distinguished by color, not width). */
-  mediumArterial: {
-    generic: RoadCategoryColors;
-    industrial: RoadCategoryColors;
-  };
+  mediumArterial: { generic: RoadCategoryColors };
   /** 2-lane local streets. */
-  local: {
-    generic: RoadCategoryColors;
-    industrial: RoadCategoryColors;
-    gravel: RoadCategoryColors;
-  };
+  local: { generic: RoadCategoryColors; gravel: RoadCategoryColors };
   /** Pedestrian-only ways. */
   pedestrian: {
     path: RoadCategoryColors;
@@ -77,9 +67,9 @@ export interface RoadColorParams {
   };
   /** Rail-based transit infrastructure. */
   rail: {
+    /** `icls="Train Track"` (incl. tunnel variant). */
     train: RoadCategoryColors;
-    tram: RoadCategoryColors;
-    monorail: RoadCategoryColors;
+    /** `icls="Metro Track"` (incl. tunnel variant). */
     metro: RoadCategoryColors;
   };
   /** Ferry / ship path water transit routes. */

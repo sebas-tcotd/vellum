@@ -16,18 +16,10 @@
       "generic": {
         "fill": "#a0a0a0",
         "casing": "#a0a0a000"
-      },
-      "industrial": {
-        "fill": "#a0a0a0",
-        "casing": "#a0a0a000"
       }
     },
     "largeArterial": {
       "generic": {
-        "fill": "#dcdcdc",
-        "casing": "#dcdcdc00"
-      },
-      "industrial": {
         "fill": "#dcdcdc",
         "casing": "#dcdcdc00"
       }
@@ -36,18 +28,10 @@
       "generic": {
         "fill": "#dcdcdc",
         "casing": "#dcdcdc00"
-      },
-      "industrial": {
-        "fill": "#dcdcdc",
-        "casing": "#dcdcdc00"
       }
     },
     "local": {
       "generic": {
-        "fill": "#dcdcdc",
-        "casing": "#dcdcdc00"
-      },
-      "industrial": {
         "fill": "#dcdcdc",
         "casing": "#dcdcdc00"
       },
@@ -72,14 +56,6 @@
     },
     "rail": {
       "train": {
-        "fill": "#ffffff",
-        "casing": "#b4b4b4"
-      },
-      "tram": {
-        "fill": "#ffffff",
-        "casing": "#b4b4b4"
-      },
-      "monorail": {
         "fill": "#ffffff",
         "casing": "#b4b4b4"
       },

@@ -83,15 +83,20 @@ the road surface, `casing` colors the outline drawn around it for figure-ground 
 Road **widths** are never part of this schema — they're a fixed renderer constant, not a
 theme concern.
 
-| Path                   | Variants                                                                 |
-| ---------------------- | ------------------------------------------------------------------------ |
-| `roads.highway`        | `generic`, `industrial` — mainline highways and connector ramps          |
-| `roads.largeArterial`  | `generic`, `industrial` — 6-lane-equivalent arterials                    |
-| `roads.mediumArterial` | `generic`, `industrial` — 4-lane-equivalent arterials                    |
-| `roads.local`          | `generic`, `industrial`, `gravel` — 2-lane local streets                 |
-| `roads.pedestrian`     | `path`, `way`, `street` — pedestrian-only ways                           |
-| `roads.rail`           | `train`, `tram`, `monorail`, `metro` — rail-based transit infrastructure |
-| `roads.ferry`          | (single leaf, no variants) — ferry/ship path water transit routes        |
+| Path                   | Variants                                                          |
+| ---------------------- | ----------------------------------------------------------------- |
+| `roads.highway`        | `generic` — mainline highways and connector ramps                 |
+| `roads.largeArterial`  | `generic` — 6-lane-equivalent arterials                           |
+| `roads.mediumArterial` | `generic` — 4-lane-equivalent arterials                           |
+| `roads.local`          | `generic`, `gravel` — 2-lane local streets                        |
+| `roads.pedestrian`     | `path`, `way`, `street` — pedestrian-only ways                    |
+| `roads.rail`           | `train`, `metro` — rail-based transit infrastructure              |
+| `roads.ferry`          | (single leaf, no variants) — ferry/ship path water transit routes |
+
+`train` maps to `icls="Train Track"` (and its tunnel variant), `metro` to `icls="Metro Track"`
+(and its tunnel variant). No other rail mode (tram, monorail) has a distinct `itemClass` in
+CS1's `.cslmap` export — trams run on ordinary road segments — so the schema has no leaf for
+them.
 
 ### `buildings` (`BuildingColorParams`)
 
@@ -158,20 +163,16 @@ The built-in **Day** theme, reproduced verbatim
   "transitBackground": "#1a1a2e",
   "roads": {
     "highway": {
-      "generic": { "fill": "#4a4a4a", "casing": "#2e2e2e" },
-      "industrial": { "fill": "#5a5248", "casing": "#39332c" }
+      "generic": { "fill": "#4a4a4a", "casing": "#2e2e2e" }
     },
     "largeArterial": {
-      "generic": { "fill": "#6b6b6b", "casing": "#4a4a4a" },
-      "industrial": { "fill": "#786d5e", "casing": "#544c41" }
+      "generic": { "fill": "#6b6b6b", "casing": "#4a4a4a" }
     },
     "mediumArterial": {
-      "generic": { "fill": "#8c8c8c", "casing": "#6b6b6b" },
-      "industrial": { "fill": "#948a78", "casing": "#6d6455" }
+      "generic": { "fill": "#8c8c8c", "casing": "#6b6b6b" }
     },
     "local": {
       "generic": { "fill": "#b0afaa", "casing": "#8c8c8c" },
-      "industrial": { "fill": "#b3a993", "casing": "#8c8271" },
       "gravel": { "fill": "#c9c2b0", "casing": "#a69c88" }
     },
     "pedestrian": {
@@ -181,8 +182,6 @@ The built-in **Day** theme, reproduced verbatim
     },
     "rail": {
       "train": { "fill": "#ececec", "casing": "#4a4a4a" },
-      "tram": { "fill": "#ececec", "casing": "#555555" },
-      "monorail": { "fill": "#ececec", "casing": "#555555" },
       "metro": { "fill": "#ececec", "casing": "#e4572e" }
     },
     "ferry": { "fill": "#4a90a4", "casing": "#4a90a4" }

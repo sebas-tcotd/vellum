@@ -67,21 +67,11 @@ const MOCK_STYLE: RenderStyleParams = {
   forests: '#14592a',
   transitBackground: '#1a1a2e',
   roads: {
-    highway: {
-      generic: roadColors('#a098b0', '#7d748e'),
-      industrial: roadColors('#a098b0', '#7d748e'),
-    },
-    largeArterial: {
-      generic: roadColors('#d2938e', '#b8756e'),
-      industrial: roadColors('#d2938e', '#b8756e'),
-    },
-    mediumArterial: {
-      generic: roadColors('#d4a882', '#b48a69'),
-      industrial: roadColors('#d4a882', '#b48a69'),
-    },
+    highway: { generic: roadColors('#a098b0', '#7d748e') },
+    largeArterial: { generic: roadColors('#d2938e', '#b8756e') },
+    mediumArterial: { generic: roadColors('#d4a882', '#b48a69') },
     local: {
       generic: roadColors('#e4e1d1', '#8a8278'),
-      industrial: roadColors('#e4e1d1', '#8a8278'),
       gravel: roadColors('#e0d5c1', '#c4b89e'),
     },
     pedestrian: {
@@ -91,8 +81,6 @@ const MOCK_STYLE: RenderStyleParams = {
     },
     rail: {
       train: roadColors('#eceff1', '#455a64'),
-      tram: roadColors('#eceff1', '#455a64'),
-      monorail: roadColors('#eceff1', '#455a64'),
       metro: roadColors('#eceff1', '#455a64'),
     },
     ferry: roadColors('#1A5276', '#1A5276'),

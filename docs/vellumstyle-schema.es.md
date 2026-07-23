@@ -85,15 +85,20 @@ la superficie de la vía, `casing` colorea el contorno dibujado alrededor para d
 figura-fondo. Los **anchos** de vía nunca forman parte de este schema — son una constante
 fija del renderer, no un asunto del tema.
 
-| Path                   | Variantes                                                                      |
-| ---------------------- | ------------------------------------------------------------------------------ |
-| `roads.highway`        | `generic`, `industrial` — autopistas principales y rampas conectoras           |
-| `roads.largeArterial`  | `generic`, `industrial` — arteriales equivalentes a 6 carriles                 |
-| `roads.mediumArterial` | `generic`, `industrial` — arteriales equivalentes a 4 carriles                 |
-| `roads.local`          | `generic`, `industrial`, `gravel` — calles locales de 2 carriles               |
-| `roads.pedestrian`     | `path`, `way`, `street` — vías exclusivamente peatonales                       |
-| `roads.rail`           | `train`, `tram`, `monorail`, `metro` — infraestructura de tránsito ferroviario |
-| `roads.ferry`          | (leaf único, sin variantes) — rutas de transporte acuático (ferry/barco)       |
+| Path                   | Variantes                                                                |
+| ---------------------- | ------------------------------------------------------------------------ |
+| `roads.highway`        | `generic` — autopistas principales y rampas conectoras                   |
+| `roads.largeArterial`  | `generic` — arteriales equivalentes a 6 carriles                         |
+| `roads.mediumArterial` | `generic` — arteriales equivalentes a 4 carriles                         |
+| `roads.local`          | `generic`, `gravel` — calles locales de 2 carriles                       |
+| `roads.pedestrian`     | `path`, `way`, `street` — vías exclusivamente peatonales                 |
+| `roads.rail`           | `train`, `metro` — infraestructura de tránsito ferroviario               |
+| `roads.ferry`          | (leaf único, sin variantes) — rutas de transporte acuático (ferry/barco) |
+
+`train` corresponde a `icls="Train Track"` (y su variante túnel), `metro` a `icls="Metro Track"`
+(y su variante túnel). Ningún otro modo ferroviario (tram, monorriel) tiene un `itemClass`
+distinto en la exportación `.cslmap` de CS1 — los tranvías circulan sobre segmentos de vía
+normales — por eso el schema no tiene un leaf para ellos.
 
 ### `buildings` (`BuildingColorParams`)
 
@@ -160,20 +165,16 @@ El tema built-in **Day**, reproducido literalmente
   "transitBackground": "#1a1a2e",
   "roads": {
     "highway": {
-      "generic": { "fill": "#4a4a4a", "casing": "#2e2e2e" },
-      "industrial": { "fill": "#5a5248", "casing": "#39332c" }
+      "generic": { "fill": "#4a4a4a", "casing": "#2e2e2e" }
     },
     "largeArterial": {
-      "generic": { "fill": "#6b6b6b", "casing": "#4a4a4a" },
-      "industrial": { "fill": "#786d5e", "casing": "#544c41" }
+      "generic": { "fill": "#6b6b6b", "casing": "#4a4a4a" }
     },
     "mediumArterial": {
-      "generic": { "fill": "#8c8c8c", "casing": "#6b6b6b" },
-      "industrial": { "fill": "#948a78", "casing": "#6d6455" }
+      "generic": { "fill": "#8c8c8c", "casing": "#6b6b6b" }
     },
     "local": {
       "generic": { "fill": "#b0afaa", "casing": "#8c8c8c" },
-      "industrial": { "fill": "#b3a993", "casing": "#8c8271" },
       "gravel": { "fill": "#c9c2b0", "casing": "#a69c88" }
     },
     "pedestrian": {
@@ -183,8 +184,6 @@ El tema built-in **Day**, reproducido literalmente
     },
     "rail": {
       "train": { "fill": "#ececec", "casing": "#4a4a4a" },
-      "tram": { "fill": "#ececec", "casing": "#555555" },
-      "monorail": { "fill": "#ececec", "casing": "#555555" },
       "metro": { "fill": "#ececec", "casing": "#e4572e" }
     },
     "ferry": { "fill": "#4a90a4", "casing": "#4a90a4" }

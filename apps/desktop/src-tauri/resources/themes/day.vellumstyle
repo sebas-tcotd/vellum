@@ -16,40 +16,24 @@
       "generic": {
         "fill": "#4a4a4a",
         "casing": "#2e2e2e"
-      },
-      "industrial": {
-        "fill": "#5a5248",
-        "casing": "#39332c"
       }
     },
     "largeArterial": {
       "generic": {
         "fill": "#6b6b6b",
         "casing": "#4a4a4a"
-      },
-      "industrial": {
-        "fill": "#786d5e",
-        "casing": "#544c41"
       }
     },
     "mediumArterial": {
       "generic": {
         "fill": "#8c8c8c",
         "casing": "#6b6b6b"
-      },
-      "industrial": {
-        "fill": "#948a78",
-        "casing": "#6d6455"
       }
     },
     "local": {
       "generic": {
         "fill": "#b0afaa",
         "casing": "#8c8c8c"
-      },
-      "industrial": {
-        "fill": "#b3a993",
-        "casing": "#8c8271"
       },
       "gravel": {
         "fill": "#c9c2b0",
@@ -74,14 +58,6 @@
       "train": {
         "fill": "#ececec",
         "casing": "#4a4a4a"
-      },
-      "tram": {
-        "fill": "#ececec",
-        "casing": "#555555"
-      },
-      "monorail": {
-        "fill": "#ececec",
-        "casing": "#555555"
       },
       "metro": {
         "fill": "#ececec",

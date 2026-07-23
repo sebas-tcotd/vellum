@@ -442,7 +442,7 @@ describe('buildTransitRenderData — connectors and stations', () => {
 // ─── buildRoadsGeoJson — road tier classification ───────────────────────────
 
 describe('buildRoadsGeoJson — tier classification', () => {
-  it('classifies Metro Track as railway tier, not width-based fallback', () => {
+  it('classifies Metro Track as metro tier, not width-based fallback', () => {
     const segment = makeRoadSegment({
       id: 'metro-1',
       startNodeId: 'node-a',
@@ -456,10 +456,27 @@ describe('buildRoadsGeoJson — tier classification', () => {
     });
 
     const fc = buildRoadsGeoJson(city);
-    expect(fc.features[0].properties.tier).toBe('railway');
+    expect(fc.features[0].properties.tier).toBe('metro');
   });
 
-  it('classifies Train Track as railway tier (baseline, unchanged)', () => {
+  it('classifies Metro Track Tunnel as metro tier', () => {
+    const segment = makeRoadSegment({
+      id: 'metro-tunnel-1',
+      startNodeId: 'node-a',
+      endNodeId: 'node-b',
+      itemClass: 'Metro Track Tunnel',
+      width: 30,
+    });
+    const city = makeCityData({
+      roadNodes: [NODE_A, NODE_B],
+      roadSegments: [segment],
+    });
+
+    const fc = buildRoadsGeoJson(city);
+    expect(fc.features[0].properties.tier).toBe('metro');
+  });
+
+  it('classifies Train Track as train tier (baseline, unchanged)', () => {
     const segment = makeRoadSegment({
       id: 'train-1',
       startNodeId: 'node-a',
@@ -473,6 +490,23 @@ describe('buildRoadsGeoJson — tier classification', () => {
     });
 
     const fc = buildRoadsGeoJson(city);
-    expect(fc.features[0].properties.tier).toBe('railway');
+    expect(fc.features[0].properties.tier).toBe('train');
+  });
+
+  it('classifies Train Track Tunnel as train tier', () => {
+    const segment = makeRoadSegment({
+      id: 'train-tunnel-1',
+      startNodeId: 'node-a',
+      endNodeId: 'node-b',
+      itemClass: 'Train Track Tunnel',
+      width: 30,
+    });
+    const city = makeCityData({
+      roadNodes: [NODE_A, NODE_B],
+      roadSegments: [segment],
+    });
+
+    const fc = buildRoadsGeoJson(city);
+    expect(fc.features[0].properties.tier).toBe('train');
   });
 });

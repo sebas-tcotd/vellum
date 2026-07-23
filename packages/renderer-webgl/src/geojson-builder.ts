@@ -260,7 +260,8 @@ export interface ContourLineCollection {
 
 export type RoadTier =
   | 'highway'
-  | 'railway'
+  | 'train'
+  | 'metro'
   | 'largeArterial'
   | 'mediumArterial'
   | 'local'
@@ -275,7 +276,8 @@ interface RoadWidthStyle {
 
 const ROAD_WIDTH_STYLES: Record<RoadTier, RoadWidthStyle> = {
   highway: { fixed: 0.3, scaled: 3.0 },
-  railway: { fixed: 0.3, scaled: 1.2 },
+  train: { fixed: 0.3, scaled: 1.2 },
+  metro: { fixed: 0.3, scaled: 1.2 },
   largeArterial: { fixed: 0.3, scaled: 2.0 },
   mediumArterial: { fixed: 0.3, scaled: 1.5 },
   local: { fixed: 0.2, scaled: 0.8 },
@@ -292,8 +294,10 @@ const ITEM_CLASS_TIER: Readonly<Record<string, RoadTier>> = {
   'Gravel Road': 'gravel',
   'Pedestrian Way': 'pedestrianWay',
   'Pedestrian Path': 'pedestrianWay',
-  'Train Track': 'railway',
-  'Metro Track': 'railway',
+  'Train Track': 'train',
+  'Train Track Tunnel': 'train',
+  'Metro Track': 'metro',
+  'Metro Track Tunnel': 'metro',
   'Highway Tunnel': 'highway',
   'Large Road Tunnel': 'largeArterial',
   'Medium Road Tunnel': 'mediumArterial',
