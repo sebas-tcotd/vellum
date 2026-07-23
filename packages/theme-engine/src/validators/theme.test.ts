@@ -49,4 +49,23 @@ describe('validateVellumStyle', () => {
   it('rejects a non-object root', () => {
     expect(validateVellumStyle(null)).toEqual({ valid: false, error: 'root' });
   });
+
+  it('ignores unknown top-level fields (extension points, Story 5.4 AC #5)', () => {
+    const result = validateVellumStyle({
+      ...validTheme,
+      _authorNotes: 'made with love',
+    });
+    expect(result.valid).toBe(true);
+  });
+
+  it('ignores unknown fields nested inside an existing group (extension points, Story 5.4 AC #5)', () => {
+    const result = validateVellumStyle({
+      ...validTheme,
+      roads: {
+        ...validTheme.roads,
+        highway: { ...validTheme.roads.highway, _extra: 'bar' },
+      },
+    });
+    expect(result.valid).toBe(true);
+  });
 });

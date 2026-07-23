@@ -70,6 +70,8 @@
 | [Arquitectura de Integración](./integration-architecture.md)  | Cómo se comunican los paquetes del monorepo     |
 | [Guía de Desarrollo](./development-guide.md)                  | Setup, comandos dev/build/lint, IPC Tauri       |
 | [Inventario de Componentes](./component-inventory-desktop.md) | Componentes UI actuales y planificados          |
+| [Schema .vellumstyle (EN)](./vellumstyle-schema.en.md)        | Referencia pública del schema de temas, v1      |
+| [Schema .vellumstyle (ES)](./vellumstyle-schema.es.md)        | Referencia pública del schema de temas, v1      |
 
 ### Documentación Pendiente de Generar
 

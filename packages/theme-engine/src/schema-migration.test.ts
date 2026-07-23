@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { DEFAULT_RENDER_STYLE_PARAMS } from './default-style';
 import { migrateTheme } from './schema-migration';
+import { validateVellumStyle } from './validators/theme';
 
 describe('migrateTheme', () => {
   it('v1 is a pass-through preserving all fields', () => {
@@ -28,4 +30,21 @@ describe('migrateTheme', () => {
     expect(migrateTheme({ schemaVersion: Infinity }).schemaVersion).toBe(1);
     expect(migrateTheme({ schemaVersion: -Infinity }).schemaVersion).toBe(1);
   });
+
+  it(
+    'a valid v1 .vellumstyle survives migration + validation without error ' +
+      '(Story 5.4 AC #2 non-regression proxy — a real future schema version does not exist yet to test against)',
+    () => {
+      const v1Theme = {
+        schemaVersion: 1,
+        name: 'Day',
+        ...DEFAULT_RENDER_STYLE_PARAMS,
+      };
+      const migrated = migrateTheme(v1Theme);
+      expect(validateVellumStyle(migrated)).toEqual({
+        valid: true,
+        theme: migrated,
+      });
+    },
+  );
 });
