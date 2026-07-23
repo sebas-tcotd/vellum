@@ -24,6 +24,7 @@ const mockToggleLayer = vi.fn();
 const mockSetActiveTheme = vi.fn();
 let mockAvailableThemes: ThemeMetadata[] = [];
 let mockActiveTheme = 'day';
+let mockTransitDimmingEnabled = false;
 
 vi.mock('../../store/vellum-store', () => ({
   useVellumStore: (selector: (s: unknown) => unknown) =>
@@ -32,6 +33,7 @@ vi.mock('../../store/vellum-store', () => ({
       toggleLayer: mockToggleLayer,
       availableThemes: mockAvailableThemes,
       activeTheme: mockActiveTheme,
+      transitDimmingEnabled: mockTransitDimmingEnabled,
       setActiveTheme: mockSetActiveTheme,
     }),
 }));
@@ -42,6 +44,7 @@ describe('FloatingLayerPanel', () => {
     mockSetActiveTheme.mockClear();
     mockAvailableThemes = [];
     mockActiveTheme = 'day';
+    mockTransitDimmingEnabled = false;
     vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
       cb(0);
       return 0;
@@ -271,6 +274,43 @@ describe('FloatingLayerPanel', () => {
       );
       fireEvent.click(screen.getByText('Transit'));
       expect(mockSetActiveTheme).toHaveBeenCalledWith('transit');
+    });
+  });
+
+  describe('Story 5.3 — dimming del panel, opt-in (theme cableado a LayerToggleRow)', () => {
+    it('pasa theme="day" a los switches cuando activeTheme es day', () => {
+      mockActiveTheme = 'day';
+      render(
+        <FloatingLayerPanel cityName="Altavento" fileName="altavento.cslmap" />,
+      );
+      screen.getAllByRole('switch').forEach((sw) => {
+        const dot = sw.parentElement?.querySelector('[aria-hidden="true"]');
+        expect(dot).toHaveStyle({ opacity: '1' });
+      });
+    });
+
+    it('pasa theme="day" (no dimming) cuando activeTheme es transit pero transitDimmingEnabled es false (default)', () => {
+      mockActiveTheme = 'transit';
+      mockTransitDimmingEnabled = false;
+      render(
+        <FloatingLayerPanel cityName="Altavento" fileName="altavento.cslmap" />,
+      );
+      screen.getAllByRole('switch').forEach((sw) => {
+        const dot = sw.parentElement?.querySelector('[aria-hidden="true"]');
+        expect(dot).toHaveStyle({ opacity: '1' });
+      });
+    });
+
+    it('pasa theme="transit" a los switches cuando activeTheme es transit y transitDimmingEnabled es true', () => {
+      mockActiveTheme = 'transit';
+      mockTransitDimmingEnabled = true;
+      render(
+        <FloatingLayerPanel cityName="Altavento" fileName="altavento.cslmap" />,
+      );
+      screen.getAllByRole('switch').forEach((sw) => {
+        const dot = sw.parentElement?.querySelector('[aria-hidden="true"]');
+        expect(dot).toHaveStyle({ opacity: '0.4' });
+      });
     });
   });
 

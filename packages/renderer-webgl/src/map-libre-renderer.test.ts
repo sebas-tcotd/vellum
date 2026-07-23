@@ -307,6 +307,84 @@ describe('MapLibreRenderer', () => {
     expect(mockMap.setLayoutProperty).not.toHaveBeenCalled();
   });
 
+  describe('setTransitDimming — Story 5.3 (AC #1, #4)', () => {
+    it('dims non-transit layers to ~0.15x their baseline opacity when enabled', async () => {
+      const renderer = makeRenderer();
+      await renderer.render(makeCityData(), {
+        activeLayers: ALL_LAYERS_VISIBLE,
+      });
+      mockMap.getLayer.mockReturnValue({ id: 'any' } as unknown as undefined);
+      vi.clearAllMocks();
+      mockMap.getLayer.mockReturnValue({ id: 'any' } as unknown as undefined);
+
+      renderer.setTransitDimming(true);
+
+      expect(mockMap.setPaintProperty).toHaveBeenCalledWith(
+        'roads-fill',
+        'line-opacity',
+        ['*', 0.65, 0.15],
+      );
+      expect(mockMap.setPaintProperty).toHaveBeenCalledWith(
+        'buildings-fill',
+        'fill-opacity',
+        ['*', 0.85, 0.15],
+      );
+    });
+
+    it('restores baseline opacity when disabled', async () => {
+      const renderer = makeRenderer();
+      await renderer.render(makeCityData(), {
+        activeLayers: ALL_LAYERS_VISIBLE,
+      });
+      mockMap.getLayer.mockReturnValue({ id: 'any' } as unknown as undefined);
+      vi.clearAllMocks();
+      mockMap.getLayer.mockReturnValue({ id: 'any' } as unknown as undefined);
+
+      renderer.setTransitDimming(false);
+
+      expect(mockMap.setPaintProperty).toHaveBeenCalledWith(
+        'roads-fill',
+        'line-opacity',
+        0.65,
+      );
+      expect(mockMap.setPaintProperty).toHaveBeenCalledWith(
+        'buildings-fill',
+        'fill-opacity',
+        0.85,
+      );
+    });
+
+    it('never touches any of the 5 transit layer ids', async () => {
+      const renderer = makeRenderer();
+      await renderer.render(makeCityData(), {
+        activeLayers: ALL_LAYERS_VISIBLE,
+      });
+      mockMap.getLayer.mockReturnValue({ id: 'any' } as unknown as undefined);
+      vi.clearAllMocks();
+      mockMap.getLayer.mockReturnValue({ id: 'any' } as unknown as undefined);
+
+      renderer.setTransitDimming(true);
+
+      const transitIds = [
+        'transit-connector',
+        'transit-line',
+        'transit-stops',
+        'transit-stops-outline',
+        'transit-stops-dot',
+      ];
+      for (const call of mockMap.setPaintProperty.mock.calls) {
+        expect(transitIds).not.toContain(call[0]);
+      }
+    });
+
+    it('is a safe no-op when layers do not exist yet', () => {
+      const renderer = makeRenderer();
+      mockMap.getLayer.mockReturnValue(undefined);
+      expect(() => renderer.setTransitDimming(true)).not.toThrow();
+      expect(mockMap.setPaintProperty).not.toHaveBeenCalled();
+    });
+  });
+
   describe('clear()', () => {
     const ALL_CITY_SOURCE_IDS = [
       'base',

@@ -29,6 +29,7 @@ export function addBuildingsLayer(
     paint: {
       'fill-color': colors.buildingFill,
       'fill-opacity': 0.85,
+      'fill-opacity-transition': { duration: 300 },
     },
   });
 
@@ -39,6 +40,8 @@ export function addBuildingsLayer(
     paint: {
       'line-color': colors.buildingStroke,
       'line-width': 0.5,
+      'line-opacity': 1,
+      'line-opacity-transition': { duration: 300 },
     },
   });
 }

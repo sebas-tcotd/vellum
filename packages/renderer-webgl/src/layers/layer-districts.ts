@@ -31,6 +31,8 @@ export function addDistrictsLayer(
       'circle-radius': 6,
       'circle-stroke-color': colors.districtLabel,
       'circle-stroke-width': 1,
+      'circle-opacity': 1,
+      'circle-opacity-transition': { duration: 300 },
     },
   });
 }

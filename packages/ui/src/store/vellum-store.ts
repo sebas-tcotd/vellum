@@ -48,6 +48,16 @@ interface VellumStore {
   /** Identifier of the currently active visual theme (e.g., 'day', 'night'). */
   activeTheme: string;
 
+  /**
+   * Whether non-transit layers should dim to ~15% opacity while the Transit theme is active.
+   * @remarks
+   * `false` by default so the Transit theme keeps its original, undimmed look (Story 5.3
+   * feedback: dimming looked great as an opt-in but eroded the theme's own charm as a forced
+   * default). No UI toggle exists yet — this flag is the storage mechanism for the future
+   * "advanced layer options" panel (see `future-work-panel-opciones-avanzadas.md`) to control.
+   */
+  transitDimmingEnabled: boolean;
+
   /** Metadata for every theme loaded at startup — drives the selector pills. */
   availableThemes: ThemeMetadata[];
 
@@ -88,6 +98,9 @@ interface VellumStore {
 
   /** Replaces the list of available themes (populated once at startup by `useThemes`). */
   setAvailableThemes: (themes: ThemeMetadata[]) => void;
+
+  /** Toggles automatic non-transit layer dimming while the Transit theme is active. */
+  setTransitDimmingEnabled: (enabled: boolean) => void;
 
   /** Replaces the theme-loading warnings. Pass [] to clear. */
   setThemeWarnings: (warnings: ThemeWarning[]) => void;
@@ -141,6 +154,7 @@ export const useVellumStore = create<VellumStore>((set, get) => ({
   loadRequestId: 0,
   activeLayers: DEFAULT_ACTIVE_LAYERS,
   activeTheme: 'day',
+  transitDimmingEnabled: false,
   availableThemes: [],
   themeWarnings: [],
   autoUpdateEnabled: false,
@@ -175,6 +189,9 @@ export const useVellumStore = create<VellumStore>((set, get) => ({
   setActiveTheme: (theme) => set({ activeTheme: theme }),
 
   setAvailableThemes: (themes) => set({ availableThemes: themes }),
+
+  setTransitDimmingEnabled: (enabled) =>
+    set({ transitDimmingEnabled: enabled }),
 
   setThemeWarnings: (warnings) => set({ themeWarnings: warnings }),
 

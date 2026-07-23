@@ -71,6 +71,10 @@ export const FloatingLayerPanel = ({
   const collapseButtonRef = useRef<HTMLButtonElement>(null);
   const activeLayers = useVellumStore((s) => s.activeLayers);
   const toggleLayer = useVellumStore((s) => s.toggleLayer);
+  const activeTheme = useVellumStore((s) => s.activeTheme);
+  const transitDimmingEnabled = useVellumStore((s) => s.transitDimmingEnabled);
+  const panelTheme =
+    activeTheme === 'transit' && transitDimmingEnabled ? 'transit' : 'day';
 
   const handleCollapse = () => {
     setPanelState('collapsed');
@@ -118,6 +122,7 @@ export const FloatingLayerPanel = ({
           <PanelLayerList
             activeLayers={activeLayers}
             toggleLayer={toggleLayer}
+            theme={panelTheme}
           />
 
           <Separator className="h-px mt-3 mb-2 w-full" />
@@ -141,6 +146,7 @@ export const FloatingLayerPanel = ({
           <PanelCollapsedIcons
             activeLayers={activeLayers}
             toggleLayer={toggleLayer}
+            theme={panelTheme}
           />
         </div>
       )}
@@ -190,9 +196,14 @@ function PanelHeader({
 interface PanelLayerListProps {
   activeLayers: LayerVisibility;
   toggleLayer: (layer: LayerName) => void;
+  theme: 'day' | 'transit';
 }
 
-function PanelLayerList({ activeLayers, toggleLayer }: PanelLayerListProps) {
+function PanelLayerList({
+  activeLayers,
+  toggleLayer,
+  theme,
+}: PanelLayerListProps) {
   return (
     <div>
       {LAYER_NAMES.map((layer) => {
@@ -205,6 +216,7 @@ function PanelLayerList({ activeLayers, toggleLayer }: PanelLayerListProps) {
             onToggle={(l, v) => {
               if (v !== activeLayers[l]) toggleLayer(l);
             }}
+            theme={theme}
             color={LAYER_COLORS[layer]}
             icon={<Icon size={14} strokeWidth={1.5} />}
           />

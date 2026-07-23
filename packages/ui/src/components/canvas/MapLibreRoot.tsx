@@ -66,6 +66,7 @@ export function MapLibreRoot({
   const cityData = useVellumStore((s) => s.cityData);
   const loadingState = useVellumStore((s) => s.loadingState);
   const activeTheme = useVellumStore((s) => s.activeTheme);
+  const transitDimmingEnabled = useVellumStore((s) => s.transitDimmingEnabled);
 
   // Mount / unmount the renderer
   useEffect(() => {
@@ -105,6 +106,9 @@ export function MapLibreRoot({
     if (!renderer || themes.length === 0) return;
     const style = themes.find((theme) => theme.id === activeTheme);
     if (!style) return;
+    renderer.setTransitDimming(
+      activeTheme === 'transit' && transitDimmingEnabled,
+    );
     renderer.applyTheme(style).catch((err: unknown) => {
       if (cancelled) return;
       console.error('[MapLibreRoot] applyTheme failed:', err);
@@ -112,7 +116,7 @@ export function MapLibreRoot({
     return () => {
       cancelled = true;
     };
-  }, [activeTheme, themes]);
+  }, [activeTheme, themes, transitDimmingEnabled]);
 
   // Clear the map when loading starts so the old map doesn't linger
   useEffect(() => {

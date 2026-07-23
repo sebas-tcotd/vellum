@@ -46,6 +46,7 @@ export function addForestsLayer(
         1,
         0.7,
       ] as unknown as maplibregl.ExpressionSpecification,
+      'circle-opacity-transition': { duration: 300 },
     },
   });
 }

@@ -5,6 +5,7 @@ import { act, render, waitFor } from '../../test-utils';
 import { MapLibreRoot } from './MapLibreRoot';
 
 const applyThemeSpy = vi.fn().mockResolvedValue(undefined);
+const setTransitDimmingSpy = vi.fn();
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key }),
@@ -30,6 +31,7 @@ vi.mock('@vellum/renderer-webgl', () => ({
       zoomIn: vi.fn(),
       zoomOut: vi.fn(),
       setLayerVisibility: vi.fn(),
+      setTransitDimming: setTransitDimmingSpy,
     };
   },
   readTokensFromDOM: () => ({}),
@@ -39,9 +41,14 @@ vi.mock('../minimap/Minimap', () => ({ Minimap: () => null }));
 vi.mock('../overlays/MapTooltip', () => ({ MapTooltip: () => null }));
 
 let mockActiveTheme = 'day';
+let mockTransitDimmingEnabled = false;
 vi.mock('../../store/vellum-store', () => ({
   useVellumStore: (selector: (s: unknown) => unknown) =>
-    selector({ cityData: null, activeTheme: mockActiveTheme }),
+    selector({
+      cityData: null,
+      activeTheme: mockActiveTheme,
+      transitDimmingEnabled: mockTransitDimmingEnabled,
+    }),
 }));
 
 const theme = (id: string, name: string): LoadedTheme => ({
@@ -56,6 +63,7 @@ const theme = (id: string, name: string): LoadedTheme => ({
 describe('MapLibreRoot — Story 5.1: aplicación de tema (AC #2, #4)', () => {
   beforeEach(() => {
     applyThemeSpy.mockClear();
+    setTransitDimmingSpy.mockClear();
     mockActiveTheme = 'day';
     vi.stubGlobal(
       'ResizeObserver',
@@ -118,5 +126,67 @@ describe('MapLibreRoot — Story 5.1: aplicación de tema (AC #2, #4)', () => {
       ),
     );
     consoleError.mockRestore();
+  });
+});
+
+describe('MapLibreRoot — Story 5.3: dimming automático, opt-in (AC #1, #4)', () => {
+  beforeEach(() => {
+    applyThemeSpy.mockClear();
+    setTransitDimmingSpy.mockClear();
+    mockActiveTheme = 'day';
+    mockTransitDimmingEnabled = false;
+    vi.stubGlobal(
+      'ResizeObserver',
+      function MockResizeObserver(this: {
+        observe: () => void;
+        disconnect: () => void;
+      }) {
+        this.observe = vi.fn();
+        this.disconnect = vi.fn();
+      },
+    );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('llama setTransitDimming(false) cuando activeTheme es transit pero transitDimmingEnabled es false (default)', async () => {
+    mockActiveTheme = 'transit';
+    mockTransitDimmingEnabled = false;
+    render(
+      <MapLibreRoot
+        themes={[theme('day', 'Day'), theme('transit', 'Transit')]}
+      />,
+    );
+    await waitFor(() =>
+      expect(setTransitDimmingSpy).toHaveBeenCalledWith(false),
+    );
+  });
+
+  it('llama setTransitDimming(true) cuando activeTheme es transit y transitDimmingEnabled es true', async () => {
+    mockActiveTheme = 'transit';
+    mockTransitDimmingEnabled = true;
+    render(
+      <MapLibreRoot
+        themes={[theme('day', 'Day'), theme('transit', 'Transit')]}
+      />,
+    );
+    await waitFor(() =>
+      expect(setTransitDimmingSpy).toHaveBeenCalledWith(true),
+    );
+  });
+
+  it('llama setTransitDimming(false) para cualquier otro tema, incluso con transitDimmingEnabled en true', async () => {
+    mockActiveTheme = 'day';
+    mockTransitDimmingEnabled = true;
+    render(
+      <MapLibreRoot
+        themes={[theme('day', 'Day'), theme('transit', 'Transit')]}
+      />,
+    );
+    await waitFor(() =>
+      expect(setTransitDimmingSpy).toHaveBeenCalledWith(false),
+    );
   });
 });

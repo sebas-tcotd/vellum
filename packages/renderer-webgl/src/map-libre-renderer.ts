@@ -91,6 +91,46 @@ const LAYER_ID_MAP: Record<LayerName, string[]> = {
   districts: ['districts-points'],
 };
 
+/** Multiplier applied to each non-transit layer's baseline opacity when the Transit theme is active (Story 5.3). */
+const TRANSIT_DIM_FACTOR = 0.15;
+
+/**
+ * Baseline opacity (and paint property) for every non-transit layer id, used to
+ * compute the dimmed value (`baseline * TRANSIT_DIM_FACTOR`) in `setTransitDimming`.
+ * `forests-circles` uses a data-driven expression instead of a plain number — its
+ * dimmed variant scales the existing expression via `['*', expr, factor]`.
+ */
+const NON_TRANSIT_OPACITY: Record<
+  string,
+  { prop: 'fill-opacity' | 'line-opacity' | 'circle-opacity'; base: unknown }
+> = {
+  'terrain-lines-layer': { prop: 'line-opacity', base: 0.5 },
+  'coastline-layer': { prop: 'line-opacity', base: 0.8 },
+  'base-water': { prop: 'fill-opacity', base: 1 },
+  'base-land': { prop: 'fill-opacity', base: 1 },
+  'roads-casing': { prop: 'line-opacity', base: 0.65 },
+  'roads-fill': { prop: 'line-opacity', base: 0.65 },
+  'roads-tunnel-bridge-casing': { prop: 'line-opacity', base: 0.65 },
+  'roads-tunnel-bridge-fill': { prop: 'line-opacity', base: 0.65 },
+  'roads-ferry': { prop: 'line-opacity', base: 0.65 },
+  'roads-railway-casing': { prop: 'line-opacity', base: 0.65 },
+  'buildings-fill': { prop: 'fill-opacity', base: 0.85 },
+  'buildings-outline': { prop: 'line-opacity', base: 1 },
+  'forests-circles': {
+    prop: 'circle-opacity',
+    base: [
+      'interpolate',
+      ['linear'],
+      ['get', 'density'],
+      0,
+      0.3,
+      1,
+      0.7,
+    ] as unknown,
+  },
+  'districts-points': { prop: 'circle-opacity', base: 1 },
+};
+
 // ─── Viewport ─────────────────────────────────────────────────────────────────
 
 /** Geographic viewport state emitted by the minimap subscription. */
@@ -114,6 +154,7 @@ export class MapLibreRenderer implements IRenderer {
   private navigationMode: 'strict' | 'soft' = 'soft';
   private isSnappingBack = false;
   private fitToScreenZoom = 0;
+  private transitDimming = false;
 
   /**
    * Creates a new `MapLibreRenderer` and attaches it to the given container.
@@ -151,6 +192,7 @@ export class MapLibreRenderer implements IRenderer {
         for (const layer of LAYER_NAMES) {
           this.setLayerVisibility(layer, params.activeLayers[layer]);
         }
+        this.setTransitDimming(this.transitDimming);
         this.fitToCityBounds(cityData);
         this.fitToScreenZoom = this.map.getZoom();
         this.applyNavigationConstraints(cityData);
@@ -290,6 +332,27 @@ export class MapLibreRenderer implements IRenderer {
         'visibility',
         visible ? 'visible' : 'none',
       );
+    }
+  }
+
+  /**
+   * Dims every non-transit layer (`terrain`, `water`, `roads`, `buildings`,
+   * `forests`, `districts`) to `TRANSIT_DIM_FACTOR` of its baseline opacity, or
+   * restores normal opacity — used when the Transit theme is active/inactive.
+   *
+   * @remarks
+   * Orthogonal to {@link setLayerVisibility}: this only touches paint-property
+   * opacity, never `visibility`. A hidden layer stays hidden regardless of its
+   * dimmed opacity, and re-showing it restores the dimmed (not full) opacity
+   * for free, since the paint property was never reset while hidden.
+   */
+  setTransitDimming(enabled: boolean): void {
+    this.transitDimming = enabled;
+    for (const [id, { prop, base }] of Object.entries(NON_TRANSIT_OPACITY)) {
+      const value = enabled
+        ? (['*', base, TRANSIT_DIM_FACTOR] as unknown)
+        : base;
+      this.setPaintIfExists(id, prop, value);
     }
   }
 
