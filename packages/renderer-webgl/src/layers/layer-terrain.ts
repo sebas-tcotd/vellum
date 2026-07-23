@@ -94,6 +94,7 @@ function addCoastlineLayer(
       'line-color': colors.coastlineStroke,
       'line-width': 4,
       'line-opacity': 0.8,
+      'line-opacity-transition': { duration: 300 },
     },
   });
 }
@@ -112,6 +113,7 @@ function addContourLinesLayer(map: maplibregl.Map, cityData: CityData): void {
       'line-color': '#000000',
       'line-width': 0.5,
       'line-opacity': 0.5,
+      'line-opacity-transition': { duration: 300 },
     },
   });
 }

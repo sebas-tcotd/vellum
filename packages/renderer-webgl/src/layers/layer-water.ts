@@ -47,7 +47,11 @@ export function addBaseLayer(
       ['get', 'kind'],
       'water',
     ] as unknown as maplibregl.ExpressionSpecification,
-    paint: { 'fill-color': colors.water, 'fill-opacity': 1 },
+    paint: {
+      'fill-color': colors.water,
+      'fill-opacity': 1,
+      'fill-opacity-transition': { duration: 300 },
+    },
   });
 
   addLayerIfAbsent(map, {
@@ -59,6 +63,10 @@ export function addBaseLayer(
       ['get', 'kind'],
       'land',
     ] as unknown as maplibregl.ExpressionSpecification,
-    paint: { 'fill-color': colors.land, 'fill-opacity': 1 },
+    paint: {
+      'fill-color': colors.land,
+      'fill-opacity': 1,
+      'fill-opacity-transition': { duration: 300 },
+    },
   });
 }

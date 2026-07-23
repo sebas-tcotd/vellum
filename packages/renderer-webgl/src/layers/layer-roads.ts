@@ -52,6 +52,8 @@ export function addRoadsLayer(
     paint: {
       'line-color': buildRoadColorExpression(colors, 'casing'),
       'line-width': ROAD_CASING_WIDTH_EXPR,
+      'line-opacity': 0.65,
+      'line-opacity-transition': { duration: 300 },
     },
   });
 
@@ -70,6 +72,8 @@ export function addRoadsLayer(
     paint: {
       'line-color': buildRoadColorExpression(colors, 'fill'),
       'line-width': ROAD_WIDTH_EXPR,
+      'line-opacity': 0.65,
+      'line-opacity-transition': { duration: 300 },
     },
   });
 
@@ -91,6 +95,8 @@ export function addRoadsLayer(
       'line-color': buildRoadColorExpression(colors, 'casing'),
       'line-width': ROAD_CASING_WIDTH_EXPR,
       'line-dasharray': [6, 3],
+      'line-opacity': 0.65,
+      'line-opacity-transition': { duration: 300 },
     },
   });
 
@@ -112,6 +118,8 @@ export function addRoadsLayer(
       'line-color': buildRoadColorExpression(colors, 'fill'),
       'line-width': ROAD_WIDTH_EXPR,
       'line-dasharray': [6, 3],
+      'line-opacity': 0.65,
+      'line-opacity-transition': { duration: 300 },
     },
   });
 
@@ -124,6 +132,7 @@ export function addRoadsLayer(
     paint: {
       'line-color': colors.ferry,
       'line-opacity': 0.65,
+      'line-opacity-transition': { duration: 300 },
       'line-width': [
         'interpolate',
         ['exponential', 1.5],
@@ -153,6 +162,8 @@ export function addRoadsLayer(
       'line-color': buildRoadColorExpression(colors, 'casing'),
       'line-width': ROAD_CASING_WIDTH_EXPR,
       'line-dasharray': [1, 1],
+      'line-opacity': 0.65,
+      'line-opacity-transition': { duration: 300 },
     },
   });
 }
