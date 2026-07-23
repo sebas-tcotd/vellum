@@ -22,9 +22,33 @@ const mockActiveLayers: LayerVisibility = {
 
 const mockToggleLayer = vi.fn();
 const mockSetActiveTheme = vi.fn();
+const mockSetTransitDimmingEnabled = vi.fn();
+const mockToggleTransitMode = vi.fn();
+const mockToggleBuildingCategory = vi.fn();
+const mockSetBuildingColorByCategory = vi.fn();
 let mockAvailableThemes: ThemeMetadata[] = [];
 let mockActiveTheme = 'day';
 let mockTransitDimmingEnabled = false;
+
+const mockLayerOptions = {
+  transit: {
+    visibleModes: [
+      'Bus',
+      'Tram',
+      'Train',
+      'Metro',
+      'CableCar',
+      'Monorail',
+      'Ferry',
+      'Blimp',
+      'Trolleybus',
+    ],
+  },
+  buildings: {
+    visibleCategories: ['residential', 'commercial', 'office', 'industry'],
+    colorByCategory: false,
+  },
+};
 
 vi.mock('../../store/vellum-store', () => ({
   useVellumStore: (selector: (s: unknown) => unknown) =>
@@ -35,6 +59,11 @@ vi.mock('../../store/vellum-store', () => ({
       activeTheme: mockActiveTheme,
       transitDimmingEnabled: mockTransitDimmingEnabled,
       setActiveTheme: mockSetActiveTheme,
+      setTransitDimmingEnabled: mockSetTransitDimmingEnabled,
+      layerOptions: mockLayerOptions,
+      toggleTransitMode: mockToggleTransitMode,
+      toggleBuildingCategory: mockToggleBuildingCategory,
+      setBuildingColorByCategory: mockSetBuildingColorByCategory,
     }),
 }));
 
@@ -56,14 +85,15 @@ describe('FloatingLayerPanel', () => {
   });
 
   describe('AC1 — Posición y estilos', () => {
-    it('tiene clases de posición fixed, left-4, top-4 (anclado arriba, no centrado)', () => {
+    it('tiene clases de posición fixed, left-4, top-1/2, -translate-y-1/2 sin panel avanzado abierto', () => {
       const { container } = render(
         <FloatingLayerPanel cityName="Altavento" fileName="altavento.cslmap" />,
       );
       const panel = container.firstChild as HTMLElement;
       expect(panel.className).toContain('fixed');
       expect(panel.className).toContain('left-4');
-      expect(panel.className).toContain('top-4');
+      expect(panel.className).toContain('top-1/2');
+      expect(panel.className).toContain('-translate-y-1/2');
     });
 
     it('tiene clase rounded-lg y backdrop-blur', () => {
@@ -73,6 +103,65 @@ describe('FloatingLayerPanel', () => {
       const panel = container.firstChild!.firstChild as HTMLElement;
       expect(panel.className).toContain('rounded-lg');
       expect(panel.className).toContain('backdrop-blur');
+    });
+  });
+
+  describe('Posición dinámica del stack al abrir el panel avanzado', () => {
+    const setViewportHeight = (height: number) => {
+      Object.defineProperty(window, 'innerHeight', {
+        value: height,
+        configurable: true,
+        writable: true,
+      });
+    };
+
+    afterEach(() => {
+      setViewportHeight(768);
+    });
+
+    it('ancla arriba (top-4) al abrir el panel avanzado en una ventana corta', () => {
+      setViewportHeight(700);
+      const { container } = render(
+        <FloatingLayerPanel cityName="Altavento" fileName="altavento.cslmap" />,
+      );
+      fireEvent.click(
+        screen.getAllByRole('button', {
+          name: 'a11y.advancedOptionsToggle',
+        })[0],
+      );
+      const wrapper = container.firstChild as HTMLElement;
+      expect(wrapper.className).toContain('top-4');
+      expect(wrapper.className).not.toContain('top-1/2');
+    });
+
+    it('permanece centrado al abrir el panel avanzado en una ventana alta (pantalla completa)', () => {
+      setViewportHeight(1200);
+      const { container } = render(
+        <FloatingLayerPanel cityName="Altavento" fileName="altavento.cslmap" />,
+      );
+      fireEvent.click(
+        screen.getAllByRole('button', {
+          name: 'a11y.advancedOptionsToggle',
+        })[0],
+      );
+      const wrapper = container.firstChild as HTMLElement;
+      expect(wrapper.className).toContain('top-1/2');
+      expect(wrapper.className).not.toContain('top-4');
+    });
+
+    it('vuelve a centrarse al cerrar el panel avanzado, incluso en ventana corta', () => {
+      setViewportHeight(700);
+      const { container } = render(
+        <FloatingLayerPanel cityName="Altavento" fileName="altavento.cslmap" />,
+      );
+      const toggleBtn = screen.getAllByRole('button', {
+        name: 'a11y.advancedOptionsToggle',
+      })[0];
+      fireEvent.click(toggleBtn);
+      fireEvent.click(toggleBtn);
+      const wrapper = container.firstChild as HTMLElement;
+      expect(wrapper.className).toContain('top-1/2');
+      expect(wrapper.className).not.toContain('top-4');
     });
   });
 

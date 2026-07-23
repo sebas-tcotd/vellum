@@ -16,11 +16,33 @@ import {
   Waves,
   X,
 } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useVellumStore } from '../../store/vellum-store';
 import { AdvancedOptionsPanel } from './AdvancedOptionsPanel';
 import { LayerToggleRow } from './LayerToggleRow';
+
+/**
+ * Below this window height, the panel stack anchors to the top-left instead
+ * of centering vertically — otherwise a tall advanced-options panel eats
+ * margin on both the top and bottom edges at once. Chosen with headroom over
+ * the tallest realistic stack (main panel + the 2-column transit grid,
+ * ~600px), so it only kicks in for genuinely cramped windows.
+ */
+const SHORT_VIEWPORT_THRESHOLD_PX = 900;
+
+/** Tracks whether `window.innerHeight` is below `threshold`, updating on resize. */
+function useIsShortViewport(threshold: number): boolean {
+  const [isShort, setIsShort] = useState(() => window.innerHeight < threshold);
+
+  useEffect(() => {
+    const handleResize = () => setIsShort(window.innerHeight < threshold);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [threshold]);
+
+  return isShort;
+}
 
 /** Visual state of the floating panel. */
 export type PanelState = 'expanded' | 'collapsed';
@@ -71,6 +93,8 @@ export const FloatingLayerPanel = ({
   const { t } = useTranslation();
   const [panelState, setPanelState] = useState<PanelState>('expanded');
   const [expandedLayer, setExpandedLayer] = useState<LayerName | null>(null);
+  const isShortViewport = useIsShortViewport(SHORT_VIEWPORT_THRESHOLD_PX);
+  const anchorTop = expandedLayer !== null && isShortViewport;
   const panelRef = useRef<HTMLDivElement>(null);
   const collapseButtonRef = useRef<HTMLButtonElement>(null);
   const activeLayers = useVellumStore((s) => s.activeLayers);
@@ -98,7 +122,13 @@ export const FloatingLayerPanel = ({
   };
 
   return (
-    <div className="fixed left-4 top-4 flex flex-col gap-2 z-50">
+    <div
+      className={cn(
+        'fixed left-4 flex flex-col gap-2 z-50',
+        'transition-[top,transform] duration-300 ease-in-out',
+        anchorTop ? 'top-4' : 'top-1/2 -translate-y-1/2',
+      )}
+    >
       <div
         ref={panelRef}
         data-state={panelState}
@@ -266,9 +296,12 @@ interface AdvancedOptionsFloatingPanelProps {
 
 /**
  * Separate floating panel hosting a layer's advanced options — rendered as a
- * sibling below {@link FloatingLayerPanel}'s main box, sharing its flex column
- * wrapper anchored to the top-left corner (not vertically centered), so a
- * tall panel only grows downward instead of eating margin on both ends.
+ * sibling below {@link FloatingLayerPanel}'s main box, inside the same flex
+ * column wrapper. That wrapper stays vertically centered while this panel is
+ * closed, and switches to anchored-at-top only when it's open *and* the
+ * window is short (`useIsShortViewport`) — so a tall stack only eats margin
+ * on one edge instead of both, without permanently un-centering the panel on
+ * large windows where there's no need to.
  *
  * @remarks
  * Width is shrink-to-fit (`w-fit`) between `min-w-52` (never narrower than
