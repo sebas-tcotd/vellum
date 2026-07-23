@@ -27,6 +27,7 @@ import {
   type TransitMode,
 } from '@vellum/core';
 import maplibregl from 'maplibre-gl';
+import { buildBuildingColorExpression } from './expressions/building-color';
 import { buildRoadColorExpression } from './expressions/road-color';
 import { getCityBoundsGeoJSON } from './helpers';
 import {
@@ -250,8 +251,17 @@ export class MapLibreRenderer implements IRenderer {
     this.setPaintIfExists('base-land', 'fill-color', c.land);
     this.setPaintIfExists('coastline-layer', 'line-color', c.coastlineStroke);
     this.setPaintIfExists('forests-circles', 'circle-color', c.forests);
-    this.setPaintIfExists('buildings-fill', 'fill-color', c.buildingFill);
-    this.setPaintIfExists('buildings-outline', 'line-color', c.buildingStroke);
+    const { colorByCategory } = this.layerOptions.buildings;
+    this.setPaintIfExists(
+      'buildings-fill',
+      'fill-color',
+      buildBuildingColorExpression(c, 'fill', colorByCategory),
+    );
+    this.setPaintIfExists(
+      'buildings-outline',
+      'line-color',
+      buildBuildingColorExpression(c, 'stroke', colorByCategory),
+    );
     this.setPaintIfExists('districts-points', 'circle-color', c.districtFill);
     this.setPaintIfExists(
       'districts-points',
@@ -362,8 +372,9 @@ export class MapLibreRenderer implements IRenderer {
 
   /**
    * Updates the `transit` and `buildings` layer filters to only show features
-   * whose `mode`/`category` is in the given visible set — the "advanced layer
-   * options" panel (RICO filter, transit-mode filter).
+   * whose `mode`/`category` is in the given visible set, and re-applies the
+   * buildings color expression for the RICO "color by category" toggle — the
+   * "advanced layer options" panel.
    *
    * @remarks
    * A multi-modal transit stop's marker carries only its first-serving line's
@@ -391,6 +402,18 @@ export class MapLibreRenderer implements IRenderer {
     for (const id of LAYER_ID_MAP.buildings) {
       this.setFilterIfExists(id, buildingsFilter);
     }
+
+    const { colorByCategory } = options.buildings;
+    this.setPaintIfExists(
+      'buildings-fill',
+      'fill-color',
+      buildBuildingColorExpression(this.colors, 'fill', colorByCategory),
+    );
+    this.setPaintIfExists(
+      'buildings-outline',
+      'line-color',
+      buildBuildingColorExpression(this.colors, 'stroke', colorByCategory),
+    );
   }
 
   /** Fits the MapLibre viewport to the city's geographic bounding box. */

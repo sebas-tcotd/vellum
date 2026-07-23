@@ -1,3 +1,4 @@
+import { Separator } from '@/lib/separator';
 import { Switch } from '@/lib/switch';
 import type {
   BuildingServiceCategory,
@@ -48,12 +49,15 @@ export interface AdvancedOptionsPanelProps {
   onToggleMode: (mode: TransitMode) => void;
   visibleCategories: BuildingServiceCategory[];
   onToggleCategory: (category: BuildingServiceCategory) => void;
+  /** Whether R/I/C/O buildings render in fixed RICO colors instead of the theme default. */
+  colorByCategory: boolean;
+  onToggleColorByCategory: (enabled: boolean) => void;
 }
 
 /**
- * Secondary panel rendered under a layer row when its name is clicked
- * (see `future-work-panel-opciones-avanzadas.md`). Renders the transit-mode
- * filter or the buildings RICO filter, depending on `layer`.
+ * Content of the advanced-options floating panel (see `FloatingLayerPanel.tsx`
+ * for the panel chrome). Renders the transit-mode filter or the buildings RICO
+ * filter + "color by category" toggle, depending on `layer`.
  */
 export function AdvancedOptionsPanel({
   layer,
@@ -61,16 +65,14 @@ export function AdvancedOptionsPanel({
   onToggleMode,
   visibleCategories,
   onToggleCategory,
+  colorByCategory,
+  onToggleColorByCategory,
 }: AdvancedOptionsPanelProps) {
   const { t } = useTranslation();
 
   if (layer === 'transit') {
     return (
-      <div
-        role="group"
-        aria-label={t('a11y.advancedOptions', { layer: t('layers.transit') })}
-        className="bg-background/40 rounded my-1 py-1"
-      >
+      <div className="grid grid-cols-2 gap-x-3">
         {TOGGLABLE_TRANSIT_MODES.map((mode) => (
           <OptionRow
             key={mode}
@@ -85,13 +87,13 @@ export function AdvancedOptionsPanel({
 
   if (layer === 'buildings') {
     return (
-      <div
-        role="group"
-        aria-label={t('a11y.advancedOptions', {
-          layer: t('layers.buildings'),
-        })}
-        className="bg-background/40 rounded my-1 py-1"
-      >
+      <div>
+        <OptionRow
+          label={t('layerOptionsPanel.colorByCategory')}
+          checked={colorByCategory}
+          onCheckedChange={onToggleColorByCategory}
+        />
+        <Separator className="h-px my-1 w-full" />
         {RICO_CATEGORIES.map((category) => (
           <OptionRow
             key={category}

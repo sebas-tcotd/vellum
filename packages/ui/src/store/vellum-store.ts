@@ -119,6 +119,9 @@ interface VellumStore {
   /** Adds/removes a building zoning category from `layerOptions.buildings.visibleCategories`. */
   toggleBuildingCategory: (category: BuildingServiceCategory) => void;
 
+  /** Toggles the RICO "color by category" overlay for buildings. */
+  setBuildingColorByCategory: (enabled: boolean) => void;
+
   /** Replaces the theme-loading warnings. Pass [] to clear. */
   setThemeWarnings: (warnings: ThemeWarning[]) => void;
 
@@ -234,10 +237,24 @@ export const useVellumStore = create<VellumStore>((set, get) => ({
       return {
         layerOptions: {
           ...state.layerOptions,
-          buildings: { visibleCategories: nextCategories },
+          buildings: {
+            ...state.layerOptions.buildings,
+            visibleCategories: nextCategories,
+          },
         },
       };
     }),
+
+  setBuildingColorByCategory: (enabled) =>
+    set((state) => ({
+      layerOptions: {
+        ...state.layerOptions,
+        buildings: {
+          ...state.layerOptions.buildings,
+          colorByCategory: enabled,
+        },
+      },
+    })),
 
   setThemeWarnings: (warnings) => set({ themeWarnings: warnings }),
 

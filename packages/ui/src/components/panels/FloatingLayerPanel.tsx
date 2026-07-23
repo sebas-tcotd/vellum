@@ -14,6 +14,7 @@ import {
   TreePine,
   type LucideIcon,
   Waves,
+  X,
 } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -69,6 +70,7 @@ export const FloatingLayerPanel = ({
 }: FloatingLayerPanelProps) => {
   const { t } = useTranslation();
   const [panelState, setPanelState] = useState<PanelState>('expanded');
+  const [expandedLayer, setExpandedLayer] = useState<LayerName | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const collapseButtonRef = useRef<HTMLButtonElement>(null);
   const activeLayers = useVellumStore((s) => s.activeLayers);
@@ -80,6 +82,7 @@ export const FloatingLayerPanel = ({
 
   const handleCollapse = () => {
     setPanelState('collapsed');
+    setExpandedLayer(null);
     requestAnimationFrame(() => collapseButtonRef.current?.focus());
   };
 
@@ -95,62 +98,75 @@ export const FloatingLayerPanel = ({
   };
 
   return (
-    <div
-      ref={panelRef}
-      data-state={panelState}
-      aria-expanded={panelState === 'expanded'}
-      aria-label={t('a11y.layerPanel')}
-      role="region"
-      className={cn(
-        'fixed left-4 top-1/2 -translate-y-1/2 backdrop-blur-lg rounded-lg',
-        'bg-background/72 border border-panel-border text-accent-foreground overflow-hidden z-50',
-        'px-3 py-2',
-        'shadow-lg',
-        '[transition:width_var(--transition-panel)]',
-        panelState === 'expanded' ? 'w-52' : 'w-12',
-      )}
-    >
-      {panelState === 'expanded' ? (
-        <>
-          <PanelHeader
-            cityName={cityName}
-            fileName={fileName}
-            collapseButtonRef={collapseButtonRef}
-            handleCollapse={handleCollapse}
-          />
+    <div className="fixed left-4 top-4 flex flex-col gap-2 z-50">
+      <div
+        ref={panelRef}
+        data-state={panelState}
+        aria-expanded={panelState === 'expanded'}
+        aria-label={t('a11y.layerPanel')}
+        role="region"
+        className={cn(
+          'backdrop-blur-lg rounded-lg',
+          'bg-background/72 border border-panel-border text-accent-foreground overflow-hidden',
+          'px-3 py-2',
+          'shadow-lg',
+          '[transition:width_var(--transition-panel)]',
+          panelState === 'expanded' ? 'w-52' : 'w-12',
+        )}
+      >
+        {panelState === 'expanded' ? (
+          <>
+            <PanelHeader
+              cityName={cityName}
+              fileName={fileName}
+              collapseButtonRef={collapseButtonRef}
+              handleCollapse={handleCollapse}
+            />
 
-          <Separator className="h-px my-3 w-full" />
+            <Separator className="h-px my-3 w-full" />
 
-          <PanelLayerList
-            activeLayers={activeLayers}
-            toggleLayer={toggleLayer}
-            theme={panelTheme}
-          />
+            <PanelLayerList
+              activeLayers={activeLayers}
+              toggleLayer={toggleLayer}
+              theme={panelTheme}
+              expandedLayer={expandedLayer}
+              onToggleExpanded={(layer) =>
+                setExpandedLayer(expandedLayer === layer ? null : layer)
+              }
+            />
 
-          <Separator className="h-px mt-3 mb-2 w-full" />
+            <Separator className="h-px mt-3 mb-2 w-full" />
 
-          <PanelThemeSelector />
+            <PanelThemeSelector />
 
-          <Separator className="h-px mt-3 mb-2 w-full" />
+            <Separator className="h-px mt-3 mb-2 w-full" />
 
-          <PanelFooter />
-        </>
-      ) : (
-        <div className="flex flex-col items-center py-1 gap-1">
-          <button
-            ref={collapseButtonRef}
-            onClick={handleExpand}
-            aria-label={t('a11y.layerPanelExpand')}
-            className="w-6 h-6 flex items-center justify-center rounded opacity-60 hover:opacity-100 transition-opacity bg-transparent border-none cursor-pointer p-0"
-          >
-            <ChevronRight size={14} strokeWidth={1.5} aria-hidden="true" />
-          </button>
-          <PanelCollapsedIcons
-            activeLayers={activeLayers}
-            toggleLayer={toggleLayer}
-            theme={panelTheme}
-          />
-        </div>
+            <PanelFooter />
+          </>
+        ) : (
+          <div className="flex flex-col items-center py-1 gap-1">
+            <button
+              ref={collapseButtonRef}
+              onClick={handleExpand}
+              aria-label={t('a11y.layerPanelExpand')}
+              className="w-6 h-6 flex items-center justify-center rounded opacity-60 hover:opacity-100 transition-opacity bg-transparent border-none cursor-pointer p-0"
+            >
+              <ChevronRight size={14} strokeWidth={1.5} aria-hidden="true" />
+            </button>
+            <PanelCollapsedIcons
+              activeLayers={activeLayers}
+              toggleLayer={toggleLayer}
+              theme={panelTheme}
+            />
+          </div>
+        )}
+      </div>
+
+      {panelState === 'expanded' && expandedLayer && (
+        <AdvancedOptionsFloatingPanel
+          layer={expandedLayer}
+          onClose={() => setExpandedLayer(null)}
+        />
       )}
     </div>
   );
@@ -199,6 +215,8 @@ interface PanelLayerListProps {
   activeLayers: LayerVisibility;
   toggleLayer: (layer: LayerName) => void;
   theme: 'day' | 'transit';
+  expandedLayer: LayerName | null;
+  onToggleExpanded: (layer: LayerName) => void;
 }
 
 /** Layers that have an advanced-options sub-panel (transit-mode filter, buildings RICO filter). */
@@ -211,47 +229,100 @@ function PanelLayerList({
   activeLayers,
   toggleLayer,
   theme,
+  expandedLayer,
+  onToggleExpanded,
 }: PanelLayerListProps) {
-  const [expandedLayer, setExpandedLayer] = useState<LayerName | null>(null);
-  const layerOptions = useVellumStore((s) => s.layerOptions);
-  const toggleTransitMode = useVellumStore((s) => s.toggleTransitMode);
-  const toggleBuildingCategory = useVellumStore(
-    (s) => s.toggleBuildingCategory,
-  );
-
   return (
     <div>
       {LAYER_NAMES.map((layer) => {
         const Icon = LAYER_ICONS[layer];
         const hasAdvancedOptions = LAYERS_WITH_ADVANCED_OPTIONS.has(layer);
-        const expanded = expandedLayer === layer;
         return (
-          <div key={layer}>
-            <LayerToggleRow
-              layer={layer}
-              visible={activeLayers[layer]}
-              onToggle={(l, v) => {
-                if (v !== activeLayers[l]) toggleLayer(l);
-              }}
-              theme={theme}
-              color={LAYER_COLORS[layer]}
-              icon={<Icon size={14} strokeWidth={1.5} />}
-              hasAdvancedOptions={hasAdvancedOptions}
-              expanded={expanded}
-              onToggleExpanded={() => setExpandedLayer(expanded ? null : layer)}
-            />
-            {expanded && (
-              <AdvancedOptionsPanel
-                layer={layer}
-                visibleModes={layerOptions.transit.visibleModes}
-                onToggleMode={toggleTransitMode}
-                visibleCategories={layerOptions.buildings.visibleCategories}
-                onToggleCategory={toggleBuildingCategory}
-              />
-            )}
-          </div>
+          <LayerToggleRow
+            key={layer}
+            layer={layer}
+            visible={activeLayers[layer]}
+            onToggle={(l, v) => {
+              if (v !== activeLayers[l]) toggleLayer(l);
+            }}
+            theme={theme}
+            color={LAYER_COLORS[layer]}
+            icon={<Icon size={14} strokeWidth={1.5} />}
+            hasAdvancedOptions={hasAdvancedOptions}
+            expanded={expandedLayer === layer}
+            onToggleExpanded={() => onToggleExpanded(layer)}
+          />
         );
       })}
+    </div>
+  );
+}
+
+/** Props for {@link AdvancedOptionsFloatingPanel}. */
+interface AdvancedOptionsFloatingPanelProps {
+  layer: LayerName;
+  onClose: () => void;
+}
+
+/**
+ * Separate floating panel hosting a layer's advanced options — rendered as a
+ * sibling below {@link FloatingLayerPanel}'s main box, sharing its flex column
+ * wrapper anchored to the top-left corner (not vertically centered), so a
+ * tall panel only grows downward instead of eating margin on both ends.
+ *
+ * @remarks
+ * Width is shrink-to-fit (`w-fit`) between `min-w-52` (never narrower than
+ * the main panel) and `max-w-[26rem]` — the transit-mode grid (2 columns,
+ * see `AdvancedOptionsPanel.tsx`) grows the panel horizontally instead of
+ * vertically. `overflow-x-auto` is a safety net if content ever exceeds the
+ * max width; nothing today is expected to trigger it.
+ */
+function AdvancedOptionsFloatingPanel({
+  layer,
+  onClose,
+}: AdvancedOptionsFloatingPanelProps) {
+  const { t } = useTranslation();
+  const layerOptions = useVellumStore((s) => s.layerOptions);
+  const toggleTransitMode = useVellumStore((s) => s.toggleTransitMode);
+  const toggleBuildingCategory = useVellumStore(
+    (s) => s.toggleBuildingCategory,
+  );
+  const setBuildingColorByCategory = useVellumStore(
+    (s) => s.setBuildingColorByCategory,
+  );
+  const layerName = t(`layers.${layer}`);
+
+  return (
+    <div
+      role="region"
+      aria-label={t('a11y.advancedOptions', { layer: layerName })}
+      className="backdrop-blur-lg rounded-lg bg-background/72 border border-panel-border text-accent-foreground shadow-lg px-3 py-2 min-w-52 w-fit max-w-[26rem] overflow-x-auto"
+    >
+      <div className="flex items-center justify-between">
+        <h2 className="font-wordmark text-sm font-medium opacity-90 truncate">
+          {layerName}
+        </h2>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label={t('layerOptionsPanel.close')}
+          className="flex items-center justify-center rounded opacity-60 hover:opacity-100 transition-opacity min-w-6 min-h-6 bg-transparent border-none cursor-pointer p-0"
+        >
+          <X size={14} strokeWidth={1.5} aria-hidden="true" />
+        </button>
+      </div>
+
+      <Separator className="h-px my-2 w-full" />
+
+      <AdvancedOptionsPanel
+        layer={layer}
+        visibleModes={layerOptions.transit.visibleModes}
+        onToggleMode={toggleTransitMode}
+        visibleCategories={layerOptions.buildings.visibleCategories}
+        onToggleCategory={toggleBuildingCategory}
+        colorByCategory={layerOptions.buildings.colorByCategory}
+        onToggleColorByCategory={setBuildingColorByCategory}
+      />
     </div>
   );
 }
@@ -331,7 +402,10 @@ function PanelFooter() {
   );
 }
 
-type PanelCollapsedIconsProps = PanelLayerListProps;
+type PanelCollapsedIconsProps = Pick<
+  PanelLayerListProps,
+  'activeLayers' | 'toggleLayer' | 'theme'
+>;
 
 function PanelCollapsedIcons({
   activeLayers,

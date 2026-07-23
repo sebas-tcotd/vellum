@@ -9,10 +9,11 @@
  * to keep the <16ms theme-switch budget.
  *
  * Known simplifications (documented, not bugs):
- * - Buildings are rendered as a single flat fill/stroke (no per-`serviceType`
- *   data-driven expression yet) — resolves to `buildings.none`, the most
- *   frequent case (`subsrv="None"`). Wiring `Building.serviceType` into the
- *   buildings GeoJSON and a data-driven color expression is Story 5.1+ scope.
+ * - Buildings default to a single flat fill/stroke (`buildings.none`, the
+ *   most frequent case, `subsrv="None"`). Civic buildings are the exception —
+ *   they always use their theme subcategory color. Full per-`serviceType`
+ *   data-driven coloring for every category (not just the RICO/civic split)
+ *   is still Story 5.1+ scope — see `expressions/building-color.ts`.
  * - `transitBackground` has no consumer today — no MapLibre layer paints with
  *   it (transit dimming, if any, lives in UI-layer CSS). Kept in the contract
  *   for the Story 5.3 dimming feature.
@@ -37,10 +38,16 @@ export interface ResolvedColors {
   coastlineStroke: string;
   /** Forest density marker color. */
   forests: string;
-  /** Building fill color (flat — see module remarks re: per-category coloring). */
+  /** Default building fill color (flat — see module remarks re: per-category coloring). */
   buildingFill: string;
-  /** Building outline color. */
+  /** Default building outline color. */
   buildingStroke: string;
+  /** Civic building colors by subcategory — always applied, regardless of the RICO "color by category" toggle. */
+  buildingCivic: {
+    publicTransport: { fill: string; stroke: string };
+    education: { fill: string; stroke: string };
+    services: { fill: string; stroke: string };
+  };
   /** District marker fill color. */
   districtFill: string;
   /** District label/stroke color. */
@@ -65,6 +72,11 @@ export function resolveColors(style: RenderStyleParams): ResolvedColors {
     forests: style.forests,
     buildingFill: buildings.none.fill,
     buildingStroke: buildings.none.stroke,
+    buildingCivic: {
+      publicTransport: buildings.civic.publicTransport,
+      education: buildings.civic.education,
+      services: buildings.civic.services,
+    },
     districtFill: style.districts.fill,
     districtLabel: style.districts.label,
     roadFill: {

@@ -85,12 +85,24 @@ export const BUILDING_SERVICE_CATEGORIES: BuildingServiceCategory[] = [
 export interface LayerOptions {
   /** Transit lines/stops whose `mode` is not in this list are hidden. */
   transit: { visibleModes: TransitMode[] };
-  /** Buildings whose zoning category is not in this list are hidden. */
-  buildings: { visibleCategories: BuildingServiceCategory[] };
+  buildings: {
+    /** Buildings whose zoning category is not in this list are hidden. */
+    visibleCategories: BuildingServiceCategory[];
+    /**
+     * When `true`, residential/commercial/office/industry buildings render in
+     * fixed RICO zoning colors instead of the theme's flat default. Civic
+     * buildings always render in their theme-specific subcategory color
+     * regardless of this flag.
+     */
+    colorByCategory: boolean;
+  };
 }
 
-/** `LayerOptions` with every mode/category visible — the app's starting state. */
+/** `LayerOptions` with every mode/category visible and RICO coloring off — the app's starting state. */
 export const DEFAULT_LAYER_OPTIONS: LayerOptions = {
   transit: { visibleModes: [...TRANSIT_MODES] },
-  buildings: { visibleCategories: [...BUILDING_SERVICE_CATEGORIES] },
+  buildings: {
+    visibleCategories: [...BUILDING_SERVICE_CATEGORIES],
+    colorByCategory: false,
+  },
 };

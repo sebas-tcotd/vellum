@@ -56,22 +56,21 @@ describe('FloatingLayerPanel', () => {
   });
 
   describe('AC1 — Posición y estilos', () => {
-    it('tiene clases de posición fixed, left-4, top-1/2, -translate-y-1/2', () => {
+    it('tiene clases de posición fixed, left-4, top-4 (anclado arriba, no centrado)', () => {
       const { container } = render(
         <FloatingLayerPanel cityName="Altavento" fileName="altavento.cslmap" />,
       );
       const panel = container.firstChild as HTMLElement;
       expect(panel.className).toContain('fixed');
       expect(panel.className).toContain('left-4');
-      expect(panel.className).toContain('top-1/2');
-      expect(panel.className).toContain('-translate-y-1/2');
+      expect(panel.className).toContain('top-4');
     });
 
     it('tiene clase rounded-lg y backdrop-blur', () => {
       const { container } = render(
         <FloatingLayerPanel cityName="Altavento" fileName="altavento.cslmap" />,
       );
-      const panel = container.firstChild as HTMLElement;
+      const panel = container.firstChild!.firstChild as HTMLElement;
       expect(panel.className).toContain('rounded-lg');
       expect(panel.className).toContain('backdrop-blur');
     });
@@ -137,7 +136,7 @@ describe('FloatingLayerPanel', () => {
       const { container } = render(
         <FloatingLayerPanel cityName="Altavento" fileName="altavento.cslmap" />,
       );
-      const panel = container.firstChild as HTMLElement;
+      const panel = container.firstChild!.firstChild as HTMLElement;
       fireEvent.click(
         screen.getByRole('button', { name: 'a11y.layerPanelCollapse' }),
       );
@@ -148,7 +147,7 @@ describe('FloatingLayerPanel', () => {
       const { container } = render(
         <FloatingLayerPanel cityName="Altavento" fileName="altavento.cslmap" />,
       );
-      const panel = container.firstChild as HTMLElement;
+      const panel = container.firstChild!.firstChild as HTMLElement;
       fireEvent.click(
         screen.getByRole('button', { name: 'a11y.layerPanelCollapse' }),
       );
@@ -183,7 +182,7 @@ describe('FloatingLayerPanel', () => {
       const { container } = render(
         <FloatingLayerPanel cityName="Altavento" fileName="altavento.cslmap" />,
       );
-      const panel = container.firstChild as HTMLElement;
+      const panel = container.firstChild!.firstChild as HTMLElement;
       fireEvent.click(
         screen.getByRole('button', { name: 'a11y.layerPanelCollapse' }),
       );
@@ -198,7 +197,7 @@ describe('FloatingLayerPanel', () => {
       const { container } = render(
         <FloatingLayerPanel cityName="Altavento" fileName="altavento.cslmap" />,
       );
-      const panel = container.firstChild as HTMLElement;
+      const panel = container.firstChild!.firstChild as HTMLElement;
       fireEvent.click(
         screen.getByRole('button', { name: 'a11y.layerPanelCollapse' }),
       );
@@ -319,7 +318,7 @@ describe('FloatingLayerPanel', () => {
       const { container } = render(
         <FloatingLayerPanel cityName="Altavento" fileName="altavento.cslmap" />,
       );
-      const panel = container.firstChild as HTMLElement;
+      const panel = container.firstChild!.firstChild as HTMLElement;
       expect(panel.getAttribute('aria-expanded')).toBe('true');
     });
 
@@ -327,7 +326,7 @@ describe('FloatingLayerPanel', () => {
       const { container } = render(
         <FloatingLayerPanel cityName="Altavento" fileName="altavento.cslmap" />,
       );
-      const panel = container.firstChild as HTMLElement;
+      const panel = container.firstChild!.firstChild as HTMLElement;
       fireEvent.click(
         screen.getByRole('button', { name: 'a11y.layerPanelCollapse' }),
       );
@@ -349,7 +348,7 @@ describe('FloatingLayerPanel', () => {
       const { container } = render(
         <FloatingLayerPanel cityName="Altavento" fileName="altavento.cslmap" />,
       );
-      const panel = container.firstChild as HTMLElement;
+      const panel = container.firstChild!.firstChild as HTMLElement;
       fireEvent.click(
         screen.getByRole('button', { name: 'a11y.layerPanelCollapse' }),
       );

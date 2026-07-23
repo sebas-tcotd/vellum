@@ -154,8 +154,10 @@ export interface BuildingFeatureProperties {
   id: string;
   /** The original asset class from the game. */
   itemClass: string;
-  /** Top-level zoning group, used by the RICO visibility filter. */
+  /** Top-level zoning group, used by the RICO visibility filter and color expression. */
   category: BuildingServiceCategory;
+  /** Civic subcategory (`publicTransport`/`education`/`services`), or `null` for non-civic buildings. */
+  civicKind: 'publicTransport' | 'education' | 'services' | null;
 }
 
 /**
@@ -560,20 +562,37 @@ export function buildTransitGeoJson(
   return buildTransitRenderData(cityData).lines;
 }
 
+/** A building's zoning group plus, for civic buildings, which of the 3 civic
+ * subcategory colors applies. `civicKind` is `null` for every non-civic group. */
+interface BuildingZoning {
+  category: BuildingServiceCategory;
+  civicKind: 'publicTransport' | 'education' | 'services' | null;
+}
+
 /**
- * Resolves a building's top-level zoning group from its `serviceType`, for the
- * RICO visibility filter.
+ * Resolves a building's zoning group (and civic subcategory, if any) from its
+ * `serviceType`, for the RICO visibility filter and the buildings color expression.
  * @remarks
  * Mirrors the `'unknown' → civic.services` fallback documented on
  * `BUILDING_SERVICE_TYPE_CATEGORY` — that lookup excludes `'unknown'` from its
  * keys, so it's special-cased here instead of widening the lookup's type.
  */
-function resolveBuildingCategory(
+function resolveBuildingZoning(
   serviceType: BuildingServiceType,
-): BuildingServiceCategory {
-  if (serviceType === 'unknown') return 'civic';
-  const path = BUILDING_SERVICE_TYPE_CATEGORY[serviceType];
-  return path.split('.')[0] as BuildingServiceCategory;
+): BuildingZoning {
+  const path =
+    serviceType === 'unknown'
+      ? 'civic.services'
+      : BUILDING_SERVICE_TYPE_CATEGORY[serviceType];
+  const [group, leaf] = path.split('.');
+  const category = group as BuildingServiceCategory;
+  return {
+    category,
+    civicKind:
+      category === 'civic'
+        ? (leaf as 'publicTransport' | 'education' | 'services')
+        : null,
+  };
 }
 
 /**
@@ -600,13 +619,15 @@ export function buildBuildingsGeoJson(
     // Close the ring per GeoJSON spec
     ring.push(ring[0]);
 
+    const { category, civicKind } = resolveBuildingZoning(building.serviceType);
     features.push({
       type: 'Feature',
       geometry: { type: 'Polygon', coordinates: [ring] },
       properties: {
         id: building.id,
         itemClass: building.itemClass,
-        category: resolveBuildingCategory(building.serviceType),
+        category,
+        civicKind,
       },
     });
   }

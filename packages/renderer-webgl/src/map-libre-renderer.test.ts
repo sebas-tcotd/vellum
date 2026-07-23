@@ -4,6 +4,8 @@ import maplibregl from 'maplibre-gl';
 import { MapLibreRenderer } from './map-libre-renderer';
 import { makeCityData } from '@vellum/core/testing';
 import type { RenderStyleParams, RoadCategoryColors } from '@vellum/core';
+import { buildBuildingColorExpression } from './expressions/building-color';
+import { resolveColors } from './style-adapter';
 
 // ─── Mock maplibre-gl ─────────────────────────────────────────────────────────
 // vi.mock() is hoisted; use vi.hoisted() so mockMap is available in the factory.
@@ -18,6 +20,7 @@ const mockMap = vi.hoisted(() => ({
   removeLayer: vi.fn(),
   setLayoutProperty: vi.fn(),
   setPaintProperty: vi.fn(),
+  setFilter: vi.fn(),
   fitBounds: vi.fn(),
   remove: vi.fn(),
   once: vi.fn(),
@@ -902,7 +905,7 @@ describe('MapLibreRenderer', () => {
       expect(mockMap.setPaintProperty).toHaveBeenCalledWith(
         'buildings-fill',
         'fill-color',
-        MOCK_STYLE.buildings.none.fill,
+        buildBuildingColorExpression(resolveColors(MOCK_STYLE), 'fill', false),
       );
       expect(mockMap.setPaintProperty).toHaveBeenCalledWith(
         'districts-points',

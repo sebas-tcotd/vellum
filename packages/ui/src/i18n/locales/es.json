@@ -43,6 +43,10 @@
     "office": "Oficinas",
     "industry": "Industrial"
   },
+  "layerOptionsPanel": {
+    "close": "Cerrar opciones avanzadas",
+    "colorByCategory": "Colorear por categoría"
+  },
   "export": {
     "title": "Exportar mapa",
     "format": "Formato",
