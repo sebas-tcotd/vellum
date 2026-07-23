@@ -22,4 +22,10 @@ describe('migrateTheme', () => {
     const result = migrateTheme([1, 2, 3]);
     expect(result).toEqual({ schemaVersion: 1 });
   });
+
+  it('treats NaN and Infinity schemaVersion as missing, defaulting to 1', () => {
+    expect(migrateTheme({ schemaVersion: NaN }).schemaVersion).toBe(1);
+    expect(migrateTheme({ schemaVersion: Infinity }).schemaVersion).toBe(1);
+    expect(migrateTheme({ schemaVersion: -Infinity }).schemaVersion).toBe(1);
+  });
 });

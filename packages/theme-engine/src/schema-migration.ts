@@ -25,7 +25,9 @@ export function migrateTheme(raw: unknown): VellumStyle {
       ? (raw as Record<string, unknown>)
       : {};
   const schemaVersion =
-    typeof obj.schemaVersion === 'number' ? obj.schemaVersion : 1;
+    typeof obj.schemaVersion === 'number' && Number.isFinite(obj.schemaVersion)
+      ? obj.schemaVersion
+      : 1;
   const withVersion = { ...obj, schemaVersion };
   switch (schemaVersion) {
     case 1:
