@@ -17,6 +17,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@mapbox/maki": "^8.2.0",
     "@vellum/core": "workspace:*",
     "maplibre-gl": "^5.24.0"
   },

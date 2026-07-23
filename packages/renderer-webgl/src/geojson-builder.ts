@@ -21,6 +21,8 @@ import type {
 } from '@vellum/core';
 import { BUILDING_SERVICE_TYPE_CATEGORY } from '@vellum/core';
 import { csToGeoArray, CS1_WORLD_HALF } from './coordinate-transform';
+import type { ServiceGroup } from './service-icons';
+import { resolveServiceGroup } from './service-icons';
 import { buildTransitLineGraph } from './transit/line-graph';
 import { computeLineOrder } from './transit/ordering';
 import { buildRenderGeometry } from './transit/render-geometry';
@@ -158,6 +160,8 @@ export interface BuildingFeatureProperties {
   category: BuildingServiceCategory;
   /** Civic subcategory (`publicTransport`/`education`/`services`), or `null` for non-civic buildings. */
   civicKind: 'publicTransport' | 'education' | 'services' | null;
+  /** Service-icon group (mirrors CS1's HUD categories), or `null` if `itemClass` has no icon. */
+  serviceGroup: ServiceGroup | null;
 }
 
 /**
@@ -628,6 +632,7 @@ export function buildBuildingsGeoJson(
         itemClass: building.itemClass,
         category,
         civicKind,
+        serviceGroup: resolveServiceGroup(building.itemClass),
       },
     });
   }

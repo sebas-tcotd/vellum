@@ -161,6 +161,9 @@ importers:
 
   packages/renderer-webgl:
     dependencies:
+      '@mapbox/maki':
+        specifier: ^8.2.0
+        version: 8.2.0
       '@vellum/core':
         specifier: workspace:*
         version: link:../core
@@ -754,6 +757,9 @@ packages:
   '@mapbox/jsonlint-lines-primitives@2.0.2':
     resolution: {integrity: sha512-rY0o9A5ECsTQRVhv7tL/OyDpGAoUB4tTvLiW1DSzQGq4bvTPhNw1VpSNjDJc5GFZ2XuyOtSWSVN05qOtcD71qQ==}
     engines: {node: '>= 0.6'}
+
+  '@mapbox/maki@8.2.0':
+    resolution: {integrity: sha512-sTd/fEBfkBSidVwwtbijHZYJC7NhqvgLrXzSRHgxbLi52x4IciyTVUufqvJr8oIChw7hT7MIBHu5fyqrrpfFdA==}
 
   '@mapbox/point-geometry@1.1.0':
     resolution: {integrity: sha512-YGcBz1cg4ATXDCM/71L9xveh4dynfGmcLDqufR+nQQy3fKwsAZsWd/x4621/6uJaeB9mwOHE6hPeDgXz9uViUQ==}
@@ -3202,6 +3208,8 @@ snapshots:
       '@jridgewell/sourcemap-codec': 1.5.5
 
   '@mapbox/jsonlint-lines-primitives@2.0.2': {}
+
+  '@mapbox/maki@8.2.0': {}
 
   '@mapbox/point-geometry@1.1.0': {}
 

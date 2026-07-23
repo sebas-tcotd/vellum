@@ -41,6 +41,7 @@ import {
   addForestsLayer,
   addGridPattern,
   addRoadsLayer,
+  addServiceIconsLayer,
   addTerrainLayers,
   addTransitLayers,
   createBaseStyle,
@@ -89,7 +90,7 @@ const LAYER_ID_MAP: Record<LayerName, string[]> = {
     'transit-stops-outline',
     'transit-stops-dot',
   ],
-  buildings: ['buildings-fill', 'buildings-outline'],
+  buildings: ['buildings-fill', 'buildings-outline', 'service-icons'],
   forests: ['forests-circles'],
   districts: ['districts-points'],
 };
@@ -105,7 +106,10 @@ const TRANSIT_DIM_FACTOR = 0.15;
  */
 const NON_TRANSIT_OPACITY: Record<
   string,
-  { prop: 'fill-opacity' | 'line-opacity' | 'circle-opacity'; base: unknown }
+  {
+    prop: 'fill-opacity' | 'line-opacity' | 'circle-opacity' | 'icon-opacity';
+    base: unknown;
+  }
 > = {
   'terrain-lines-layer': { prop: 'line-opacity', base: 0.5 },
   'coastline-layer': { prop: 'line-opacity', base: 0.8 },
@@ -119,6 +123,7 @@ const NON_TRANSIT_OPACITY: Record<
   'roads-railway-casing': { prop: 'line-opacity', base: 1 },
   'buildings-fill': { prop: 'fill-opacity', base: 0.85 },
   'buildings-outline': { prop: 'line-opacity', base: 1 },
+  'service-icons': { prop: 'icon-opacity', base: 1 },
   'forests-circles': {
     prop: 'circle-opacity',
     base: [
@@ -502,6 +507,7 @@ export class MapLibreRenderer implements IRenderer {
     addTerrainLayers(this.map, cityData, this.colors);
     addForestsLayer(this.map, cityData, this.colors);
     addBuildingsLayer(this.map, cityData, this.colors);
+    await addServiceIconsLayer(this.map);
     addRoadsLayer(this.map, cityData, this.colors);
     addTransitLayers(this.map, cityData);
     addDistrictsLayer(this.map, cityData, this.colors);

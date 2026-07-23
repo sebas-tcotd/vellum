@@ -11,5 +11,6 @@ export { addBaseLayer } from './layer-water';
 export { addRoadsLayer } from './layer-roads';
 export { addTransitLayers } from './layer-transit';
 export { addBuildingsLayer } from './layer-buildings';
+export { addServiceIconsLayer } from './layer-service-icons';
 export { addForestsLayer } from './layer-forests';
 export { addDistrictsLayer } from './layer-districts';
