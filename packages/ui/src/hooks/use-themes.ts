@@ -1,6 +1,10 @@
 import { invoke } from '@tauri-apps/api/core';
 import { IPC_COMMANDS, type RawThemeFile } from '@vellum/core';
-import { loadThemes, type LoadedTheme } from '@vellum/theme-engine';
+import {
+  loadThemes,
+  LOAD_FAILED_FIELD,
+  type LoadedTheme,
+} from '@vellum/theme-engine';
 import { useEffect, useRef, useState } from 'react';
 import { useVellumStore } from '../store/vellum-store';
 
@@ -48,12 +52,15 @@ export function useThemes(): LoadedTheme[] {
         })
         .catch((err: unknown) => {
           console.error('[useThemes] Failed to load themes:', err);
+          // Allow a future mount (e.g. after the user reloads) to retry the invoke —
+          // otherwise a failed load permanently strands the app with an empty selector.
+          hasInvoked.current = false;
           if (isMounted.current) {
             setThemeWarnings([
               {
                 themeId: '*',
                 themeName: 'Themes',
-                field: 'LOAD_FAILED',
+                field: LOAD_FAILED_FIELD,
               },
             ]);
           }

@@ -23,9 +23,15 @@ export interface ThemeWarning {
   /** Human-readable theme name for the toast (AC #5). Falls back to `themeId` when the
    * file couldn't be parsed at all, or didn't parse to an object with a `name` string. */
   themeName: string;
-  /** The field path that failed validation, or `'JSON'` for a parse failure. */
+  /** The field path that failed validation, `'JSON'` for a parse failure, or
+   * `LOAD_FAILED_FIELD` when the IPC call to fetch themes itself failed. */
   field: string;
 }
+
+/** `ThemeWarning.field` sentinel for when the `load_themes` IPC call itself fails
+ * (as opposed to a per-file parse/validation failure). Exported so callers don't
+ * duplicate the magic string. */
+export const LOAD_FAILED_FIELD = 'LOAD_FAILED';
 
 /** Reads `parsed.name` if `parsed` is an object with a non-empty string `name`, else `null`. */
 function readThemeName(parsed: unknown): string | null {

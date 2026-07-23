@@ -1,4 +1,4 @@
-import type { ThemeWarning } from '@vellum/theme-engine';
+import { LOAD_FAILED_FIELD, type ThemeWarning } from '@vellum/theme-engine';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
@@ -36,7 +36,7 @@ export function ThemeWarningToast({
     >
       {warnings.map((warning) => (
         <span key={`${warning.themeId}:${warning.field}`}>
-          {warning.field === 'LOAD_FAILED'
+          {warning.field === LOAD_FAILED_FIELD
             ? t('toasts.themeLoadFailed')
             : warning.field === 'JSON'
               ? t('toasts.invalidThemeJson', { themeName: warning.themeName })

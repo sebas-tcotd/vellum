@@ -105,15 +105,10 @@ export function MapLibreRoot({
     if (!renderer || themes.length === 0) return;
     const style = themes.find((theme) => theme.id === activeTheme);
     if (!style) return;
-    renderer
-      .applyTheme(style)
-      .then(() => {
-        if (cancelled) return;
-      })
-      .catch((err: unknown) => {
-        if (cancelled) return;
-        console.error('[MapLibreRoot] applyTheme failed:', err);
-      });
+    renderer.applyTheme(style).catch((err: unknown) => {
+      if (cancelled) return;
+      console.error('[MapLibreRoot] applyTheme failed:', err);
+    });
     return () => {
       cancelled = true;
     };

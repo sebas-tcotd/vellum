@@ -161,7 +161,16 @@ fn resolve_builtin_themes_dir(resource_dir: &std::path::Path) -> std::path::Path
     if packaged.is_dir() {
         return packaged;
     }
-    resource_dir.join("resources").join("themes")
+    let dev_fallback = resource_dir.join("resources").join("themes");
+    if !dev_fallback.is_dir() {
+        eprintln!(
+            "[resolve_builtin_themes_dir] Neither {} nor {} exist — no built-in themes will load. \
+             Corrupted install or unexpected resource layout.",
+            packaged.display(),
+            dev_fallback.display()
+        );
+    }
+    dev_fallback
 }
 
 /// Synchronous body of `load_themes` — reads both theme directories from disk.

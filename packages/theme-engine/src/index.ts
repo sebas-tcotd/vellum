@@ -6,4 +6,5 @@ export type { ValidateThemeResult } from './validators/theme';
 export { migrateTheme } from './schema-migration';
 export { loadThemes } from './loader';
 export type { LoadedTheme, ThemeWarning, LoadThemesResult } from './loader';
+export { LOAD_FAILED_FIELD } from './loader';
 export { DEFAULT_RENDER_STYLE_PARAMS } from './default-style';
