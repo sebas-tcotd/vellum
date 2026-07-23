@@ -310,7 +310,7 @@ describe('MapLibreRenderer', () => {
       expect(mockMap.setPaintProperty).toHaveBeenCalledWith(
         'roads-fill',
         'line-opacity',
-        ['*', 0.65, 0.15],
+        ['*', 1, 0.15],
       );
       expect(mockMap.setPaintProperty).toHaveBeenCalledWith(
         'buildings-fill',
@@ -333,7 +333,7 @@ describe('MapLibreRenderer', () => {
       expect(mockMap.setPaintProperty).toHaveBeenCalledWith(
         'roads-fill',
         'line-opacity',
-        0.65,
+        1,
       );
       expect(mockMap.setPaintProperty).toHaveBeenCalledWith(
         'buildings-fill',
