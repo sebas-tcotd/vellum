@@ -1,6 +1,6 @@
 // @vellum/renderer-webgl — barrel export
 export * from './coordinate-transform';
-export * from './geojson-builder';
+export * from './geojson';
 export {
   MapLibreRenderer,
   TooltipInfo,

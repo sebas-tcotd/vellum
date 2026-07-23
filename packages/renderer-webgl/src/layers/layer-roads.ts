@@ -12,7 +12,7 @@ import {
   ROAD_CASING_WIDTH_EXPR,
   ROAD_WIDTH_EXPR,
 } from '../expressions/road-width';
-import { buildRoadsGeoJson } from '../geojson-builder';
+import { buildRoadsGeoJson } from '../geojson';
 import { addLayerIfAbsent, addSourceIfAbsent } from '../helpers';
 import type { ResolvedColors } from '../style-adapter';
 

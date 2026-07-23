@@ -7,7 +7,7 @@
 
 import type { TransitMode } from '@vellum/core';
 import type maplibregl from 'maplibre-gl';
-import type { TransitStopFeatureProperties } from '../geojson-builder';
+import type { TransitStopFeatureProperties } from '../geojson';
 import type { ViewportBounds } from '../map-libre-renderer';
 
 type TransitLineInfo = { name: string; color: string; mode: TransitMode };

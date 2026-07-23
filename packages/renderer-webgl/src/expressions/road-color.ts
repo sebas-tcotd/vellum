@@ -3,7 +3,7 @@
  *
  * @remarks
  * The tier is computed at GeoJSON build time by `classifyRoadTier` in
- * `geojson-builder.ts`, which includes fallback logic via `wayType` and width
+ * `geojson/index.ts`, which includes fallback logic via `wayType` and width
  * heuristics for unknown itemClass values. This module only maps tier values
  * to resolved theme colors — no itemClass knowledge needed.
  *
@@ -11,7 +11,7 @@
  */
 
 import type maplibregl from 'maplibre-gl';
-import type { RoadTier } from '../geojson-builder';
+import type { RoadTier } from '../geojson';
 import type { ResolvedColors } from '../style-adapter';
 
 /** Builds a MapLibre data-driven color expression mapping tier → color. */

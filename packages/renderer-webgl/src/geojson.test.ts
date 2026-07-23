@@ -10,7 +10,7 @@ import {
   buildTransitGeoJson,
   buildTransitRenderData,
   buildTransitStopsGeoJson,
-} from './geojson-builder';
+} from './geojson';
 
 // ─── Shared fixtures ──────────────────────────────────────────────────────────
 

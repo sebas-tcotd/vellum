@@ -383,7 +383,7 @@ export class MapLibreRenderer implements IRenderer {
    *
    * @remarks
    * A multi-modal transit stop's marker carries only its first-serving line's
-   * `mode` ({@link TransitStopFeatureProperties} in `geojson-builder.ts`), so
+   * `mode` ({@link TransitStopFeatureProperties} in `geojson/index.ts`), so
    * hiding that mode hides the whole marker even if the stop also serves a
    * still-visible mode. Known limitation, not fixed here.
    */

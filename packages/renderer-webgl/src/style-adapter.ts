@@ -24,7 +24,7 @@
  */
 
 import type { RenderStyleParams } from '@vellum/core';
-import type { RoadTier } from './geojson-builder';
+import type { RoadTier } from './geojson';
 
 /** Per-layer flat colors derived from `RenderStyleParams`, consumed by `layers/*.ts`. */
 export interface ResolvedColors {

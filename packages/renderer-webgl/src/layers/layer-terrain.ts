@@ -8,10 +8,7 @@
 import type { CityData } from '@vellum/core';
 import type maplibregl from 'maplibre-gl';
 import { CS1_HALF_EXTENT_DEG } from '../coordinate-transform';
-import {
-  buildCoastlineGeoJson,
-  buildContourLinesGeoJson,
-} from '../geojson-builder';
+import { buildCoastlineGeoJson, buildContourLinesGeoJson } from '../geojson';
 import { addLayerIfAbsent, addSourceIfAbsent } from '../helpers';
 import type { ResolvedColors } from '../style-adapter';
 

@@ -21,7 +21,7 @@
 
 import type { CityData } from '@vellum/core';
 import maplibregl from 'maplibre-gl';
-import { buildTransitRenderData } from '../geojson-builder';
+import { buildTransitRenderData } from '../geojson';
 import { LINE_WIDTH_M, SLOT_M } from '../transit/render-geometry';
 import { addLayerIfAbsent, addSourceIfAbsent } from '../helpers';
 

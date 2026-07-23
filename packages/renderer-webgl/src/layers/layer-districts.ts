@@ -7,7 +7,7 @@
 
 import type { CityData } from '@vellum/core';
 import type maplibregl from 'maplibre-gl';
-import { buildDistrictsGeoJson } from '../geojson-builder';
+import { buildDistrictsGeoJson } from '../geojson';
 import { addLayerIfAbsent, addSourceIfAbsent } from '../helpers';
 import type { ResolvedColors } from '../style-adapter';
 
