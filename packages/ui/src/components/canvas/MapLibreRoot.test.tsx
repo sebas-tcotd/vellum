@@ -25,6 +25,7 @@ vi.mock('@vellum/renderer-webgl', () => ({
       zoomIn: vi.fn(),
       zoomOut: vi.fn(),
       setLayerVisibility: vi.fn(),
+      setLayerOptions: vi.fn(),
     };
   },
   readTokensFromDOM: () => ({}),

@@ -1,11 +1,14 @@
 import type {
+  BuildingServiceCategory,
   CityData,
   LayerName,
+  LayerOptions,
   LayerVisibility,
   ThemeMetadata,
+  TransitMode,
   VellumError,
 } from '@vellum/core';
-import { LAYER_NAMES } from '@vellum/core';
+import { DEFAULT_LAYER_OPTIONS, LAYER_NAMES } from '@vellum/core';
 import type { ThemeWarning } from '@vellum/theme-engine';
 import { create } from 'zustand';
 import { i18n } from '../i18n/i18n-setup';
@@ -58,6 +61,14 @@ interface VellumStore {
    */
   transitDimmingEnabled: boolean;
 
+  /**
+   * Advanced per-layer visibility filters (transit-mode filter, buildings RICO
+   * filter) — see `future-work-panel-opciones-avanzadas.md`. Orthogonal to
+   * `activeLayers`: a layer can be fully visible here and still hidden by its
+   * parent's on/off switch, and vice versa.
+   */
+  layerOptions: LayerOptions;
+
   /** Metadata for every theme loaded at startup — drives the selector pills. */
   availableThemes: ThemeMetadata[];
 
@@ -101,6 +112,12 @@ interface VellumStore {
 
   /** Toggles automatic non-transit layer dimming while the Transit theme is active. */
   setTransitDimmingEnabled: (enabled: boolean) => void;
+
+  /** Adds/removes a transit mode from `layerOptions.transit.visibleModes`. */
+  toggleTransitMode: (mode: TransitMode) => void;
+
+  /** Adds/removes a building zoning category from `layerOptions.buildings.visibleCategories`. */
+  toggleBuildingCategory: (category: BuildingServiceCategory) => void;
 
   /** Replaces the theme-loading warnings. Pass [] to clear. */
   setThemeWarnings: (warnings: ThemeWarning[]) => void;
@@ -155,6 +172,7 @@ export const useVellumStore = create<VellumStore>((set, get) => ({
   activeLayers: DEFAULT_ACTIVE_LAYERS,
   activeTheme: 'day',
   transitDimmingEnabled: false,
+  layerOptions: DEFAULT_LAYER_OPTIONS,
   availableThemes: [],
   themeWarnings: [],
   autoUpdateEnabled: false,
@@ -192,6 +210,34 @@ export const useVellumStore = create<VellumStore>((set, get) => ({
 
   setTransitDimmingEnabled: (enabled) =>
     set({ transitDimmingEnabled: enabled }),
+
+  toggleTransitMode: (mode) =>
+    set((state) => {
+      const { visibleModes } = state.layerOptions.transit;
+      const nextModes = visibleModes.includes(mode)
+        ? visibleModes.filter((m) => m !== mode)
+        : [...visibleModes, mode];
+      return {
+        layerOptions: {
+          ...state.layerOptions,
+          transit: { visibleModes: nextModes },
+        },
+      };
+    }),
+
+  toggleBuildingCategory: (category) =>
+    set((state) => {
+      const { visibleCategories } = state.layerOptions.buildings;
+      const nextCategories = visibleCategories.includes(category)
+        ? visibleCategories.filter((c) => c !== category)
+        : [...visibleCategories, category];
+      return {
+        layerOptions: {
+          ...state.layerOptions,
+          buildings: { visibleCategories: nextCategories },
+        },
+      };
+    }),
 
   setThemeWarnings: (warnings) => set({ themeWarnings: warnings }),
 

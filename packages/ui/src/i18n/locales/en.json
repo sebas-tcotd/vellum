@@ -34,7 +34,14 @@
     "transit": "Transit",
     "classic": "Classic",
     "grayscale": "Grayscale",
-    "grayscaleWater": "Grayscale + Water"
+    "grayscaleWater": "Grayscale + Water",
+    "dimNonTransit": "Dim other layers"
+  },
+  "buildingCategories": {
+    "residential": "Residential",
+    "commercial": "Commercial",
+    "office": "Office",
+    "industry": "Industrial"
   },
   "export": {
     "title": "Export Map",
@@ -86,7 +93,9 @@
     "layerPanel": "Layer controls panel",
     "layerPanelCollapse": "Collapse panel",
     "layerPanelExpand": "Expand panel",
-    "themeSelector": "Theme selector"
+    "themeSelector": "Theme selector",
+    "advancedOptions": "{{layer}} advanced options",
+    "advancedOptionsToggle": "Toggle {{layer}} advanced options"
   },
   "transitModes": {
     "Bus": "Bus",

@@ -16,10 +16,12 @@
  */
 
 import {
+  DEFAULT_LAYER_OPTIONS,
   LAYER_NAMES,
   type CityData,
   type IRenderer,
   type LayerName,
+  type LayerOptions,
   type RenderParams,
   type RenderStyleParams,
   type TransitMode,
@@ -155,6 +157,7 @@ export class MapLibreRenderer implements IRenderer {
   private isSnappingBack = false;
   private fitToScreenZoom = 0;
   private transitDimming = false;
+  private layerOptions: LayerOptions = DEFAULT_LAYER_OPTIONS;
 
   /**
    * Creates a new `MapLibreRenderer` and attaches it to the given container.
@@ -193,6 +196,7 @@ export class MapLibreRenderer implements IRenderer {
           this.setLayerVisibility(layer, params.activeLayers[layer]);
         }
         this.setTransitDimming(this.transitDimming);
+        this.setLayerOptions(this.layerOptions);
         this.fitToCityBounds(cityData);
         this.fitToScreenZoom = this.map.getZoom();
         this.applyNavigationConstraints(cityData);
@@ -356,6 +360,39 @@ export class MapLibreRenderer implements IRenderer {
     }
   }
 
+  /**
+   * Updates the `transit` and `buildings` layer filters to only show features
+   * whose `mode`/`category` is in the given visible set — the "advanced layer
+   * options" panel (RICO filter, transit-mode filter).
+   *
+   * @remarks
+   * A multi-modal transit stop's marker carries only its first-serving line's
+   * `mode` ({@link TransitStopFeatureProperties} in `geojson-builder.ts`), so
+   * hiding that mode hides the whole marker even if the stop also serves a
+   * still-visible mode. Known limitation, not fixed here.
+   */
+  setLayerOptions(options: LayerOptions): void {
+    this.layerOptions = options;
+
+    const transitFilter = [
+      'in',
+      ['get', 'mode'],
+      ['literal', options.transit.visibleModes],
+    ] as unknown as maplibregl.FilterSpecification;
+    for (const id of LAYER_ID_MAP.transit) {
+      this.setFilterIfExists(id, transitFilter);
+    }
+
+    const buildingsFilter = [
+      'in',
+      ['get', 'category'],
+      ['literal', options.buildings.visibleCategories],
+    ] as unknown as maplibregl.FilterSpecification;
+    for (const id of LAYER_ID_MAP.buildings) {
+      this.setFilterIfExists(id, buildingsFilter);
+    }
+  }
+
   /** Fits the MapLibre viewport to the city's geographic bounding box. */
   fitToScreen(): void {
     if (!this.cityData) return;
@@ -455,6 +492,15 @@ export class MapLibreRenderer implements IRenderer {
   ): void {
     if (!this.map.getLayer(layerId)) return;
     this.map.setPaintProperty(layerId, prop as never, value as never);
+  }
+
+  /** Sets a layer's `filter` only if the layer currently exists (a theme/options update may run before a city is loaded). */
+  private setFilterIfExists(
+    layerId: string,
+    filter: maplibregl.FilterSpecification,
+  ): void {
+    if (!this.map.getLayer(layerId)) return;
+    this.map.setFilter(layerId, filter);
   }
 
   /** Fits the MapLibre viewport to the city's geographic bounding box. */

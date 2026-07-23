@@ -1,4 +1,5 @@
 import { Separator } from '@/lib/separator';
+import { Switch } from '@/lib/switch';
 import { cn } from '@/lib/utils';
 import type { LayerName } from '@vellum/core';
 import { LAYER_NAMES, LayerVisibility } from '@vellum/core';
@@ -17,6 +18,7 @@ import {
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useVellumStore } from '../../store/vellum-store';
+import { AdvancedOptionsPanel } from './AdvancedOptionsPanel';
 import { LayerToggleRow } from './LayerToggleRow';
 
 /** Visual state of the floating panel. */
@@ -199,27 +201,55 @@ interface PanelLayerListProps {
   theme: 'day' | 'transit';
 }
 
+/** Layers that have an advanced-options sub-panel (transit-mode filter, buildings RICO filter). */
+const LAYERS_WITH_ADVANCED_OPTIONS = new Set<LayerName>([
+  'transit',
+  'buildings',
+]);
+
 function PanelLayerList({
   activeLayers,
   toggleLayer,
   theme,
 }: PanelLayerListProps) {
+  const [expandedLayer, setExpandedLayer] = useState<LayerName | null>(null);
+  const layerOptions = useVellumStore((s) => s.layerOptions);
+  const toggleTransitMode = useVellumStore((s) => s.toggleTransitMode);
+  const toggleBuildingCategory = useVellumStore(
+    (s) => s.toggleBuildingCategory,
+  );
+
   return (
     <div>
       {LAYER_NAMES.map((layer) => {
         const Icon = LAYER_ICONS[layer];
+        const hasAdvancedOptions = LAYERS_WITH_ADVANCED_OPTIONS.has(layer);
+        const expanded = expandedLayer === layer;
         return (
-          <LayerToggleRow
-            key={layer}
-            layer={layer}
-            visible={activeLayers[layer]}
-            onToggle={(l, v) => {
-              if (v !== activeLayers[l]) toggleLayer(l);
-            }}
-            theme={theme}
-            color={LAYER_COLORS[layer]}
-            icon={<Icon size={14} strokeWidth={1.5} />}
-          />
+          <div key={layer}>
+            <LayerToggleRow
+              layer={layer}
+              visible={activeLayers[layer]}
+              onToggle={(l, v) => {
+                if (v !== activeLayers[l]) toggleLayer(l);
+              }}
+              theme={theme}
+              color={LAYER_COLORS[layer]}
+              icon={<Icon size={14} strokeWidth={1.5} />}
+              hasAdvancedOptions={hasAdvancedOptions}
+              expanded={expanded}
+              onToggleExpanded={() => setExpandedLayer(expanded ? null : layer)}
+            />
+            {expanded && (
+              <AdvancedOptionsPanel
+                layer={layer}
+                visibleModes={layerOptions.transit.visibleModes}
+                onToggleMode={toggleTransitMode}
+                visibleCategories={layerOptions.buildings.visibleCategories}
+                onToggleCategory={toggleBuildingCategory}
+              />
+            )}
+          </div>
         );
       })}
     </div>
@@ -237,35 +267,56 @@ function PanelThemeSelector() {
   const availableThemes = useVellumStore((s) => s.availableThemes);
   const activeTheme = useVellumStore((s) => s.activeTheme);
   const setActiveTheme = useVellumStore((s) => s.setActiveTheme);
+  const transitDimmingEnabled = useVellumStore((s) => s.transitDimmingEnabled);
+  const setTransitDimmingEnabled = useVellumStore(
+    (s) => s.setTransitDimmingEnabled,
+  );
 
   if (availableThemes.length === 0) return null;
 
   return (
-    <div
-      role="group"
-      aria-label={t('a11y.themeSelector')}
-      className="flex flex-wrap gap-1.5 mt-1"
-    >
-      {availableThemes.map((theme) => {
-        const active = theme.id === activeTheme;
-        return (
-          <button
-            key={theme.id}
-            type="button"
-            aria-pressed={active}
-            onClick={() => setActiveTheme(theme.id)}
-            className={cn(
-              'font-ui text-xs rounded-full px-2.5 py-1 border transition-colors cursor-pointer',
-              active
-                ? 'bg-accent-foreground/90 text-background border-transparent'
-                : 'bg-transparent border-panel-border opacity-70 hover:opacity-100',
-            )}
-          >
-            {theme.name}
-          </button>
-        );
-      })}
-    </div>
+    <>
+      <div
+        role="group"
+        aria-label={t('a11y.themeSelector')}
+        className="flex flex-wrap gap-1.5 mt-1"
+      >
+        {availableThemes.map((theme) => {
+          const active = theme.id === activeTheme;
+          return (
+            <button
+              key={theme.id}
+              type="button"
+              aria-pressed={active}
+              onClick={() => setActiveTheme(theme.id)}
+              className={cn(
+                'font-ui text-xs rounded-full px-2.5 py-1 border transition-colors cursor-pointer',
+                active
+                  ? 'bg-accent-foreground/90 text-background border-transparent'
+                  : 'bg-transparent border-panel-border opacity-70 hover:opacity-100',
+              )}
+            >
+              {theme.name}
+            </button>
+          );
+        })}
+      </div>
+      {activeTheme === 'transit' && (
+        <div
+          className="flex items-center gap-2 px-1 mt-2"
+          style={{ minHeight: 28 }}
+        >
+          <span className="font-ui flex-1 text-xs truncate opacity-80">
+            {t('themes.dimNonTransit')}
+          </span>
+          <Switch
+            checked={transitDimmingEnabled}
+            onCheckedChange={setTransitDimmingEnabled}
+            aria-label={t('themes.dimNonTransit')}
+          />
+        </div>
+      )}
+    </>
   );
 }
 

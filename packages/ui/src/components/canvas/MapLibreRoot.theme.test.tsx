@@ -32,6 +32,7 @@ vi.mock('@vellum/renderer-webgl', () => ({
       zoomOut: vi.fn(),
       setLayerVisibility: vi.fn(),
       setTransitDimming: setTransitDimmingSpy,
+      setLayerOptions: vi.fn(),
     };
   },
   readTokensFromDOM: () => ({}),
@@ -48,6 +49,10 @@ vi.mock('../../store/vellum-store', () => ({
       cityData: null,
       activeTheme: mockActiveTheme,
       transitDimmingEnabled: mockTransitDimmingEnabled,
+      layerOptions: {
+        transit: { visibleModes: [] },
+        buildings: { visibleCategories: [] },
+      },
     }),
 }));
 

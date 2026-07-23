@@ -37,6 +37,8 @@ rm -rf .turbo apps/desktop/dist packages/*/dist
 find . -name "tsconfig.tsbuildinfo" -delete && pnpm build
 ```
 
+Single test file: `pnpm --filter @vellum/ui test -- MapLibreRoot.test.tsx` (or `cd packages/ui && pnpm test -- MapLibreRoot.test.tsx`).
+
 Commits must follow Conventional Commits (`feat:`, `fix:`, `refactor:`, etc.) — enforced by commitlint + husky.
 
 ## Architecture
@@ -51,13 +53,16 @@ apps/
 packages/
   core/             ← Domain types + IPC contract. Zero dependencies on other @vellum/* packages.
   parser-cslmap/    ← Adapter: .cslmap XML → CityData (Rust via Tauri IPC)
-  renderer-canvas/  ← Adapter: CityData → Canvas 2D. Rendering runs in a Web Worker.
+  renderer-webgl/   ← Active adapter: CityData → GeoJSON → MapLibre GL JS. Implements IRenderer.
+  renderer-canvas/  ← Legacy adapter: CityData → Canvas 2D via a Web Worker. Kept in tree, fully tested, not instantiated by desktop — superseded by renderer-webgl (Canvas's overscan buffer didn't scale).
   theme-engine/     ← .vellumstyle → RenderStyleParams (design tokens)
-  ui/               ← Shared React components. Only package that uses React.
+  ui/               ← Shared React components. Only package that uses React. Depends on IRenderer (the port), not a concrete renderer.
 ```
 
 **Dependency graph (strictly unidirectional):**
-`desktop → {ui, renderer-canvas, theme-engine, parser-cslmap, core}` / `ui → {renderer-canvas, theme-engine, core}` / `renderer-canvas → {theme-engine, core}` / `theme-engine → core` / `parser-cslmap → core`
+`desktop → {ui, renderer-webgl, renderer-canvas, theme-engine, parser-cslmap, core}` / `ui → {renderer-webgl, renderer-canvas, theme-engine, core}` / `renderer-webgl → core` / `renderer-canvas → {theme-engine, core}` / `theme-engine → core` / `parser-cslmap → core`
+
+`pnpm check:architecture` (a custom ESLint `no-restricted-imports` rule) enforces this graph in CI — run it after touching any cross-package import.
 
 ### Import rules (ESLint-enforced)
 
@@ -75,9 +80,9 @@ packages/
 
 ### Renderer architecture
 
-`CanvasRenderer` offloads all painting to a Web Worker (`renderer-worker.ts`) via `OffscreenCanvas`. The main thread registers 7 named layers in z-order: `terrain`, `water`, `roads`, `transit`, `buildings`, `forests`, `districts`. The worker buffers a pending render until all 7 layers are registered. Each layer is a standalone file under `packages/renderer-canvas/src/layers/`.
+The active renderer is `MapLibreRenderer` (`@vellum/renderer-webgl`), GPU-accelerated via MapLibre GL JS: `geojson-builder.ts` converts `CityData` into GeoJSON sources, `map-libre-renderer.ts` applies the style layers, and `packages/ui/src/components/canvas/MapLibreRoot.tsx` mounts the map. It still registers the same 7 named layers in z-order: `terrain`, `water`, `roads`, `transit`, `buildings`, `forests`, `districts`. Because both renderers implement `IRenderer` (`packages/core/src/types/renderer.ts`), swapping is a one-import change in `App.tsx` — the IPC contract, domain model, and Zustand store don't move.
 
-CSS custom properties on `:root` are read once at render time via `readTokensFromDOM()`. Theme changes require re-reading tokens and re-rendering — there is no live CSS cascade inside the worker.
+`renderer-canvas` (legacy) offloads all painting to a Web Worker (`renderer-worker.ts`) via `OffscreenCanvas`, with each layer a standalone file under `packages/renderer-canvas/src/layers/`. CSS custom properties on `:root` are read once at render time via `readTokensFromDOM()` — theme changes require re-reading tokens and re-rendering, there's no live CSS cascade inside the worker. Don't extend this package for new features; it's kept for reference, not active development.
 
 ### Domain model & coordinate system
 
@@ -145,5 +150,8 @@ If you can't find `_bmad-output` folder, try doing `../vellum-context/_bmad-outp
 
 Full planning docs: `_bmad-output/planning-artifacts/` (PRD, architecture, epics, UX spec). Story files: `_bmad-output/implementation-artifacts/`.
 
-Usar operaciones LSP (goToDefinition, findReferences, etc.) para navegación de código.
-Solo usar grep para búsquedas de patrones de texto o strings.
+## Code Navigation (MANDATORY)
+
+**Siempre** usar operaciones LSP (`goToDefinition`, `findReferences`, `rename`, etc.) para navegar el código — encontrar definiciones, usos, implementaciones. Esta regla no tiene excepciones basadas en el tamaño del repo o la simplicidad aparente de la búsqueda.
+
+`grep`/búsqueda de texto se reserva **únicamente** para patrones de texto o strings literales (mensajes de error, contenido de config, TODOs) que un símbolo LSP no puede resolver.

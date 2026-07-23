@@ -67,6 +67,7 @@ export function MapLibreRoot({
   const loadingState = useVellumStore((s) => s.loadingState);
   const activeTheme = useVellumStore((s) => s.activeTheme);
   const transitDimmingEnabled = useVellumStore((s) => s.transitDimmingEnabled);
+  const layerOptions = useVellumStore((s) => s.layerOptions);
 
   // Mount / unmount the renderer
   useEffect(() => {
@@ -144,6 +145,11 @@ export function MapLibreRoot({
       renderer.setLayerVisibility(layer, visible);
     }
   }, [activeLayers]);
+
+  // Sync advanced per-layer filters (transit-mode filter, buildings RICO filter)
+  useEffect(() => {
+    rendererRef.current?.setLayerOptions(layerOptions);
+  }, [layerOptions]);
 
   // Register fitToScreen into the external ref
   useEffect(() => {

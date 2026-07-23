@@ -34,7 +34,14 @@
     "transit": "Tránsito",
     "classic": "Clásico",
     "grayscale": "Escala de grises",
-    "grayscaleWater": "Grises + Agua"
+    "grayscaleWater": "Grises + Agua",
+    "dimNonTransit": "Atenuar otras capas"
+  },
+  "buildingCategories": {
+    "residential": "Residencial",
+    "commercial": "Comercial",
+    "office": "Oficinas",
+    "industry": "Industrial"
   },
   "export": {
     "title": "Exportar mapa",
@@ -86,7 +93,9 @@
     "layerPanel": "Panel de control de capas",
     "layerPanelCollapse": "Colapsar panel",
     "layerPanelExpand": "Expandir panel",
-    "themeSelector": "Selector de tema"
+    "themeSelector": "Selector de tema",
+    "advancedOptions": "Opciones avanzadas de {{layer}}",
+    "advancedOptionsToggle": "Alternar opciones avanzadas de {{layer}}"
   },
   "transitModes": {
     "Bus": "Autobús",

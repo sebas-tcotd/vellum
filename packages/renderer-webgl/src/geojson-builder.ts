@@ -11,7 +11,15 @@
  * not import MapLibre. It can be unit-tested in jsdom without WebGL.
  */
 
-import type { CityData, RoadNode, TerrainPolygon, WayType } from '@vellum/core';
+import type {
+  BuildingServiceCategory,
+  BuildingServiceType,
+  CityData,
+  RoadNode,
+  TerrainPolygon,
+  WayType,
+} from '@vellum/core';
+import { BUILDING_SERVICE_TYPE_CATEGORY } from '@vellum/core';
 import { csToGeoArray, CS1_WORLD_HALF } from './coordinate-transform';
 import { buildTransitLineGraph } from './transit/line-graph';
 import { computeLineOrder } from './transit/ordering';
@@ -146,6 +154,8 @@ export interface BuildingFeatureProperties {
   id: string;
   /** The original asset class from the game. */
   itemClass: string;
+  /** Top-level zoning group, used by the RICO visibility filter. */
+  category: BuildingServiceCategory;
 }
 
 /**
@@ -551,6 +561,22 @@ export function buildTransitGeoJson(
 }
 
 /**
+ * Resolves a building's top-level zoning group from its `serviceType`, for the
+ * RICO visibility filter.
+ * @remarks
+ * Mirrors the `'unknown' → civic.services` fallback documented on
+ * `BUILDING_SERVICE_TYPE_CATEGORY` — that lookup excludes `'unknown'` from its
+ * keys, so it's special-cased here instead of widening the lookup's type.
+ */
+function resolveBuildingCategory(
+  serviceType: BuildingServiceType,
+): BuildingServiceCategory {
+  if (serviceType === 'unknown') return 'civic';
+  const path = BUILDING_SERVICE_TYPE_CATEGORY[serviceType];
+  return path.split('.')[0] as BuildingServiceCategory;
+}
+
+/**
  * Builds a GeoJSON FeatureCollection of building footprint polygons.
  *
  * @remarks
@@ -577,7 +603,11 @@ export function buildBuildingsGeoJson(
     features.push({
       type: 'Feature',
       geometry: { type: 'Polygon', coordinates: [ring] },
-      properties: { id: building.id, itemClass: building.itemClass },
+      properties: {
+        id: building.id,
+        itemClass: building.itemClass,
+        category: resolveBuildingCategory(building.serviceType),
+      },
     });
   }
 

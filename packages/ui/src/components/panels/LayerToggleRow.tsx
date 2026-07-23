@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+import { ChevronDown } from 'lucide-react';
 import { Switch } from '@/lib/switch';
+import { cn } from '@/lib/utils';
 import type { LayerName } from '@vellum/core';
 
 /** Props for a single layer toggle row inside the FloatingLayerPanel. */
@@ -28,6 +30,15 @@ export interface LayerToggleRowProps {
    * @remarks Pass a sized Lucide icon, e.g. `<Mountain size={14} strokeWidth={1.5} />`.
    */
   icon?: ReactNode;
+  /**
+   * Whether this layer has an advanced-options sub-panel (transit-mode filter,
+   * buildings RICO filter). Renders a chevron and makes the name clickable.
+   */
+  hasAdvancedOptions?: boolean;
+  /** Whether the advanced-options sub-panel is currently expanded. */
+  expanded?: boolean;
+  /** Called when the user clicks the name to open/close the sub-panel. */
+  onToggleExpanded?: () => void;
 }
 
 /**
@@ -44,9 +55,13 @@ export function LayerToggleRow({
   theme = 'day',
   color,
   icon,
+  hasAdvancedOptions = false,
+  expanded = false,
+  onToggleExpanded,
 }: LayerToggleRowProps) {
   const { t } = useTranslation();
   const indicatorOpacity = theme === 'transit' ? 0.4 : 1;
+  const name = t(`layers.${layer}`);
 
   return (
     <div style={{ minHeight: 32 }} className="flex items-center gap-2 px-3">
@@ -75,14 +90,33 @@ export function LayerToggleRow({
           }}
         />
       )}
-      <span className="font-ui flex-1 text-xs truncate">
-        {t(`layers.${layer}`)}
-      </span>
+      {hasAdvancedOptions ? (
+        <button
+          type="button"
+          onClick={onToggleExpanded}
+          aria-expanded={expanded}
+          aria-label={t('a11y.advancedOptionsToggle', { layer: name })}
+          className="font-ui flex-1 flex items-center gap-1 text-xs truncate bg-transparent border-none p-0 cursor-pointer text-left opacity-90 hover:opacity-100"
+        >
+          <span className="truncate">{name}</span>
+          <ChevronDown
+            size={12}
+            strokeWidth={1.5}
+            aria-hidden="true"
+            className={cn(
+              'transition-transform shrink-0',
+              expanded ? 'rotate-180' : 'rotate-0',
+            )}
+          />
+        </button>
+      ) : (
+        <span className="font-ui flex-1 text-xs truncate">{name}</span>
+      )}
       <Switch
         checked={visible}
         onCheckedChange={(checked) => onToggle(layer, checked)}
         aria-checked={visible}
-        aria-label={t(`layers.${layer}`)}
+        aria-label={name}
       />
     </div>
   );
