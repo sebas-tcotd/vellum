@@ -738,6 +738,138 @@ describe('MapLibreRenderer', () => {
     });
   });
 
+  describe('subscribeServiceIconLegend', () => {
+    beforeEach(() => {
+      vi.clearAllMocks();
+      mockMap.getLayer.mockReturnValue({
+        id: 'service-icons',
+      } as unknown as undefined);
+      mockMap.getZoom.mockReturnValue(15);
+      mockMap.queryRenderedFeatures.mockReturnValue([]);
+    });
+
+    // .at(-1) — MapNavigationManager also registers its own 'move'/'moveend'
+    // listeners during construction; subscribeServiceIconLegend's handlers
+    // are always registered last, after makeRenderer() + the subscribe call.
+    const findHandler = (event: string) =>
+      (mockMap.on as ReturnType<typeof vi.fn>).mock.calls
+        .filter((c: unknown[]) => c[0] === event)
+        .at(-1)?.[1] as () => void;
+
+    it('registers move, moveend and idle handlers on the map', () => {
+      const renderer = makeRenderer();
+      renderer.subscribeServiceIconLegend(vi.fn());
+      expect(mockMap.on).toHaveBeenCalledWith('move', expect.any(Function));
+      expect(mockMap.on).toHaveBeenCalledWith('moveend', expect.any(Function));
+      expect(mockMap.on).toHaveBeenCalledWith('idle', expect.any(Function));
+    });
+
+    it('cleanup function calls map.off for move, moveend and idle', () => {
+      const renderer = makeRenderer();
+      const unsub = renderer.subscribeServiceIconLegend(vi.fn());
+      unsub();
+      expect(mockMap.off).toHaveBeenCalledWith('move', expect.any(Function));
+      expect(mockMap.off).toHaveBeenCalledWith('moveend', expect.any(Function));
+      expect(mockMap.off).toHaveBeenCalledWith('idle', expect.any(Function));
+    });
+
+    it('move handler reports visible=false once zoom drops below 14, without querying features', () => {
+      const renderer = makeRenderer();
+      const cb = vi.fn();
+      renderer.subscribeServiceIconLegend(cb);
+      mockMap.getZoom.mockReturnValue(13.5);
+
+      findHandler('move')();
+
+      expect(cb).toHaveBeenCalledWith({ visible: false, groups: [] });
+      expect(mockMap.queryRenderedFeatures).not.toHaveBeenCalled();
+    });
+
+    it('move handler does not call the callback while zoom stays at/above 14', () => {
+      const renderer = makeRenderer();
+      const cb = vi.fn();
+      renderer.subscribeServiceIconLegend(cb);
+
+      findHandler('move')();
+
+      expect(cb).not.toHaveBeenCalled();
+      expect(mockMap.queryRenderedFeatures).not.toHaveBeenCalled();
+    });
+
+    it('moveend handler queries service-icons and reports visible groups, deduplicated and canonically ordered', () => {
+      const renderer = makeRenderer();
+      const cb = vi.fn();
+      renderer.subscribeServiceIconLegend(cb);
+
+      mockMap.queryRenderedFeatures.mockReturnValueOnce([
+        { properties: { serviceGroup: 'education' } },
+        { properties: { serviceGroup: 'water' } },
+        { properties: { serviceGroup: 'water' } }, // duplicate
+      ] as unknown as never[]);
+
+      findHandler('moveend')();
+
+      expect(mockMap.queryRenderedFeatures).toHaveBeenCalledWith({
+        layers: ['service-icons'],
+      });
+      expect(cb).toHaveBeenCalledWith({
+        visible: true,
+        groups: ['water', 'education'], // SERVICE_GROUPS canonical order, not insertion order
+      });
+    });
+
+    it('moveend handler drops feature properties with an unrecognized serviceGroup value', () => {
+      const renderer = makeRenderer();
+      const cb = vi.fn();
+      renderer.subscribeServiceIconLegend(cb);
+
+      mockMap.queryRenderedFeatures.mockReturnValueOnce([
+        { properties: { serviceGroup: 'not-a-real-group' } },
+      ] as unknown as never[]);
+
+      findHandler('moveend')();
+
+      expect(cb).toHaveBeenCalledWith({ visible: true, groups: [] });
+    });
+
+    it('moveend handler skips the query and reports empty groups when the service-icons layer is absent', () => {
+      mockMap.getLayer.mockReturnValue(undefined);
+      const renderer = makeRenderer();
+      const cb = vi.fn();
+      renderer.subscribeServiceIconLegend(cb);
+
+      findHandler('moveend')();
+
+      expect(mockMap.queryRenderedFeatures).not.toHaveBeenCalled();
+      expect(cb).toHaveBeenCalledWith({ visible: true, groups: [] });
+    });
+
+    it('moveend handler reports visible=false without querying when zoom is below 14', () => {
+      mockMap.getZoom.mockReturnValue(10);
+      const renderer = makeRenderer();
+      const cb = vi.fn();
+      renderer.subscribeServiceIconLegend(cb);
+
+      findHandler('moveend')();
+
+      expect(mockMap.queryRenderedFeatures).not.toHaveBeenCalled();
+      expect(cb).toHaveBeenCalledWith({ visible: false, groups: [] });
+    });
+
+    it('idle handler fires the full check once and ignores subsequent idle events', () => {
+      const renderer = makeRenderer();
+      const cb = vi.fn();
+      renderer.subscribeServiceIconLegend(cb);
+
+      const idleHandler = findHandler('idle');
+      idleHandler();
+      idleHandler(); // second call should be a no-op
+
+      expect(mockMap.queryRenderedFeatures).toHaveBeenCalledTimes(1);
+      expect(cb).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe('Navigation Constraints', () => {
     it('sets renderWorldCopies to false in constructor', () => {
       const container = document.createElement('div');

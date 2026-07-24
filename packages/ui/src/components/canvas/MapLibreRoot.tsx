@@ -1,7 +1,10 @@
 import type { UnlistenFn } from '@tauri-apps/api/event';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import type { LayerVisibility } from '@vellum/core';
-import type { TooltipInfo } from '@vellum/renderer-webgl';
+import type {
+  ServiceIconLegendState,
+  TooltipInfo,
+} from '@vellum/renderer-webgl';
 import { MapLibreRenderer } from '@vellum/renderer-webgl';
 import {
   DEFAULT_RENDER_STYLE_PARAMS,
@@ -31,6 +34,15 @@ export interface MapLibreRootProps {
   isCleanMode?: boolean;
   /** All loaded themes. The active one (by `activeTheme` in the store) is applied via `applyTheme`. */
   themes?: LoadedTheme[];
+  /**
+   * Ref populated with a stable `subscribeServiceIconLegend`-style function,
+   * mirroring `fitToScreenRef`'s registration pattern but for a data
+   * subscription instead of an imperative action. `IconLegend` calls it to
+   * get live `ServiceIconLegendState` updates without owning a renderer reference.
+   */
+  subscribeServiceIconLegendRef?: React.RefObject<
+    ((callback: (state: ServiceIconLegendState) => void) => () => void) | null
+  >;
 }
 
 /**
@@ -51,6 +63,7 @@ export function MapLibreRoot({
   toggleNavigationModeRef,
   isCleanMode = false,
   themes = [],
+  subscribeServiceIconLegendRef,
 }: MapLibreRootProps) {
   const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -195,6 +208,18 @@ export function MapLibreRoot({
         toggleNavigationModeRef.current = null;
     };
   }, [toggleNavigationModeRef]);
+
+  // Register subscribeServiceIconLegend into the external ref — same pattern as
+  // fitToScreenRef/zoomInRef above, but exposing a subscription instead of an action.
+  useEffect(() => {
+    if (!subscribeServiceIconLegendRef) return;
+    subscribeServiceIconLegendRef.current = (callback) =>
+      rendererRef.current?.subscribeServiceIconLegend(callback) ?? (() => {});
+    return () => {
+      if (subscribeServiceIconLegendRef.current)
+        subscribeServiceIconLegendRef.current = null;
+    };
+  }, [subscribeServiceIconLegendRef]);
 
   // Stable callbacks for Minimap — empty deps to avoid re-subscriptions on every render
   const subscribeViewport = useCallback(

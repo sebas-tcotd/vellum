@@ -43,6 +43,22 @@
     "office": "Oficinas",
     "industry": "Industrial"
   },
+  "serviceGroups": {
+    "electricity": "Electricidad",
+    "water": "Servicios de agua",
+    "waste": "Residuos",
+    "health": "Salud",
+    "fire": "Bomberos",
+    "security": "Seguridad",
+    "education": "Educación",
+    "parks": "Parques",
+    "monuments": "Monumentos"
+  },
+  "iconLegend": {
+    "buttonLabel": "Ver leyenda",
+    "title": "Leyenda de íconos",
+    "empty": "No hay íconos de servicio visibles en esta vista"
+  },
   "layerOptionsPanel": {
     "close": "Cerrar opciones avanzadas",
     "colorByCategory": "Colorear por categoría"
@@ -99,7 +115,9 @@
     "layerPanelExpand": "Expandir panel",
     "themeSelector": "Selector de tema",
     "advancedOptions": "Opciones avanzadas de {{layer}}",
-    "advancedOptionsToggle": "Alternar opciones avanzadas de {{layer}}"
+    "advancedOptionsToggle": "Alternar opciones avanzadas de {{layer}}",
+    "iconLegendToggle": "Alternar leyenda de íconos",
+    "iconLegend": "Leyenda de íconos"
   },
   "transitModes": {
     "Bus": "Autobús",

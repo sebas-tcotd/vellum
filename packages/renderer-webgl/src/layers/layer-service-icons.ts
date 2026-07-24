@@ -9,8 +9,9 @@
 
 import type maplibregl from 'maplibre-gl';
 import {
-  buildServiceIconSvg,
   SERVICE_GROUPS,
+  SERVICE_ICONS_MIN_ZOOM,
+  serviceIconDataUri,
   type ServiceGroup,
 } from '../service-icons';
 import { addLayerIfAbsent } from '../helpers';
@@ -25,12 +26,8 @@ async function loadServiceIcon(
 ): Promise<void> {
   if (map.hasImage(group)) return;
 
-  const encodedSvg = encodeURIComponent(buildServiceIconSvg(group))
-    .replace(/'/g, '%27')
-    .replace(/"/g, '%22');
-
   const img = new Image();
-  img.src = `data:image/svg+xml,${encodedSvg}`;
+  img.src = serviceIconDataUri(group);
 
   await new Promise<void>((resolve, reject) => {
     const timeout = setTimeout(
@@ -73,7 +70,7 @@ export async function addServiceIconsLayer(map: maplibregl.Map): Promise<void> {
     id: 'service-icons',
     type: 'symbol',
     source: 'buildings',
-    minzoom: 14,
+    minzoom: SERVICE_ICONS_MIN_ZOOM,
     filter: [
       'in',
       ['get', 'serviceGroup'],

@@ -43,6 +43,22 @@
     "office": "Office",
     "industry": "Industrial"
   },
+  "serviceGroups": {
+    "electricity": "Electricity",
+    "water": "Water services",
+    "waste": "Waste",
+    "health": "Health",
+    "fire": "Fire department",
+    "security": "Security",
+    "education": "Education",
+    "parks": "Parks",
+    "monuments": "Monuments"
+  },
+  "iconLegend": {
+    "buttonLabel": "View legend",
+    "title": "Icon legend",
+    "empty": "No service icons visible in this view"
+  },
   "layerOptionsPanel": {
     "close": "Close advanced options",
     "colorByCategory": "Color by category"
@@ -99,7 +115,9 @@
     "layerPanelExpand": "Expand panel",
     "themeSelector": "Theme selector",
     "advancedOptions": "{{layer}} advanced options",
-    "advancedOptionsToggle": "Toggle {{layer}} advanced options"
+    "advancedOptionsToggle": "Toggle {{layer}} advanced options",
+    "iconLegendToggle": "Toggle icon legend",
+    "iconLegend": "Icon legend"
   },
   "transitModes": {
     "Bus": "Bus",

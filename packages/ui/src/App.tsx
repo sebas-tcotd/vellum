@@ -1,4 +1,5 @@
 // packages/ui/src/App.tsx
+import type { ServiceIconLegendState } from '@vellum/renderer-webgl';
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { MapLibreRoot } from './components/canvas/MapLibreRoot';
 import { EmptyState } from './components/empty-state/EmptyState';
@@ -8,6 +9,7 @@ import { PartialParseDialog } from './components/overlays/PartialParseDialog';
 import { DlcWarningToast } from './components/overlays/DlcWarningToast';
 import { ThemeWarningToast } from './components/overlays/ThemeWarningToast';
 import { FloatingLayerPanel } from './components/panels/FloatingLayerPanel';
+import { IconLegend } from './components/panels/IconLegend';
 import { initI18n } from './i18n/i18n-setup';
 import { useKeyboardShortcuts } from './hooks/use-keyboard-shortcuts';
 import { useThemes } from './hooks/use-themes';
@@ -67,6 +69,10 @@ export function App({
   const zoomInRef = useRef<(() => void) | null>(null);
   const zoomOutRef = useRef<(() => void) | null>(null);
   const toggleNavigationModeRef = useRef<(() => void) | null>(null);
+  const subscribeServiceIconLegendRef = useRef<
+    ((callback: (state: ServiceIconLegendState) => void) => () => void) | null
+  >(null);
+  const iconLegendToggleRef = useRef<(() => void) | null>(null);
   const syncActiveLanguage = useVellumStore((s) => s.syncActiveLanguage);
   const cityData = useVellumStore((s) => s.cityData);
   const activeLayers = useVellumStore((s) => s.activeLayers);
@@ -107,6 +113,10 @@ export function App({
     () => toggleNavigationModeRef.current?.(),
     [toggleNavigationModeRef],
   );
+  const handleToggleIconLegend = useCallback(
+    () => iconLegendToggleRef.current?.(),
+    [iconLegendToggleRef],
+  );
 
   useKeyboardShortcuts({
     onOpenFile: openFileDialog,
@@ -120,6 +130,9 @@ export function App({
       : {}),
     ...(cityData !== null
       ? { onToggleNavigationMode: handleToggleNavigationMode }
+      : {}),
+    ...(cityData !== null
+      ? { onToggleIconLegend: handleToggleIconLegend }
       : {}),
     enabled: loadingState !== 'loading',
   });
@@ -181,6 +194,7 @@ export function App({
             toggleNavigationModeRef={toggleNavigationModeRef}
             isCleanMode={isCleanMode}
             themes={themes}
+            subscribeServiceIconLegendRef={subscribeServiceIconLegendRef}
           />
         </div>
         {showEmptyState && <EmptyState />}
@@ -219,6 +233,10 @@ export function App({
             <FloatingLayerPanel
               cityName={cityData.cityName}
               fileName={cityData.fileName}
+            />
+            <IconLegend
+              subscribeRef={subscribeServiceIconLegendRef}
+              toggleRef={iconLegendToggleRef}
             />
           </div>
         )}

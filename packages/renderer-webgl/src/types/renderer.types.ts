@@ -1,6 +1,7 @@
 /** Hover-tooltip and viewport types shared by `MapLibreRenderer` and its interaction subscriptions. */
 
 import type { TransitMode } from '@vellum/core';
+import type { ServiceGroup } from '../service-icons';
 
 export type TransitLineInfo = {
   name: string;
@@ -27,4 +28,12 @@ export interface ViewportBounds {
   eastLng: number;
   northLat: number;
   southLat: number;
+}
+
+/** Snapshot of the service-icon legend's relevance to the current viewport. */
+export interface ServiceIconLegendState {
+  /** Whether the current zoom is at or above the threshold where service icons render. */
+  visible: boolean;
+  /** Distinct `ServiceGroup`s with at least one icon rendered in the current viewport, when `visible`. */
+  groups: ServiceGroup[];
 }

@@ -31,6 +31,7 @@ import {
 import maplibregl from 'maplibre-gl';
 import {
   subscribeHover as subscribeHoverImpl,
+  subscribeServiceIconLegend as subscribeServiceIconLegendImpl,
   subscribeViewport as subscribeViewportImpl,
 } from './interactions';
 import { createBaseStyle } from './layers';
@@ -38,9 +39,17 @@ import { MapLayerManager } from './managers/map-layer.manager';
 import { MapNavigationManager } from './managers/map-navigation.manager';
 import { MapSourceManager } from './managers/map-source.manager';
 import { resolveColors } from './style-adapter';
-import type { TooltipInfo, ViewportBounds } from './types/renderer.types';
+import type {
+  ServiceIconLegendState,
+  TooltipInfo,
+  ViewportBounds,
+} from './types/renderer.types';
 
-export type { TooltipInfo, ViewportBounds } from './types/renderer.types';
+export type {
+  ServiceIconLegendState,
+  TooltipInfo,
+  ViewportBounds,
+} from './types/renderer.types';
 
 /**
  * GPU-accelerated renderer that converts `CityData` to MapLibre GL JS sources
@@ -265,5 +274,18 @@ export class MapLibreRenderer implements IRenderer {
    */
   subscribeHover(callback: (info: TooltipInfo | null) => void): () => void {
     return subscribeHoverImpl(this.map, callback);
+  }
+
+  /**
+   * Subscribes to the service-icon legend's relevance (zoom past the
+   * icon-rendering threshold, and which `ServiceGroup`s currently render).
+   *
+   * @param callback - Called with the current {@link ServiceIconLegendState} on every pan/zoom.
+   * @returns Cleanup function that unregisters the listeners.
+   */
+  subscribeServiceIconLegend(
+    callback: (state: ServiceIconLegendState) => void,
+  ): () => void {
+    return subscribeServiceIconLegendImpl(this.map, callback);
   }
 }

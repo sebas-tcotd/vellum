@@ -26,6 +26,8 @@ interface UseKeyboardShortcutsOptions {
   onHidePanel?: () => void;
   /** Called when the user presses Ctrl/Cmd + B to toggle navigation mode. */
   onToggleNavigationMode?: () => void;
+  /** Called when the user presses L (no modifiers) to toggle the IconLegend. */
+  onToggleIconLegend?: () => void;
   /**
    * When false, the shortcut handler does nothing without removing the listener.
    * @default true
@@ -41,6 +43,7 @@ export function useKeyboardShortcuts({
   onZoomOut,
   onHidePanel,
   onToggleNavigationMode,
+  onToggleIconLegend,
   enabled = true,
 }: UseKeyboardShortcutsOptions) {
   useEffect(() => {
@@ -102,6 +105,20 @@ export function useKeyboardShortcuts({
         return;
       }
 
+      // Toggle IconLegend: L without any modifiers
+      if (
+        !isModKey &&
+        !e.shiftKey &&
+        !e.altKey &&
+        e.key.toLowerCase() === 'l'
+      ) {
+        if (onToggleIconLegend) {
+          e.preventDefault();
+          onToggleIconLegend();
+        }
+        return;
+      }
+
       // Layer shortcuts 1–7 — no modifier keys
       if (!isModKey && !e.shiftKey && !e.altKey) {
         const layerIdx = parseInt(e.key, 10) - 1;
@@ -125,6 +142,7 @@ export function useKeyboardShortcuts({
     onZoomOut,
     onHidePanel,
     onToggleNavigationMode,
+    onToggleIconLegend,
     enabled,
   ]);
 }

@@ -14,6 +14,15 @@
  * should look the same across every theme, not blend into it.
  */
 
+/**
+ * Zoom level at which the `service-icons` layer starts rendering.
+ * @remarks
+ * Single source of truth for this threshold — `layer-service-icons.ts`'s
+ * `minzoom` and `IconLegend`'s visibility subscription both read this
+ * constant instead of duplicating the literal `14`.
+ */
+export const SERVICE_ICONS_MIN_ZOOM = 14;
+
 /** A civic building's service-icon category, mirroring CS1's own HUD tabs. */
 export type ServiceGroup =
   | 'electricity'
@@ -130,4 +139,18 @@ export const SERVICE_GROUPS = Object.keys(SERVICE_ICON_DEFS) as ServiceGroup[];
 export function buildServiceIconSvg(group: ServiceGroup): string {
   const { icon, color } = SERVICE_ICON_DEFS[group];
   return `<svg xmlns="http://www.w3.org/2000/svg" width="21" height="21" viewBox="0 0 21 21"><rect x="1" y="1" rx="4" ry="4" width="19" height="19" fill="#fff" stroke="#fff" stroke-width="2"/><rect x="1" y="1" rx="4" ry="4" width="19" height="19" fill="${color}"/><path fill="#fff" transform="translate(3 3)" d="${MAKI_PATHS[icon]}"/></svg>`;
+}
+
+/**
+ * Encodes a service icon's SVG markup as a `data:image/svg+xml,` URI.
+ * @remarks
+ * Single source of truth for this encoding — both `layer-service-icons.ts`
+ * (loading the MapLibre image) and `IconLegend` (an `<img>` tag) call this
+ * instead of duplicating the `encodeURIComponent` + quote-escaping logic.
+ */
+export function serviceIconDataUri(group: ServiceGroup): string {
+  const encoded = encodeURIComponent(buildServiceIconSvg(group))
+    .replace(/'/g, '%27')
+    .replace(/"/g, '%22');
+  return `data:image/svg+xml,${encoded}`;
 }

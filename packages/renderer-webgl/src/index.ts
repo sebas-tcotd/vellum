@@ -3,6 +3,15 @@ export * from './coordinate-transform';
 export * from './geojson';
 export {
   MapLibreRenderer,
+  ServiceIconLegendState,
   TooltipInfo,
   ViewportBounds,
 } from './map-libre-renderer';
+export {
+  buildServiceIconSvg,
+  resolveServiceGroup,
+  serviceIconDataUri,
+  SERVICE_GROUPS,
+  SERVICE_ICONS_MIN_ZOOM,
+  ServiceGroup,
+} from './service-icons';
