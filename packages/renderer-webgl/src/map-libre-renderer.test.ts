@@ -298,6 +298,82 @@ describe('MapLibreRenderer', () => {
     expect(mockMap.setLayoutProperty).not.toHaveBeenCalled();
   });
 
+  describe('districts points/labels display mode', () => {
+    it('shows districts-points and hides districts-labels by default', async () => {
+      const renderer = makeRenderer();
+      mockMap.getLayer.mockReturnValue({ id: 'any' } as unknown as undefined);
+      await renderer.render(makeCityData(), {
+        activeLayers: ALL_LAYERS_VISIBLE,
+      });
+
+      expect(mockMap.setLayoutProperty).toHaveBeenCalledWith(
+        'districts-points',
+        'visibility',
+        'visible',
+      );
+      expect(mockMap.setLayoutProperty).toHaveBeenCalledWith(
+        'districts-labels',
+        'visibility',
+        'none',
+      );
+    });
+
+    it('setLayerOptions with showNameOnMap swaps to labels and hides points', async () => {
+      const renderer = makeRenderer();
+      mockMap.getLayer.mockReturnValue({ id: 'any' } as unknown as undefined);
+      await renderer.render(makeCityData(), {
+        activeLayers: ALL_LAYERS_VISIBLE,
+      });
+      vi.clearAllMocks();
+      mockMap.getLayer.mockReturnValue({ id: 'any' } as unknown as undefined);
+
+      renderer.setLayerOptions({
+        transit: { visibleModes: [] },
+        buildings: { visibleCategories: [], colorByCategory: false },
+        districts: { showNameOnMap: true },
+      });
+
+      expect(mockMap.setLayoutProperty).toHaveBeenCalledWith(
+        'districts-labels',
+        'visibility',
+        'visible',
+      );
+      expect(mockMap.setLayoutProperty).toHaveBeenCalledWith(
+        'districts-points',
+        'visibility',
+        'none',
+      );
+    });
+
+    it('hiding the districts layer hides both points and labels regardless of mode', async () => {
+      const renderer = makeRenderer();
+      mockMap.getLayer.mockReturnValue({ id: 'any' } as unknown as undefined);
+      await renderer.render(makeCityData(), {
+        activeLayers: ALL_LAYERS_VISIBLE,
+      });
+      renderer.setLayerOptions({
+        transit: { visibleModes: [] },
+        buildings: { visibleCategories: [], colorByCategory: false },
+        districts: { showNameOnMap: true },
+      });
+      vi.clearAllMocks();
+      mockMap.getLayer.mockReturnValue({ id: 'any' } as unknown as undefined);
+
+      renderer.setLayerVisibility('districts', false);
+
+      expect(mockMap.setLayoutProperty).toHaveBeenCalledWith(
+        'districts-points',
+        'visibility',
+        'none',
+      );
+      expect(mockMap.setLayoutProperty).toHaveBeenCalledWith(
+        'districts-labels',
+        'visibility',
+        'none',
+      );
+    });
+  });
+
   describe('setTransitDimming — Story 5.3 (AC #1, #4)', () => {
     it('dims non-transit layers to ~0.15x their baseline opacity when enabled', async () => {
       const renderer = makeRenderer();
@@ -406,6 +482,7 @@ describe('MapLibreRenderer', () => {
       expect(mockMap.removeLayer).toHaveBeenCalledWith('buildings-outline');
       expect(mockMap.removeLayer).toHaveBeenCalledWith('forests-circles');
       expect(mockMap.removeLayer).toHaveBeenCalledWith('districts-points');
+      expect(mockMap.removeLayer).toHaveBeenCalledWith('districts-labels');
       expect(mockMap.removeLayer).toHaveBeenCalledWith('coastline-layer');
       expect(mockMap.removeLayer).toHaveBeenCalledWith('terrain-lines-layer');
     });
@@ -609,6 +686,7 @@ describe('MapLibreRenderer', () => {
       moveHandler({ point: { x: 100, y: 200 } });
 
       expect(cb).toHaveBeenCalledWith({
+        kind: 'transit',
         screenX: 100,
         screenY: 200,
         lines: [{ name: 'Line 1', color: '#FF0000', mode: 'Bus' }],
@@ -735,6 +813,85 @@ describe('MapLibreRenderer', () => {
       moveHandler({ point: { x: 100, y: 200 } });
 
       expect(cb).not.toHaveBeenCalled();
+    });
+
+    it('registers mousemove and mouseleave handlers on districts-points layer', () => {
+      const renderer = makeRenderer();
+      const cb = vi.fn();
+      renderer.subscribeHover(cb);
+      expect(mockMap.on).toHaveBeenCalledWith(
+        'mousemove',
+        'districts-points',
+        expect.any(Function),
+      );
+      expect(mockMap.on).toHaveBeenCalledWith(
+        'mouseleave',
+        'districts-points',
+        expect.any(Function),
+      );
+    });
+
+    it('district mousemove handler calls callback with a district TooltipInfo', () => {
+      const renderer = makeRenderer();
+      const cb = vi.fn();
+      renderer.subscribeHover(cb);
+
+      mockMap.queryRenderedFeatures.mockReturnValueOnce([
+        { properties: { id: 'd1', name: 'Puerto Viejo' } },
+      ] as unknown as never[]);
+
+      const moveHandler = (
+        mockMap.on as ReturnType<typeof vi.fn>
+      ).mock.calls.find(
+        (c: unknown[]) => c[0] === 'mousemove' && c[1] === 'districts-points',
+      )?.[2] as (e: { point: { x: number; y: number } }) => void;
+
+      moveHandler({ point: { x: 30, y: 40 } });
+
+      expect(cb).toHaveBeenCalledWith({
+        kind: 'district',
+        screenX: 30,
+        screenY: 40,
+        name: 'Puerto Viejo',
+      });
+    });
+
+    it('district mousemove handler does not call callback when no district is nearby', () => {
+      const renderer = makeRenderer();
+      const cb = vi.fn();
+      renderer.subscribeHover(cb);
+
+      mockMap.queryRenderedFeatures.mockReturnValueOnce([]);
+
+      const moveHandler = (
+        mockMap.on as ReturnType<typeof vi.fn>
+      ).mock.calls.find(
+        (c: unknown[]) => c[0] === 'mousemove' && c[1] === 'districts-points',
+      )?.[2] as (e: { point: { x: number; y: number } }) => void;
+
+      moveHandler({ point: { x: 30, y: 40 } });
+
+      expect(cb).not.toHaveBeenCalled();
+    });
+
+    it('district mouseleave handler calls callback with null and resets cursor', () => {
+      const canvasStyle = { cursor: 'pointer' };
+      mockMap.getCanvas.mockReturnValue({ style: canvasStyle });
+
+      const renderer = makeRenderer();
+      const cb = vi.fn();
+      renderer.subscribeHover(cb);
+
+      const leaveHandler = (
+        mockMap.on as ReturnType<typeof vi.fn>
+      ).mock.calls.find(
+        (c: unknown[]) => c[0] === 'mouseleave' && c[1] === 'districts-points',
+      )?.[2] as () => void;
+
+      leaveHandler();
+
+      expect(cb).toHaveBeenCalledWith(null);
+      expect(canvasStyle.cursor).toBe('');
     });
   });
 

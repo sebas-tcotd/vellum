@@ -96,13 +96,22 @@ export interface LayerOptions {
      */
     colorByCategory: boolean;
   };
+  districts: {
+    /**
+     * When `true`, each district renders its name as a text label anchored to
+     * its `.cslmap` point instead of the default marker circle. Alternative
+     * display modes — never both at once.
+     */
+    showNameOnMap: boolean;
+  };
 }
 
-/** `LayerOptions` with every mode/category visible and RICO coloring off — the app's starting state. */
+/** `LayerOptions` with every mode/category visible, RICO coloring off, and district markers (not names) shown — the app's starting state. */
 export const DEFAULT_LAYER_OPTIONS: LayerOptions = {
   transit: { visibleModes: [...TRANSIT_MODES] },
   buildings: {
     visibleCategories: [...BUILDING_SERVICE_CATEGORIES],
     colorByCategory: false,
   },
+  districts: { showNameOnMap: false },
 };

@@ -24,7 +24,7 @@ export const LAYER_ID_MAP: Record<LayerName, string[]> = {
   ],
   buildings: ['buildings-fill', 'buildings-outline', 'service-icons'],
   forests: ['forests-circles'],
-  districts: ['districts-points'],
+  districts: ['districts-points', 'districts-labels'],
 };
 
 /** Multiplier applied to each non-transit layer's baseline opacity when the Transit theme is active. */
@@ -39,7 +39,12 @@ export const TRANSIT_DIM_FACTOR = 0.15;
 export const NON_TRANSIT_OPACITY: Record<
   string,
   {
-    prop: 'fill-opacity' | 'line-opacity' | 'circle-opacity' | 'icon-opacity';
+    prop:
+      | 'fill-opacity'
+      | 'line-opacity'
+      | 'circle-opacity'
+      | 'icon-opacity'
+      | 'text-opacity';
     base: unknown;
   }
 > = {
@@ -69,4 +74,5 @@ export const NON_TRANSIT_OPACITY: Record<
     ] as unknown,
   },
   'districts-points': { prop: 'circle-opacity', base: 1 },
+  'districts-labels': { prop: 'text-opacity', base: 1 },
 };

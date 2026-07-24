@@ -61,7 +61,8 @@
   },
   "layerOptionsPanel": {
     "close": "Close advanced options",
-    "colorByCategory": "Color by category"
+    "colorByCategory": "Color by category",
+    "showDistrictNamesOnMap": "Show name on map"
   },
   "export": {
     "title": "Export Map",

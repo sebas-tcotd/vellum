@@ -23,6 +23,7 @@ describe('MapTooltip', () => {
       <MapTooltip
         {...makeProps({
           info: {
+            kind: 'transit',
             screenX: 100,
             screenY: 100,
             lines: [
@@ -52,6 +53,7 @@ describe('MapTooltip', () => {
       <MapTooltip
         {...makeProps({
           info: {
+            kind: 'transit',
             screenX: 50,
             screenY: 50,
             lines: [{ name: 'Bus 1', color: '#FF0000', mode: 'Bus' }],
@@ -72,6 +74,7 @@ describe('MapTooltip', () => {
           containerWidth: 300,
           containerHeight: 600,
           info: {
+            kind: 'transit',
             screenX: 250,
             screenY: 100,
             lines: [{ name: 'Line', color: '#000', mode: 'Bus' }],
@@ -92,6 +95,7 @@ describe('MapTooltip', () => {
           containerWidth: 800,
           containerHeight: 200,
           info: {
+            kind: 'transit',
             screenX: 100,
             screenY: 180,
             lines: [{ name: 'Line', color: '#000', mode: 'Bus' }],
@@ -104,6 +108,26 @@ describe('MapTooltip', () => {
     expect(tooltip.style.top).toBe('108px');
   });
 
+  it('renders only the district name when info.kind is "district"', () => {
+    render(
+      <MapTooltip
+        {...makeProps({
+          info: {
+            kind: 'district',
+            screenX: 40,
+            screenY: 40,
+            name: 'Puerto Viejo',
+          },
+        })}
+      />,
+    );
+    expect(screen.getByText('Puerto Viejo')).toBeTruthy();
+    // No transit-only markup (color dots) leaks into the district variant
+    expect(document.querySelectorAll('span[aria-hidden="true"]')).toHaveLength(
+      0,
+    );
+  });
+
   it('positions to the right and below when not near any edge', () => {
     const { container } = render(
       <MapTooltip
@@ -111,6 +135,7 @@ describe('MapTooltip', () => {
           containerWidth: 800,
           containerHeight: 600,
           info: {
+            kind: 'transit',
             screenX: 100,
             screenY: 100,
             lines: [{ name: 'Line', color: '#000', mode: 'Bus' }],

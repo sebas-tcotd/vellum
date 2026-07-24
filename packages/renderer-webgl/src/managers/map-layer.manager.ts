@@ -13,6 +13,11 @@ import type { ResolvedColors } from '../style-adapter';
  * Manages the visibility, styling, and dynamic filtering of MapLibre layers.
  */
 export class MapLayerManager {
+  /** Whether the `districts` layer is currently toggled on via `setVisibility`. */
+  private districtsVisible = false;
+  /** Current `LayerOptions.districts.showNameOnMap` — mirrors `DEFAULT_LAYER_OPTIONS`. */
+  private districtsShowNameOnMap = false;
+
   constructor(
     private readonly map: maplibregl.Map,
     private colors: ResolvedColors,
@@ -29,6 +34,12 @@ export class MapLayerManager {
    * @param visible - `true` to show, `false` to hide.
    */
   setVisibility(layer: LayerName, visible: boolean): void {
+    if (layer === 'districts') {
+      this.districtsVisible = visible;
+      this.applyDistrictsVisibility();
+      return;
+    }
+
     const ids = LAYER_ID_MAP[layer];
     for (const id of ids) {
       if (!this.map.getLayer(id)) continue;
@@ -38,6 +49,26 @@ export class MapLayerManager {
         visible ? 'visible' : 'none',
       );
     }
+  }
+
+  /**
+   * Reconciles `districts-points` and `districts-labels` visibility: exactly
+   * one is shown at a time (never both), gated by the `districts` layer
+   * toggle and `LayerOptions.districts.showNameOnMap`.
+   */
+  private applyDistrictsVisibility(): void {
+    const showPoints = this.districtsVisible && !this.districtsShowNameOnMap;
+    const showLabels = this.districtsVisible && this.districtsShowNameOnMap;
+    this.setLayoutIfExists(
+      'districts-points',
+      'visibility',
+      showPoints ? 'visible' : 'none',
+    );
+    this.setLayoutIfExists(
+      'districts-labels',
+      'visibility',
+      showLabels ? 'visible' : 'none',
+    );
   }
 
   /**
@@ -102,6 +133,9 @@ export class MapLayerManager {
       'line-color',
       buildBuildingColorExpression(this.colors, 'stroke', colorByCategory),
     );
+
+    this.districtsShowNameOnMap = options.districts.showNameOnMap;
+    this.applyDistrictsVisibility();
   }
 
   /**
@@ -144,6 +178,8 @@ export class MapLayerManager {
       'circle-stroke-color',
       c.districtLabel,
     );
+    this.setPaintIfExists('districts-labels', 'text-color', c.districtLabel);
+    this.setPaintIfExists('districts-labels', 'text-halo-color', c.background);
 
     const fillExpr = buildRoadColorExpression(c, 'fill');
     const casingExpr = buildRoadColorExpression(c, 'casing');
@@ -167,6 +203,16 @@ export class MapLayerManager {
   ): void {
     if (!this.map.getLayer(layerId)) return;
     this.map.setPaintProperty(layerId, prop as never, value as never);
+  }
+
+  /** Sets a layout property only if the layer currently exists (a visibility/options update may run before a city is loaded). */
+  private setLayoutIfExists(
+    layerId: string,
+    prop: string,
+    value: unknown,
+  ): void {
+    if (!this.map.getLayer(layerId)) return;
+    this.map.setLayoutProperty(layerId, prop as never, value as never);
   }
 
   /** Sets a layer's `filter` only if the layer currently exists (a theme/options update may run before a city is loaded). */

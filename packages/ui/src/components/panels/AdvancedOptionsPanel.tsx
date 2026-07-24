@@ -43,7 +43,7 @@ function OptionRow({ label, checked, onCheckedChange }: OptionRowProps) {
 
 /** Props for {@link AdvancedOptionsPanel}. */
 export interface AdvancedOptionsPanelProps {
-  /** Which layer's options to render — only `'transit'` and `'buildings'` have any. */
+  /** Which layer's options to render — only `'transit'`, `'buildings'`, and `'districts'` have any. */
   layer: LayerName;
   visibleModes: TransitMode[];
   onToggleMode: (mode: TransitMode) => void;
@@ -52,6 +52,9 @@ export interface AdvancedOptionsPanelProps {
   /** Whether R/I/C/O buildings render in fixed RICO colors instead of the theme default. */
   colorByCategory: boolean;
   onToggleColorByCategory: (enabled: boolean) => void;
+  /** Whether districts render as a text label on the map instead of the default marker circle. */
+  showDistrictNamesOnMap: boolean;
+  onToggleShowDistrictNamesOnMap: (enabled: boolean) => void;
 }
 
 /**
@@ -67,6 +70,8 @@ export function AdvancedOptionsPanel({
   onToggleCategory,
   colorByCategory,
   onToggleColorByCategory,
+  showDistrictNamesOnMap,
+  onToggleShowDistrictNamesOnMap,
 }: AdvancedOptionsPanelProps) {
   const { t } = useTranslation();
 
@@ -103,6 +108,16 @@ export function AdvancedOptionsPanel({
           />
         ))}
       </div>
+    );
+  }
+
+  if (layer === 'districts') {
+    return (
+      <OptionRow
+        label={t('layerOptionsPanel.showDistrictNamesOnMap')}
+        checked={showDistrictNamesOnMap}
+        onCheckedChange={onToggleShowDistrictNamesOnMap}
+      />
     );
   }
 

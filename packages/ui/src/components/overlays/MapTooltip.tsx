@@ -36,11 +36,13 @@ function computeStyle(
 }
 
 /**
- * Floating tooltip that appears when hovering over a transit stop on the map.
+ * Floating tooltip that appears when hovering over a transit stop or a
+ * district marker on the map.
  *
  * @remarks
- * Renders `null` when `info` is `null`. Transit stops in the `.cslmap` format
- * do not have names — only the transit lines serving each stop have names.
+ * Renders `null` when `info` is `null`. Branches on `info.kind`: transit
+ * stops in the `.cslmap` format do not have names — only the transit lines
+ * serving each stop have names — while districts render a single-line name.
  * Positioned with edge-awareness so it stays within the canvas container.
  */
 export function MapTooltip({
@@ -60,6 +62,19 @@ export function MapTooltip({
     containerHeight,
     measuredHeight,
   );
+
+  if (info.kind === 'district') {
+    return (
+      <div
+        ref={divRef}
+        style={style}
+        className="bg-neutral-900/95 text-white rounded-md shadow-lg px-3 py-2 text-sm min-w-28 max-w-52"
+      >
+        <span className="text-xs opacity-90 truncate block">{info.name}</span>
+      </div>
+    );
+  }
+
   return (
     <div
       ref={divRef}

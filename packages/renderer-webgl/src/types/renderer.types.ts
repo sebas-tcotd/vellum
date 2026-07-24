@@ -10,7 +10,8 @@ export type TransitLineInfo = {
 };
 
 /** Info emitted by the hover subscription when the cursor enters a transit-stop feature. */
-export interface TooltipInfo {
+export interface TransitTooltipInfo {
+  kind: 'transit';
   /** Canvas-relative X pixel of the cursor (matches MapLibre event.point.x). */
   screenX: number;
   /** Canvas-relative Y pixel of the cursor (matches MapLibre event.point.y). */
@@ -21,6 +22,20 @@ export interface TooltipInfo {
    */
   lines: TransitLineInfo[];
 }
+
+/** Info emitted by the hover subscription when the cursor enters a district marker (points display mode). */
+export interface DistrictTooltipInfo {
+  kind: 'district';
+  /** Canvas-relative X pixel of the cursor (matches MapLibre event.point.x). */
+  screenX: number;
+  /** Canvas-relative Y pixel of the cursor (matches MapLibre event.point.y). */
+  screenY: number;
+  /** Name of the hovered district. */
+  name: string;
+}
+
+/** Hover info emitted by `subscribeHover`, discriminated by the feature kind under the cursor. */
+export type TooltipInfo = TransitTooltipInfo | DistrictTooltipInfo;
 
 /** Geographic viewport state emitted by the minimap subscription. */
 export interface ViewportBounds {

@@ -61,7 +61,8 @@
   },
   "layerOptionsPanel": {
     "close": "Cerrar opciones avanzadas",
-    "colorByCategory": "Colorear por categoría"
+    "colorByCategory": "Colorear por categoría",
+    "showDistrictNamesOnMap": "Mostrar nombre en el mapa"
   },
   "export": {
     "title": "Exportar mapa",

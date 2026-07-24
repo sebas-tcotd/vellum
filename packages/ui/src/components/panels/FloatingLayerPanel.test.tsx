@@ -26,6 +26,7 @@ const mockSetTransitDimmingEnabled = vi.fn();
 const mockToggleTransitMode = vi.fn();
 const mockToggleBuildingCategory = vi.fn();
 const mockSetBuildingColorByCategory = vi.fn();
+const mockSetDistrictsShowNameOnMap = vi.fn();
 let mockAvailableThemes: ThemeMetadata[] = [];
 let mockActiveTheme = 'day';
 let mockTransitDimmingEnabled = false;
@@ -48,6 +49,7 @@ const mockLayerOptions = {
     visibleCategories: ['residential', 'commercial', 'office', 'industry'],
     colorByCategory: false,
   },
+  districts: { showNameOnMap: false },
 };
 
 vi.mock('../../store/vellum-store', () => ({
@@ -64,6 +66,7 @@ vi.mock('../../store/vellum-store', () => ({
       toggleTransitMode: mockToggleTransitMode,
       toggleBuildingCategory: mockToggleBuildingCategory,
       setBuildingColorByCategory: mockSetBuildingColorByCategory,
+      setDistrictsShowNameOnMap: mockSetDistrictsShowNameOnMap,
     }),
 }));
 

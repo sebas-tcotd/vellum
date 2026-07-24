@@ -249,10 +249,11 @@ interface PanelLayerListProps {
   onToggleExpanded: (layer: LayerName) => void;
 }
 
-/** Layers that have an advanced-options sub-panel (transit-mode filter, buildings RICO filter). */
+/** Layers that have an advanced-options sub-panel (transit-mode filter, buildings RICO filter, districts label mode). */
 const LAYERS_WITH_ADVANCED_OPTIONS = new Set<LayerName>([
   'transit',
   'buildings',
+  'districts',
 ]);
 
 function PanelLayerList({
@@ -323,6 +324,9 @@ function AdvancedOptionsFloatingPanel({
   const setBuildingColorByCategory = useVellumStore(
     (s) => s.setBuildingColorByCategory,
   );
+  const setDistrictsShowNameOnMap = useVellumStore(
+    (s) => s.setDistrictsShowNameOnMap,
+  );
   const layerName = t(`layers.${layer}`);
 
   return (
@@ -355,6 +359,8 @@ function AdvancedOptionsFloatingPanel({
         onToggleCategory={toggleBuildingCategory}
         colorByCategory={layerOptions.buildings.colorByCategory}
         onToggleColorByCategory={setBuildingColorByCategory}
+        showDistrictNamesOnMap={layerOptions.districts.showNameOnMap}
+        onToggleShowDistrictNamesOnMap={setDistrictsShowNameOnMap}
       />
     </div>
   );

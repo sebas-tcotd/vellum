@@ -7,16 +7,27 @@
 
 import type { TransitMode } from '@vellum/core';
 import type maplibregl from 'maplibre-gl';
-import type { TransitStopFeatureProperties } from '../geojson';
+import type {
+  DistrictFeatureProperties,
+  TransitStopFeatureProperties,
+} from '../geojson';
 import type { ViewportBounds } from '../map-libre-renderer';
 import { SERVICE_GROUPS, SERVICE_ICONS_MIN_ZOOM } from '../service-icons';
 import type { ServiceGroup } from '../service-icons';
-import type { ServiceIconLegendState } from '../types/renderer.types';
+import type {
+  DistrictTooltipInfo,
+  ServiceIconLegendState,
+  TooltipInfo,
+  TransitTooltipInfo,
+} from '../types/renderer.types';
 
 type TransitLineInfo = { name: string; color: string; mode: TransitMode };
 
 /** Station hit-test layers: the detail-zoom capsule and the overview-zoom dot. */
 const STATION_HIT_LAYERS = ['transit-stops', 'transit-stops-dot'];
+
+/** District hover hit-test layer — only active in the default "points" display mode. */
+const DISTRICT_HIT_LAYER = 'districts-points';
 
 /** Narrows a raw feature-property value to a known `ServiceGroup`, rejecting anything else. */
 function isServiceGroup(value: unknown): value is ServiceGroup {
@@ -135,22 +146,23 @@ export function subscribeServiceIconLegend(
 }
 
 /**
- * Subscribes to hover events over transit-stop features.
+ * Subscribes to hover events over transit-stop and district-marker features.
  *
  * @remarks
  * Uses layer-filtered MapLibre events (`mousemove`/`mouseleave` on
- * `transit-stops`) so the handler only fires when the cursor is over a stop
- * feature. A ±6px bbox query handles visually overlapping stops.
+ * `transit-stops`/`districts-points`) so each handler only fires when the
+ * cursor is over its own feature kind. A ±6px bbox query handles visually
+ * overlapping features. Districts only emit hover in the default "points"
+ * display mode — `districts-points` is hidden (and un-queryable) while the
+ * "text on map" mode is active, so no extra kind-check is needed here.
  *
- * @returns Cleanup function that unregisters both listeners.
+ * @returns Cleanup function that unregisters all listeners.
  */
 export function subscribeHover(
   map: maplibregl.Map,
-  callback: (
-    info: { screenX: number; screenY: number; lines: TransitLineInfo[] } | null,
-  ) => void,
+  callback: (info: TooltipInfo | null) => void,
 ): () => void {
-  const handleMove = (
+  const handleTransitMove = (
     e: maplibregl.MapMouseEvent & {
       features?: maplibregl.MapGeoJSONFeature[];
     },
@@ -189,7 +201,39 @@ export function subscribeHover(
     if (allLines.length === 0) return;
 
     map.getCanvas().style.cursor = 'pointer';
-    callback({ screenX: e.point.x, screenY: e.point.y, lines: allLines });
+    const info: TransitTooltipInfo = {
+      kind: 'transit',
+      screenX: e.point.x,
+      screenY: e.point.y,
+      lines: allLines,
+    };
+    callback(info);
+  };
+
+  const handleDistrictMove = (
+    e: maplibregl.MapMouseEvent & {
+      features?: maplibregl.MapGeoJSONFeature[];
+    },
+  ) => {
+    const bbox: [maplibregl.PointLike, maplibregl.PointLike] = [
+      [e.point.x - 6, e.point.y - 6],
+      [e.point.x + 6, e.point.y + 6],
+    ];
+    const nearby = map.queryRenderedFeatures(bbox, {
+      layers: [DISTRICT_HIT_LAYER],
+    });
+    const feature = nearby[0];
+    if (!feature?.properties) return;
+    const props = feature.properties as DistrictFeatureProperties;
+
+    map.getCanvas().style.cursor = 'pointer';
+    const info: DistrictTooltipInfo = {
+      kind: 'district',
+      screenX: e.point.x,
+      screenY: e.point.y,
+      name: props.name,
+    };
+    callback(info);
   };
 
   const handleLeave = () => {
@@ -201,14 +245,18 @@ export function subscribeHover(
   // dot at overview zoom (where the capsule is sub-pixel). Registering on both
   // keeps stops interactive at every zoom, matching the visible geometry.
   for (const layer of STATION_HIT_LAYERS) {
-    map.on('mousemove', layer, handleMove);
+    map.on('mousemove', layer, handleTransitMove);
     map.on('mouseleave', layer, handleLeave);
   }
+  map.on('mousemove', DISTRICT_HIT_LAYER, handleDistrictMove);
+  map.on('mouseleave', DISTRICT_HIT_LAYER, handleLeave);
 
   return () => {
     for (const layer of STATION_HIT_LAYERS) {
-      map.off('mousemove', layer, handleMove);
+      map.off('mousemove', layer, handleTransitMove);
       map.off('mouseleave', layer, handleLeave);
     }
+    map.off('mousemove', DISTRICT_HIT_LAYER, handleDistrictMove);
+    map.off('mouseleave', DISTRICT_HIT_LAYER, handleLeave);
   };
 }

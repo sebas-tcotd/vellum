@@ -26,12 +26,21 @@ const GRID_SVG = `<svg width="40" height="40" xmlns="http://www.w3.org/2000/svg"
     opacity="0.25"/>
 </svg>`;
 
+/**
+ * SDF glyph PBFs for the district-name text layer, pre-generated from DM Mono
+ * (`apps/desktop/scripts/generate-district-glyphs.sh`) and served as static
+ * assets — no external glyph CDN at runtime, matching the offline-first
+ * desktop app.
+ */
+const GLYPHS_URL = 'glyphs/{fontstack}/{range}.pbf';
+
 /** Returns the minimal MapLibre style containing only the solid background. */
 export function createBaseStyle(
   colors: ResolvedColors,
 ): maplibregl.StyleSpecification {
   return {
     version: 8,
+    glyphs: GLYPHS_URL,
     sources: {},
     layers: [
       {

@@ -122,6 +122,9 @@ interface VellumStore {
   /** Toggles the RICO "color by category" overlay for buildings. */
   setBuildingColorByCategory: (enabled: boolean) => void;
 
+  /** Toggles between the district marker circle (off) and the text-label display mode (on). */
+  setDistrictsShowNameOnMap: (enabled: boolean) => void;
+
   /** Replaces the theme-loading warnings. Pass [] to clear. */
   setThemeWarnings: (warnings: ThemeWarning[]) => void;
 
@@ -253,6 +256,14 @@ export const useVellumStore = create<VellumStore>((set, get) => ({
           ...state.layerOptions.buildings,
           colorByCategory: enabled,
         },
+      },
+    })),
+
+  setDistrictsShowNameOnMap: (enabled) =>
+    set((state) => ({
+      layerOptions: {
+        ...state.layerOptions,
+        districts: { showNameOnMap: enabled },
       },
     })),
 

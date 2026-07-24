@@ -267,10 +267,10 @@ export class MapLibreRenderer implements IRenderer {
   }
 
   /**
-   * Subscribes to hover events over transit-stop features.
+   * Subscribes to hover events over transit-stop and district-marker features.
    *
-   * @param callback - Called with `TooltipInfo` when entering a stop, `null` when leaving.
-   * @returns Cleanup function that unregisters both listeners.
+   * @param callback - Called with `TooltipInfo` when entering a feature, `null` when leaving.
+   * @returns Cleanup function that unregisters all listeners.
    */
   subscribeHover(callback: (info: TooltipInfo | null) => void): () => void {
     return subscribeHoverImpl(this.map, callback);
