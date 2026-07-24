@@ -1,0 +1,149 @@
+{
+  "color-space-for-untagged-svg-colors": "display-p3",
+  "fill-specializations": [
+    {
+      "value": {
+        "linear-gradient": [
+          "display-p3:0.96863,0.96471,0.94902,1.00000",
+          "srgb:0.82745,0.78824,0.75686,1.00000"
+        ],
+        "orientation": {
+          "start": {
+            "x": 0.5,
+            "y": 0
+          },
+          "stop": {
+            "x": 0.5,
+            "y": 0.7
+          }
+        }
+      }
+    },
+    {
+      "appearance": "dark",
+      "value": {
+        "linear-gradient": [
+          "display-p3:0.28235,0.25098,0.21176,1.00000",
+          "srgb:0.16471,0.14510,0.12157,1.00000"
+        ],
+        "orientation": {
+          "start": {
+            "x": 0.5,
+            "y": 0
+          },
+          "stop": {
+            "x": 0.5,
+            "y": 0.7
+          }
+        }
+      }
+    }
+  ],
+  "groups": [
+    {
+      "layers": [
+        {
+          "blend-mode": "normal",
+          "fill-specializations": [
+            {
+              "appearance": "dark",
+              "value": {
+                "linear-gradient": [
+                  "display-p3:0.96863,0.96471,0.94902,1.00000",
+                  "srgb:0.83137,0.78824,0.75686,1.00000"
+                ],
+                "orientation": {
+                  "start": {
+                    "x": 0.5,
+                    "y": 0
+                  },
+                  "stop": {
+                    "x": 0.5,
+                    "y": 0.7
+                  }
+                }
+              }
+            },
+            {
+              "appearance": "tinted",
+              "value": {
+                "solid": "srgb:0.96863,0.96471,0.94902,1.00000"
+              }
+            }
+          ],
+          "glass": true,
+          "image-name": "V_light.svg",
+          "name": "V_light",
+          "position": {
+            "scale": 0.45,
+            "translation-in-points": [-24.396484835930096, 67.1169459987849]
+          }
+        },
+        {
+          "blend-mode": "normal",
+          "fill-specializations": [
+            {
+              "appearance": "dark",
+              "value": {
+                "linear-gradient": [
+                  "display-p3:0.91373,0.82353,0.70980,1.00000",
+                  "srgb:0.50196,0.43922,0.37647,1.00000"
+                ],
+                "orientation": {
+                  "start": {
+                    "x": 0.5,
+                    "y": 0
+                  },
+                  "stop": {
+                    "x": 0.5,
+                    "y": 0.7
+                  }
+                }
+              }
+            },
+            {
+              "appearance": "tinted",
+              "value": "automatic"
+            }
+          ],
+          "glass-specializations": [
+            {
+              "value": false
+            },
+            {
+              "appearance": "tinted",
+              "value": true
+            }
+          ],
+          "image-name": "brujula_light.svg",
+          "name": "brujula_light",
+          "opacity-specializations": [
+            {
+              "value": 0.5
+            },
+            {
+              "appearance": "tinted",
+              "value": 1
+            }
+          ],
+          "position": {
+            "scale": 1.88,
+            "translation-in-points": [0, 0]
+          }
+        }
+      ],
+      "shadow": {
+        "kind": "neutral",
+        "opacity": 0.5
+      },
+      "translucency": {
+        "enabled": true,
+        "value": 0.5
+      }
+    }
+  ],
+  "supported-platforms": {
+    "circles": ["watchOS"],
+    "squares": "shared"
+  }
+}
