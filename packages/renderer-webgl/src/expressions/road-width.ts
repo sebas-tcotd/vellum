@@ -87,3 +87,19 @@ export const ROAD_CASING_WIDTH_EXPR: maplibregl.ExpressionSpecification =
         [zoom, widthOutput(factor, CASING_ADD_PX[i])] as const,
     ),
   );
+
+// Shadow add-px per stop — roughly 3× casing so the shadow is always wider.
+const SHADOW_ADD_PX: readonly number[] = [1.5, 2.7, 3.3, 7.2, 12];
+
+/**
+ * Shadow line width for bridge/elevated roads: a wider semi-transparent line
+ * beneath the casing that creates a visual depth cue so elevated roads read as
+ * raised above the surface network.
+ */
+export const ROAD_SHADOW_WIDTH_EXPR: maplibregl.ExpressionSpecification =
+  buildWidthExpr(
+    FACTOR_STOPS.map(
+      ([zoom, factor], i) =>
+        [zoom, widthOutput(factor, SHADOW_ADD_PX[i])] as const,
+    ),
+  );

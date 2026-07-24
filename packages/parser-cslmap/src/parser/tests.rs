@@ -229,8 +229,7 @@ fn way_type_from_item_class_covers_main_cases() {
     let ped_elevated = handlers::roads::way_type_from_item_class("Pedestrian Path Elevated");
     assert!(
         matches!(ped_elevated[0], WayType::Pedestrian),
-        "expected Pedestrian, got {:?}",
-        ped_elevated
+        "expected Pedestrian, got {ped_elevated:?}"
     );
     assert!(
         ped_elevated.iter().any(|t| matches!(t, WayType::Elevated)),
@@ -241,8 +240,7 @@ fn way_type_from_item_class_covers_main_cases() {
     let ped_bridge = handlers::roads::way_type_from_item_class("Pedestrian Bridge");
     assert!(
         matches!(ped_bridge[0], WayType::Pedestrian),
-        "expected Pedestrian, got {:?}",
-        ped_bridge
+        "expected Pedestrian, got {ped_bridge:?}"
     );
     assert!(
         ped_bridge.iter().any(|t| matches!(t, WayType::Bridge)),
@@ -253,8 +251,7 @@ fn way_type_from_item_class_covers_main_cases() {
     let ped_tunnel = handlers::roads::way_type_from_item_class("Pedestrian Tunnel");
     assert!(
         matches!(ped_tunnel[0], WayType::Pedestrian),
-        "expected Pedestrian, got {:?}",
-        ped_tunnel
+        "expected Pedestrian, got {ped_tunnel:?}"
     );
     assert!(
         ped_tunnel.iter().any(|t| matches!(t, WayType::Tunnel)),

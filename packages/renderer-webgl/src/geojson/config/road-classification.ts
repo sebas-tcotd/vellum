@@ -31,9 +31,13 @@ export const ITEM_CLASS_TIER: Readonly<Record<string, RoadTier>> = {
   'Monorail Track': 'metro',
   'Monorail Track Elevated': 'metro',
   'Highway Tunnel': 'highway',
+  'Highway Elevated': 'highway',
   'Large Road Tunnel': 'largeArterial',
+  'Large Road Elevated': 'largeArterial',
   'Medium Road Tunnel': 'mediumArterial',
+  'Medium Road Elevated': 'mediumArterial',
   'Small Road Tunnel': 'local',
+  'Small Road Elevated': 'local',
   'Pedestrian Tunnel': 'pedestrianWay',
   'Pedestrian Bridge': 'pedestrian',
 };

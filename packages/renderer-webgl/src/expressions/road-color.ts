@@ -14,10 +14,30 @@ import type maplibregl from 'maplibre-gl';
 import type { RoadTier } from '../geojson';
 import type { ResolvedColors } from '../style-adapter';
 
-/** Builds a MapLibre data-driven color expression mapping tier → color. */
+/** Bridge casings are shaded darker than at-grade casings so elevated roads read as raised. */
+export const BRIDGE_CASING_DARKEN_PERCENT = 50;
+
+/** Darkens a `#rrggbb` hex color by subtracting `percent`% of 255 from each channel. */
+function darkenHex(hex: string, percent: number): string {
+  const n = parseInt(hex.slice(1), 16);
+  const delta = Math.round((255 * percent) / 100);
+  const r = Math.max(0, (n >> 16) - delta);
+  const g = Math.max(0, ((n >> 8) & 0xff) - delta);
+  const b = Math.max(0, (n & 0xff) - delta);
+  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
+}
+
+/**
+ * Builds a MapLibre data-driven color expression mapping tier → color.
+ *
+ * @param darkenPercent - Optional darkening (0-100) applied to every color in
+ * the table, e.g. for bridge casings — CS1 shades elevated-road outlines
+ * darker than at-grade ones so they read as raised above the network.
+ */
 export function buildRoadColorExpression(
   colors: ResolvedColors,
   type: 'fill' | 'casing',
+  darkenPercent = 0,
 ): maplibregl.ExpressionSpecification {
   const table = type === 'fill' ? colors.roadFill : colors.roadCasing;
 
@@ -27,10 +47,14 @@ export function buildRoadColorExpression(
 
   for (const tier of Object.keys(table) as RoadTier[]) {
     matchArgs.push(tier);
-    matchArgs.push(table[tier]);
+    matchArgs.push(
+      darkenPercent > 0 ? darkenHex(table[tier], darkenPercent) : table[tier],
+    );
   }
 
-  matchArgs.push(table.local);
+  matchArgs.push(
+    darkenPercent > 0 ? darkenHex(table.local, darkenPercent) : table.local,
+  );
 
   return [
     'match',

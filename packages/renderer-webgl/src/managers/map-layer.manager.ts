@@ -6,7 +6,10 @@ import {
   TRANSIT_DIM_FACTOR,
 } from '../constants/layer.constants';
 import { buildBuildingColorExpression } from '../expressions/building-color';
-import { buildRoadColorExpression } from '../expressions/road-color';
+import {
+  buildRoadColorExpression,
+  BRIDGE_CASING_DARKEN_PERCENT,
+} from '../expressions/road-color';
 import type { ResolvedColors } from '../style-adapter';
 
 /**
@@ -184,12 +187,14 @@ export class MapLayerManager {
     const fillExpr = buildRoadColorExpression(c, 'fill');
     const casingExpr = buildRoadColorExpression(c, 'casing');
     this.setPaintIfExists('roads-fill', 'line-color', fillExpr);
-    this.setPaintIfExists('roads-tunnel-bridge-fill', 'line-color', fillExpr);
+    this.setPaintIfExists('roads-tunnel-fill', 'line-color', fillExpr);
+    this.setPaintIfExists('roads-bridge-fill', 'line-color', fillExpr);
     this.setPaintIfExists('roads-casing', 'line-color', casingExpr);
+    this.setPaintIfExists('roads-tunnel-casing', 'line-color', casingExpr);
     this.setPaintIfExists(
-      'roads-tunnel-bridge-casing',
+      'roads-bridge-casing',
       'line-color',
-      casingExpr,
+      buildRoadColorExpression(c, 'casing', BRIDGE_CASING_DARKEN_PERCENT),
     );
     this.setPaintIfExists(
       'roads-railway-surface-casing',
