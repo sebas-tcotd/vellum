@@ -57,6 +57,35 @@ fn landscaping_structures_excluded_from_road_segments() {
     );
 }
 
+// Ordinary roads (Small/Medium/Large Road) keep the same `icls` whether they run
+// at grade or on a viaduct — their elevation lives only on `<Node elev ug>`.
+// Without reading it, elevated normal roads render at grade (no bridge casing,
+// wrong draw order), while `Pedestrian Bridge` looked fine because CS1 gives it a
+// dedicated item class.
+#[test]
+fn node_elevation_marks_normal_roads_as_elevated() {
+    use crate::city_data::WayType;
+    let bytes = include_bytes!("../../fixtures/aurelia-del-delta.cslmap");
+    let city = parse_cslmap_bytes(bytes).expect("fixture must parse");
+
+    let elevated_normal = city
+        .road_segments
+        .iter()
+        .filter(|s| {
+            matches!(
+                s.item_class.as_str(),
+                "Small Road" | "Medium Road" | "Large Road"
+            )
+        })
+        .filter(|s| s.way_type.iter().any(|t| matches!(t, WayType::Elevated)))
+        .count();
+
+    assert!(
+        elevated_normal > 0,
+        "expected elevated Small/Medium/Large Road segments from node elev, got 0"
+    );
+}
+
 // Bus Line route reconstruction: each transit line assembles its full route from
 // per-stop-pair Bus Line virtual segs, keyed by (sn, en). Verifies with Altavento
 // fixture (36 Bus Line segs across 4 Trans: 16+20 stop pairs).
@@ -194,6 +223,42 @@ fn way_type_from_item_class_covers_main_cases() {
     assert!(
         elevated.iter().any(|t| matches!(t, WayType::Elevated)),
         "expected Elevated flag in {elevated:?}"
+    );
+
+    // "Pedestrian Path Elevated" → [Pedestrian, Elevated]
+    let ped_elevated = handlers::roads::way_type_from_item_class("Pedestrian Path Elevated");
+    assert!(
+        matches!(ped_elevated[0], WayType::Pedestrian),
+        "expected Pedestrian, got {:?}",
+        ped_elevated
+    );
+    assert!(
+        ped_elevated.iter().any(|t| matches!(t, WayType::Elevated)),
+        "expected Elevated flag in {ped_elevated:?}"
+    );
+
+    // "Pedestrian Bridge" → [Pedestrian, Bridge]
+    let ped_bridge = handlers::roads::way_type_from_item_class("Pedestrian Bridge");
+    assert!(
+        matches!(ped_bridge[0], WayType::Pedestrian),
+        "expected Pedestrian, got {:?}",
+        ped_bridge
+    );
+    assert!(
+        ped_bridge.iter().any(|t| matches!(t, WayType::Bridge)),
+        "expected Bridge flag in {ped_bridge:?}"
+    );
+
+    // "Pedestrian Tunnel" → [Pedestrian, Tunnel]
+    let ped_tunnel = handlers::roads::way_type_from_item_class("Pedestrian Tunnel");
+    assert!(
+        matches!(ped_tunnel[0], WayType::Pedestrian),
+        "expected Pedestrian, got {:?}",
+        ped_tunnel
+    );
+    assert!(
+        ped_tunnel.iter().any(|t| matches!(t, WayType::Tunnel)),
+        "expected Tunnel flag in {ped_tunnel:?}"
     );
 
     // Truly unknown (no road/highway/pedestrian/bicycle keyword) → [None]

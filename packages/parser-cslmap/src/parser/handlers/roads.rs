@@ -13,14 +13,13 @@ pub fn way_type_from_item_class(item_class: &str) -> Vec<crate::city_data::WayTy
     use crate::city_data::WayType;
     let s = item_class.trim_start_matches("[Deprecated]");
 
-    if s.contains("Pedestrian") {
-        return vec![WayType::Pedestrian];
-    }
-    if s.contains("Bicycle") {
-        return vec![WayType::Bicycle];
-    }
-
     let mut types = Vec::new();
+
+    if s.contains("Pedestrian") {
+        types.push(WayType::Pedestrian);
+    } else if s.contains("Bicycle") {
+        types.push(WayType::Bicycle);
+    }
 
     if s.contains("Highway") {
         types.push(WayType::Highway);
@@ -46,6 +45,57 @@ pub fn way_type_from_item_class(item_class: &str) -> Vec<crate::city_data::WayTy
     }
 
     types
+}
+
+/// Vertical placement of a road node, read from `<Node elev ug>`.
+///
+/// CS1 only encodes elevation in the `item_class` for a handful of asset
+/// families (`Pedestrian Bridge`, `Medium Road Tunnel`, …). Ordinary roads
+/// (`Small Road`, `Medium Road`, `Large Road`, `Highway`) keep the same
+/// `icls` whether they run at grade or on a viaduct — their height lives
+/// exclusively on the nodes.
+#[derive(Clone, Copy, Default)]
+pub(crate) struct NodeElevation {
+    elev: f64,
+    underground: bool,
+}
+
+impl NodeElevation {
+    fn is_elevated(self) -> bool {
+        self.elev > 0.0 && !self.underground
+    }
+}
+
+/// Adds `Elevated` / `Underground` to `types` when either end node is off-grade.
+///
+/// A segment with only one raised end is the ramp onto the structure, and CS1
+/// draws it as part of it — so `any` rather than `all`.
+fn apply_node_elevation(
+    types: &mut Vec<crate::city_data::WayType>,
+    start: NodeElevation,
+    end: NodeElevation,
+) {
+    use crate::city_data::WayType;
+
+    if start.is_elevated() || end.is_elevated() {
+        if !types
+            .iter()
+            .any(|t| matches!(t, WayType::Elevated | WayType::Bridge))
+        {
+            types.push(WayType::Elevated);
+        }
+    } else if start.underground || end.underground {
+        if !types
+            .iter()
+            .any(|t| matches!(t, WayType::Underground | WayType::Tunnel))
+        {
+            types.push(WayType::Underground);
+        }
+    } else {
+        return;
+    }
+
+    types.retain(|t| !matches!(t, WayType::None));
 }
 
 // ─── BoundsTracker ───────────────────────────────────────────────────────────
@@ -121,6 +171,7 @@ pub(crate) struct RoadBuilder {
 
     pub(crate) bounds: BoundsTracker,
     pub(crate) node_position_index: HashMap<String, Vec3>,
+    node_elevation_index: HashMap<String, NodeElevation>,
     pub(crate) road_nodes: Vec<RoadNode>,
     pub(crate) road_segments: Vec<RoadSegment>,
     pub(crate) warnings: Vec<String>,
@@ -134,6 +185,13 @@ impl RoadBuilder {
         self.current_seg.is_some()
     }
 
+    fn node_elevation(&self, node_id: &str) -> NodeElevation {
+        self.node_elevation_index
+            .get(node_id)
+            .copied()
+            .unwrap_or_default()
+    }
+
     pub(crate) fn handle_start(
         &mut self,
         e: &quick_xml::events::BytesStart<'_>,
@@ -143,6 +201,13 @@ impl RoadBuilder {
             b"Node" => {
                 self.in_node = true;
                 self.current_node_id = attr_str(e, b"id").unwrap_or_default();
+                self.node_elevation_index.insert(
+                    self.current_node_id.clone(),
+                    NodeElevation {
+                        elev: attr_f64(e, b"elev").unwrap_or(0.0),
+                        underground: attr_str(e, b"ug").as_deref() == Some("true"),
+                    },
+                );
             }
             b"Seg" => {
                 if self.current_seg.is_some() {
@@ -273,11 +338,18 @@ impl RoadBuilder {
                         ));
                     }
 
+                    let mut way_type = way_type_from_item_class(&seg.item_class);
+                    apply_node_elevation(
+                        &mut way_type,
+                        self.node_elevation(&seg.start_node_id),
+                        self.node_elevation(&seg.end_node_id),
+                    );
+
                     self.road_segments.push(RoadSegment {
                         id: seg.id,
                         start_node_id: seg.start_node_id,
                         end_node_id: seg.end_node_id,
-                        way_type: way_type_from_item_class(&seg.item_class),
+                        way_type,
                         item_class: seg.item_class,
                         width: seg.width,
                         points: seg.points,
