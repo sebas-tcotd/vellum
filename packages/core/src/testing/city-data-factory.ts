@@ -1,6 +1,11 @@
 // packages/core/src/testing/city-data-factory.ts
 // Factories para tests — importar desde '@vellum/core/testing' (nunca desde el barrel principal)
-import type { CityData, RoadSegment, TransitLine } from '../types/city-data';
+import type {
+  Building,
+  CityData,
+  RoadSegment,
+  TransitLine,
+} from '../types/city-data';
 import type { LayerVisibility } from '../types/layer';
 import { LAYER_NAMES } from '../types/layer';
 
@@ -71,6 +76,26 @@ export function makeTransitLine(overrides?: Partial<TransitLine>): TransitLine {
     stops: [],
     route: [],
     ...defined,
+  };
+}
+
+/**
+ * Crea un `Building` con valores predeterminados razonables.
+ * Pasar `overrides` para personalizar campos específicos en cada test.
+ */
+export function makeBuilding(overrides?: Partial<Building>): Building {
+  return {
+    id: 'building-1',
+    name: 'Test Building',
+    position: { x: 0, y: 60, z: 0 },
+    itemClass: 'Low Residential - Level1',
+    serviceType: 'ResidentialLow',
+    footprint: [
+      { x: -10, y: 60, z: -10 },
+      { x: 10, y: 60, z: -10 },
+      { x: 0, y: 60, z: 10 },
+    ],
+    ...overrides,
   };
 }
 

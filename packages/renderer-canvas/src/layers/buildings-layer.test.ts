@@ -52,6 +52,7 @@ function triangleFootprint(): Building['footprint'] {
 function makeBuilding(overrides?: Partial<Building>): Building {
   return {
     id: 'building-1',
+    name: 'Test Building',
     position: { x: -1000, y: 60, z: -1000 },
     itemClass: 'Residential',
     serviceType: 'unknown',

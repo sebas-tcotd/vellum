@@ -202,6 +202,8 @@ export type BuildingServiceType =
 export interface Building {
   /** Unique identifier for the building. */
   id: string;
+  /** Asset name as exported from the game. */
+  name: string;
   /** Anchor position of the building in the 3D space. */
   position: Vec3;
   /** The original asset class, used to filter out entities like 'Beautification Item'. */

@@ -16,6 +16,7 @@ export function buildBuildingsGeoJson(
 ): BuildingsFeatureCollection {
   const features = cityData.buildings
     .filter(isValidBuilding)
+    .filter((building) => !isNaturalDecoration(building))
     .map(createBuildingFeature);
 
   return { type: 'FeatureCollection', features };
@@ -25,6 +26,22 @@ export function buildBuildingsGeoJson(
 
 function isValidBuilding(building: Building): boolean {
   return building.footprint.length >= 3;
+}
+
+/**
+ * Matches the vanilla natural-terrain decoration props (rock formations,
+ * boulders, cliffs, caves) that share `itemClass: 'Beautification Item'` with
+ * artificial decorations (ruins, abandoned buildings, piers, parks) the game
+ * gives no distinct class for. Name is the only axis that separates them.
+ */
+const NATURAL_DECORATION_NAME =
+  /^(Rock Formation|Rock Area|Boulder|Cliff|Cave)\b/i;
+
+function isNaturalDecoration(building: Building): boolean {
+  return (
+    building.itemClass === 'Beautification Item' &&
+    NATURAL_DECORATION_NAME.test(building.name)
+  );
 }
 
 function createBuildingFeature(building: Building): BuildingFeature {

@@ -1,11 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import {
+  makeBuilding,
   makeCityData,
   makeRoadSegment,
   makeTransitLine,
 } from '@vellum/core/testing';
 import type { RoadNode } from '@vellum/core';
 import {
+  buildBuildingsGeoJson,
   buildRoadsGeoJson,
   buildTransitGeoJson,
   buildTransitRenderData,
@@ -681,5 +683,52 @@ describe('buildRoadsGeoJson — capEnds', () => {
     );
     expect(byId.has('wire')).toBe(false);
     expect(byId.get('via')?.properties.capEnds).toBe(true);
+  });
+});
+
+// ─── buildBuildingsGeoJson — natural decoration filter ───────────────────────
+
+describe('buildBuildingsGeoJson — natural decoration filter', () => {
+  it.each([
+    'Rock Formation 01 B',
+    'Rock Area 02',
+    'Boulder 03',
+    'Cliff 11',
+    'Cave 02',
+  ])('drops "%s" (Beautification Item)', (name) => {
+    const city = makeCityData({
+      buildings: [
+        makeBuilding({ id: 'rock', name, itemClass: 'Beautification Item' }),
+      ],
+    });
+
+    expect(buildBuildingsGeoJson(city).features).toHaveLength(0);
+  });
+
+  it.each(['Abandoned Building 01', 'Castle Ruins 01', 'Ship Wreck 01'])(
+    'keeps "%s" (Beautification Item, artificial)',
+    (name) => {
+      const city = makeCityData({
+        buildings: [
+          makeBuilding({ id: 'ruin', name, itemClass: 'Beautification Item' }),
+        ],
+      });
+
+      expect(buildBuildingsGeoJson(city).features).toHaveLength(1);
+    },
+  );
+
+  it('does not drop a normal building whose name happens to start with "Cave"', () => {
+    const city = makeCityData({
+      buildings: [
+        makeBuilding({
+          id: 'shop',
+          name: 'Cavendish Bakery',
+          itemClass: 'Low Commercial - Level1',
+        }),
+      ],
+    });
+
+    expect(buildBuildingsGeoJson(city).features).toHaveLength(1);
   });
 });
