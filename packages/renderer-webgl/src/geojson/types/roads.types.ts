@@ -44,6 +44,12 @@ export interface RoadFeatureProperties {
   isElevated: boolean;
   /** Whether the segment's wayType includes Underground. */
   isUnderground: boolean;
+  /**
+   * Whether either end of the segment is where the way stops, rather than an
+   * interior joint continuing into the next segment. Drives `line-cap` so an
+   * elevated stretch is only capped at a real end of the road.
+   */
+  isTerminus: boolean;
   /** Physical base width in CS1 world units. Used for `line-width` expressions. */
   width: number;
   /** Comma-separated WayType flags (e.g. "Road,Bridge"). */

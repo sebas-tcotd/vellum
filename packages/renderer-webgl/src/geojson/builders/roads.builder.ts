@@ -29,7 +29,7 @@ import type {
  */
 export function buildRoadsGeoJson(cityData: CityData): RoadsFeatureCollection {
   const nodeById = createNodeMap(cityData.roadNodes);
-  const features: RoadFeature[] = [];
+  const rendered: { segment: RoadSegment; tier: RoadTier }[] = [];
 
   for (const segment of cityData.roadSegments) {
     const tier = classifyRoadTier(
@@ -42,8 +42,13 @@ export function buildRoadsGeoJson(cityData: CityData): RoadsFeatureCollection {
       continue;
     }
 
-    features.push(createRoadFeature(segment, tier, nodeById));
+    rendered.push({ segment, tier });
   }
+
+  const degrees = countNodeDegrees(rendered);
+  const features: RoadFeature[] = rendered.map(({ segment, tier }) =>
+    createRoadFeature(segment, tier, nodeById, degrees),
+  );
 
   return { type: 'FeatureCollection', features };
 }
@@ -52,6 +57,29 @@ export function buildRoadsGeoJson(cityData: CityData): RoadsFeatureCollection {
 
 function createNodeMap(nodes: RoadNode[]): Map<string, RoadNode> {
   return new Map(nodes.map((n) => [n.id, n]));
+}
+
+/**
+ * Counts how many rendered segments touch each node.
+ *
+ * @remarks
+ * A node shared by two or more segments is an interior joint: the way carries
+ * on past it. A node touched only once is where the way actually ends. Bridges
+ * pass *over* the roads they cross without sharing a node, so a crossing never
+ * inflates the count.
+ */
+function countNodeDegrees(
+  rendered: { segment: RoadSegment; tier: RoadTier }[],
+): Map<string, number> {
+  const degrees = new Map<string, number>();
+
+  for (const { segment } of rendered) {
+    for (const nodeId of [segment.startNodeId, segment.endNodeId]) {
+      degrees.set(nodeId, (degrees.get(nodeId) ?? 0) + 1);
+    }
+  }
+
+  return degrees;
 }
 
 function isValidSegment(
@@ -82,6 +110,7 @@ function createRoadFeature(
   segment: RoadSegment,
   tier: RoadTier,
   nodeMap: Map<string, RoadNode>,
+  degrees: Map<string, number>,
 ): RoadFeature {
   const startNode = nodeMap.get(segment.startNodeId)!;
   const endNode = nodeMap.get(segment.endNodeId)!;
@@ -105,6 +134,9 @@ function createRoadFeature(
       isBridge: segment.wayType.includes('Bridge'),
       isElevated: segment.wayType.includes('Elevated'),
       isUnderground: segment.wayType.includes('Underground'),
+      isTerminus:
+        (degrees.get(segment.startNodeId) ?? 0) < 2 ||
+        (degrees.get(segment.endNodeId) ?? 0) < 2,
       width: segment.width,
       wayType: segment.wayType.join(','),
       fixedWidth: fixed,

@@ -154,6 +154,18 @@ export function addRoadsLayer(
     },
   });
 
+  // A round cap closes the casing across the full road width, so an elevated
+  // stretch reads as a separate slab dropped on top of the network. Cap only
+  // where the way genuinely ends; at interior joints the casing butts against
+  // the next segment and the road reads as one continuous line that happens to
+  // rise. `line-cap` is data-driven from MapLibre 5 / style-spec 24.
+  const elevatedLineCap = [
+    'case',
+    ['==', ['get', 'isTerminus'], true],
+    'round',
+    'butt',
+  ] as unknown as maplibregl.ExpressionSpecification;
+
   // Shadow beneath bridges/elevated: a wider, blurred dark line creates a depth
   // cue so elevated roads read as raised above the surface network.
   addLayerIfAbsent(map, {
@@ -170,7 +182,7 @@ export function addRoadsLayer(
       notFerry,
       notRailway,
     ],
-    layout: { 'line-cap': 'round', 'line-join': 'round' },
+    layout: { 'line-cap': elevatedLineCap, 'line-join': 'round' },
     paint: {
       'line-color': '#000000',
       'line-width': ROAD_SHADOW_WIDTH_EXPR,
@@ -196,7 +208,7 @@ export function addRoadsLayer(
       notFerry,
       notRailway,
     ],
-    layout: { 'line-cap': 'round', 'line-join': 'round' },
+    layout: { 'line-cap': elevatedLineCap, 'line-join': 'round' },
     paint: {
       'line-color': buildRoadColorExpression(
         colors,
@@ -223,7 +235,7 @@ export function addRoadsLayer(
       notFerry,
       notRailway,
     ],
-    layout: { 'line-cap': 'round', 'line-join': 'round' },
+    layout: { 'line-cap': elevatedLineCap, 'line-join': 'round' },
     paint: {
       'line-color': buildRoadColorExpression(colors, 'fill'),
       'line-width': ROAD_WIDTH_EXPR,

@@ -510,3 +510,99 @@ describe('buildRoadsGeoJson — tier classification', () => {
     expect(fc.features[0].properties.tier).toBe('train');
   });
 });
+
+// ─── buildRoadsGeoJson — isTerminus (line-cap continuity) ────────────────────
+
+describe('buildRoadsGeoJson — isTerminus', () => {
+  const NODE_C: RoadNode = { id: 'node-c', position: { x: 200, y: 0, z: 0 } };
+
+  it('marks the middle segment of a chain as an interior joint', () => {
+    // a──b──c : the b–c segment continues at b, but stops at c.
+    const city = makeCityData({
+      roadNodes: [NODE_A, NODE_B, NODE_C],
+      roadSegments: [
+        makeRoadSegment({
+          id: 'seg-ab',
+          startNodeId: 'node-a',
+          endNodeId: 'node-b',
+        }),
+        makeRoadSegment({
+          id: 'seg-bc',
+          startNodeId: 'node-b',
+          endNodeId: 'node-c',
+        }),
+      ],
+    });
+
+    const byId = new Map(
+      buildRoadsGeoJson(city).features.map((f) => [f.properties.id, f]),
+    );
+    // Both segments have one free end (a and c), so both stay capped.
+    expect(byId.get('seg-ab')?.properties.isTerminus).toBe(true);
+    expect(byId.get('seg-bc')?.properties.isTerminus).toBe(true);
+  });
+
+  it('leaves a segment uncapped when both ends continue', () => {
+    // a──b──c──d : b–c is interior at both ends.
+    const NODE_D: RoadNode = { id: 'node-d', position: { x: 300, y: 0, z: 0 } };
+    const city = makeCityData({
+      roadNodes: [NODE_A, NODE_B, NODE_C, NODE_D],
+      roadSegments: [
+        makeRoadSegment({
+          id: 'seg-ab',
+          startNodeId: 'node-a',
+          endNodeId: 'node-b',
+        }),
+        makeRoadSegment({
+          id: 'seg-bc',
+          startNodeId: 'node-b',
+          endNodeId: 'node-c',
+        }),
+        makeRoadSegment({
+          id: 'seg-cd',
+          startNodeId: 'node-c',
+          endNodeId: 'node-d',
+        }),
+      ],
+    });
+
+    const byId = new Map(
+      buildRoadsGeoJson(city).features.map((f) => [f.properties.id, f]),
+    );
+    expect(byId.get('seg-bc')?.properties.isTerminus).toBe(false);
+    expect(byId.get('seg-ab')?.properties.isTerminus).toBe(true);
+  });
+
+  it('ignores segments filtered out of the render set', () => {
+    // An Electricity Wire touching node-b is never drawn, so it must not make
+    // seg-ab look like it continues past b.
+    const city = makeCityData({
+      roadNodes: [NODE_A, NODE_B, NODE_C],
+      roadSegments: [
+        makeRoadSegment({
+          id: 'seg-ab',
+          startNodeId: 'node-a',
+          endNodeId: 'node-b',
+        }),
+        makeRoadSegment({
+          id: 'seg-bc',
+          startNodeId: 'node-b',
+          endNodeId: 'node-c',
+        }),
+        makeRoadSegment({
+          id: 'wire-a',
+          startNodeId: 'node-a',
+          endNodeId: 'node-c',
+          itemClass: 'Electricity Wire',
+        }),
+      ],
+    });
+
+    const byId = new Map(
+      buildRoadsGeoJson(city).features.map((f) => [f.properties.id, f]),
+    );
+    expect(byId.has('wire-a')).toBe(false);
+    // node-a is touched only by the wire and seg-ab → still a real end.
+    expect(byId.get('seg-ab')?.properties.isTerminus).toBe(true);
+  });
+});
