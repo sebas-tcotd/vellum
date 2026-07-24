@@ -27,15 +27,28 @@ void win.listen('tauri://drag-enter', () => {
 // `document.title` may not propagate dynamically in Tauri's WKWebView.
 // Subscribe to the store outside React so `setTitle` is called as soon as
 // cityData changes, independently of any React rendering cycle.
-let prevCityName: string | null = null;
-const unsubTitle = useVellumStore.subscribe((state) => {
-  const cityName = state.cityData?.cityName ?? null;
-  if (cityName === prevCityName) return;
-  prevCityName = cityName;
+//
+// The native window title survives a WebView `Reload` (only the JS context and
+// the Zustand store reset — the OS-level window chrome does not). So this module
+// must assert the title from the store's *actual* current state as soon as it
+// runs, not just react to future transitions — otherwise a Reload leaves the
+// native title showing whatever was set before it, even though the store has
+// already reset to no map loaded.
+function applyTitle(cityName: string | null): void {
   const title = cityName ? `Vellum — ${cityName}` : 'Vellum';
   void win
     .setTitle(title)
     .catch((err) => console.error('Error Tauri setTitle:', err));
+}
+
+let prevCityName = useVellumStore.getState().cityData?.cityName ?? null;
+applyTitle(prevCityName);
+
+const unsubTitle = useVellumStore.subscribe((state) => {
+  const cityName = state.cityData?.cityName ?? null;
+  if (cityName === prevCityName) return;
+  prevCityName = cityName;
+  applyTitle(cityName);
 });
 
 // Prevent subscription accumulation during HMR
