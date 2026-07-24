@@ -511,57 +511,131 @@ describe('buildRoadsGeoJson — tier classification', () => {
   });
 });
 
-// ─── buildRoadsGeoJson — isTerminus (line-cap continuity) ────────────────────
+// ─── buildRoadsGeoJson — welding & caps ─────────────────────────────────────
 
-describe('buildRoadsGeoJson — isTerminus', () => {
+describe('buildRoadsGeoJson — welding contiguous segments', () => {
   const NODE_C: RoadNode = { id: 'node-c', position: { x: 200, y: 0, z: 0 } };
+  const NODE_D: RoadNode = { id: 'node-d', position: { x: 300, y: 0, z: 0 } };
 
-  it('marks the middle segment of a chain as an interior joint', () => {
-    // a──b──c : the b–c segment continues at b, but stops at c.
+  const chain = (ids: [string, string][]) =>
+    ids.map(([start, end]) =>
+      makeRoadSegment({
+        id: `${start}-${end}`,
+        startNodeId: start,
+        endNodeId: end,
+        itemClass: 'Highway',
+      }),
+    );
+
+  it('welds a run of identical segments into one LineString', () => {
+    const city = makeCityData({
+      roadNodes: [NODE_A, NODE_B, NODE_C, NODE_D],
+      roadSegments: chain([
+        ['node-a', 'node-b'],
+        ['node-b', 'node-c'],
+        ['node-c', 'node-d'],
+      ]),
+    });
+
+    const fc = buildRoadsGeoJson(city);
+    expect(fc.features).toHaveLength(1);
+    // One coordinate per node, with no node repeated at the joints.
+    expect(fc.features[0].geometry.coordinates).toHaveLength(4);
+  });
+
+  it('walks through segments stored back-to-front', () => {
+    // b→a and b→c both start at b, so the middle joint is reversed.
+    const city = makeCityData({
+      roadNodes: [NODE_A, NODE_B, NODE_C],
+      roadSegments: chain([
+        ['node-b', 'node-a'],
+        ['node-b', 'node-c'],
+      ]),
+    });
+
+    const fc = buildRoadsGeoJson(city);
+    expect(fc.features).toHaveLength(1);
+    expect(fc.features[0].geometry.coordinates).toHaveLength(3);
+    // a and c are the outer ends; b sits in the middle.
+    const xs = fc.features[0].geometry.coordinates.map((c) => c[0]);
+    expect(xs[1]).toBeGreaterThan(Math.min(xs[0]!, xs[2]!));
+    expect(xs[1]).toBeLessThan(Math.max(xs[0]!, xs[2]!));
+  });
+
+  it('does not weld across a change of tier', () => {
     const city = makeCityData({
       roadNodes: [NODE_A, NODE_B, NODE_C],
       roadSegments: [
         makeRoadSegment({
-          id: 'seg-ab',
+          id: 'hwy',
           startNodeId: 'node-a',
           endNodeId: 'node-b',
+          itemClass: 'Highway',
         }),
         makeRoadSegment({
-          id: 'seg-bc',
+          id: 'small',
           startNodeId: 'node-b',
           endNodeId: 'node-c',
+          itemClass: 'Small Road',
         }),
       ],
     });
 
-    const byId = new Map(
-      buildRoadsGeoJson(city).features.map((f) => [f.properties.id, f]),
-    );
-    // Both segments have one free end (a and c), so both stay capped.
-    expect(byId.get('seg-ab')?.properties.isTerminus).toBe(true);
-    expect(byId.get('seg-bc')?.properties.isTerminus).toBe(true);
+    expect(buildRoadsGeoJson(city).features).toHaveLength(2);
   });
 
-  it('leaves a segment uncapped when both ends continue', () => {
-    // a──b──c──d : b–c is interior at both ends.
-    const NODE_D: RoadNode = { id: 'node-d', position: { x: 300, y: 0, z: 0 } };
+  it('does not weld across a junction', () => {
+    // Three segments meet at b: which pair would continue is arbitrary.
     const city = makeCityData({
       roadNodes: [NODE_A, NODE_B, NODE_C, NODE_D],
+      roadSegments: chain([
+        ['node-a', 'node-b'],
+        ['node-b', 'node-c'],
+        ['node-b', 'node-d'],
+      ]),
+    });
+
+    expect(buildRoadsGeoJson(city).features).toHaveLength(3);
+  });
+
+  it('terminates on a closed ring instead of looping forever', () => {
+    const city = makeCityData({
+      roadNodes: [NODE_A, NODE_B, NODE_C],
+      roadSegments: chain([
+        ['node-a', 'node-b'],
+        ['node-b', 'node-c'],
+        ['node-c', 'node-a'],
+      ]),
+    });
+
+    const fc = buildRoadsGeoJson(city);
+    expect(fc.features).toHaveLength(1);
+    expect(fc.features[0].geometry.coordinates.length).toBeGreaterThan(2);
+  });
+});
+
+describe('buildRoadsGeoJson — capEnds', () => {
+  const NODE_C: RoadNode = { id: 'node-c', position: { x: 200, y: 0, z: 0 } };
+
+  const elevated = (id: string, start: string, end: string) =>
+    makeRoadSegment({
+      id,
+      startNodeId: start,
+      endNodeId: end,
+      itemClass: 'Highway',
+      wayType: ['Highway', 'Elevated'],
+    });
+
+  it('butts the cap where an elevated run lands on a surface road', () => {
+    const city = makeCityData({
+      roadNodes: [NODE_A, NODE_B, NODE_C],
       roadSegments: [
+        elevated('via', 'node-a', 'node-b'),
         makeRoadSegment({
-          id: 'seg-ab',
-          startNodeId: 'node-a',
-          endNodeId: 'node-b',
-        }),
-        makeRoadSegment({
-          id: 'seg-bc',
+          id: 'ground',
           startNodeId: 'node-b',
           endNodeId: 'node-c',
-        }),
-        makeRoadSegment({
-          id: 'seg-cd',
-          startNodeId: 'node-c',
-          endNodeId: 'node-d',
+          itemClass: 'Highway',
         }),
       ],
     });
@@ -569,29 +643,33 @@ describe('buildRoadsGeoJson — isTerminus', () => {
     const byId = new Map(
       buildRoadsGeoJson(city).features.map((f) => [f.properties.id, f]),
     );
-    expect(byId.get('seg-bc')?.properties.isTerminus).toBe(false);
-    expect(byId.get('seg-ab')?.properties.isTerminus).toBe(true);
+    expect(byId.get('via')?.properties.capEnds).toBe(false);
+  });
+
+  it('keeps the cap on an elevated run that never meets the ground', () => {
+    const city = makeCityData({
+      roadNodes: [NODE_A, NODE_B, NODE_C],
+      roadSegments: [
+        elevated('via-1', 'node-a', 'node-b'),
+        elevated('via-2', 'node-b', 'node-c'),
+      ],
+    });
+
+    const fc = buildRoadsGeoJson(city);
+    // Welded into one line, and both free ends are real ends of the viaduct.
+    expect(fc.features).toHaveLength(1);
+    expect(fc.features[0].properties.capEnds).toBe(true);
   });
 
   it('ignores segments filtered out of the render set', () => {
-    // An Electricity Wire touching node-b is never drawn, so it must not make
-    // seg-ab look like it continues past b.
+    // The wire is never drawn, so it must not count as ground contact.
     const city = makeCityData({
       roadNodes: [NODE_A, NODE_B, NODE_C],
       roadSegments: [
+        elevated('via', 'node-a', 'node-b'),
         makeRoadSegment({
-          id: 'seg-ab',
-          startNodeId: 'node-a',
-          endNodeId: 'node-b',
-        }),
-        makeRoadSegment({
-          id: 'seg-bc',
+          id: 'wire',
           startNodeId: 'node-b',
-          endNodeId: 'node-c',
-        }),
-        makeRoadSegment({
-          id: 'wire-a',
-          startNodeId: 'node-a',
           endNodeId: 'node-c',
           itemClass: 'Electricity Wire',
         }),
@@ -601,8 +679,7 @@ describe('buildRoadsGeoJson — isTerminus', () => {
     const byId = new Map(
       buildRoadsGeoJson(city).features.map((f) => [f.properties.id, f]),
     );
-    expect(byId.has('wire-a')).toBe(false);
-    // node-a is touched only by the wire and seg-ab → still a real end.
-    expect(byId.get('seg-ab')?.properties.isTerminus).toBe(true);
+    expect(byId.has('wire')).toBe(false);
+    expect(byId.get('via')?.properties.capEnds).toBe(true);
   });
 });

@@ -45,11 +45,11 @@ export interface RoadFeatureProperties {
   /** Whether the segment's wayType includes Underground. */
   isUnderground: boolean;
   /**
-   * Whether either end of the segment is where the way stops, rather than an
-   * interior joint continuing into the next segment. Drives `line-cap` so an
-   * elevated stretch is only capped at a real end of the road.
+   * Whether the ends of this line should be closed with a round cap. False
+   * where an elevated run meets the surface network, so the darker casing does
+   * not jut across the road it lands on. Drives `line-cap`.
    */
-  isTerminus: boolean;
+  capEnds: boolean;
   /** Physical base width in CS1 world units. Used for `line-width` expressions. */
   width: number;
   /** Comma-separated WayType flags (e.g. "Road,Bridge"). */

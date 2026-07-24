@@ -154,16 +154,17 @@ export function addRoadsLayer(
     },
   });
 
-  // A round cap closes the casing across the full road width, so an elevated
-  // stretch reads as a separate slab dropped on top of the network. Cap only
-  // where the way genuinely ends; at interior joints the casing butts against
-  // the next segment and the road reads as one continuous line that happens to
-  // rise. `line-cap` is data-driven from MapLibre 5 / style-spec 24.
+  // A round cap juts half a casing-width past the end of the line. On the
+  // elevated layers that casing is darker than the surface network, so where a
+  // viaduct lands the cap reads as a lid laid across the road. `capEnds` is
+  // false exactly there and the line butts instead; the road it lands on still
+  // draws its own round cap underneath, so nothing is left uncovered.
+  // `line-cap` is data-driven from MapLibre 5 / style-spec 24.
   const elevatedLineCap = [
     'case',
-    ['==', ['get', 'isTerminus'], true],
-    'round',
+    ['==', ['get', 'capEnds'], false],
     'butt',
+    'round',
   ] as unknown as maplibregl.ExpressionSpecification;
 
   // Shadow beneath bridges/elevated: a wider, blurred dark line creates a depth
@@ -182,7 +183,9 @@ export function addRoadsLayer(
       notFerry,
       notRailway,
     ],
-    layout: { 'line-cap': elevatedLineCap, 'line-join': 'round' },
+    // Blurred and drawn under everything, so it keeps a round cap: it costs
+    // nothing visually and softens the joint where elevated branches fork.
+    layout: { 'line-cap': 'butt', 'line-join': 'round' },
     paint: {
       'line-color': '#000000',
       'line-width': ROAD_SHADOW_WIDTH_EXPR,
