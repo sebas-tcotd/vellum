@@ -40,6 +40,10 @@ export interface RoadFeatureProperties {
   isTunnel: boolean;
   /** Whether the segment's wayType includes Bridge. */
   isBridge: boolean;
+  /** Whether the segment's wayType includes Elevated (viaduct/overpass). */
+  isElevated: boolean;
+  /** Whether the segment's wayType includes Underground. */
+  isUnderground: boolean;
   /** Physical base width in CS1 world units. Used for `line-width` expressions. */
   width: number;
   /** Comma-separated WayType flags (e.g. "Road,Bridge"). */

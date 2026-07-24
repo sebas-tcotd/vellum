@@ -470,12 +470,29 @@ describe('MapLibreRenderer', () => {
       const renderer = makeRenderer();
       mockMap.getLayer.mockReturnValue({ id: 'any' } as unknown as undefined);
       renderer.clear();
-      // RemoveLayer should be called for every layer in LAYER_ID_MAP + roads-railway-casing
+      // RemoveLayer should be called for every layer in LAYER_ID_MAP
       expect(mockMap.removeLayer).toHaveBeenCalledWith('base-water');
       expect(mockMap.removeLayer).toHaveBeenCalledWith('base-land');
       expect(mockMap.removeLayer).toHaveBeenCalledWith('roads-casing');
       expect(mockMap.removeLayer).toHaveBeenCalledWith('roads-fill');
-      expect(mockMap.removeLayer).toHaveBeenCalledWith('roads-railway-casing');
+      expect(mockMap.removeLayer).toHaveBeenCalledWith(
+        'roads-railway-surface-casing',
+      );
+      expect(mockMap.removeLayer).toHaveBeenCalledWith(
+        'roads-railway-surface-fill',
+      );
+      expect(mockMap.removeLayer).toHaveBeenCalledWith(
+        'roads-railway-elevated-casing',
+      );
+      expect(mockMap.removeLayer).toHaveBeenCalledWith(
+        'roads-railway-elevated-fill',
+      );
+      expect(mockMap.removeLayer).toHaveBeenCalledWith(
+        'roads-railway-underground-casing',
+      );
+      expect(mockMap.removeLayer).toHaveBeenCalledWith(
+        'roads-railway-underground-fill',
+      );
       expect(mockMap.removeLayer).toHaveBeenCalledWith('transit-line');
       expect(mockMap.removeLayer).toHaveBeenCalledWith('transit-stops');
       expect(mockMap.removeLayer).toHaveBeenCalledWith('buildings-fill');
@@ -1212,7 +1229,32 @@ describe('MapLibreRenderer', () => {
         expect.any(Array),
       );
       expect(mockMap.setPaintProperty).toHaveBeenCalledWith(
-        'roads-railway-casing',
+        'roads-railway-surface-casing',
+        'line-color',
+        expect.any(Array),
+      );
+      expect(mockMap.setPaintProperty).toHaveBeenCalledWith(
+        'roads-railway-surface-fill',
+        'line-color',
+        expect.any(Array),
+      );
+      expect(mockMap.setPaintProperty).toHaveBeenCalledWith(
+        'roads-railway-elevated-casing',
+        'line-color',
+        expect.any(Array),
+      );
+      expect(mockMap.setPaintProperty).toHaveBeenCalledWith(
+        'roads-railway-elevated-fill',
+        'line-color',
+        expect.any(Array),
+      );
+      expect(mockMap.setPaintProperty).toHaveBeenCalledWith(
+        'roads-railway-underground-casing',
+        'line-color',
+        expect.any(Array),
+      );
+      expect(mockMap.setPaintProperty).toHaveBeenCalledWith(
+        'roads-railway-underground-fill',
         'line-color',
         expect.any(Array),
       );

@@ -12,6 +12,10 @@ import {
   ROAD_CASING_WIDTH_EXPR,
   ROAD_WIDTH_EXPR,
 } from '../expressions/road-width';
+import {
+  RAILWAY_CASING_WIDTH_EXPR,
+  RAILWAY_WIDTH_EXPR,
+} from '../expressions/railway-width';
 import { buildRoadsGeoJson } from '../geojson';
 import { addLayerIfAbsent, addSourceIfAbsent } from '../helpers';
 import type { ResolvedColors } from '../style-adapter';
@@ -34,7 +38,23 @@ export function addRoadsLayer(
   ] as unknown as maplibregl.ExpressionSpecification;
   const notRailway = [
     '!',
-    ['in', ['get', 'itemClass'], ['literal', ['Train Track', 'Metro Track']]],
+    [
+      'in',
+      ['get', 'itemClass'],
+      [
+        'literal',
+        [
+          'Train Track',
+          'Train Track Tunnel',
+          'Train Track Elevated',
+          'Metro Track',
+          'Metro Track Tunnel',
+          'Metro Track Elevated',
+          'Monorail Track',
+          'Monorail Track Elevated',
+        ],
+      ],
+    ],
   ] as unknown as maplibregl.ExpressionSpecification;
 
   addLayerIfAbsent(map, {
@@ -89,6 +109,7 @@ export function addRoadsLayer(
         ['==', ['get', 'isBridge'], true],
       ],
       notFerry,
+      notRailway,
     ],
     layout: { 'line-cap': 'round', 'line-join': 'round' },
     paint: {
@@ -112,6 +133,7 @@ export function addRoadsLayer(
         ['==', ['get', 'isBridge'], true],
       ],
       notFerry,
+      notRailway,
     ],
     layout: { 'line-cap': 'round', 'line-join': 'round' },
     paint: {
@@ -148,21 +170,157 @@ export function addRoadsLayer(
     },
   });
 
+  // ─── Railways: surface / elevated / underground ──────────────────────────
+
+  const isRailway = [
+    'in',
+    ['get', 'itemClass'],
+    [
+      'literal',
+      [
+        'Train Track',
+        'Train Track Tunnel',
+        'Train Track Elevated',
+        'Metro Track',
+        'Metro Track Tunnel',
+        'Metro Track Elevated',
+        'Monorail Track',
+        'Monorail Track Elevated',
+      ],
+    ],
+  ] as unknown as maplibregl.ExpressionSpecification;
+
+  // Surface railways: solid casing + dashed fill (cross-tie pattern).
   addLayerIfAbsent(map, {
-    id: 'roads-railway-casing',
+    id: 'roads-railway-surface-casing',
     type: 'line',
     source: 'roads',
     filter: [
-      'in',
-      ['get', 'itemClass'],
-      ['literal', ['Train Track', 'Metro Track']],
+      'all',
+      isRailway,
+      ['!=', ['get', 'isElevated'], true],
+      ['!=', ['get', 'isUnderground'], true],
+      ['!=', ['get', 'isTunnel'], true],
+      ['!=', ['get', 'isBridge'], true],
     ],
     layout: { 'line-cap': 'butt', 'line-join': 'round' },
     paint: {
       'line-color': buildRoadColorExpression(colors, 'casing'),
-      'line-width': ROAD_CASING_WIDTH_EXPR,
-      'line-dasharray': [1, 1],
+      'line-width': RAILWAY_CASING_WIDTH_EXPR,
       'line-opacity': 1,
+      'line-opacity-transition': { duration: 300 },
+    },
+  });
+
+  addLayerIfAbsent(map, {
+    id: 'roads-railway-surface-fill',
+    type: 'line',
+    source: 'roads',
+    filter: [
+      'all',
+      isRailway,
+      ['!=', ['get', 'isElevated'], true],
+      ['!=', ['get', 'isUnderground'], true],
+      ['!=', ['get', 'isTunnel'], true],
+      ['!=', ['get', 'isBridge'], true],
+    ],
+    layout: { 'line-cap': 'butt', 'line-join': 'round' },
+    paint: {
+      'line-color': buildRoadColorExpression(colors, 'fill'),
+      'line-width': RAILWAY_WIDTH_EXPR,
+      'line-dasharray': [4, 2],
+      'line-opacity': 1,
+      'line-opacity-transition': { duration: 300 },
+    },
+  });
+
+  // Elevated railways: solid casing + solid fill (continuous viaduct structure).
+  addLayerIfAbsent(map, {
+    id: 'roads-railway-elevated-casing',
+    type: 'line',
+    source: 'roads',
+    filter: [
+      'all',
+      isRailway,
+      [
+        'any',
+        ['==', ['get', 'isElevated'], true],
+        ['==', ['get', 'isBridge'], true],
+      ],
+    ],
+    layout: { 'line-cap': 'butt', 'line-join': 'round' },
+    paint: {
+      'line-color': buildRoadColorExpression(colors, 'casing'),
+      'line-width': RAILWAY_CASING_WIDTH_EXPR,
+      'line-opacity': 1,
+      'line-opacity-transition': { duration: 300 },
+    },
+  });
+
+  addLayerIfAbsent(map, {
+    id: 'roads-railway-elevated-fill',
+    type: 'line',
+    source: 'roads',
+    filter: [
+      'all',
+      isRailway,
+      [
+        'any',
+        ['==', ['get', 'isElevated'], true],
+        ['==', ['get', 'isBridge'], true],
+      ],
+    ],
+    layout: { 'line-cap': 'butt', 'line-join': 'round' },
+    paint: {
+      'line-color': buildRoadColorExpression(colors, 'fill'),
+      'line-width': RAILWAY_WIDTH_EXPR,
+      'line-opacity': 1,
+      'line-opacity-transition': { duration: 300 },
+    },
+  });
+
+  // Underground railways: solid casing + dashed fill, reduced opacity.
+  addLayerIfAbsent(map, {
+    id: 'roads-railway-underground-casing',
+    type: 'line',
+    source: 'roads',
+    filter: [
+      'all',
+      isRailway,
+      [
+        'any',
+        ['==', ['get', 'isUnderground'], true],
+        ['==', ['get', 'isTunnel'], true],
+      ],
+    ],
+    layout: { 'line-cap': 'butt', 'line-join': 'round' },
+    paint: {
+      'line-color': buildRoadColorExpression(colors, 'casing'),
+      'line-width': RAILWAY_CASING_WIDTH_EXPR,
+      'line-opacity': 0.55,
+      'line-opacity-transition': { duration: 300 },
+    },
+  });
+
+  addLayerIfAbsent(map, {
+    id: 'roads-railway-underground-fill',
+    type: 'line',
+    source: 'roads',
+    filter: [
+      'all',
+      isRailway,
+      [
+        'any',
+        ['==', ['get', 'isUnderground'], true],
+        ['==', ['get', 'isTunnel'], true],
+      ],
+    ],
+    layout: { 'line-cap': 'butt', 'line-join': 'round' },
+    paint: {
+      'line-color': buildRoadColorExpression(colors, 'fill'),
+      'line-width': RAILWAY_WIDTH_EXPR,
+      'line-dasharray': [6, 4],
+      'line-opacity': 0.55,
       'line-opacity-transition': { duration: 300 },
     },
   });

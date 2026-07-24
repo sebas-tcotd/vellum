@@ -191,7 +191,32 @@ export class MapLayerManager {
       'line-color',
       casingExpr,
     );
-    this.setPaintIfExists('roads-railway-casing', 'line-color', casingExpr);
+    this.setPaintIfExists(
+      'roads-railway-surface-casing',
+      'line-color',
+      casingExpr,
+    );
+    this.setPaintIfExists('roads-railway-surface-fill', 'line-color', fillExpr);
+    this.setPaintIfExists(
+      'roads-railway-elevated-casing',
+      'line-color',
+      casingExpr,
+    );
+    this.setPaintIfExists(
+      'roads-railway-elevated-fill',
+      'line-color',
+      fillExpr,
+    );
+    this.setPaintIfExists(
+      'roads-railway-underground-casing',
+      'line-color',
+      casingExpr,
+    );
+    this.setPaintIfExists(
+      'roads-railway-underground-fill',
+      'line-color',
+      fillExpr,
+    );
     this.setPaintIfExists('roads-ferry', 'line-color', c.ferry);
   }
 

@@ -103,6 +103,8 @@ function createRoadFeature(
       tier,
       isTunnel: segment.wayType.includes('Tunnel'),
       isBridge: segment.wayType.includes('Bridge'),
+      isElevated: segment.wayType.includes('Elevated'),
+      isUnderground: segment.wayType.includes('Underground'),
       width: segment.width,
       wayType: segment.wayType.join(','),
       fixedWidth: fixed,
