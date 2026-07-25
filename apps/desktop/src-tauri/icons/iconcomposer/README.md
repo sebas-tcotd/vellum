@@ -18,6 +18,17 @@ pnpm tauri icon path/to/icon-flat.png
 
 This regenerates everything under `src-tauri/icons/` (`.icns`, `.ico`, PNGs, iOS/Android sizes) and is the only step needed for non-macOS targets.
 
+**If the icon in the Dock/taskbar doesn't change after this** (`pnpm dev` or `pnpm tauri build` still shows the old artwork): Cargo's incremental build cache didn't notice the icon files changed as a `build.rs` dependency, so it's reusing the previously compiled binary. Force it:
+
+```bash
+cd apps/desktop/src-tauri
+rm -rf target/debug/build/vellum-* target/debug/incremental
+cd ..
+pnpm dev
+```
+
+If that's not enough, nuke the whole target dir (`rm -rf target`) and rebuild. On macOS, also `killall Dock` to rule out LaunchServices icon caching.
+
 ## 2. Liquid Glass `.icon` → `Assets.car` (macOS 26+)
 
 `actool` cannot reliably compile a Liquid Glass `.icon` file when invoked standalone from the command line — it either crashes or silently no-ops (empty `partial.plist`, no `Assets.car`). The only path that reliably worked was building through a real Xcode project, which runs the full asset-catalog compiler pipeline instead of a bare `actool` invocation.
