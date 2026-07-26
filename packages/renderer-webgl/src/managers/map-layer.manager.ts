@@ -225,6 +225,8 @@ export class MapLayerManager {
     this.setPaintIfExists('districts-labels', 'text-color', c.districtLabel);
     this.setPaintIfExists('districts-labels', 'text-halo-color', c.background);
 
+    this.setPaintIfExists('map-frame', 'line-color', c.mapFrame);
+
     const fillExpr = buildRoadColorExpression(c, 'fill');
     const casingExpr = buildRoadColorExpression(c, 'casing');
     this.setPaintIfExists('roads-fill', 'line-color', fillExpr);

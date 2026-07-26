@@ -59,6 +59,15 @@ export const LAYER_ID_MAP: Record<LayerName, string[]> = {
   districts: ['districts-points', 'districts-labels'],
 };
 
+/**
+ * Layer IDs for the decorative map frame and its shadow.
+ *
+ * @remarks
+ * These are always rendered above all city-data layers and are NOT user-toggleable.
+ * They are cleaned up by {@link MapSourceManager.clearAll}.
+ */
+export const FRAME_LAYER_IDS = ['map-frame-shadow', 'map-frame'] as const;
+
 /** Multiplier applied to each non-transit layer's baseline opacity when the Transit theme is active. */
 export const TRANSIT_DIM_FACTOR = 0.15;
 

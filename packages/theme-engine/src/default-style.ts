@@ -16,6 +16,7 @@ const BUILDING_DEFAULT = { fill: '#c8bfb5', stroke: '#a09585' } as const;
  */
 export const DEFAULT_RENDER_STYLE_PARAMS: RenderStyleParams = {
   mapBackground: '#f7f6f1',
+  mapFrame: '#f5f0e6',
   terrain: {
     base: '#f7f6f1',
     low: '#95ae79',

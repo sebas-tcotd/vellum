@@ -2,6 +2,7 @@
   "schemaVersion": 1,
   "name": "Classic",
   "mapBackground": "#e7d898",
+  "mapFrame": "#e8d4a0",
   "terrain": {
     "base": "#e7d898",
     "low": "#9dcb79",

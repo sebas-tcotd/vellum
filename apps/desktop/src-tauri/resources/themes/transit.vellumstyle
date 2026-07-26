@@ -2,6 +2,7 @@
   "schemaVersion": 1,
   "name": "Transit",
   "mapBackground": "#1a1a2e",
+  "mapFrame": "#1e2a45",
   "terrain": {
     "base": "#1a1a2e",
     "low": "#16213e",

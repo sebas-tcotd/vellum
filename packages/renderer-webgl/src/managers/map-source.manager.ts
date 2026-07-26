@@ -8,13 +8,14 @@ import {
   addDistrictsLayer,
   addForestsLayer,
   addGridPattern,
+  addMapFrameLayer,
   addRoadsLayer,
   addServiceIconsLayer,
   addTerrainContourLayer,
   addTerrainReliefLayers,
   addTransitLayers,
 } from '../layers';
-import { LAYER_ID_MAP } from '../constants/layer.constants';
+import { FRAME_LAYER_IDS, LAYER_ID_MAP } from '../constants/layer.constants';
 import { registerDemProtocol } from '../sources/dem-protocol';
 
 /**
@@ -48,6 +49,7 @@ export class MapSourceManager {
     addRoadsLayer(this.map, cityData, this.colors);
     addTransitLayers(this.map, cityData);
     addDistrictsLayer(this.map, cityData, this.colors);
+    addMapFrameLayer(this.map, this.colors);
   }
 
   /**
@@ -59,7 +61,10 @@ export class MapSourceManager {
    * grid pattern to a solid background color.
    */
   clearAll(): void {
-    const allLayerIds = new Set(Object.values(LAYER_ID_MAP).flat());
+    const allLayerIds = new Set([
+      ...Object.values(LAYER_ID_MAP).flat(),
+      ...FRAME_LAYER_IDS,
+    ]);
 
     for (const id of allLayerIds) {
       if (this.map.getLayer(id)) {
@@ -81,6 +86,7 @@ export class MapSourceManager {
       'transit-stops',
       'transit-stops-dots',
       'districts',
+      'world-extent-source',
     ];
 
     for (const id of sourceIds) {

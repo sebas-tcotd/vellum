@@ -1,4 +1,5 @@
 import type { VellumStyle } from '@vellum/core';
+import { DEFAULT_RENDER_STYLE_PARAMS } from './default-style';
 
 /**
  * Normalizes a raw parsed `.vellumstyle` object to the current `VellumStyle` schema.
@@ -32,6 +33,6 @@ export function migrateTheme(raw: unknown): VellumStyle {
   switch (schemaVersion) {
     case 1:
     default:
-      return withVersion as VellumStyle;
+      return { ...DEFAULT_RENDER_STYLE_PARAMS, ...withVersion } as VellumStyle;
   }
 }

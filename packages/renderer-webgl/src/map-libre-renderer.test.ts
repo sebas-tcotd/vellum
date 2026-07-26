@@ -79,6 +79,7 @@ function roadColors(fill: string, casing: string): RoadCategoryColors {
 
 const MOCK_STYLE: RenderStyleParams = {
   mapBackground: '#f7f6f1',
+  mapFrame: '#f5f0e6',
   terrain: {
     base: '#f7f6f1',
     low: '#95ae79',

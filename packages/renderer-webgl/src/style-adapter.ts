@@ -30,6 +30,8 @@ import type { RoadTier } from './geojson';
 export interface ResolvedColors {
   /** Map background color, visible outside the city bounds. */
   background: string;
+  /** Color of the decorative map frame. */
+  mapFrame: string;
   /** Water fill color. */
   water: string;
   /** Land fill color (flat) — the `base-land` fallback shown when the terrain layer is off. */
@@ -77,6 +79,7 @@ export function resolveColors(style: RenderStyleParams): ResolvedColors {
 
   return {
     background: style.mapBackground,
+    mapFrame: style.mapFrame,
     water: style.water,
     land: style.terrain.base,
     terrain: {
