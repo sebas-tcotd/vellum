@@ -59,6 +59,9 @@ export const LAYER_ID_MAP: Record<LayerName, string[]> = {
   districts: ['districts-points', 'districts-labels'],
 };
 
+/** Layer ID for the Vellum watermark logo shown when all data layers are disabled. */
+export const WATERMARK_LAYER_ID = 'vellum-watermark';
+
 /**
  * Layer IDs for the decorative map frame and its shadow.
  *

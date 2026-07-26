@@ -18,3 +18,4 @@ export { addServiceIconsLayer } from './layer-service-icons';
 export { addForestsLayer } from './layer-forests';
 export { addDistrictsLayer } from './layer-districts';
 export { addMapFrameLayer } from './layer-map-frame';
+export { addWatermarkLayer } from './layer-watermark';

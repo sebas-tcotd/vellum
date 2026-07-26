@@ -14,8 +14,13 @@ import {
   addTerrainContourLayer,
   addTerrainReliefLayers,
   addTransitLayers,
+  addWatermarkLayer,
 } from '../layers';
-import { FRAME_LAYER_IDS, LAYER_ID_MAP } from '../constants/layer.constants';
+import {
+  FRAME_LAYER_IDS,
+  LAYER_ID_MAP,
+  WATERMARK_LAYER_ID,
+} from '../constants/layer.constants';
 import { registerDemProtocol } from '../sources/dem-protocol';
 
 /**
@@ -50,6 +55,9 @@ export class MapSourceManager {
     addTransitLayers(this.map, cityData);
     addDistrictsLayer(this.map, cityData, this.colors);
     addMapFrameLayer(this.map, this.colors);
+    addWatermarkLayer(this.map).catch(() => {
+      /* Image loading may fail in non-browser environments (tests) */
+    });
   }
 
   /**
@@ -64,6 +72,7 @@ export class MapSourceManager {
     const allLayerIds = new Set([
       ...Object.values(LAYER_ID_MAP).flat(),
       ...FRAME_LAYER_IDS,
+      WATERMARK_LAYER_ID,
     ]);
 
     for (const id of allLayerIds) {
@@ -87,6 +96,7 @@ export class MapSourceManager {
       'transit-stops-dots',
       'districts',
       'world-extent-source',
+      'vellum-watermark-source',
     ];
 
     for (const id of sourceIds) {

@@ -9,11 +9,45 @@ const FRAME_LAYER_ID = FRAME_LAYER_IDS[1];
 
 const SOURCE_ID = 'world-extent-source';
 
-const FRAME_WIDTH = 20;
 const SHADOW_OFFSET: [number, number] = [0, 4];
-const SHADOW_BLUR = 12;
 const SHADOW_COLOR = '#4A4035';
 const SHADOW_OPACITY = 0.2;
+
+const FRAME_WIDTH_EXPR: maplibregl.ExpressionSpecification = [
+  'interpolate',
+  ['linear'],
+  ['zoom'],
+  6,
+  6,
+  10,
+  12,
+  12,
+  20,
+  14,
+  38,
+  16,
+  72,
+  18,
+  130,
+];
+
+const SHADOW_BLUR_EXPR: maplibregl.ExpressionSpecification = [
+  'interpolate',
+  ['linear'],
+  ['zoom'],
+  6,
+  3.6,
+  10,
+  7.2,
+  12,
+  12,
+  14,
+  22.8,
+  16,
+  43.2,
+  18,
+  78,
+];
 
 /**
  * Adds a decorative map frame and its drop shadow as the topmost MapLibre layers.
@@ -40,8 +74,8 @@ export function addMapFrameLayer(
     paint: {
       'line-color': SHADOW_COLOR,
       'line-opacity': SHADOW_OPACITY,
-      'line-width': FRAME_WIDTH,
-      'line-blur': SHADOW_BLUR,
+      'line-width': FRAME_WIDTH_EXPR,
+      'line-blur': SHADOW_BLUR_EXPR,
       'line-translate': SHADOW_OFFSET,
       'line-translate-anchor': 'viewport',
     },
@@ -55,7 +89,7 @@ export function addMapFrameLayer(
     paint: {
       'line-color': colors.mapFrame,
       'line-opacity': 1,
-      'line-width': FRAME_WIDTH,
+      'line-width': FRAME_WIDTH_EXPR,
     },
   });
 }

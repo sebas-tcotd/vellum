@@ -10,7 +10,7 @@ import {
   DEFAULT_RENDER_STYLE_PARAMS,
   type LoadedTheme,
 } from '@vellum/theme-engine';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useVellumStore } from '../../store/vellum-store';
 import { Minimap } from '../minimap/Minimap';
@@ -81,6 +81,13 @@ export function MapLibreRoot({
   const activeTheme = useVellumStore((s) => s.activeTheme);
   const transitDimmingEnabled = useVellumStore((s) => s.transitDimmingEnabled);
   const layerOptions = useVellumStore((s) => s.layerOptions);
+
+  const allLayersDisabled = useMemo(
+    () =>
+      activeLayers != null &&
+      (Object.values(activeLayers) as boolean[]).every((v) => !v),
+    [activeLayers],
+  );
 
   // Mount / unmount the renderer
   useEffect(() => {
@@ -157,7 +164,8 @@ export function MapLibreRoot({
     ][]) {
       renderer.setLayerVisibility(layer, visible);
     }
-  }, [activeLayers]);
+    renderer.setWatermarkVisibility(allLayersDisabled);
+  }, [activeLayers, allLayersDisabled]);
 
   // Sync advanced per-layer filters (transit-mode filter, buildings RICO filter)
   useEffect(() => {

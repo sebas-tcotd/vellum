@@ -5,6 +5,7 @@ import {
   LAYER_ID_MAP,
   NON_TRANSIT_OPACITY,
   TRANSIT_DIM_FACTOR,
+  WATERMARK_LAYER_ID,
 } from '../constants/layer.constants';
 import { buildBuildingColorExpression } from '../expressions/building-color';
 import {
@@ -169,6 +170,19 @@ export class MapLayerManager {
 
     this.districtsShowNameOnMap = options.districts.showNameOnMap;
     this.applyDistrictsVisibility();
+  }
+
+  /**
+   * Shows or hides the Vellum watermark logo.
+   *
+   * @param visible - `true` to show, `false` to hide.
+   */
+  setWatermarkVisibility(visible: boolean): void {
+    this.setLayoutIfExists(
+      WATERMARK_LAYER_ID,
+      'visibility',
+      visible ? 'visible' : 'none',
+    );
   }
 
   /**
