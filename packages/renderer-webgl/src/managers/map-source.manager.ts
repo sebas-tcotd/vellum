@@ -2,17 +2,20 @@ import maplibregl from 'maplibre-gl';
 import type { CityData } from '@vellum/core';
 import type { ResolvedColors } from '../style-adapter';
 import {
-  addBaseLayer,
+  addBasemapLandLayer,
+  addBasemapWaterLayers,
   addBuildingsLayer,
   addDistrictsLayer,
   addForestsLayer,
   addGridPattern,
   addRoadsLayer,
   addServiceIconsLayer,
-  addTerrainLayers,
+  addTerrainContourLayer,
+  addTerrainReliefLayers,
   addTransitLayers,
 } from '../layers';
 import { LAYER_ID_MAP } from '../constants/layer.constants';
+import { registerDemProtocol } from '../sources/dem-protocol';
 
 /**
  * Handles the injection and disposal of GeoJSON sources and their initial layers.
@@ -29,9 +32,16 @@ export class MapSourceManager {
 
   /** Adds every base source and its initial layers (grid, terrain, roads, transit, etc.) for a freshly loaded city. */
   async initializeSourcesAndLayers(cityData: CityData): Promise<void> {
+    // Must precede addTerrainReliefLayers: the raster-dem source starts requesting tiles
+    // the moment it is registered, and the protocol has to be able to answer them.
+    await registerDemProtocol(cityData.terrainDem);
     await addGridPattern(this.map);
-    addBaseLayer(this.map, cityData, this.colors);
-    addTerrainLayers(this.map, cityData, this.colors);
+    // Insertion order is the z-order, and the relief must sit between the two basemap
+    // passes: over the flat land fill, under the water surface that masks the sea.
+    addBasemapLandLayer(this.map, cityData, this.colors);
+    addTerrainReliefLayers(this.map, cityData, this.colors);
+    addBasemapWaterLayers(this.map, cityData, this.colors);
+    addTerrainContourLayer(this.map, cityData);
     addForestsLayer(this.map, cityData, this.colors);
     addBuildingsLayer(this.map, cityData, this.colors);
     await addServiceIconsLayer(this.map);
@@ -58,8 +68,9 @@ export class MapSourceManager {
     }
 
     const sourceIds = [
-      'base',
-      'terrain',
+      'base-land-source',
+      'base-water-source',
+      'terrain-dem',
       'coastline-source',
       'terrain-lines-source',
       'forests',

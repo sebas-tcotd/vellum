@@ -12,7 +12,7 @@ vi.mock('react-i18next', () => ({
 
 const mockActiveLayers: LayerVisibility = {
   terrain: true,
-  water: true,
+  basemap: true,
   roads: true,
   transit: true,
   buildings: true,

@@ -22,7 +22,7 @@
   },
   "layers": {
     "terrain": "Terrain",
-    "water": "Water",
+    "basemap": "Base map",
     "roads": "Roads",
     "transit": "Transit",
     "buildings": "Buildings",

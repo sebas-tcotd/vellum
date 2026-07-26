@@ -35,7 +35,7 @@ export interface CanvasRootProps {
 const LAYER_Z_ORDER: LayerName[] = [
   'terrain',
   'forests',
-  'water',
+  'basemap',
   'buildings',
   'roads',
   'transit',
@@ -44,7 +44,7 @@ const LAYER_Z_ORDER: LayerName[] = [
 
 const ACTIVE_LAYERS = {
   terrain: true,
-  water: true,
+  basemap: true,
   roads: true,
   transit: true,
   buildings: true,
@@ -197,7 +197,7 @@ export function CanvasRoot({
     if (renderer instanceof CanvasRenderer) {
       for (const layerName of [
         'terrain',
-        'water',
+        'basemap',
         'roads',
         'transit',
         'buildings',

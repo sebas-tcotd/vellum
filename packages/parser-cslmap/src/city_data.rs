@@ -58,6 +58,23 @@ pub struct TerrainBand {
     pub polygons: Vec<TerrainPolygon>,
 }
 
+/// A digital elevation model baked as a PNG, ready for a `MapLibre` `raster-dem` source.
+///
+/// Elevations are packed as `R·256 + G` and stay in raw game units end to end — the same
+/// unit `TerrainIsoline::elevation` uses (metres are `raw / 64`). See
+/// `parser::terrain::texture` for the packing contract and the reason water cells are
+/// clamped rather than made transparent.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct TerrainDem {
+    /// `data:image/png;base64,…` — 1081×1081 RGBA, image row 0 is north.
+    pub data_uri: String,
+    /// Lowest dry-land elevation, in raw game units — lower bound of the hypsometric ramp.
+    pub elev_min: f64,
+    /// Highest dry-land elevation, in raw game units — upper bound of the hypsometric ramp.
+    pub elev_max: f64,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct CityData {
@@ -77,9 +94,8 @@ pub struct CityData {
     pub inland_water_polygons: Vec<TerrainPolygon>,
     /// Elevation isobands for the optional terrain-shading layer, in WGS-84.
     //pub terrain_bands: Vec<TerrainBand>,
-    /// Base64-encoded PNG data URL (`data:image/png;base64,…`) of the baked terrain texture.
-    /// 1081×1081 RGBA pixels: elevation-tinted land with baked contour lines; water = transparent.
-    pub terrain_texture: String,
+    /// Digital elevation model for the `MapLibre` color-relief and hillshade layers.
+    pub terrain_dem: TerrainDem,
     pub road_nodes: Vec<RoadNode>,
     /// Physical road segments. Bus Line virtual connectors are pre-filtered out.
     pub road_segments: Vec<RoadSegment>,

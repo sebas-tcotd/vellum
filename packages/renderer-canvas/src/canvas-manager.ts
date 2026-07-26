@@ -1,6 +1,6 @@
 export type LayerName =
   | 'terrain'
-  | 'water'
+  | 'basemap'
   | 'roads'
   | 'transit'
   | 'buildings'
@@ -10,7 +10,7 @@ export type LayerName =
 const LAYER_Z_INDEX: Record<LayerName, number> = {
   terrain: 1,
   forests: 2,
-  water: 3,
+  basemap: 3,
   buildings: 4,
   roads: 5,
   transit: 6,
@@ -20,7 +20,7 @@ const LAYER_Z_INDEX: Record<LayerName, number> = {
 const LAYERS: LayerName[] = [
   'terrain',
   'forests',
-  'water',
+  'basemap',
   'buildings',
   'roads',
   'transit',

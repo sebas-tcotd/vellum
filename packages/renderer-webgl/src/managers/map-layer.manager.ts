@@ -1,5 +1,5 @@
 import maplibregl from 'maplibre-gl';
-import type { LayerName, LayerOptions } from '@vellum/core';
+import type { LayerName, LayerOptions, TerrainDem } from '@vellum/core';
 import {
   LAYER_ID_MAP,
   NON_TRANSIT_OPACITY,
@@ -10,6 +10,7 @@ import {
   buildRoadColorExpression,
   BRIDGE_CASING_DARKEN_PERCENT,
 } from '../expressions/road-color';
+import { buildColorReliefRamp } from '../expressions/terrain-relief';
 import type { ResolvedColors } from '../style-adapter';
 
 /**
@@ -21,6 +22,12 @@ export class MapLayerManager {
   /** Current `LayerOptions.districts.showNameOnMap` — mirrors `DEFAULT_LAYER_OPTIONS`. */
   private districtsShowNameOnMap = false;
 
+  /**
+   * Elevation domain of the loaded city, needed to rebuild the hypsometric ramp on a
+   * theme switch. `null` until a city is rendered.
+   */
+  private terrainDem: TerrainDem | null = null;
+
   constructor(
     private readonly map: maplibregl.Map,
     private colors: ResolvedColors,
@@ -28,6 +35,11 @@ export class MapLayerManager {
 
   updateColors(newColors: ResolvedColors): void {
     this.colors = newColors;
+  }
+
+  /** Records the elevation domain of the city currently on screen. */
+  setTerrainDem(dem: TerrainDem | null): void {
+    this.terrainDem = dem;
   }
 
   /**
@@ -75,7 +87,7 @@ export class MapLayerManager {
   }
 
   /**
-   * Dims every non-transit layer (`terrain`, `water`, `roads`, `buildings`,
+   * Dims every non-transit layer (`terrain`, `basemap`, `roads`, `buildings`,
    * `forests`, `districts`) to `TRANSIT_DIM_FACTOR` of its baseline opacity, or
    * restores normal opacity — used when the Transit theme is active/inactive.
    *
@@ -161,6 +173,16 @@ export class MapLayerManager {
     this.setPaintIfExists('base-water', 'fill-color', c.water);
     this.setPaintIfExists('base-land', 'fill-color', c.land);
     this.setPaintIfExists('coastline-layer', 'line-color', c.coastlineStroke);
+
+    // The hypsometric ramp is the whole reason the elevation gradient moved off the
+    // baked PNG: retinting the terrain is now one paint property, not a re-parse.
+    if (this.terrainDem) {
+      this.setPaintIfExists(
+        'terrain-color-relief',
+        'color-relief-color',
+        buildColorReliefRamp(c.terrain, this.terrainDem),
+      );
+    }
     this.setPaintIfExists('forests-circles', 'circle-color', c.forests);
 
     const { colorByCategory } = options.buildings;

@@ -6,7 +6,7 @@ import { CanvasRenderer } from './renderer';
 
 const ALL_LAYERS_VISIBLE = {
   terrain: true,
-  water: true,
+  basemap: true,
   roads: true,
   transit: true,
   buildings: true,

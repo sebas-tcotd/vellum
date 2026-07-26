@@ -6,8 +6,11 @@
  */
 
 export { createBaseStyle, addGridPattern } from './layer-background';
-export { addTerrainLayers } from './layer-terrain';
-export { addBaseLayer } from './layer-water';
+export {
+  addTerrainContourLayer,
+  addTerrainReliefLayers,
+} from './layer-terrain';
+export { addBasemapLandLayer, addBasemapWaterLayers } from './layer-basemap';
 export { addRoadsLayer } from './layer-roads';
 export { addTransitLayers } from './layer-transit';
 export { addBuildingsLayer } from './layer-buildings';

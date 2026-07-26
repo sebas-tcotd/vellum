@@ -4,10 +4,16 @@ import type { TransitMode } from './city-data';
  * @remarks
  * These identifiers act as the contract between the UI toggle controls,
  * the theme engine, and the rendering system.
+ *
+ * `terrain` and `basemap` split the map along one axis: everything derived from
+ * **altitude** (colour relief, hillshade, contour lines) belongs to `terrain`, while the
+ * flat cartography it sits on — land fill, sea, inland water, coastline — belongs to
+ * `basemap`. Either can be toggled without the other: `basemap` alone is the plain map,
+ * `terrain` alone is the bare elevation field.
  */
 export type LayerName =
   | 'terrain'
-  | 'water'
+  | 'basemap'
   | 'roads'
   | 'transit'
   | 'buildings'
@@ -22,7 +28,7 @@ export type LayerName =
  */
 export const LAYER_NAMES: LayerName[] = [
   'terrain',
-  'water',
+  'basemap',
   'roads',
   'transit',
   'buildings',

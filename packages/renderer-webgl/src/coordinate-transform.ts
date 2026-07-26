@@ -36,7 +36,7 @@
  * map. Matches the existing Canvas renderer so both renderers show the same orientation.
  *
  * `-1` = **north-up** (geographic convention): flip this to `-1` *and* swap the Z arguments
- * in `buildWaterGeoJson` bounding-box corners and `MapLibreRenderer.fitToCityBounds` to
+ * in `buildWorldExtentGeoJson` bounding-box corners and `MapLibreRenderer.fitToCityBounds` to
  * switch the entire renderer to north-up.
  */
 export const CS1_LAT_SIGN = 1;

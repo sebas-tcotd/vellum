@@ -45,6 +45,26 @@ export interface TerrainIsoline {
 }
 
 /**
+ * A digital elevation model baked as a PNG, ready for a MapLibre `raster-dem` source.
+ * @remarks
+ * Mirrors the Rust `TerrainDem` struct. Elevations are packed losslessly as
+ * `R·256 + G` and stay in raw game units end to end — the same unit
+ * `TerrainIsoline.elevation` uses (metres are `raw / 64`).
+ *
+ * Water cells are clamped to `elevMin` rather than made transparent — land and water
+ * elevation ranges overlap in real maps, so no threshold separates them. The sea is
+ * masked at render time by a vector fill layer instead.
+ */
+export interface TerrainDem {
+  /** `data:image/png;base64,…` — 1081×1081 RGBA, image row 0 is north. */
+  dataUri: string;
+  /** Lowest dry-land elevation, in raw game units — lower bound of the hypsometric ramp. */
+  elevMin: number;
+  /** Highest dry-land elevation, in raw game units — upper bound of the hypsometric ramp. */
+  elevMax: number;
+}
+
+/**
  * Defines the classification of a road or path segment.
  * Designed to be used as combinable flags for mixed-use ways.
  */
@@ -277,11 +297,8 @@ export interface CityData {
   inlandWaterPolygons: TerrainPolygon[];
   /** Elevation isolines for the optional contour-line layer, in WGS-84. */
   contourLines: TerrainIsoline[];
-  /**
-   * Base64-encoded PNG data URL (`data:image/png;base64,…`) of the baked terrain texture.
-   * 1081×1081 RGBA pixels: elevation-tinted land with baked contour lines; water = transparent.
-   */
-  terrainTexture: string;
+  /** Digital elevation model for the MapLibre color-relief and hillshade layers. */
+  terrainDem: TerrainDem;
   /** Intersections and terminuses for the road network. */
   roadNodes: RoadNode[];
   /** Valid physical road segments (virtual connectors like 'Bus Line' are pre-filtered). */

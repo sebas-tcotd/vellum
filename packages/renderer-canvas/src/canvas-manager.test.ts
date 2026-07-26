@@ -26,7 +26,7 @@ describe('CanvasManager', () => {
   it('crea canvases para terrain y water al construir', () => {
     const manager = new CanvasManager(container);
     expect(manager.getCanvas('terrain')).toBeDefined();
-    expect(manager.getCanvas('water')).toBeDefined();
+    expect(manager.getCanvas('basemap')).toBeDefined();
     manager.destroy();
   });
 
@@ -34,7 +34,7 @@ describe('CanvasManager', () => {
     const manager = new CanvasManager(container);
     expect(manager.getCanvas('terrain')?.style.zIndex).toBe('1');
     expect(manager.getCanvas('forests')?.style.zIndex).toBe('2');
-    expect(manager.getCanvas('water')?.style.zIndex).toBe('3');
+    expect(manager.getCanvas('basemap')?.style.zIndex).toBe('3');
     manager.destroy();
   });
 
@@ -54,7 +54,7 @@ describe('CanvasManager', () => {
   it('expone offscreen canvas para cada capa', () => {
     const manager = new CanvasManager(container);
     expect(manager.getOffscreen('terrain')).toBeDefined();
-    expect(manager.getOffscreen('water')).toBeDefined();
+    expect(manager.getOffscreen('basemap')).toBeDefined();
     manager.destroy();
   });
 
@@ -68,7 +68,7 @@ describe('CanvasManager', () => {
     it('canvas starts hidden when initialVisibility sets layer to false', () => {
       const manager = new CanvasManager(container, { terrain: false });
       expect(manager.getCanvas('terrain')?.style.opacity).toBe('0');
-      expect(manager.getCanvas('water')?.style.opacity).toBe('1');
+      expect(manager.getCanvas('basemap')?.style.opacity).toBe('1');
       manager.destroy();
     });
 
@@ -161,7 +161,7 @@ describe('CanvasManager', () => {
       vi.useFakeTimers();
       const manager = new CanvasManager(container);
       manager.setLayerVisibility('terrain', false, 200);
-      manager.setLayerVisibility('water', false, 200);
+      manager.setLayerVisibility('basemap', false, 200);
       manager.destroy();
       // Advance past the delay — callbacks must not throw on detached canvases
       expect(() => vi.advanceTimersByTime(300)).not.toThrow();

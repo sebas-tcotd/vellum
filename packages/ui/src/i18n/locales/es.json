@@ -22,7 +22,7 @@
   },
   "layers": {
     "terrain": "Terreno",
-    "water": "Agua",
+    "basemap": "Mapa base",
     "roads": "Vías",
     "transit": "Tránsito",
     "buildings": "Edificios",

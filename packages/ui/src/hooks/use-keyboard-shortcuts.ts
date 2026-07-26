@@ -4,7 +4,7 @@ import type { LayerName } from '@vellum/core';
 /** Layer order matching the FloatingLayerPanel visual order (not z-index order). */
 const LAYER_SHORTCUT_MAP: LayerName[] = [
   'terrain',
-  'water',
+  'basemap',
   'roads',
   'transit',
   'buildings',

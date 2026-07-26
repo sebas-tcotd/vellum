@@ -42,9 +42,9 @@ describe('CanvasLayer — accessibility', () => {
 
   it('derives the DOM id from layerName', () => {
     const { container } = render(
-      <CanvasLayer layerName="water" zIndex={2} visible={false} />,
+      <CanvasLayer layerName="basemap" zIndex={2} visible={false} />,
     );
-    expect(container.querySelector('canvas')?.id).toBe('layer-water');
+    expect(container.querySelector('canvas')?.id).toBe('layer-basemap');
   });
 });
 
