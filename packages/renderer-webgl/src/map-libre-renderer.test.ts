@@ -78,6 +78,7 @@ const MOCK_STYLE: RenderStyleParams = {
     high: '#c4a06a',
   },
   water: '#6db8b7',
+  contourLine: '#000000',
   forests: '#14592a',
   transitBackground: '#1a1a2e',
   roads: {

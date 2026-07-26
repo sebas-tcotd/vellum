@@ -43,6 +43,8 @@ export interface ResolvedColors {
     /** Colour at the highest dry-land elevation. */
     high: string;
   };
+  /** Isolines color. */
+  contourLine: string;
   /** Coastline outline color. */
   coastlineStroke: string;
   /** Forest density marker color. */
@@ -82,6 +84,7 @@ export function resolveColors(style: RenderStyleParams): ResolvedColors {
       mid: style.terrain.mid,
       high: style.terrain.high,
     },
+    contourLine: style.contourLine,
     coastlineStroke: style.water,
     forests: style.forests,
     buildingFill: buildings.none.fill,

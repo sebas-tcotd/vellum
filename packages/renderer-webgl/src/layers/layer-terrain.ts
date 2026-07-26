@@ -94,6 +94,7 @@ export function addTerrainReliefLayers(
 export function addTerrainContourLayer(
   map: maplibregl.Map,
   cityData: CityData,
+  colors: ResolvedColors,
 ): void {
   addSourceIfAbsent(map, 'terrain-lines-source', {
     type: 'geojson',
@@ -105,9 +106,9 @@ export function addTerrainContourLayer(
     type: 'line',
     source: 'terrain-lines-source',
     paint: {
-      'line-color': '#000000',
+      'line-color': colors.contourLine,
       'line-width': 0.5,
-      'line-opacity': 0.5,
+      'line-opacity': 1,
       'line-opacity-transition': { duration: 300 },
     },
   });

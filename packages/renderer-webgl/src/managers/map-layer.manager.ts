@@ -183,6 +183,7 @@ export class MapLayerManager {
         buildColorReliefRamp(c.terrain, this.terrainDem),
       );
     }
+    this.setPaintIfExists('terrain-lines-layer', 'line-color', c.contourLine);
     this.setPaintIfExists('forests-circles', 'circle-color', c.forests);
 
     const { colorByCategory } = options.buildings;

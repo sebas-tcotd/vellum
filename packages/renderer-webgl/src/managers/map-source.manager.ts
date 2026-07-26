@@ -41,7 +41,7 @@ export class MapSourceManager {
     addBasemapLandLayer(this.map, cityData, this.colors);
     addTerrainReliefLayers(this.map, cityData, this.colors);
     addBasemapWaterLayers(this.map, cityData, this.colors);
-    addTerrainContourLayer(this.map, cityData);
+    addTerrainContourLayer(this.map, cityData, this.colors);
     addForestsLayer(this.map, cityData, this.colors);
     addBuildingsLayer(this.map, cityData, this.colors);
     await addServiceIconsLayer(this.map);

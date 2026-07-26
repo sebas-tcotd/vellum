@@ -149,6 +149,8 @@ export interface RenderStyleParams {
     /** High elevation color. */
     high: ColorToken;
   };
+  /** Color of isolines */
+  contourLine: ColorToken;
   /** Color of water bodies (sea and inland water). */
   water: ColorToken;
   /** Color of forest/vegetation density markers. */
