@@ -18,7 +18,8 @@ export { buildBuildingsGeoJson } from './builders/buildings.builder';
 export {
   buildDistrictsGeoJson,
   buildForestsGeoJson,
-  buildWaterGeoJson,
+  buildWaterSurfaceGeoJson,
+  buildWorldExtentGeoJson,
 } from './builders/environment.builder';
 export { buildRoadsGeoJson } from './builders/roads.builder';
 export {

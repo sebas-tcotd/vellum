@@ -8,6 +8,7 @@
     "mid": "#ffffff",
     "high": "#ffffff"
   },
+  "contourLine": "#dcdcdc",
   "water": "#aabed2",
   "forests": "#a0a0a0",
   "transitBackground": "#1a1a2e",

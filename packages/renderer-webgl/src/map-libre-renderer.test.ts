@@ -49,7 +49,18 @@ vi.mock('maplibre-gl', () => ({
     Map: vi.fn().mockImplementation(function () {
       return mockMap;
     }),
+    // The DEM tile protocol registers itself on the module default export.
+    addProtocol: vi.fn(),
+    removeProtocol: vi.fn(),
   },
+}));
+
+// jsdom has neither OffscreenCanvas nor createImageBitmap; the DEM protocol is
+// exercised by its own unit test instead of through the renderer.
+vi.mock('./sources/dem-protocol', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./sources/dem-protocol')>()),
+  registerDemProtocol: vi.fn(async () => undefined),
+  unregisterDemProtocol: vi.fn(),
 }));
 
 // ─── Test theme ───────────────────────────────────────────────────────────────
@@ -67,6 +78,7 @@ const MOCK_STYLE: RenderStyleParams = {
     high: '#c4a06a',
   },
   water: '#6db8b7',
+  contourLine: '#000000',
   forests: '#14592a',
   transitBackground: '#1a1a2e',
   roads: {
@@ -125,7 +137,7 @@ const MOCK_STYLE: RenderStyleParams = {
 
 const ALL_LAYERS_VISIBLE = {
   terrain: true,
-  water: true,
+  basemap: true,
   roads: true,
   transit: true,
   buildings: true,
@@ -160,7 +172,7 @@ describe('MapLibreRenderer', () => {
       (call: unknown[]) => call[0],
     );
     expect(sourceCalls).toContain('terrain');
-    expect(sourceCalls).toContain('water');
+    expect(sourceCalls).toContain('base-water-source');
     expect(sourceCalls).toContain('roads');
     expect(sourceCalls).toContain('transit');
     expect(sourceCalls).toContain('transit-stops');
@@ -249,7 +261,7 @@ describe('MapLibreRenderer', () => {
     );
   });
 
-  it('setLayerVisibility for terrain controls the terrain-fill layer', async () => {
+  it('setLayerVisibility for terrain controls the color-relief layer', async () => {
     const renderer = makeRenderer();
     await renderer.render(makeCityData(), { activeLayers: ALL_LAYERS_VISIBLE });
     // Simulate layers existing so setLayoutProperty is reached
@@ -258,7 +270,12 @@ describe('MapLibreRenderer', () => {
     mockMap.getLayer.mockReturnValue({ id: 'any' } as unknown as undefined);
     renderer.setLayerVisibility('terrain', false);
     expect(mockMap.setLayoutProperty).toHaveBeenCalledWith(
-      'terrain-fill',
+      'terrain-color-relief',
+      'visibility',
+      'none',
+    );
+    expect(mockMap.setLayoutProperty).toHaveBeenCalledWith(
+      'terrain-hillshade',
       'visibility',
       'none',
     );
@@ -283,7 +300,7 @@ describe('MapLibreRenderer', () => {
       'none',
     );
     expect(mockMap.setLayoutProperty).toHaveBeenCalledWith(
-      'terrain-fill',
+      'terrain-color-relief',
       'visibility',
       'visible',
     );
@@ -331,6 +348,11 @@ describe('MapLibreRenderer', () => {
         transit: { visibleModes: [] },
         buildings: { visibleCategories: [], colorByCategory: false },
         districts: { showNameOnMap: true },
+        terrain: {
+          showContourLines: true,
+          showColorRelief: true,
+          showHillshade: true,
+        },
       });
 
       expect(mockMap.setLayoutProperty).toHaveBeenCalledWith(
@@ -355,6 +377,11 @@ describe('MapLibreRenderer', () => {
         transit: { visibleModes: [] },
         buildings: { visibleCategories: [], colorByCategory: false },
         districts: { showNameOnMap: true },
+        terrain: {
+          showContourLines: true,
+          showColorRelief: true,
+          showHillshade: true,
+        },
       });
       vi.clearAllMocks();
       mockMap.getLayer.mockReturnValue({ id: 'any' } as unknown as undefined);
@@ -454,8 +481,9 @@ describe('MapLibreRenderer', () => {
 
   describe('clear()', () => {
     const ALL_CITY_SOURCE_IDS = [
-      'base',
-      'terrain',
+      'base-land-source',
+      'base-water-source',
+      'terrain-dem',
       'coastline-source',
       'terrain-lines-source',
       'forests',

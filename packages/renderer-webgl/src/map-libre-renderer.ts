@@ -38,6 +38,7 @@ import { createBaseStyle } from './layers';
 import { MapLayerManager } from './managers/map-layer.manager';
 import { MapNavigationManager } from './managers/map-navigation.manager';
 import { MapSourceManager } from './managers/map-source.manager';
+import { unregisterDemProtocol } from './sources/dem-protocol';
 import { resolveColors } from './style-adapter';
 import type {
   ServiceIconLegendState,
@@ -103,6 +104,7 @@ export class MapLibreRenderer implements IRenderer {
     return new Promise((resolve) => {
       const executeRender = async (): Promise<void> => {
         await this.sourceManager.initializeSourcesAndLayers(cityData);
+        this.layerManager.setTerrainDem(cityData.terrainDem);
         this.applyInitialState(params);
         this.navigationManager.fitAndConstrain(cityData);
         resolve();
@@ -151,11 +153,13 @@ export class MapLibreRenderer implements IRenderer {
    */
   clear(): void {
     this.cityData = null;
+    this.layerManager.setTerrainDem(null);
     this.sourceManager.clearAll();
   }
 
   /** Removes the MapLibre map and releases all GPU resources. */
   dispose(): void {
+    unregisterDemProtocol();
     this.navigationManager.dispose();
     this.map.remove();
   }

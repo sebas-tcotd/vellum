@@ -76,7 +76,7 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
             panX,
             panY,
           );
-        } else if (layerName === 'water' && layerVisibility.water) {
+        } else if (layerName === 'basemap' && layerVisibility.basemap) {
           // renderer-canvas is zombie — waterTiles/landTiles removed; water layer is a no-op.
           renderWaterLayer(
             ctx,

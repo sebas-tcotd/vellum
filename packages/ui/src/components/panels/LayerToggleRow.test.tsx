@@ -12,13 +12,13 @@ describe('LayerToggleRow', () => {
   it('renderiza la clave i18n como label de la capa', () => {
     render(
       <LayerToggleRow
-        layer="water"
+        layer="basemap"
         visible={true}
         onToggle={vi.fn()}
         color="#6db8b7"
       />,
     );
-    expect(screen.getByText('layers.water')).toBeDefined();
+    expect(screen.getByText('layers.basemap')).toBeDefined();
   });
 
   it('refleja el estado visible=true en el switch', () => {
@@ -105,7 +105,7 @@ describe('LayerToggleRow', () => {
   it('tiene altura mínima de 32px', () => {
     const { container } = render(
       <LayerToggleRow
-        layer="water"
+        layer="basemap"
         visible={true}
         onToggle={vi.fn()}
         color="#6db8b7"

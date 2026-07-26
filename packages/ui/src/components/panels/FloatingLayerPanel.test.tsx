@@ -12,7 +12,7 @@ vi.mock('react-i18next', () => ({
 
 const mockActiveLayers: LayerVisibility = {
   terrain: true,
-  water: true,
+  basemap: true,
   roads: true,
   transit: true,
   buildings: true,
@@ -27,6 +27,9 @@ const mockToggleTransitMode = vi.fn();
 const mockToggleBuildingCategory = vi.fn();
 const mockSetBuildingColorByCategory = vi.fn();
 const mockSetDistrictsShowNameOnMap = vi.fn();
+const mockSetTerrainShowContourLines = vi.fn();
+const mockSetTerrainShowColorRelief = vi.fn();
+const mockSetTerrainShowHillshade = vi.fn();
 let mockAvailableThemes: ThemeMetadata[] = [];
 let mockActiveTheme = 'day';
 let mockTransitDimmingEnabled = false;
@@ -50,6 +53,11 @@ const mockLayerOptions = {
     colorByCategory: false,
   },
   districts: { showNameOnMap: false },
+  terrain: {
+    showContourLines: true,
+    showColorRelief: true,
+    showHillshade: true,
+  },
 };
 
 vi.mock('../../store/vellum-store', () => ({
@@ -67,6 +75,9 @@ vi.mock('../../store/vellum-store', () => ({
       toggleBuildingCategory: mockToggleBuildingCategory,
       setBuildingColorByCategory: mockSetBuildingColorByCategory,
       setDistrictsShowNameOnMap: mockSetDistrictsShowNameOnMap,
+      setTerrainShowContourLines: mockSetTerrainShowContourLines,
+      setTerrainShowColorRelief: mockSetTerrainShowColorRelief,
+      setTerrainShowHillshade: mockSetTerrainShowHillshade,
     }),
 }));
 
@@ -540,6 +551,9 @@ describe('FloatingLayerPanel', () => {
         name: 'a11y.layerPanelCollapse',
       });
       collapseBtn.focus();
+      // Primer Tab: botón de opciones avanzadas de Terreno
+      await user.tab();
+      // Segundo Tab: switch de Terreno (primer switch del panel)
       await user.tab();
       const firstSwitch = screen.getAllByRole('switch')[0];
       expect(document.activeElement).toBe(firstSwitch);

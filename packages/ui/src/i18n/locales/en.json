@@ -22,7 +22,7 @@
   },
   "layers": {
     "terrain": "Terrain",
-    "water": "Water",
+    "basemap": "Base map",
     "roads": "Roads",
     "transit": "Transit",
     "buildings": "Buildings",
@@ -62,7 +62,10 @@
   "layerOptionsPanel": {
     "close": "Close advanced options",
     "colorByCategory": "Color by category",
-    "showDistrictNamesOnMap": "Show name on map"
+    "showDistrictNamesOnMap": "Show name on map",
+    "showContourLines": "Contour lines",
+    "showColorRelief": "Color relief",
+    "showHillshade": "Hillshade"
   },
   "export": {
     "title": "Export Map",

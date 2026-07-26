@@ -17,10 +17,10 @@
  * - `transitBackground` has no consumer today — no MapLibre layer paints with
  *   it (transit dimming, if any, lives in UI-layer CSS). Kept in the contract
  *   for the Story 5.3 dimming feature.
- * - `terrain.{low,mid,high}` have no consumer — the elevation gradient is
- *   baked server-side into the terrain PNG texture (see
- *   `packages/parser-cslmap/src/parser/terrain/texture.rs`), not themed at
- *   runtime. Only `terrain.base` is used, as the flat land fill color.
+ * - `terrain.base` remains the flat `base-land` fill, used as the fallback when the
+ *   terrain layer is toggled off. `terrain.{low,mid,high}` now feed the `color-relief`
+ *   hypsometric ramp (`expressions/terrain-relief.ts`) — they used to be dead because
+ *   the gradient was baked into a PNG by the Rust parser.
  */
 
 import type { RenderStyleParams } from '@vellum/core';
@@ -32,8 +32,19 @@ export interface ResolvedColors {
   background: string;
   /** Water fill color. */
   water: string;
-  /** Land fill color (flat — see module remarks re: terrain gradient). */
+  /** Land fill color (flat) — the `base-land` fallback shown when the terrain layer is off. */
   land: string;
+  /** Elevation-gradient colors driving the `color-relief` hypsometric ramp. */
+  terrain: {
+    /** Colour at the lowest dry-land elevation. */
+    low: string;
+    /** Colour at the midpoint of the elevation range. */
+    mid: string;
+    /** Colour at the highest dry-land elevation. */
+    high: string;
+  };
+  /** Isolines color. */
+  contourLine: string;
   /** Coastline outline color. */
   coastlineStroke: string;
   /** Forest density marker color. */
@@ -68,6 +79,12 @@ export function resolveColors(style: RenderStyleParams): ResolvedColors {
     background: style.mapBackground,
     water: style.water,
     land: style.terrain.base,
+    terrain: {
+      low: style.terrain.low,
+      mid: style.terrain.mid,
+      high: style.terrain.high,
+    },
+    contourLine: style.contourLine,
     coastlineStroke: style.water,
     forests: style.forests,
     buildingFill: buildings.none.fill,

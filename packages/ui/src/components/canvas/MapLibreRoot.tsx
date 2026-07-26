@@ -102,7 +102,7 @@ export function MapLibreRoot({
     void rendererRef.current.render(cityData, {
       activeLayers: activeLayers ?? {
         terrain: true,
-        water: true,
+        basemap: true,
         roads: true,
         transit: true,
         buildings: true,

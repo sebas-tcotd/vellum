@@ -1,12 +1,36 @@
 import type { LayerName } from '@vellum/core';
+import { ELEVATION_UNITS_PER_METER } from '../sources/dem-protocol';
+
+/**
+ * Vertical exaggeration for the `terrain-hillshade` layer, in "metres" terms: CS1
+ * terrain is gentle relative to its 17 km span, so a mild boost is needed for slopes to
+ * read at all.
+ */
+const HILLSHADE_EXAGGERATION_M = 0.35;
+
+/**
+ * Exaggeration actually handed to MapLibre.
+ *
+ * @remarks
+ * The DEM carries **raw game units**, which are 64x metres, and MapLibre derives slope
+ * from DEM values against real-world tile spacing — so the terrain reads 64x steeper
+ * than it is. Observed on `altavento` at the uncorrected value: the hillshade saturated
+ * to solid black and white and swamped the hypsometric tint entirely. Dividing by the
+ * unit scale restores metre-equivalent slopes.
+ */
+export const HILLSHADE_EXAGGERATION =
+  HILLSHADE_EXAGGERATION_M / ELEVATION_UNITS_PER_METER;
 
 /**
  * Maps each logical `LayerName` to the MapLibre layer IDs that implement it.
- * `terrain` is controlled by the background layer paint property.
+ *
+ * `terrain` holds only altitude-derived layers; the flat cartography they sit on lives
+ * in `basemap`. The two interleave in z-order (`base-land` → relief → `base-water`), so
+ * this map is deliberately not in registration order.
  */
 export const LAYER_ID_MAP: Record<LayerName, string[]> = {
-  terrain: ['terrain-fill', 'terrain-lines-layer', 'coastline-layer'],
-  water: ['base-water', 'base-land'],
+  terrain: ['terrain-color-relief', 'terrain-hillshade', 'terrain-lines-layer'],
+  basemap: ['base-land', 'base-water', 'coastline-layer'],
   roads: [
     'roads-tunnel-casing',
     'roads-tunnel-fill',
@@ -43,6 +67,11 @@ export const TRANSIT_DIM_FACTOR = 0.15;
  * compute the dimmed value (`baseline * TRANSIT_DIM_FACTOR`) in `MapLayerManager.setTransitDimming`.
  * `forests-circles` uses a data-driven expression instead of a plain number — its
  * dimmed variant scales the existing expression via `['*', expr, factor]`.
+ *
+ * `terrain-hillshade` is the one entry that does not scale an opacity: MapLibre's
+ * `HillshadePaintProps` has no `hillshade-opacity`, so the layer is dimmed by scaling
+ * its exaggeration towards zero instead, which flattens the shading. The generic
+ * `['*', base, factor]` mechanism applies unchanged.
  */
 export const NON_TRANSIT_OPACITY: Record<
   string,
@@ -52,10 +81,17 @@ export const NON_TRANSIT_OPACITY: Record<
       | 'line-opacity'
       | 'circle-opacity'
       | 'icon-opacity'
-      | 'text-opacity';
+      | 'text-opacity'
+      | 'color-relief-opacity'
+      | 'hillshade-exaggeration';
     base: unknown;
   }
 > = {
+  'terrain-color-relief': { prop: 'color-relief-opacity', base: 1 },
+  'terrain-hillshade': {
+    prop: 'hillshade-exaggeration',
+    base: HILLSHADE_EXAGGERATION,
+  },
   'terrain-lines-layer': { prop: 'line-opacity', base: 0.5 },
   'coastline-layer': { prop: 'line-opacity', base: 0.8 },
   'base-water': { prop: 'fill-opacity', base: 1 },

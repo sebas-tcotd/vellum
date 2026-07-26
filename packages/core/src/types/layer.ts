@@ -4,10 +4,16 @@ import type { TransitMode } from './city-data';
  * @remarks
  * These identifiers act as the contract between the UI toggle controls,
  * the theme engine, and the rendering system.
+ *
+ * `terrain` and `basemap` split the map along one axis: everything derived from
+ * **altitude** (colour relief, hillshade, contour lines) belongs to `terrain`, while the
+ * flat cartography it sits on — land fill, sea, inland water, coastline — belongs to
+ * `basemap`. Either can be toggled without the other: `basemap` alone is the plain map,
+ * `terrain` alone is the bare elevation field.
  */
 export type LayerName =
   | 'terrain'
-  | 'water'
+  | 'basemap'
   | 'roads'
   | 'transit'
   | 'buildings'
@@ -22,7 +28,7 @@ export type LayerName =
  */
 export const LAYER_NAMES: LayerName[] = [
   'terrain',
-  'water',
+  'basemap',
   'roads',
   'transit',
   'buildings',
@@ -75,12 +81,12 @@ export const BUILDING_SERVICE_CATEGORIES: BuildingServiceCategory[] = [
 ];
 
 /**
- * Per-layer advanced filter options for the layers whose visibility isn't just
+ * Per-layer advanced filter options for layers whose visibility isn't just
  * a single on/off switch — see `future-work-panel-opciones-avanzadas.md`.
  * @remarks
  * Only layers with an actual filterable dimension get an entry here; layers
- * like `terrain` or `roads` have no sub-filter and are fully covered by
- * `LayerVisibility` alone.
+ * like `roads` have no sub-filter and are fully covered by `LayerVisibility`
+ * alone.
  */
 export interface LayerOptions {
   /** Transit lines/stops whose `mode` is not in this list are hidden. */
@@ -104,9 +110,18 @@ export interface LayerOptions {
      */
     showNameOnMap: boolean;
   };
+  /** Terrain sub-element visibility: contour lines, color relief, and hillshade. */
+  terrain: {
+    /** Whether contour lines (isohypses) are visible on the map. */
+    showContourLines: boolean;
+    /** Whether the hypsometric colour-relief ramp is visible. */
+    showColorRelief: boolean;
+    /** Whether the hillshade relief shading is visible. */
+    showHillshade: boolean;
+  };
 }
 
-/** `LayerOptions` with every mode/category visible, RICO coloring off, and district markers (not names) shown — the app's starting state. */
+/** `LayerOptions` with every mode/category visible, RICO coloring off, district markers (not names) shown, and all terrain sub-layers on — the app's starting state. */
 export const DEFAULT_LAYER_OPTIONS: LayerOptions = {
   transit: { visibleModes: [...TRANSIT_MODES] },
   buildings: {
@@ -114,4 +129,9 @@ export const DEFAULT_LAYER_OPTIONS: LayerOptions = {
     colorByCategory: false,
   },
   districts: { showNameOnMap: false },
+  terrain: {
+    showContourLines: true,
+    showColorRelief: true,
+    showHillshade: true,
+  },
 };

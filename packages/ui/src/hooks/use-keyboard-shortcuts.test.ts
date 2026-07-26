@@ -70,14 +70,14 @@ describe('useKeyboardShortcuts', () => {
     expect(onToggleLayer).toHaveBeenCalledWith('terrain');
   });
 
-  it('tecla 2 llama onToggleLayer con water', () => {
+  it('tecla 2 llama onToggleLayer con basemap', () => {
     const onOpenFile = vi.fn();
     const onToggleLayer = vi.fn();
     renderHook(() => useKeyboardShortcuts({ onOpenFile, onToggleLayer }));
 
     document.dispatchEvent(key('2'));
 
-    expect(onToggleLayer).toHaveBeenCalledWith('water');
+    expect(onToggleLayer).toHaveBeenCalledWith('basemap');
   });
 
   it('tecla 7 llama onToggleLayer con districts', () => {

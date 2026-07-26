@@ -1,102 +1,101 @@
 /**
- * Terrain layer registration: raster image, coastline, and contour lines.
+ * Terrain relief: everything derived from altitude.
  *
  * @remarks
  * Internal module — not exported from the package barrel.
+ *
+ * The `terrain` logical layer owns the colour relief, the hillshade and the contour
+ * lines — and nothing else. The flat cartography underneath (land fill, sea, lakes,
+ * coastline) belongs to `basemap`, so the two can be toggled independently: `basemap`
+ * alone is the plain map, `terrain` alone is the bare elevation field.
+ *
+ * `color-relief` and `hillshade` share one `raster-dem` source, so the DEM is decoded
+ * and uploaded once. They are registered between the two `basemap` passes — above the
+ * land fill, below the water surface — see `layer-basemap.ts` for why the water has to
+ * come back on top.
  */
 
 import type { CityData } from '@vellum/core';
 import type maplibregl from 'maplibre-gl';
+import { HILLSHADE_EXAGGERATION } from '../constants/layer.constants';
 import { CS1_HALF_EXTENT_DEG } from '../coordinate-transform';
-import { buildCoastlineGeoJson, buildContourLinesGeoJson } from '../geojson';
+import { buildColorReliefRamp } from '../expressions/terrain-relief';
+import { buildContourLinesGeoJson } from '../geojson';
 import { addLayerIfAbsent, addSourceIfAbsent } from '../helpers';
+import {
+  DEM_ENCODING,
+  DEM_MAX_ZOOM,
+  DEM_MIN_ZOOM,
+  DEM_TILE_SIZE,
+  DEM_TILE_URL,
+} from '../sources/dem-protocol';
 import type { ResolvedColors } from '../style-adapter';
 
+/** Default sun azimuth, in degrees clockwise from north — the cartographic convention. */
+const HILLSHADE_AZIMUTH = 315;
+/** Default sun altitude above the horizon, in degrees. */
+const HILLSHADE_ALTITUDE = 45;
+
 /**
- * Adds terrain image source, coastline layer, and contour lines layer.
+ * Adds the DEM source plus the colour-relief and hillshade layers.
  *
- * @remarks
- * The terrain texture is a 1081×1081 RGBA PNG covering the full CS1 world
- * extent (±8640 units = ±CS1_HALF_EXTENT_DEG degrees at the equator). Water
- * pixels are transparent so the water-fill layer underneath shows through.
+ * @param map - The MapLibre map to register sources and layers on.
+ * @param cityData - Supplies the DEM payload and its elevation domain.
+ * @param colors - Resolved theme colours, including the hypsometric ramp stops.
  */
-export function addTerrainLayers(
+export function addTerrainReliefLayers(
   map: maplibregl.Map,
   cityData: CityData,
   colors: ResolvedColors,
 ): void {
-  addTerrainImageSource(map, cityData);
-  addCoastlineLayer(map, cityData, colors);
-  addContourLinesLayer(map, cityData);
-}
-
-function addTerrainImageSource(map: maplibregl.Map, cityData: CityData): void {
   const h = CS1_HALF_EXTENT_DEG;
-  const imageCoordinates: [
-    [number, number],
-    [number, number],
-    [number, number],
-    [number, number],
-  ] = [
-    [-h, h],
-    [h, h],
-    [h, -h],
-    [-h, -h],
-  ];
 
-  if (!map.getSource('terrain')) {
-    map.addSource('terrain', {
-      type: 'image',
-      url: cityData.terrainTexture,
-      coordinates: imageCoordinates,
-    });
-  } else {
-    (map.getSource('terrain') as maplibregl.ImageSource).updateImage({
-      url: cityData.terrainTexture,
-      coordinates: imageCoordinates,
-    });
-  }
-
-  // TODO(epic-5): Reactivate raster layer for terrain texture rendering.
-  // if (!map.getLayer('terrain-fill')) {
-  //   map.addLayer({
-  //     id: 'terrain-fill',
-  //     type: 'raster',
-  //     source: 'terrain',
-  //     paint: {
-  //       'raster-opacity': 1,
-  //       'raster-fade-duration': 0,
-  //       'raster-resampling': 'nearest',
-  //     },
-  //   });
-  // }
-}
-
-function addCoastlineLayer(
-  map: maplibregl.Map,
-  cityData: CityData,
-  colors: ResolvedColors,
-): void {
-  addSourceIfAbsent(map, 'coastline-source', {
-    type: 'geojson',
-    data: buildCoastlineGeoJson(cityData),
-  });
+  addSourceIfAbsent(map, 'terrain-dem', {
+    type: 'raster-dem',
+    tiles: [DEM_TILE_URL],
+    bounds: [-h, -h, h, h],
+    minzoom: DEM_MIN_ZOOM,
+    maxzoom: DEM_MAX_ZOOM,
+    tileSize: DEM_TILE_SIZE,
+    ...DEM_ENCODING,
+  } as unknown as maplibregl.RasterDEMSourceSpecification);
 
   addLayerIfAbsent(map, {
-    id: 'coastline-layer',
-    type: 'line',
-    source: 'coastline-source',
-    layout: { 'line-cap': 'round', 'line-join': 'round' },
+    id: 'terrain-color-relief',
+    type: 'color-relief',
+    source: 'terrain-dem',
     paint: {
-      'line-color': colors.coastlineStroke,
-      'line-width': 4,
-      'line-opacity': 0.8,
-      'line-opacity-transition': { duration: 300 },
+      'color-relief-color': buildColorReliefRamp(
+        colors.terrain,
+        cityData.terrainDem,
+      ),
+      'color-relief-opacity': 1,
+      'color-relief-opacity-transition': { duration: 300 },
     },
-  });
+  } as unknown as maplibregl.LayerSpecification);
+
+  addLayerIfAbsent(map, {
+    id: 'terrain-hillshade',
+    type: 'hillshade',
+    source: 'terrain-dem',
+    paint: {
+      'hillshade-method': 'igor',
+      'hillshade-illumination-direction': HILLSHADE_AZIMUTH,
+      'hillshade-illumination-altitude': HILLSHADE_ALTITUDE,
+      'hillshade-illumination-anchor': 'map',
+      'hillshade-exaggeration': HILLSHADE_EXAGGERATION,
+    },
+  } as unknown as maplibregl.LayerSpecification);
 }
 
-function addContourLinesLayer(map: maplibregl.Map, cityData: CityData): void {
+/**
+ * Adds the contour lines, registered last so they read on top of the water surface.
+ */
+export function addTerrainContourLayer(
+  map: maplibregl.Map,
+  cityData: CityData,
+  colors: ResolvedColors,
+): void {
   addSourceIfAbsent(map, 'terrain-lines-source', {
     type: 'geojson',
     data: buildContourLinesGeoJson(cityData),
@@ -107,9 +106,9 @@ function addContourLinesLayer(map: maplibregl.Map, cityData: CityData): void {
     type: 'line',
     source: 'terrain-lines-source',
     paint: {
-      'line-color': '#000000',
+      'line-color': colors.contourLine,
       'line-width': 0.5,
-      'line-opacity': 0.5,
+      'line-opacity': 1,
       'line-opacity-transition': { duration: 300 },
     },
   });

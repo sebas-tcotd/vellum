@@ -26,7 +26,11 @@ const MINIMAL_CITY_DATA: CityData = {
   coastline: { elevation: 40, lines: [] },
   inlandWaterPolygons: [],
   contourLines: [],
-  terrainTexture: 'data:image/png;base64,',
+  terrainDem: {
+    dataUri: 'data:image/png;base64,',
+    elevMin: 0,
+    elevMax: 6400,
+  },
   roadNodes: [],
   roadSegments: [],
   transitLines: [],
