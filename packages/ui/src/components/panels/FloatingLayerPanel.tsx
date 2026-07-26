@@ -249,8 +249,9 @@ interface PanelLayerListProps {
   onToggleExpanded: (layer: LayerName) => void;
 }
 
-/** Layers that have an advanced-options sub-panel (transit-mode filter, buildings RICO filter, districts label mode). */
+/** Layers that have an advanced-options sub-panel (terrain sub-elements, transit-mode filter, buildings RICO filter, districts label mode). */
 const LAYERS_WITH_ADVANCED_OPTIONS = new Set<LayerName>([
+  'terrain',
   'transit',
   'buildings',
   'districts',
@@ -327,6 +328,15 @@ function AdvancedOptionsFloatingPanel({
   const setDistrictsShowNameOnMap = useVellumStore(
     (s) => s.setDistrictsShowNameOnMap,
   );
+  const setTerrainShowContourLines = useVellumStore(
+    (s) => s.setTerrainShowContourLines,
+  );
+  const setTerrainShowColorRelief = useVellumStore(
+    (s) => s.setTerrainShowColorRelief,
+  );
+  const setTerrainShowHillshade = useVellumStore(
+    (s) => s.setTerrainShowHillshade,
+  );
   const layerName = t(`layers.${layer}`);
 
   return (
@@ -361,6 +371,12 @@ function AdvancedOptionsFloatingPanel({
         onToggleColorByCategory={setBuildingColorByCategory}
         showDistrictNamesOnMap={layerOptions.districts.showNameOnMap}
         onToggleShowDistrictNamesOnMap={setDistrictsShowNameOnMap}
+        showContourLines={layerOptions.terrain.showContourLines}
+        onToggleContourLines={setTerrainShowContourLines}
+        showColorRelief={layerOptions.terrain.showColorRelief}
+        onToggleColorRelief={setTerrainShowColorRelief}
+        showHillshade={layerOptions.terrain.showHillshade}
+        onToggleHillshade={setTerrainShowHillshade}
       />
     </div>
   );

@@ -43,7 +43,7 @@ function OptionRow({ label, checked, onCheckedChange }: OptionRowProps) {
 
 /** Props for {@link AdvancedOptionsPanel}. */
 export interface AdvancedOptionsPanelProps {
-  /** Which layer's options to render — only `'transit'`, `'buildings'`, and `'districts'` have any. */
+  /** Which layer's options to render — only `'transit'`, `'buildings'`, `'districts'`, and `'terrain'` have any. */
   layer: LayerName;
   visibleModes: TransitMode[];
   onToggleMode: (mode: TransitMode) => void;
@@ -55,12 +55,22 @@ export interface AdvancedOptionsPanelProps {
   /** Whether districts render as a text label on the map instead of the default marker circle. */
   showDistrictNamesOnMap: boolean;
   onToggleShowDistrictNamesOnMap: (enabled: boolean) => void;
+  /** Whether terrain contour lines are visible. */
+  showContourLines: boolean;
+  onToggleContourLines: (enabled: boolean) => void;
+  /** Whether the terrain colour-relief hypsometric ramp is visible. */
+  showColorRelief: boolean;
+  onToggleColorRelief: (enabled: boolean) => void;
+  /** Whether the terrain hillshade shading is visible. */
+  showHillshade: boolean;
+  onToggleHillshade: (enabled: boolean) => void;
 }
 
 /**
  * Content of the advanced-options floating panel (see `FloatingLayerPanel.tsx`
- * for the panel chrome). Renders the transit-mode filter or the buildings RICO
- * filter + "color by category" toggle, depending on `layer`.
+ * for the panel chrome). Renders terrain sub-element toggles, the transit-mode
+ * filter, the buildings RICO filter + "color by category" toggle, or the
+ * district label toggle, depending on `layer`.
  */
 export function AdvancedOptionsPanel({
   layer,
@@ -72,6 +82,12 @@ export function AdvancedOptionsPanel({
   onToggleColorByCategory,
   showDistrictNamesOnMap,
   onToggleShowDistrictNamesOnMap,
+  showContourLines,
+  onToggleContourLines,
+  showColorRelief,
+  onToggleColorRelief,
+  showHillshade,
+  onToggleHillshade,
 }: AdvancedOptionsPanelProps) {
   const { t } = useTranslation();
 
@@ -107,6 +123,28 @@ export function AdvancedOptionsPanel({
             onCheckedChange={() => onToggleCategory(category)}
           />
         ))}
+      </div>
+    );
+  }
+
+  if (layer === 'terrain') {
+    return (
+      <div>
+        <OptionRow
+          label={t('layerOptionsPanel.showContourLines')}
+          checked={showContourLines}
+          onCheckedChange={onToggleContourLines}
+        />
+        <OptionRow
+          label={t('layerOptionsPanel.showColorRelief')}
+          checked={showColorRelief}
+          onCheckedChange={onToggleColorRelief}
+        />
+        <OptionRow
+          label={t('layerOptionsPanel.showHillshade')}
+          checked={showHillshade}
+          onCheckedChange={onToggleHillshade}
+        />
       </div>
     );
   }

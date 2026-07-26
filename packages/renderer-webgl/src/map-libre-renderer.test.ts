@@ -348,6 +348,11 @@ describe('MapLibreRenderer', () => {
         transit: { visibleModes: [] },
         buildings: { visibleCategories: [], colorByCategory: false },
         districts: { showNameOnMap: true },
+        terrain: {
+          showContourLines: true,
+          showColorRelief: true,
+          showHillshade: true,
+        },
       });
 
       expect(mockMap.setLayoutProperty).toHaveBeenCalledWith(
@@ -372,6 +377,11 @@ describe('MapLibreRenderer', () => {
         transit: { visibleModes: [] },
         buildings: { visibleCategories: [], colorByCategory: false },
         districts: { showNameOnMap: true },
+        terrain: {
+          showContourLines: true,
+          showColorRelief: true,
+          showHillshade: true,
+        },
       });
       vi.clearAllMocks();
       mockMap.getLayer.mockReturnValue({ id: 'any' } as unknown as undefined);

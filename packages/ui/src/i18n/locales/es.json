@@ -62,7 +62,10 @@
   "layerOptionsPanel": {
     "close": "Cerrar opciones avanzadas",
     "colorByCategory": "Colorear por categoría",
-    "showDistrictNamesOnMap": "Mostrar nombre en el mapa"
+    "showDistrictNamesOnMap": "Mostrar nombre en el mapa",
+    "showContourLines": "Curvas de nivel",
+    "showColorRelief": "Relieve hipsométrico",
+    "showHillshade": "Sombreado del relieve"
   },
   "export": {
     "title": "Exportar mapa",

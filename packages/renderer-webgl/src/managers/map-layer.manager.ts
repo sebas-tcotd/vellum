@@ -1,6 +1,7 @@
 import maplibregl from 'maplibre-gl';
 import type { LayerName, LayerOptions, TerrainDem } from '@vellum/core';
 import {
+  HILLSHADE_EXAGGERATION,
   LAYER_ID_MAP,
   NON_TRANSIT_OPACITY,
   TRANSIT_DIM_FACTOR,
@@ -149,6 +150,23 @@ export class MapLayerManager {
       buildBuildingColorExpression(this.colors, 'stroke', colorByCategory),
     );
 
+    const { terrain } = options;
+    this.setPaintIfExists(
+      'terrain-lines-layer',
+      'line-opacity',
+      terrain.showContourLines ? 1 : 0,
+    );
+    this.setPaintIfExists(
+      'terrain-color-relief',
+      'color-relief-opacity',
+      terrain.showColorRelief ? 1 : 0,
+    );
+    this.setPaintIfExists(
+      'terrain-hillshade',
+      'hillshade-exaggeration',
+      terrain.showHillshade ? HILLSHADE_EXAGGERATION : 0,
+    );
+
     this.districtsShowNameOnMap = options.districts.showNameOnMap;
     this.applyDistrictsVisibility();
   }
@@ -246,6 +264,26 @@ export class MapLayerManager {
       fillExpr,
     );
     this.setPaintIfExists('roads-ferry', 'line-color', c.ferry);
+
+    // Re-apply terrain sub-element visibility — setTransitDimming() above resets
+    // their opacities/exaggeration to defaults, which would override the user's
+    // advanced-options switches (showContourLines, showColorRelief, showHillshade).
+    const terrainOpts = options.terrain;
+    this.setPaintIfExists(
+      'terrain-lines-layer',
+      'line-opacity',
+      terrainOpts.showContourLines ? 0.5 : 0,
+    );
+    this.setPaintIfExists(
+      'terrain-color-relief',
+      'color-relief-opacity',
+      terrainOpts.showColorRelief ? 1 : 0,
+    );
+    this.setPaintIfExists(
+      'terrain-hillshade',
+      'hillshade-exaggeration',
+      terrainOpts.showHillshade ? HILLSHADE_EXAGGERATION : 0,
+    );
   }
 
   /** Sets a paint property only if the layer currently exists (a theme may be applied before a city is loaded). */

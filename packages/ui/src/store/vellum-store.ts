@@ -125,6 +125,13 @@ interface VellumStore {
   /** Toggles between the district marker circle (off) and the text-label display mode (on). */
   setDistrictsShowNameOnMap: (enabled: boolean) => void;
 
+  /** Shows or hides the terrain contour lines. */
+  setTerrainShowContourLines: (enabled: boolean) => void;
+  /** Shows or hides the terrain colour-relief hypsometric ramp. */
+  setTerrainShowColorRelief: (enabled: boolean) => void;
+  /** Shows or hides the terrain hillshade shading. */
+  setTerrainShowHillshade: (enabled: boolean) => void;
+
   /** Replaces the theme-loading warnings. Pass [] to clear. */
   setThemeWarnings: (warnings: ThemeWarning[]) => void;
 
@@ -264,6 +271,39 @@ export const useVellumStore = create<VellumStore>((set, get) => ({
       layerOptions: {
         ...state.layerOptions,
         districts: { showNameOnMap: enabled },
+      },
+    })),
+
+  setTerrainShowContourLines: (enabled) =>
+    set((state) => ({
+      layerOptions: {
+        ...state.layerOptions,
+        terrain: {
+          ...state.layerOptions.terrain,
+          showContourLines: enabled,
+        },
+      },
+    })),
+
+  setTerrainShowColorRelief: (enabled) =>
+    set((state) => ({
+      layerOptions: {
+        ...state.layerOptions,
+        terrain: {
+          ...state.layerOptions.terrain,
+          showColorRelief: enabled,
+        },
+      },
+    })),
+
+  setTerrainShowHillshade: (enabled) =>
+    set((state) => ({
+      layerOptions: {
+        ...state.layerOptions,
+        terrain: {
+          ...state.layerOptions.terrain,
+          showHillshade: enabled,
+        },
       },
     })),
 
