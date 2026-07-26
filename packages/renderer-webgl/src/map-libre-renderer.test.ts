@@ -161,6 +161,7 @@ describe('MapLibreRenderer', () => {
     mockMap.getLayer.mockReturnValue(undefined);
     mockMap.getSource.mockReturnValue(undefined);
     mockMap.isStyleLoaded.mockReturnValue(true);
+    mockMap.getZoom.mockReturnValue(12);
   });
 
   it.skip('calls addSource for each layer when render() is called', async () => {
@@ -1160,6 +1161,7 @@ describe('MapLibreRenderer', () => {
 
     it('toggleNavigationMode switches to strict mode', async () => {
       const renderer = makeRenderer();
+      mockMap.getZoom.mockReturnValue(12);
       await renderer.render(makeCityData(), {
         activeLayers: ALL_LAYERS_VISIBLE,
       });
@@ -1169,6 +1171,8 @@ describe('MapLibreRenderer', () => {
       // Strict mode: setMaxBounds with actual bounds
       expect(mockMap.setMaxBounds).toHaveBeenCalledOnce();
       expect(mockMap.setMaxBounds).not.toHaveBeenCalledWith(undefined);
+      // minZoom derived from fitToScreenZoom (12), not current camera zoom
+      expect(mockMap.setMinZoom).toHaveBeenCalledWith(3);
     });
 
     it('toggleNavigationMode switches back to soft mode', async () => {

@@ -197,6 +197,7 @@ export class MapLibreRenderer implements IRenderer {
   fitToScreen(): void {
     if (this.cityData) {
       this.navigationManager.fitToCityBounds(this.cityData);
+      this.navigationManager.recalculateFitZoom();
       this.navigationManager.applyConstraints(this.cityData);
     }
   }

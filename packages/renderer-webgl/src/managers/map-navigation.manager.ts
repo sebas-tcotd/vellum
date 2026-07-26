@@ -59,11 +59,16 @@ export class MapNavigationManager {
   applyConstraints(cityData: CityData): void {
     if (this.navigationMode === 'strict') {
       this.map.setMaxBounds(getCityBoundsGeoJSON(cityData));
-      this.map.setMinZoom(this.map.getZoom());
+      this.map.setMinZoom(Math.max(this.fitToScreenZoom * 0.25, 0));
     } else {
       this.map.setMaxBounds(undefined);
       this.map.setMinZoom(Math.max(this.fitToScreenZoom * 0.25, 0));
     }
+  }
+
+  /** Recalculates the fit-to-screen zoom from the current camera position. */
+  recalculateFitZoom(): void {
+    this.fitToScreenZoom = this.map.getZoom();
   }
 
   /** Toggles between strict and soft navigation boundary modes. */
