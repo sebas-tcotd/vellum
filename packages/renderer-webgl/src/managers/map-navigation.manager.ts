@@ -52,17 +52,45 @@ export class MapNavigationManager {
    * Must be called **after** {@link fitToCityBounds} so that `minZoom` reflects
    * the zoom level required to fit the entire city in the viewport.
    *
-   * In strict mode: sets `maxBounds` to city bounds (hard pan limit).
+   * In strict mode: sets `maxBounds` to city bounds (hard pan limit) with a
+   * small inset so the city never touches the viewport edge.
    * In soft mode: removes `maxBounds` (allows overpanning) and sets `minZoom`
    * to 25% of the fit-to-screen zoom.
    */
   applyConstraints(cityData: CityData): void {
     if (this.navigationMode === 'strict') {
-      this.map.setMaxBounds(getCityBoundsGeoJSON(cityData));
+      this.map.setMaxBounds(this.getPaddedStrictBounds(cityData));
       this.map.setMinZoom(Math.max(this.fitToScreenZoom * 0.25, 0));
     } else {
       this.map.setMaxBounds(undefined);
       this.map.setMinZoom(Math.max(this.fitToScreenZoom * 0.25, 0));
+    }
+  }
+
+  private readonly BOUNDS_PADDING_PX = 20;
+
+  private getPaddedStrictBounds(
+    cityData: CityData,
+  ): maplibregl.LngLatBoundsLike {
+    try {
+      const [[swLng, swLat], [neLng, neLat]] = getCityBoundsGeoJSON(cityData);
+
+      const sw = this.map.project([swLng, swLat]);
+      const ne = this.map.project([neLng, neLat]);
+
+      const halfWidth = (ne.x - sw.x) / 2;
+      const halfHeight = (sw.y - ne.y) / 2;
+      const pad = Math.min(this.BOUNDS_PADDING_PX, halfWidth, halfHeight);
+
+      const insetSW = this.map.unproject([sw.x + pad, sw.y - pad]);
+      const insetNE = this.map.unproject([ne.x - pad, ne.y + pad]);
+
+      return [
+        [insetSW.lng, insetSW.lat],
+        [insetNE.lng, insetNE.lat],
+      ];
+    } catch {
+      return getCityBoundsGeoJSON(cityData);
     }
   }
 

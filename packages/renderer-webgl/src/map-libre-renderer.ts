@@ -191,6 +191,11 @@ export class MapLibreRenderer implements IRenderer {
     this.layerManager.setOptions(options);
   }
 
+  /** Shows or hides the Vellum watermark logo. */
+  setWatermarkVisibility(visible: boolean): void {
+    this.layerManager.setWatermarkVisibility(visible);
+  }
+
   // ─── Navigation API Delegation ──────────────────────────────────────────
 
   /** Fits the MapLibre viewport to the city's geographic bounding box. */

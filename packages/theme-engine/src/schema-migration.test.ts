@@ -22,7 +22,13 @@ describe('migrateTheme', () => {
 
   it('treats a raw array like an invalid/empty object instead of spreading its indices', () => {
     const result = migrateTheme([1, 2, 3]);
-    expect(result).toEqual({ schemaVersion: 1 });
+    expect(result.schemaVersion).toBe(1);
+    expect(result.mapBackground).toBe(
+      DEFAULT_RENDER_STYLE_PARAMS.mapBackground,
+    );
+    expect(result).not.toHaveProperty('0');
+    expect(result).not.toHaveProperty('1');
+    expect(result).not.toHaveProperty('2');
   });
 
   it('treats NaN and Infinity schemaVersion as missing, defaulting to 1', () => {

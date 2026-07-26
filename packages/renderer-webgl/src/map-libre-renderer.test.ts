@@ -39,6 +39,14 @@ const mockMap = vi.hoisted(() => ({
   setMinZoom: vi.fn(),
   setMaxZoom: vi.fn(),
   getZoom: vi.fn(() => 12),
+  project: vi.fn(([lng]: [number, number]) => ({
+    x: (lng + 0.08) * 3200,
+    y: 500,
+  })),
+  unproject: vi.fn(({ x }: { x: number }) => ({
+    lng: x / 3200 - 0.08,
+    lat: 0,
+  })),
   getMinZoom: vi.fn(() => 0),
   getMaxZoom: vi.fn(() => 18),
 }));
@@ -71,6 +79,7 @@ function roadColors(fill: string, casing: string): RoadCategoryColors {
 
 const MOCK_STYLE: RenderStyleParams = {
   mapBackground: '#f7f6f1',
+  mapFrame: '#f5f0e6',
   terrain: {
     base: '#f7f6f1',
     low: '#95ae79',
@@ -1166,11 +1175,19 @@ describe('MapLibreRenderer', () => {
         activeLayers: ALL_LAYERS_VISIBLE,
       });
       vi.clearAllMocks();
+      mockMap.project.mockImplementation(
+        ([lng]: [number, number]) =>
+          ({ x: (lng + 0.08) * 3200, y: 500 }) as { x: number; y: number },
+      );
+      mockMap.unproject.mockImplementation(
+        ({ x }: { x: number }) =>
+          ({ lng: x / 3200 - 0.08, lat: 0 }) as { lng: number; lat: number },
+      );
 
       renderer.toggleNavigationMode();
-      // Strict mode: setMaxBounds with actual bounds
       expect(mockMap.setMaxBounds).toHaveBeenCalledOnce();
-      expect(mockMap.setMaxBounds).not.toHaveBeenCalledWith(undefined);
+      expect(mockMap.project).toHaveBeenCalled();
+      expect(mockMap.unproject).toHaveBeenCalled();
       // minZoom derived from fitToScreenZoom (12), not current camera zoom
       expect(mockMap.setMinZoom).toHaveBeenCalledWith(3);
     });

@@ -2,6 +2,7 @@
   "schemaVersion": 1,
   "name": "Day",
   "mapBackground": "#f2efe9",
+  "mapFrame": "#f5f0e6",
   "terrain": {
     "base": "#f2efe9",
     "low": "#9fd17a",

@@ -138,6 +138,8 @@ export interface BuildingColorParams {
 export interface RenderStyleParams {
   /** Background color behind the terrain (visible outside the map bounds). */
   mapBackground: ColorToken;
+  /** Color of the decorative map frame that borders the world extent. */
+  mapFrame: ColorToken;
   /** Elevation-gradient colors for the terrain texture. */
   terrain: {
     /** Base/flat elevation color. */

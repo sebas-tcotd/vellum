@@ -5,6 +5,7 @@ import {
   LAYER_ID_MAP,
   NON_TRANSIT_OPACITY,
   TRANSIT_DIM_FACTOR,
+  WATERMARK_LAYER_ID,
 } from '../constants/layer.constants';
 import { buildBuildingColorExpression } from '../expressions/building-color';
 import {
@@ -172,6 +173,19 @@ export class MapLayerManager {
   }
 
   /**
+   * Shows or hides the Vellum watermark logo.
+   *
+   * @param visible - `true` to show, `false` to hide.
+   */
+  setWatermarkVisibility(visible: boolean): void {
+    this.setLayoutIfExists(
+      WATERMARK_LAYER_ID,
+      'visibility',
+      visible ? 'visible' : 'none',
+    );
+  }
+
+  /**
    * Applies a new set of theme colors to every currently-registered layer via
    * `map.setPaintProperty()` — no source re-processing, no renderer teardown.
    *
@@ -224,6 +238,8 @@ export class MapLayerManager {
     );
     this.setPaintIfExists('districts-labels', 'text-color', c.districtLabel);
     this.setPaintIfExists('districts-labels', 'text-halo-color', c.background);
+
+    this.setPaintIfExists('map-frame', 'line-color', c.mapFrame);
 
     const fillExpr = buildRoadColorExpression(c, 'fill');
     const casingExpr = buildRoadColorExpression(c, 'casing');
