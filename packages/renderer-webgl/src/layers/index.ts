@@ -17,6 +17,7 @@ export { addBuildingsLayer } from './layer-buildings';
 export { addServiceIconsLayer } from './layer-service-icons';
 export { addForestsLayer } from './layer-forests';
 export { addDistrictsLayer } from './layer-districts';
+export { addParksLayer } from './layer-parks';
 export { addGridLayer } from './layer-grid';
 export { addMapFrameLayer } from './layer-map-frame';
 export { addWatermarkLayer } from './layer-watermark';

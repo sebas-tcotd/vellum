@@ -37,6 +37,7 @@ const MINIMAL_CITY_DATA: CityData = {
   buildings: [],
   forestCells: [],
   districts: [],
+  parkAreas: [],
 };
 
 /**

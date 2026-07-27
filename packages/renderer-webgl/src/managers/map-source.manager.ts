@@ -10,6 +10,7 @@ import {
   addGridLayer,
   addGridPattern,
   addMapFrameLayer,
+  addParksLayer,
   addRoadsLayer,
   addServiceIconsLayer,
   addTerrainContourLayer,
@@ -56,6 +57,7 @@ export class MapSourceManager {
     addRoadsLayer(this.map, cityData, this.colors);
     addTransitLayers(this.map, cityData);
     addDistrictsLayer(this.map, cityData, this.colors);
+    addParksLayer(this.map, cityData, this.colors);
     addMapFrameLayer(this.map, this.colors);
     addWatermarkLayer(this.map).catch(() => {
       /* Image loading may fail in non-browser environments (tests) */
@@ -98,6 +100,7 @@ export class MapSourceManager {
       'transit-stops',
       'transit-stops-dots',
       'districts',
+      'parks',
       'world-extent-source',
       'vellum-watermark-source',
     ];

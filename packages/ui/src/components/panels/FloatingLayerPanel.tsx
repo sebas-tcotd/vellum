@@ -325,6 +325,9 @@ function AdvancedOptionsFloatingPanel({
   const setDistrictsShowNameOnMap = useVellumStore(
     (s) => s.setDistrictsShowNameOnMap,
   );
+  const setDistrictsShowParkAreas = useVellumStore(
+    (s) => s.setDistrictsShowParkAreas,
+  );
   const setTerrainShowContourLines = useVellumStore(
     (s) => s.setTerrainShowContourLines,
   );
@@ -369,6 +372,8 @@ function AdvancedOptionsFloatingPanel({
         onToggleColorByCategory={setBuildingColorByCategory}
         showDistrictNamesOnMap={layerOptions.districts.showNameOnMap}
         onToggleShowDistrictNamesOnMap={setDistrictsShowNameOnMap}
+        showParkAreas={layerOptions.districts.showParkAreas}
+        onToggleShowParkAreas={setDistrictsShowParkAreas}
         showContourLines={layerOptions.terrain.showContourLines}
         onToggleContourLines={setTerrainShowContourLines}
         showColorRelief={layerOptions.terrain.showColorRelief}

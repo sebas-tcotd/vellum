@@ -19,6 +19,7 @@ export { buildGridGeoJson } from './builders/grid.builder';
 export {
   buildDistrictsGeoJson,
   buildForestsGeoJson,
+  buildParkAreasGeoJson,
   buildWaterSurfaceGeoJson,
   buildWorldExtentGeoJson,
 } from './builders/environment.builder';
@@ -49,6 +50,9 @@ export type {
   ForestFeature,
   ForestFeatureProperties,
   ForestsFeatureCollection,
+  ParkAreaFeature,
+  ParkAreaFeatureProperties,
+  ParkAreasFeatureCollection,
   LandFeature,
   LandPolygonFeatureCollection,
   LandPolygonProperties,

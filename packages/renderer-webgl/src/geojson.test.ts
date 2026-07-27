@@ -8,6 +8,7 @@ import {
 import type { RoadNode } from '@vellum/core';
 import {
   buildBuildingsGeoJson,
+  buildParkAreasGeoJson,
   buildRoadsGeoJson,
   buildTransitGeoJson,
   buildTransitRenderData,
@@ -23,6 +24,38 @@ const SEG_1 = makeRoadSegment({
   id: 'seg-1',
   startNodeId: 'node-a',
   endNodeId: 'node-b',
+});
+
+describe('buildParkAreasGeoJson', () => {
+  it('preserves each park type and label position as a point feature', () => {
+    const city = makeCityData({
+      parkAreas: [
+        {
+          id: 'park-1',
+          name: 'Campus Central',
+          position: { x: 120, y: 30, z: -340 },
+          parkType: 'University',
+        },
+      ],
+    });
+
+    const collection = buildParkAreasGeoJson(city);
+
+    expect(collection.features).toHaveLength(1);
+    expect(collection.features[0].properties).toEqual({
+      id: 'park-1',
+      name: 'Campus Central',
+      parkType: 'University',
+    });
+    expect(collection.features[0].geometry.type).toBe('Point');
+    const [lng, lat] = collection.features[0].geometry.coordinates;
+    expect(lng).toBeCloseTo(120 / 111_195);
+    expect(lat).toBeCloseTo(-340 / 111_195);
+  });
+
+  it('returns an empty collection when the city has no park areas', () => {
+    expect(buildParkAreasGeoJson(makeCityData()).features).toEqual([]);
+  });
 });
 
 function makePathSeg(segmentIds: string[]) {

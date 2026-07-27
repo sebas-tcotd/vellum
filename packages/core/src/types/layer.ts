@@ -109,6 +109,12 @@ export interface LayerOptions {
      * display modes — never both at once.
      */
     showNameOnMap: boolean;
+    /**
+     * When `true`, DLC park areas (University, Industry, Forestry, etc.)
+     * are rendered as labeled points on the map. Gated by the `districts`
+     * layer visibility — park areas are hidden when districts are off.
+     */
+    showParkAreas: boolean;
   };
   /** Terrain sub-element visibility: contour lines, color relief, and hillshade. */
   terrain: {
@@ -142,7 +148,7 @@ export const DEFAULT_LAYER_OPTIONS: LayerOptions = {
     visibleCategories: [...BUILDING_SERVICE_CATEGORIES],
     colorByCategory: false,
   },
-  districts: { showNameOnMap: false },
+  districts: { showNameOnMap: false, showParkAreas: false },
   terrain: {
     showContourLines: true,
     showColorRelief: true,

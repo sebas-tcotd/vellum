@@ -85,6 +85,19 @@ export interface ResolvedColors {
   ferry: string;
   /** Grid visual properties for the projection grid overlay. */
   grid: GridResolved;
+  /** Park area marker colors by type — drives the `match` expression in `layer-parks.ts`. */
+  parkAreas: {
+    /** Generic parks, NatureReserve, and unknown types. */
+    generic: string;
+    /** University campus (Parklife / Campus DLC). */
+    university: string;
+    /** Trade school (Campus DLC). */
+    tradeSchool: string;
+    /** Industrial area (Industries DLC). */
+    industry: string;
+    /** Forestry area (Industries DLC). */
+    forestry: string;
+  };
 }
 
 /** Derives the flat `ResolvedColors` lookup from a `RenderStyleParams` theme. */
@@ -148,6 +161,13 @@ export function resolveColors(style: RenderStyleParams): ResolvedColors {
       opacity: grid.opacity,
       width: grid.width,
       dasharray: grid.dasharray,
+    },
+    parkAreas: {
+      generic: style.parkAreas?.generic ?? '#95ae79',
+      university: style.parkAreas?.university ?? '#c4a06a',
+      tradeSchool: style.parkAreas?.tradeSchool ?? '#d2938e',
+      industry: style.parkAreas?.industry ?? '#a098b0',
+      forestry: style.parkAreas?.forestry ?? '#14592a',
     },
   };
 }

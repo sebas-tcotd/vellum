@@ -103,6 +103,7 @@ pub struct CityData {
     pub buildings: Vec<Building>,
     pub forest_cells: Vec<ForestCell>,
     pub districts: Vec<District>,
+    pub park_areas: Vec<ParkArea>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -214,6 +215,32 @@ pub struct District {
     pub name: String,
     /// Label anchor in world-space (first `<p>` element in the Dist XML node).
     pub position: Vec3,
+}
+
+/// Serializes as `PascalCase` to match the TypeScript union.
+/// Keep this enum in `PascalCase` — do not add #[`serde(rename_all)`].
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub enum ParkType {
+    Generic,
+    University,
+    TradeSchool,
+    Industry,
+    Forestry,
+    None,
+}
+
+/// A DLC park area (Parklife / Universities / Industries) with a type discriminator.
+/// The `.cslmap` format exports a single position per park — no polygon
+/// boundaries are available. Render as a labeled point at `position`.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ParkArea {
+    pub id: String,
+    pub name: String,
+    /// Label anchor in world-space (the `<P>` element in the Park XML node).
+    pub position: Vec3,
+    /// The type of park area (University, Industry, Forestry, etc.).
+    pub park_type: ParkType,
 }
 
 #[cfg(test)]

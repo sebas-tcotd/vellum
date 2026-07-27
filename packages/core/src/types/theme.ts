@@ -184,6 +184,19 @@ export interface RenderStyleParams {
   };
   /** Projection grid overlay for the basemap layer. */
   grid: GridStyle;
+  /** Park area marker colors by type. Falls back to built-in defaults if not specified. */
+  parkAreas?: {
+    /** Generic park / NatureReserve / unknown type. */
+    generic: ColorToken;
+    /** University campus (Parklife / Campus DLC). */
+    university: ColorToken;
+    /** Trade school (Campus DLC). */
+    tradeSchool: ColorToken;
+    /** Industrial area (Industries DLC). */
+    industry: ColorToken;
+    /** Forestry area (Industries DLC). */
+    forestry: ColorToken;
+  };
 }
 
 /**

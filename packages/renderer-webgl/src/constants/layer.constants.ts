@@ -56,7 +56,12 @@ export const LAYER_ID_MAP: Record<LayerName, string[]> = {
   ],
   buildings: ['buildings-fill', 'buildings-outline', 'service-icons'],
   forests: ['forests-circles'],
-  districts: ['districts-points', 'districts-labels'],
+  districts: [
+    'districts-points',
+    'districts-labels',
+    'park-areas-points',
+    'park-areas-labels',
+  ],
 };
 
 /** Layer ID for the Vellum watermark logo shown when all data layers are disabled. */
@@ -139,5 +144,7 @@ export const NON_TRANSIT_OPACITY: Record<
   },
   'districts-points': { prop: 'circle-opacity', base: 1 },
   'districts-labels': { prop: 'text-opacity', base: 1 },
+  'park-areas-points': { prop: 'circle-opacity', base: 1 },
+  'park-areas-labels': { prop: 'text-opacity', base: 1 },
   'grid-layer': { prop: 'line-opacity', base: 0.25 },
 };

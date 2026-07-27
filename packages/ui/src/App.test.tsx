@@ -86,6 +86,7 @@ const mockCityData = {
   buildings: [],
   forestCells: [],
   districts: [],
+  parkAreas: [],
   bounds: { minX: -8640, maxX: 8640, minZ: -8640, maxZ: 8640, seaLevel: 40 },
 };
 
@@ -169,6 +170,7 @@ describe('App — renderizado condicional', () => {
         buildings: [],
         forestCells: [],
         districts: [],
+        parkAreas: [],
         bounds: {
           minX: -8640,
           maxX: 8640,

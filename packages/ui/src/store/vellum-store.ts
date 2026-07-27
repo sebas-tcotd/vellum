@@ -128,6 +128,9 @@ interface VellumStore {
   /** Toggles between the district marker circle (off) and the text-label display mode (on). */
   setDistrictsShowNameOnMap: (enabled: boolean) => void;
 
+  /** Shows or hides DLC park-area markers and labels within the districts layer. */
+  setDistrictsShowParkAreas: (enabled: boolean) => void;
+
   /** Shows or hides the terrain contour lines. */
   setTerrainShowContourLines: (enabled: boolean) => void;
   /** Shows or hides the terrain colour-relief hypsometric ramp. */
@@ -280,7 +283,21 @@ export const useVellumStore = create<VellumStore>((set, get) => ({
     set((state) => ({
       layerOptions: {
         ...state.layerOptions,
-        districts: { showNameOnMap: enabled },
+        districts: {
+          ...state.layerOptions.districts,
+          showNameOnMap: enabled,
+        },
+      },
+    })),
+
+  setDistrictsShowParkAreas: (enabled) =>
+    set((state) => ({
+      layerOptions: {
+        ...state.layerOptions,
+        districts: {
+          ...state.layerOptions.districts,
+          showParkAreas: enabled,
+        },
       },
     })),
 

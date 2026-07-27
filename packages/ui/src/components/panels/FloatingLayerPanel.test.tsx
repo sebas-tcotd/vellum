@@ -27,6 +27,7 @@ const mockToggleTransitMode = vi.fn();
 const mockToggleBuildingCategory = vi.fn();
 const mockSetBuildingColorByCategory = vi.fn();
 const mockSetDistrictsShowNameOnMap = vi.fn();
+const mockSetDistrictsShowParkAreas = vi.fn();
 const mockSetTerrainShowContourLines = vi.fn();
 const mockSetTerrainShowColorRelief = vi.fn();
 const mockSetTerrainShowHillshade = vi.fn();
@@ -53,7 +54,7 @@ const mockLayerOptions = {
     visibleCategories: ['residential', 'commercial', 'office', 'industry'],
     colorByCategory: false,
   },
-  districts: { showNameOnMap: false },
+  districts: { showNameOnMap: false, showParkAreas: false },
   terrain: {
     showContourLines: true,
     showColorRelief: true,
@@ -77,6 +78,7 @@ vi.mock('../../store/vellum-store', () => ({
       toggleBuildingCategory: mockToggleBuildingCategory,
       setBuildingColorByCategory: mockSetBuildingColorByCategory,
       setDistrictsShowNameOnMap: mockSetDistrictsShowNameOnMap,
+      setDistrictsShowParkAreas: mockSetDistrictsShowParkAreas,
       setTerrainShowContourLines: mockSetTerrainShowContourLines,
       setBasemapShowGrid: vi.fn(),
       setTerrainShowColorRelief: mockSetTerrainShowColorRelief,
