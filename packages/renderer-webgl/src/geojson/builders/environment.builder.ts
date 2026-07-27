@@ -7,6 +7,8 @@ import type {
   DistrictsFeatureCollection,
   ForestFeature,
   ForestsFeatureCollection,
+  ParkAreaFeature,
+  ParkAreasFeatureCollection,
   WaterFeatureCollection,
 } from '../types';
 
@@ -39,6 +41,26 @@ export function buildDistrictsGeoJson(
     type: 'Feature',
     geometry: { type: 'Point', coordinates: csToGeoArray(district.position) },
     properties: { id: district.id, name: district.name },
+  }));
+  return { type: 'FeatureCollection', features };
+}
+
+/**
+ * Builds a GeoJSON FeatureCollection of DLC park-area points.
+ *
+ * @remarks
+ * Each `ParkArea` from the `<Parks>` section of the `.cslmap` XML is rendered
+ * as a labeled `Point`. The `parkType` property drives the `circle-color`
+ * `match` expression in `layer-parks.ts`; all entries have a position because
+ * the Rust parser discards malformed park nodes before serialization.
+ */
+export function buildParkAreasGeoJson(
+  cityData: CityData,
+): ParkAreasFeatureCollection {
+  const features: ParkAreaFeature[] = cityData.parkAreas.map((park) => ({
+    type: 'Feature',
+    geometry: { type: 'Point', coordinates: csToGeoArray(park.position) },
+    properties: { id: park.id, name: park.name, parkType: park.parkType },
   }));
   return { type: 'FeatureCollection', features };
 }

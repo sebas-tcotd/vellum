@@ -24,6 +24,7 @@ import { cn } from './lib/utils';
  */
 import './i18n/types';
 
+import type { LayerName } from '@vellum/core';
 import { useVellumStore } from './store/vellum-store';
 
 const noop = async (): Promise<void> => {};
@@ -86,6 +87,8 @@ export function App({
   const setDlcWarnings = useVellumStore((s) => s.setDlcWarnings);
   const setHasPartialData = useVellumStore((s) => s.setHasPartialData);
   const toggleLayer = useVellumStore((s) => s.toggleLayer);
+  const expandedPanelLayer = useVellumStore((s) => s.expandedPanelLayer);
+  const setExpandedPanelLayer = useVellumStore((s) => s.setExpandedPanelLayer);
   const themeWarnings = useVellumStore((s) => s.themeWarnings);
   const setThemeWarnings = useVellumStore((s) => s.setThemeWarnings);
 
@@ -128,6 +131,13 @@ export function App({
     [resetBearingRef],
   );
 
+  const handleOpenAdvancedOptions = useCallback(
+    (layer: LayerName) => {
+      setExpandedPanelLayer(expandedPanelLayer === layer ? null : layer);
+    },
+    [expandedPanelLayer, setExpandedPanelLayer],
+  );
+
   useKeyboardShortcuts({
     onOpenFile: openFileDialog,
     // Layer shortcuts 1-7 only active when a map is loaded
@@ -146,6 +156,9 @@ export function App({
       : {}),
     ...(cityData !== null ? { onRotateBy: handleRotateBy } : {}),
     ...(cityData !== null ? { onResetBearing: handleResetBearing } : {}),
+    ...(cityData !== null
+      ? { onOpenAdvancedOptions: handleOpenAdvancedOptions }
+      : {}),
     enabled: loadingState !== 'loading',
   });
 

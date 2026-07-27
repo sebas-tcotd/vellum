@@ -2,7 +2,11 @@ import { Separator } from '@/lib/separator';
 import { Switch } from '@/lib/switch';
 import { cn } from '@/lib/utils';
 import type { LayerName } from '@vellum/core';
-import { LAYER_NAMES, LayerVisibility } from '@vellum/core';
+import {
+  LAYERS_WITH_ADVANCED_OPTIONS,
+  LAYER_NAMES,
+  LayerVisibility,
+} from '@vellum/core';
 import {
   Building2,
   Bus,
@@ -92,7 +96,8 @@ export const FloatingLayerPanel = ({
 }: FloatingLayerPanelProps) => {
   const { t } = useTranslation();
   const [panelState, setPanelState] = useState<PanelState>('expanded');
-  const [expandedLayer, setExpandedLayer] = useState<LayerName | null>(null);
+  const expandedLayer = useVellumStore((s) => s.expandedPanelLayer);
+  const setExpandedLayer = useVellumStore((s) => s.setExpandedPanelLayer);
   const isShortViewport = useIsShortViewport(SHORT_VIEWPORT_THRESHOLD_PX);
   const anchorTop = expandedLayer !== null && isShortViewport;
   const panelRef = useRef<HTMLDivElement>(null);
@@ -249,14 +254,6 @@ interface PanelLayerListProps {
   onToggleExpanded: (layer: LayerName) => void;
 }
 
-/** Layers that have an advanced-options sub-panel (terrain sub-elements, transit-mode filter, buildings RICO filter, districts label mode). */
-const LAYERS_WITH_ADVANCED_OPTIONS = new Set<LayerName>([
-  'terrain',
-  'transit',
-  'buildings',
-  'districts',
-]);
-
 function PanelLayerList({
   activeLayers,
   toggleLayer,
@@ -328,6 +325,9 @@ function AdvancedOptionsFloatingPanel({
   const setDistrictsShowNameOnMap = useVellumStore(
     (s) => s.setDistrictsShowNameOnMap,
   );
+  const setDistrictsShowParkAreas = useVellumStore(
+    (s) => s.setDistrictsShowParkAreas,
+  );
   const setTerrainShowContourLines = useVellumStore(
     (s) => s.setTerrainShowContourLines,
   );
@@ -337,6 +337,7 @@ function AdvancedOptionsFloatingPanel({
   const setTerrainShowHillshade = useVellumStore(
     (s) => s.setTerrainShowHillshade,
   );
+  const setBasemapShowGrid = useVellumStore((s) => s.setBasemapShowGrid);
   const layerName = t(`layers.${layer}`);
 
   return (
@@ -371,12 +372,16 @@ function AdvancedOptionsFloatingPanel({
         onToggleColorByCategory={setBuildingColorByCategory}
         showDistrictNamesOnMap={layerOptions.districts.showNameOnMap}
         onToggleShowDistrictNamesOnMap={setDistrictsShowNameOnMap}
+        showParkAreas={layerOptions.districts.showParkAreas}
+        onToggleShowParkAreas={setDistrictsShowParkAreas}
         showContourLines={layerOptions.terrain.showContourLines}
         onToggleContourLines={setTerrainShowContourLines}
         showColorRelief={layerOptions.terrain.showColorRelief}
         onToggleColorRelief={setTerrainShowColorRelief}
         showHillshade={layerOptions.terrain.showHillshade}
         onToggleHillshade={setTerrainShowHillshade}
+        showGrid={layerOptions.basemap.showGrid}
+        onToggleShowGrid={setBasemapShowGrid}
       />
     </div>
   );

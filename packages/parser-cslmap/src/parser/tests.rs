@@ -346,6 +346,71 @@ fn building_footprint_parsed_from_lowercase_p_tags() {
     assert_eq!(city.buildings[0].service_type, "ResidentialLow");
 }
 
+#[test]
+fn parks_parse_known_types_and_skip_missing_positions() {
+    use crate::city_data::ParkType;
+
+    let xml = br#"<CSLExportXML version="4.1"><Parks>
+      <Park id="1" name="Central"><p x="100" y="20" z="300" /><type>Generic</type></Park>
+      <Park id="2" name="Campus"><P x="400" y="30" z="500"></P><type>University</type></Park>
+      <Park id="3" name="Unknown"><p x="600" y="40" z="700" /><type>Zoo</type></Park>
+      <Park id="4" name="Missing"><type>Industry</type></Park>
+      <Park id="5" name="Malformed"><p y="50" z="800" /><type>Forestry</type></Park>
+    </Parks></CSLExportXML>"#;
+
+    let city = parse_cslmap_bytes(xml).expect("parks XML must parse");
+    assert_eq!(city.park_areas.len(), 3);
+    assert!(matches!(city.park_areas[0].park_type, ParkType::Generic));
+    assert!(matches!(city.park_areas[1].park_type, ParkType::University));
+    assert!(matches!(city.park_areas[2].park_type, ParkType::None));
+    assert!((city.park_areas[1].position.z - 500.0).abs() < f64::EPSILON);
+}
+
+#[test]
+fn missing_or_empty_parks_produce_an_empty_collection() {
+    let without_parks = parse_cslmap_bytes(b"<CSLExportXML version=\"4.1\" />")
+        .expect("XML without Parks must parse");
+    let empty_parks = parse_cslmap_bytes(b"<CSLExportXML version=\"4.1\"><Parks /></CSLExportXML>")
+        .expect("XML with empty Parks must parse");
+
+    assert!(without_parks.park_areas.is_empty());
+    assert!(empty_parks.park_areas.is_empty());
+}
+
+#[test]
+fn altavento_fixture_parses_its_dlc_park_areas() {
+    use crate::city_data::ParkType;
+
+    let bytes = include_bytes!("../../fixtures/altavento.cslmap");
+    let city = parse_cslmap_bytes(bytes).expect("Altavento fixture must parse");
+
+    assert_eq!(city.park_areas.len(), 6);
+    assert!(city
+        .park_areas
+        .iter()
+        .all(|park| park.name != "AREA_PATTERN[None]:0"));
+    assert!(city
+        .park_areas
+        .iter()
+        .any(|park| matches!(park.park_type, ParkType::University)));
+    assert!(city
+        .park_areas
+        .iter()
+        .any(|park| matches!(park.park_type, ParkType::TradeSchool)));
+    assert!(city
+        .park_areas
+        .iter()
+        .any(|park| matches!(park.park_type, ParkType::Industry)));
+}
+
+#[test]
+fn placeholder_park_is_not_exposed_as_a_park_area() {
+    let bytes = include_bytes!("../../fixtures/aurelia-del-delta.cslmap");
+    let city = parse_cslmap_bytes(bytes).expect("Aurelia fixture must parse");
+
+    assert!(city.park_areas.is_empty());
+}
+
 // Transit line color defaults to #FFFFFFFF when <color> element is absent
 #[test]
 fn transit_line_color_defaults_when_absent() {

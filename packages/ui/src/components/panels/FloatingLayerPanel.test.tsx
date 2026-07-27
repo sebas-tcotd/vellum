@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import userEvent from '@testing-library/user-event';
 import { render, screen, fireEvent } from '../../test-utils';
 import { FloatingLayerPanel } from './FloatingLayerPanel';
-import type { LayerVisibility, ThemeMetadata } from '@vellum/core';
+import type { LayerName, LayerVisibility, ThemeMetadata } from '@vellum/core';
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -27,10 +27,12 @@ const mockToggleTransitMode = vi.fn();
 const mockToggleBuildingCategory = vi.fn();
 const mockSetBuildingColorByCategory = vi.fn();
 const mockSetDistrictsShowNameOnMap = vi.fn();
+const mockSetDistrictsShowParkAreas = vi.fn();
 const mockSetTerrainShowContourLines = vi.fn();
 const mockSetTerrainShowColorRelief = vi.fn();
 const mockSetTerrainShowHillshade = vi.fn();
 let mockAvailableThemes: ThemeMetadata[] = [];
+let mockExpandedPanelLayer: LayerName | null = null;
 let mockActiveTheme = 'day';
 let mockTransitDimmingEnabled = false;
 
@@ -52,12 +54,13 @@ const mockLayerOptions = {
     visibleCategories: ['residential', 'commercial', 'office', 'industry'],
     colorByCategory: false,
   },
-  districts: { showNameOnMap: false },
+  districts: { showNameOnMap: false, showParkAreas: false },
   terrain: {
     showContourLines: true,
     showColorRelief: true,
     showHillshade: true,
   },
+  basemap: { showGrid: false },
 };
 
 vi.mock('../../store/vellum-store', () => ({
@@ -75,9 +78,17 @@ vi.mock('../../store/vellum-store', () => ({
       toggleBuildingCategory: mockToggleBuildingCategory,
       setBuildingColorByCategory: mockSetBuildingColorByCategory,
       setDistrictsShowNameOnMap: mockSetDistrictsShowNameOnMap,
+      setDistrictsShowParkAreas: mockSetDistrictsShowParkAreas,
       setTerrainShowContourLines: mockSetTerrainShowContourLines,
+      setBasemapShowGrid: vi.fn(),
       setTerrainShowColorRelief: mockSetTerrainShowColorRelief,
       setTerrainShowHillshade: mockSetTerrainShowHillshade,
+      expandedPanelLayer: mockExpandedPanelLayer,
+      setExpandedPanelLayer: (
+        layer: import('@vellum/core').LayerName | null,
+      ) => {
+        mockExpandedPanelLayer = layer;
+      },
     }),
 }));
 
@@ -135,13 +146,16 @@ describe('FloatingLayerPanel', () => {
 
     it('ancla arriba (top-4) al abrir el panel avanzado en una ventana corta', () => {
       setViewportHeight(700);
-      const { container } = render(
+      const { container, rerender } = render(
         <FloatingLayerPanel cityName="Altavento" fileName="altavento.cslmap" />,
       );
       fireEvent.click(
         screen.getAllByRole('button', {
           name: 'a11y.advancedOptionsToggle',
         })[0],
+      );
+      rerender(
+        <FloatingLayerPanel cityName="Altavento" fileName="altavento.cslmap" />,
       );
       const wrapper = container.firstChild as HTMLElement;
       expect(wrapper.className).toContain('top-4');
@@ -150,13 +164,16 @@ describe('FloatingLayerPanel', () => {
 
     it('permanece centrado al abrir el panel avanzado en una ventana alta (pantalla completa)', () => {
       setViewportHeight(1200);
-      const { container } = render(
+      const { container, rerender } = render(
         <FloatingLayerPanel cityName="Altavento" fileName="altavento.cslmap" />,
       );
       fireEvent.click(
         screen.getAllByRole('button', {
           name: 'a11y.advancedOptionsToggle',
         })[0],
+      );
+      rerender(
+        <FloatingLayerPanel cityName="Altavento" fileName="altavento.cslmap" />,
       );
       const wrapper = container.firstChild as HTMLElement;
       expect(wrapper.className).toContain('top-1/2');
@@ -165,14 +182,20 @@ describe('FloatingLayerPanel', () => {
 
     it('vuelve a centrarse al cerrar el panel avanzado, incluso en ventana corta', () => {
       setViewportHeight(700);
-      const { container } = render(
+      const { container, rerender } = render(
         <FloatingLayerPanel cityName="Altavento" fileName="altavento.cslmap" />,
       );
       const toggleBtn = screen.getAllByRole('button', {
         name: 'a11y.advancedOptionsToggle',
       })[0];
       fireEvent.click(toggleBtn);
+      rerender(
+        <FloatingLayerPanel cityName="Altavento" fileName="altavento.cslmap" />,
+      );
       fireEvent.click(toggleBtn);
+      rerender(
+        <FloatingLayerPanel cityName="Altavento" fileName="altavento.cslmap" />,
+      );
       const wrapper = container.firstChild as HTMLElement;
       expect(wrapper.className).toContain('top-1/2');
       expect(wrapper.className).not.toContain('top-4');

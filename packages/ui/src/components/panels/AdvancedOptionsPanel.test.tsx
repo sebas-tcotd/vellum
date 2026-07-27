@@ -20,12 +20,16 @@ function makeProps(
     onToggleColorByCategory: vi.fn(),
     showDistrictNamesOnMap: false,
     onToggleShowDistrictNamesOnMap: vi.fn(),
+    showParkAreas: false,
+    onToggleShowParkAreas: vi.fn(),
     showContourLines: true,
     onToggleContourLines: vi.fn(),
     showColorRelief: true,
     onToggleColorRelief: vi.fn(),
     showHillshade: true,
     onToggleHillshade: vi.fn(),
+    showGrid: false,
+    onToggleShowGrid: vi.fn(),
     ...overrides,
   };
 }
@@ -66,12 +70,20 @@ describe('AdvancedOptionsPanel — terrain', () => {
 });
 
 describe('AdvancedOptionsPanel — districts', () => {
-  it('renders a single switch labeled showDistrictNamesOnMap', () => {
+  it('renders district-name and park-area switches', () => {
     render(<AdvancedOptionsPanel {...makeProps({ layer: 'districts' })} />);
     expect(
       screen.getByText('layerOptionsPanel.showDistrictNamesOnMap'),
     ).toBeTruthy();
-    expect(screen.getAllByRole('switch')).toHaveLength(1);
+    expect(screen.getByText('layerOptionsPanel.showParkAreas')).toBeTruthy();
+    expect(
+      screen.getByRole('switch', {
+        name: 'layerOptionsPanel.showDistrictNamesOnMap',
+      }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole('switch', { name: 'layerOptionsPanel.showParkAreas' }),
+    ).toBeTruthy();
   });
 
   it('reflects showDistrictNamesOnMap as the switch checked state', () => {
@@ -80,7 +92,10 @@ describe('AdvancedOptionsPanel — districts', () => {
         {...makeProps({ layer: 'districts', showDistrictNamesOnMap: true })}
       />,
     );
-    expect(screen.getByRole('switch')).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getAllByRole('switch')[0]).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
   });
 
   it('calls onToggleShowDistrictNamesOnMap with the flipped value on click', async () => {
@@ -94,7 +109,22 @@ describe('AdvancedOptionsPanel — districts', () => {
         })}
       />,
     );
-    screen.getByRole('switch').click();
+    screen.getAllByRole('switch')[0].click();
+    expect(onToggle).toHaveBeenCalledWith(true);
+  });
+
+  it('calls onToggleShowParkAreas with the flipped value on click', async () => {
+    const onToggle = vi.fn();
+    render(
+      <AdvancedOptionsPanel
+        {...makeProps({
+          layer: 'districts',
+          showParkAreas: false,
+          onToggleShowParkAreas: onToggle,
+        })}
+      />,
+    );
+    screen.getAllByRole('switch')[1].click();
     expect(onToggle).toHaveBeenCalledWith(true);
   });
 

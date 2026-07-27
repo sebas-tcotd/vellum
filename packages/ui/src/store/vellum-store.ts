@@ -72,6 +72,9 @@ interface VellumStore {
   /** Metadata for every theme loaded at startup — drives the selector pills. */
   availableThemes: ThemeMetadata[];
 
+  /** The layer whose advanced-options sub-panel is currently open, or null if closed. */
+  expandedPanelLayer: LayerName | null;
+
   /** Warnings for `.vellumstyle` files that were skipped as invalid (AC #5).
    * Non-empty triggers the ThemeWarningToast. */
   themeWarnings: ThemeWarning[];
@@ -125,12 +128,21 @@ interface VellumStore {
   /** Toggles between the district marker circle (off) and the text-label display mode (on). */
   setDistrictsShowNameOnMap: (enabled: boolean) => void;
 
+  /** Shows or hides DLC park-area markers and labels within the districts layer. */
+  setDistrictsShowParkAreas: (enabled: boolean) => void;
+
   /** Shows or hides the terrain contour lines. */
   setTerrainShowContourLines: (enabled: boolean) => void;
   /** Shows or hides the terrain colour-relief hypsometric ramp. */
   setTerrainShowColorRelief: (enabled: boolean) => void;
   /** Shows or hides the terrain hillshade shading. */
   setTerrainShowHillshade: (enabled: boolean) => void;
+
+  /** Shows or hides the 9×9 projection grid on the basemap layer. */
+  setBasemapShowGrid: (enabled: boolean) => void;
+
+  /** Opens or closes the advanced-options sub-panel for a layer. Pass null to close. */
+  setExpandedPanelLayer: (layer: LayerName | null) => void;
 
   /** Replaces the theme-loading warnings. Pass [] to clear. */
   setThemeWarnings: (warnings: ThemeWarning[]) => void;
@@ -187,6 +199,7 @@ export const useVellumStore = create<VellumStore>((set, get) => ({
   transitDimmingEnabled: false,
   layerOptions: DEFAULT_LAYER_OPTIONS,
   availableThemes: [],
+  expandedPanelLayer: null,
   themeWarnings: [],
   autoUpdateEnabled: false,
   activeLanguage: 'en',
@@ -270,7 +283,21 @@ export const useVellumStore = create<VellumStore>((set, get) => ({
     set((state) => ({
       layerOptions: {
         ...state.layerOptions,
-        districts: { showNameOnMap: enabled },
+        districts: {
+          ...state.layerOptions.districts,
+          showNameOnMap: enabled,
+        },
+      },
+    })),
+
+  setDistrictsShowParkAreas: (enabled) =>
+    set((state) => ({
+      layerOptions: {
+        ...state.layerOptions,
+        districts: {
+          ...state.layerOptions.districts,
+          showParkAreas: enabled,
+        },
       },
     })),
 
@@ -306,6 +333,19 @@ export const useVellumStore = create<VellumStore>((set, get) => ({
         },
       },
     })),
+
+  setBasemapShowGrid: (enabled) =>
+    set((state) => ({
+      layerOptions: {
+        ...state.layerOptions,
+        basemap: {
+          ...state.layerOptions.basemap,
+          showGrid: enabled,
+        },
+      },
+    })),
+
+  setExpandedPanelLayer: (layer) => set({ expandedPanelLayer: layer }),
 
   setThemeWarnings: (warnings) => set({ themeWarnings: warnings }),
 

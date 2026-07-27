@@ -36,7 +36,11 @@ function OptionRow({ label, checked, onCheckedChange }: OptionRowProps) {
       <span className="font-ui flex-1 text-xs truncate opacity-80">
         {label}
       </span>
-      <Switch checked={checked} onCheckedChange={onCheckedChange} />
+      <Switch
+        aria-label={label}
+        checked={checked}
+        onCheckedChange={onCheckedChange}
+      />
     </div>
   );
 }
@@ -55,6 +59,9 @@ export interface AdvancedOptionsPanelProps {
   /** Whether districts render as a text label on the map instead of the default marker circle. */
   showDistrictNamesOnMap: boolean;
   onToggleShowDistrictNamesOnMap: (enabled: boolean) => void;
+  /** Whether DLC park areas are rendered as labeled points. */
+  showParkAreas: boolean;
+  onToggleShowParkAreas: (enabled: boolean) => void;
   /** Whether terrain contour lines are visible. */
   showContourLines: boolean;
   onToggleContourLines: (enabled: boolean) => void;
@@ -64,6 +71,9 @@ export interface AdvancedOptionsPanelProps {
   /** Whether the terrain hillshade shading is visible. */
   showHillshade: boolean;
   onToggleHillshade: (enabled: boolean) => void;
+  /** Whether the basemap 9×9 projection grid is visible. */
+  showGrid: boolean;
+  onToggleShowGrid: (enabled: boolean) => void;
 }
 
 /**
@@ -82,12 +92,16 @@ export function AdvancedOptionsPanel({
   onToggleColorByCategory,
   showDistrictNamesOnMap,
   onToggleShowDistrictNamesOnMap,
+  showParkAreas,
+  onToggleShowParkAreas,
   showContourLines,
   onToggleContourLines,
   showColorRelief,
   onToggleColorRelief,
   showHillshade,
   onToggleHillshade,
+  showGrid,
+  onToggleShowGrid,
 }: AdvancedOptionsPanelProps) {
   const { t } = useTranslation();
 
@@ -151,10 +165,27 @@ export function AdvancedOptionsPanel({
 
   if (layer === 'districts') {
     return (
+      <div>
+        <OptionRow
+          label={t('layerOptionsPanel.showDistrictNamesOnMap')}
+          checked={showDistrictNamesOnMap}
+          onCheckedChange={onToggleShowDistrictNamesOnMap}
+        />
+        <OptionRow
+          label={t('layerOptionsPanel.showParkAreas')}
+          checked={showParkAreas}
+          onCheckedChange={onToggleShowParkAreas}
+        />
+      </div>
+    );
+  }
+
+  if (layer === 'basemap') {
+    return (
       <OptionRow
-        label={t('layerOptionsPanel.showDistrictNamesOnMap')}
-        checked={showDistrictNamesOnMap}
-        onCheckedChange={onToggleShowDistrictNamesOnMap}
+        label={t('layerOptionsPanel.showGrid')}
+        checked={showGrid}
+        onCheckedChange={onToggleShowGrid}
       />
     );
   }

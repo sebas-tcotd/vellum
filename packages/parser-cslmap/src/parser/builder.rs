@@ -1,5 +1,5 @@
 use super::handlers::{
-    buildings::BuildingBuilder, districts::DistrictBuilder, roads::RoadBuilder,
+    buildings::BuildingBuilder, districts::DistrictBuilder, parks::ParkBuilder, roads::RoadBuilder,
     transit::TransitBuilder,
 };
 use super::terrain::grid::TERRAIN_GRID_SIZE;
@@ -33,6 +33,7 @@ pub(crate) struct CityDataBuilder {
     transit: TransitBuilder,
     buildings: BuildingBuilder,
     districts: DistrictBuilder,
+    parks: ParkBuilder,
 }
 
 impl CityDataBuilder {
@@ -59,6 +60,9 @@ impl CityDataBuilder {
                 self.transit.handle_start(e);
                 self.buildings.handle_start(e);
                 self.districts.handle_start(e);
+                if let Some(te) = self.parks.handle_start(e) {
+                    self.text_element = te;
+                }
             }
         }
 
@@ -75,6 +79,7 @@ impl CityDataBuilder {
             .handle_empty(e, &self.roads.node_position_index);
         self.buildings.handle_empty(e);
         self.districts.handle_empty(e);
+        self.parks.handle_empty(e);
         Ok(())
     }
 
@@ -90,6 +95,7 @@ impl CityDataBuilder {
                 self.pending_text.push_str(trimmed);
             }
             TextElement::Sg => self.roads.handle_text_sg(trimmed),
+            TextElement::ParkType => self.parks.handle_text(trimmed),
             TextElement::None => {}
         }
     }
@@ -130,6 +136,7 @@ impl CityDataBuilder {
                     .handle_end(local.as_ref(), &mut self.roads.transit_route_by_nodes);
                 self.buildings.handle_end(local.as_ref());
                 self.districts.handle_end(local.as_ref());
+                self.parks.handle_end(local.as_ref());
             }
         }
     }
@@ -185,6 +192,7 @@ impl CityDataBuilder {
             buildings: self.buildings.buildings,
             forest_cells: self.forest_cells,
             districts: self.districts.districts,
+            park_areas: self.parks.park_areas,
         })
     }
 }

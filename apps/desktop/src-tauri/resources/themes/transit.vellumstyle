@@ -166,5 +166,11 @@
   "districts": {
     "fill": "#4a3f2a",
     "label": "#e0e0e0"
+  },
+  "grid": {
+    "color": "#ffffff",
+    "opacity": 0.25,
+    "width": 1,
+    "dasharray": [4, 4]
   }
 }

@@ -26,6 +26,18 @@
 import type { RenderStyleParams } from '@vellum/core';
 import type { RoadTier } from './geojson';
 
+/** Grid visual properties resolved from `RenderStyleParams.grid`. */
+export interface GridResolved {
+  /** Line color of the grid lines. */
+  line: string;
+  /** Opacity of the grid lines. */
+  opacity: number;
+  /** Width of the grid lines in pixels. */
+  width: number;
+  /** Dash pattern for the grid lines. */
+  dasharray: number[];
+}
+
 /** Per-layer flat colors derived from `RenderStyleParams`, consumed by `layers/*.ts`. */
 export interface ResolvedColors {
   /** Map background color, visible outside the city bounds. */
@@ -71,11 +83,28 @@ export interface ResolvedColors {
   roadCasing: Record<RoadTier, string>;
   /** Ferry / ship path line color. */
   ferry: string;
+  /** Grid visual properties for the projection grid overlay. */
+  grid: GridResolved;
+  /** Park area marker colors by type — drives the `match` expression in `layer-parks.ts`. */
+  parkAreas: {
+    /** Generic parks, NatureReserve, and unknown types. */
+    generic: string;
+    /** University campus (Parklife / Campus DLC). */
+    university: string;
+    /** Trade school (Campus DLC). */
+    tradeSchool: string;
+    /** Industrial area (Industries DLC). */
+    industry: string;
+    /** Forestry area (Industries DLC). */
+    forestry: string;
+  };
 }
 
 /** Derives the flat `ResolvedColors` lookup from a `RenderStyleParams` theme. */
 export function resolveColors(style: RenderStyleParams): ResolvedColors {
   const { roads, buildings } = style;
+
+  const { grid } = style;
 
   return {
     background: style.mapBackground,
@@ -127,5 +156,18 @@ export function resolveColors(style: RenderStyleParams): ResolvedColors {
       // distinct `RoadTier` — accepted by contract, not wired today.
     },
     ferry: roads.ferry.fill,
+    grid: {
+      line: grid.color,
+      opacity: grid.opacity,
+      width: grid.width,
+      dasharray: grid.dasharray,
+    },
+    parkAreas: {
+      generic: style.parkAreas?.generic ?? '#95ae79',
+      university: style.parkAreas?.university ?? '#c4a06a',
+      tradeSchool: style.parkAreas?.tradeSchool ?? '#d2938e',
+      industry: style.parkAreas?.industry ?? '#a098b0',
+      forestry: style.parkAreas?.forestry ?? '#14592a',
+    },
   };
 }

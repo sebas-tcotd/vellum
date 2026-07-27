@@ -13,6 +13,9 @@ export type {
   ForestFeature,
   ForestFeatureProperties,
   ForestsFeatureCollection,
+  ParkAreaFeature,
+  ParkAreaFeatureProperties,
+  ParkAreasFeatureCollection,
   WaterFeature,
   WaterFeatureCollection,
 } from './environment.types';

@@ -63,9 +63,11 @@
     "close": "Close advanced options",
     "colorByCategory": "Color by category",
     "showDistrictNamesOnMap": "Show name on map",
+    "showParkAreas": "Show park areas",
     "showContourLines": "Contour lines",
     "showColorRelief": "Color relief",
-    "showHillshade": "Hillshade"
+    "showHillshade": "Hillshade",
+    "showGrid": "Show projection grid"
   },
   "export": {
     "title": "Export Map",

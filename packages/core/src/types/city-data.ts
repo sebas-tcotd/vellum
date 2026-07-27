@@ -262,6 +262,35 @@ export interface District {
 }
 
 /**
+ * Represents the type of a DLC park area (Parklife / Universities / Industries).
+ * Serialized in PascalCase from Rust.
+ */
+export type ParkType =
+  | 'Generic'
+  | 'University'
+  | 'TradeSchool'
+  | 'Industry'
+  | 'Forestry'
+  | 'None';
+
+/**
+ * Represents a DLC park area (district menor) with a type discriminator.
+ * @remarks
+ * The `.cslmap` format exports a single position per park area — no polygon
+ * boundaries are available. Render as a labeled point at `position`.
+ */
+export interface ParkArea {
+  /** Unique identifier for the park area. */
+  id: string;
+  /** Name assigned to the park area in-game. */
+  name: string;
+  /** Label anchor in world-space (the `<P>` element in the Park XML node). */
+  position: Vec3;
+  /** The type of park area (University, Industry, Forestry, etc.). */
+  parkType: ParkType;
+}
+
+/**
  * The core domain model representing a completely parsed `.cslmap` city.
  * @remarks
  * This structure is strictly immutable once constructed. The Rust parser produces it
@@ -311,4 +340,6 @@ export interface CityData {
   forestCells: ForestCell[];
   /** User-defined city districts. */
   districts: District[];
+  /** DLC park areas (Parklife / Universities / Industries) with type discriminator. */
+  parkAreas: ParkArea[];
 }

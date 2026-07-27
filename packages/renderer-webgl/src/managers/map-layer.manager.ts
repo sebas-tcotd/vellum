@@ -12,6 +12,7 @@ import {
   buildRoadColorExpression,
   BRIDGE_CASING_DARKEN_PERCENT,
 } from '../expressions/road-color';
+import { buildParkColorExpression } from '../expressions/park-color';
 import { buildColorReliefRamp } from '../expressions/terrain-relief';
 import type { ResolvedColors } from '../style-adapter';
 
@@ -23,6 +24,8 @@ export class MapLayerManager {
   private districtsVisible = false;
   /** Current `LayerOptions.districts.showNameOnMap` — mirrors `DEFAULT_LAYER_OPTIONS`. */
   private districtsShowNameOnMap = false;
+  /** Current `LayerOptions.districts.showParkAreas` — mirrors its default. */
+  private districtsShowParkAreas = false;
 
   /**
    * Elevation domain of the loaded city, needed to rebuild the hypsometric ramp on a
@@ -69,9 +72,7 @@ export class MapLayerManager {
   }
 
   /**
-   * Reconciles `districts-points` and `districts-labels` visibility: exactly
-   * one is shown at a time (never both), gated by the `districts` layer
-   * toggle and `LayerOptions.districts.showNameOnMap`.
+   * Reconciles districts display mode and the independent park-area sublayer.
    */
   private applyDistrictsVisibility(): void {
     const showPoints = this.districtsVisible && !this.districtsShowNameOnMap;
@@ -85,6 +86,17 @@ export class MapLayerManager {
       'districts-labels',
       'visibility',
       showLabels ? 'visible' : 'none',
+    );
+    const showParkAreas = this.districtsVisible && this.districtsShowParkAreas;
+    this.setLayoutIfExists(
+      'park-areas-points',
+      'visibility',
+      showParkAreas ? 'visible' : 'none',
+    );
+    this.setLayoutIfExists(
+      'park-areas-labels',
+      'visibility',
+      showParkAreas ? 'visible' : 'none',
     );
   }
 
@@ -168,7 +180,15 @@ export class MapLayerManager {
       terrain.showHillshade ? HILLSHADE_EXAGGERATION : 0,
     );
 
+    const { basemap } = options;
+    this.setPaintIfExists(
+      'grid-layer',
+      'line-opacity',
+      basemap.showGrid ? this.colors.grid.opacity : 0,
+    );
+
     this.districtsShowNameOnMap = options.districts.showNameOnMap;
+    this.districtsShowParkAreas = options.districts.showParkAreas;
     this.applyDistrictsVisibility();
   }
 
@@ -238,8 +258,24 @@ export class MapLayerManager {
     );
     this.setPaintIfExists('districts-labels', 'text-color', c.districtLabel);
     this.setPaintIfExists('districts-labels', 'text-halo-color', c.background);
+    this.setPaintIfExists(
+      'park-areas-points',
+      'circle-color',
+      buildParkColorExpression(c),
+    );
+    this.setPaintIfExists(
+      'park-areas-points',
+      'circle-stroke-color',
+      c.districtLabel,
+    );
+    this.setPaintIfExists('park-areas-labels', 'text-color', c.districtLabel);
+    this.setPaintIfExists('park-areas-labels', 'text-halo-color', c.background);
 
     this.setPaintIfExists('map-frame', 'line-color', c.mapFrame);
+    this.setPaintIfExists('grid-layer', 'line-color', c.grid.line);
+    this.setPaintIfExists('grid-layer', 'line-opacity', c.grid.opacity);
+    this.setPaintIfExists('grid-layer', 'line-width', c.grid.width);
+    this.setPaintIfExists('grid-layer', 'line-dasharray', c.grid.dasharray);
 
     const fillExpr = buildRoadColorExpression(c, 'fill');
     const casingExpr = buildRoadColorExpression(c, 'casing');
@@ -299,6 +335,13 @@ export class MapLayerManager {
       'terrain-hillshade',
       'hillshade-exaggeration',
       terrainOpts.showHillshade ? HILLSHADE_EXAGGERATION : 0,
+    );
+
+    const basemapOpts = options.basemap;
+    this.setPaintIfExists(
+      'grid-layer',
+      'line-opacity',
+      basemapOpts.showGrid ? c.grid.opacity : 0,
     );
   }
 

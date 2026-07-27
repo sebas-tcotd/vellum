@@ -22,4 +22,5 @@ pub(crate) enum TextElement {
     Sg,     // segment ID inside Seg>Path>Segs
     Ter,    // terrain CSV
     Forest, // forest density CSV
+    ParkType,
 }

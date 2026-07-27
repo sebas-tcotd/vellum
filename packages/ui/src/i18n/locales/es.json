@@ -63,9 +63,11 @@
     "close": "Cerrar opciones avanzadas",
     "colorByCategory": "Colorear por categoría",
     "showDistrictNamesOnMap": "Mostrar nombre en el mapa",
+    "showParkAreas": "Mostrar áreas de parque",
     "showContourLines": "Curvas de nivel",
     "showColorRelief": "Relieve hipsométrico",
-    "showHillshade": "Sombreado del relieve"
+    "showHillshade": "Sombreado del relieve",
+    "showGrid": "Mostrar grilla de proyección"
   },
   "export": {
     "title": "Exportar mapa",

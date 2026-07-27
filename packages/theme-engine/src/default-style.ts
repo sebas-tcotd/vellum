@@ -79,4 +79,12 @@ export const DEFAULT_RENDER_STYLE_PARAMS: RenderStyleParams = {
     none: BUILDING_DEFAULT,
   },
   districts: { fill: '#b4a08c', label: '#ffffff' },
+  grid: { color: '#555555', opacity: 0.25, width: 1, dasharray: [4, 4] },
+  parkAreas: {
+    generic: '#95ae79',
+    university: '#c4a06a',
+    tradeSchool: '#d2938e',
+    industry: '#a098b0',
+    forestry: '#14592a',
+  },
 };

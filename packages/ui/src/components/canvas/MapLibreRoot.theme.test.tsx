@@ -52,12 +52,13 @@ vi.mock('../../store/vellum-store', () => ({
       layerOptions: {
         transit: { visibleModes: [] },
         buildings: { visibleCategories: [] },
-        districts: { showNameOnMap: false },
+        districts: { showNameOnMap: false, showParkAreas: false },
         terrain: {
           showContourLines: true,
           showColorRelief: true,
           showHillshade: true,
         },
+        basemap: { showGrid: false },
       },
     }),
 }));
