@@ -16,8 +16,9 @@ Construido con Tauri 2 (Rust) + React 19 + TypeScript, organizado como monorepo 
 - **Explorador de tránsito** — inspecciona rutas de bus, metro, tren, tranvía y otros modos
 - **Tooltips en el mapa** — al pasar el cursor sobre una parada de tránsito, muestra las líneas que la sirven
 - **Minimapa** — orientación rápida con una vista general en la esquina
-- **Atajos de teclado** — `1-7` alternan capas, `+/-` zoom, `Tab` modo limpio, `H` oculta paneles
-- **Modo limpio** — `Tab` oculta toda la interfaz para una vista sin distracciones
+- **Atajos de teclado** — `Ctrl/Cmd+O` abre un archivo, `Ctrl/Cmd+0` o `Ctrl/Cmd+9` ajustan el mapa a pantalla, `1-7` alternan capas, `H` activa el modo limpio, `Ctrl/Cmd+B` alterna el modo navegación, `L` muestra la leyenda, `Shift+←/→` rota el mapa y `R` restablece el norte
+- **Opciones avanzadas** — `Shift+1`–`Shift+7` abre las opciones de una capa cuando están disponibles
+- **Modo limpio** — `H` oculta toda la interfaz para una vista sin distracciones
 - **Dos idiomas** — interfaz en inglés y español
 - **Carga parcial** — abre mapas dañados o con DLC pesados con fallback controlado
 
@@ -30,7 +31,7 @@ Construido con Tauri 2 (Rust) + React 19 + TypeScript, organizado como monorepo 
 | Rust        | stable (edition 2021) | `rustc --version`      |
 | Tauri CLI   | ^2.x                  | `pnpm tauri --version` |
 
-> Tauri 2 requiere dependencias de compilación específicas para cada plataforma. Consulta los [requisitos previos de Tauri](https://tauri.app/start/prerequisites/).
+> Antes de ejecutar `pnpm install` o `pnpm dev`, instala los [prerrequisitos de Tauri 2](https://v2.tauri.app/start/prerequisites/) para tu sistema operativo. Además de Node.js, pnpm y Rust, Tauri requiere dependencias nativas: WebKitGTK y herramientas de compilación en Linux, Xcode Command Line Tools en macOS, y Microsoft C++ Build Tools junto con WebView2 en Windows. Estas dependencias no las instala pnpm.
 
 ### Inicio Rápido
 
