@@ -115,6 +115,26 @@ export class MapNavigationManager {
   }
 
   /**
+   * Rotates the map by the given delta in degrees, with a short animated transition.
+   *
+   * @param deltaDegrees - Positive = clockwise, negative = counter-clockwise.
+   */
+  rotateBy(deltaDegrees: number): void {
+    const current = this.map.getBearing();
+    this.map.rotateTo(current + deltaDegrees, { duration: 200 });
+  }
+
+  /** Resets the map bearing to 0° (north up) with an animated transition. */
+  resetBearing(): void {
+    this.map.rotateTo(0, { duration: 300 });
+  }
+
+  /** Returns the current bearing in degrees (0 = north up). */
+  getBearing(): number {
+    return this.map.getBearing();
+  }
+
+  /**
    * Pans the map to the given geographic coordinate without animation.
    *
    * @param lng - Longitude.

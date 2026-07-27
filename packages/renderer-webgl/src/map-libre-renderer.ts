@@ -232,6 +232,20 @@ export class MapLibreRenderer implements IRenderer {
   }
 
   /**
+   * Rotates the map by the given delta in degrees.
+   *
+   * @param deltaDegrees - Positive = clockwise, negative = counter-clockwise.
+   */
+  rotateBy(deltaDegrees: number): void {
+    this.navigationManager.rotateBy(deltaDegrees);
+  }
+
+  /** Resets the map bearing to 0° (north up). */
+  resetBearing(): void {
+    this.navigationManager.resetBearing();
+  }
+
+  /**
    * Pans the map to the given geographic coordinate without animation.
    *
    * @param lng - Longitude.

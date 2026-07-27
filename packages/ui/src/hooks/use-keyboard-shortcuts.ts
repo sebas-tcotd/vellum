@@ -28,6 +28,10 @@ interface UseKeyboardShortcutsOptions {
   onToggleNavigationMode?: () => void;
   /** Called when the user presses L (no modifiers) to toggle the IconLegend. */
   onToggleIconLegend?: () => void;
+  /** Called when the user presses Shift + Left/Right arrow to rotate the map. */
+  onRotateBy?: (deltaDegrees: number) => void;
+  /** Called when the user presses R (no modifiers) to reset the map bearing to north. */
+  onResetBearing?: () => void;
   /**
    * When false, the shortcut handler does nothing without removing the listener.
    * @default true
@@ -44,6 +48,8 @@ export function useKeyboardShortcuts({
   onHidePanel,
   onToggleNavigationMode,
   onToggleIconLegend,
+  onRotateBy,
+  onResetBearing,
   enabled = true,
 }: UseKeyboardShortcutsOptions) {
   useEffect(() => {
@@ -96,6 +102,34 @@ export function useKeyboardShortcuts({
         return;
       }
 
+      // Rotate counter-clockwise: Shift + Left Arrow
+      if (e.shiftKey && !isModKey && !e.altKey && e.key === 'ArrowLeft') {
+        e.preventDefault();
+        onRotateBy?.(-15);
+        return;
+      }
+
+      // Rotate clockwise: Shift + Right Arrow
+      if (e.shiftKey && !isModKey && !e.altKey && e.key === 'ArrowRight') {
+        e.preventDefault();
+        onRotateBy?.(15);
+        return;
+      }
+
+      // Reset bearing to north: R without any modifiers
+      if (
+        !isModKey &&
+        !e.shiftKey &&
+        !e.altKey &&
+        e.key.toLowerCase() === 'r'
+      ) {
+        if (onResetBearing) {
+          e.preventDefault();
+          onResetBearing();
+        }
+        return;
+      }
+
       // Toggle navigation mode: Ctrl/Cmd + B
       if (isModKey && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'b') {
         if (onToggleNavigationMode) {
@@ -143,6 +177,8 @@ export function useKeyboardShortcuts({
     onHidePanel,
     onToggleNavigationMode,
     onToggleIconLegend,
+    onRotateBy,
+    onResetBearing,
     enabled,
   ]);
 }

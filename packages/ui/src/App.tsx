@@ -69,6 +69,8 @@ export function App({
   const zoomInRef = useRef<(() => void) | null>(null);
   const zoomOutRef = useRef<(() => void) | null>(null);
   const toggleNavigationModeRef = useRef<(() => void) | null>(null);
+  const rotateByRef = useRef<((delta: number) => void) | null>(null);
+  const resetBearingRef = useRef<(() => void) | null>(null);
   const subscribeServiceIconLegendRef = useRef<
     ((callback: (state: ServiceIconLegendState) => void) => () => void) | null
   >(null);
@@ -117,6 +119,14 @@ export function App({
     () => iconLegendToggleRef.current?.(),
     [iconLegendToggleRef],
   );
+  const handleRotateBy = useCallback(
+    (delta: number) => rotateByRef.current?.(delta),
+    [rotateByRef],
+  );
+  const handleResetBearing = useCallback(
+    () => resetBearingRef.current?.(),
+    [resetBearingRef],
+  );
 
   useKeyboardShortcuts({
     onOpenFile: openFileDialog,
@@ -134,6 +144,8 @@ export function App({
     ...(cityData !== null
       ? { onToggleIconLegend: handleToggleIconLegend }
       : {}),
+    ...(cityData !== null ? { onRotateBy: handleRotateBy } : {}),
+    ...(cityData !== null ? { onResetBearing: handleResetBearing } : {}),
     enabled: loadingState !== 'loading',
   });
 
@@ -192,6 +204,8 @@ export function App({
             zoomInRef={zoomInRef}
             zoomOutRef={zoomOutRef}
             toggleNavigationModeRef={toggleNavigationModeRef}
+            rotateByRef={rotateByRef}
+            resetBearingRef={resetBearingRef}
             isCleanMode={isCleanMode}
             themes={themes}
             subscribeServiceIconLegendRef={subscribeServiceIconLegendRef}
