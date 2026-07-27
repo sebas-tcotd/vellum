@@ -30,6 +30,10 @@ export interface MapLibreRootProps {
   zoomOutRef?: React.RefObject<(() => void) | null>;
   /** Ref populated with a `toggleNavigationMode()` callback. */
   toggleNavigationModeRef?: React.RefObject<(() => void) | null>;
+  /** Ref populated with a `rotateBy(delta)` callback. */
+  rotateByRef?: React.RefObject<((delta: number) => void) | null>;
+  /** Ref populated with a `resetBearing()` callback. */
+  resetBearingRef?: React.RefObject<(() => void) | null>;
   /** When true, hides Minimap and MapTooltip for an unobstructed view of the map. */
   isCleanMode?: boolean;
   /** All loaded themes. The active one (by `activeTheme` in the store) is applied via `applyTheme`. */
@@ -61,6 +65,8 @@ export function MapLibreRoot({
   zoomInRef,
   zoomOutRef,
   toggleNavigationModeRef,
+  rotateByRef,
+  resetBearingRef,
   isCleanMode = false,
   themes = [],
   subscribeServiceIconLegendRef,
@@ -216,6 +222,28 @@ export function MapLibreRoot({
         toggleNavigationModeRef.current = null;
     };
   }, [toggleNavigationModeRef]);
+
+  // Register rotateBy into the external ref
+  useEffect(() => {
+    if (!rotateByRef) return;
+    rotateByRef.current = (delta: number) => {
+      rendererRef.current?.rotateBy(delta);
+    };
+    return () => {
+      if (rotateByRef.current) rotateByRef.current = null;
+    };
+  }, [rotateByRef]);
+
+  // Register resetBearing into the external ref
+  useEffect(() => {
+    if (!resetBearingRef) return;
+    resetBearingRef.current = () => {
+      rendererRef.current?.resetBearing();
+    };
+    return () => {
+      if (resetBearingRef.current) resetBearingRef.current = null;
+    };
+  }, [resetBearingRef]);
 
   // Register subscribeServiceIconLegend into the external ref — same pattern as
   // fitToScreenRef/zoomInRef above, but exposing a subscription instead of an action.
