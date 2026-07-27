@@ -1,5 +1,6 @@
-import { useEffect } from 'react';
+import { LAYERS_WITH_ADVANCED_OPTIONS } from '@vellum/core';
 import type { LayerName } from '@vellum/core';
+import { useEffect } from 'react';
 
 /** Layer order matching the FloatingLayerPanel visual order (not z-index order). */
 const LAYER_SHORTCUT_MAP: LayerName[] = [
@@ -32,6 +33,8 @@ interface UseKeyboardShortcutsOptions {
   onRotateBy?: (deltaDegrees: number) => void;
   /** Called when the user presses R (no modifiers) to reset the map bearing to north. */
   onResetBearing?: () => void;
+  /** Called when the user presses Shift+1..7 to open a layer's advanced options panel. */
+  onOpenAdvancedOptions?: (layer: LayerName) => void;
   /**
    * When false, the shortcut handler does nothing without removing the listener.
    * @default true
@@ -50,6 +53,7 @@ export function useKeyboardShortcuts({
   onToggleIconLegend,
   onRotateBy,
   onResetBearing,
+  onOpenAdvancedOptions,
   enabled = true,
 }: UseKeyboardShortcutsOptions) {
   useEffect(() => {
@@ -153,6 +157,21 @@ export function useKeyboardShortcuts({
         return;
       }
 
+      // Shift+1..7 to open advanced options panel for layers that have them
+      if (!isModKey && e.shiftKey && !e.altKey) {
+        const layerIdx = parseInt(e.key, 10) - 1;
+        if (layerIdx >= 0 && layerIdx < LAYER_SHORTCUT_MAP.length) {
+          const layer = LAYER_SHORTCUT_MAP[layerIdx];
+          if (layer) {
+            e.preventDefault();
+            if (LAYERS_WITH_ADVANCED_OPTIONS.has(layer)) {
+              onOpenAdvancedOptions?.(layer);
+            }
+            return;
+          }
+        }
+      }
+
       // Layer shortcuts 1–7 — no modifier keys
       if (!isModKey && !e.shiftKey && !e.altKey) {
         const layerIdx = parseInt(e.key, 10) - 1;
@@ -179,6 +198,7 @@ export function useKeyboardShortcuts({
     onToggleIconLegend,
     onRotateBy,
     onResetBearing,
+    onOpenAdvancedOptions,
     enabled,
   ]);
 }

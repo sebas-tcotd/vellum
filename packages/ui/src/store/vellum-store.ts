@@ -72,6 +72,9 @@ interface VellumStore {
   /** Metadata for every theme loaded at startup — drives the selector pills. */
   availableThemes: ThemeMetadata[];
 
+  /** The layer whose advanced-options sub-panel is currently open, or null if closed. */
+  expandedPanelLayer: LayerName | null;
+
   /** Warnings for `.vellumstyle` files that were skipped as invalid (AC #5).
    * Non-empty triggers the ThemeWarningToast. */
   themeWarnings: ThemeWarning[];
@@ -132,6 +135,9 @@ interface VellumStore {
   /** Shows or hides the terrain hillshade shading. */
   setTerrainShowHillshade: (enabled: boolean) => void;
 
+  /** Opens or closes the advanced-options sub-panel for a layer. Pass null to close. */
+  setExpandedPanelLayer: (layer: LayerName | null) => void;
+
   /** Replaces the theme-loading warnings. Pass [] to clear. */
   setThemeWarnings: (warnings: ThemeWarning[]) => void;
 
@@ -187,6 +193,7 @@ export const useVellumStore = create<VellumStore>((set, get) => ({
   transitDimmingEnabled: false,
   layerOptions: DEFAULT_LAYER_OPTIONS,
   availableThemes: [],
+  expandedPanelLayer: null,
   themeWarnings: [],
   autoUpdateEnabled: false,
   activeLanguage: 'en',
@@ -306,6 +313,8 @@ export const useVellumStore = create<VellumStore>((set, get) => ({
         },
       },
     })),
+
+  setExpandedPanelLayer: (layer) => set({ expandedPanelLayer: layer }),
 
   setThemeWarnings: (warnings) => set({ themeWarnings: warnings }),
 

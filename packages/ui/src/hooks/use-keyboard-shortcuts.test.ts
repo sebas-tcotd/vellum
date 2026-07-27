@@ -206,6 +206,87 @@ describe('useKeyboardShortcuts', () => {
     expect(() => document.dispatchEvent(key('H'))).not.toThrow();
   });
 
+  // Shift+1..7 shortcuts for advanced options panel
+  it('Shift+1 abre advanced options para terrain', () => {
+    const onOpenFile = vi.fn();
+    const onOpenAdvancedOptions = vi.fn();
+    renderHook(() =>
+      useKeyboardShortcuts({ onOpenFile, onOpenAdvancedOptions }),
+    );
+
+    document.dispatchEvent(key('1', { shiftKey: true }));
+
+    expect(onOpenAdvancedOptions).toHaveBeenCalledOnce();
+    expect(onOpenAdvancedOptions).toHaveBeenCalledWith('terrain');
+  });
+
+  it('Shift+2 no abre advanced options (basemap no tiene opciones avanzadas)', () => {
+    const onOpenFile = vi.fn();
+    const onOpenAdvancedOptions = vi.fn();
+    renderHook(() =>
+      useKeyboardShortcuts({ onOpenFile, onOpenAdvancedOptions }),
+    );
+
+    document.dispatchEvent(key('2', { shiftKey: true }));
+
+    expect(onOpenAdvancedOptions).not.toHaveBeenCalled();
+  });
+
+  it('Ctrl+Shift+1 no abre advanced options (solo Shift sin Ctrl)', () => {
+    const onOpenFile = vi.fn();
+    const onOpenAdvancedOptions = vi.fn();
+    renderHook(() =>
+      useKeyboardShortcuts({ onOpenFile, onOpenAdvancedOptions }),
+    );
+
+    document.dispatchEvent(ctrl('1', { shiftKey: true }));
+
+    expect(onOpenAdvancedOptions).not.toHaveBeenCalled();
+  });
+
+  it('Shift+1 sin onOpenAdvancedOptions no falla', () => {
+    const onOpenFile = vi.fn();
+    renderHook(() => useKeyboardShortcuts({ onOpenFile }));
+
+    expect(() =>
+      document.dispatchEvent(key('1', { shiftKey: true })),
+    ).not.toThrow();
+  });
+
+  it('Shift+1 con enabled=false no llama onOpenAdvancedOptions', () => {
+    const onOpenFile = vi.fn();
+    const onOpenAdvancedOptions = vi.fn();
+    renderHook(() =>
+      useKeyboardShortcuts({
+        onOpenFile,
+        onOpenAdvancedOptions,
+        enabled: false,
+      }),
+    );
+
+    document.dispatchEvent(key('1', { shiftKey: true }));
+
+    expect(onOpenAdvancedOptions).not.toHaveBeenCalled();
+  });
+
+  it('Shift+1 no afecta el comportamiento de tecla 1 (toggle)', () => {
+    const onOpenFile = vi.fn();
+    const onToggleLayer = vi.fn();
+    const onOpenAdvancedOptions = vi.fn();
+    renderHook(() =>
+      useKeyboardShortcuts({
+        onOpenFile,
+        onToggleLayer,
+        onOpenAdvancedOptions,
+      }),
+    );
+
+    document.dispatchEvent(key('1'));
+
+    expect(onToggleLayer).toHaveBeenCalledWith('terrain');
+    expect(onOpenAdvancedOptions).not.toHaveBeenCalled();
+  });
+
   it('H con enabled=false no llama onHidePanel', () => {
     const onOpenFile = vi.fn();
     const onHidePanel = vi.fn();

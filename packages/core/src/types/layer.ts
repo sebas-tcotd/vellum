@@ -121,6 +121,14 @@ export interface LayerOptions {
   };
 }
 
+/** Layers whose toggle row shows a chevron that opens an advanced-options sub-panel (terrain sub-elements, transit-mode filter, buildings RICO filter, districts label mode). */
+export const LAYERS_WITH_ADVANCED_OPTIONS = new Set<LayerName>([
+  'terrain',
+  'transit',
+  'buildings',
+  'districts',
+]);
+
 /** `LayerOptions` with every mode/category visible, RICO coloring off, district markers (not names) shown, and all terrain sub-layers on — the app's starting state. */
 export const DEFAULT_LAYER_OPTIONS: LayerOptions = {
   transit: { visibleModes: [...TRANSIT_MODES] },
