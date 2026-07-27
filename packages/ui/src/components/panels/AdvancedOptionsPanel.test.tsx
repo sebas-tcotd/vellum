@@ -26,6 +26,8 @@ function makeProps(
     onToggleColorRelief: vi.fn(),
     showHillshade: true,
     onToggleHillshade: vi.fn(),
+    showGrid: false,
+    onToggleShowGrid: vi.fn(),
     ...overrides,
   };
 }

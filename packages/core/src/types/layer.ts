@@ -119,14 +119,20 @@ export interface LayerOptions {
     /** Whether the hillshade relief shading is visible. */
     showHillshade: boolean;
   };
+  /** Basemap sub-element visibility: projection grid overlay. */
+  basemap: {
+    /** Whether the 9×9 projection grid is visible on the map. */
+    showGrid: boolean;
+  };
 }
 
-/** Layers whose toggle row shows a chevron that opens an advanced-options sub-panel (terrain sub-elements, transit-mode filter, buildings RICO filter, districts label mode). */
+/** Layers whose toggle row shows a chevron that opens an advanced-options sub-panel (terrain sub-elements, transit-mode filter, buildings RICO filter, districts label mode, basemap grid toggle). */
 export const LAYERS_WITH_ADVANCED_OPTIONS = new Set<LayerName>([
   'terrain',
   'transit',
   'buildings',
   'districts',
+  'basemap',
 ]);
 
 /** `LayerOptions` with every mode/category visible, RICO coloring off, district markers (not names) shown, and all terrain sub-layers on — the app's starting state. */
@@ -141,5 +147,8 @@ export const DEFAULT_LAYER_OPTIONS: LayerOptions = {
     showContourLines: true,
     showColorRelief: true,
     showHillshade: true,
+  },
+  basemap: {
+    showGrid: false,
   },
 };

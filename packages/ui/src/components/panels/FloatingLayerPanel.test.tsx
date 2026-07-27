@@ -59,6 +59,7 @@ const mockLayerOptions = {
     showColorRelief: true,
     showHillshade: true,
   },
+  basemap: { showGrid: false },
 };
 
 vi.mock('../../store/vellum-store', () => ({
@@ -77,6 +78,7 @@ vi.mock('../../store/vellum-store', () => ({
       setBuildingColorByCategory: mockSetBuildingColorByCategory,
       setDistrictsShowNameOnMap: mockSetDistrictsShowNameOnMap,
       setTerrainShowContourLines: mockSetTerrainShowContourLines,
+      setBasemapShowGrid: vi.fn(),
       setTerrainShowColorRelief: mockSetTerrainShowColorRelief,
       setTerrainShowHillshade: mockSetTerrainShowHillshade,
       expandedPanelLayer: mockExpandedPanelLayer,

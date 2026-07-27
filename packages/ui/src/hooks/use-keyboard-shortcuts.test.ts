@@ -220,7 +220,7 @@ describe('useKeyboardShortcuts', () => {
     expect(onOpenAdvancedOptions).toHaveBeenCalledWith('terrain');
   });
 
-  it('Shift+2 no abre advanced options (basemap no tiene opciones avanzadas)', () => {
+  it('Shift+2 abre advanced options para basemap (grilla de proyección)', () => {
     const onOpenFile = vi.fn();
     const onOpenAdvancedOptions = vi.fn();
     renderHook(() =>
@@ -229,7 +229,8 @@ describe('useKeyboardShortcuts', () => {
 
     document.dispatchEvent(key('2', { shiftKey: true }));
 
-    expect(onOpenAdvancedOptions).not.toHaveBeenCalled();
+    expect(onOpenAdvancedOptions).toHaveBeenCalledOnce();
+    expect(onOpenAdvancedOptions).toHaveBeenCalledWith('basemap');
   });
 
   it('Ctrl+Shift+1 no abre advanced options (solo Shift sin Ctrl)', () => {

@@ -58,6 +58,7 @@ vi.mock('../../store/vellum-store', () => ({
           showColorRelief: true,
           showHillshade: true,
         },
+        basemap: { showGrid: false },
       },
     }),
 }));

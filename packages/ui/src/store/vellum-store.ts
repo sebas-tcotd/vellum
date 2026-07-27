@@ -135,6 +135,9 @@ interface VellumStore {
   /** Shows or hides the terrain hillshade shading. */
   setTerrainShowHillshade: (enabled: boolean) => void;
 
+  /** Shows or hides the 9×9 projection grid on the basemap layer. */
+  setBasemapShowGrid: (enabled: boolean) => void;
+
   /** Opens or closes the advanced-options sub-panel for a layer. Pass null to close. */
   setExpandedPanelLayer: (layer: LayerName | null) => void;
 
@@ -310,6 +313,17 @@ export const useVellumStore = create<VellumStore>((set, get) => ({
         terrain: {
           ...state.layerOptions.terrain,
           showHillshade: enabled,
+        },
+      },
+    })),
+
+  setBasemapShowGrid: (enabled) =>
+    set((state) => ({
+      layerOptions: {
+        ...state.layerOptions,
+        basemap: {
+          ...state.layerOptions.basemap,
+          showGrid: enabled,
         },
       },
     })),

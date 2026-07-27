@@ -142,6 +142,7 @@ const MOCK_STYLE: RenderStyleParams = {
     none: { fill: '#c8bfb5', stroke: '#a09585' },
   },
   districts: { fill: '#b4a08c', label: '#ffffff' },
+  grid: { color: '#555555', opacity: 0.25, width: 1, dasharray: [4, 4] },
 };
 
 const ALL_LAYERS_VISIBLE = {
@@ -363,6 +364,7 @@ describe('MapLibreRenderer', () => {
           showColorRelief: true,
           showHillshade: true,
         },
+        basemap: { showGrid: false },
       });
 
       expect(mockMap.setLayoutProperty).toHaveBeenCalledWith(
@@ -392,6 +394,7 @@ describe('MapLibreRenderer', () => {
           showColorRelief: true,
           showHillshade: true,
         },
+        basemap: { showGrid: false },
       });
       vi.clearAllMocks();
       mockMap.getLayer.mockReturnValue({ id: 'any' } as unknown as undefined);

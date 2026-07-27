@@ -64,6 +64,9 @@ export interface AdvancedOptionsPanelProps {
   /** Whether the terrain hillshade shading is visible. */
   showHillshade: boolean;
   onToggleHillshade: (enabled: boolean) => void;
+  /** Whether the basemap 9×9 projection grid is visible. */
+  showGrid: boolean;
+  onToggleShowGrid: (enabled: boolean) => void;
 }
 
 /**
@@ -88,6 +91,8 @@ export function AdvancedOptionsPanel({
   onToggleColorRelief,
   showHillshade,
   onToggleHillshade,
+  showGrid,
+  onToggleShowGrid,
 }: AdvancedOptionsPanelProps) {
   const { t } = useTranslation();
 
@@ -155,6 +160,16 @@ export function AdvancedOptionsPanel({
         label={t('layerOptionsPanel.showDistrictNamesOnMap')}
         checked={showDistrictNamesOnMap}
         onCheckedChange={onToggleShowDistrictNamesOnMap}
+      />
+    );
+  }
+
+  if (layer === 'basemap') {
+    return (
+      <OptionRow
+        label={t('layerOptionsPanel.showGrid')}
+        checked={showGrid}
+        onCheckedChange={onToggleShowGrid}
       />
     );
   }

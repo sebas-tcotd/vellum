@@ -30,7 +30,7 @@ export const HILLSHADE_EXAGGERATION =
  */
 export const LAYER_ID_MAP: Record<LayerName, string[]> = {
   terrain: ['terrain-color-relief', 'terrain-hillshade', 'terrain-lines-layer'],
-  basemap: ['base-land', 'base-water', 'coastline-layer'],
+  basemap: ['base-land', 'base-water', 'coastline-layer', 'grid-layer'],
   roads: [
     'roads-tunnel-casing',
     'roads-tunnel-fill',
@@ -139,4 +139,5 @@ export const NON_TRANSIT_OPACITY: Record<
   },
   'districts-points': { prop: 'circle-opacity', base: 1 },
   'districts-labels': { prop: 'text-opacity', base: 1 },
+  'grid-layer': { prop: 'line-opacity', base: 0.25 },
 };

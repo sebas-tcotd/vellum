@@ -128,12 +128,24 @@ export interface BuildingColorParams {
   none: BuildingCategoryColors;
 }
 
+/** Visual styling for the 9×9 projection grid overlay on the basemap. */
+export interface GridStyle {
+  /** Line color of the grid. */
+  color: ColorToken;
+  /** Opacity of the grid lines. */
+  opacity: number;
+  /** Width of the grid lines in pixels. */
+  width: number;
+  /** Dash pattern for the grid lines (MapLibre line-dasharray format). */
+  dasharray: number[];
+}
+
 /**
  * The comprehensive styling configuration produced by the `@vellum/theme-engine`.
  * @remarks
  * Passed directly to `IRenderer.applyTheme()` to dictate visual output independently
  * of the immutable `CityData`. Renderer-agnostic by design: applies equally to
- * `map.setPaintProperty()` calls (MapLibre) or any future rendering backend.
+ * `map.setPaintProperty()` calls (MapLibre) or any other rendering backend.
  */
 export interface RenderStyleParams {
   /** Background color behind the terrain (visible outside the map bounds). */
@@ -170,6 +182,8 @@ export interface RenderStyleParams {
     /** Text color of the district label. */
     label: ColorToken;
   };
+  /** Projection grid overlay for the basemap layer. */
+  grid: GridStyle;
 }
 
 /**

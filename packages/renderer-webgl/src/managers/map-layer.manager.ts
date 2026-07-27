@@ -168,6 +168,13 @@ export class MapLayerManager {
       terrain.showHillshade ? HILLSHADE_EXAGGERATION : 0,
     );
 
+    const { basemap } = options;
+    this.setPaintIfExists(
+      'grid-layer',
+      'line-opacity',
+      basemap.showGrid ? this.colors.grid.opacity : 0,
+    );
+
     this.districtsShowNameOnMap = options.districts.showNameOnMap;
     this.applyDistrictsVisibility();
   }
@@ -240,6 +247,10 @@ export class MapLayerManager {
     this.setPaintIfExists('districts-labels', 'text-halo-color', c.background);
 
     this.setPaintIfExists('map-frame', 'line-color', c.mapFrame);
+    this.setPaintIfExists('grid-layer', 'line-color', c.grid.line);
+    this.setPaintIfExists('grid-layer', 'line-opacity', c.grid.opacity);
+    this.setPaintIfExists('grid-layer', 'line-width', c.grid.width);
+    this.setPaintIfExists('grid-layer', 'line-dasharray', c.grid.dasharray);
 
     const fillExpr = buildRoadColorExpression(c, 'fill');
     const casingExpr = buildRoadColorExpression(c, 'casing');
@@ -299,6 +310,13 @@ export class MapLayerManager {
       'terrain-hillshade',
       'hillshade-exaggeration',
       terrainOpts.showHillshade ? HILLSHADE_EXAGGERATION : 0,
+    );
+
+    const basemapOpts = options.basemap;
+    this.setPaintIfExists(
+      'grid-layer',
+      'line-opacity',
+      basemapOpts.showGrid ? c.grid.opacity : 0,
     );
   }
 

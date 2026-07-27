@@ -334,6 +334,7 @@ function AdvancedOptionsFloatingPanel({
   const setTerrainShowHillshade = useVellumStore(
     (s) => s.setTerrainShowHillshade,
   );
+  const setBasemapShowGrid = useVellumStore((s) => s.setBasemapShowGrid);
   const layerName = t(`layers.${layer}`);
 
   return (
@@ -374,6 +375,8 @@ function AdvancedOptionsFloatingPanel({
         onToggleColorRelief={setTerrainShowColorRelief}
         showHillshade={layerOptions.terrain.showHillshade}
         onToggleHillshade={setTerrainShowHillshade}
+        showGrid={layerOptions.basemap.showGrid}
+        onToggleShowGrid={setBasemapShowGrid}
       />
     </div>
   );

@@ -65,7 +65,8 @@
     "showDistrictNamesOnMap": "Show name on map",
     "showContourLines": "Contour lines",
     "showColorRelief": "Color relief",
-    "showHillshade": "Hillshade"
+    "showHillshade": "Hillshade",
+    "showGrid": "Show projection grid"
   },
   "export": {
     "title": "Export Map",

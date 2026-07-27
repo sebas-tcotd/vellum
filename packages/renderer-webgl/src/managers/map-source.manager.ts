@@ -7,6 +7,7 @@ import {
   addBuildingsLayer,
   addDistrictsLayer,
   addForestsLayer,
+  addGridLayer,
   addGridPattern,
   addMapFrameLayer,
   addRoadsLayer,
@@ -47,6 +48,7 @@ export class MapSourceManager {
     addBasemapLandLayer(this.map, cityData, this.colors);
     addTerrainReliefLayers(this.map, cityData, this.colors);
     addBasemapWaterLayers(this.map, cityData, this.colors);
+    addGridLayer(this.map, cityData, this.colors.grid);
     addTerrainContourLayer(this.map, cityData, this.colors);
     addForestsLayer(this.map, cityData, this.colors);
     addBuildingsLayer(this.map, cityData, this.colors);
@@ -84,6 +86,7 @@ export class MapSourceManager {
     const sourceIds = [
       'base-land-source',
       'base-water-source',
+      'grid-source',
       'terrain-dem',
       'coastline-source',
       'terrain-lines-source',

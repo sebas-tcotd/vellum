@@ -65,7 +65,8 @@
     "showDistrictNamesOnMap": "Mostrar nombre en el mapa",
     "showContourLines": "Curvas de nivel",
     "showColorRelief": "Relieve hipsométrico",
-    "showHillshade": "Sombreado del relieve"
+    "showHillshade": "Sombreado del relieve",
+    "showGrid": "Mostrar grilla de proyección"
   },
   "export": {
     "title": "Exportar mapa",

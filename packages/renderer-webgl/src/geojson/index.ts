@@ -15,6 +15,7 @@
  */
 
 export { buildBuildingsGeoJson } from './builders/buildings.builder';
+export { buildGridGeoJson } from './builders/grid.builder';
 export {
   buildDistrictsGeoJson,
   buildForestsGeoJson,
