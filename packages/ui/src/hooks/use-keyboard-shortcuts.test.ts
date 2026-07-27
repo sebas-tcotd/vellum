@@ -31,6 +31,72 @@ describe('useKeyboardShortcuts', () => {
     expect(onOpenFile).not.toHaveBeenCalled();
   });
 
+  it('Ctrl+E llama onOpenExport', () => {
+    const onOpenFile = vi.fn();
+    const onOpenExport = vi.fn();
+    renderHook(() => useKeyboardShortcuts({ onOpenFile, onOpenExport }));
+
+    document.dispatchEvent(ctrl('e'));
+
+    expect(onOpenExport).toHaveBeenCalledOnce();
+  });
+
+  it('Cmd+E llama onOpenExport', () => {
+    const onOpenFile = vi.fn();
+    const onOpenExport = vi.fn();
+    renderHook(() => useKeyboardShortcuts({ onOpenFile, onOpenExport }));
+
+    document.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        metaKey: true,
+        key: 'e',
+        bubbles: true,
+      }),
+    );
+
+    expect(onOpenExport).toHaveBeenCalledOnce();
+  });
+
+  it('no procesa atajos de letras o capas desde un input editable', () => {
+    const onOpenFile = vi.fn();
+    const onOpenExport = vi.fn();
+    const onHidePanel = vi.fn();
+    const onToggleLayer = vi.fn();
+    renderHook(() =>
+      useKeyboardShortcuts({
+        onOpenFile,
+        onOpenExport,
+        onHidePanel,
+        onToggleLayer,
+      }),
+    );
+    const input = document.createElement('input');
+    document.body.appendChild(input);
+
+    input.dispatchEvent(ctrl('e'));
+    input.dispatchEvent(key('h'));
+    input.dispatchEvent(key('1'));
+
+    expect(onOpenExport).not.toHaveBeenCalled();
+    expect(onHidePanel).not.toHaveBeenCalled();
+    expect(onToggleLayer).not.toHaveBeenCalled();
+    input.remove();
+  });
+
+  it('no procesa atajos desde un elemento contenteditable', () => {
+    const onOpenFile = vi.fn();
+    const onToggleIconLegend = vi.fn();
+    renderHook(() => useKeyboardShortcuts({ onOpenFile, onToggleIconLegend }));
+    const editable = document.createElement('div');
+    editable.contentEditable = 'true';
+    document.body.appendChild(editable);
+
+    editable.dispatchEvent(key('l'));
+
+    expect(onToggleIconLegend).not.toHaveBeenCalled();
+    editable.remove();
+  });
+
   it('Ctrl+Shift+O no llama onOpenFile', () => {
     const onOpenFile = vi.fn();
     renderHook(() => useKeyboardShortcuts({ onOpenFile }));

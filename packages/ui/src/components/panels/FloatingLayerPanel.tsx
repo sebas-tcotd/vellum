@@ -13,6 +13,7 @@ import {
   ChevronDown,
   ChevronRight,
   LayoutGrid,
+  Download,
   Map,
   Mountain,
   Route,
@@ -79,6 +80,10 @@ export interface FloatingLayerPanelProps {
   cityName: string;
   /** File name displayed in the panel header, sourced from CityData.fileName. */
   fileName: string;
+  /** Opens the export configuration dialog when the current map is ready. */
+  onOpenExport?: () => void;
+  /** Disables export while a future export operation is active. */
+  exportDisabled?: boolean;
 }
 
 /**
@@ -93,6 +98,8 @@ export interface FloatingLayerPanelProps {
 export const FloatingLayerPanel = ({
   cityName,
   fileName,
+  onOpenExport,
+  exportDisabled = false,
 }: FloatingLayerPanelProps) => {
   const { t } = useTranslation();
   const [panelState, setPanelState] = useState<PanelState>('expanded');
@@ -176,6 +183,16 @@ export const FloatingLayerPanel = ({
 
             <Separator className="h-px mt-3 mb-2 w-full" />
 
+            {onOpenExport && (
+              <>
+                <PanelExportButton
+                  onOpenExport={onOpenExport}
+                  disabled={exportDisabled}
+                />
+                <Separator className="h-px mt-3 mb-2 w-full" />
+              </>
+            )}
+
             <PanelFooter />
           </>
         ) : (
@@ -193,6 +210,17 @@ export const FloatingLayerPanel = ({
               toggleLayer={toggleLayer}
               theme={panelTheme}
             />
+            {onOpenExport && (
+              <button
+                type="button"
+                onClick={onOpenExport}
+                disabled={exportDisabled}
+                aria-label={t('export.exportButton')}
+                className="flex min-h-6 min-w-6 items-center justify-center rounded opacity-70 transition-opacity hover:opacity-100 disabled:opacity-30"
+              >
+                <Download size={16} strokeWidth={1.5} aria-hidden="true" />
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -206,6 +234,27 @@ export const FloatingLayerPanel = ({
     </div>
   );
 };
+
+function PanelExportButton({
+  onOpenExport,
+  disabled,
+}: {
+  onOpenExport: () => void;
+  disabled: boolean;
+}) {
+  const { t } = useTranslation();
+  return (
+    <button
+      type="button"
+      onClick={onOpenExport}
+      disabled={disabled}
+      className="font-ui flex w-full items-center gap-2 rounded px-1 py-1 text-xs opacity-80 transition-opacity hover:opacity-100 disabled:opacity-30"
+    >
+      <Download size={14} strokeWidth={1.5} aria-hidden="true" />
+      {t('export.exportButton')}
+    </button>
+  );
+}
 
 interface PanelHeaderProps extends FloatingLayerPanelProps {
   collapseButtonRef: React.RefObject<HTMLButtonElement | null>;

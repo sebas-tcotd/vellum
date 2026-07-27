@@ -36,16 +36,20 @@ const mockMap = vi.hoisted(() => ({
     getSouth: vi.fn(() => -0.08),
   })),
   getCanvas: vi.fn(() => ({ style: { cursor: '' } })),
+  triggerRepaint: vi.fn(),
   setMaxBounds: vi.fn(),
   setMinZoom: vi.fn(),
   setMaxZoom: vi.fn(),
   getZoom: vi.fn(() => 12),
-  project: vi.fn(([lng]: [number, number]) => ({
-    x: (lng + 0.08) * 3200,
+  getBearing: vi.fn(() => 25),
+  project: vi.fn((coordinate: [number, number] | { lng: number }) => ({
+    x:
+      ((Array.isArray(coordinate) ? coordinate[0] : coordinate.lng) + 0.08) *
+      3200,
     y: 500,
   })),
-  unproject: vi.fn(({ x }: { x: number }) => ({
-    lng: x / 3200 - 0.08,
+  unproject: vi.fn((point: [number, number] | { x: number }) => ({
+    lng: (Array.isArray(point) ? point[0] : point.x) / 3200 - 0.08,
     lat: 0,
   })),
   getMinZoom: vi.fn(() => 0),
@@ -305,6 +309,82 @@ describe('MapLibreRenderer', () => {
     const renderer = makeRenderer();
     renderer.dispose();
     expect(mockMap.remove).toHaveBeenCalledOnce();
+  });
+
+  it('captures the current viewport during an on-demand render frame', async () => {
+    const renderer = makeRenderer();
+    await renderer.render(
+      makeCityData({
+        districts: [
+          {
+            id: 'district-1',
+            name: 'Centro',
+            position: { x: 0, y: 0, z: 0 },
+          },
+        ],
+      }),
+      { activeLayers: ALL_LAYERS_VISIBLE },
+    );
+    const toDataURL = vi.fn(() => 'data:image/png;base64,viewport');
+    mockMap.getCanvas.mockReturnValue({
+      style: { cursor: '' },
+      toDataURL,
+      clientWidth: 1_000,
+      clientHeight: 1_000,
+      width: 1_000,
+      height: 1_000,
+    } as unknown as { style: { cursor: string } });
+    mockMap.once.mockImplementation((_event: string, callback: () => void) => {
+      callback();
+    });
+
+    await expect(renderer.capturePreview()).resolves.toEqual({
+      dataUrl: 'data:image/png;base64,viewport',
+      bearingDegrees: 25,
+      scale: expect.objectContaining({
+        distanceMeters: expect.any(Number),
+        widthPercent: expect.any(Number),
+      }),
+      annotations: [
+        expect.objectContaining({
+          id: 'district-1',
+          name: 'Centro',
+          kind: 'district',
+        }),
+      ],
+    });
+    expect(mockMap.once).toHaveBeenCalledWith('render', expect.any(Function));
+    expect(mockMap.triggerRepaint).toHaveBeenCalledOnce();
+    expect(toDataURL).toHaveBeenCalledWith('image/png');
+  });
+
+  it('returns null when preview capture is requested before city render', async () => {
+    const renderer = makeRenderer();
+
+    await expect(renderer.capturePreview()).resolves.toBeNull();
+    expect(mockMap.triggerRepaint).not.toHaveBeenCalled();
+  });
+
+  it('resolves an in-flight preview capture when the renderer is disposed', async () => {
+    const renderer = makeRenderer();
+    await renderer.render(makeCityData(), { activeLayers: ALL_LAYERS_VISIBLE });
+    mockMap.once.mockImplementation(() => undefined);
+
+    const capture = renderer.capturePreview();
+    renderer.dispose();
+
+    await expect(capture).resolves.toBeNull();
+  });
+
+  it('returns null when requesting the capture frame throws', async () => {
+    const renderer = makeRenderer();
+    await renderer.render(makeCityData(), { activeLayers: ALL_LAYERS_VISIBLE });
+    mockMap.once.mockImplementation(() => undefined);
+    mockMap.triggerRepaint.mockImplementationOnce(() => {
+      throw new Error('map removed');
+    });
+
+    await expect(renderer.capturePreview()).resolves.toBeNull();
   });
 
   it('setLayerVisibility calls setLayoutProperty for each matching layer ID', async () => {
@@ -1292,12 +1372,21 @@ describe('MapLibreRenderer', () => {
       });
       vi.clearAllMocks();
       mockMap.project.mockImplementation(
-        ([lng]: [number, number]) =>
-          ({ x: (lng + 0.08) * 3200, y: 500 }) as { x: number; y: number },
+        (coordinate: [number, number] | { lng: number }) =>
+          ({
+            x:
+              ((Array.isArray(coordinate) ? coordinate[0] : coordinate.lng) +
+                0.08) *
+              3200,
+            y: 500,
+          }) as { x: number; y: number },
       );
       mockMap.unproject.mockImplementation(
-        ({ x }: { x: number }) =>
-          ({ lng: x / 3200 - 0.08, lat: 0 }) as { lng: number; lat: number },
+        (point: [number, number] | { x: number }) =>
+          ({
+            lng: (Array.isArray(point) ? point[0] : point.x) / 3200 - 0.08,
+            lat: 0,
+          }) as { lng: number; lat: number },
       );
 
       renderer.toggleNavigationMode();

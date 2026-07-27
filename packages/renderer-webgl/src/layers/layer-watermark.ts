@@ -1,5 +1,5 @@
 import maplibregl from 'maplibre-gl';
-import { VELLUM_LOGO_SVG } from '../assets/vellum-logo';
+import { vellumLogoDataUri } from '../assets/vellum-logo';
 import { WATERMARK_LAYER_ID } from '../constants/layer.constants';
 import { csToGeo } from '../coordinate-transform';
 
@@ -33,17 +33,13 @@ const WATERMARK_SIZE_EXPR: maplibregl.ExpressionSpecification = [
   2.5,
 ];
 
-function svgToDataUrl(svg: string): string {
-  return `data:image/svg+xml;base64,${btoa(svg)}`;
-}
-
 function loadWatermarkImage(): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.onload = () => resolve(img);
     img.onerror = reject;
-    img.src = svgToDataUrl(VELLUM_LOGO_SVG);
+    img.src = vellumLogoDataUri();
   });
 }
 

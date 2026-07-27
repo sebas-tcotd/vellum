@@ -3,6 +3,7 @@ export * from './constants';
 export * from './ipc-contract';
 export * from './types/city-data';
 export * from './types/color-tokens';
+export * from './types/export-presentation';
 export * from './types/layer';
 export * from './types/renderer';
 export * from './types/theme';

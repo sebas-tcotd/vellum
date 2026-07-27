@@ -22,6 +22,9 @@ import {
   DEFAULT_LAYER_OPTIONS,
   LAYER_NAMES,
   type CityData,
+  type ExportPreviewAnnotation,
+  type ExportPreviewScale,
+  type ExportPreviewSnapshot,
   type IRenderer,
   type LayerName,
   type LayerOptions,
@@ -29,6 +32,7 @@ import {
   type RenderStyleParams,
 } from '@vellum/core';
 import maplibregl from 'maplibre-gl';
+import { csToGeo, geoToCs } from './coordinate-transform';
 import {
   subscribeHover as subscribeHoverImpl,
   subscribeServiceIconLegend as subscribeServiceIconLegendImpl,
@@ -52,6 +56,17 @@ export type {
   ViewportBounds,
 } from './types/renderer.types';
 
+const PREVIEW_CAPTURE_TIMEOUT_MS = 1_500;
+const SCALE_SAMPLE_PIXELS = 100;
+const SCALE_TARGET_PIXELS = 80;
+
+function niceScaleDistance(distance: number): number {
+  const magnitude = 10 ** Math.floor(Math.log10(distance));
+  const normalized = distance / magnitude;
+  const multiplier = normalized >= 5 ? 5 : normalized >= 2 ? 2 : 1;
+  return multiplier * magnitude;
+}
+
 /**
  * GPU-accelerated renderer that converts `CityData` to MapLibre GL JS sources
  * and layers. Implements the `IRenderer` port defined in `@vellum/core`.
@@ -66,6 +81,9 @@ export class MapLibreRenderer implements IRenderer {
   private cityData: CityData | null = null;
   private transitDimming = false;
   private layerOptions: LayerOptions = DEFAULT_LAYER_OPTIONS;
+  private readonly pendingPreviewCaptures = new Set<
+    (snapshot: ExportPreviewSnapshot | null) => void
+  >();
 
   /**
    * Creates a new `MapLibreRenderer` and attaches it to the given container.
@@ -157,11 +175,126 @@ export class MapLibreRenderer implements IRenderer {
     this.sourceManager.clearAll();
   }
 
+  /**
+   * Captures the current viewport during a single on-demand render frame.
+   *
+   * @remarks
+   * MapLibre keeps `preserveDrawingBuffer` disabled globally for performance.
+   * Reading inside the next `render` event captures the completed WebGL frame
+   * without changing that context option or maintaining a second renderer.
+   *
+   * @returns A viewport snapshot, or `null` when no city is loaded or capture fails.
+   */
+  capturePreview(): Promise<ExportPreviewSnapshot | null> {
+    if (!this.cityData) return Promise.resolve(null);
+    return new Promise((resolve) => {
+      let settled = false;
+      const finish = (snapshot: ExportPreviewSnapshot | null): void => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeout);
+        this.pendingPreviewCaptures.delete(finish);
+        try {
+          this.map.off('render', handleRender);
+        } catch {
+          // The map may already have been removed during component teardown.
+        }
+        resolve(snapshot);
+      };
+      const handleRender = (): void => {
+        try {
+          finish(this.buildPreviewSnapshot());
+        } catch {
+          finish(null);
+        }
+      };
+      const timeout = setTimeout(
+        () => finish(null),
+        PREVIEW_CAPTURE_TIMEOUT_MS,
+      );
+      this.pendingPreviewCaptures.add(finish);
+      try {
+        this.map.once('render', handleRender);
+        this.map.triggerRepaint();
+      } catch {
+        finish(null);
+      }
+    });
+  }
+
   /** Removes the MapLibre map and releases all GPU resources. */
   dispose(): void {
+    for (const finish of [...this.pendingPreviewCaptures]) finish(null);
     unregisterDemProtocol();
     this.navigationManager.dispose();
     this.map.remove();
+  }
+
+  private buildPreviewSnapshot(): ExportPreviewSnapshot | null {
+    const canvas = this.map.getCanvas();
+    const width = canvas.clientWidth || canvas.width;
+    const height = canvas.clientHeight || canvas.height;
+    if (!this.cityData || width <= 0 || height <= 0) return null;
+    const scale = this.buildPreviewScale(width, height);
+    if (!scale) return null;
+    return {
+      dataUrl: canvas.toDataURL('image/png'),
+      bearingDegrees: this.navigationManager.getBearing(),
+      scale,
+      annotations: this.buildPreviewAnnotations(width, height),
+    };
+  }
+
+  private buildPreviewScale(
+    width: number,
+    height: number,
+  ): ExportPreviewScale | null {
+    const centerX = width / 2;
+    const centerY = height / 2;
+    const start = geoToCs(this.map.unproject([centerX, centerY]));
+    const end = geoToCs(
+      this.map.unproject([centerX + SCALE_SAMPLE_PIXELS, centerY]),
+    );
+    const metresPerPixel =
+      Math.hypot(end.x - start.x, end.z - start.z) / SCALE_SAMPLE_PIXELS;
+    if (!Number.isFinite(metresPerPixel) || metresPerPixel <= 0) return null;
+    const distanceMeters = niceScaleDistance(
+      metresPerPixel * SCALE_TARGET_PIXELS,
+    );
+    return {
+      distanceMeters,
+      widthPercent: (distanceMeters / metresPerPixel / width) * 100,
+    };
+  }
+
+  private buildPreviewAnnotations(
+    width: number,
+    height: number,
+  ): ExportPreviewAnnotation[] {
+    if (!this.cityData) return [];
+    const annotations = [
+      ...this.cityData.districts.map((district) => ({
+        id: district.id,
+        name: district.name,
+        kind: 'district' as const,
+        position: district.position,
+      })),
+      ...this.cityData.parkAreas.map((park) => ({
+        id: park.id,
+        name: park.name,
+        kind: 'park' as const,
+        position: park.position,
+      })),
+    ];
+    return annotations.flatMap(({ id, name, kind, position }) => {
+      const point = this.map.project(csToGeo(position));
+      const xPercent = (point.x / width) * 100;
+      const yPercent = (point.y / height) * 100;
+      if (xPercent < 0 || xPercent > 100 || yPercent < 0 || yPercent > 100) {
+        return [];
+      }
+      return [{ id, name, kind, xPercent, yPercent }];
+    });
   }
 
   // ─── Layer API Delegation ───────────────────────────────────────────────
