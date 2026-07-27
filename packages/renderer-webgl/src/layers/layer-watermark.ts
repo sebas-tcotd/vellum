@@ -1,28 +1,36 @@
 import maplibregl from 'maplibre-gl';
+import { VELLUM_LOGO_SVG } from '../assets/vellum-logo';
 import { WATERMARK_LAYER_ID } from '../constants/layer.constants';
 import { csToGeo } from '../coordinate-transform';
+
 import { addSourceIfAbsent } from '../helpers';
 
 const SOURCE_ID = 'vellum-watermark-source';
 
-const WATERMARK_SVG = `<svg width="236" height="236" viewBox="0 0 236 236" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M236 118C236 183.17 183.17 236 118 236C52.8304 236 0 183.17 0 118C0 52.8304 52.8304 0 118 0C183.17 0 236 52.8304 236 118Z" fill="#F7F6F1"/><path d="M185.2 60C185.6 60 185.8 60.4 185.8 61.2C185.8 62 185.6 62.4 185.2 62.4C180.533 62.4 176.2 64.2 172.2 67.8C168.2 71.4 164.933 76.6 162.4 83.4L123.4 184.8C123.267 185.333 122.533 185.6 121.2 185.6C120 185.6 119.267 185.333 119 184.8L68.4 76.6C66.1333 71.8 63.8 68.2667 61.4 66C59 63.6 56.0667 62.4 52.6 62.4C52.2 62.4 52 62 52 61.2C52 60.4 52.2 60 52.6 60C54.3333 60 55.7333 60.0667 56.8 60.2C58 60.3333 59.4 60.4667 61 60.6C62.7333 60.6 65 60.6 67.8 60.6C74.2 60.6 79.4 60.6 83.4 60.6C87.5333 60.4667 90.9333 60.3333 93.6 60.2C96.4 60.0667 98.8667 60 101 60C101.4 60 101.6 60.4 101.6 61.2C101.6 62 101.4 62.4 101 62.4C95.4 62.4 91.6 63.8 89.6 66.6C87.7333 69.4 88.0667 73.4 90.6 78.6L129.2 162.2L121 176L157 82.6C159.267 76.6 159.4 71.7333 157.4 68C155.4 64.2667 151 62.4 144.2 62.4C143.8 62.4 143.6 62 143.6 61.2C143.6 60.4 143.8 60 144.2 60C147.8 60 151.267 60.1333 154.6 60.4C157.933 60.5333 162.267 60.6 167.6 60.6C171.333 60.6 174.333 60.5333 176.6 60.4C179 60.1333 181.867 60 185.2 60Z" fill="#626262"/></svg>`;
-
+// Linear zoom interpolation matching the map-frame layer. Stops cover the full
+// camera zoom range (z0–z22) so MapLibre never clamps. Values are chosen to
+// keep the displayed watermark well within the world-extent inner area at every
+// zoom level — it never overflows the map frame.
 const WATERMARK_SIZE_EXPR: maplibregl.ExpressionSpecification = [
   'interpolate',
   ['linear'],
   ['zoom'],
+  0,
+  0.01,
   6,
   0.05,
   10,
-  0.11,
+  0.2,
   12,
-  0.17,
+  0.6,
   14,
-  0.22,
+  1.0,
   16,
-  0.28,
+  1.4,
   18,
-  0.34,
+  1.8,
+  22,
+  2.5,
 ];
 
 function svgToDataUrl(svg: string): string {
@@ -35,7 +43,7 @@ function loadWatermarkImage(): Promise<HTMLImageElement> {
     img.crossOrigin = 'anonymous';
     img.onload = () => resolve(img);
     img.onerror = reject;
-    img.src = svgToDataUrl(WATERMARK_SVG);
+    img.src = svgToDataUrl(VELLUM_LOGO_SVG);
   });
 }
 
