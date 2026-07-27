@@ -9,6 +9,7 @@ import { PartialParseDialog } from './components/overlays/PartialParseDialog';
 import { DlcWarningToast } from './components/overlays/DlcWarningToast';
 import { ThemeWarningToast } from './components/overlays/ThemeWarningToast';
 import { FloatingLayerPanel } from './components/panels/FloatingLayerPanel';
+import { ExportDialog } from './components/panels/ExportDialog';
 import { IconLegend } from './components/panels/IconLegend';
 import { initI18n } from './i18n/i18n-setup';
 import { useKeyboardShortcuts } from './hooks/use-keyboard-shortcuts';
@@ -24,7 +25,11 @@ import { cn } from './lib/utils';
  */
 import './i18n/types';
 
-import type { LayerName } from '@vellum/core';
+import type {
+  ExportDialogOptions,
+  ExportPreviewSnapshot,
+  LayerName,
+} from '@vellum/core';
 import { useVellumStore } from './store/vellum-store';
 
 const noop = async (): Promise<void> => {};
@@ -41,6 +46,10 @@ export interface AppProps {
   openFileDialog?: () => Promise<void>;
   /** Retries the last file with allow_partial=true. Injected from the Tauri composition root. */
   loadFilePartial?: () => Promise<void>;
+  /** Receives export configuration until Stories 6.2/6.3 connect IPC. */
+  onExport?: (options: ExportDialogOptions) => void;
+  /** Blocks export entry points while a future export operation is active. */
+  isExporting?: boolean;
 }
 
 /**
@@ -63,15 +72,26 @@ export function App({
   loadFile,
   openFileDialog = noop,
   loadFilePartial = noop,
+  onExport = () => {},
+  isExporting = false,
 }: AppProps) {
   const [i18nReady, setI18nReady] = useState(false);
   const [isCleanMode, setIsCleanMode] = useState(false);
+  const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
+  const [exportPreview, setExportPreview] =
+    useState<ExportPreviewSnapshot | null>(null);
   const fitToScreenRef = useRef<(() => void) | null>(null);
   const zoomInRef = useRef<(() => void) | null>(null);
   const zoomOutRef = useRef<(() => void) | null>(null);
   const toggleNavigationModeRef = useRef<(() => void) | null>(null);
   const rotateByRef = useRef<((delta: number) => void) | null>(null);
   const resetBearingRef = useRef<(() => void) | null>(null);
+  const previewCaptureRef = useRef<
+    (() => Promise<ExportPreviewSnapshot | null>) | null
+  >(null);
+  const isExportingRef = useRef(isExporting);
+  isExportingRef.current = isExporting;
+  const previewCapturePendingRef = useRef(false);
   const subscribeServiceIconLegendRef = useRef<
     ((callback: (state: ServiceIconLegendState) => void) => () => void) | null
   >(null);
@@ -79,6 +99,7 @@ export function App({
   const syncActiveLanguage = useVellumStore((s) => s.syncActiveLanguage);
   const cityData = useVellumStore((s) => s.cityData);
   const activeLayers = useVellumStore((s) => s.activeLayers);
+  const activeTheme = useVellumStore((s) => s.activeTheme);
   const loadingState = useVellumStore((s) => s.loadingState);
   const loadingError = useVellumStore((s) => s.loadingError);
   const dlcWarnings = useVellumStore((s) => s.dlcWarnings);
@@ -104,8 +125,16 @@ export function App({
 
   // Reset clean mode when a new map is loaded so the chrome is always visible on first render
   useEffect(() => {
+    setIsExportDialogOpen(false);
+    setExportPreview(null);
     if (cityData !== null) setIsCleanMode(false);
   }, [cityData]);
+
+  useEffect(() => {
+    if (loadingState !== 'loading') return;
+    setIsExportDialogOpen(false);
+    setExportPreview(null);
+  }, [loadingState]);
 
   const handleFitToScreen = useCallback(
     () => fitToScreenRef.current?.(),
@@ -130,6 +159,33 @@ export function App({
     () => resetBearingRef.current?.(),
     [resetBearingRef],
   );
+  const handleOpenExport = useCallback(async () => {
+    if (
+      cityData === null ||
+      loadingState === 'loading' ||
+      isExportingRef.current ||
+      previewCapturePendingRef.current
+    ) {
+      return;
+    }
+    previewCapturePendingRef.current = true;
+    try {
+      const preview = await (previewCaptureRef.current?.() ??
+        Promise.resolve(null));
+      const currentState = useVellumStore.getState();
+      if (
+        currentState.cityData !== cityData ||
+        currentState.loadingState === 'loading' ||
+        isExportingRef.current
+      ) {
+        return;
+      }
+      setExportPreview(preview);
+      setIsExportDialogOpen(true);
+    } finally {
+      previewCapturePendingRef.current = false;
+    }
+  }, [cityData, loadingState]);
 
   const handleOpenAdvancedOptions = useCallback(
     (layer: LayerName) => {
@@ -159,7 +215,10 @@ export function App({
     ...(cityData !== null
       ? { onOpenAdvancedOptions: handleOpenAdvancedOptions }
       : {}),
-    enabled: loadingState !== 'loading',
+    ...(cityData !== null && loadingState !== 'loading' && !isExporting
+      ? { onOpenExport: handleOpenExport }
+      : {}),
+    enabled: loadingState !== 'loading' && !isExportDialogOpen,
   });
 
   useEffect(() => {
@@ -222,6 +281,7 @@ export function App({
             isCleanMode={isCleanMode}
             themes={themes}
             subscribeServiceIconLegendRef={subscribeServiceIconLegendRef}
+            previewCaptureRef={previewCaptureRef}
           />
         </div>
         {showEmptyState && <EmptyState />}
@@ -260,12 +320,57 @@ export function App({
             <FloatingLayerPanel
               cityName={cityData.cityName}
               fileName={cityData.fileName}
+              onOpenExport={handleOpenExport}
+              exportDisabled={isExporting}
             />
             <IconLegend
               subscribeRef={subscribeServiceIconLegendRef}
               toggleRef={iconLegendToggleRef}
             />
           </div>
+        )}
+        {cityData !== null && (
+          <ExportDialog
+            open={isExportDialogOpen}
+            cityName={cityData.cityName}
+            fileName={cityData.fileName}
+            generatedAt={cityData.generatedAt}
+            defaultBackground={
+              activeTheme === 'night' || activeTheme === 'transit'
+                ? 'dark'
+                : 'white'
+            }
+            preview={exportPreview}
+            availability={{
+              districts: cityData.districts.length > 0,
+              parks: cityData.parkAreas.length > 0,
+              roads: cityData.roadSegments.length > 0,
+              transit: cityData.transitLines.length > 0,
+              elevation: cityData.contourLines?.length > 0,
+            }}
+            counts={{
+              roads: cityData.roadSegments.length,
+              buildings: cityData.buildings.length,
+              districts: cityData.districts.length,
+              parks: cityData.parkAreas.length,
+              transitLines: cityData.transitLines.length,
+              transitStops: cityData.transitLines.reduce(
+                (total, line) => total + line.stops.length,
+                0,
+              ),
+            }}
+            visibleLayerNames={Object.entries(activeLayers)
+              .filter(([, visible]) => visible)
+              .map(([layer]) => layer as LayerName)}
+            transitLabels={cityData.transitLines.map((line) => ({
+              id: line.id,
+              mode: line.mode,
+              name: line.name,
+            }))}
+            isExporting={isExporting}
+            onOpenChange={setIsExportDialogOpen}
+            onExport={onExport}
+          />
         )}
       </div>
     </Suspense>

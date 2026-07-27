@@ -1,7 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, cleanup, act } from './test-utils';
 import { App } from './App';
+import { useKeyboardShortcuts } from './hooks/use-keyboard-shortcuts';
 import { useVellumStore } from './store/vellum-store';
+
+const mockPreviewCapture = vi.hoisted(() =>
+  vi.fn().mockResolvedValue({
+    dataUrl: 'data:image/png;base64,viewport',
+    bearingDegrees: 0,
+    scale: { distanceMeters: 500, widthPercent: 20 },
+    annotations: [],
+  }),
+);
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key }),
@@ -56,7 +66,19 @@ vi.mock('./components/canvas/CanvasRoot', () => ({
 }));
 
 vi.mock('./components/canvas/MapLibreRoot', () => ({
-  MapLibreRoot: () => <div data-testid="maplibre-root" />,
+  MapLibreRoot: ({
+    previewCaptureRef,
+  }: {
+    previewCaptureRef?: React.RefObject<
+      | (() => Promise<import('@vellum/core').ExportPreviewSnapshot | null>)
+      | null
+    >;
+  }) => {
+    if (previewCaptureRef) {
+      previewCaptureRef.current = mockPreviewCapture;
+    }
+    return <div data-testid="maplibre-root" />;
+  },
 }));
 
 vi.mock('./components/empty-state/EmptyState', () => ({
@@ -69,6 +91,10 @@ vi.mock('./components/overlays/ProgressBar', () => ({
 
 vi.mock('./hooks/use-keyboard-shortcuts', () => ({
   useKeyboardShortcuts: vi.fn(),
+}));
+
+vi.mock('./hooks/use-themes', () => ({
+  useThemes: () => [],
 }));
 
 vi.mock('./i18n/types', () => ({}));
@@ -103,6 +129,14 @@ function resetStore() {
 
 beforeEach(() => {
   cleanup();
+  vi.mocked(useKeyboardShortcuts).mockClear();
+  mockPreviewCapture.mockReset();
+  mockPreviewCapture.mockResolvedValue({
+    dataUrl: 'data:image/png;base64,viewport',
+    bearingDegrees: 0,
+    scale: { distanceMeters: 500, widthPercent: 20 },
+    annotations: [],
+  });
   resetStore();
 });
 
@@ -273,5 +307,111 @@ describe('App — document.title (AC1)', () => {
     });
 
     expect(document.title).toBe('Vellum — Test City');
+  });
+});
+
+describe('App — ExportDialog (Story 6.1)', () => {
+  it('no habilita apertura sin mapa cargado', async () => {
+    await act(async () => {
+      render(<App />);
+    });
+
+    const options = vi.mocked(useKeyboardShortcuts).mock.lastCall?.[0];
+    expect(options?.onOpenExport).toBeUndefined();
+  });
+
+  it('abre el diálogo mediante el callback del atajo con mapa listo', async () => {
+    useVellumStore.getState().setCityData(mockCityData);
+    await act(async () => {
+      render(<App />);
+    });
+    const options = vi.mocked(useKeyboardShortcuts).mock.lastCall?.[0];
+
+    await act(async () => options?.onOpenExport?.());
+
+    expect(screen.getByLabelText('export.fileName')).toBeInTheDocument();
+    expect(
+      screen.getByTestId('export-preview').querySelector('img'),
+    ).toHaveAttribute('src', 'data:image/png;base64,viewport');
+    expect(vi.mocked(useKeyboardShortcuts).mock.lastCall?.[0].enabled).toBe(
+      false,
+    );
+  });
+
+  it('no habilita apertura durante una exportación activa', async () => {
+    useVellumStore.getState().setCityData(mockCityData);
+    await act(async () => {
+      render(<App isExporting />);
+    });
+
+    const options = vi.mocked(useKeyboardShortcuts).mock.lastCall?.[0];
+    expect(options?.onOpenExport).toBeUndefined();
+    expect(
+      screen.getByRole('button', { name: 'export.exportButton' }),
+    ).toBeDisabled();
+  });
+
+  it('no habilita apertura mientras se carga otro mapa', async () => {
+    useVellumStore.getState().setCityData(mockCityData);
+    useVellumStore.getState().setLoadingState('loading');
+    await act(async () => {
+      render(<App />);
+    });
+
+    const options = vi.mocked(useKeyboardShortcuts).mock.lastCall?.[0];
+    expect(options?.onOpenExport).toBeUndefined();
+  });
+
+  it('cierra y descarta el preview al cambiar de mapa', async () => {
+    useVellumStore.getState().setCityData(mockCityData);
+    await act(async () => {
+      render(<App />);
+    });
+    const options = vi.mocked(useKeyboardShortcuts).mock.lastCall?.[0];
+    await act(async () => options?.onOpenExport?.());
+    expect(screen.getByLabelText('export.fileName')).toBeInTheDocument();
+
+    act(() => {
+      useVellumStore.getState().incrementLoadRequestId();
+      useVellumStore.getState().setCityData({
+        ...mockCityData,
+        cityName: 'Second City',
+      });
+    });
+
+    expect(screen.queryByLabelText('export.fileName')).toBeNull();
+  });
+
+  it('no abre el diálogo si la exportación comienza durante la captura', async () => {
+    let resolveCapture:
+      | ((value: import('@vellum/core').ExportPreviewSnapshot) => void)
+      | undefined;
+    mockPreviewCapture.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveCapture = resolve;
+      }),
+    );
+    useVellumStore.getState().setCityData(mockCityData);
+    let view: ReturnType<typeof render> | undefined;
+    await act(async () => {
+      view = render(<App />);
+    });
+    const options = vi.mocked(useKeyboardShortcuts).mock.lastCall?.[0];
+    const opening = options?.onOpenExport?.();
+
+    await act(async () => {
+      view?.rerender(<App isExporting />);
+    });
+    await act(async () => {
+      resolveCapture?.({
+        dataUrl: 'data:image/png;base64,late',
+        bearingDegrees: 0,
+        scale: { distanceMeters: 500, widthPercent: 20 },
+        annotations: [],
+      });
+      await opening;
+    });
+
+    expect(screen.queryByLabelText('export.fileName')).toBeNull();
   });
 });

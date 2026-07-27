@@ -15,6 +15,8 @@ const LAYER_SHORTCUT_MAP: LayerName[] = [
 
 interface UseKeyboardShortcutsOptions {
   onOpenFile: () => void;
+  /** Called when the user presses Ctrl/Cmd + E to open export configuration. */
+  onOpenExport?: () => void;
   /** Called when the user presses keys 1–7 to toggle the corresponding layer. */
   onToggleLayer?: (layer: LayerName) => void;
   /** Called when the user presses Ctrl+0 or Ctrl+9 to reset the viewport to fit-to-screen. */
@@ -44,6 +46,7 @@ interface UseKeyboardShortcutsOptions {
 
 export function useKeyboardShortcuts({
   onOpenFile,
+  onOpenExport,
   onToggleLayer,
   onFitToScreen,
   onZoomIn,
@@ -59,11 +62,20 @@ export function useKeyboardShortcuts({
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (!enabled) return;
+      if (isEditableTarget(e.target)) return;
       const isModKey = e.ctrlKey || e.metaKey;
 
       if (isModKey && !e.shiftKey && !e.altKey && e.key === 'o') {
         e.preventDefault();
         onOpenFile();
+        return;
+      }
+
+      if (isModKey && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'e') {
+        if (onOpenExport) {
+          e.preventDefault();
+          onOpenExport();
+        }
         return;
       }
 
@@ -189,6 +201,7 @@ export function useKeyboardShortcuts({
     return () => document.removeEventListener('keydown', handler);
   }, [
     onOpenFile,
+    onOpenExport,
     onToggleLayer,
     onFitToScreen,
     onZoomIn,
@@ -201,4 +214,14 @@ export function useKeyboardShortcuts({
     onOpenAdvancedOptions,
     enabled,
   ]);
+}
+
+function isEditableTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  if (target.matches('input, textarea, select')) return true;
+  if (target.isContentEditable || target.contentEditable === 'true')
+    return true;
+  return (
+    target.closest('[contenteditable=""], [contenteditable="true"]') != null
+  );
 }

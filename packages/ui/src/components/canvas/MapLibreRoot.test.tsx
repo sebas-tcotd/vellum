@@ -2,6 +2,15 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, act } from '../../test-utils';
 import { MapLibreRoot } from './MapLibreRoot';
 
+const mockCapturePreview = vi.hoisted(() =>
+  vi.fn().mockResolvedValue({
+    dataUrl: 'data:image/png;base64,viewport',
+    bearingDegrees: 0,
+    scale: { distanceMeters: 500, widthPercent: 20 },
+    annotations: [],
+  }),
+);
+
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));
@@ -26,6 +35,7 @@ vi.mock('@vellum/renderer-webgl', () => ({
       zoomOut: vi.fn(),
       setLayerVisibility: vi.fn(),
       setLayerOptions: vi.fn(),
+      capturePreview: mockCapturePreview,
     };
   },
   readTokensFromDOM: () => ({}),
@@ -99,5 +109,21 @@ describe('MapLibreRoot — AC2: ARIA en contenedor canvas', () => {
       'aria-label',
       'a11y.mapCanvas',
     );
+  });
+
+  it('expone la captura del renderer mediante previewCaptureRef', async () => {
+    const previewCaptureRef: React.RefObject<
+      | (() => Promise<import('@vellum/core').ExportPreviewSnapshot | null>)
+      | null
+    > = { current: null };
+    render(<MapLibreRoot previewCaptureRef={previewCaptureRef} />);
+    await act(async () => {});
+
+    await expect(previewCaptureRef.current?.()).resolves.toEqual(
+      expect.objectContaining({
+        dataUrl: 'data:image/png;base64,viewport',
+      }),
+    );
+    expect(mockCapturePreview).toHaveBeenCalledOnce();
   });
 });

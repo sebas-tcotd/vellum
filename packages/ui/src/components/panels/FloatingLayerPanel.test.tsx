@@ -353,6 +353,47 @@ describe('FloatingLayerPanel', () => {
     });
   });
 
+  describe('Story 6.1 — apertura de exportación', () => {
+    it('llama onOpenExport desde el panel expandido', async () => {
+      const user = userEvent.setup();
+      const onOpenExport = vi.fn();
+      render(
+        <FloatingLayerPanel
+          cityName="Altavento"
+          fileName="altavento.cslmap"
+          onOpenExport={onOpenExport}
+        />,
+      );
+
+      await user.click(
+        screen.getByRole('button', { name: 'export.exportButton' }),
+      );
+
+      expect(onOpenExport).toHaveBeenCalledOnce();
+    });
+
+    it('mantiene un trigger accesible al colapsar el panel', async () => {
+      const user = userEvent.setup();
+      const onOpenExport = vi.fn();
+      render(
+        <FloatingLayerPanel
+          cityName="Altavento"
+          fileName="altavento.cslmap"
+          onOpenExport={onOpenExport}
+        />,
+      );
+      await user.click(
+        screen.getByRole('button', { name: 'a11y.layerPanelCollapse' }),
+      );
+
+      await user.click(
+        screen.getByRole('button', { name: 'export.exportButton' }),
+      );
+
+      expect(onOpenExport).toHaveBeenCalledOnce();
+    });
+  });
+
   describe('Story 5.1 — Selector de temas (pills)', () => {
     const themes: ThemeMetadata[] = [
       { id: 'day', name: 'Day', source: 'built-in' },

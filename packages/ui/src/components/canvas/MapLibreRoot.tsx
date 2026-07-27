@@ -1,6 +1,6 @@
 import type { UnlistenFn } from '@tauri-apps/api/event';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
-import type { LayerVisibility } from '@vellum/core';
+import type { ExportPreviewSnapshot, LayerVisibility } from '@vellum/core';
 import type {
   ServiceIconLegendState,
   TooltipInfo,
@@ -47,6 +47,10 @@ export interface MapLibreRootProps {
   subscribeServiceIconLegendRef?: React.RefObject<
     ((callback: (state: ServiceIconLegendState) => void) => () => void) | null
   >;
+  /** Ref populated with an on-demand viewport preview capture callback. */
+  previewCaptureRef?: React.RefObject<
+    (() => Promise<ExportPreviewSnapshot | null>) | null
+  >;
 }
 
 /**
@@ -70,6 +74,7 @@ export function MapLibreRoot({
   isCleanMode = false,
   themes = [],
   subscribeServiceIconLegendRef,
+  previewCaptureRef,
 }: MapLibreRootProps) {
   const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -244,6 +249,15 @@ export function MapLibreRoot({
       if (resetBearingRef.current) resetBearingRef.current = null;
     };
   }, [resetBearingRef]);
+
+  useEffect(() => {
+    if (!previewCaptureRef) return;
+    previewCaptureRef.current = () =>
+      rendererRef.current?.capturePreview() ?? Promise.resolve(null);
+    return () => {
+      if (previewCaptureRef.current) previewCaptureRef.current = null;
+    };
+  }, [previewCaptureRef]);
 
   // Register subscribeServiceIconLegend into the external ref — same pattern as
   // fitToScreenRef/zoomInRef above, but exposing a subscription instead of an action.

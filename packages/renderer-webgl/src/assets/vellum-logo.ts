@@ -129,3 +129,8 @@ export const VELLUM_LOGO_SVG = `<svg width="728" height="728" viewBox="0 0 728 7
 </g>
 </svg>
 `;
+
+/** Returns the bundled Vellum logo as a browser-safe SVG data URL. */
+export function vellumLogoDataUri(): string {
+  return `data:image/svg+xml;base64,${btoa(VELLUM_LOGO_SVG)}`;
+}
