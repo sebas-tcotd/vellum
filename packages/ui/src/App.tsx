@@ -1,6 +1,7 @@
 // packages/ui/src/App.tsx
 import type { ServiceIconLegendState } from '@vellum/renderer-webgl';
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { MapLibreRoot } from './components/canvas/MapLibreRoot';
 import { EmptyState } from './components/empty-state/EmptyState';
 import { ProgressBar } from './components/overlays/ProgressBar';
@@ -28,8 +29,10 @@ import './i18n/types';
 import type {
   ExportDialogOptions,
   ExportPreviewSnapshot,
+  ExportResult,
   LayerName,
 } from '@vellum/core';
+import type { PngExportOptions } from '@vellum/renderer-webgl';
 import { useVellumStore } from './store/vellum-store';
 
 const noop = async (): Promise<void> => {};
@@ -46,9 +49,14 @@ export interface AppProps {
   openFileDialog?: () => Promise<void>;
   /** Retries the last file with allow_partial=true. Injected from the Tauri composition root. */
   loadFilePartial?: () => Promise<void>;
-  /** Receives export configuration until Stories 6.2/6.3 connect IPC. */
-  onExport?: (options: ExportDialogOptions) => void;
-  /** Blocks export entry points while a future export operation is active. */
+  /** Writes PNG bytes through the desktop IPC adapter. */
+  onExport?: (
+    options: ExportDialogOptions,
+    pngBytes: Uint8Array,
+  ) => Promise<ExportResult>;
+  /** Reveals a successful export directory through the desktop IPC adapter. */
+  onOpenExportFolder?: (folderPath: string) => Promise<void>;
+  /** Allows a composition root to prevent interactions during an external export. */
   isExporting?: boolean;
 }
 
@@ -72,14 +80,20 @@ export function App({
   loadFile,
   openFileDialog = noop,
   loadFilePartial = noop,
-  onExport = () => {},
-  isExporting = false,
+  onExport,
+  onOpenExportFolder,
+  isExporting: isExportingProp = false,
 }: AppProps) {
+  const { t } = useTranslation();
   const [i18nReady, setI18nReady] = useState(false);
   const [isCleanMode, setIsCleanMode] = useState(false);
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
   const [exportPreview, setExportPreview] =
     useState<ExportPreviewSnapshot | null>(null);
+  const [exportInProgress, setExportInProgress] = useState(false);
+  const isExporting = isExportingProp || exportInProgress;
+  const [exportResult, setExportResult] = useState<ExportResult | null>(null);
+  const [exportFailed, setExportFailed] = useState(false);
   const fitToScreenRef = useRef<(() => void) | null>(null);
   const zoomInRef = useRef<(() => void) | null>(null);
   const zoomOutRef = useRef<(() => void) | null>(null);
@@ -88,6 +102,9 @@ export function App({
   const resetBearingRef = useRef<(() => void) | null>(null);
   const previewCaptureRef = useRef<
     (() => Promise<ExportPreviewSnapshot | null>) | null
+  >(null);
+  const pngCaptureRef = useRef<
+    ((options: PngExportOptions) => Promise<Uint8Array>) | null
   >(null);
   const isExportingRef = useRef(isExporting);
   isExportingRef.current = isExporting;
@@ -187,6 +204,36 @@ export function App({
     }
   }, [cityData, loadingState]);
 
+  const handleExport = useCallback(
+    async (options: ExportDialogOptions): Promise<void> => {
+      if (isExportingRef.current || !onExport) return;
+      const scale =
+        options.format === 'png-4x' ? 4 : options.format === 'png-2x' ? 2 : 1;
+      if (options.format === 'svg') {
+        setExportFailed(true);
+        return;
+      }
+      setExportFailed(false);
+      setExportResult(null);
+      setExportInProgress(true);
+      try {
+        const pngBytes = await pngCaptureRef.current?.({
+          scale,
+          area: options.area,
+          background: options.background,
+        });
+        if (!pngBytes) throw new Error('PNG capture is unavailable');
+        setExportResult(await onExport(options, pngBytes));
+      } catch (error: unknown) {
+        console.error('[App] PNG export failed:', error);
+        setExportFailed(true);
+      } finally {
+        setExportInProgress(false);
+      }
+    },
+    [onExport],
+  );
+
   const handleOpenAdvancedOptions = useCallback(
     (layer: LayerName) => {
       setExpandedPanelLayer(expandedPanelLayer === layer ? null : layer);
@@ -267,6 +314,7 @@ export function App({
           className={cn(
             'absolute inset-0 transition-opacity duration-500',
             cityData ? 'opacity-100' : 'opacity-0 pointer-events-none',
+            isExporting && 'pointer-events-none',
           )}
         >
           <MapLibreRoot
@@ -282,6 +330,7 @@ export function App({
             themes={themes}
             subscribeServiceIconLegendRef={subscribeServiceIconLegendRef}
             previewCaptureRef={previewCaptureRef}
+            pngCaptureRef={pngCaptureRef}
           />
         </div>
         {showEmptyState && <EmptyState />}
@@ -314,7 +363,9 @@ export function App({
         {cityData !== null && loadingState !== 'loading' && (
           <div
             className={
-              isCleanMode ? 'invisible pointer-events-none' : undefined
+              isCleanMode || isExporting
+                ? 'invisible pointer-events-none'
+                : undefined
             }
           >
             <FloatingLayerPanel
@@ -369,8 +420,44 @@ export function App({
             }))}
             isExporting={isExporting}
             onOpenChange={setIsExportDialogOpen}
-            onExport={onExport}
+            onExport={handleExport}
           />
+        )}
+        {isExporting && (
+          <div
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuetext={t('export.exportButton')}
+            className="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 rounded bg-background px-4 py-2 text-xs shadow"
+          >
+            {t('export.exportButton')}
+          </div>
+        )}
+        {exportResult && (
+          <div
+            role="status"
+            className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded bg-background px-4 py-2 text-xs shadow"
+          >
+            {t('export.successToast', {
+              fileName: exportResult.filePath.split(/[/\\]/).at(-1),
+            })}
+            <button
+              type="button"
+              className="ml-3 underline"
+              onClick={() => void onOpenExportFolder?.(exportResult.folderPath)}
+            >
+              {t('export.openFolder')}
+            </button>
+          </div>
+        )}
+        {exportFailed && (
+          <div
+            role="alert"
+            className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded bg-background px-4 py-2 text-xs shadow"
+          >
+            {t('export.failedToast')}
+          </div>
         )}
       </div>
     </Suspense>

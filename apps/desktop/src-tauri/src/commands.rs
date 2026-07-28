@@ -23,6 +23,17 @@ pub struct ExportOptions {
     pub file_name: String,
 }
 
+/// PNG payload with the binary raster produced by the isolated WebGL surface.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExportPngOptions {
+    /// Shared, validated export configuration.
+    #[serde(flatten)]
+    pub export: ExportOptions,
+    /// Encoded PNG bytes. This is binary IPC data, never a base64 data URL.
+    pub png_bytes: Vec<u8>,
+}
+
 /// Outbound payload returned upon successful completion of an export command.
 ///
 /// **CRITICAL RULE:** Must remain synchronized with `ExportResult` in `ipc-contract.ts`.
@@ -214,19 +225,140 @@ pub async fn load_themes(app_handle: tauri::AppHandle) -> Result<Vec<RawThemeFil
         })?
 }
 
-/// Exports the current map rendering state to a rasterized PNG image.
-///
-/// **Future Implementation (Story 6.2):** /// Currently a stub. Will handle offscreen rasterization based on the provided `ExportOptions`.
+fn validate_png_options(options: &ExportOptions) -> Result<(), VellumError> {
+    let valid = matches!(options.format.as_str(), "png-1x" | "png-2x" | "png-4x")
+        && matches!(options.area.as_str(), "viewport" | "full-map")
+        && matches!(
+            options.background.as_str(),
+            "white" | "dark" | "transparent"
+        );
+    if valid && is_safe_export_name(&options.file_name) {
+        Ok(())
+    } else {
+        Err(VellumError::ExportFailed {
+            reason: "Invalid PNG export options".into(),
+        })
+    }
+}
+
+fn is_safe_export_name(name: &str) -> bool {
+    !name.is_empty()
+        && name.len() <= 160
+        && !name.contains(['/', '\\', '\0'])
+        && !name.ends_with('.')
+        && !name.to_lowercase().ends_with(".png")
+        && !name.to_lowercase().ends_with(".svg")
+}
+
+fn export_destination(
+    app: &tauri::AppHandle,
+    name: &str,
+) -> Result<std::path::PathBuf, VellumError> {
+    app.path()
+        .download_dir()
+        .map(|dir| dir.join(format!("{name}.png")))
+        .map_err(|error| VellumError::IoError {
+            reason: format!("download directory unavailable: {error}"),
+        })
+}
+
+fn write_png_atomic(path: &std::path::Path, bytes: &[u8]) -> Result<(), VellumError> {
+    let temporary = path.with_extension("png.part");
+    std::fs::write(&temporary, bytes).map_err(|error| VellumError::IoError {
+        reason: format!("PNG write failed: {error}"),
+    })?;
+    std::fs::rename(&temporary, path).map_err(|error| VellumError::IoError {
+        reason: format!("PNG finalize failed: {error}"),
+    })
+}
+
+fn persist_png(
+    app: &tauri::AppHandle,
+    options: &ExportPngOptions,
+) -> Result<ExportResult, VellumError> {
+    validate_png_options(&options.export)?;
+    if options.png_bytes.is_empty() {
+        return Err(VellumError::ExportFailed {
+            reason: "Empty PNG payload".into(),
+        });
+    }
+    let path = export_destination(app, &options.export.file_name)?;
+    write_png_atomic(&path, &options.png_bytes)?;
+    let folder = path.parent().ok_or_else(|| VellumError::IoError {
+        reason: "PNG destination has no parent directory".into(),
+    })?;
+    Ok(ExportResult {
+        file_path: path.to_string_lossy().into_owned(),
+        folder_path: folder.to_string_lossy().into_owned(),
+    })
+}
+
+/// Exports a rasterized PNG to the user's Downloads directory.
 ///
 /// # Errors
-/// Returns a `VellumError::ExportFailed` if the operation is unsupported or if filesystem
-/// permissions prevent saving the output.
+/// Returns `VellumError::ExportFailed` for invalid PNG input and `IoError` for
+/// directory resolution, writing, or finalization failures.
 #[tauri::command]
-pub async fn export_png(_options: ExportOptions) -> Result<ExportResult, VellumError> {
-    // TODO(story-6.2): implementar exportación PNG
-    Err(VellumError::ExportFailed {
-        reason: "PNG export not yet implemented".to_string(),
-    })
+pub async fn export_png(
+    options: ExportPngOptions,
+    app_handle: tauri::AppHandle,
+) -> Result<ExportResult, VellumError> {
+    tokio::task::spawn_blocking(move || persist_png(&app_handle, &options))
+        .await
+        .map_err(|error| VellumError::IoError {
+            reason: format!("PNG task failed: {error}"),
+        })?
+}
+
+/// Reveals an already-created export folder in the host operating system.
+///
+/// # Errors
+/// Returns `VellumError::IoError` when the path is not a directory or the host
+/// OS refuses to launch its file manager.
+#[tauri::command]
+pub async fn open_export_folder(folder_path: String) -> Result<(), VellumError> {
+    tokio::task::spawn_blocking(move || reveal_folder(&folder_path))
+        .await
+        .map_err(|error| VellumError::IoError {
+            reason: format!("Folder task failed: {error}"),
+        })?
+}
+
+fn reveal_folder(folder_path: &str) -> Result<(), VellumError> {
+    let path = std::path::Path::new(folder_path);
+    if !path.is_dir() {
+        return Err(VellumError::IoError {
+            reason: "Export folder does not exist".into(),
+        });
+    }
+    let mut command = folder_reveal_command(path);
+    command
+        .spawn()
+        .map(|_| ())
+        .map_err(|error| VellumError::IoError {
+            reason: format!("Folder reveal failed: {error}"),
+        })
+}
+
+#[cfg(target_os = "macos")]
+fn folder_reveal_command(path: &std::path::Path) -> std::process::Command {
+    let mut command = std::process::Command::new("open");
+    command.arg(path);
+    command
+}
+
+#[cfg(target_os = "windows")]
+fn folder_reveal_command(path: &std::path::Path) -> std::process::Command {
+    let mut command = std::process::Command::new("explorer");
+    command.arg(path);
+    command
+}
+
+#[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
+fn folder_reveal_command(path: &std::path::Path) -> std::process::Command {
+    let mut command = std::process::Command::new("xdg-open");
+    command.arg(path);
+    command
 }
 
 /// Exports the current map rendering state to a scalable vector graphic (SVG).
@@ -337,5 +469,39 @@ mod tests {
 
         std::fs::remove_dir_all(&resource_dir).unwrap();
         std::fs::remove_dir_all(&user_dir).unwrap();
+    }
+
+    #[test]
+    fn png_options_reject_non_png_formats_and_unsafe_names() {
+        let valid = ExportOptions {
+            format: "png-4x".into(),
+            area: "full-map".into(),
+            background: "transparent".into(),
+            file_name: "Altavento".into(),
+        };
+        assert!(validate_png_options(&valid).is_ok());
+        let invalid_format = ExportOptions {
+            format: "svg".into(),
+            ..valid
+        };
+        assert!(validate_png_options(&invalid_format).is_err());
+        let invalid_name = ExportOptions {
+            format: "png-1x".into(),
+            file_name: "../../map.png".into(),
+            area: "viewport".into(),
+            background: "white".into(),
+        };
+        assert!(validate_png_options(&invalid_name).is_err());
+    }
+
+    #[test]
+    fn write_png_atomic_creates_the_final_file() {
+        let dir = unique_temp_dir("png_write_test");
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("map.png");
+        write_png_atomic(&path, &[137, 80, 78, 71]).unwrap();
+        assert_eq!(std::fs::read(&path).unwrap(), vec![137, 80, 78, 71]);
+        assert!(!path.with_extension("png.part").exists());
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 }

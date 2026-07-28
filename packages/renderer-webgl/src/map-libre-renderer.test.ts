@@ -232,6 +232,73 @@ describe('MapLibreRenderer', () => {
     expect(mockMap.fitBounds).toHaveBeenCalledOnce();
   });
 
+  it('mantiene el drawing buffer sólo en el renderer temporal de exportación', async () => {
+    const canvas = {
+      style: { cursor: '' },
+      clientWidth: 640,
+      clientHeight: 480,
+      width: 640,
+      height: 480,
+      toBlob: (callback: (blob: Blob | null) => void) =>
+        callback(new Blob([new Uint8Array([137, 80, 78, 71])])),
+    };
+    mockMap.getCanvas.mockReturnValue(canvas as never);
+    mockMap.once.mockImplementation((_event: string, callback: () => void) => {
+      callback();
+    });
+    const renderer = makeRenderer();
+    await renderer.render(makeCityData(), { activeLayers: ALL_LAYERS_VISIBLE });
+
+    await expect(
+      renderer.capturePng({ scale: 1, area: 'full-map', background: 'white' }),
+    ).resolves.toEqual(new Uint8Array([137, 80, 78, 71]));
+
+    expect(maplibregl.Map).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        canvasContextAttributes: { preserveDrawingBuffer: false },
+      }),
+    );
+    expect(maplibregl.Map).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        canvasContextAttributes: { preserveDrawingBuffer: true },
+      }),
+    );
+    expect(mockMap.once).toHaveBeenCalledWith('idle', expect.any(Function));
+  });
+
+  it('rechaza exportaciones que exceden el límite de memoria antes de crear una superficie temporal', async () => {
+    mockMap.getCanvas.mockReturnValue({
+      style: { cursor: '' },
+      clientWidth: 10_000,
+      clientHeight: 10_000,
+      width: 10_000,
+      height: 10_000,
+    } as never);
+    const renderer = makeRenderer();
+    await renderer.render(makeCityData(), { activeLayers: ALL_LAYERS_VISIBLE });
+
+    await expect(
+      renderer.capturePng({
+        scale: 4,
+        area: 'full-map',
+        background: 'transparent',
+      }),
+    ).rejects.toThrow('safe limit');
+    expect(maplibregl.Map).toHaveBeenCalledTimes(1);
+  });
+
+  it('rechaza la captura PNG si no existe una ciudad cargada', async () => {
+    await expect(
+      makeRenderer().capturePng({
+        scale: 1,
+        area: 'viewport',
+        background: 'white',
+      }),
+    ).rejects.toThrow('No map is available');
+  });
+
   it('registers nonempty park areas with distinct marker and label layers', async () => {
     const renderer = makeRenderer();
     await renderer.render(

@@ -1,6 +1,7 @@
 import type { UnlistenFn } from '@tauri-apps/api/event';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import type { ExportPreviewSnapshot, LayerVisibility } from '@vellum/core';
+import type { PngExportOptions } from '@vellum/renderer-webgl';
 import type {
   ServiceIconLegendState,
   TooltipInfo,
@@ -51,6 +52,10 @@ export interface MapLibreRootProps {
   previewCaptureRef?: React.RefObject<
     (() => Promise<ExportPreviewSnapshot | null>) | null
   >;
+  /** Ref populated with an isolated PNG raster capture callback. */
+  pngCaptureRef?: React.RefObject<
+    ((options: PngExportOptions) => Promise<Uint8Array>) | null
+  >;
 }
 
 /**
@@ -75,6 +80,7 @@ export function MapLibreRoot({
   themes = [],
   subscribeServiceIconLegendRef,
   previewCaptureRef,
+  pngCaptureRef,
 }: MapLibreRootProps) {
   const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -258,6 +264,19 @@ export function MapLibreRoot({
       if (previewCaptureRef.current) previewCaptureRef.current = null;
     };
   }, [previewCaptureRef]);
+
+  useEffect(() => {
+    if (!pngCaptureRef) return;
+    pngCaptureRef.current = (options) => {
+      const renderer = rendererRef.current;
+      return renderer
+        ? renderer.capturePng(options)
+        : Promise.reject(new Error('Map renderer is unavailable'));
+    };
+    return () => {
+      if (pngCaptureRef.current) pngCaptureRef.current = null;
+    };
+  }, [pngCaptureRef]);
 
   // Register subscribeServiceIconLegend into the external ref — same pattern as
   // fitToScreenRef/zoomInRef above, but exposing a subscription instead of an action.

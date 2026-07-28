@@ -25,6 +25,8 @@ import {
   type ExportPreviewAnnotation,
   type ExportPreviewScale,
   type ExportPreviewSnapshot,
+  type ExportArea,
+  type ExportBackground,
   type IRenderer,
   type LayerName,
   type LayerOptions,
@@ -59,6 +61,18 @@ export type {
 const PREVIEW_CAPTURE_TIMEOUT_MS = 1_500;
 const SCALE_SAMPLE_PIXELS = 100;
 const SCALE_TARGET_PIXELS = 80;
+const EXPORT_CAPTURE_TIMEOUT_MS = 8_000;
+const MAX_EXPORT_PIXELS = 64_000_000;
+
+/** Options for producing an isolated PNG raster from the current map state. */
+export interface PngExportOptions {
+  /** Requested raster density. */
+  scale: 1 | 2 | 4;
+  /** Current viewport or the full city extent. */
+  area: ExportArea;
+  /** Background treatment applied by the isolated export surface. */
+  background: ExportBackground;
+}
 
 function niceScaleDistance(distance: number): number {
   const magnitude = 10 ** Math.floor(Math.log10(distance));
@@ -73,12 +87,15 @@ function niceScaleDistance(distance: number): number {
  */
 export class MapLibreRenderer implements IRenderer {
   private readonly map: maplibregl.Map;
+  private readonly releasesDemProtocol: boolean;
 
   private readonly layerManager: MapLayerManager;
   private readonly navigationManager: MapNavigationManager;
   private readonly sourceManager: MapSourceManager;
 
   private cityData: CityData | null = null;
+  private style: RenderStyleParams;
+  private activeLayers: RenderParams['activeLayers'] | null = null;
   private transitDimming = false;
   private layerOptions: LayerOptions = DEFAULT_LAYER_OPTIONS;
   private readonly pendingPreviewCaptures = new Set<
@@ -90,8 +107,17 @@ export class MapLibreRenderer implements IRenderer {
    *
    * @param container - A DOM div that MapLibre will populate.
    * @param style - Initial theme colors, applied to the base map style at construction.
+   * @param preserveDrawingBuffer - Enables readback only for a disposable export surface.
+   * @param releasesDemProtocol - Whether disposing this renderer may unregister the shared DEM protocol.
    */
-  constructor(container: HTMLDivElement, style: RenderStyleParams) {
+  constructor(
+    container: HTMLDivElement,
+    style: RenderStyleParams,
+    preserveDrawingBuffer = false,
+    releasesDemProtocol = true,
+  ) {
+    this.style = style;
+    this.releasesDemProtocol = releasesDemProtocol;
     const initialColors = resolveColors(style);
 
     this.map = new maplibregl.Map({
@@ -101,6 +127,7 @@ export class MapLibreRenderer implements IRenderer {
       attributionControl: false,
       renderWorldCopies: false,
       maxZoom: 18,
+      canvasContextAttributes: { preserveDrawingBuffer },
       style: createBaseStyle(initialColors),
     });
 
@@ -118,6 +145,7 @@ export class MapLibreRenderer implements IRenderer {
    */
   render(cityData: CityData, params: RenderParams): Promise<void> {
     this.cityData = cityData;
+    this.activeLayers = params.activeLayers;
 
     return new Promise((resolve) => {
       const executeRender = async (): Promise<void> => {
@@ -156,6 +184,7 @@ export class MapLibreRenderer implements IRenderer {
    * "color by category" state instead of reverting to a default.
    */
   async applyTheme(style: RenderStyleParams): Promise<void> {
+    this.style = style;
     const newColors = resolveColors(style);
     this.layerManager.updateColors(newColors);
     this.sourceManager.updateColors(newColors);
@@ -222,10 +251,127 @@ export class MapLibreRenderer implements IRenderer {
     });
   }
 
+  /**
+   * Renders a temporary, isolated MapLibre surface and returns its PNG bytes.
+   *
+   * The interactive renderer is never resized or reconfigured, preserving its
+   * camera and WebGL performance settings. Exports are intentionally limited
+   * to 64 million pixels to avoid exhausting GPU or process memory.
+   */
+  async capturePng(options: PngExportOptions): Promise<Uint8Array> {
+    if (!this.cityData || !this.activeLayers) {
+      throw new Error('No map is available for export');
+    }
+    const sourceCanvas = this.map.getCanvas();
+    const baseWidth = sourceCanvas.clientWidth || sourceCanvas.width;
+    const baseHeight = sourceCanvas.clientHeight || sourceCanvas.height;
+    const width = baseWidth * options.scale;
+    const height = baseHeight * options.scale;
+    if (
+      !Number.isSafeInteger(width) ||
+      !Number.isSafeInteger(height) ||
+      width * height > MAX_EXPORT_PIXELS
+    ) {
+      throw new Error('Requested export dimensions exceed the safe limit');
+    }
+
+    const container = document.createElement('div');
+    container.style.cssText = `position:fixed;left:-100000px;top:0;width:${width}px;height:${height}px;`;
+    document.body.append(container);
+    // `toBlob()` runs asynchronously. The export-only context must retain the
+    // completed frame until that encoder reads it; the interactive map remains
+    // on MapLibre's performant default (`preserveDrawingBuffer: false`).
+    const exportRenderer = new MapLibreRenderer(
+      container,
+      this.style,
+      true,
+      false,
+    );
+    try {
+      await exportRenderer.render(this.cityData, {
+        activeLayers: this.activeLayers,
+      });
+      exportRenderer.setTransitDimming(this.transitDimming);
+      exportRenderer.setLayerOptions(this.layerOptions);
+      if (options.area === 'viewport') {
+        const center = this.map.getCenter();
+        exportRenderer.map.jumpTo({
+          center,
+          zoom: this.map.getZoom(),
+          bearing: this.map.getBearing(),
+        });
+      }
+      exportRenderer.map.setPaintProperty(
+        'background',
+        'background-color',
+        this.exportBackgroundColor(options.background),
+      );
+      await exportRenderer.waitForIdle();
+      return await exportRenderer.captureCanvasBytes();
+    } finally {
+      exportRenderer.dispose();
+      container.remove();
+    }
+  }
+
+  /** Resolves export backgrounds from theme tokens instead of CSS literals. */
+  private exportBackgroundColor(background: ExportBackground): string {
+    if (background === 'transparent') return 'rgba(0, 0, 0, 0)';
+    return background === 'dark'
+      ? this.style.transitBackground
+      : this.style.mapBackground;
+  }
+
+  /** Waits until MapLibre has painted all pending sources and layers. */
+  private waitForIdle(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const finish = (): void => {
+        clearTimeout(timeout);
+        resolve();
+      };
+      const timeout = setTimeout(() => {
+        this.map.off('idle', finish);
+        reject(new Error('PNG map render timed out'));
+      }, EXPORT_CAPTURE_TIMEOUT_MS);
+      this.map.once('idle', finish);
+      this.map.triggerRepaint();
+    });
+  }
+
+  /** Captures an encoded PNG after the temporary renderer has become idle. */
+  private captureCanvasBytes(): Promise<Uint8Array> {
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      const finish = (result: Uint8Array | Error): void => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeout);
+        this.map.off('render', capture);
+        result instanceof Error ? reject(result) : resolve(result);
+      };
+      const capture = (): void => {
+        const canvas = this.map.getCanvas();
+        canvas.toBlob((blob) => {
+          if (!blob) return finish(new Error('PNG encoding failed'));
+          void blob.arrayBuffer().then(
+            (buffer) => finish(new Uint8Array(buffer)),
+            () => finish(new Error('PNG encoding failed')),
+          );
+        }, 'image/png');
+      };
+      const timeout = setTimeout(
+        () => finish(new Error('PNG capture timed out')),
+        EXPORT_CAPTURE_TIMEOUT_MS,
+      );
+      this.map.once('render', capture);
+      this.map.triggerRepaint();
+    });
+  }
+
   /** Removes the MapLibre map and releases all GPU resources. */
   dispose(): void {
     for (const finish of [...this.pendingPreviewCaptures]) finish(null);
-    unregisterDemProtocol();
+    if (this.releasesDemProtocol) unregisterDemProtocol();
     this.navigationManager.dispose();
     this.map.remove();
   }

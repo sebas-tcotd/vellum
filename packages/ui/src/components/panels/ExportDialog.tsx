@@ -79,7 +79,7 @@ export interface ExportDialogProps {
   /** Receives all controlled-open state changes, including Escape. */
   onOpenChange: (open: boolean) => void;
   /** Receives a sanitized, typed configuration without invoking IPC. */
-  onExport: (options: ExportDialogOptions) => void;
+  onExport: (options: ExportDialogOptions) => Promise<void>;
 }
 
 /** A transit line entry rendered in the localized export legend. */
@@ -624,7 +624,8 @@ export function ExportDialog(props: ExportDialogProps) {
   };
   const handleExport = () => {
     if (!sanitizedFileName || props.isExporting) return;
-    props.onExport({
+    props.onOpenChange(false);
+    void props.onExport({
       format,
       area,
       background,
