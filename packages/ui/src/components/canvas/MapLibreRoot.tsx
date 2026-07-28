@@ -1,6 +1,11 @@
 import type { UnlistenFn } from '@tauri-apps/api/event';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
-import type { ExportPreviewSnapshot, LayerVisibility } from '@vellum/core';
+import type {
+  ExportPreviewSnapshot,
+  ExportRequest,
+  ExportSnapshot,
+  LayerVisibility,
+} from '@vellum/core';
 import type { PngExportOptions } from '@vellum/renderer-webgl';
 import type {
   ServiceIconLegendState,
@@ -56,6 +61,10 @@ export interface MapLibreRootProps {
   pngCaptureRef?: React.RefObject<
     ((options: PngExportOptions) => Promise<Uint8Array>) | null
   >;
+  /** Ref populated with a pure export snapshot callback. */
+  snapshotCaptureRef?: React.RefObject<
+    ((request: ExportRequest) => ExportSnapshot | null) | null
+  >;
 }
 
 /**
@@ -81,6 +90,7 @@ export function MapLibreRoot({
   subscribeServiceIconLegendRef,
   previewCaptureRef,
   pngCaptureRef,
+  snapshotCaptureRef,
 }: MapLibreRootProps) {
   const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -277,6 +287,16 @@ export function MapLibreRoot({
       if (pngCaptureRef.current) pngCaptureRef.current = null;
     };
   }, [pngCaptureRef]);
+
+  // The callback exposes only the core snapshot; MapLibre remains renderer-owned.
+  useEffect(() => {
+    if (!snapshotCaptureRef) return;
+    snapshotCaptureRef.current = (request) =>
+      rendererRef.current?.createExportSnapshot(request) ?? null;
+    return () => {
+      if (snapshotCaptureRef.current) snapshotCaptureRef.current = null;
+    };
+  }, [snapshotCaptureRef]);
 
   // Register subscribeServiceIconLegend into the external ref — same pattern as
   // fitToScreenRef/zoomInRef above, but exposing a subscription instead of an action.

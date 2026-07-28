@@ -27,12 +27,15 @@ import {
   type ExportPreviewSnapshot,
   type ExportArea,
   type ExportBackground,
+  type ExportRequest,
+  type ExportSnapshot,
   type IRenderer,
   type LayerName,
   type LayerOptions,
   type RenderParams,
   type RenderStyleParams,
 } from '@vellum/core';
+import { createExportSnapshot, GAME_MAP_HALF_EXTENT } from '@vellum/core';
 import maplibregl from 'maplibre-gl';
 import { csToGeo, geoToCs } from './coordinate-transform';
 import {
@@ -97,6 +100,7 @@ export class MapLibreRenderer implements IRenderer {
   private style: RenderStyleParams;
   private activeLayers: RenderParams['activeLayers'] | null = null;
   private transitDimming = false;
+  private watermarkVisible = true;
   private layerOptions: LayerOptions = DEFAULT_LAYER_OPTIONS;
   private readonly pendingPreviewCaptures = new Set<
     (snapshot: ExportPreviewSnapshot | null) => void
@@ -314,6 +318,39 @@ export class MapLibreRenderer implements IRenderer {
     }
   }
 
+  /** Captures all export inputs without exposing the MapLibre instance. */
+  createExportSnapshot(request: ExportRequest): ExportSnapshot | null {
+    if (!this.cityData || !this.activeLayers) return null;
+    const canvas = this.map.getCanvas();
+    const width = canvas.clientWidth || canvas.width;
+    const height = canvas.clientHeight || canvas.height;
+    if (width <= 0 || height <= 0) return null;
+    const center = this.map.getCenter();
+    return createExportSnapshot({
+      cityData: this.cityData,
+      style: this.style,
+      activeLayers: this.activeLayers,
+      layerOptions: this.layerOptions,
+      transitDimming: this.transitDimming,
+      watermarkVisible: this.watermarkVisible,
+      camera: {
+        longitude: center.lng,
+        latitude: center.lat,
+        zoom: this.map.getZoom(),
+        bearing: this.map.getBearing(),
+        pitch: this.map.getPitch(),
+      },
+      extent: {
+        minX: -GAME_MAP_HALF_EXTENT,
+        maxX: GAME_MAP_HALF_EXTENT,
+        minZ: -GAME_MAP_HALF_EXTENT,
+        maxZ: GAME_MAP_HALF_EXTENT,
+      },
+      surface: { width, height },
+      request,
+    });
+  }
+
   /** Resolves export backgrounds from theme tokens instead of CSS literals. */
   private exportBackgroundColor(background: ExportBackground): string {
     if (background === 'transparent') return 'rgba(0, 0, 0, 0)';
@@ -472,6 +509,7 @@ export class MapLibreRenderer implements IRenderer {
 
   /** Shows or hides the Vellum watermark logo. */
   setWatermarkVisibility(visible: boolean): void {
+    this.watermarkVisible = visible;
     this.layerManager.setWatermarkVisibility(visible);
   }
 

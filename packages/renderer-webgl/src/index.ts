@@ -1,6 +1,11 @@
 // @vellum/renderer-webgl — barrel export
 export * from './coordinate-transform';
 export * from './geojson';
+export {
+  CapabilityProbe,
+  probeCapabilities,
+  type CapabilityProbeOptions,
+} from './capability-probe';
 export { vellumLogoDataUri } from './assets/vellum-logo';
 export {
   MapLibreRenderer,
