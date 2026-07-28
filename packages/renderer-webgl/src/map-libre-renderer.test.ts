@@ -42,6 +42,8 @@ const mockMap = vi.hoisted(() => ({
   setMaxZoom: vi.fn(),
   getZoom: vi.fn(() => 12),
   getBearing: vi.fn(() => 25),
+  getCenter: vi.fn(() => ({ lng: 1, lat: 2 })),
+  getPitch: vi.fn(() => 3),
   project: vi.fn((coordinate: [number, number] | { lng: number }) => ({
     x:
       ((Array.isArray(coordinate) ? coordinate[0] : coordinate.lng) + 0.08) *
@@ -297,6 +299,47 @@ describe('MapLibreRenderer', () => {
         background: 'white',
       }),
     ).rejects.toThrow('No map is available');
+  });
+
+  it('captures an isolated export snapshot from the renderer state', async () => {
+    mockMap.getCanvas.mockReturnValue({
+      style: { cursor: '' },
+      clientWidth: 640,
+      clientHeight: 480,
+      width: 640,
+      height: 480,
+    } as never);
+    const renderer = makeRenderer();
+    await renderer.render(makeCityData(), { activeLayers: ALL_LAYERS_VISIBLE });
+
+    const snapshot = renderer.createExportSnapshot({
+      format: 'png-1x',
+      area: 'viewport',
+      background: 'white',
+      fileName: 'baseline',
+      presentation: {
+        showCityName: true,
+        showVellumLogo: false,
+        showSourceFile: false,
+        showGeneratedAt: false,
+        showDistrictNames: true,
+        showParkNames: false,
+        showLayerLegend: true,
+        showRoadLegend: true,
+        showTransitLegend: true,
+        showElevationLegend: true,
+        showScaleBar: true,
+        showOrientation: true,
+        showSummary: false,
+      },
+    });
+
+    expect(snapshot).toMatchObject({
+      cityData: expect.any(Object),
+      camera: { longitude: 1, latitude: 2, zoom: 12, bearing: 25, pitch: 3 },
+      surface: { width: 640, height: 480 },
+    });
+    expect(snapshot).not.toHaveProperty('map');
   });
 
   it('registers nonempty park areas with distinct marker and label layers', async () => {

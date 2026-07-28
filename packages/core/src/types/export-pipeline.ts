@@ -53,7 +53,7 @@ export interface ExportRequest {
   readonly area: ExportArea;
   /** Background selected for capture. */
   readonly background: ExportBackground;
-  /** Sanitized base filename, without a path or extension. */
+  /** Base filename supplied for the export, without a path or extension. */
   readonly fileName: string;
   /** Cartographic presentation options resolved at capture time. */
   readonly presentation: Readonly<ExportPresentationOptions>;
@@ -167,17 +167,44 @@ export interface ExportBaselineMetrics {
 }
 
 function copy<T>(value: T): T {
-  return structuredClone(value);
+  try {
+    return structuredClone(value);
+  } catch {
+    return cloneFallback(value, new WeakMap<object, unknown>());
+  }
 }
 
-function freeze<T>(value: T): T {
+function cloneFallback<T>(value: T, seen: WeakMap<object, unknown>): T {
   if (value === null || typeof value !== 'object') return value;
-  for (const nested of Object.values(value)) freeze(nested);
+  const existing = seen.get(value);
+  if (existing) return existing as T;
+  const clone: Record<string, unknown> = Array.isArray(value)
+    ? ([] as unknown as Record<string, unknown>)
+    : Object.create(Object.getPrototypeOf(value));
+  seen.set(value, clone);
+  for (const [key, nested] of Object.entries(value)) {
+    clone[key] = cloneFallback(nested, seen);
+  }
+  return clone as T;
+}
+
+function deepFreeze<T>(value: T, seen = new WeakSet<object>()): T {
+  if (value === null || typeof value !== 'object') return value;
+  if (seen.has(value)) return value;
+  seen.add(value);
+  for (const nested of Object.values(value)) deepFreeze(nested, seen);
   return Object.freeze(value);
 }
 
+let snapshotSequence = 0;
+
 function makeSnapshotId(): string {
-  return globalThis.crypto?.randomUUID?.() ?? `snapshot-${Date.now()}`;
+  const randomUuid = globalThis.crypto?.randomUUID?.();
+  if (randomUuid) return randomUuid;
+  const randomBytes = new Uint32Array(2);
+  globalThis.crypto?.getRandomValues?.(randomBytes);
+  snapshotSequence += 1;
+  return `snapshot-${snapshotSequence}-${randomBytes[0].toString(16)}${randomBytes[1].toString(16)}-${Math.random().toString(16).slice(2)}`;
 }
 
 /** Creates a stable snapshot while retaining the original CityData reference. */
@@ -185,19 +212,18 @@ export function createExportSnapshot(
   input: ExportSnapshotInput,
 ): ExportSnapshot {
   const request = copy(input.request);
-  freeze(request.presentation);
-  freeze(request);
-  return freeze({
-    snapshotId: input.snapshotId ?? makeSnapshotId(),
+  deepFreeze(request);
+  return Object.freeze({
+    snapshotId: input.snapshotId?.trim() || makeSnapshotId(),
     cityData: input.cityData,
-    style: freeze(copy(input.style)),
-    activeLayers: freeze(copy(input.activeLayers)),
-    layerOptions: freeze(copy(input.layerOptions)),
+    style: deepFreeze(copy(input.style)),
+    activeLayers: deepFreeze(copy(input.activeLayers)),
+    layerOptions: deepFreeze(copy(input.layerOptions)),
     transitDimming: input.transitDimming,
     watermarkVisible: input.watermarkVisible,
-    camera: freeze(copy(input.camera)),
-    extent: freeze(copy(input.extent)),
-    surface: freeze(copy(input.surface)),
+    camera: deepFreeze(copy(input.camera)),
+    extent: deepFreeze(copy(input.extent)),
+    surface: deepFreeze(copy(input.surface)),
     request,
   });
 }
@@ -213,6 +239,14 @@ export function evaluateTiledCapability(
   if (report.toBlob !== true) return { eligible: false, reason: 'to-blob' };
   if (report.maxCanvasSize === 'unknown') {
     return { eligible: false, reason: 'gpu' };
+  }
+  if (
+    !Number.isFinite(surface.width) ||
+    !Number.isFinite(surface.height) ||
+    surface.width <= 0 ||
+    surface.height <= 0
+  ) {
+    return { eligible: false, reason: 'dimensions' };
   }
   if (
     surface.width > report.maxCanvasSize ||

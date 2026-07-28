@@ -98,3 +98,50 @@ Commit messages must follow Conventional Commits (`feat:`, `fix:`, `refactor:`, 
 - Real fixture files at `packages/parser-cslmap/fixtures/` (altavento, aurelia-del-delta)
 - Visual rendering bugs need real .cslmap — synthetic fixtures won't catch them
 - E2E (Playwright) exists at `apps/desktop/tests/e2e` but **not wired into CI**
+
+## Code Intelligence and LSP
+
+Use LSP as the first option for code navigation and validation whenever it is available.
+Do not use text searches as a substitute for semantic LSP operations.
+
+### Before Making Changes
+
+- Use `documentSymbol` to understand the structure of relevant files.
+- Use `goToDefinition` or `goToImplementation` to locate the actual implementation.
+- Use `findReferences` before changing signatures, exported types, interfaces, or symbol names.
+- Use `workspaceSymbol` to locate symbols across the monorepo.
+- Use `hover` to verify types, signatures, and inferred types.
+- Use `incomingCalls` and `outgoingCalls` when changes affect flows between modules.
+
+### During Implementation
+
+- Respect the project architecture and package boundaries.
+- Do not change a public signature without reviewing and updating all consumers.
+- Do not add an interface implementation without reviewing existing implementations.
+- After every significant change, check diagnostics for the affected files.
+- Immediately fix type errors, missing imports, and invalid references introduced by the change.
+
+### During Code Review
+
+- Inspect references for every modified symbol, type, or interface.
+- Review callers and callees of affected functions.
+- Verify that changes remain compatible with all implementations and consumers.
+- Look for stale references, incorrect imports, unreachable code, and type errors.
+- Distinguish pre-existing diagnostics from diagnostics introduced by the change.
+- Report any new issue detected by LSP, TypeScript, or ESLint as a finding.
+- If no issues are found, explicitly state which areas were checked.
+
+### Fallback When LSP Is Unavailable
+
+If the current surface does not expose LSP tools:
+
+- Use `rg` to locate definitions, references, and imports.
+- Run the project checks, such as `pnpm lint`, `pnpm test`, and `pnpm check:architecture`.
+- Briefly state that semantic LSP validation was unavailable.
+- Do not claim that a text search is fully equivalent to `findReferences`.
+
+### Safety Rule
+
+Before renaming a symbol, changing a signature, or modifying an exported type,
+first confirm all of its consumers. If the scope cannot be determined with
+sufficient confidence, stop and report the uncertainty.

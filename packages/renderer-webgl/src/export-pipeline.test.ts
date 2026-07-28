@@ -93,6 +93,19 @@ describe('export pipeline baseline contracts', () => {
     expect(snapshot.style.terrain.base).not.toBe('#ffffff');
     expect(snapshot.request.presentation.showSummary).toBe(false);
     expect(Object.isFrozen(snapshot.style.terrain)).toBe(true);
+    expect(Object.isFrozen(snapshot.cityData)).toBe(false);
+  });
+
+  it('generates a non-empty id when the caller supplies an empty id', () => {
+    const input: ExportSnapshotInput = {
+      ...snapshotInput(),
+      snapshotId: '   ',
+    };
+
+    const snapshot = createExportSnapshot(input);
+
+    expect(snapshot.snapshotId).not.toBe('');
+    expect(snapshot.snapshotId).not.toMatch(/^\s+$/);
   });
 
   it('returns a typed technical decision without selecting a fallback', () => {
@@ -121,5 +134,17 @@ describe('export pipeline baseline contracts', () => {
     expect(report).not.toHaveProperty('userAgent');
     expect(report).not.toHaveProperty('cityData');
     expect(document.body.contains(surface)).toBe(false);
+  });
+
+  it('still completes cleanup when the temporary surface rejects removal', async () => {
+    const surface = document.createElement('canvas');
+    surface.getContext = () => null;
+    surface.remove = () => {
+      throw new Error('already detached');
+    };
+
+    await expect(
+      probeCapabilities({ createSurface: () => surface }),
+    ).resolves.toMatchObject({ unknownReason: 'webgl-context-unavailable' });
   });
 });

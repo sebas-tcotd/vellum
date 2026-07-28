@@ -11,6 +11,8 @@ export interface CapabilityProbeOptions {
   readonly createSurface?: () => HTMLCanvasElement;
   /** Supplies an optional platform memory measurement. */
   readonly readMemory?: () => number | 'unknown';
+  /** Minimum time allowed for the asynchronous PNG encoder. */
+  readonly toBlobTimeoutMs?: number;
 }
 
 interface PerformanceMemory {
@@ -69,8 +71,12 @@ function readLimits(
 
 function canEncodePng(
   surface: HTMLCanvasElement,
+  probeSize: number,
+  timeoutMs: number,
 ): Promise<boolean | 'unknown'> {
   if (typeof surface.toBlob !== 'function') return Promise.resolve('unknown');
+  surface.width = probeSize;
+  surface.height = probeSize;
   return new Promise((resolve) => {
     let settled = false;
     const finish = (value: boolean | 'unknown'): void => {
@@ -83,7 +89,7 @@ function canEncodePng(
     } catch {
       finish(false);
     }
-    setTimeout(() => finish('unknown'), 250);
+    setTimeout(() => finish('unknown'), timeoutMs);
   });
 }
 
@@ -124,11 +130,19 @@ export async function probeCapabilities(
       }
     }
     const limits = readLimits(context);
+    const probeSize =
+      typeof limits.maxCanvasSize === 'number'
+        ? Math.min(limits.maxCanvasSize, 2048)
+        : 2048;
     return {
       contextType,
       webgl2: contextType === 'webgl2',
       ...limits,
-      toBlob: await canEncodePng(surface),
+      toBlob: await canEncodePng(
+        surface,
+        Math.max(1, probeSize),
+        Math.max(2000, options.toBlobTimeoutMs ?? 2000),
+      ),
       memoryAvailableBytes: options.readMemory?.() ?? readAvailableMemory(),
       ...(context ? {} : { unknownReason: 'webgl-context-unavailable' }),
     };
@@ -139,7 +153,11 @@ export async function probeCapabilities(
     } catch {
       // A driver may reject context loss during teardown; surface cleanup still runs.
     } finally {
-      surface.remove();
+      try {
+        surface.remove();
+      } catch {
+        // A detached or test-provided surface may reject removal during teardown.
+      }
     }
   }
 }

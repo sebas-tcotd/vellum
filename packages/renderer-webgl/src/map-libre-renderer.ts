@@ -35,7 +35,7 @@ import {
   type RenderParams,
   type RenderStyleParams,
 } from '@vellum/core';
-import { createExportSnapshot, GAME_MAP_HALF_EXTENT } from '@vellum/core';
+import { createExportSnapshot } from '@vellum/core';
 import maplibregl from 'maplibre-gl';
 import { csToGeo, geoToCs } from './coordinate-transform';
 import {
@@ -322,9 +322,15 @@ export class MapLibreRenderer implements IRenderer {
   createExportSnapshot(request: ExportRequest): ExportSnapshot | null {
     if (!this.cityData || !this.activeLayers) return null;
     const canvas = this.map.getCanvas();
-    const width = canvas.clientWidth || canvas.width;
-    const height = canvas.clientHeight || canvas.height;
-    if (width <= 0 || height <= 0) return null;
+    const width = canvas.clientWidth || canvas.width || 0;
+    const height = canvas.clientHeight || canvas.height || 0;
+    if (
+      !Number.isFinite(width) ||
+      !Number.isFinite(height) ||
+      width <= 0 ||
+      height <= 0
+    )
+      return null;
     const center = this.map.getCenter();
     return createExportSnapshot({
       cityData: this.cityData,
@@ -341,10 +347,10 @@ export class MapLibreRenderer implements IRenderer {
         pitch: this.map.getPitch(),
       },
       extent: {
-        minX: -GAME_MAP_HALF_EXTENT,
-        maxX: GAME_MAP_HALF_EXTENT,
-        minZ: -GAME_MAP_HALF_EXTENT,
-        maxZ: GAME_MAP_HALF_EXTENT,
+        minX: this.cityData.bounds.minX,
+        maxX: this.cityData.bounds.maxX,
+        minZ: this.cityData.bounds.minZ,
+        maxZ: this.cityData.bounds.maxZ,
       },
       surface: { width, height },
       request,
