@@ -34,8 +34,9 @@ import {
   type LayerOptions,
   type RenderParams,
   type RenderStyleParams,
+  createExportSnapshot,
+  exportScaleForFormat,
 } from '@vellum/core';
-import { createExportSnapshot } from '@vellum/core';
 import maplibregl from 'maplibre-gl';
 import { csToGeo, geoToCs } from './coordinate-transform';
 import {
@@ -322,15 +323,21 @@ export class MapLibreRenderer implements IRenderer {
   createExportSnapshot(request: ExportRequest): ExportSnapshot | null {
     if (!this.cityData || !this.activeLayers) return null;
     const canvas = this.map.getCanvas();
-    const width = canvas.clientWidth || canvas.width || 0;
-    const height = canvas.clientHeight || canvas.height || 0;
+    // Logical (CSS) pixels only. `canvas.width` is the backing store, i.e.
+    // CSS px x devicePixelRatio, so falling back to it would silently report a
+    // DPR-inflated surface for a canvas whose container is hidden.
+    const baseWidth = canvas.clientWidth;
+    const baseHeight = canvas.clientHeight;
     if (
-      !Number.isFinite(width) ||
-      !Number.isFinite(height) ||
-      width <= 0 ||
-      height <= 0
+      !Number.isFinite(baseWidth) ||
+      !Number.isFinite(baseHeight) ||
+      baseWidth <= 0 ||
+      baseHeight <= 0
     )
       return null;
+    const extent = this.exportExtent(request.area);
+    if (!extent) return null;
+    const scale = exportScaleForFormat(request.format);
     const center = this.map.getCenter();
     return createExportSnapshot({
       cityData: this.cityData,
@@ -346,15 +353,47 @@ export class MapLibreRenderer implements IRenderer {
         bearing: this.map.getBearing(),
         pitch: this.map.getPitch(),
       },
-      extent: {
-        minX: this.cityData.bounds.minX,
-        maxX: this.cityData.bounds.maxX,
-        minZ: this.cityData.bounds.minZ,
-        maxZ: this.cityData.bounds.maxZ,
-      },
-      surface: { width, height },
+      extent,
+      // The surface is the final output, matching how the legacy `capturePng`
+      // path sizes its container — this is what capability checks measure.
+      surface: { width: baseWidth * scale, height: baseHeight * scale },
       request,
     });
+  }
+
+  /** Resolves the world extent an export request actually covers. */
+  private exportExtent(area: ExportArea): ExportSnapshot['extent'] | null {
+    if (!this.cityData) return null;
+    const { bounds } = this.cityData;
+    if (area === 'full-map') {
+      return {
+        minX: bounds.minX,
+        maxX: bounds.maxX,
+        minZ: bounds.minZ,
+        maxZ: bounds.maxZ,
+      };
+    }
+    try {
+      const viewport = this.map.getBounds();
+      // Latitude is inverted relative to CS1 Z (positive Z = south), so the
+      // northern edge yields the smaller Z. Sort rather than assume.
+      const west = geoToCs({
+        lng: viewport.getWest(),
+        lat: viewport.getNorth(),
+      });
+      const east = geoToCs({
+        lng: viewport.getEast(),
+        lat: viewport.getSouth(),
+      });
+      return {
+        minX: Math.min(west.x, east.x),
+        maxX: Math.max(west.x, east.x),
+        minZ: Math.min(west.z, east.z),
+        maxZ: Math.max(west.z, east.z),
+      };
+    } catch {
+      return null;
+    }
   }
 
   /** Resolves export backgrounds from theme tokens instead of CSS literals. */

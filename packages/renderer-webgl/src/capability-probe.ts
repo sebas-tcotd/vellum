@@ -11,7 +11,11 @@ export interface CapabilityProbeOptions {
   readonly createSurface?: () => HTMLCanvasElement;
   /** Supplies an optional platform memory measurement. */
   readonly readMemory?: () => number | 'unknown';
-  /** Minimum time allowed for the asynchronous PNG encoder. */
+  /**
+   * Time allowed for the asynchronous PNG encoder before the result is recorded
+   * as `unknown`.
+   * @default 2000
+   */
   readonly toBlobTimeoutMs?: number;
 }
 
@@ -82,15 +86,29 @@ function canEncodePng(
     const finish = (value: boolean | 'unknown'): void => {
       if (settled) return;
       settled = true;
+      // Without this the timer stays armed after a fast success, keeping the
+      // probe canvas reachable for the full timeout.
+      clearTimeout(timer);
       resolve(value);
     };
+    const timer = setTimeout(() => finish('unknown'), timeoutMs);
     try {
       surface.toBlob((blob) => finish(blob !== null), 'image/png');
     } catch {
       finish(false);
     }
-    setTimeout(() => finish('unknown'), timeoutMs);
   });
+}
+
+function unknownReasonFor(
+  context: WebGLRenderingContext | null,
+  toBlob: boolean | 'unknown',
+): { unknownReason?: string } {
+  if (!context) return { unknownReason: 'webgl-context-unavailable' };
+  // A timed-out encoder is not the same as a failing one; without a reason the
+  // operator cannot tell them apart from the report alone.
+  if (toBlob === 'unknown') return { unknownReason: 'to-blob-not-observed' };
+  return {};
 }
 
 /** Measures real WebGL limits on a temporary surface and always releases it. */
@@ -114,37 +132,61 @@ export async function probeCapabilities(
   const surface = options.createSurface?.() ?? document.createElement('canvas');
   surface.width = 1;
   surface.height = 1;
+  // The probe grows this canvas to 2048² to measure a realistic encode, so it
+  // must never participate in layout: in-flow it would reflow the live app.
+  surface.style.position = 'fixed';
+  surface.style.left = '-99999px';
+  surface.style.top = '0';
+  surface.style.visibility = 'hidden';
+  surface.style.pointerEvents = 'none';
   if (typeof document !== 'undefined') document.body?.append(surface);
   let context: WebGLRenderingContext | null = null;
   let contextType: CapabilityReport['contextType'] = 'unknown';
   try {
-    const webgl2 = surface.getContext('webgl2');
-    if (webgl2) {
-      context = webgl2;
-      contextType = 'webgl2';
-    } else {
-      const webgl = surface.getContext('webgl');
-      if (webgl) {
-        context = webgl;
-        contextType = 'webgl';
+    try {
+      const webgl2 = surface.getContext('webgl2');
+      if (webgl2) {
+        context = webgl2;
+        contextType = 'webgl2';
+      } else {
+        const webgl = surface.getContext('webgl');
+        if (webgl) {
+          context = webgl;
+          contextType = 'webgl';
+        }
       }
+    } catch {
+      // A lost context or a driver error must degrade to a typed report, not
+      // reject the promise — callers treat this as "capability unknown".
+      return {
+        contextType: 'unknown',
+        webgl2: false,
+        maxTextureSize: 'unknown',
+        maxRenderbufferSize: 'unknown',
+        maxViewportDims: 'unknown',
+        maxCanvasSize: 'unknown',
+        toBlob: 'unknown',
+        memoryAvailableBytes: options.readMemory?.() ?? readAvailableMemory(),
+        unknownReason: 'webgl-probe-failed',
+      };
     }
     const limits = readLimits(context);
     const probeSize =
       typeof limits.maxCanvasSize === 'number'
         ? Math.min(limits.maxCanvasSize, 2048)
         : 2048;
+    const toBlob = await canEncodePng(
+      surface,
+      Math.max(1, probeSize),
+      Math.max(1, options.toBlobTimeoutMs ?? 2000),
+    );
     return {
       contextType,
       webgl2: contextType === 'webgl2',
       ...limits,
-      toBlob: await canEncodePng(
-        surface,
-        Math.max(1, probeSize),
-        Math.max(2000, options.toBlobTimeoutMs ?? 2000),
-      ),
+      toBlob,
       memoryAvailableBytes: options.readMemory?.() ?? readAvailableMemory(),
-      ...(context ? {} : { unknownReason: 'webgl-context-unavailable' }),
+      ...unknownReasonFor(context, toBlob),
     };
   } finally {
     try {

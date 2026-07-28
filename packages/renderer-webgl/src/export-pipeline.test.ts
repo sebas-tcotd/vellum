@@ -96,6 +96,48 @@ describe('export pipeline baseline contracts', () => {
     expect(Object.isFrozen(snapshot.cityData)).toBe(false);
   });
 
+  it('isolates every captured field, not just the ones read by the map', () => {
+    const input = snapshotInput();
+    const snapshot = createExportSnapshot(input);
+
+    input.layerOptions.transit.visibleModes = ['Train'];
+    (input.extent as { minX: number }).minX = 0;
+    (input.surface as { width: number }).width = 1;
+
+    expect(snapshot.style.terrain.base).toBe('#000000');
+    expect(snapshot.layerOptions.transit.visibleModes).toEqual(['Bus']);
+    expect(snapshot.extent.minX).toBe(-8640);
+    expect(snapshot.surface.width).toBe(800);
+    expect(snapshot.transitDimming).toBe(true);
+    expect(snapshot.watermarkVisible).toBe(false);
+    expect(Object.isFrozen(snapshot.layerOptions.transit)).toBe(true);
+    expect(Object.isFrozen(snapshot.extent)).toBe(true);
+  });
+
+  it('clones non-serializable style values instead of corrupting them', () => {
+    const resolve = (): string => 'live';
+    const style = {
+      terrain: { base: '#000000' },
+      resolve,
+      lookup: new Map([['water', '#0000ff']]),
+      stamp: new Date(0),
+      tags: new Set(['a']),
+    } as unknown as RenderStyleParams;
+
+    const snapshot = createExportSnapshot({ ...snapshotInput(), style });
+    const captured = snapshot.style as unknown as {
+      resolve: () => string;
+      lookup: Map<string, string>;
+      stamp: Date;
+      tags: Set<string>;
+    };
+
+    expect(captured.lookup.get('water')).toBe('#0000ff');
+    expect(captured.stamp.getTime()).toBe(0);
+    expect(captured.tags.has('a')).toBe(true);
+    expect(captured.resolve()).toBe('live');
+  });
+
   it('generates a non-empty id when the caller supplies an empty id', () => {
     const input: ExportSnapshotInput = {
       ...snapshotInput(),
@@ -118,6 +160,31 @@ describe('export pipeline baseline contracts', () => {
     expect(
       evaluateTiledCapability(capableReport, { width: 1, height: 1 }, false),
     ).toEqual({ eligible: false, reason: 'flag' });
+    expect(
+      evaluateTiledCapability(
+        { ...capableReport, maxCanvasSize: Number.NaN },
+        { width: 1, height: 1 },
+      ),
+    ).toEqual({ eligible: false, reason: 'gpu' });
+  });
+
+  it('rejects a surface beyond the 1e9 logical-pixel budget', () => {
+    const roomyReport: CapabilityReport = {
+      ...capableReport,
+      maxTextureSize: 40_000,
+      maxRenderbufferSize: 40_000,
+      maxViewportDims: [40_000, 40_000],
+      maxCanvasSize: 40_000,
+    };
+
+    // Both dimensions fit maxCanvasSize, but 40000 x 40000 = 1.6e9 pixels
+    // exceeds the tiled budget from ARCHITECTURE-SPINE AD-10.
+    expect(
+      evaluateTiledCapability(roomyReport, { width: 40_000, height: 40_000 }),
+    ).toEqual({ eligible: false, reason: 'dimensions' });
+    expect(
+      evaluateTiledCapability(roomyReport, { width: 30_000, height: 30_000 }),
+    ).toEqual({ eligible: true });
   });
 
   it('reports unavailable WebGL without reading user-agent or leaking app data', async () => {
@@ -134,6 +201,47 @@ describe('export pipeline baseline contracts', () => {
     expect(report).not.toHaveProperty('userAgent');
     expect(report).not.toHaveProperty('cityData');
     expect(document.body.contains(surface)).toBe(false);
+  });
+
+  it('degrades to a typed report when the driver throws while probing', async () => {
+    const surface = document.createElement('canvas');
+    surface.getContext = () => {
+      throw new Error('driver reset');
+    };
+
+    const report = await probeCapabilities({ createSurface: () => surface });
+
+    expect(report.contextType).toBe('unknown');
+    expect(report.webgl2).toBe(false);
+    expect(report.unknownReason).toBe('webgl-probe-failed');
+    expect(document.body.contains(surface)).toBe(false);
+  });
+
+  it('keeps the probe surface out of layout while it is attached', async () => {
+    const surface = document.createElement('canvas');
+    surface.getContext = () => null;
+
+    await probeCapabilities({ createSurface: () => surface });
+
+    expect(surface.style.position).toBe('fixed');
+    expect(surface.style.visibility).toBe('hidden');
+  });
+
+  it('honours a short toBlob timeout and reports why it is unknown', async () => {
+    const surface = document.createElement('canvas');
+    surface.getContext = () => null;
+    // Never invokes the callback: only the timeout can settle this probe.
+    surface.toBlob = () => undefined;
+
+    const startedAt = Date.now();
+    const report = await probeCapabilities({
+      createSurface: () => surface,
+      toBlobTimeoutMs: 10,
+    });
+
+    expect(report.toBlob).toBe('unknown');
+    expect(report.unknownReason).toBeDefined();
+    expect(Date.now() - startedAt).toBeLessThan(1000);
   });
 
   it('still completes cleanup when the temporary surface rejects removal', async () => {

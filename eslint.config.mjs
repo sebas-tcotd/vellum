@@ -85,4 +85,22 @@ export default [
       'prettier/prettier': 'error',
     },
   },
+  {
+    // Node-side tooling scripts (the baseline export golden harness). Plain
+    // ESM, no TS parser — they sit outside the tsc projects, so lint and
+    // prettier are their only gates.
+    files: ['packages/*/test/**/*.mjs', 'apps/desktop/scripts/**/*.mjs'],
+    languageOptions: {
+      ecmaVersion: 'latest',
+      sourceType: 'module',
+    },
+    plugins: {
+      prettier,
+    },
+    rules: {
+      ...eslintConfigPrettier.rules,
+      'prettier/prettier': 'error',
+      'no-unused-vars': 'error',
+    },
+  },
 ];

@@ -11,6 +11,38 @@ import type { ExportPresentationOptions } from './export-presentation';
 /** Raster density supported by the export pipeline. */
 export type ExportScale = 1 | 2 | 4;
 
+const SCALE_BY_FORMAT: Readonly<
+  Record<Exclude<ExportFormat, 'svg'>, ExportScale>
+> = Object.freeze({
+  'png-1x': 1,
+  'png-2x': 2,
+  'png-4x': 4,
+});
+
+/**
+ * Resolves the numeric density encoded in a raster export format.
+ *
+ * @remarks
+ * The single conversion point between `ExportRequest.format` and
+ * {@link ExportScale}. Without it, `'png-4x'` and `scale: 1` are both type-legal
+ * in the same operation and nothing can mechanically check they agree.
+ */
+export function exportScaleForFormat(
+  format: Exclude<ExportFormat, 'svg'>,
+): ExportScale {
+  return SCALE_BY_FORMAT[format];
+}
+
+/**
+ * Maximum logical pixels a single tiled export operation may produce.
+ *
+ * @remarks
+ * Initial budget from ARCHITECTURE-SPINE AD-10 ("Output lógico por operación").
+ * Deliberately separate from the legacy single-surface cap of 64.000.000
+ * pixels — adjust only with measured evidence.
+ */
+export const MAX_TILED_LOGICAL_PIXELS = 1_000_000_000;
+
 /** Camera state captured at the start of an export operation. */
 export interface ExportCamera {
   /** MapLibre longitude of the camera center. */
@@ -53,7 +85,7 @@ export interface ExportRequest {
   readonly area: ExportArea;
   /** Background selected for capture. */
   readonly background: ExportBackground;
-  /** Base filename supplied for the export, without a path or extension. */
+  /** Base filename supplied by the caller; sanitization is outside this contract. */
   readonly fileName: string;
   /** Cartographic presentation options resolved at capture time. */
   readonly presentation: Readonly<ExportPresentationOptions>;
@@ -175,9 +207,32 @@ function copy<T>(value: T): T {
 }
 
 function cloneFallback<T>(value: T, seen: WeakMap<object, unknown>): T {
+  // Functions cannot be cloned; sharing the reference is the only option and is
+  // safe because a resolver closure carries no snapshot state of its own.
   if (value === null || typeof value !== 'object') return value;
   const existing = seen.get(value);
   if (existing) return existing as T;
+
+  // These carry internal slots that `Object.create` + `Object.entries` cannot
+  // reproduce: copying them field-by-field yields an object with the right
+  // prototype and no slots, so every method on it throws.
+  if (value instanceof Date) return new Date(value.getTime()) as T;
+  if (ArrayBuffer.isView(value) || value instanceof ArrayBuffer) return value;
+  if (value instanceof Map) {
+    const clone = new Map<unknown, unknown>();
+    seen.set(value, clone);
+    for (const [key, nested] of value) {
+      clone.set(key, cloneFallback(nested, seen));
+    }
+    return clone as T;
+  }
+  if (value instanceof Set) {
+    const clone = new Set<unknown>();
+    seen.set(value, clone);
+    for (const nested of value) clone.add(cloneFallback(nested, seen));
+    return clone as T;
+  }
+
   const clone: Record<string, unknown> = Array.isArray(value)
     ? ([] as unknown as Record<string, unknown>)
     : Object.create(Object.getPrototypeOf(value));
@@ -191,7 +246,17 @@ function cloneFallback<T>(value: T, seen: WeakMap<object, unknown>): T {
 function deepFreeze<T>(value: T, seen = new WeakSet<object>()): T {
   if (value === null || typeof value !== 'object') return value;
   if (seen.has(value)) return value;
+  // `Object.freeze` throws on an ArrayBuffer view that has elements.
+  if (ArrayBuffer.isView(value) || value instanceof ArrayBuffer) return value;
   seen.add(value);
+  if (value instanceof Map) {
+    for (const nested of value.values()) deepFreeze(nested, seen);
+    return Object.freeze(value);
+  }
+  if (value instanceof Set) {
+    for (const nested of value) deepFreeze(nested, seen);
+    return Object.freeze(value);
+  }
   for (const nested of Object.values(value)) deepFreeze(nested, seen);
   return Object.freeze(value);
 }
@@ -237,7 +302,10 @@ export function evaluateTiledCapability(
   if (!enabled) return { eligible: false, reason: 'flag' };
   if (report.webgl2 === false) return { eligible: false, reason: 'webgl' };
   if (report.toBlob !== true) return { eligible: false, reason: 'to-blob' };
-  if (report.maxCanvasSize === 'unknown') {
+  if (
+    report.maxCanvasSize === 'unknown' ||
+    !Number.isFinite(report.maxCanvasSize)
+  ) {
     return { eligible: false, reason: 'gpu' };
   }
   if (
@@ -252,6 +320,11 @@ export function evaluateTiledCapability(
     surface.width > report.maxCanvasSize ||
     surface.height > report.maxCanvasSize
   ) {
+    return { eligible: false, reason: 'dimensions' };
+  }
+  // Both edges can fit the driver limit while the total area still blows the
+  // per-operation budget (40k x 40k = 1.6e9 pixels on an 8k-capable GPU).
+  if (surface.width * surface.height > MAX_TILED_LOGICAL_PIXELS) {
     return { eligible: false, reason: 'dimensions' };
   }
   return { eligible: true };

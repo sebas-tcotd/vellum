@@ -1,0 +1,809 @@
+{
+  "schemaVersion": 1,
+  "story": "6.2A",
+  "rendererVersion": "@vellum/renderer-webgl@0.1.0",
+  "referenceCommit": "f803036",
+  "harness": {
+    "command": "pnpm --filter @vellum/renderer-webgl test -- export-goldens",
+    "standaloneCommand": "node packages/renderer-webgl/test/export-goldens/harness.mjs",
+    "goldenRoot": "packages/renderer-webgl/test/export-goldens",
+    "comparison": {
+      "rgbChannelDeltaExclusive": 2,
+      "maxDifferentPixelRatio": 0.005,
+      "alpha": "exact"
+    }
+  },
+  "capabilities": {
+    "status": "unknown",
+    "reason": "CapabilityProbe must run inside the Tauri WebView on target hardware",
+    "memoryAvailableBytes": "unknown"
+  },
+  "budgets": {
+    "rgbaTileBytes": {
+      "status": "initial-budget",
+      "value": 33554432
+    },
+    "frontendIpcBytes": {
+      "status": "initial-budget",
+      "value": 67108864
+    },
+    "rustBuffersBytes": {
+      "status": "initial-budget",
+      "value": 268435456
+    },
+    "logicalPixels": {
+      "status": "initial-budget",
+      "value": 1000000000
+    },
+    "maxInFlight": {
+      "status": "initial-budget",
+      "value": 1
+    }
+  },
+  "platform": {
+    "os": "unknown",
+    "osStatus": "unknown",
+    "osReason": "Recorded by the harness when run on target hardware",
+    "gpu": "unknown",
+    "gpuStatus": "unknown",
+    "gpuReason": "Requires a real MapLibre/WebGL surface on the target platform"
+  },
+  "cases": [
+    {
+      "fixture": "packages/parser-cslmap/fixtures/altavento.cslmap",
+      "area": "viewport",
+      "scale": "1x",
+      "background": "white",
+      "golden": "altavento/viewport-1x-white.png",
+      "goldenMetadata": {
+        "dimensions": "unknown",
+        "dimensionsStatus": "unknown",
+        "dimensionsReason": "Requires a real MapLibre/WebGL surface; harness not yet run on target hardware",
+        "format": "png",
+        "scale": "1x",
+        "area": "viewport",
+        "background": "white",
+        "rendererVersion": "@vellum/renderer-webgl@0.1.0"
+      },
+      "result": {
+        "status": "unknown",
+        "reason": "gpu-harness-not-run"
+      }
+    },
+    {
+      "fixture": "packages/parser-cslmap/fixtures/altavento.cslmap",
+      "area": "viewport",
+      "scale": "1x",
+      "background": "dark",
+      "golden": "altavento/viewport-1x-dark.png",
+      "goldenMetadata": {
+        "dimensions": "unknown",
+        "dimensionsStatus": "unknown",
+        "dimensionsReason": "Requires a real MapLibre/WebGL surface; harness not yet run on target hardware",
+        "format": "png",
+        "scale": "1x",
+        "area": "viewport",
+        "background": "dark",
+        "rendererVersion": "@vellum/renderer-webgl@0.1.0"
+      },
+      "result": {
+        "status": "unknown",
+        "reason": "gpu-harness-not-run"
+      }
+    },
+    {
+      "fixture": "packages/parser-cslmap/fixtures/altavento.cslmap",
+      "area": "viewport",
+      "scale": "1x",
+      "background": "transparent",
+      "golden": "altavento/viewport-1x-transparent.png",
+      "goldenMetadata": {
+        "dimensions": "unknown",
+        "dimensionsStatus": "unknown",
+        "dimensionsReason": "Requires a real MapLibre/WebGL surface; harness not yet run on target hardware",
+        "format": "png",
+        "scale": "1x",
+        "area": "viewport",
+        "background": "transparent",
+        "rendererVersion": "@vellum/renderer-webgl@0.1.0"
+      },
+      "result": {
+        "status": "unknown",
+        "reason": "gpu-harness-not-run"
+      }
+    },
+    {
+      "fixture": "packages/parser-cslmap/fixtures/altavento.cslmap",
+      "area": "viewport",
+      "scale": "2x",
+      "background": "white",
+      "golden": "altavento/viewport-2x-white.png",
+      "goldenMetadata": {
+        "dimensions": "unknown",
+        "dimensionsStatus": "unknown",
+        "dimensionsReason": "Requires a real MapLibre/WebGL surface; harness not yet run on target hardware",
+        "format": "png",
+        "scale": "2x",
+        "area": "viewport",
+        "background": "white",
+        "rendererVersion": "@vellum/renderer-webgl@0.1.0"
+      },
+      "result": {
+        "status": "unknown",
+        "reason": "gpu-harness-not-run"
+      }
+    },
+    {
+      "fixture": "packages/parser-cslmap/fixtures/altavento.cslmap",
+      "area": "viewport",
+      "scale": "2x",
+      "background": "dark",
+      "golden": "altavento/viewport-2x-dark.png",
+      "goldenMetadata": {
+        "dimensions": "unknown",
+        "dimensionsStatus": "unknown",
+        "dimensionsReason": "Requires a real MapLibre/WebGL surface; harness not yet run on target hardware",
+        "format": "png",
+        "scale": "2x",
+        "area": "viewport",
+        "background": "dark",
+        "rendererVersion": "@vellum/renderer-webgl@0.1.0"
+      },
+      "result": {
+        "status": "unknown",
+        "reason": "gpu-harness-not-run"
+      }
+    },
+    {
+      "fixture": "packages/parser-cslmap/fixtures/altavento.cslmap",
+      "area": "viewport",
+      "scale": "2x",
+      "background": "transparent",
+      "golden": "altavento/viewport-2x-transparent.png",
+      "goldenMetadata": {
+        "dimensions": "unknown",
+        "dimensionsStatus": "unknown",
+        "dimensionsReason": "Requires a real MapLibre/WebGL surface; harness not yet run on target hardware",
+        "format": "png",
+        "scale": "2x",
+        "area": "viewport",
+        "background": "transparent",
+        "rendererVersion": "@vellum/renderer-webgl@0.1.0"
+      },
+      "result": {
+        "status": "unknown",
+        "reason": "gpu-harness-not-run"
+      }
+    },
+    {
+      "fixture": "packages/parser-cslmap/fixtures/altavento.cslmap",
+      "area": "viewport",
+      "scale": "4x",
+      "background": "white",
+      "golden": "altavento/viewport-4x-white.png",
+      "goldenMetadata": {
+        "dimensions": "unknown",
+        "dimensionsStatus": "unknown",
+        "dimensionsReason": "Requires a real MapLibre/WebGL surface; harness not yet run on target hardware",
+        "format": "png",
+        "scale": "4x",
+        "area": "viewport",
+        "background": "white",
+        "rendererVersion": "@vellum/renderer-webgl@0.1.0"
+      },
+      "result": {
+        "status": "unknown",
+        "reason": "gpu-harness-not-run"
+      }
+    },
+    {
+      "fixture": "packages/parser-cslmap/fixtures/altavento.cslmap",
+      "area": "viewport",
+      "scale": "4x",
+      "background": "dark",
+      "golden": "altavento/viewport-4x-dark.png",
+      "goldenMetadata": {
+        "dimensions": "unknown",
+        "dimensionsStatus": "unknown",
+        "dimensionsReason": "Requires a real MapLibre/WebGL surface; harness not yet run on target hardware",
+        "format": "png",
+        "scale": "4x",
+        "area": "viewport",
+        "background": "dark",
+        "rendererVersion": "@vellum/renderer-webgl@0.1.0"
+      },
+      "result": {
+        "status": "unknown",
+        "reason": "gpu-harness-not-run"
+      }
+    },
+    {
+      "fixture": "packages/parser-cslmap/fixtures/altavento.cslmap",
+      "area": "viewport",
+      "scale": "4x",
+      "background": "transparent",
+      "golden": "altavento/viewport-4x-transparent.png",
+      "goldenMetadata": {
+        "dimensions": "unknown",
+        "dimensionsStatus": "unknown",
+        "dimensionsReason": "Requires a real MapLibre/WebGL surface; harness not yet run on target hardware",
+        "format": "png",
+        "scale": "4x",
+        "area": "viewport",
+        "background": "transparent",
+        "rendererVersion": "@vellum/renderer-webgl@0.1.0"
+      },
+      "result": {
+        "status": "unknown",
+        "reason": "gpu-harness-not-run"
+      }
+    },
+    {
+      "fixture": "packages/parser-cslmap/fixtures/altavento.cslmap",
+      "area": "full-map",
+      "scale": "1x",
+      "background": "white",
+      "golden": "altavento/full-map-1x-white.png",
+      "goldenMetadata": {
+        "dimensions": "unknown",
+        "dimensionsStatus": "unknown",
+        "dimensionsReason": "Requires a real MapLibre/WebGL surface; harness not yet run on target hardware",
+        "format": "png",
+        "scale": "1x",
+        "area": "full-map",
+        "background": "white",
+        "rendererVersion": "@vellum/renderer-webgl@0.1.0"
+      },
+      "result": {
+        "status": "unknown",
+        "reason": "gpu-harness-not-run"
+      }
+    },
+    {
+      "fixture": "packages/parser-cslmap/fixtures/altavento.cslmap",
+      "area": "full-map",
+      "scale": "1x",
+      "background": "dark",
+      "golden": "altavento/full-map-1x-dark.png",
+      "goldenMetadata": {
+        "dimensions": "unknown",
+        "dimensionsStatus": "unknown",
+        "dimensionsReason": "Requires a real MapLibre/WebGL surface; harness not yet run on target hardware",
+        "format": "png",
+        "scale": "1x",
+        "area": "full-map",
+        "background": "dark",
+        "rendererVersion": "@vellum/renderer-webgl@0.1.0"
+      },
+      "result": {
+        "status": "unknown",
+        "reason": "gpu-harness-not-run"
+      }
+    },
+    {
+      "fixture": "packages/parser-cslmap/fixtures/altavento.cslmap",
+      "area": "full-map",
+      "scale": "1x",
+      "background": "transparent",
+      "golden": "altavento/full-map-1x-transparent.png",
+      "goldenMetadata": {
+        "dimensions": "unknown",
+        "dimensionsStatus": "unknown",
+        "dimensionsReason": "Requires a real MapLibre/WebGL surface; harness not yet run on target hardware",
+        "format": "png",
+        "scale": "1x",
+        "area": "full-map",
+        "background": "transparent",
+        "rendererVersion": "@vellum/renderer-webgl@0.1.0"
+      },
+      "result": {
+        "status": "unknown",
+        "reason": "gpu-harness-not-run"
+      }
+    },
+    {
+      "fixture": "packages/parser-cslmap/fixtures/altavento.cslmap",
+      "area": "full-map",
+      "scale": "2x",
+      "background": "white",
+      "golden": "altavento/full-map-2x-white.png",
+      "goldenMetadata": {
+        "dimensions": "unknown",
+        "dimensionsStatus": "unknown",
+        "dimensionsReason": "Requires a real MapLibre/WebGL surface; harness not yet run on target hardware",
+        "format": "png",
+        "scale": "2x",
+        "area": "full-map",
+        "background": "white",
+        "rendererVersion": "@vellum/renderer-webgl@0.1.0"
+      },
+      "result": {
+        "status": "unknown",
+        "reason": "gpu-harness-not-run"
+      }
+    },
+    {
+      "fixture": "packages/parser-cslmap/fixtures/altavento.cslmap",
+      "area": "full-map",
+      "scale": "2x",
+      "background": "dark",
+      "golden": "altavento/full-map-2x-dark.png",
+      "goldenMetadata": {
+        "dimensions": "unknown",
+        "dimensionsStatus": "unknown",
+        "dimensionsReason": "Requires a real MapLibre/WebGL surface; harness not yet run on target hardware",
+        "format": "png",
+        "scale": "2x",
+        "area": "full-map",
+        "background": "dark",
+        "rendererVersion": "@vellum/renderer-webgl@0.1.0"
+      },
+      "result": {
+        "status": "unknown",
+        "reason": "gpu-harness-not-run"
+      }
+    },
+    {
+      "fixture": "packages/parser-cslmap/fixtures/altavento.cslmap",
+      "area": "full-map",
+      "scale": "2x",
+      "background": "transparent",
+      "golden": "altavento/full-map-2x-transparent.png",
+      "goldenMetadata": {
+        "dimensions": "unknown",
+        "dimensionsStatus": "unknown",
+        "dimensionsReason": "Requires a real MapLibre/WebGL surface; harness not yet run on target hardware",
+        "format": "png",
+        "scale": "2x",
+        "area": "full-map",
+        "background": "transparent",
+        "rendererVersion": "@vellum/renderer-webgl@0.1.0"
+      },
+      "result": {
+        "status": "unknown",
+        "reason": "gpu-harness-not-run"
+      }
+    },
+    {
+      "fixture": "packages/parser-cslmap/fixtures/altavento.cslmap",
+      "area": "full-map",
+      "scale": "4x",
+      "background": "white",
+      "golden": "altavento/full-map-4x-white.png",
+      "goldenMetadata": {
+        "dimensions": "unknown",
+        "dimensionsStatus": "unknown",
+        "dimensionsReason": "Requires a real MapLibre/WebGL surface; harness not yet run on target hardware",
+        "format": "png",
+        "scale": "4x",
+        "area": "full-map",
+        "background": "white",
+        "rendererVersion": "@vellum/renderer-webgl@0.1.0"
+      },
+      "result": {
+        "status": "unknown",
+        "reason": "gpu-harness-not-run"
+      }
+    },
+    {
+      "fixture": "packages/parser-cslmap/fixtures/altavento.cslmap",
+      "area": "full-map",
+      "scale": "4x",
+      "background": "dark",
+      "golden": "altavento/full-map-4x-dark.png",
+      "goldenMetadata": {
+        "dimensions": "unknown",
+        "dimensionsStatus": "unknown",
+        "dimensionsReason": "Requires a real MapLibre/WebGL surface; harness not yet run on target hardware",
+        "format": "png",
+        "scale": "4x",
+        "area": "full-map",
+        "background": "dark",
+        "rendererVersion": "@vellum/renderer-webgl@0.1.0"
+      },
+      "result": {
+        "status": "unknown",
+        "reason": "gpu-harness-not-run"
+      }
+    },
+    {
+      "fixture": "packages/parser-cslmap/fixtures/altavento.cslmap",
+      "area": "full-map",
+      "scale": "4x",
+      "background": "transparent",
+      "golden": "altavento/full-map-4x-transparent.png",
+      "goldenMetadata": {
+        "dimensions": "unknown",
+        "dimensionsStatus": "unknown",
+        "dimensionsReason": "Requires a real MapLibre/WebGL surface; harness not yet run on target hardware",
+        "format": "png",
+        "scale": "4x",
+        "area": "full-map",
+        "background": "transparent",
+        "rendererVersion": "@vellum/renderer-webgl@0.1.0"
+      },
+      "result": {
+        "status": "unknown",
+        "reason": "gpu-harness-not-run"
+      }
+    },
+    {
+      "fixture": "packages/parser-cslmap/fixtures/aurelia-del-delta.cslmap",
+      "area": "viewport",
+      "scale": "1x",
+      "background": "white",
+      "golden": "aurelia-del-delta/viewport-1x-white.png",
+      "goldenMetadata": {
+        "dimensions": "unknown",
+        "dimensionsStatus": "unknown",
+        "dimensionsReason": "Requires a real MapLibre/WebGL surface; harness not yet run on target hardware",
+        "format": "png",
+        "scale": "1x",
+        "area": "viewport",
+        "background": "white",
+        "rendererVersion": "@vellum/renderer-webgl@0.1.0"
+      },
+      "result": {
+        "status": "unknown",
+        "reason": "gpu-harness-not-run"
+      }
+    },
+    {
+      "fixture": "packages/parser-cslmap/fixtures/aurelia-del-delta.cslmap",
+      "area": "viewport",
+      "scale": "1x",
+      "background": "dark",
+      "golden": "aurelia-del-delta/viewport-1x-dark.png",
+      "goldenMetadata": {
+        "dimensions": "unknown",
+        "dimensionsStatus": "unknown",
+        "dimensionsReason": "Requires a real MapLibre/WebGL surface; harness not yet run on target hardware",
+        "format": "png",
+        "scale": "1x",
+        "area": "viewport",
+        "background": "dark",
+        "rendererVersion": "@vellum/renderer-webgl@0.1.0"
+      },
+      "result": {
+        "status": "unknown",
+        "reason": "gpu-harness-not-run"
+      }
+    },
+    {
+      "fixture": "packages/parser-cslmap/fixtures/aurelia-del-delta.cslmap",
+      "area": "viewport",
+      "scale": "1x",
+      "background": "transparent",
+      "golden": "aurelia-del-delta/viewport-1x-transparent.png",
+      "goldenMetadata": {
+        "dimensions": "unknown",
+        "dimensionsStatus": "unknown",
+        "dimensionsReason": "Requires a real MapLibre/WebGL surface; harness not yet run on target hardware",
+        "format": "png",
+        "scale": "1x",
+        "area": "viewport",
+        "background": "transparent",
+        "rendererVersion": "@vellum/renderer-webgl@0.1.0"
+      },
+      "result": {
+        "status": "unknown",
+        "reason": "gpu-harness-not-run"
+      }
+    },
+    {
+      "fixture": "packages/parser-cslmap/fixtures/aurelia-del-delta.cslmap",
+      "area": "viewport",
+      "scale": "2x",
+      "background": "white",
+      "golden": "aurelia-del-delta/viewport-2x-white.png",
+      "goldenMetadata": {
+        "dimensions": "unknown",
+        "dimensionsStatus": "unknown",
+        "dimensionsReason": "Requires a real MapLibre/WebGL surface; harness not yet run on target hardware",
+        "format": "png",
+        "scale": "2x",
+        "area": "viewport",
+        "background": "white",
+        "rendererVersion": "@vellum/renderer-webgl@0.1.0"
+      },
+      "result": {
+        "status": "unknown",
+        "reason": "gpu-harness-not-run"
+      }
+    },
+    {
+      "fixture": "packages/parser-cslmap/fixtures/aurelia-del-delta.cslmap",
+      "area": "viewport",
+      "scale": "2x",
+      "background": "dark",
+      "golden": "aurelia-del-delta/viewport-2x-dark.png",
+      "goldenMetadata": {
+        "dimensions": "unknown",
+        "dimensionsStatus": "unknown",
+        "dimensionsReason": "Requires a real MapLibre/WebGL surface; harness not yet run on target hardware",
+        "format": "png",
+        "scale": "2x",
+        "area": "viewport",
+        "background": "dark",
+        "rendererVersion": "@vellum/renderer-webgl@0.1.0"
+      },
+      "result": {
+        "status": "unknown",
+        "reason": "gpu-harness-not-run"
+      }
+    },
+    {
+      "fixture": "packages/parser-cslmap/fixtures/aurelia-del-delta.cslmap",
+      "area": "viewport",
+      "scale": "2x",
+      "background": "transparent",
+      "golden": "aurelia-del-delta/viewport-2x-transparent.png",
+      "goldenMetadata": {
+        "dimensions": "unknown",
+        "dimensionsStatus": "unknown",
+        "dimensionsReason": "Requires a real MapLibre/WebGL surface; harness not yet run on target hardware",
+        "format": "png",
+        "scale": "2x",
+        "area": "viewport",
+        "background": "transparent",
+        "rendererVersion": "@vellum/renderer-webgl@0.1.0"
+      },
+      "result": {
+        "status": "unknown",
+        "reason": "gpu-harness-not-run"
+      }
+    },
+    {
+      "fixture": "packages/parser-cslmap/fixtures/aurelia-del-delta.cslmap",
+      "area": "viewport",
+      "scale": "4x",
+      "background": "white",
+      "golden": "aurelia-del-delta/viewport-4x-white.png",
+      "goldenMetadata": {
+        "dimensions": "unknown",
+        "dimensionsStatus": "unknown",
+        "dimensionsReason": "Requires a real MapLibre/WebGL surface; harness not yet run on target hardware",
+        "format": "png",
+        "scale": "4x",
+        "area": "viewport",
+        "background": "white",
+        "rendererVersion": "@vellum/renderer-webgl@0.1.0"
+      },
+      "result": {
+        "status": "unknown",
+        "reason": "gpu-harness-not-run"
+      }
+    },
+    {
+      "fixture": "packages/parser-cslmap/fixtures/aurelia-del-delta.cslmap",
+      "area": "viewport",
+      "scale": "4x",
+      "background": "dark",
+      "golden": "aurelia-del-delta/viewport-4x-dark.png",
+      "goldenMetadata": {
+        "dimensions": "unknown",
+        "dimensionsStatus": "unknown",
+        "dimensionsReason": "Requires a real MapLibre/WebGL surface; harness not yet run on target hardware",
+        "format": "png",
+        "scale": "4x",
+        "area": "viewport",
+        "background": "dark",
+        "rendererVersion": "@vellum/renderer-webgl@0.1.0"
+      },
+      "result": {
+        "status": "unknown",
+        "reason": "gpu-harness-not-run"
+      }
+    },
+    {
+      "fixture": "packages/parser-cslmap/fixtures/aurelia-del-delta.cslmap",
+      "area": "viewport",
+      "scale": "4x",
+      "background": "transparent",
+      "golden": "aurelia-del-delta/viewport-4x-transparent.png",
+      "goldenMetadata": {
+        "dimensions": "unknown",
+        "dimensionsStatus": "unknown",
+        "dimensionsReason": "Requires a real MapLibre/WebGL surface; harness not yet run on target hardware",
+        "format": "png",
+        "scale": "4x",
+        "area": "viewport",
+        "background": "transparent",
+        "rendererVersion": "@vellum/renderer-webgl@0.1.0"
+      },
+      "result": {
+        "status": "unknown",
+        "reason": "gpu-harness-not-run"
+      }
+    },
+    {
+      "fixture": "packages/parser-cslmap/fixtures/aurelia-del-delta.cslmap",
+      "area": "full-map",
+      "scale": "1x",
+      "background": "white",
+      "golden": "aurelia-del-delta/full-map-1x-white.png",
+      "goldenMetadata": {
+        "dimensions": "unknown",
+        "dimensionsStatus": "unknown",
+        "dimensionsReason": "Requires a real MapLibre/WebGL surface; harness not yet run on target hardware",
+        "format": "png",
+        "scale": "1x",
+        "area": "full-map",
+        "background": "white",
+        "rendererVersion": "@vellum/renderer-webgl@0.1.0"
+      },
+      "result": {
+        "status": "unknown",
+        "reason": "gpu-harness-not-run"
+      }
+    },
+    {
+      "fixture": "packages/parser-cslmap/fixtures/aurelia-del-delta.cslmap",
+      "area": "full-map",
+      "scale": "1x",
+      "background": "dark",
+      "golden": "aurelia-del-delta/full-map-1x-dark.png",
+      "goldenMetadata": {
+        "dimensions": "unknown",
+        "dimensionsStatus": "unknown",
+        "dimensionsReason": "Requires a real MapLibre/WebGL surface; harness not yet run on target hardware",
+        "format": "png",
+        "scale": "1x",
+        "area": "full-map",
+        "background": "dark",
+        "rendererVersion": "@vellum/renderer-webgl@0.1.0"
+      },
+      "result": {
+        "status": "unknown",
+        "reason": "gpu-harness-not-run"
+      }
+    },
+    {
+      "fixture": "packages/parser-cslmap/fixtures/aurelia-del-delta.cslmap",
+      "area": "full-map",
+      "scale": "1x",
+      "background": "transparent",
+      "golden": "aurelia-del-delta/full-map-1x-transparent.png",
+      "goldenMetadata": {
+        "dimensions": "unknown",
+        "dimensionsStatus": "unknown",
+        "dimensionsReason": "Requires a real MapLibre/WebGL surface; harness not yet run on target hardware",
+        "format": "png",
+        "scale": "1x",
+        "area": "full-map",
+        "background": "transparent",
+        "rendererVersion": "@vellum/renderer-webgl@0.1.0"
+      },
+      "result": {
+        "status": "unknown",
+        "reason": "gpu-harness-not-run"
+      }
+    },
+    {
+      "fixture": "packages/parser-cslmap/fixtures/aurelia-del-delta.cslmap",
+      "area": "full-map",
+      "scale": "2x",
+      "background": "white",
+      "golden": "aurelia-del-delta/full-map-2x-white.png",
+      "goldenMetadata": {
+        "dimensions": "unknown",
+        "dimensionsStatus": "unknown",
+        "dimensionsReason": "Requires a real MapLibre/WebGL surface; harness not yet run on target hardware",
+        "format": "png",
+        "scale": "2x",
+        "area": "full-map",
+        "background": "white",
+        "rendererVersion": "@vellum/renderer-webgl@0.1.0"
+      },
+      "result": {
+        "status": "unknown",
+        "reason": "gpu-harness-not-run"
+      }
+    },
+    {
+      "fixture": "packages/parser-cslmap/fixtures/aurelia-del-delta.cslmap",
+      "area": "full-map",
+      "scale": "2x",
+      "background": "dark",
+      "golden": "aurelia-del-delta/full-map-2x-dark.png",
+      "goldenMetadata": {
+        "dimensions": "unknown",
+        "dimensionsStatus": "unknown",
+        "dimensionsReason": "Requires a real MapLibre/WebGL surface; harness not yet run on target hardware",
+        "format": "png",
+        "scale": "2x",
+        "area": "full-map",
+        "background": "dark",
+        "rendererVersion": "@vellum/renderer-webgl@0.1.0"
+      },
+      "result": {
+        "status": "unknown",
+        "reason": "gpu-harness-not-run"
+      }
+    },
+    {
+      "fixture": "packages/parser-cslmap/fixtures/aurelia-del-delta.cslmap",
+      "area": "full-map",
+      "scale": "2x",
+      "background": "transparent",
+      "golden": "aurelia-del-delta/full-map-2x-transparent.png",
+      "goldenMetadata": {
+        "dimensions": "unknown",
+        "dimensionsStatus": "unknown",
+        "dimensionsReason": "Requires a real MapLibre/WebGL surface; harness not yet run on target hardware",
+        "format": "png",
+        "scale": "2x",
+        "area": "full-map",
+        "background": "transparent",
+        "rendererVersion": "@vellum/renderer-webgl@0.1.0"
+      },
+      "result": {
+        "status": "unknown",
+        "reason": "gpu-harness-not-run"
+      }
+    },
+    {
+      "fixture": "packages/parser-cslmap/fixtures/aurelia-del-delta.cslmap",
+      "area": "full-map",
+      "scale": "4x",
+      "background": "white",
+      "golden": "aurelia-del-delta/full-map-4x-white.png",
+      "goldenMetadata": {
+        "dimensions": "unknown",
+        "dimensionsStatus": "unknown",
+        "dimensionsReason": "Requires a real MapLibre/WebGL surface; harness not yet run on target hardware",
+        "format": "png",
+        "scale": "4x",
+        "area": "full-map",
+        "background": "white",
+        "rendererVersion": "@vellum/renderer-webgl@0.1.0"
+      },
+      "result": {
+        "status": "unknown",
+        "reason": "gpu-harness-not-run"
+      }
+    },
+    {
+      "fixture": "packages/parser-cslmap/fixtures/aurelia-del-delta.cslmap",
+      "area": "full-map",
+      "scale": "4x",
+      "background": "dark",
+      "golden": "aurelia-del-delta/full-map-4x-dark.png",
+      "goldenMetadata": {
+        "dimensions": "unknown",
+        "dimensionsStatus": "unknown",
+        "dimensionsReason": "Requires a real MapLibre/WebGL surface; harness not yet run on target hardware",
+        "format": "png",
+        "scale": "4x",
+        "area": "full-map",
+        "background": "dark",
+        "rendererVersion": "@vellum/renderer-webgl@0.1.0"
+      },
+      "result": {
+        "status": "unknown",
+        "reason": "gpu-harness-not-run"
+      }
+    },
+    {
+      "fixture": "packages/parser-cslmap/fixtures/aurelia-del-delta.cslmap",
+      "area": "full-map",
+      "scale": "4x",
+      "background": "transparent",
+      "golden": "aurelia-del-delta/full-map-4x-transparent.png",
+      "goldenMetadata": {
+        "dimensions": "unknown",
+        "dimensionsStatus": "unknown",
+        "dimensionsReason": "Requires a real MapLibre/WebGL surface; harness not yet run on target hardware",
+        "format": "png",
+        "scale": "4x",
+        "area": "full-map",
+        "background": "transparent",
+        "rendererVersion": "@vellum/renderer-webgl@0.1.0"
+      },
+      "result": {
+        "status": "unknown",
+        "reason": "gpu-harness-not-run"
+      }
+    }
+  ]
+}
