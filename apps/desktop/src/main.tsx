@@ -11,6 +11,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { version } from '../package.json';
 import { useParseCslmap } from './hooks/use-parse-cslmap';
+import { useExportPng } from './hooks/use-export-png';
 
 const win = getCurrentWindow();
 
@@ -64,11 +65,14 @@ if (import.meta.hot) {
  */
 function AppShell() {
   const { loadFile, openFileDialog, loadFilePartial } = useParseCslmap();
+  const { exportPng, openExportFolder } = useExportPng();
   return (
     <App
       loadFile={loadFile}
       openFileDialog={openFileDialog}
       loadFilePartial={loadFilePartial}
+      onExport={exportPng}
+      onOpenExportFolder={openExportFolder}
     />
   );
 }

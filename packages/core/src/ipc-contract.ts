@@ -9,6 +9,7 @@
 export const IPC_COMMANDS = {
   PARSE_CSLMAP: 'parse_cslmap',
   EXPORT_PNG: 'export_png',
+  OPEN_EXPORT_FOLDER: 'open_export_folder',
   EXPORT_SVG: 'export_svg',
   LOAD_THEMES: 'load_themes',
 } as const;
@@ -101,6 +102,12 @@ export interface ExportOptions {
   background: ExportBackground;
   /** The desired filename (without extension) provided by the user. */
   fileName: string;
+}
+
+/** PNG-specific IPC payload extending the shared export configuration. */
+export interface ExportPngOptions extends ExportOptions {
+  /** PNG bytes produced by the isolated MapLibre export surface. */
+  pngBytes: number[];
 }
 
 /** Result structure returned upon successful completion of an export command. */

@@ -4,6 +4,7 @@ export * from './geojson';
 export { vellumLogoDataUri } from './assets/vellum-logo';
 export {
   MapLibreRenderer,
+  PngExportOptions,
   ServiceIconLegendState,
   TooltipInfo,
   ViewportBounds,
