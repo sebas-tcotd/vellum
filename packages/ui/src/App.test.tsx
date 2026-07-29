@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, cleanup, act } from './test-utils';
+import userEvent from '@testing-library/user-event';
+import type { ExportSnapshot, RasterExportV2 } from '@vellum/core';
+import { render, screen, cleanup, act, waitFor } from './test-utils';
 import { App } from './App';
 import { useKeyboardShortcuts } from './hooks/use-keyboard-shortcuts';
 import { useVellumStore } from './store/vellum-store';
@@ -12,6 +14,19 @@ const mockPreviewCapture = vi.hoisted(() =>
     annotations: [],
   }),
 );
+
+const mockSnapshot = {} as ExportSnapshot;
+const mockRasterExporter: RasterExportV2 = {
+  version: 2,
+  capabilities: vi.fn().mockResolvedValue({
+    legacy: { eligible: true },
+    tiled: { eligible: false, reason: 'flag' },
+  }),
+  export: vi.fn().mockResolvedValue({
+    filePath: '/tmp/export.png',
+    folderPath: '/tmp',
+  }),
+};
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key }),
@@ -68,14 +83,24 @@ vi.mock('./components/canvas/CanvasRoot', () => ({
 vi.mock('./components/canvas/MapLibreRoot', () => ({
   MapLibreRoot: ({
     previewCaptureRef,
+    snapshotCaptureRef,
   }: {
     previewCaptureRef?: React.RefObject<
       | (() => Promise<import('@vellum/core').ExportPreviewSnapshot | null>)
       | null
     >;
+    snapshotCaptureRef?: React.RefObject<
+      | ((
+          request: import('@vellum/core').ExportRequest,
+        ) => ExportSnapshot | null)
+      | null
+    >;
   }) => {
     if (previewCaptureRef) {
       previewCaptureRef.current = mockPreviewCapture;
+    }
+    if (snapshotCaptureRef) {
+      snapshotCaptureRef.current = () => mockSnapshot;
     }
     return <div data-testid="maplibre-root" />;
   },
@@ -137,6 +162,8 @@ beforeEach(() => {
     scale: { distanceMeters: 500, widthPercent: 20 },
     annotations: [],
   });
+  vi.mocked(mockRasterExporter.capabilities).mockClear();
+  vi.mocked(mockRasterExporter.export).mockClear();
   resetStore();
 });
 
@@ -311,6 +338,25 @@ describe('App — document.title (AC1)', () => {
 });
 
 describe('App — ExportDialog (Story 6.1)', () => {
+  it('envía un snapshot tipado al coordinator sin entregar MapLibre a la UI', async () => {
+    const user = userEvent.setup();
+    useVellumStore.getState().setCityData(mockCityData);
+    await act(async () => {
+      render(<App rasterExporter={mockRasterExporter} />);
+    });
+    const shortcuts = vi.mocked(useKeyboardShortcuts).mock.lastCall?.[0];
+
+    await act(async () => shortcuts?.onOpenExport?.());
+    const exportButtons = screen.getAllByRole('button', {
+      name: 'export.exportButton',
+    });
+    await user.click(exportButtons.at(-1)!);
+
+    await waitFor(() => {
+      expect(mockRasterExporter.export).toHaveBeenCalledWith(mockSnapshot);
+    });
+  });
+
   it('no habilita apertura sin mapa cargado', async () => {
     await act(async () => {
       render(<App />);

@@ -198,6 +198,147 @@ export interface ExportBaselineMetrics {
   readonly peakMemoryBytes: number | 'unknown';
 }
 
+/** Export route represented by a raster adapter and its sink. */
+export type ExportMode = 'legacy-png' | 'tiled-png';
+
+/** A rectangle expressed in output pixels. */
+export interface PixelRect {
+  /** Horizontal pixel origin. */
+  readonly x: number;
+  /** Vertical pixel origin. */
+  readonly y: number;
+  /** Rectangle width in pixels. */
+  readonly width: number;
+  /** Rectangle height in pixels. */
+  readonly height: number;
+}
+
+/** Capability decision exposed to the application before an export begins. */
+export interface ExportCapabilities {
+  /** Eligibility of the preserved single-surface PNG path. */
+  readonly legacy: {
+    /** Whether the requested operation fits the legacy path. */
+    readonly eligible: boolean;
+    /** Why the legacy path is unavailable, when applicable. */
+    readonly reason?: 'area' | 'pixels' | 'memory';
+  };
+  /** Tiled path status during the legacy-only transition. */
+  readonly tiled: {
+    /** Whether the tiled path can be selected. */
+    readonly eligible: boolean;
+    /** Why the tiled path is unavailable, when applicable. */
+    readonly reason?: 'gpu' | 'webgl' | 'memory' | 'flag';
+  };
+}
+
+/** Metadata used to open a typed export sink session. */
+export interface ExportBeginMetadata {
+  /** Route that must be accepted by the sink. */
+  readonly mode: ExportMode;
+  /** Snapshot identifier associated with this operation. */
+  readonly snapshotId: string;
+  /** Request whose legacy fields are persisted by the sink. */
+  readonly request: ExportRequest;
+  /** Exact output width in pixels. */
+  readonly outputWidth: number;
+  /** Exact output height in pixels. */
+  readonly outputHeight: number;
+  /** Number of chunks the adapter promises to append. */
+  readonly expectedTiles: number;
+}
+
+/** Opaque sink session returned by `begin`. */
+export interface ExportSession {
+  /** Non-reusable operation identifier. */
+  readonly sessionId: string;
+  /** Route accepted by this session. */
+  readonly mode: ExportMode;
+  /** Maximum encoded bytes accepted in one chunk. */
+  readonly maxChunkBytes: number;
+  /** Maximum number of chunks allowed in flight. */
+  readonly maxInFlight: 1;
+}
+
+/** A raster chunk delivered from an exporter to its sink. */
+export interface RasterTileChunk {
+  /** Strictly increasing chunk sequence, beginning at zero. */
+  readonly sequence: number;
+  /** Tile column; zero for the complete legacy surface. */
+  readonly tileX: number;
+  /** Tile row; zero for the complete legacy surface. */
+  readonly tileY: number;
+  /** Useful output rectangle covered by the encoded bytes. */
+  readonly usefulRect: PixelRect;
+  /** Render rectangle represented by the encoded bytes. */
+  readonly renderRect: PixelRect;
+  /** Encoded PNG bytes, retained as binary until the legacy IPC boundary. */
+  readonly encodedPng: Uint8Array;
+}
+
+/** Acknowledgement returned after a sink accepts a raster chunk. */
+export interface AppendAck {
+  /** Session that accepted the chunk. */
+  readonly sessionId: string;
+  /** Sequence accepted by the sink. */
+  readonly sequence: number;
+  /** Number of encoded bytes accepted. */
+  readonly acceptedBytes: number;
+  /** Number of accepted output units; one for the complete legacy chunk. */
+  readonly completedUnits: number;
+}
+
+/** Reasons used when abandoning an in-memory or future tiled session. */
+export type ExportCancelReason =
+  | 'aborted'
+  | 'capture-failed'
+  | 'sink-failed'
+  | 'invalid-chunk';
+
+/** Receipt returned only after the sink confirms the final file. */
+export interface ExportReceipt {
+  /** Absolute path to the published file, matching `ExportResult.filePath`. */
+  readonly filePath: string;
+  /** Absolute path to the containing folder, matching `ExportResult.folderPath`. */
+  readonly folderPath: string;
+}
+
+/** Segregated port implemented by a concrete raster exporter. */
+export interface RasterExportPort {
+  /** Route implemented by this exporter. */
+  readonly mode: ExportMode;
+  /** Captures the snapshot and persists it through a compatible sink. */
+  export(
+    snapshot: ExportSnapshot,
+    sink: ExportSink,
+    signal: AbortSignal,
+  ): Promise<void>;
+}
+
+/** Persistence port kept separate from renderers and UI frameworks. */
+export interface ExportSink {
+  /** Opens a session for the requested export route. */
+  begin(metadata: ExportBeginMetadata): Promise<ExportSession>;
+  /** Accepts one encoded raster chunk. */
+  append(session: ExportSession, chunk: RasterTileChunk): Promise<AppendAck>;
+  /** Publishes the completed operation and returns its receipt. */
+  finish(session: ExportSession): Promise<ExportReceipt>;
+  /** Abandons a session without publishing a file. */
+  cancel(session: ExportSession, reason: ExportCancelReason): Promise<void>;
+}
+
+/** Application-level raster export contract implemented by the coordinator. */
+export interface RasterExportV2 {
+  /** Contract version for the new export boundary. */
+  readonly version: 2;
+  /** Reports capability without changing renderer or store state. */
+  capabilities(request: ExportRequest): Promise<ExportCapabilities>;
+  /** Exports one immutable snapshot and returns its persisted receipt. */
+  export(
+    snapshot: ExportSnapshot,
+    signal?: AbortSignal,
+  ): Promise<ExportReceipt>;
+}
+
 function copy<T>(value: T): T {
   try {
     return structuredClone(value);

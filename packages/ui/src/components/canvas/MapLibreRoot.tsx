@@ -6,7 +6,6 @@ import type {
   ExportSnapshot,
   LayerVisibility,
 } from '@vellum/core';
-import type { PngExportOptions } from '@vellum/renderer-webgl';
 import type {
   ServiceIconLegendState,
   TooltipInfo,
@@ -57,10 +56,6 @@ export interface MapLibreRootProps {
   previewCaptureRef?: React.RefObject<
     (() => Promise<ExportPreviewSnapshot | null>) | null
   >;
-  /** Ref populated with an isolated PNG raster capture callback. */
-  pngCaptureRef?: React.RefObject<
-    ((options: PngExportOptions) => Promise<Uint8Array>) | null
-  >;
   /** Ref populated with a pure export snapshot callback. */
   snapshotCaptureRef?: React.RefObject<
     ((request: ExportRequest) => ExportSnapshot | null) | null
@@ -89,7 +84,6 @@ export function MapLibreRoot({
   themes = [],
   subscribeServiceIconLegendRef,
   previewCaptureRef,
-  pngCaptureRef,
   snapshotCaptureRef,
 }: MapLibreRootProps) {
   const { t } = useTranslation();
@@ -274,19 +268,6 @@ export function MapLibreRoot({
       if (previewCaptureRef.current) previewCaptureRef.current = null;
     };
   }, [previewCaptureRef]);
-
-  useEffect(() => {
-    if (!pngCaptureRef) return;
-    pngCaptureRef.current = (options) => {
-      const renderer = rendererRef.current;
-      return renderer
-        ? renderer.capturePng(options)
-        : Promise.reject(new Error('Map renderer is unavailable'));
-    };
-    return () => {
-      if (pngCaptureRef.current) pngCaptureRef.current = null;
-    };
-  }, [pngCaptureRef]);
 
   // The callback exposes only the core snapshot; MapLibre remains renderer-owned.
   useEffect(() => {

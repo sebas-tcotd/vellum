@@ -404,6 +404,67 @@ export class MapLibreRenderer implements IRenderer {
       : this.style.mapBackground;
   }
 
+  /** Captures an immutable snapshot on a disposable renderer surface. */
+  static async captureSnapshotPng(
+    snapshot: ExportSnapshot,
+    options: PngExportOptions,
+    signal: AbortSignal,
+  ): Promise<Uint8Array> {
+    throwIfAborted(signal);
+    const { width, height } = snapshot.surface;
+    if (
+      !Number.isSafeInteger(width) ||
+      !Number.isSafeInteger(height) ||
+      width <= 0 ||
+      height <= 0 ||
+      width * height > MAX_EXPORT_PIXELS
+    ) {
+      throw new Error('Requested export dimensions exceed the safe limit');
+    }
+
+    const container = document.createElement('div');
+    container.style.cssText = `position:fixed;left:-100000px;top:0;width:${width}px;height:${height}px;`;
+    document.body.append(container);
+    const exportRenderer = new MapLibreRenderer(
+      container,
+      snapshot.style,
+      true,
+      false,
+    );
+    try {
+      await exportRenderer.render(snapshot.cityData, {
+        activeLayers: snapshot.activeLayers,
+      });
+      throwIfAborted(signal);
+      exportRenderer.setTransitDimming(snapshot.transitDimming);
+      exportRenderer.setLayerOptions(snapshot.layerOptions);
+      exportRenderer.setWatermarkVisibility(snapshot.watermarkVisible);
+      if (options.area === 'viewport') {
+        exportRenderer.map.jumpTo({
+          center: {
+            lng: snapshot.camera.longitude,
+            lat: snapshot.camera.latitude,
+          },
+          zoom: snapshot.camera.zoom,
+          bearing: snapshot.camera.bearing,
+          pitch: snapshot.camera.pitch,
+        });
+      }
+      exportRenderer.map.setPaintProperty(
+        'background',
+        'background-color',
+        exportRenderer.exportBackgroundColor(options.background),
+      );
+      throwIfAborted(signal);
+      await exportRenderer.waitForIdle();
+      throwIfAborted(signal);
+      return await exportRenderer.captureCanvasBytes();
+    } finally {
+      exportRenderer.dispose();
+      container.remove();
+    }
+  }
+
   /** Waits until MapLibre has painted all pending sources and layers. */
   private waitForIdle(): Promise<void> {
     return new Promise((resolve, reject) => {
@@ -677,4 +738,20 @@ export class MapLibreRenderer implements IRenderer {
   ): () => void {
     return subscribeServiceIconLegendImpl(this.map, callback);
   }
+}
+
+/** Captures a snapshot through the renderer's isolated export surface. */
+export function captureExportSnapshotPng(
+  snapshot: ExportSnapshot,
+  options: PngExportOptions,
+  signal: AbortSignal,
+): Promise<Uint8Array> {
+  return MapLibreRenderer.captureSnapshotPng(snapshot, options, signal);
+}
+
+function throwIfAborted(signal: AbortSignal): void {
+  if (!signal.aborted) return;
+  const error = new Error('Export aborted');
+  error.name = 'AbortError';
+  throw error;
 }

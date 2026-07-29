@@ -7,6 +7,7 @@ export {
   type CapabilityProbeOptions,
 } from './capability-probe';
 export { vellumLogoDataUri } from './assets/vellum-logo';
+export { LegacyRasterExporter } from './export/legacy-raster-exporter';
 export {
   MapLibreRenderer,
   PngExportOptions,

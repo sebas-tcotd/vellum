@@ -30,9 +30,11 @@ import type {
   ExportDialogOptions,
   ExportPreviewSnapshot,
   ExportResult,
+  ExportRequest,
+  ExportSnapshot,
   LayerName,
+  RasterExportV2,
 } from '@vellum/core';
-import type { PngExportOptions } from '@vellum/renderer-webgl';
 import { useVellumStore } from './store/vellum-store';
 
 const noop = async (): Promise<void> => {};
@@ -49,11 +51,8 @@ export interface AppProps {
   openFileDialog?: () => Promise<void>;
   /** Retries the last file with allow_partial=true. Injected from the Tauri composition root. */
   loadFilePartial?: () => Promise<void>;
-  /** Writes PNG bytes through the desktop IPC adapter. */
-  onExport?: (
-    options: ExportDialogOptions,
-    pngBytes: Uint8Array,
-  ) => Promise<ExportResult>;
+  /** Executes the injected raster export coordinator. */
+  rasterExporter?: RasterExportV2;
   /** Reveals a successful export directory through the desktop IPC adapter. */
   onOpenExportFolder?: (folderPath: string) => Promise<void>;
   /** Allows a composition root to prevent interactions during an external export. */
@@ -80,7 +79,7 @@ export function App({
   loadFile,
   openFileDialog = noop,
   loadFilePartial = noop,
-  onExport,
+  rasterExporter,
   onOpenExportFolder,
   isExporting: isExportingProp = false,
 }: AppProps) {
@@ -103,8 +102,8 @@ export function App({
   const previewCaptureRef = useRef<
     (() => Promise<ExportPreviewSnapshot | null>) | null
   >(null);
-  const pngCaptureRef = useRef<
-    ((options: PngExportOptions) => Promise<Uint8Array>) | null
+  const snapshotCaptureRef = useRef<
+    ((request: ExportRequest) => ExportSnapshot | null) | null
   >(null);
   const isExportingRef = useRef(isExporting);
   isExportingRef.current = isExporting;
@@ -206,9 +205,7 @@ export function App({
 
   const handleExport = useCallback(
     async (options: ExportDialogOptions): Promise<void> => {
-      if (isExportingRef.current || !onExport) return;
-      const scale =
-        options.format === 'png-4x' ? 4 : options.format === 'png-2x' ? 2 : 1;
+      if (isExportingRef.current || !rasterExporter) return;
       if (options.format === 'svg') {
         setExportFailed(true);
         return;
@@ -217,13 +214,16 @@ export function App({
       setExportResult(null);
       setExportInProgress(true);
       try {
-        const pngBytes = await pngCaptureRef.current?.({
-          scale,
+        const request: ExportRequest = {
+          format: options.format,
           area: options.area,
           background: options.background,
-        });
-        if (!pngBytes) throw new Error('PNG capture is unavailable');
-        setExportResult(await onExport(options, pngBytes));
+          fileName: options.fileName,
+          presentation: options.presentation,
+        };
+        const snapshot = snapshotCaptureRef.current?.(request);
+        if (!snapshot) throw new Error('Export snapshot is unavailable');
+        setExportResult(await rasterExporter.export(snapshot));
       } catch (error: unknown) {
         console.error('[App] PNG export failed:', error);
         setExportFailed(true);
@@ -231,7 +231,7 @@ export function App({
         setExportInProgress(false);
       }
     },
-    [onExport],
+    [rasterExporter],
   );
 
   const handleOpenAdvancedOptions = useCallback(
@@ -330,7 +330,7 @@ export function App({
             themes={themes}
             subscribeServiceIconLegendRef={subscribeServiceIconLegendRef}
             previewCaptureRef={previewCaptureRef}
-            pngCaptureRef={pngCaptureRef}
+            snapshotCaptureRef={snapshotCaptureRef}
           />
         </div>
         {showEmptyState && <EmptyState />}
