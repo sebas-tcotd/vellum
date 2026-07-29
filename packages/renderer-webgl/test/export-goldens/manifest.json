@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "story": "6.2A",
   "rendererVersion": "@vellum/renderer-webgl@0.1.0",
-  "referenceCommit": "1a122f3",
+  "referenceCommit": "0a51322",
   "harness": {
     "command": "pnpm --filter @vellum/renderer-webgl test -- export-goldens",
     "standaloneCommand": "node packages/renderer-webgl/test/export-goldens/harness.mjs",
