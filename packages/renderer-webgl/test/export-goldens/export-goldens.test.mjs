@@ -127,6 +127,17 @@ describe('export goldens manifest validation', () => {
     );
   });
 
+  it('rejects a golden captured with a different renderer build', () => {
+    const cases = makeCases();
+    cases[0].goldenMetadata = {
+      ...cases[0].goldenMetadata,
+      rendererVersion: '@vellum/renderer-webgl@9.9.9',
+    };
+    expect(() => validateManifest(makeManifest({ cases }))).toThrow(
+      'rendererVersion does not match',
+    );
+  });
+
   it('rejects a wildcard sentinel in place of real metadata', () => {
     const cases = makeCases();
     cases[0].goldenMetadata = {
@@ -395,4 +406,26 @@ describe('shipped baseline manifest', () => {
       'packages/renderer-webgl/test/export-goldens',
     );
   });
+
+  it('decodes and verifies every accepted golden against its digest', async () => {
+    // Regression: `validateManifest` only checks JSON shape. Without this,
+    // the *published* command (this Vitest suite) never actually decodes a
+    // single PNG or checks a digest — only `node harness.mjs` did, so anyone
+    // running the documented command got a false sense of full coverage.
+    const manifest = JSON.parse(await readFile(DEFAULT_MANIFEST_PATH, 'utf8'));
+    const accepted = manifest.cases.filter(
+      (entry) => entry.result.status === 'accepted',
+    );
+    expect(accepted.length).toBe(36);
+
+    for (const entry of accepted) {
+      const comparison = await compareGoldenCase(entry, DEFAULT_MANIFEST_PATH);
+      expect(comparison).toMatchObject({
+        status: 'accepted',
+        differentPixels: 0,
+      });
+    }
+    // Decoding 36 real PNGs (up to 4096x2621) takes longer than Vitest's 5s
+    // default — matches the ~13s the standalone harness takes for the same work.
+  }, 30_000);
 });

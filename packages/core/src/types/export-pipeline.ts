@@ -293,7 +293,20 @@ export function createExportSnapshot(
   });
 }
 
-/** Decides tiled eligibility without changing renderer or interactive map state. */
+/**
+ * Decides tiled eligibility without changing renderer or interactive map state.
+ *
+ * @remarks
+ * **Provisional dimension check.** This story (6.2A) does not implement the
+ * tile planner (6.2D) — there is no notion of tile size yet. Until then,
+ * `eligible: true` means "the whole surface fits within a single GPU-sized
+ * canvas," not "a tile plan exists that covers it." A surface that exceeds
+ * `maxCanvasSize` on either edge is rejected even if it could theoretically
+ * be split into valid tiles, per AD-12's stated intent ("elegible sólo si el
+ * tile plan cabe") — because no planner exists yet to actually verify that.
+ * 6.2D must replace the per-edge check below with one that consults a real
+ * tile plan instead of the raw surface dimensions.
+ */
 export function evaluateTiledCapability(
   report: CapabilityReport,
   surface: ExportSurface,

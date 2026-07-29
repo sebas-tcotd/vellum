@@ -102,7 +102,7 @@ function validateDimensions(dimensions, key) {
  * evidence (exact dimensions, digest), while a not-yet-measured `unknown`
  * case still has to declare its scale/area/background precisely.
  */
-export function validateGoldenMetadata(entry, key) {
+export function validateGoldenMetadata(entry, key, manifest) {
   const metadata = entry.goldenMetadata;
   if (!metadata || typeof metadata !== 'object') {
     throw new Error(`Missing golden metadata: ${key}`);
@@ -112,6 +112,13 @@ export function validateGoldenMetadata(entry, key) {
   }
   if (typeof metadata.rendererVersion !== 'string') {
     throw new Error(`Golden metadata needs a rendererVersion: ${key}`);
+  }
+  // A golden captured with a different renderer build is not comparable
+  // evidence for this manifest, even if every other field matches.
+  if (metadata.rendererVersion !== manifest.rendererVersion) {
+    throw new Error(
+      `Golden rendererVersion does not match manifest.rendererVersion: ${key}`,
+    );
   }
   // No wildcard sentinel: metadata that can match anything validates nothing.
   if (
@@ -178,7 +185,7 @@ export function validateManifest(manifest) {
     assertRelativePath(entry.fixture, `${key}.fixture`);
     assertRelativePath(entry.golden, `${key}.golden`);
     validateResult(entry.result, key);
-    validateGoldenMetadata(entry, key);
+    validateGoldenMetadata(entry, key, manifest);
   }
   const fixtures = new Set(manifest.cases.map((entry) => entry.fixture));
   for (const required of REQUIRED_FIXTURES) {
