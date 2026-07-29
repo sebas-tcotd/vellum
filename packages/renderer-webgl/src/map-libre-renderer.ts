@@ -534,6 +534,9 @@ export class MapLibreRenderer implements IRenderer {
    * @param visible - `true` to show, `false` to hide.
    */
   setLayerVisibility(layer: LayerName, visible: boolean): void {
+    if (this.activeLayers) {
+      this.activeLayers = { ...this.activeLayers, [layer]: visible };
+    }
     this.layerManager.setVisibility(layer, visible);
   }
 

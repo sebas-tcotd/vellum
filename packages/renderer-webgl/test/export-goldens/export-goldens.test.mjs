@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
+import { deflateSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_MANIFEST_PATH,
@@ -8,6 +9,38 @@ import {
   compareRgbaPixels,
   validateManifest,
 } from './harness.mjs';
+
+const PNG_SIGNATURE = Buffer.from([
+  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+]);
+
+function pngChunk(type, data) {
+  const length = Buffer.alloc(4);
+  length.writeUInt32BE(data.length, 0);
+  // CRC is never verified by our decoder, so any 4 bytes round-trip correctly.
+  return Buffer.concat([
+    length,
+    Buffer.from(type, 'ascii'),
+    data,
+    Buffer.alloc(4),
+  ]);
+}
+
+/** Builds a minimal 1x1 RGBA PNG, filter type None, for digest/decode tests. */
+function build1x1Png([r, g, b, a]) {
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(1, 0);
+  ihdr.writeUInt32BE(1, 4);
+  ihdr.writeUInt8(8, 8);
+  ihdr.writeUInt8(6, 9);
+  const raw = Buffer.from([0, r, g, b, a]);
+  return Buffer.concat([
+    PNG_SIGNATURE,
+    pngChunk('IHDR', ihdr),
+    pngChunk('IDAT', deflateSync(raw)),
+    pngChunk('IEND', Buffer.alloc(0)),
+  ]);
+}
 
 const FIXTURES = [
   'packages/parser-cslmap/fixtures/altavento.cslmap',
@@ -34,7 +67,6 @@ function makeCases(overrides = () => ({})) {
             goldenMetadata: {
               dimensions: 'unknown',
               dimensionsReason: 'gpu-harness-not-run',
-              dimensionsStatus: 'unknown',
               format: 'png',
               scale,
               area,
@@ -134,7 +166,7 @@ describe('export goldens manifest validation', () => {
       dimensions: { width: 2, height: 1 },
     };
     expect(() => validateManifest(makeManifest({ cases }))).toThrow(
-      'actualRgbaPath',
+      'expectedSha256',
     );
   });
 
@@ -193,7 +225,8 @@ describe('export goldens pixel comparison', () => {
   });
 
   it('fails an accepted golden whose digest no longer matches', async () => {
-    const expected = Uint8Array.from([1, 2, 3, 255]);
+    const pixels = Uint8Array.from([1, 2, 3, 255]);
+    const png = build1x1Png(pixels);
     const entry = {
       fixture: FIXTURES[0],
       area: 'viewport',
@@ -209,20 +242,43 @@ describe('export goldens pixel comparison', () => {
         rendererVersion: '@vellum/renderer-webgl@0.1.0',
       },
       result: { status: 'accepted' },
-      actualRgbaPath: 'actual.rgba',
-      expectedRgbaPath: 'expected.rgba',
       expectedSha256: 'stale-digest',
     };
-    const read = async () => expected;
+    const readPngBytes = async () => png;
 
     await expect(
-      compareGoldenCase(entry, '/tmp/manifest.json', read),
+      compareGoldenCase(entry, '/tmp/manifest.json', readPngBytes),
     ).rejects.toThrow('digest mismatch');
 
-    entry.expectedSha256 = createHash('sha256').update(expected).digest('hex');
+    entry.expectedSha256 = createHash('sha256').update(pixels).digest('hex');
     await expect(
-      compareGoldenCase(entry, '/tmp/manifest.json', read),
+      compareGoldenCase(entry, '/tmp/manifest.json', readPngBytes),
     ).resolves.toMatchObject({ status: 'accepted', differentPixels: 0 });
+  });
+
+  it('fails when the decoded PNG does not match the declared dimensions', async () => {
+    const png = build1x1Png([1, 2, 3, 255]);
+    const entry = {
+      fixture: FIXTURES[0],
+      area: 'viewport',
+      scale: '1x',
+      background: 'white',
+      golden: 'altavento/viewport-1x-white.png',
+      goldenMetadata: {
+        dimensions: { width: 2, height: 2 },
+        format: 'png',
+        scale: '1x',
+        area: 'viewport',
+        background: 'white',
+        rendererVersion: '@vellum/renderer-webgl@0.1.0',
+      },
+      result: { status: 'accepted' },
+      expectedSha256: 'irrelevant',
+    };
+
+    await expect(
+      compareGoldenCase(entry, '/tmp/manifest.json', async () => png),
+    ).rejects.toThrow('dimensions mismatch');
   });
 });
 

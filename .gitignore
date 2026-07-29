@@ -39,6 +39,10 @@ CLAUDE.local.md
 # Test output folders
 **/test-results/
 
+# 6.2A golden harness decodes .png on demand (see harness.mjs); a persisted
+# .rgba sidecar is ~10x the size of its .png and nothing reads it.
+packages/renderer-webgl/test/export-goldens/**/*.rgba
+
 # OS files
 .DS_Store
 *.swp

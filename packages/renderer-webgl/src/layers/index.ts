@@ -5,7 +5,7 @@
  * Internal module — not exported from the package barrel.
  */
 
-export { createBaseStyle, addGridPattern } from './layer-background';
+export { createBaseStyle } from './layer-background';
 export {
   addTerrainContourLayer,
   addTerrainReliefLayers,

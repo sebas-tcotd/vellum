@@ -269,6 +269,23 @@ describe('MapLibreRenderer', () => {
     expect(mockMap.fitBounds).toHaveBeenCalledOnce();
   });
 
+  it('never sets a background-pattern, which would silently discard background-color', async () => {
+    // Regression: MapLibre/Mapbox background layers render `background-pattern`
+    // instead of `background-color` once a pattern is set, not composited on
+    // top of it. A decorative grid texture used to be attached here and made
+    // every theme color and every export background (white/dark/transparent)
+    // render as the pattern's own mostly-transparent pixels instead.
+    const renderer = makeRenderer();
+    await renderer.render(makeCityData(), { activeLayers: ALL_LAYERS_VISIBLE });
+    renderer.clear();
+
+    const patternCalls = (mockMap.setPaintProperty as Mock).mock.calls.filter(
+      (call: unknown[]) =>
+        call[0] === 'background' && call[1] === 'background-pattern',
+    );
+    expect(patternCalls).toHaveLength(0);
+  });
+
   it('mantiene el drawing buffer sólo en el renderer temporal de exportación', async () => {
     const canvas = {
       style: { cursor: '' },
@@ -630,6 +647,27 @@ describe('MapLibreRenderer', () => {
     );
   });
 
+  it('reflects setLayerVisibility toggles in exported snapshots and PNGs', async () => {
+    // Regression: setLayerVisibility only told the layer manager, never updated
+    // this.activeLayers — so capturePng/createExportSnapshot kept using
+    // whatever layers were active at the last full render(), silently ignoring
+    // every toggle made afterwards through the layer panel.
+    mockMap.getCanvas.mockReturnValue({
+      style: { cursor: '' },
+      clientWidth: 640,
+      clientHeight: 480,
+      width: 640,
+      height: 480,
+    } as never);
+    const renderer = makeRenderer();
+    await renderer.render(makeCityData(), { activeLayers: ALL_LAYERS_VISIBLE });
+
+    renderer.setLayerVisibility('forests', false);
+
+    const snapshot = renderer.createExportSnapshot(baseSnapshotRequest);
+    expect(snapshot?.activeLayers.forests).toBe(false);
+  });
+
   it('setLayerVisibility for terrain controls the color-relief layer', async () => {
     const renderer = makeRenderer();
     await renderer.render(makeCityData(), { activeLayers: ALL_LAYERS_VISIBLE });
@@ -966,16 +1004,6 @@ describe('MapLibreRenderer', () => {
       for (const id of ALL_CITY_SOURCE_IDS) {
         expect(mockMap.removeSource).toHaveBeenCalledWith(id);
       }
-    });
-
-    it('resets background-pattern to null', () => {
-      const renderer = makeRenderer();
-      renderer.clear();
-      expect(mockMap.setPaintProperty).toHaveBeenCalledWith(
-        'background',
-        'background-pattern',
-        null,
-      );
     });
 
     it('is safe to call when no layers or sources exist (idempotent)', () => {

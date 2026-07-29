@@ -1,11 +1,13 @@
 #!/usr/bin/env node
 
 /**
- * Decodes a PNG exported by the app into the raw `.rgba` sidecar and
- * `sha256`/dimensions the 6.2A golden manifest needs. Deliberately dependency-
- * free: the harness itself never decodes PNGs (that decision is recorded in
- * the story), but *generating* a golden's sidecar once, locally, is a
- * different concern than the harness's runtime comparison path.
+ * Decodes a PNG exported by the app, printing the `dimensions`/`sha256` the
+ * 6.2A golden manifest needs when accepting a case. Deliberately dependency-
+ * free — this decoder (`decodePngToRgba`) is also imported directly by
+ * `harness.mjs`, which decodes the committed `.png` on demand rather than
+ * reading a persisted RGBA sidecar (that sidecar used to be written to disk
+ * here too, but nothing reads it any more — for 36 cases across two fixtures
+ * that was over 1 GiB nobody needed committed to the repo).
  *
  * Supports the 8-bit, non-interlaced subset (grayscale, RGB, grayscale+alpha,
  * RGBA) that `canvas.toBlob('image/png')` always produces in every browser —
@@ -13,13 +15,12 @@
  *
  * Usage:
  *   node png-to-rgba.mjs golden.png
- *   → writes golden.rgba next to it, prints { rgbaPath, width, height, sha256 }
+ *   → prints { dimensions, sha256 }, the values to paste into manifest.json
  */
 
 import { createHash } from 'node:crypto';
 import { inflateSync } from 'node:zlib';
-import { readFile, writeFile } from 'node:fs/promises';
-import { basename, dirname, extname, join } from 'node:path';
+import { readFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 
 const SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
@@ -157,15 +158,9 @@ async function main() {
   }
   const buffer = await readFile(inputPath);
   const { width, height, pixels } = decodePngToRgba(buffer);
-  const outputPath = join(
-    dirname(inputPath),
-    `${basename(inputPath, extname(inputPath))}.rgba`,
-  );
-  await writeFile(outputPath, pixels);
   console.log(
     JSON.stringify(
       {
-        rgbaPath: outputPath,
         dimensions: { width, height },
         sha256: createHash('sha256').update(pixels).digest('hex'),
       },
