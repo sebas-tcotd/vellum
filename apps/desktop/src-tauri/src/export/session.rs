@@ -72,15 +72,6 @@ pub trait TileConsumer: Send {
     /// Returns a typed `VellumError` when coverage is incomplete or the
     /// consumer otherwise cannot confirm a publishable result.
     fn finish(&mut self) -> Result<(), VellumError>;
-    /// Reports whether an earlier call left this consumer's underlying
-    /// encoder/writer in an irrecoverable state. When `true`, the owning
-    /// session must fail closed — drop the consumer and remove `.part` —
-    /// rather than allow further `accept`/`finish` retries, since the
-    /// encoder stream itself can no longer be trusted. Defaults to `false`
-    /// for consumers that only ever reject retry-safe chunks.
-    fn is_poisoned(&self) -> bool {
-        false
-    }
 }
 
 /// Builds one `TileConsumer` per session, given the declared output
@@ -520,13 +511,10 @@ impl ExportSessionManager {
             },
             payload,
         ) {
-            // A rejection over a chunk the consumer never wrote is retry-safe
-            // and leaves the session Active. One that poisoned the consumer's
-            // encoder is not — fail the session outright so a caller can
-            // never retry over a corrupted stream.
-            if consumer.is_poisoned() {
-                fail_session(session);
-            }
+            // Every consumer rejection, including decode failures, makes this
+            // export terminal: AC9 requires cleanup rather than a retry over
+            // a partially validated PNG stream.
+            fail_session(session);
             return Err(e);
         }
 
@@ -1033,11 +1021,12 @@ mod tests {
     }
 
     #[test]
-    fn append_rejects_when_consumer_rejects_and_does_not_advance_sequence() {
+    fn append_consumer_rejection_fails_the_session_and_cleans_the_part_file() {
         let dir = unique_temp_dir("consumer-reject");
         let manager = manager_with(true, true);
         let metadata = begin_metadata("reject-map", 10, 10);
         let session = manager.begin(&metadata, &dir).expect("begin must succeed");
+        let part_path = dir.join(format!(".vellum-export-{}.part", session.session_id));
 
         let frame = frame_bytes(
             &session.session_id,
@@ -1050,15 +1039,16 @@ mod tests {
         let first_err = manager.append(&frame).unwrap_err();
         assert!(matches!(first_err, VellumError::ExportFailed { .. }));
 
-        // Retrying the same sequence=0 frame must hit the same consumer
-        // rejection again rather than an "out-of-order" error — proving the
-        // failed attempt above never advanced `expected_sequence`.
+        assert!(!part_path.exists());
+
+        // A rejected payload is terminal: a retry must never reuse the same
+        // session or leave the corrupted export eligible for publication.
         let second_err = manager.append(&frame).unwrap_err();
         match second_err {
             VellumError::ExportFailed { reason } => {
-                assert!(reason.contains("test consumer rejected"));
+                assert!(reason.contains("not active"));
             }
-            other => panic!("expected the same consumer rejection again, got {other:?}"),
+            other => panic!("expected terminal session error, got {other:?}"),
         }
 
         std::fs::remove_dir_all(&dir).unwrap();
@@ -1541,14 +1531,10 @@ mod tests {
                 reason: "should never be reached in this test".to_string(),
             })
         }
-
-        fn is_poisoned(&self) -> bool {
-            true
-        }
     }
 
     #[test]
-    fn append_fails_the_whole_session_when_the_consumer_is_poisoned() {
+    fn append_fails_the_whole_session_when_the_consumer_rejects() {
         let dir = unique_temp_dir("poisoned-consumer");
         let manager =
             ExportSessionManager::with_consumer_factory(Box::new(|_width, _height, _part_path| {

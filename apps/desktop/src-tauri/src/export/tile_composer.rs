@@ -25,6 +25,10 @@ const BYTES_PER_PIXEL: usize = 4;
 /// decode allocation before this module ever sees the real PNG bytes.
 const MAX_TILE_RGBA_BYTES: u64 = 32 * 1024 * 1024;
 
+/// Keeps the decoded tile and the in-progress output band within the session
+/// memory budget at the same time.
+const MAX_BAND_RGBA_BYTES: u64 = super::session::MAX_SESSION_BYTES - MAX_TILE_RGBA_BYTES;
+
 fn compose_error(reason: &str) -> VellumError {
     VellumError::ExportFailed {
         reason: format!("tile composition: {reason}"),
@@ -131,9 +135,9 @@ impl<W: Write + Send + 'static> TileComposer<W> {
             // The band spans one row of tiles at the declared output width —
             // bounded independently of the session's encoded-byte budget,
             // since this buffer holds decoded (uncompressed) RGBA bytes.
-            if band_len_bytes > super::session::MAX_SESSION_BYTES {
+            if band_len_bytes > MAX_BAND_RGBA_BYTES {
                 return Err(compose_error(
-                    "scanline band exceeds the session memory budget",
+                    "scanline band exceeds the remaining session memory budget",
                 ));
             }
             let band_len = usize::try_from(band_len_bytes)
@@ -144,7 +148,11 @@ impl<W: Write + Send + 'static> TileComposer<W> {
                 "[export] tile composer band buffer: {band_len} bytes (band_height={}, output_width={})",
                 self.band_height, self.output_width
             );
-            self.band = vec![0u8; band_len];
+            let mut band = Vec::new();
+            band.try_reserve_exact(band_len)
+                .map_err(|_| compose_error("unable to allocate scanline band"))?;
+            band.resize(band_len, 0);
+            self.band = band;
             Ok(())
         } else if tile.useful_rect.y != self.cursor_y || tile.useful_rect.height != self.band_height
         {
@@ -254,10 +262,6 @@ impl<W: Write + Send + 'static> TileConsumer for TileComposer<W> {
             write_error(&format!("failed finalizing PNG stream: {e}"))
         })
     }
-
-    fn is_poisoned(&self) -> bool {
-        self.failed
-    }
 }
 
 /// Computes `usefulRect`'s offset within `renderRect`'s decoded pixel grid.
@@ -300,7 +304,10 @@ fn decode_tile_png(payload: &[u8], render_rect: PixelRectRaw) -> Result<Vec<u8>,
     let buffer_size = reader
         .output_buffer_size()
         .ok_or_else(|| compose_error("unable to determine PNG buffer size"))?;
-    let mut buf = vec![0u8; buffer_size];
+    let mut buf = Vec::new();
+    buf.try_reserve_exact(buffer_size)
+        .map_err(|_| compose_error("unable to allocate decoded PNG buffer"))?;
+    buf.resize(buffer_size, 0);
     reader
         .next_frame(&mut buf)
         .map_err(|e| compose_error(&format!("failed to decode tile PNG: {e}")))?;
@@ -724,7 +731,7 @@ mod tests {
             .accept(&tile(0, 0, (0, 0, 2, 2), (0, 0, 2, 2)), &payload)
             .unwrap_err();
         assert!(matches!(err, VellumError::IoError { .. }));
-        assert!(composer.is_poisoned());
+        assert!(composer.failed);
 
         // A retry over the now-corrupted encoder must fail closed rather
         // than silently succeed.
@@ -756,6 +763,6 @@ mod tests {
         should_fail.store(true, std::sync::atomic::Ordering::SeqCst);
         let err = composer.finish().unwrap_err();
         assert!(matches!(err, VellumError::IoError { .. }));
-        assert!(composer.is_poisoned());
+        assert!(composer.failed);
     }
 }
