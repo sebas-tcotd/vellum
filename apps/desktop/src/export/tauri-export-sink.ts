@@ -103,18 +103,33 @@ export class TauriExportSink implements ExportSink {
     }
   }
 
-  /** Requests the atomic publish and forgets the session regardless of outcome. */
+  /**
+   * Requests the atomic publish. The local session is only forgotten once the
+   * outcome is confirmed — on success, or on failure after best-effort
+   * cancelling the Rust session so its `.part` file never lingers unattended.
+   */
   async finish(session: ExportSession): Promise<ExportReceipt> {
     const state = this.requireSession(session);
     if (state.finished) {
       throw new Error('TauriExportSink session has already finished');
     }
     state.finished = true;
-    this.sessions.delete(session.sessionId);
-    const result = await this.invokeCommand(IPC_COMMANDS.FINISH_EXPORT, {
-      sessionId: session.sessionId,
-    });
-    return asExportReceipt(result);
+    try {
+      const result = await this.invokeCommand(IPC_COMMANDS.FINISH_EXPORT, {
+        sessionId: session.sessionId,
+      });
+      this.sessions.delete(session.sessionId);
+      return asExportReceipt(result);
+    } catch (error) {
+      this.sessions.delete(session.sessionId);
+      await this.invokeCommand(IPC_COMMANDS.CANCEL_EXPORT, {
+        sessionId: session.sessionId,
+      }).catch(() => {
+        // Best-effort: cancel_export is idempotent, and a failed cancel here
+        // still leaves the startup sweep to reclaim an orphaned `.part`.
+      });
+      throw error;
+    }
   }
 
   /** Forgets the local session and asks Rust to clean up; safe to call repeatedly. */

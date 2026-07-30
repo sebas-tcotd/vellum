@@ -4,6 +4,7 @@ import {
   decodeExportFrame,
   encodeExportFrame,
   EXPORT_FRAME_HEADER_BYTES,
+  EXPORT_FRAME_MAX_TOTAL_BYTES,
 } from './export-frame';
 
 const SESSION_ID = '0102030405060708090a0b0c0d0e0f10';
@@ -117,6 +118,24 @@ describe('encodeExportFrame', () => {
     expect(() =>
       encodeExportFrame({ sessionId: SESSION_ID, chunk }, 2),
     ).toThrow('maxChunkBytes');
+  });
+
+  it('rechaza un frame que excede el presupuesto de 64 MiB aunque maxChunkBytes lo permita', () => {
+    const oversizedChunk = {
+      ...chunk,
+      // One byte over what the 76-byte header leaves inside the 64 MiB IPC
+      // pending budget — the total-frame check must catch this even though
+      // maxChunkBytes below is deliberately set far above it.
+      encodedPng: new Uint8Array(
+        EXPORT_FRAME_MAX_TOTAL_BYTES - EXPORT_FRAME_HEADER_BYTES + 1,
+      ),
+    };
+    expect(() =>
+      encodeExportFrame(
+        { sessionId: SESSION_ID, chunk: oversizedChunk },
+        Number.MAX_SAFE_INTEGER,
+      ),
+    ).toThrow('IPC pending budget');
   });
 
   it('rechaza un id de sesión que no es hex de 32 caracteres', () => {

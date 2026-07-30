@@ -438,7 +438,12 @@ pub async fn append_export_chunk(
             });
         }
     };
-    state.inner().append(&bytes)
+    let manager = state.inner().clone();
+    tokio::task::spawn_blocking(move || manager.append(&bytes))
+        .await
+        .map_err(|e| VellumError::IoError {
+            reason: format!("export append task failed: {e}"),
+        })?
 }
 
 /// Confirms full tile coverage and atomically publishes the committed file.

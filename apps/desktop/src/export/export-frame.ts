@@ -8,6 +8,13 @@ export const EXPORT_FRAME_VERSION = 1;
 export const EXPORT_FRAME_KIND_PNG_TILE = 1;
 /** Fixed size in bytes of the v1 header, before the encoded PNG payload. */
 export const EXPORT_FRAME_HEADER_BYTES = 76;
+/**
+ * Whole wire-frame ceiling per AD-10 ("64 MiB máximos pendientes entre
+ * frontend e IPC") — the complete frame crossing IPC, header included.
+ * Enforced independently of the session's reported `maxChunkBytes` so a
+ * misreported ceiling can never build an over-budget frame.
+ */
+export const EXPORT_FRAME_MAX_TOTAL_BYTES = 64 * 1024 * 1024;
 
 const SESSION_ID_BYTES = 16;
 const SESSION_ID_HEX_PATTERN = /^[0-9a-f]{32}$/;
@@ -71,13 +78,18 @@ export function encodeExportFrame(
       `Export frame encoded payload (${encodedLength} bytes) exceeds maxChunkBytes (${maxChunkBytes})`,
     );
   }
+  const totalBytes = EXPORT_FRAME_HEADER_BYTES + encodedLength;
+  if (totalBytes > EXPORT_FRAME_MAX_TOTAL_BYTES) {
+    throw new Error(
+      `Export frame total size (${totalBytes} bytes) exceeds the ${EXPORT_FRAME_MAX_TOTAL_BYTES}-byte IPC pending budget`,
+    );
+  }
   assertSequence(chunk.sequence);
   assertU32(chunk.tileX, 'tileX');
   assertU32(chunk.tileY, 'tileY');
   assertRect(chunk.usefulRect, 'usefulRect');
   assertRect(chunk.renderRect, 'renderRect');
 
-  const totalBytes = EXPORT_FRAME_HEADER_BYTES + encodedLength;
   const buffer = new ArrayBuffer(totalBytes);
   const bytes = new Uint8Array(buffer);
   const view = new DataView(buffer);

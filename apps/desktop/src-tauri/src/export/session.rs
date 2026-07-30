@@ -1,7 +1,7 @@
 //! `ExportSessionManager` — the Rust half of the transactional tiled-export
 //! boundary. Owns session state, ID generation, budgets, `.part` files and their
 //! atomic rename. Does not render, encode, or composite PNGs (6.2D–6.2F).
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Mutex, MutexGuard};
@@ -14,10 +14,16 @@ use crate::ipc_contract::{
     AppendAckResponse, BeginExport, ExportReceiptResponse, ExportSessionResponse,
 };
 
-/// Maximum encoded bytes accepted in a single in-flight chunk (AD-10: "64 MiB
-/// máximos pendientes entre frontend e IPC" — the only chunk pending at a time,
-/// since `maxInFlight` is always 1).
-pub const MAX_CHUNK_BYTES: u64 = 64 * 1024 * 1024;
+/// Whole wire-frame ceiling per AD-10 ("64 MiB máximos pendientes entre
+/// frontend e IPC") — this is the complete frame crossing IPC, header
+/// included, since `maxInFlight` is always 1 and only one frame is ever
+/// pending at a time.
+pub const MAX_PENDING_FRAME_BYTES: u64 = 64 * 1024 * 1024;
+/// Maximum encoded PNG payload accepted in a single chunk. Derived by
+/// subtracting the fixed 76-byte header so a full wire frame (header +
+/// payload) never exceeds [`MAX_PENDING_FRAME_BYTES`]. Reported to the
+/// frontend as `maxChunkBytes`.
+pub const MAX_CHUNK_BYTES: u64 = MAX_PENDING_FRAME_BYTES - framing::HEADER_BYTES as u64;
 /// Maximum cumulative encoded bytes a single session may accept across its
 /// lifetime (AD-10: "256 MiB de buffers administrados por una sesión").
 pub const MAX_SESSION_BYTES: u64 = 256 * 1024 * 1024;
@@ -28,14 +34,32 @@ pub const MAX_LOGICAL_PIXELS: u64 = 1_000_000_000;
 const TEMP_FILE_PREFIX: &str = ".vellum-export-";
 const TEMP_FILE_SUFFIX: &str = ".part";
 
+/// Geometry and size of one accepted chunk, forwarded to the injected
+/// [`TileConsumer`] so a future compositor (6.2F) can locate and composite
+/// each tile without re-deriving this from the wire frame.
+#[derive(Debug, Clone, Copy)]
+pub struct AcceptedTile {
+    /// Tile column.
+    pub tile_x: u32,
+    /// Tile row.
+    pub tile_y: u32,
+    /// Useful output rectangle covered by the encoded bytes.
+    pub useful_rect: PixelRectRaw,
+    /// Render rectangle represented by the encoded bytes.
+    pub render_rect: PixelRectRaw,
+    /// Encoded PNG byte length.
+    pub encoded_len: usize,
+}
+
 /// Accepts validated tile chunks and confirms full coverage before a commit.
 pub trait TileConsumer: Send {
-    /// Records one already-validated chunk (size only — framing/budget checks
-    /// happen in the session before this is called).
+    /// Records one already-validated chunk. Framing/budget/coverage checks
+    /// happen in the session before this is called; `tile` carries the
+    /// geometry a real compositor will need starting in 6.2F.
     ///
     /// # Errors
     /// Returns a typed `VellumError` when the chunk cannot be accepted.
-    fn accept(&mut self, encoded_len: usize) -> Result<(), VellumError>;
+    fn accept(&mut self, tile: &AcceptedTile) -> Result<(), VellumError>;
     /// Confirms full coverage. Only `Ok(())` allows the `.part` file to be
     /// committed via rename.
     ///
@@ -52,7 +76,7 @@ pub trait TileConsumer: Send {
 struct FailClosedConsumer;
 
 impl TileConsumer for FailClosedConsumer {
-    fn accept(&mut self, _encoded_len: usize) -> Result<(), VellumError> {
+    fn accept(&mut self, _tile: &AcceptedTile) -> Result<(), VellumError> {
         Ok(())
     }
 
@@ -68,10 +92,17 @@ impl TileConsumer for FailClosedConsumer {
 /// [`FailClosedConsumer`].
 pub type ConsumerFactory = Box<dyn Fn() -> Box<dyn TileConsumer> + Send + Sync>;
 
+/// Explicit session lifecycle (AC1: `Created → Active → Finishing → Committed`
+/// or `Cancelled`/`Failed`). `Created` is instantaneous — a session is only
+/// ever observable in the map once its `.part` file exists, so it starts at
+/// `Active`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum SessionState {
     Active,
     Finishing,
+    Committed,
+    Cancelled,
+    Failed,
 }
 
 struct Session {
@@ -79,6 +110,8 @@ struct Session {
     expected_sequence: u64,
     accepted_bytes: u64,
     accepted_pixels: u64,
+    expected_tiles: u32,
+    seen_tiles: HashSet<(u32, u32)>,
     output_width: u32,
     output_height: u32,
     part_path: PathBuf,
@@ -86,16 +119,17 @@ struct Session {
     consumer: Option<Box<dyn TileConsumer>>,
 }
 
-/// Tauri-managed state owning every active tiled-export session.
+/// Tauri-managed state owning every tiled-export session, active or terminal.
 ///
 /// # Terminal states
-/// `Cancelled`, `Failed` and `Committed` are not persisted enum variants —
-/// reaching any of them removes the session from the map immediately, since
-/// nothing observable needs to inspect a session afterward. A later
-/// append/finish/cancel on that id simply finds nothing and returns the same
-/// typed "unknown session" error, which already satisfies "no se acepta
-/// append/finish después de Cancelled, Failed o Committed" and "cancel repetido
-/// no-op" without retaining unbounded state for the life of the process.
+/// `Committed`, `Cancelled` and `Failed` are explicit, persisted
+/// [`SessionState`] variants (AC1) — reaching one does not remove the session
+/// from the map. The entry becomes a tombstone instead: its `consumer` is
+/// dropped, `append`/`finish` on that id return a typed "not active" error,
+/// and `cancel` on it is a no-op that never touches an already-committed
+/// file. Tombstones are a handful of small fields for a low-frequency,
+/// user-driven, single-process desktop operation, so they are kept for the
+/// life of the process rather than evicted.
 pub struct ExportSessionManager {
     sessions: Mutex<HashMap<String, Session>>,
     consumer_factory: ConsumerFactory,
@@ -136,6 +170,21 @@ fn unknown_session_error() -> VellumError {
     }
 }
 
+/// Rejects an operation against a session that exists but is not `Active`,
+/// naming its actual terminal/transitional state for diagnostics.
+fn session_not_active_error(state: SessionState) -> VellumError {
+    let phase = match state {
+        SessionState::Active => "active",
+        SessionState::Finishing => "finishing",
+        SessionState::Committed => "already committed",
+        SessionState::Cancelled => "cancelled",
+        SessionState::Failed => "failed",
+    };
+    VellumError::ExportFailed {
+        reason: format!("export session is {phase}, not active"),
+    }
+}
+
 fn rect_error(reason: &str) -> VellumError {
     VellumError::ExportFailed {
         reason: format!("export frame rectangle: {reason}"),
@@ -145,6 +194,12 @@ fn rect_error(reason: &str) -> VellumError {
 fn budget_error(reason: &str) -> VellumError {
     VellumError::ExportFailed {
         reason: format!("export session budget: {reason}"),
+    }
+}
+
+fn coverage_error(reason: &str) -> VellumError {
+    VellumError::ExportFailed {
+        reason: format!("export tile coverage: {reason}"),
     }
 }
 
@@ -206,6 +261,36 @@ fn validate_positive_rect(rect: &PixelRectRaw) -> Result<(), VellumError> {
     Ok(())
 }
 
+/// Validates that `inner` (the useful/output rectangle) is fully contained
+/// within `outer` (the rendered rectangle) — a compositor can only crop
+/// pixels that were actually rendered.
+fn validate_rect_contained(inner: &PixelRectRaw, outer: &PixelRectRaw) -> Result<(), VellumError> {
+    let inner_right = inner
+        .x
+        .checked_add(inner.width)
+        .ok_or_else(|| rect_error("overflows"))?;
+    let inner_bottom = inner
+        .y
+        .checked_add(inner.height)
+        .ok_or_else(|| rect_error("overflows"))?;
+    let outer_right = outer
+        .x
+        .checked_add(outer.width)
+        .ok_or_else(|| rect_error("overflows"))?;
+    let outer_bottom = outer
+        .y
+        .checked_add(outer.height)
+        .ok_or_else(|| rect_error("overflows"))?;
+    if inner.x < outer.x
+        || inner.y < outer.y
+        || inner_right > outer_right
+        || inner_bottom > outer_bottom
+    {
+        return Err(rect_error("usefulRect is not contained within renderRect"));
+    }
+    Ok(())
+}
+
 impl ExportSessionManager {
     /// Creates a manager using the production fail-closed consumer.
     #[must_use]
@@ -244,8 +329,8 @@ impl ExportSessionManager {
     ///
     /// # Errors
     /// Returns `VellumError::ExportFailed` for an unsupported mode, invalid
-    /// dimensions, or an unsafe filename; `VellumError::IoError` when the
-    /// `.part` file cannot be created.
+    /// dimensions, a zero tile budget, or an unsafe filename;
+    /// `VellumError::IoError` when the `.part` file cannot be created.
     pub fn begin(
         &self,
         metadata: &BeginExport,
@@ -259,6 +344,11 @@ impl ExportSessionManager {
         if metadata.output_width == 0 || metadata.output_height == 0 {
             return Err(VellumError::ExportFailed {
                 reason: "export session requires positive output dimensions".to_string(),
+            });
+        }
+        if metadata.expected_tiles == 0 {
+            return Err(VellumError::ExportFailed {
+                reason: "export session requires at least one expected tile".to_string(),
             });
         }
         let total_pixels = u64::from(metadata.output_width)
@@ -290,6 +380,8 @@ impl ExportSessionManager {
             expected_sequence: 0,
             accepted_bytes: 0,
             accepted_pixels: 0,
+            expected_tiles: metadata.expected_tiles,
+            seen_tiles: HashSet::new(),
             output_width: metadata.output_width,
             output_height: metadata.output_height,
             part_path,
@@ -311,8 +403,8 @@ impl ExportSessionManager {
     ///
     /// # Errors
     /// Returns `VellumError::ExportFailed` for a malformed frame, an unknown or
-    /// inactive session, an out-of-order sequence, an invalid rectangle, a
-    /// budget overrun, or a consumer rejection.
+    /// inactive session, an out-of-order sequence, an invalid or overlapping
+    /// rectangle/tile, a budget overrun, or a consumer rejection.
     pub fn append(&self, raw: &[u8]) -> Result<AppendAckResponse, VellumError> {
         let (header, payload) = framing::parse_frame(raw)?;
         let session_id = hex_encode(&header.session_id);
@@ -322,7 +414,7 @@ impl ExportSessionManager {
             .get_mut(&session_id)
             .ok_or_else(unknown_session_error)?;
         if session.state != SessionState::Active {
-            return Err(unknown_session_error());
+            return Err(session_not_active_error(session.state));
         }
         if header.sequence != session.expected_sequence {
             return Err(VellumError::ExportFailed {
@@ -332,7 +424,15 @@ impl ExportSessionManager {
 
         let encoded_len =
             u64::try_from(payload.len()).map_err(|_| budget_error("encoded length overflows"))?;
-        if encoded_len > MAX_CHUNK_BYTES {
+        // AC6: the pending IPC budget covers the *whole* wire frame (header +
+        // payload), not just the payload — count it explicitly with checked
+        // arithmetic rather than trusting a payload-only comparison.
+        let header_bytes = u64::try_from(framing::HEADER_BYTES)
+            .map_err(|_| budget_error("header size overflows"))?;
+        let frame_total_bytes = header_bytes
+            .checked_add(encoded_len)
+            .ok_or_else(|| budget_error("frame size overflows"))?;
+        if frame_total_bytes > MAX_PENDING_FRAME_BYTES {
             return Err(budget_error("chunk exceeds maxChunkBytes"));
         }
         let new_accepted_bytes = checked_add_within_budget(
@@ -348,6 +448,7 @@ impl ExportSessionManager {
             session.output_height,
         )?;
         validate_positive_rect(&header.render_rect)?;
+        validate_rect_contained(&header.useful_rect, &header.render_rect)?;
 
         let pixel_area = u64::from(header.useful_rect.width)
             .checked_mul(u64::from(header.useful_rect.height))
@@ -359,16 +460,31 @@ impl ExportSessionManager {
             "session exceeds the logical pixel budget",
         )?;
 
+        let tile_coord = (header.tile_x, header.tile_y);
+        if session.seen_tiles.contains(&tile_coord) {
+            return Err(coverage_error("tile coordinate already accepted (overlap)"));
+        }
+        if u32::try_from(session.seen_tiles.len()).unwrap_or(u32::MAX) >= session.expected_tiles {
+            return Err(coverage_error("more tiles received than expectedTiles"));
+        }
+
         let consumer = session
             .consumer
             .as_mut()
             .ok_or_else(unknown_session_error)?;
-        consumer.accept(payload.len())?;
+        consumer.accept(&AcceptedTile {
+            tile_x: header.tile_x,
+            tile_y: header.tile_y,
+            useful_rect: header.useful_rect,
+            render_rect: header.render_rect,
+            encoded_len: payload.len(),
+        })?;
 
         // Every validation above passed — only now is state mutated (AC5).
         session.accepted_bytes = new_accepted_bytes;
         session.accepted_pixels = new_accepted_pixels;
         session.expected_sequence += 1;
+        session.seen_tiles.insert(tile_coord);
 
         Ok(AppendAckResponse {
             session_id,
@@ -378,14 +494,16 @@ impl ExportSessionManager {
         })
     }
 
-    /// Confirms full coverage via the consumer, then atomically renames the
+    /// Confirms full, non-overlapping tile coverage against `expectedTiles`
+    /// and the consumer's own confirmation, then atomically renames the
     /// `.part` file to its final destination.
     ///
     /// # Errors
     /// Returns a typed `VellumError` when the session is unknown or not
-    /// `Active`, when the consumer reports incomplete coverage, or when the
-    /// filesystem rename fails — in every case the `.part` file and session
-    /// state are cleaned up rather than left dangling.
+    /// `Active`, when fewer tiles were accepted than `expectedTiles` promised,
+    /// when the consumer reports incomplete coverage, or when the filesystem
+    /// rename fails — in every case the `.part` file is cleaned up rather than
+    /// left dangling and the session moves to an explicit terminal state.
     pub fn finish(&self, session_id: &str) -> Result<ExportReceiptResponse, VellumError> {
         let (mut consumer, part_path, final_path) = {
             let mut sessions = self.lock_sessions();
@@ -393,7 +511,14 @@ impl ExportSessionManager {
                 .get_mut(session_id)
                 .ok_or_else(unknown_session_error)?;
             if session.state != SessionState::Active {
-                return Err(unknown_session_error());
+                return Err(session_not_active_error(session.state));
+            }
+            let accepted_tiles = u32::try_from(session.seen_tiles.len()).unwrap_or(u32::MAX);
+            if accepted_tiles != session.expected_tiles {
+                return Err(coverage_error(&format!(
+                    "expected {} tiles, received {accepted_tiles}",
+                    session.expected_tiles
+                )));
             }
             session.state = SessionState::Finishing;
             let consumer = session.consumer.take().ok_or_else(unknown_session_error)?;
@@ -404,55 +529,64 @@ impl ExportSessionManager {
             )
         };
 
-        let coverage_result = consumer.finish();
-
-        let mut sessions = self.lock_sessions();
-        match coverage_result {
-            Ok(()) => match std::fs::rename(&part_path, &final_path) {
-                Ok(()) => {
-                    sessions.remove(session_id);
-                    Ok(ExportReceiptResponse {
-                        file_path: final_path.to_string_lossy().into_owned(),
-                        folder_path: final_path
-                            .parent()
-                            .map(|p| p.to_string_lossy().into_owned())
-                            .unwrap_or_default(),
-                    })
-                }
-                Err(e) => {
+        let outcome = match consumer.finish() {
+            Ok(()) => std::fs::rename(&part_path, &final_path)
+                .map(|()| ExportReceiptResponse {
+                    file_path: final_path.to_string_lossy().into_owned(),
+                    folder_path: final_path
+                        .parent()
+                        .map(|p| p.to_string_lossy().into_owned())
+                        .unwrap_or_default(),
+                })
+                .map_err(|e| {
                     let _ = std::fs::remove_file(&part_path);
-                    sessions.remove(session_id);
-                    Err(VellumError::IoError {
+                    VellumError::IoError {
                         reason: format!("export finalize failed: {e}"),
-                    })
-                }
-            },
+                    }
+                }),
             Err(e) => {
                 let _ = std::fs::remove_file(&part_path);
-                sessions.remove(session_id);
                 Err(e)
             }
+        };
+
+        let mut sessions = self.lock_sessions();
+        if let Some(session) = sessions.get_mut(session_id) {
+            session.state = if outcome.is_ok() {
+                SessionState::Committed
+            } else {
+                SessionState::Failed
+            };
         }
+        outcome
     }
 
-    /// Abandons a session idempotently: removing an unknown id is a no-op.
-    /// Never touches a file that has already been committed — by the time a
-    /// session is committed it is already gone from the map, so the best-effort
-    /// `.part` removal below simply finds nothing.
+    /// Abandons a session idempotently: an unknown id, or a session already in
+    /// a terminal state, is a no-op. Never touches a file that has already
+    /// been committed.
     ///
     /// # Errors
     /// This method does not fail — it always returns `Ok(())`.
     pub fn cancel(&self, session_id: &str) -> Result<(), VellumError> {
-        let removed = self.lock_sessions().remove(session_id);
-        if let Some(session) = removed {
-            let _ = std::fs::remove_file(&session.part_path);
+        let mut sessions = self.lock_sessions();
+        if let Some(session) = sessions.get_mut(session_id) {
+            if matches!(
+                session.state,
+                SessionState::Active | SessionState::Finishing
+            ) {
+                let _ = std::fs::remove_file(&session.part_path);
+                session.consumer = None;
+                session.state = SessionState::Cancelled;
+            }
         }
         Ok(())
     }
 
-    /// Removes every active session's `.part` file and clears all state.
-    /// Called on window close and process exit so a crashed or abandoned
-    /// session never leaves a stray temp file behind.
+    /// Removes every non-terminal session's `.part` file and clears all
+    /// state. Called on window close and process exit so a crashed or
+    /// abandoned session never leaves a stray temp file behind; harmless for
+    /// tombstoned terminal sessions since a committed `.part` no longer exists
+    /// at that path.
     pub fn cleanup_all(&self) {
         let mut sessions = self.lock_sessions();
         for (_, session) in sessions.drain() {
@@ -518,9 +652,23 @@ mod tests {
         }
     }
 
+    fn begin_metadata_with_tiles(
+        file_name: &str,
+        width: u32,
+        height: u32,
+        expected_tiles: u32,
+    ) -> BeginExport {
+        BeginExport {
+            expected_tiles,
+            ..begin_metadata(file_name, width, height)
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
     fn frame_bytes(
         session_id_hex: &str,
         sequence: u64,
+        tile: (u32, u32),
         useful: (u32, u32, u32, u32),
         render: (u32, u32, u32, u32),
         payload: &[u8],
@@ -535,8 +683,8 @@ mod tests {
             bytes.push(byte);
         }
         bytes.extend_from_slice(&sequence.to_le_bytes());
-        bytes.extend_from_slice(&0u32.to_le_bytes()); // tileX
-        bytes.extend_from_slice(&0u32.to_le_bytes()); // tileY
+        bytes.extend_from_slice(&tile.0.to_le_bytes()); // tileX
+        bytes.extend_from_slice(&tile.1.to_le_bytes()); // tileY
         bytes.extend_from_slice(&useful.0.to_le_bytes());
         bytes.extend_from_slice(&useful.1.to_le_bytes());
         bytes.extend_from_slice(&useful.2.to_le_bytes());
@@ -560,7 +708,7 @@ mod tests {
     }
 
     impl TileConsumer for TestConsumer {
-        fn accept(&mut self, _encoded_len: usize) -> Result<(), VellumError> {
+        fn accept(&mut self, _tile: &AcceptedTile) -> Result<(), VellumError> {
             if self.reject_accept {
                 return Err(VellumError::ExportFailed {
                     reason: "test consumer rejected chunk".to_string(),
@@ -613,11 +761,24 @@ mod tests {
     }
 
     #[test]
+    fn max_chunk_bytes_accounts_for_the_fixed_header() {
+        // AC6: the 64 MiB IPC pending budget covers the whole wire frame, so
+        // the payload ceiling reported as maxChunkBytes must leave room for
+        // the fixed 76-byte header.
+        assert_eq!(
+            MAX_CHUNK_BYTES + u64::try_from(framing::HEADER_BYTES).unwrap(),
+            MAX_PENDING_FRAME_BYTES
+        );
+        assert_eq!(MAX_PENDING_FRAME_BYTES, 64 * 1024 * 1024);
+    }
+
+    #[test]
     fn append_before_begin_returns_typed_error() {
         let manager = manager_with(true, false);
         let frame = frame_bytes(
             &"00".repeat(16),
             0,
+            (0, 0),
             (0, 0, 10, 10),
             (0, 0, 10, 10),
             &[1, 2, 3],
@@ -646,6 +807,7 @@ mod tests {
         let frame = frame_bytes(
             &session.session_id,
             0,
+            (0, 0),
             (0, 0, 100, 100),
             (0, 0, 100, 100),
             &[1, 2, 3, 4],
@@ -678,7 +840,14 @@ mod tests {
         let session = manager.begin(&metadata, &dir).expect("begin must succeed");
         let part_path = dir.join(format!(".vellum-export-{}.part", session.session_id));
 
-        let frame = frame_bytes(&session.session_id, 0, (0, 0, 10, 10), (0, 0, 10, 10), &[9]);
+        let frame = frame_bytes(
+            &session.session_id,
+            0,
+            (0, 0),
+            (0, 0, 10, 10),
+            (0, 0, 10, 10),
+            &[9],
+        );
         manager.append(&frame).expect("append must succeed");
 
         assert!(manager.finish(&session.session_id).is_err());
@@ -689,7 +858,7 @@ mod tests {
         assert!(!dir.join("incomplete-map.png").exists());
         assert!(
             manager.append(&frame).is_err(),
-            "session must be gone after failed finish"
+            "a session left in a terminal (Failed) state must reject append"
         );
 
         std::fs::remove_dir_all(&dir).unwrap();
@@ -702,11 +871,24 @@ mod tests {
         let metadata = begin_metadata("seq-map", 10, 10);
         let session = manager.begin(&metadata, &dir).expect("begin must succeed");
 
-        let out_of_order =
-            frame_bytes(&session.session_id, 1, (0, 0, 10, 10), (0, 0, 10, 10), &[1]);
+        let out_of_order = frame_bytes(
+            &session.session_id,
+            1,
+            (0, 0),
+            (0, 0, 10, 10),
+            (0, 0, 10, 10),
+            &[1],
+        );
         assert!(manager.append(&out_of_order).is_err());
 
-        let in_order = frame_bytes(&session.session_id, 0, (0, 0, 10, 10), (0, 0, 10, 10), &[1]);
+        let in_order = frame_bytes(
+            &session.session_id,
+            0,
+            (0, 0),
+            (0, 0, 10, 10),
+            (0, 0, 10, 10),
+            &[1],
+        );
         let ack = manager
             .append(&in_order)
             .expect("first append must still work");
@@ -722,9 +904,38 @@ mod tests {
         let metadata = begin_metadata("bounds-map", 10, 10);
         let session = manager.begin(&metadata, &dir).expect("begin must succeed");
 
-        let out_of_bounds =
-            frame_bytes(&session.session_id, 0, (5, 5, 10, 10), (0, 0, 10, 10), &[1]);
+        let out_of_bounds = frame_bytes(
+            &session.session_id,
+            0,
+            (0, 0),
+            (5, 5, 10, 10),
+            (0, 0, 10, 10),
+            &[1],
+        );
         assert!(manager.append(&out_of_bounds).is_err());
+
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn append_rejects_useful_rect_not_contained_in_render_rect() {
+        let dir = unique_temp_dir("containment");
+        let manager = manager_with(true, false);
+        let metadata = begin_metadata("containment-map", 100, 100);
+        let session = manager.begin(&metadata, &dir).expect("begin must succeed");
+
+        // usefulRect's bottom-right corner (40,40) falls outside renderRect's
+        // (30,30) — both are individually valid rects, but useful is not
+        // contained within render.
+        let frame = frame_bytes(
+            &session.session_id,
+            0,
+            (0, 0),
+            (20, 20, 20, 20),
+            (0, 0, 30, 30),
+            &[1],
+        );
+        assert!(manager.append(&frame).is_err());
 
         std::fs::remove_dir_all(&dir).unwrap();
     }
@@ -740,6 +951,7 @@ mod tests {
         let frame = frame_bytes(
             &session.session_id,
             0,
+            (0, 0),
             (0, 0, 10, 10),
             (0, 0, 10, 10),
             &oversized_payload,
@@ -764,7 +976,14 @@ mod tests {
         let metadata = begin_metadata("reject-map", 10, 10);
         let session = manager.begin(&metadata, &dir).expect("begin must succeed");
 
-        let frame = frame_bytes(&session.session_id, 0, (0, 0, 10, 10), (0, 0, 10, 10), &[1]);
+        let frame = frame_bytes(
+            &session.session_id,
+            0,
+            (0, 0),
+            (0, 0, 10, 10),
+            (0, 0, 10, 10),
+            &[1],
+        );
         let first_err = manager.append(&frame).unwrap_err();
         assert!(matches!(first_err, VellumError::ExportFailed { .. }));
 
@@ -778,6 +997,113 @@ mod tests {
             }
             other => panic!("expected the same consumer rejection again, got {other:?}"),
         }
+
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn append_rejects_duplicate_tile_coordinate() {
+        let dir = unique_temp_dir("duplicate-tile");
+        let manager = manager_with(true, false);
+        let metadata = begin_metadata_with_tiles("duplicate-tile-map", 20, 10, 2);
+        let session = manager.begin(&metadata, &dir).expect("begin must succeed");
+
+        let first = frame_bytes(
+            &session.session_id,
+            0,
+            (0, 0),
+            (0, 0, 10, 10),
+            (0, 0, 10, 10),
+            &[1],
+        );
+        manager.append(&first).expect("first tile must be accepted");
+
+        // Same tileX/tileY as the first frame — an overlap, not a new tile.
+        let duplicate = frame_bytes(
+            &session.session_id,
+            1,
+            (0, 0),
+            (0, 0, 10, 10),
+            (0, 0, 10, 10),
+            &[1],
+        );
+        assert!(manager.append(&duplicate).is_err());
+
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn append_rejects_more_tiles_than_expected() {
+        let dir = unique_temp_dir("too-many-tiles");
+        let manager = manager_with(true, false);
+        let metadata = begin_metadata_with_tiles("too-many-tiles-map", 20, 10, 1);
+        let session = manager.begin(&metadata, &dir).expect("begin must succeed");
+
+        let first = frame_bytes(
+            &session.session_id,
+            0,
+            (0, 0),
+            (0, 0, 10, 10),
+            (0, 0, 10, 10),
+            &[1],
+        );
+        manager.append(&first).expect("first tile must be accepted");
+
+        let extra = frame_bytes(
+            &session.session_id,
+            1,
+            (1, 0),
+            (10, 0, 10, 10),
+            (10, 0, 10, 10),
+            &[1],
+        );
+        assert!(manager.append(&extra).is_err());
+
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn finish_rejects_when_fewer_tiles_than_expected_were_appended() {
+        let dir = unique_temp_dir("missing-tile");
+        let manager = manager_with(true, false);
+        let metadata = begin_metadata_with_tiles("missing-tile-map", 20, 10, 2);
+        let session = manager.begin(&metadata, &dir).expect("begin must succeed");
+
+        let first = frame_bytes(
+            &session.session_id,
+            0,
+            (0, 0),
+            (0, 0, 10, 10),
+            (0, 0, 10, 10),
+            &[1],
+        );
+        manager.append(&first).expect("first tile must be accepted");
+
+        let err = manager.finish(&session.session_id).unwrap_err();
+        assert!(matches!(err, VellumError::ExportFailed { .. }));
+
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn finish_rejects_with_zero_tiles_appended() {
+        let dir = unique_temp_dir("zero-tiles-finish");
+        let manager = manager_with(true, false);
+        let metadata = begin_metadata_with_tiles("zero-tiles-finish-map", 10, 10, 2);
+        let session = manager.begin(&metadata, &dir).expect("begin must succeed");
+
+        let err = manager.finish(&session.session_id).unwrap_err();
+        assert!(matches!(err, VellumError::ExportFailed { .. }));
+
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn begin_rejects_zero_expected_tiles() {
+        let dir = unique_temp_dir("zero-expected-tiles");
+        let manager = manager_with(true, false);
+        let metadata = begin_metadata_with_tiles("zero-expected-tiles-map", 10, 10, 0);
+        assert!(manager.begin(&metadata, &dir).is_err());
 
         std::fs::remove_dir_all(&dir).unwrap();
     }
@@ -798,11 +1124,74 @@ mod tests {
             "cancel must be idempotent"
         );
 
-        let frame = frame_bytes(&session.session_id, 0, (0, 0, 10, 10), (0, 0, 10, 10), &[1]);
+        let frame = frame_bytes(
+            &session.session_id,
+            0,
+            (0, 0),
+            (0, 0, 10, 10),
+            (0, 0, 10, 10),
+            &[1],
+        );
         assert!(
             manager.append(&frame).is_err(),
             "a cancelled session must reject append"
         );
+
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn cancel_after_commit_never_touches_the_final_file() {
+        let dir = unique_temp_dir("cancel-after-commit");
+        let manager = manager_with(true, false);
+        let metadata = begin_metadata("committed-map", 10, 10);
+        let session = manager.begin(&metadata, &dir).expect("begin must succeed");
+        let frame = frame_bytes(
+            &session.session_id,
+            0,
+            (0, 0),
+            (0, 0, 10, 10),
+            (0, 0, 10, 10),
+            &[1],
+        );
+        manager.append(&frame).expect("append must succeed");
+        manager
+            .finish(&session.session_id)
+            .expect("finish must succeed");
+
+        let final_path = dir.join("committed-map.png");
+        assert!(final_path.exists());
+
+        assert!(manager.cancel(&session.session_id).is_ok());
+        assert!(
+            final_path.exists(),
+            "cancel must never remove an already-committed file"
+        );
+
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn finish_after_already_committed_is_rejected() {
+        let dir = unique_temp_dir("finish-twice");
+        let manager = manager_with(true, false);
+        let metadata = begin_metadata("finish-twice-map", 10, 10);
+        let session = manager.begin(&metadata, &dir).expect("begin must succeed");
+        let frame = frame_bytes(
+            &session.session_id,
+            0,
+            (0, 0),
+            (0, 0, 10, 10),
+            (0, 0, 10, 10),
+            &[1],
+        );
+        manager.append(&frame).expect("append must succeed");
+        manager
+            .finish(&session.session_id)
+            .expect("first finish must succeed");
+
+        let err = manager.finish(&session.session_id).unwrap_err();
+        assert!(matches!(err, VellumError::ExportFailed { .. }));
 
         std::fs::remove_dir_all(&dir).unwrap();
     }
@@ -918,9 +1307,65 @@ mod tests {
     }
 
     #[test]
+    fn validate_rect_contained_rejects_useful_rect_escaping_render_rect() {
+        let render = PixelRectRaw {
+            x: 0,
+            y: 0,
+            width: 30,
+            height: 30,
+        };
+        let contained = PixelRectRaw {
+            x: 5,
+            y: 5,
+            width: 20,
+            height: 20,
+        };
+        assert!(validate_rect_contained(&contained, &render).is_ok());
+
+        let escaping = PixelRectRaw {
+            x: 20,
+            y: 20,
+            width: 20,
+            height: 20,
+        };
+        assert!(validate_rect_contained(&escaping, &render).is_err());
+
+        let before_origin = PixelRectRaw {
+            x: 0,
+            y: 0,
+            width: 10,
+            height: 10,
+        };
+        let render_offset = PixelRectRaw {
+            x: 5,
+            y: 5,
+            width: 10,
+            height: 10,
+        };
+        assert!(validate_rect_contained(&before_origin, &render_offset).is_err());
+    }
+
+    #[test]
     fn fail_closed_consumer_never_confirms_finish() {
         let mut consumer = FailClosedConsumer;
-        assert!(consumer.accept(10).is_ok());
+        let tile = AcceptedTile {
+            tile_x: 0,
+            tile_y: 0,
+            useful_rect: PixelRectRaw {
+                x: 0,
+                y: 0,
+                width: 10,
+                height: 10,
+            },
+            render_rect: PixelRectRaw {
+                x: 0,
+                y: 0,
+                width: 10,
+                height: 10,
+            },
+            encoded_len: 10,
+        };
+        assert!(consumer.accept(&tile).is_ok());
         assert!(consumer.finish().is_err());
     }
 }

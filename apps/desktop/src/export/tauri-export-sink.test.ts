@@ -150,6 +150,23 @@ describe('TauriExportSink', () => {
     await expect(sink.finish(session)).rejects.toThrow('no longer active');
   });
 
+  it('cancela idempotentemente cuando finish_export falla por IPC, sin dejar la sesión huérfana', async () => {
+    const invoke = vi.fn(async (command: string) => {
+      if (command === 'begin_export') return sessionResponse;
+      if (command === 'finish_export') throw new Error('bridge disconnected');
+      if (command === 'cancel_export') return undefined;
+      throw new Error(`unexpected command: ${command}`);
+    });
+    const sink = new TauriExportSink(invoke);
+    const session = await sink.begin(metadata);
+
+    await expect(sink.finish(session)).rejects.toThrow('bridge disconnected');
+
+    expect(invoke).toHaveBeenCalledWith('cancel_export', {
+      sessionId: SESSION_ID,
+    });
+  });
+
   it('cancel es idempotente y siempre invoca cancel_export en Rust', async () => {
     const invoke = vi.fn(async (command: string) =>
       command === 'begin_export' ? sessionResponse : undefined,
