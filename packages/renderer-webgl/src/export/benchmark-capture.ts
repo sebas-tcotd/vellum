@@ -52,7 +52,14 @@ export async function captureQualityBenchmarkCase(
   ) => new RasterTileRenderer(style),
   codec: RasterQualityCodec = createBrowserPngCodec(),
 ): Promise<void> {
-  const plan = planTiles(benchmarkCase.snapshot, benchmarkCase.capability);
+  throwIfAborted(signal);
+  if (benchmarkCase.capability.toBlob !== true)
+    throw new Error('Benchmark case cannot be planned: to-blob');
+  const plan = planTiles(
+    benchmarkCase.snapshot,
+    benchmarkCase.capability,
+    signal,
+  );
   if ('rejected' in plan)
     throw new Error('Benchmark case cannot be planned: ' + plan.reason);
   const renderer = createRenderer(benchmarkCase.snapshot.style);
@@ -72,10 +79,18 @@ export async function captureQualityBenchmarkCase(
         qualityApplied: captured.qualityApplied,
         encodedPng: captured.encodedPng,
       });
+      throwIfAborted(signal);
     }
   } finally {
     renderer.dispose();
   }
+}
+
+function throwIfAborted(signal: AbortSignal): void {
+  if (!signal.aborted) return;
+  const error = new Error('Export aborted');
+  error.name = 'AbortError';
+  throw error;
 }
 
 async function captureBenchmarkTile(

@@ -43,6 +43,7 @@ export class TiledRasterExporter implements RasterExportPort {
 
   private readonly plan: (
     snapshot: ExportSnapshot,
+    signal: AbortSignal,
   ) => TilePlan | TilePlanRejection;
   private readonly createRenderer: (style: RenderStyleParams) => TileCapture;
   private readonly capability: CapabilityReport;
@@ -62,10 +63,10 @@ export class TiledRasterExporter implements RasterExportPort {
   ) {
     this.capability = capability;
     this.quality = quality;
-    this.plan = (snapshot) => {
+    this.plan = (snapshot, signal) => {
       if (capability.toBlob !== true)
         return { rejected: true, reason: 'to-blob' };
-      return planTiles(snapshot, capability);
+      return planTiles(snapshot, capability, signal);
     };
     this.createRenderer = createRenderer;
   }
@@ -78,7 +79,7 @@ export class TiledRasterExporter implements RasterExportPort {
     onProgress?: ExportProgressCallback,
   ): Promise<void> {
     throwIfAborted(signal);
-    const plan = this.plan(snapshot);
+    const plan = this.plan(snapshot, signal);
     if ('rejected' in plan) {
       throw new Error(`Tiled PNG export is unavailable: ${plan.reason}`);
     }

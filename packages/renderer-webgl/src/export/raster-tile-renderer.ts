@@ -106,7 +106,12 @@ export class RasterTileRenderer {
     this.container.style.width = `${tile.renderRect.width * scale}px`;
     this.container.style.height = `${tile.renderRect.height * scale}px`;
     this.renderer.syncCanvasSize();
-    this.renderer.setCamera(tile.camera);
+    // A larger viewport at the same zoom covers more geography. Increase the
+    // zoom by log2(scale) so SSAA samples the exact same tile extent.
+    this.renderer.setCamera({
+      ...tile.camera,
+      zoom: tile.camera.zoom + Math.log2(scale),
+    });
     throwIfAborted(signal);
     await this.renderer.waitForIdle();
     throwIfAborted(signal);

@@ -61,6 +61,22 @@ describe('export quality', () => {
     ).toMatchObject({ eligible: false, reason: 'gpu-limit' });
   });
 
+  it('allows a CPU-only box filter when GPU limits are not measured', () => {
+    expect(
+      preflightQuality(
+        tile,
+        {
+          ...capability,
+          maxTextureSize: 'unknown',
+          maxRenderbufferSize: 'unknown',
+          maxViewportDims: 'unknown',
+          maxCanvasSize: 'unknown',
+        },
+        { enabled: true, filter: 'box-3x3' },
+      ),
+    ).toMatchObject({ eligible: true, factor: 1 });
+  });
+
   it('downsamples premultiplied color while preserving transparent alpha', async () => {
     const output = await downsampleRgba(
       image(2, 2, [255, 0, 0, 255, 0, 0, 255, 0, 255, 0, 0, 255, 0, 0, 255, 0]),
@@ -124,5 +140,69 @@ describe('export quality', () => {
     );
     controller.abort();
     await expect(result).rejects.toMatchObject({ name: 'AbortError' });
+  });
+
+  it('normalizes box-filter alpha by the actual edge sample count', async () => {
+    const output = await applyBoxFilter(
+      image(1, 1, [255, 0, 0, 255]),
+      new AbortController().signal,
+    );
+
+    expect(output.pixels).toEqual(new Uint8Array([255, 0, 0, 255]));
+  });
+
+  it('rejects a decoded pixel buffer shorter than its measured dimensions', async () => {
+    const codec = {
+      decode: async (): Promise<RasterImage> => image(1, 1, [255, 0, 0]),
+      encode: async (): Promise<Uint8Array> => new Uint8Array([1]),
+    };
+
+    await expect(
+      processQualityPng(
+        new Uint8Array([1]),
+        { ...tile, renderRect: { ...tile.renderRect, width: 1, height: 1 } },
+        { enabled: true, ssaa: 1 },
+        codec,
+        new AbortController().signal,
+      ),
+    ).rejects.toMatchObject({ name: 'QualityVariantError' });
+  });
+
+  it('rejects SSAA sources whose dimensions are not divisible by the factor', async () => {
+    await expect(
+      downsampleRgba(
+        image(3, 2, new Array(24).fill(255)),
+        2,
+        new AbortController().signal,
+      ),
+    ).rejects.toMatchObject({ name: 'QualityVariantError' });
+  });
+
+  it('keeps adjacent SSAA tile boundaries aligned without dropping columns', async () => {
+    const makeGradient = (width: number, height: number, offset: number) => {
+      const pixels: number[] = [];
+      for (let y = 0; y < height; y += 1)
+        for (let x = 0; x < width; x += 1)
+          pixels.push((x + offset) * 20, 0, 0, 255);
+      return image(width, height, pixels);
+    };
+    const combined = await downsampleRgba(
+      makeGradient(8, 2, 0),
+      2,
+      new AbortController().signal,
+    );
+    const left = await downsampleRgba(
+      makeGradient(4, 2, 0),
+      2,
+      new AbortController().signal,
+    );
+    const right = await downsampleRgba(
+      makeGradient(4, 2, 4),
+      2,
+      new AbortController().signal,
+    );
+
+    expect(left.pixels).toEqual(combined.pixels.slice(0, 2 * 4));
+    expect(right.pixels).toEqual(combined.pixels.slice(2 * 4));
   });
 });

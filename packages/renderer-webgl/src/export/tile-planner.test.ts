@@ -202,4 +202,13 @@ describe('planTiles', () => {
       value: originalDpr,
     });
   });
+
+  it('stops planning immediately when its signal is already aborted', () => {
+    const controller = new AbortController();
+    controller.abort();
+
+    expect(() =>
+      planTiles(snapshot(100, 100), capability, controller.signal),
+    ).toThrow('Export aborted');
+  });
 });

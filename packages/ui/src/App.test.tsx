@@ -33,7 +33,13 @@ const mockRasterExporter: RasterExportV2 = {
 };
 
 vi.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
+  useTranslation: () => ({
+    t: (key: string, options?: { percent?: number }) => {
+      if (key === 'export.phase.composing') return 'Composing output';
+      if (key === 'export.progressPercent') return `${options?.percent ?? ''}%`;
+      return key;
+    },
+  }),
   Trans: ({ children }: { children: React.ReactNode }) => children,
 }));
 
@@ -625,7 +631,7 @@ describe('App — progreso, cancelación y cleanup (Story 6.2G)', () => {
     });
     expect(progressbar).toHaveAttribute('aria-valuenow', '50');
     expect(progressbar).toHaveAttribute('aria-busy', 'true');
-    expect(screen.getByText(/export\.phase\.composing/)).toBeInTheDocument();
+    expect(await screen.findByText('Composing output 50%')).toBeInTheDocument();
 
     // Same snapshotId, but a *different* sessionId than the one already
     // bound to this operation — must be discarded too, not just a mismatch

@@ -605,4 +605,55 @@ describe('TiledRasterExporter', () => {
     );
     expect(codec.encode).not.toHaveBeenCalled();
   });
+
+  it('keeps progress visible and cancels during quality phases for 4x full-map', async () => {
+    const controller = new AbortController();
+    const phases: string[] = [];
+    const renderer: TileCapture = {
+      configure: vi.fn().mockResolvedValue(undefined),
+      captureTile: vi.fn().mockResolvedValue(new Uint8Array([1])),
+      captureTileAtScale: vi.fn().mockResolvedValue(new Uint8Array([2])),
+      dispose: vi.fn(),
+    };
+    const codec = {
+      decode: vi.fn(async () => ({
+        width: 400,
+        height: 400,
+        pixels: new Uint8Array(400 * 400 * 4).fill(255),
+      })),
+      encode: vi.fn().mockResolvedValue(new Uint8Array([9])),
+    };
+    const sink = makeSink();
+    const onProgress = vi.fn();
+    const exporter = new TiledRasterExporter(capability, () => renderer, {
+      enabled: true,
+      ssaa: 4,
+      filter: 'box-3x3',
+      codec,
+      onPhase: (phase) => {
+        phases.push(phase);
+        if (phase === 'filtering') controller.abort();
+      },
+    });
+    const baseSnapshot = snapshot(100, 100);
+    const fullMapSnapshot: ExportSnapshot = {
+      ...baseSnapshot,
+      request: {
+        ...baseSnapshot.request,
+        area: 'full-map',
+        format: 'png-4x',
+      },
+    };
+
+    await expect(
+      exporter.export(fullMapSnapshot, sink, controller.signal, onProgress),
+    ).rejects.toMatchObject({ name: 'AbortError' });
+
+    expect(phases).toEqual(['decoding', 'downsampling', 'filtering']);
+    expect(onProgress).toHaveBeenCalledWith(
+      expect.objectContaining({ phase: 'capturing', percent: 0 }),
+    );
+    expect(sink.cancel).toHaveBeenCalledWith(makeSession(), 'aborted');
+    expect(codec.encode).not.toHaveBeenCalled();
+  });
 });

@@ -16,7 +16,16 @@ export interface ExportQualityConfig {
   readonly filter?: 'box-3x3';
   /** Browser codec override used by tests and benchmark adapters. */
   readonly codec?: RasterQualityCodec;
+  /** Optional phase hook used by benchmark/test adapters to observe quality work. */
+  readonly onPhase?: (phase: ExportQualityPhase) => void;
 }
+
+/** Cooperative phases exposed by the quality benchmark path. */
+export type ExportQualityPhase =
+  | 'decoding'
+  | 'downsampling'
+  | 'filtering'
+  | 'encoding';
 
 /** RGBA image exchanged by browser-safe quality processing stages. */
 export interface RasterImage {
@@ -81,21 +90,26 @@ export function preflightQuality(
     return rejected('configuration', dimensions, factor);
   if (factor === 1 && config.filter === undefined)
     return rejected('configuration', dimensions, factor);
-  if (!hasMeasuredLimits(capability))
-    return rejected('capability', dimensions, factor);
-  if (
-    !fitsGpuLimits(
-      dimensions.physicalWidth,
-      dimensions.physicalHeight,
-      capability,
+  if (factor > 1) {
+    if (!hasMeasuredLimits(capability))
+      return rejected('capability', dimensions, factor);
+    if (
+      !fitsGpuLimits(
+        dimensions.physicalWidth,
+        dimensions.physicalHeight,
+        capability,
+      )
     )
-  )
-    return rejected('gpu-limit', dimensions, factor);
+      return rejected('gpu-limit', dimensions, factor);
+  }
   const physicalBytes =
     dimensions.physicalWidth * dimensions.physicalHeight * 4;
   if (physicalBytes > MAX_TILE_RGBA_BYTES)
     return rejected('tile-budget', dimensions, factor);
-  if (physicalBytes + tileBytes(tile) > MAX_SESSION_BYTES)
+  // This is a conservative JS/WebView footprint guard. Rust receives only
+  // the final logical tile, so it does not double-count the physical buffer.
+  const qualityBufferFootprintBytes = physicalBytes + tileBytes(tile);
+  if (qualityBufferFootprintBytes > MAX_SESSION_BYTES)
     return rejected('session-budget', dimensions, factor);
   return { eligible: true, ...dimensions, factor };
 }
@@ -109,16 +123,23 @@ export async function processQualityPng(
   signal: AbortSignal,
 ): Promise<Uint8Array> {
   throwIfAborted(signal);
+  announcePhase(config, 'decoding', signal);
   const decoded = await codec.decode(encodedPng, signal);
   throwIfAborted(signal);
   const factor = config.ssaa ?? 1;
   assertDimensions(decoded, tile, factor);
   let processed = decoded;
-  if (factor > 1) processed = await downsampleRgba(decoded, factor, signal);
-  if (config.filter !== undefined)
+  if (factor > 1) {
+    announcePhase(config, 'downsampling', signal);
+    processed = await downsampleRgba(decoded, factor, signal);
+  }
+  if (config.filter !== undefined) {
+    announcePhase(config, 'filtering', signal);
     processed = await applyBoxFilter(processed, signal);
+  }
   assertFinalDimensions(processed, tile);
   throwIfAborted(signal);
+  announcePhase(config, 'encoding', signal);
   return codec.encode(processed, signal);
 }
 
@@ -130,6 +151,10 @@ export async function downsampleRgba(
 ): Promise<RasterImage> {
   if (!Number.isInteger(factor) || factor < 1)
     throw new QualityVariantError('SSAA factor must be a positive integer');
+  if (source.width % factor !== 0 || source.height % factor !== 0)
+    throw new QualityVariantError(
+      'SSAA source dimensions must be divisible by the factor',
+    );
   const width = Math.floor(source.width / factor);
   const height = Math.floor(source.height / factor);
   if (width < 1 || height < 1)
@@ -249,6 +274,11 @@ function assertDimensions(
         'x' +
         expected.physicalHeight,
     );
+  const expectedPixelBytes = image.width * image.height * 4;
+  if (image.pixels.length < expectedPixelBytes)
+    throw new QualityVariantError(
+      'Physical capture pixel buffer is shorter than its dimensions',
+    );
 }
 
 function assertFinalDimensions(image: RasterImage, tile: TilePlanTile): void {
@@ -301,6 +331,7 @@ function filterRow(source: RasterImage, output: Uint8Array, y: number): void {
     let red = 0;
     let green = 0;
     let blue = 0;
+    let samples = 0;
     for (
       let sy = Math.max(0, y - 1);
       sy <= Math.min(source.height - 1, y + 1);
@@ -311,6 +342,7 @@ function filterRow(source: RasterImage, output: Uint8Array, y: number): void {
         sx <= Math.min(source.width - 1, x + 1);
         sx += 1
       ) {
+        samples += 1;
         const offset = (sy * source.width + sx) * 4;
         const weight = source.pixels[offset + 3];
         alpha += weight;
@@ -325,7 +357,7 @@ function filterRow(source: RasterImage, output: Uint8Array, y: number): void {
       green,
       blue,
       alpha,
-      9,
+      samples,
     );
   }
 }
@@ -432,4 +464,14 @@ function throwIfAborted(signal: AbortSignal): void {
   const error = new Error('Export aborted');
   error.name = 'AbortError';
   throw error;
+}
+
+function announcePhase(
+  config: ExportQualityConfig,
+  phase: ExportQualityPhase,
+  signal: AbortSignal,
+): void {
+  throwIfAborted(signal);
+  config.onPhase?.(phase);
+  throwIfAborted(signal);
 }

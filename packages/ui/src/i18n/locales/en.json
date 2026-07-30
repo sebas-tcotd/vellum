@@ -135,7 +135,7 @@
       "composing": "Composing output",
       "finishing": "Finalizing file"
     },
-    "progressPercent": "Exporting… {{percent}}%",
+    "progressPercent": "{{percent}}%",
     "outputNotPublished": "No file was saved."
   },
   "preferences": {

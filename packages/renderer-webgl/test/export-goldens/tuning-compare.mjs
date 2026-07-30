@@ -109,6 +109,19 @@ export async function compareTuningCase(
   }
 }
 
+/** Finds the accepted golden matching a candidate's matrix coordinates. */
+export function findGoldenCase(goldenCases, entry) {
+  return goldenCases.find(
+    (candidate) =>
+      candidate.fixture === entry.fixture &&
+      candidate.area === entry.area &&
+      candidate.scale === entry.scale &&
+      candidate.background === entry.background &&
+      (candidate.technique === undefined ||
+        candidate.technique === entry.technique),
+  );
+}
+
 /** Runs the comparator from a temporary candidate manifest. */
 export async function compareTuningManifest(
   manifest,
@@ -118,13 +131,7 @@ export async function compareTuningManifest(
   validateTuningManifest(manifest);
   const results = [];
   for (const entry of manifest.cases) {
-    const golden = goldenManifest.cases.find(
-      (candidate) =>
-        candidate.fixture === entry.fixture &&
-        candidate.area === entry.area &&
-        candidate.scale === entry.scale &&
-        candidate.background === entry.background,
-    );
+    const golden = findGoldenCase(goldenManifest.cases, entry);
     const goldenPath = golden
       ? { ...golden, path: resolve(dirname(manifestPath), golden.golden) }
       : undefined;

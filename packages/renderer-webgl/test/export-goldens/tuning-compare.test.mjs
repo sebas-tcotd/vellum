@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildTuningMatrix,
   compareTuningCase,
+  findGoldenCase,
   validateTuningManifest,
 } from './tuning-compare.mjs';
 
@@ -29,5 +30,15 @@ describe('6.2H tuning comparator', () => {
         },
       ),
     ).resolves.toMatchObject({ status: 'unknown' });
+  });
+
+  it('matches technique-specific goldens when the golden manifest provides them', () => {
+    const entry = { ...buildTuningMatrix(['ssaa-2x'])[0] };
+    const goldens = [
+      { ...entry, technique: 'box-3x3', golden: 'box.png' },
+      { ...entry, technique: 'ssaa-2x', golden: 'ssaa.png' },
+    ];
+
+    expect(findGoldenCase(goldens, entry)?.golden).toBe('ssaa.png');
   });
 });
