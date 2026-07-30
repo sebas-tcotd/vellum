@@ -9,6 +9,26 @@ export {
 export { vellumLogoDataUri } from './assets/vellum-logo';
 export { LegacyRasterExporter } from './export/legacy-raster-exporter';
 export { planTiles } from './export/tile-planner';
+export {
+  captureQualityBenchmarkCase,
+  type QualityBenchmarkArtifact,
+  type QualityBenchmarkCase,
+  type QualityBenchmarkWriter,
+} from './export/benchmark-capture';
+export {
+  applyBoxFilter,
+  createBrowserPngCodec,
+  downsampleRgba,
+  MAX_SESSION_BYTES,
+  MAX_TILE_RGBA_BYTES,
+  preflightQuality,
+  processQualityPng,
+  QualityVariantError,
+  type ExportQualityConfig,
+  type QualityPreflight,
+  type RasterImage,
+  type RasterQualityCodec,
+} from './export/export-quality';
 export { TiledRasterExporter } from './export/tiled-raster-exporter';
 export {
   MapLibreRenderer,

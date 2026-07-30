@@ -348,6 +348,45 @@ describe('TiledRasterExporter', () => {
     expect(sink.cancel).toHaveBeenCalledOnce();
   });
 
+  it('requests cancellation when the finishing progress callback aborts synchronously', async () => {
+    const { createRenderer } = makeFakeRenderer([]);
+    const sink = makeSink();
+    const exporter = new TiledRasterExporter(capability, createRenderer);
+    const controller = new AbortController();
+
+    await exporter.export(
+      snapshot(100, 100),
+      sink,
+      controller.signal,
+      (progress) => {
+        if (progress.phase === 'finishing') controller.abort();
+      },
+    );
+
+    expect(sink.cancel).toHaveBeenCalledWith(makeSession(), 'aborted');
+  });
+
+  it('cancels if the finishing progress callback throws before finish starts', async () => {
+    const { createRenderer } = makeFakeRenderer([]);
+    const sink = makeSink();
+    const exporter = new TiledRasterExporter(capability, createRenderer);
+
+    await expect(
+      exporter.export(
+        snapshot(100, 100),
+        sink,
+        new AbortController().signal,
+        (progress) => {
+          if (progress.phase === 'finishing')
+            throw new Error('progress failed');
+        },
+      ),
+    ).rejects.toThrow('progress failed');
+
+    expect(sink.finish).not.toHaveBeenCalled();
+    expect(sink.cancel).toHaveBeenCalledWith(makeSession(), 'capture-failed');
+  });
+
   it('reports monotonic, phase-tagged progress that only advances after each AppendAck', async () => {
     const { createRenderer } = makeFakeRenderer([]);
     // Real Rust always reports `completed_units: 1` per ack (never a running
@@ -462,5 +501,108 @@ describe('TiledRasterExporter', () => {
     await expect(
       exporter.export(snapshot(100, 100), sink, new AbortController().signal),
     ).resolves.toBeUndefined();
+  });
+
+  it('keeps the base capture byte-identical when quality is disabled', async () => {
+    const baseBytes = new Uint8Array([137, 80, 78, 71]);
+    const renderer: TileCapture = {
+      configure: vi.fn().mockResolvedValue(undefined),
+      captureTile: vi.fn().mockResolvedValue(baseBytes),
+      dispose: vi.fn(),
+    };
+    const sink = makeSink();
+    const exporter = new TiledRasterExporter(capability, () => renderer, {
+      enabled: false,
+      ssaa: 2,
+    });
+
+    await exporter.export(
+      snapshot(100, 100),
+      sink,
+      new AbortController().signal,
+    );
+
+    expect(sink.append).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ encodedPng: baseBytes }),
+    );
+    expect(renderer.captureTile).toHaveBeenCalledOnce();
+  });
+
+  it('captures SSAA physically and appends only the exact logical tile result', async () => {
+    const renderer: TileCapture = {
+      configure: vi.fn().mockResolvedValue(undefined),
+      captureTile: vi.fn().mockResolvedValue(new Uint8Array([1])),
+      captureTileAtScale: vi.fn().mockResolvedValue(new Uint8Array([2])),
+      dispose: vi.fn(),
+    };
+    const codec = {
+      decode: vi.fn().mockResolvedValue({
+        width: 200,
+        height: 200,
+        pixels: new Uint8Array(200 * 200 * 4).fill(255),
+      }),
+      encode: vi.fn().mockResolvedValue(new Uint8Array([9])),
+    };
+    const sink = makeSink();
+    const exporter = new TiledRasterExporter(capability, () => renderer, {
+      enabled: true,
+      ssaa: 2,
+      codec,
+    });
+
+    await exporter.export(
+      snapshot(100, 100),
+      sink,
+      new AbortController().signal,
+    );
+
+    expect(renderer.captureTileAtScale).toHaveBeenCalledWith(
+      expect.objectContaining({
+        renderRect: { x: 0, y: 0, width: 100, height: 100 },
+      }),
+      2,
+      expect.any(AbortSignal),
+    );
+    expect(sink.append).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ encodedPng: new Uint8Array([9]) }),
+    );
+  });
+
+  it('recaptures through the base path when the physical PNG was clamped', async () => {
+    const renderer: TileCapture = {
+      configure: vi.fn().mockResolvedValue(undefined),
+      captureTile: vi.fn().mockResolvedValue(new Uint8Array([1])),
+      captureTileAtScale: vi.fn().mockResolvedValue(new Uint8Array([2])),
+      dispose: vi.fn(),
+    };
+    const codec = {
+      decode: vi.fn().mockResolvedValue({
+        width: 199,
+        height: 200,
+        pixels: new Uint8Array(199 * 200 * 4),
+      }),
+      encode: vi.fn(),
+    };
+    const sink = makeSink();
+    const exporter = new TiledRasterExporter(capability, () => renderer, {
+      enabled: true,
+      ssaa: 2,
+      codec,
+    });
+
+    await exporter.export(
+      snapshot(100, 100),
+      sink,
+      new AbortController().signal,
+    );
+
+    expect(renderer.captureTile).toHaveBeenCalledOnce();
+    expect(sink.append).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ encodedPng: new Uint8Array([1]) }),
+    );
+    expect(codec.encode).not.toHaveBeenCalled();
   });
 });

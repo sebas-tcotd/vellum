@@ -130,6 +130,11 @@
     "failedToast": "Error al exportar. Intenta de nuevo.",
     "cancelling": "Cancelando…",
     "indeterminate": "Indeterminado",
+    "phase": {
+      "capturing": "Capturando tiles",
+      "composing": "Componiendo salida",
+      "finishing": "Finalizando archivo"
+    },
     "progressPercent": "Exportando… {{percent}}%",
     "outputNotPublished": "No se guardó ningún archivo."
   },

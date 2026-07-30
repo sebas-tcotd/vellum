@@ -625,6 +625,7 @@ describe('App — progreso, cancelación y cleanup (Story 6.2G)', () => {
     });
     expect(progressbar).toHaveAttribute('aria-valuenow', '50');
     expect(progressbar).toHaveAttribute('aria-busy', 'true');
+    expect(screen.getByText(/export\.phase\.composing/)).toBeInTheDocument();
 
     // Same snapshotId, but a *different* sessionId than the one already
     // bound to this operation — must be discarded too, not just a mismatch
@@ -648,6 +649,23 @@ describe('App — progreso, cancelación y cleanup (Story 6.2G)', () => {
     await waitFor(() => {
       expect(screen.getByText('export.successToast')).toBeInTheDocument();
     });
+  });
+
+  it('mantiene el mapa interactivo mientras una exportación está activa', async () => {
+    const user = userEvent.setup();
+    useVellumStore.getState().setCityData(mockCityData);
+    vi.mocked(mockRasterExporter.export).mockImplementationOnce(
+      () => new Promise(() => undefined),
+    );
+
+    await act(async () => {
+      render(<App rasterExporter={mockRasterExporter} />);
+    });
+    await startExport(user);
+
+    expect(screen.getByTestId('canvas-wrapper').className).not.toContain(
+      'pointer-events-none',
+    );
   });
 
   it('mapea un VellumError a la clave i18n existente (errors.IoError), nunca muestra .reason', async () => {
@@ -834,7 +852,7 @@ describe('App — progreso, cancelación y cleanup (Story 6.2G)', () => {
     });
   });
 
-  it('ignora una resolución tardía (éxito) que llega después de abort(), aunque el snapshotId coincida', async () => {
+  it('muestra éxito cuando un commit transaccional gana la carrera contra abort()', async () => {
     const user = userEvent.setup();
     useVellumStore.getState().setCityData(mockCityData);
     let capturedSignal: AbortSignal | undefined;
@@ -861,19 +879,17 @@ describe('App — progreso, cancelación y cleanup (Story 6.2G)', () => {
     });
     expect(capturedSignal?.aborted).toBe(true);
 
-    // The underlying operation "wins the race" and resolves successfully
-    // anyway, after the user already cancelled it.
+    // The transactional commit won the race: a receipt means the file exists,
+    // so UI must report success rather than a false cancellation.
     await act(async () => {
       resolveExport?.({ filePath: '/tmp/export.png', folderPath: '/tmp' });
       await Promise.resolve();
     });
 
-    expect(screen.queryByText('export.successToast')).toBeNull();
-    // The same terminal, localized outcome as an actual AbortError — never
-    // a silent no-op that leaves the UI stuck without any toast at all.
     await waitFor(() => {
-      expect(screen.getByText('export.cancelledToast')).toBeInTheDocument();
+      expect(screen.getByText('export.successToast')).toBeInTheDocument();
     });
+    expect(screen.queryByText('export.cancelledToast')).toBeNull();
   });
 
   it('setea exportCancelHandlerRef sincrónicamente al hacer click en exportar, sin esperar un efecto', async () => {

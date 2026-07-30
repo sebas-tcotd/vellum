@@ -86,13 +86,25 @@ export class RasterTileRenderer {
     tile: TilePlanTile,
     signal: AbortSignal,
   ): Promise<Uint8Array> {
+    return this.captureTileAtScale(tile, 1, signal);
+  }
+
+  /** Captures a tile at a fixed physical scale for an injected quality spike. */
+  async captureTileAtScale(
+    tile: TilePlanTile,
+    scale: number,
+    signal: AbortSignal,
+  ): Promise<Uint8Array> {
     if (!this.configured) {
       throw new Error('RasterTileRenderer captured a tile before configure()');
     }
+    if (!Number.isSafeInteger(scale) || scale < 1) {
+      throw new Error('Raster tile capture scale must be a positive integer');
+    }
     assertSupportedCamera(tile.camera);
     throwIfAborted(signal);
-    this.container.style.width = `${tile.renderRect.width}px`;
-    this.container.style.height = `${tile.renderRect.height}px`;
+    this.container.style.width = `${tile.renderRect.width * scale}px`;
+    this.container.style.height = `${tile.renderRect.height * scale}px`;
     this.renderer.syncCanvasSize();
     this.renderer.setCamera(tile.camera);
     throwIfAborted(signal);

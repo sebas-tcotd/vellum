@@ -331,6 +331,7 @@ export function App({
       }
       const timeoutId = window.setTimeout(() => {
         timedOutRef.current = true;
+        setExportPhase('cancelling');
         controller.abort();
       }, EXPORT_TIMEOUT_MS);
       try {
@@ -373,19 +374,14 @@ export function App({
           controller.signal,
           onProgress,
         );
-        // Never publish a success toast for an operation the user (or a
-        // timeout) already cancelled, even if the underlying promise still
-        // resolved with a receipt (a legitimate photo-finish race) — this
-        // must reach the exact same terminal, localized outcome as the
-        // `catch` below, never a silent no-op that leaves the UI stuck on
-        // "Cancelando…" with no toast at all.
-        if (controller.signal.aborted) {
-          finalizeAbortedOutcome();
-          return;
-        }
         if (exportOperationRef.current?.snapshotId !== snapshot.snapshotId) {
           return;
         }
+        // A receipt is the transactional authority: if `finish()` committed
+        // before cancellation reached Rust, the file exists and UI must never
+        // claim it was cancelled.
+        setExportError(null);
+        setExportCancelled(false);
         setExportResult(receipt);
       } catch (error: unknown) {
         if (controller.signal.aborted) {
@@ -481,6 +477,13 @@ export function App({
     loadingState === 'idle' &&
     (dlcWarnings.length > 0 || hasPartialData);
 
+  const exportProgressText =
+    exportPhase === 'cancelling'
+      ? t('export.cancelling')
+      : exportProgress
+        ? t(`export.phase.${exportProgress.phase}`)
+        : t('export.indeterminate');
+
   return (
     <Suspense fallback={null}>
       <div style={{ width: '100vw', height: '100vh', position: 'relative' }}>
@@ -489,7 +492,6 @@ export function App({
           className={cn(
             'absolute inset-0 transition-opacity duration-500',
             cityData ? 'opacity-100' : 'opacity-0 pointer-events-none',
-            isExporting && 'pointer-events-none',
           )}
         >
           <MapLibreRoot
@@ -538,9 +540,7 @@ export function App({
         {cityData !== null && loadingState !== 'loading' && (
           <div
             className={
-              isCleanMode || isExporting
-                ? 'invisible pointer-events-none'
-                : undefined
+              isCleanMode ? 'invisible pointer-events-none' : undefined
             }
           >
             <FloatingLayerPanel
@@ -609,24 +609,22 @@ export function App({
               ? { 'aria-valuenow': exportProgress.percent }
               : {})}
             aria-valuetext={
-              exportPhase === 'cancelling'
-                ? t('export.cancelling')
-                : exportProgress?.percent !== undefined
-                  ? t('export.progressPercent', {
-                      percent: exportProgress.percent,
-                    })
-                  : t('export.indeterminate')
+              exportProgress?.percent !== undefined &&
+              exportPhase !== 'cancelling'
+                ? `${exportProgressText} ${t('export.progressPercent', {
+                    percent: exportProgress.percent,
+                  })}`
+                : exportProgressText
             }
             className="pointer-events-none absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-3 rounded bg-background px-4 py-2 text-xs shadow"
           >
             <span>
-              {exportPhase === 'cancelling'
-                ? t('export.cancelling')
-                : exportProgress?.percent !== undefined
-                  ? t('export.progressPercent', {
-                      percent: exportProgress.percent,
-                    })
-                  : t('export.exportButton')}
+              {exportProgress?.percent !== undefined &&
+              exportPhase !== 'cancelling'
+                ? `${exportProgressText} ${t('export.progressPercent', {
+                    percent: exportProgress.percent,
+                  })}`
+                : exportProgressText}
             </span>
             <button
               type="button"
