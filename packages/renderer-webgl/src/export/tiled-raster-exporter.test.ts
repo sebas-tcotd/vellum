@@ -110,6 +110,17 @@ describe('TiledRasterExporter', () => {
     expect(sink.begin).not.toHaveBeenCalled();
   });
 
+  it('rejects without opening a session when PNG encoding is unavailable', async () => {
+    const sink = makeSink();
+    const exporter = new TiledRasterExporter({ ...capability, toBlob: false });
+
+    await expect(
+      exporter.export(snapshot(100, 100), sink, new AbortController().signal),
+    ).rejects.toThrow('to-blob');
+
+    expect(sink.begin).not.toHaveBeenCalled();
+  });
+
   it('opens a session with begin metadata matching the plan, then captures every tile row-major with an ACK before each next render', async () => {
     const events: string[] = [];
     const { createRenderer, disposeCount } = makeFakeRenderer(events);
@@ -191,7 +202,7 @@ describe('TiledRasterExporter', () => {
     ).rejects.toThrow('render failed');
 
     expect(sink.cancel).toHaveBeenCalledOnce();
-    expect(sink.cancel).toHaveBeenCalledWith(makeSession(), 'sink-failed');
+    expect(sink.cancel).toHaveBeenCalledWith(makeSession(), 'capture-failed');
     expect(sink.finish).not.toHaveBeenCalled();
     expect(events).toEqual(['dispose']);
   });

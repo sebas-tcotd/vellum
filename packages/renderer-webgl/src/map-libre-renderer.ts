@@ -116,6 +116,7 @@ export class MapLibreRenderer implements IRenderer {
    * @param preserveDrawingBuffer - Enables readback only for a disposable export surface.
    * @param releasesDemProtocol - Whether disposing this renderer may unregister the shared DEM protocol.
    * @param pixelRatio - Fixes the canvas backing-store ratio; only the tiled export surface pins this to `1` so captured pixels match the plan regardless of `devicePixelRatio`.
+   * @param maxZoom - Maximum zoom permitted by this surface; temporary tiled surfaces allow MapLibre's documented maximum of 24 so 2x/4x captures preserve the plan's exact density.
    */
   constructor(
     container: HTMLDivElement,
@@ -123,6 +124,7 @@ export class MapLibreRenderer implements IRenderer {
     preserveDrawingBuffer = false,
     releasesDemProtocol = true,
     pixelRatio?: number,
+    maxZoom = 18,
   ) {
     this.style = style;
     this.releasesDemProtocol = releasesDemProtocol;
@@ -134,7 +136,7 @@ export class MapLibreRenderer implements IRenderer {
       pitchWithRotate: false,
       attributionControl: false,
       renderWorldCopies: false,
-      maxZoom: 18,
+      maxZoom,
       canvasContextAttributes: { preserveDrawingBuffer },
       style: createBaseStyle(initialColors),
       ...(pixelRatio === undefined ? {} : { pixelRatio }),
@@ -156,7 +158,7 @@ export class MapLibreRenderer implements IRenderer {
     this.cityData = cityData;
     this.activeLayers = params.activeLayers;
 
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       const executeRender = async (): Promise<void> => {
         await this.sourceManager.initializeSourcesAndLayers(cityData);
         this.layerManager.setTerrainDem(cityData.terrainDem);
@@ -166,9 +168,11 @@ export class MapLibreRenderer implements IRenderer {
       };
 
       if (this.map.isStyleLoaded()) {
-        executeRender();
+        void executeRender().then(resolve, reject);
       } else {
-        this.map.once('load', executeRender);
+        this.map.once('load', () => {
+          void executeRender().then(resolve, reject);
+        });
       }
     });
   }

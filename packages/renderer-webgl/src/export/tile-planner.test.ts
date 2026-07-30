@@ -98,6 +98,16 @@ describe('planTiles', () => {
     }
   });
 
+  it('maps output rows from maxZ toward minZ to match MapLibre orientation', () => {
+    const result = planTiles(snapshot(1000, 3000), capability);
+    if ('rejected' in result) throw new Error('expected plan');
+
+    const firstRow = result.tiles.find((tile) => tile.tileY === 0);
+    const lastRow = result.tiles.find((tile) => tile.tileY === 1);
+    expect(firstRow?.extent.maxZ).toBeCloseTo(result.renderExtent.maxZ);
+    expect(lastRow?.extent.minZ).toBeCloseTo(result.renderExtent.minZ);
+  });
+
   it('adapts to small outputs and rejects unsupported camera or dimensions', () => {
     expect(planTiles(snapshot(100, 100), capability)).toMatchObject({
       expectedTiles: 1,

@@ -7,6 +7,7 @@ import { MapLibreRenderer } from '../map-libre-renderer';
 
 /** Fixed physical pixel ratio every tiled capture requires — matches `TilePlan.pixelRatio`. */
 const TILE_PIXEL_RATIO = 1;
+const TILE_MAX_ZOOM = 24;
 
 /**
  * Captures one raster tile at a time from a single reusable, hidden MapLibre surface.
@@ -40,6 +41,7 @@ export class RasterTileRenderer {
       true,
       false,
       TILE_PIXEL_RATIO,
+      TILE_MAX_ZOOM,
     );
   }
 

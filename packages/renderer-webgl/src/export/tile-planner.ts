@@ -186,8 +186,11 @@ function extentFor(
   return {
     minX: extent.minX + rect.x * units,
     maxX: extent.minX + (rect.x + rect.width) * units,
-    minZ: extent.minZ + rect.y * units,
-    maxZ: extent.minZ + (rect.y + rect.height) * units,
+    // MapLibre renders increasing latitude at the top. With CS1_LAT_SIGN = 1,
+    // increasing Z maps to increasing latitude, so output Y must descend from
+    // maxZ to keep adjacent raster rows continuous.
+    minZ: extent.maxZ - (rect.y + rect.height) * units,
+    maxZ: extent.maxZ - rect.y * units,
   };
 }
 function zoomFor(units: number): number {

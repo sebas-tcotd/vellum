@@ -2,6 +2,7 @@ import type {
   CapabilityReport,
   ExportSink,
   ExportSnapshot,
+  ExportCancelReason,
   RasterExportPort,
   RenderStyleParams,
   TilePlan,
@@ -42,7 +43,11 @@ export class TiledRasterExporter implements RasterExportPort {
     createRenderer: (style: RenderStyleParams) => TileCapture = (style) =>
       new RasterTileRenderer(style),
   ) {
-    this.plan = (snapshot) => planTiles(snapshot, capability);
+    this.plan = (snapshot) => {
+      if (capability.toBlob !== true)
+        return { rejected: true, reason: 'to-blob' };
+      return planTiles(snapshot, capability);
+    };
     this.createRenderer = createRenderer;
   }
 
@@ -68,6 +73,7 @@ export class TiledRasterExporter implements RasterExportPort {
     });
     let finishStarted = false;
     let renderer: TileCapture | null = null;
+    let cancelReason: ExportCancelReason = 'capture-failed';
     try {
       renderer = this.createRenderer(snapshot.style);
       throwIfAborted(signal);
@@ -76,6 +82,7 @@ export class TiledRasterExporter implements RasterExportPort {
         throwIfAborted(signal);
         const encodedPng = await renderer.captureTile(tile, signal);
         throwIfAborted(signal);
+        cancelReason = 'sink-failed';
         await sink.append(session, {
           sequence: tile.sequence,
           tileX: tile.tileX,
@@ -84,13 +91,14 @@ export class TiledRasterExporter implements RasterExportPort {
           renderRect: tile.renderRect,
           encodedPng,
         });
+        cancelReason = 'capture-failed';
       }
       throwIfAborted(signal);
       finishStarted = true;
       await sink.finish(session);
     } catch (error: unknown) {
       if (!finishStarted) {
-        await sink.cancel(session, signal.aborted ? 'aborted' : 'sink-failed');
+        await sink.cancel(session, signal.aborted ? 'aborted' : cancelReason);
       }
       throw error;
     } finally {

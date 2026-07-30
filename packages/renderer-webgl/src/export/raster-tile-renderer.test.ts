@@ -222,6 +222,7 @@ describe('RasterTileRenderer', () => {
       expect.objectContaining({
         canvasContextAttributes: { preserveDrawingBuffer: true },
         pixelRatio: 1,
+        maxZoom: 24,
       }),
     );
     const container = [...document.body.children].find(
