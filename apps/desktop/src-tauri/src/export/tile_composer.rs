@@ -17,6 +17,14 @@ use crate::errors::VellumError;
 /// Bytes per pixel for the 8-bit RGBA color type this compositor requires.
 const BYTES_PER_PIXEL: usize = 4;
 
+/// Per-tile decoded RGBA budget. Mirrors `MAX_TILE_RGBA_BYTES` in
+/// `packages/renderer-webgl/src/export/tile-planner.ts`, which already
+/// constrains the planner's `renderRect` to this size — Rust re-checks it
+/// independently (defense in depth) since a compromised/buggy caller could
+/// otherwise declare a `renderRect` whose claimed dimensions force a huge
+/// decode allocation before this module ever sees the real PNG bytes.
+const MAX_TILE_RGBA_BYTES: u64 = 32 * 1024 * 1024;
+
 fn compose_error(reason: &str) -> VellumError {
     VellumError::ExportFailed {
         reason: format!("tile composition: {reason}"),
@@ -32,10 +40,15 @@ fn write_error(reason: &str) -> VellumError {
 /// Streams tile chunks into the final PNG. Owns the only in-flight writer
 /// for a session and the current scanline band — no other buffer grows with
 /// the number of tiles or the total output area.
-pub struct TileComposer {
+///
+/// Generic over the sink so tests can inject a fallible [`Write`] and assert
+/// real writer/encoder failure handling without touching the filesystem;
+/// production always uses [`TileComposer::create`], which targets the
+/// session's `.part` file.
+pub struct TileComposer<W: Write + Send + 'static = BufWriter<File>> {
     output_width: u32,
     output_height: u32,
-    writer: Option<png::StreamWriter<'static, BufWriter<File>>>,
+    writer: Option<png::StreamWriter<'static, W>>,
     /// Working buffer for the row of tiles currently being assembled.
     /// Empty between bands; sized to `band_height * output_width * 4` while one
     /// is in progress.
@@ -51,7 +64,7 @@ pub struct TileComposer {
     failed: bool,
 }
 
-impl TileComposer {
+impl TileComposer<BufWriter<File>> {
     /// Opens `part_path` for streaming and writes the PNG header for an
     /// `output_width x output_height` RGBA8 image.
     ///
@@ -66,7 +79,20 @@ impl TileComposer {
         let file = File::create(part_path).map_err(|e| VellumError::IoError {
             reason: format!("failed to open export temp file for streaming: {e}"),
         })?;
-        let mut encoder = png::Encoder::new(BufWriter::new(file), output_width, output_height);
+        Self::from_writer(output_width, output_height, BufWriter::new(file))
+    }
+}
+
+impl<W: Write + Send + 'static> TileComposer<W> {
+    /// Writes the PNG header to `sink` and wraps it in a streaming encoder.
+    /// Split out from [`TileComposer::create`] so tests can target an
+    /// in-memory or fallible sink instead of a real file.
+    ///
+    /// # Errors
+    /// Returns `VellumError::ExportFailed` when the encoder cannot write its
+    /// header or start the stream (including a `sink` that fails immediately).
+    fn from_writer(output_width: u32, output_height: u32, sink: W) -> Result<Self, VellumError> {
+        let mut encoder = png::Encoder::new(sink, output_width, output_height);
         encoder.set_color(png::ColorType::Rgba);
         encoder.set_depth(png::BitDepth::Eight);
         let writer = encoder
@@ -98,10 +124,20 @@ impl TileComposer {
                 ));
             }
             self.band_height = tile.useful_rect.height;
-            let band_len = (self.band_height as usize)
-                .checked_mul(self.output_width as usize)
-                .and_then(|n| n.checked_mul(BYTES_PER_PIXEL))
+            let band_len_bytes = u64::from(self.band_height)
+                .checked_mul(u64::from(self.output_width))
+                .and_then(|n| n.checked_mul(BYTES_PER_PIXEL as u64))
                 .ok_or_else(|| compose_error("band size overflows"))?;
+            // The band spans one row of tiles at the declared output width —
+            // bounded independently of the session's encoded-byte budget,
+            // since this buffer holds decoded (uncompressed) RGBA bytes.
+            if band_len_bytes > super::session::MAX_SESSION_BYTES {
+                return Err(compose_error(
+                    "scanline band exceeds the session memory budget",
+                ));
+            }
+            let band_len = usize::try_from(band_len_bytes)
+                .map_err(|_| compose_error("band size exceeds addressable memory"))?;
             // Baseline signal (6.2A): the working buffer never grows past one
             // band, unlike a full framebuffer that scales with output area.
             eprintln!(
@@ -133,6 +169,14 @@ impl TileComposer {
             self.failed = true;
             return Err(write_error(&format!("failed writing PNG scanlines: {e}")));
         }
+        // Push the compressed band out to the sink now instead of letting it
+        // sit in the encoder's internal zlib buffer — keeps actual on-disk
+        // progress close to `cursor_y` and surfaces a write failure as soon
+        // as this band is done, not only when the whole stream is finished.
+        if let Err(e) = writer.flush() {
+            self.failed = true;
+            return Err(write_error(&format!("failed flushing PNG scanlines: {e}")));
+        }
         self.cursor_y += self.band_height;
         self.cursor_x = 0;
         self.band = Vec::new();
@@ -141,11 +185,21 @@ impl TileComposer {
     }
 }
 
-impl TileConsumer for TileComposer {
+impl<W: Write + Send + 'static> TileConsumer for TileComposer<W> {
     fn accept(&mut self, tile: &AcceptedTile, payload: &[u8]) -> Result<(), VellumError> {
         if self.failed {
             return Err(compose_error(
                 "composer already failed; session must be abandoned",
+            ));
+        }
+
+        let render_area_bytes = u64::from(tile.render_rect.width)
+            .checked_mul(u64::from(tile.render_rect.height))
+            .and_then(|px| px.checked_mul(BYTES_PER_PIXEL as u64))
+            .ok_or_else(|| compose_error("renderRect pixel area overflows"))?;
+        if render_area_bytes > MAX_TILE_RGBA_BYTES {
+            return Err(compose_error(
+                "renderRect exceeds the per-tile decoded RGBA budget",
             ));
         }
 
@@ -199,6 +253,10 @@ impl TileConsumer for TileComposer {
             self.failed = true;
             write_error(&format!("failed finalizing PNG stream: {e}"))
         })
+    }
+
+    fn is_poisoned(&self) -> bool {
+        self.failed
     }
 }
 
@@ -590,24 +648,114 @@ mod tests {
     }
 
     #[test]
-    fn a_failed_write_poisons_the_composer_and_blocks_further_accepts() {
-        let a = encode_png(2, 2, &solid_pixels(2, 2, [1, 0, 0, 255]));
-        let path = unique_temp_path("poison");
-        let mut composer = TileComposer::create(2, 2, &path).unwrap();
-        composer
-            .accept(&tile(0, 0, (0, 0, 2, 2), (0, 0, 2, 2)), &a)
-            .expect("first accept completes and flushes the only band");
-        // Force a write failure by dropping the writer out from under the
-        // composer, then simulate a retry — it must fail closed rather than
-        // silently succeed over an encoder that can no longer be trusted.
-        composer.failed = true;
+    fn rejects_render_rect_exceeding_the_per_tile_rgba_budget() {
+        // renderRect claims a huge area even though the payload is a tiny,
+        // clearly-invalid PNG — the budget check must reject before any
+        // decode allocation is attempted.
+        let path = unique_temp_path("tile-budget");
+        let mut composer = TileComposer::create(100_000, 100_000, &path).unwrap();
         let err = composer
-            .accept(&tile(0, 0, (0, 0, 2, 2), (0, 0, 2, 2)), &a)
+            .accept(
+                &tile(0, 0, (0, 0, 20_000, 20_000), (0, 0, 20_000, 20_000)),
+                &[0, 1, 2, 3],
+            )
+            .unwrap_err();
+        assert!(matches!(err, VellumError::ExportFailed { .. }));
+        drop(composer);
+        std::fs::remove_file(&path).unwrap();
+    }
+
+    #[test]
+    fn rejects_a_scanline_band_that_would_exceed_the_session_memory_budget() {
+        // A small tile (well within the 32 MiB per-tile cap) that opens a
+        // band on a very wide declared output — `band_height * output_width`
+        // alone must be rejected even though no single tile is oversized.
+        let payload = encode_png(10, 10, &solid_pixels(10, 10, [1, 0, 0, 255]));
+        let path = unique_temp_path("band-budget");
+        let mut composer = TileComposer::create(90_000_000, 20, &path).unwrap();
+        let err = composer
+            .accept(&tile(0, 0, (0, 0, 10, 10), (0, 0, 10, 10)), &payload)
+            .unwrap_err();
+        assert!(matches!(err, VellumError::ExportFailed { .. }));
+        drop(composer);
+        std::fs::remove_file(&path).unwrap();
+    }
+
+    /// A [`Write`] sink that fails once `should_fail` is set, letting a test
+    /// deterministically choose whether the failure lands during PNG header
+    /// setup, mid-band streaming, or `finish()` — without depending on how
+    /// many internal writes the `png` crate happens to perform.
+    #[derive(Clone)]
+    struct FlakyWriter {
+        should_fail: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    }
+
+    impl Write for FlakyWriter {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            if self.should_fail.load(std::sync::atomic::Ordering::SeqCst) {
+                return Err(std::io::Error::other("synthetic write failure"));
+            }
+            Ok(buf.len())
+        }
+
+        fn flush(&mut self) -> std::io::Result<()> {
+            if self.should_fail.load(std::sync::atomic::Ordering::SeqCst) {
+                return Err(std::io::Error::other("synthetic flush failure"));
+            }
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn a_real_write_failure_during_band_flush_poisons_the_composer() {
+        let should_fail = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let mut composer = TileComposer::from_writer(
+            2,
+            2,
+            FlakyWriter {
+                should_fail: should_fail.clone(),
+            },
+        )
+        .expect("header must succeed while the sink is healthy");
+
+        should_fail.store(true, std::sync::atomic::Ordering::SeqCst);
+        let payload = encode_png(2, 2, &solid_pixels(2, 2, [1, 0, 0, 255]));
+        let err = composer
+            .accept(&tile(0, 0, (0, 0, 2, 2), (0, 0, 2, 2)), &payload)
+            .unwrap_err();
+        assert!(matches!(err, VellumError::IoError { .. }));
+        assert!(composer.is_poisoned());
+
+        // A retry over the now-corrupted encoder must fail closed rather
+        // than silently succeed.
+        let err = composer
+            .accept(&tile(0, 0, (0, 0, 2, 2), (0, 0, 2, 2)), &payload)
             .unwrap_err();
         assert!(matches!(err, VellumError::ExportFailed { .. }));
         let err = composer.finish().unwrap_err();
         assert!(matches!(err, VellumError::ExportFailed { .. }));
+    }
 
-        std::fs::remove_file(&path).unwrap();
+    #[test]
+    fn a_real_finish_failure_is_reported_and_poisons_the_composer() {
+        let should_fail = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let mut composer = TileComposer::from_writer(
+            2,
+            2,
+            FlakyWriter {
+                should_fail: should_fail.clone(),
+            },
+        )
+        .expect("header must succeed while the sink is healthy");
+
+        let payload = encode_png(2, 2, &solid_pixels(2, 2, [1, 0, 0, 255]));
+        composer
+            .accept(&tile(0, 0, (0, 0, 2, 2), (0, 0, 2, 2)), &payload)
+            .expect("band write succeeds while the sink is healthy");
+
+        should_fail.store(true, std::sync::atomic::Ordering::SeqCst);
+        let err = composer.finish().unwrap_err();
+        assert!(matches!(err, VellumError::IoError { .. }));
+        assert!(composer.is_poisoned());
     }
 }

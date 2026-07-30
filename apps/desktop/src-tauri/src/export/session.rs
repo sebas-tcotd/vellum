@@ -72,6 +72,15 @@ pub trait TileConsumer: Send {
     /// Returns a typed `VellumError` when coverage is incomplete or the
     /// consumer otherwise cannot confirm a publishable result.
     fn finish(&mut self) -> Result<(), VellumError>;
+    /// Reports whether an earlier call left this consumer's underlying
+    /// encoder/writer in an irrecoverable state. When `true`, the owning
+    /// session must fail closed — drop the consumer and remove `.part` —
+    /// rather than allow further `accept`/`finish` retries, since the
+    /// encoder stream itself can no longer be trusted. Defaults to `false`
+    /// for consumers that only ever reject retry-safe chunks.
+    fn is_poisoned(&self) -> bool {
+        false
+    }
 }
 
 /// Builds one `TileConsumer` per session, given the declared output
@@ -191,6 +200,18 @@ fn coverage_error(reason: &str) -> VellumError {
     VellumError::ExportFailed {
         reason: format!("export tile coverage: {reason}"),
     }
+}
+
+/// Transitions `session` straight to `Failed`, drops its consumer, and
+/// best-effort removes its `.part` file. Called for any error that leaves
+/// the compositor/encoder irrecoverable (a poisoned consumer) or that
+/// permanently rules out ever reaching a publishable state (incomplete
+/// coverage discovered at `finish`) — the session must not linger `Active`
+/// with resources that can never be committed.
+fn fail_session(session: &mut Session) {
+    let _ = std::fs::remove_file(&session.part_path);
+    session.consumer = None;
+    session.state = SessionState::Failed;
 }
 
 /// Adds `added` to `current` with checked arithmetic and rejects the result if
@@ -376,8 +397,20 @@ impl ExportSessionManager {
             reason: format!("failed to create export temp file: {e}"),
         })?;
 
-        let consumer =
-            (self.consumer_factory)(metadata.output_width, metadata.output_height, &part_path)?;
+        let consumer = match (self.consumer_factory)(
+            metadata.output_width,
+            metadata.output_height,
+            &part_path,
+        ) {
+            Ok(consumer) => consumer,
+            Err(e) => {
+                // No session is registered yet to track this `.part` for
+                // later cleanup — remove it immediately rather than leaving
+                // it orphaned until the next process-start sweep.
+                let _ = std::fs::remove_file(&part_path);
+                return Err(e);
+            }
+        };
 
         let session = Session {
             state: SessionState::Active,
@@ -477,7 +510,7 @@ impl ExportSessionManager {
             .consumer
             .as_mut()
             .ok_or_else(unknown_session_error)?;
-        consumer.accept(
+        if let Err(e) = consumer.accept(
             &AcceptedTile {
                 tile_x: header.tile_x,
                 tile_y: header.tile_y,
@@ -486,7 +519,16 @@ impl ExportSessionManager {
                 encoded_len: payload.len(),
             },
             payload,
-        )?;
+        ) {
+            // A rejection over a chunk the consumer never wrote is retry-safe
+            // and leaves the session Active. One that poisoned the consumer's
+            // encoder is not — fail the session outright so a caller can
+            // never retry over a corrupted stream.
+            if consumer.is_poisoned() {
+                fail_session(session);
+            }
+            return Err(e);
+        }
 
         // Every validation above passed — only now is state mutated (AC5).
         session.accepted_bytes = new_accepted_bytes;
@@ -523,10 +565,15 @@ impl ExportSessionManager {
             }
             let accepted_tiles = session.seen_tiles.len();
             if accepted_tiles != session.expected_tiles as usize {
-                return Err(coverage_error(&format!(
+                let err = coverage_error(&format!(
                     "expected {} tiles, received {accepted_tiles}",
                     session.expected_tiles
-                )));
+                ));
+                // Coverage can never become complete after this point for the
+                // same session — fail and clean up now instead of leaving
+                // `.part` and the consumer alive until an explicit cancel.
+                fail_session(session);
+                return Err(err);
             }
             session.state = SessionState::Finishing;
             let consumer = session.consumer.take().ok_or_else(unknown_session_error)?;
@@ -1095,8 +1142,17 @@ mod tests {
         );
         manager.append(&first).expect("first tile must be accepted");
 
+        let part_path = dir.join(format!(".vellum-export-{}.part", session.session_id));
         let err = manager.finish(&session.session_id).unwrap_err();
         assert!(matches!(err, VellumError::ExportFailed { .. }));
+        assert!(
+            !part_path.exists(),
+            "incomplete coverage discovered at finish must clean up .part immediately"
+        );
+        assert!(
+            manager.append(&first).is_err(),
+            "a session failed at finish must reject further append, not stay Active"
+        );
 
         std::fs::remove_dir_all(&dir).unwrap();
     }
@@ -1457,6 +1513,78 @@ mod tests {
             }));
         let metadata = begin_metadata("factory-failure-map", 10, 10);
         assert!(manager.begin(&metadata, &dir).is_err());
+
+        let leftovers: Vec<_> = std::fs::read_dir(&dir).unwrap().collect();
+        assert!(
+            leftovers.is_empty(),
+            "a factory failure during begin() must not leave an orphaned .part file: {leftovers:?}"
+        );
+
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// A double whose `accept` always rejects and reports itself poisoned —
+    /// standing in for a real compositor whose encoder write has failed
+    /// irrecoverably, to prove the session (not just the consumer) fails
+    /// closed rather than staying `Active`.
+    struct PoisoningConsumer;
+
+    impl TileConsumer for PoisoningConsumer {
+        fn accept(&mut self, _tile: &AcceptedTile, _payload: &[u8]) -> Result<(), VellumError> {
+            Err(VellumError::IoError {
+                reason: "synthetic irrecoverable write failure".to_string(),
+            })
+        }
+
+        fn finish(&mut self) -> Result<(), VellumError> {
+            Err(VellumError::ExportFailed {
+                reason: "should never be reached in this test".to_string(),
+            })
+        }
+
+        fn is_poisoned(&self) -> bool {
+            true
+        }
+    }
+
+    #[test]
+    fn append_fails_the_whole_session_when_the_consumer_is_poisoned() {
+        let dir = unique_temp_dir("poisoned-consumer");
+        let manager =
+            ExportSessionManager::with_consumer_factory(Box::new(|_width, _height, _part_path| {
+                Ok(Box::new(PoisoningConsumer) as Box<dyn TileConsumer>)
+            }));
+        let metadata = begin_metadata("poisoned-map", 10, 10);
+        let session = manager.begin(&metadata, &dir).expect("begin must succeed");
+        let part_path = dir.join(format!(".vellum-export-{}.part", session.session_id));
+        assert!(part_path.exists());
+
+        let frame = frame_bytes(
+            &session.session_id,
+            0,
+            (0, 0),
+            (0, 0, 10, 10),
+            (0, 0, 10, 10),
+            &[1],
+        );
+        assert!(manager.append(&frame).is_err());
+        assert!(
+            !part_path.exists(),
+            "a poisoned consumer must fail the session and clean up .part immediately, \
+             not leave it Active until an explicit cancel"
+        );
+
+        let err = manager.append(&frame).unwrap_err();
+        match err {
+            VellumError::ExportFailed { reason } => {
+                assert!(
+                    reason.contains("not active"),
+                    "a second append after poisoning must hit the terminal-state check, \
+                     not retry into the consumer again: {reason}"
+                );
+            }
+            other => panic!("expected ExportFailed(\"...not active...\"), got {other:?}"),
+        }
 
         std::fs::remove_dir_all(&dir).unwrap();
     }
