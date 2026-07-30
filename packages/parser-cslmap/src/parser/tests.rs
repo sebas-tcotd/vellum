@@ -41,7 +41,7 @@ fn bus_line_excluded_from_road_segments() {
 // roads). Quays are not inherently walkable/driveable per game docs.
 #[test]
 fn landscaping_structures_excluded_from_road_segments() {
-    let bytes = include_bytes!("../../fixtures/Island Hopping-20260610-173558.cslmap");
+    let bytes = include_bytes!("../../fixtures/island-hopping.cslmap");
     let result = parse_cslmap_bytes(bytes);
     assert!(result.is_ok(), "expected Ok, got: {result:?}");
     let city = result.expect("already checked");
