@@ -276,4 +276,59 @@ describe('TiledRasterExporter', () => {
 
     expect(sink.cancel).not.toHaveBeenCalled();
   });
+
+  it('reports monotonic, phase-tagged progress that only advances after each AppendAck', async () => {
+    const { createRenderer } = makeFakeRenderer([]);
+    const sink = makeSink({
+      append: vi.fn(async (_session, chunk: RasterTileChunk) => ({
+        sessionId: 'session-test',
+        sequence: chunk.sequence,
+        acceptedBytes: chunk.encodedPng.byteLength,
+        completedUnits: chunk.sequence + 1,
+      })),
+    });
+    const exporter = new TiledRasterExporter(capability, createRenderer);
+    const onProgress = vi.fn();
+
+    await exporter.export(
+      snapshot(4100, 2200),
+      sink,
+      new AbortController().signal,
+      onProgress,
+    );
+
+    const events = onProgress.mock.calls.map(([progress]) => progress);
+    expect(events[0]).toMatchObject({
+      phase: 'capturing',
+      completedUnits: 0,
+      totalUnits: 6,
+      percent: 0,
+    });
+    expect(events.at(-1)).toMatchObject({
+      phase: 'finishing',
+      completedUnits: 6,
+      totalUnits: 6,
+      percent: 100,
+    });
+    const percentages = events.map((e) => e.percent as number);
+    for (let i = 1; i < percentages.length; i += 1) {
+      expect(percentages[i]).toBeGreaterThanOrEqual(percentages[i - 1]);
+    }
+    // Every event must carry the identity needed to discard stale callbacks.
+    for (const event of events) {
+      expect(event.snapshotId).toBe('tiled-exporter-test');
+      expect(event.sessionId).toBe('session-test');
+      expect(event.mode).toBe('tiled-png');
+    }
+  });
+
+  it('never reports progress for the legacy-style caller when onProgress is omitted', async () => {
+    const { createRenderer } = makeFakeRenderer([]);
+    const sink = makeSink();
+    const exporter = new TiledRasterExporter(capability, createRenderer);
+
+    await expect(
+      exporter.export(snapshot(100, 100), sink, new AbortController().signal),
+    ).resolves.toBeUndefined();
+  });
 });

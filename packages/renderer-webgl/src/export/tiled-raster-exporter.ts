@@ -3,6 +3,8 @@ import type {
   ExportSink,
   ExportSnapshot,
   ExportCancelReason,
+  ExportProgressCallback,
+  ExportProgressPhase,
   RasterExportPort,
   RenderStyleParams,
   TilePlan,
@@ -56,6 +58,7 @@ export class TiledRasterExporter implements RasterExportPort {
     snapshot: ExportSnapshot,
     sink: ExportSink,
     signal: AbortSignal,
+    onProgress?: ExportProgressCallback,
   ): Promise<void> {
     throwIfAborted(signal);
     const plan = this.plan(snapshot);
@@ -71,19 +74,41 @@ export class TiledRasterExporter implements RasterExportPort {
       outputHeight: snapshot.surface.height,
       expectedTiles: plan.expectedTiles,
     });
+    const totalUnits = plan.expectedTiles;
+    const emit = (phase: ExportProgressPhase, completedUnits: number): void => {
+      if (!onProgress) return;
+      const percent =
+        totalUnits > 0
+          ? Math.min(
+              100,
+              Math.max(0, Math.round((completedUnits / totalUnits) * 100)),
+            )
+          : undefined;
+      onProgress({
+        snapshotId: snapshot.snapshotId,
+        sessionId: session.sessionId,
+        mode: this.mode,
+        phase,
+        completedUnits,
+        totalUnits,
+        ...(percent !== undefined ? { percent } : {}),
+      });
+    };
     let finishStarted = false;
     let renderer: TileCapture | null = null;
     let cancelReason: ExportCancelReason = 'capture-failed';
+    let completedUnits = 0;
     try {
       renderer = this.createRenderer(snapshot.style);
       throwIfAborted(signal);
       await renderer.configure(snapshot, signal);
       for (const tile of plan.tiles) {
         throwIfAborted(signal);
+        emit('capturing', completedUnits);
         const encodedPng = await renderer.captureTile(tile, signal);
         throwIfAborted(signal);
         cancelReason = 'sink-failed';
-        await sink.append(session, {
+        const ack = await sink.append(session, {
           sequence: tile.sequence,
           tileX: tile.tileX,
           tileY: tile.tileY,
@@ -91,10 +116,13 @@ export class TiledRasterExporter implements RasterExportPort {
           renderRect: tile.renderRect,
           encodedPng,
         });
+        completedUnits = ack.completedUnits;
+        emit('composing', completedUnits);
         cancelReason = 'capture-failed';
       }
       throwIfAborted(signal);
       finishStarted = true;
+      emit('finishing', completedUnits);
       await sink.finish(session);
     } catch (error: unknown) {
       if (!finishStarted) {

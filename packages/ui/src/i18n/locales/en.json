@@ -127,7 +127,10 @@
     "successToast": "Exported as {{fileName}}",
     "openFolder": "Open folder",
     "cancelledToast": "Export cancelled",
-    "failedToast": "Export failed. Try again."
+    "failedToast": "Export failed. Try again.",
+    "cancelling": "Cancelling…",
+    "indeterminate": "Indeterminate",
+    "progressPercent": "Exporting… {{percent}}%"
   },
   "preferences": {
     "title": "Preferences",

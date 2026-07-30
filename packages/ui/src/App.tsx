@@ -29,15 +29,47 @@ import './i18n/types';
 import type {
   ExportDialogOptions,
   ExportPreviewSnapshot,
+  ExportProgress,
   ExportResult,
   ExportRequest,
   ExportSnapshot,
   LayerName,
   RasterExportV2,
+  VellumError,
 } from '@vellum/core';
 import { useVellumStore } from './store/vellum-store';
 
 const noop = async (): Promise<void> => {};
+
+/** Bounded time an export may run before it is treated as timed out and aborted. */
+const EXPORT_TIMEOUT_MS = 5 * 60 * 1000;
+
+/**
+ * Ref a composition root reads to request cancellation of any active export —
+ * e.g. before allowing the window to close. `current` is non-null only while
+ * an export is active, and its call resolves once that export's own
+ * try/finally chain has settled (success, cancellation, or error).
+ */
+export type ExportCancelHandlerRef = {
+  current: (() => Promise<void>) | null;
+};
+
+/** Maps an export failure to the existing `errors.*` i18n keys — never `.reason`. */
+function toExportError(err: unknown): VellumError {
+  if (err && typeof err === 'object' && 'type' in err) {
+    const e = err as Record<string, unknown>;
+    if (
+      (e.type === 'ExportFailed' || e.type === 'IoError') &&
+      typeof e.reason === 'string'
+    ) {
+      return err as VellumError;
+    }
+  }
+  return {
+    type: 'ExportFailed',
+    reason: err instanceof Error ? err.message : String(err),
+  };
+}
 
 /**
  * Props injected from the Tauri composition root (`apps/desktop`).
@@ -57,6 +89,8 @@ export interface AppProps {
   onOpenExportFolder?: (folderPath: string) => Promise<void>;
   /** Allows a composition root to prevent interactions during an external export. */
   isExporting?: boolean;
+  /** Ref set (while an export is active) to a bounded, awaitable cancel request. */
+  exportCancelHandlerRef?: ExportCancelHandlerRef;
 }
 
 /**
@@ -82,6 +116,7 @@ export function App({
   rasterExporter,
   onOpenExportFolder,
   isExporting: isExportingProp = false,
+  exportCancelHandlerRef,
 }: AppProps) {
   const { t } = useTranslation();
   const [i18nReady, setI18nReady] = useState(false);
@@ -89,10 +124,23 @@ export function App({
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
   const [exportPreview, setExportPreview] =
     useState<ExportPreviewSnapshot | null>(null);
-  const [exportInProgress, setExportInProgress] = useState(false);
-  const isExporting = isExportingProp || exportInProgress;
+  const [exportPhase, setExportPhase] = useState<
+    'idle' | 'exporting' | 'cancelling'
+  >('idle');
+  const isExporting = isExportingProp || exportPhase !== 'idle';
+  const [exportProgress, setExportProgress] = useState<ExportProgress | null>(
+    null,
+  );
   const [exportResult, setExportResult] = useState<ExportResult | null>(null);
-  const [exportFailed, setExportFailed] = useState(false);
+  const [exportCancelled, setExportCancelled] = useState(false);
+  const [exportError, setExportError] = useState<VellumError | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const exportOperationRef = useRef<{
+    snapshotId: string;
+    sessionId?: string;
+  } | null>(null);
+  const timedOutRef = useRef(false);
+  const pendingExportRef = useRef<Promise<void> | null>(null);
   const fitToScreenRef = useRef<(() => void) | null>(null);
   const zoomInRef = useRef<(() => void) | null>(null);
   const zoomOutRef = useRef<(() => void) | null>(null);
@@ -139,12 +187,54 @@ export function App({
         : 'Vellum';
   }, [cityData]);
 
+  /**
+   * Cancels any active export before this render commits — never after,
+   * since the caller (an effect reacting to `cityData`) already means the
+   * global CityData/DEM is about to be replaced (AD-15: one export at a time
+   * while that protocol is shared).
+   */
+  const handleCancelExport = useCallback((): void => {
+    if (!abortControllerRef.current) return;
+    setExportPhase('cancelling');
+    abortControllerRef.current.abort();
+  }, []);
+
   // Reset clean mode when a new map is loaded so the chrome is always visible on first render
   useEffect(() => {
     setIsExportDialogOpen(false);
     setExportPreview(null);
     if (cityData !== null) setIsCleanMode(false);
-  }, [cityData]);
+    handleCancelExport();
+  }, [cityData, handleCancelExport]);
+
+  // Lets a composition root (e.g. main.tsx's window close handler) request a
+  // bounded cancellation of whichever export is currently active.
+  useEffect(() => {
+    if (!exportCancelHandlerRef) return undefined;
+    exportCancelHandlerRef.current =
+      exportPhase === 'idle'
+        ? null
+        : async () => {
+            handleCancelExport();
+            await (pendingExportRef.current ?? Promise.resolve());
+          };
+    return () => {
+      exportCancelHandlerRef.current = null;
+    };
+  }, [exportCancelHandlerRef, exportPhase, handleCancelExport]);
+
+  // Escape cancels an active export once the configuration dialog itself has
+  // already closed (Radix's own onOpenChange handles Escape while it's open).
+  useEffect(() => {
+    if (exportPhase === 'idle') return undefined;
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      handleCancelExport();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [exportPhase, handleCancelExport]);
 
   useEffect(() => {
     if (loadingState !== 'loading') return;
@@ -207,12 +297,28 @@ export function App({
     async (options: ExportDialogOptions): Promise<void> => {
       if (isExportingRef.current || !rasterExporter) return;
       if (options.format === 'svg') {
-        setExportFailed(true);
+        setExportError({
+          type: 'ExportFailed',
+          reason: 'SVG export is not implemented',
+        });
         return;
       }
-      setExportFailed(false);
+      setExportError(null);
+      setExportCancelled(false);
       setExportResult(null);
-      setExportInProgress(true);
+      setExportProgress(null);
+      timedOutRef.current = false;
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+      setExportPhase('exporting');
+      let resolvePending: (() => void) | undefined;
+      pendingExportRef.current = new Promise((resolve) => {
+        resolvePending = resolve;
+      });
+      const timeoutId = window.setTimeout(() => {
+        timedOutRef.current = true;
+        controller.abort();
+      }, EXPORT_TIMEOUT_MS);
       try {
         const request: ExportRequest = {
           format: options.format,
@@ -223,12 +329,51 @@ export function App({
         };
         const snapshot = snapshotCaptureRef.current?.(request);
         if (!snapshot) throw new Error('Export snapshot is unavailable');
-        setExportResult(await rasterExporter.export(snapshot));
+        exportOperationRef.current = { snapshotId: snapshot.snapshotId };
+        const onProgress = (progress: ExportProgress): void => {
+          if (exportOperationRef.current?.snapshotId !== progress.snapshotId) {
+            return;
+          }
+          exportOperationRef.current = {
+            snapshotId: progress.snapshotId,
+            ...(progress.sessionId !== undefined
+              ? { sessionId: progress.sessionId }
+              : {}),
+          };
+          setExportProgress(progress);
+        };
+        const receipt = await rasterExporter.export(
+          snapshot,
+          controller.signal,
+          onProgress,
+        );
+        if (exportOperationRef.current?.snapshotId !== snapshot.snapshotId) {
+          return;
+        }
+        setExportResult(receipt);
       } catch (error: unknown) {
-        console.error('[App] PNG export failed:', error);
-        setExportFailed(true);
+        if (controller.signal.aborted) {
+          if (timedOutRef.current) {
+            setExportError({
+              type: 'ExportFailed',
+              reason: 'export timed out',
+            });
+          } else {
+            setExportCancelled(true);
+          }
+        } else {
+          console.error('[App] PNG export failed:', error);
+          setExportError(toExportError(error));
+        }
       } finally {
-        setExportInProgress(false);
+        window.clearTimeout(timeoutId);
+        if (abortControllerRef.current === controller) {
+          abortControllerRef.current = null;
+        }
+        exportOperationRef.current = null;
+        setExportProgress(null);
+        setExportPhase('idle');
+        resolvePending?.();
       }
     },
     [rasterExporter],
@@ -428,10 +573,38 @@ export function App({
             role="progressbar"
             aria-valuemin={0}
             aria-valuemax={100}
-            aria-valuetext={t('export.exportButton')}
-            className="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 rounded bg-background px-4 py-2 text-xs shadow"
+            aria-busy="true"
+            {...(exportPhase !== 'cancelling' &&
+            exportProgress?.percent !== undefined
+              ? { 'aria-valuenow': exportProgress.percent }
+              : {})}
+            aria-valuetext={
+              exportPhase === 'cancelling'
+                ? t('export.cancelling')
+                : exportProgress?.percent !== undefined
+                  ? t('export.progressPercent', {
+                      percent: exportProgress.percent,
+                    })
+                  : t('export.indeterminate')
+            }
+            className="pointer-events-none absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-3 rounded bg-background px-4 py-2 text-xs shadow"
           >
-            {t('export.exportButton')}
+            <span>
+              {exportPhase === 'cancelling'
+                ? t('export.cancelling')
+                : exportProgress?.percent !== undefined
+                  ? t('export.progressPercent', {
+                      percent: exportProgress.percent,
+                    })
+                  : t('export.exportButton')}
+            </span>
+            <button
+              type="button"
+              onClick={handleCancelExport}
+              className="pointer-events-auto underline"
+            >
+              {t('export.cancelButton')}
+            </button>
           </div>
         )}
         {exportResult && (
@@ -451,12 +624,24 @@ export function App({
             </button>
           </div>
         )}
-        {exportFailed && (
+        {exportCancelled && (
+          <div
+            role="status"
+            className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded bg-background px-4 py-2 text-xs shadow"
+          >
+            {t('export.cancelledToast')}
+          </div>
+        )}
+        {exportError && (
           <div
             role="alert"
             className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded bg-background px-4 py-2 text-xs shadow"
           >
-            {t('export.failedToast')}
+            {t(
+              exportError.type === 'IoError'
+                ? 'errors.IoError'
+                : 'errors.ExportFailed',
+            )}
           </div>
         )}
       </div>

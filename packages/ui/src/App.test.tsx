@@ -1,8 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import userEvent from '@testing-library/user-event';
-import type { ExportSnapshot, RasterExportV2 } from '@vellum/core';
-import { render, screen, cleanup, act, waitFor } from './test-utils';
-import { App } from './App';
+import type {
+  ExportProgress,
+  ExportSnapshot,
+  RasterExportV2,
+} from '@vellum/core';
+import { render, screen, cleanup, act, waitFor, fireEvent } from './test-utils';
+import { App, type ExportCancelHandlerRef } from './App';
 import { useKeyboardShortcuts } from './hooks/use-keyboard-shortcuts';
 import { useVellumStore } from './store/vellum-store';
 
@@ -15,7 +19,7 @@ const mockPreviewCapture = vi.hoisted(() =>
   }),
 );
 
-const mockSnapshot = {} as ExportSnapshot;
+const mockSnapshot = { snapshotId: 'snap-1' } as ExportSnapshot;
 const mockRasterExporter: RasterExportV2 = {
   version: 2,
   capabilities: vi.fn().mockResolvedValue({
@@ -353,7 +357,11 @@ describe('App — ExportDialog (Story 6.1)', () => {
     await user.click(exportButtons.at(-1)!);
 
     await waitFor(() => {
-      expect(mockRasterExporter.export).toHaveBeenCalledWith(mockSnapshot);
+      expect(mockRasterExporter.export).toHaveBeenCalledWith(
+        mockSnapshot,
+        expect.any(AbortSignal),
+        expect.any(Function),
+      );
     });
   });
 
@@ -459,5 +467,299 @@ describe('App — ExportDialog (Story 6.1)', () => {
     });
 
     expect(screen.queryByLabelText('export.fileName')).toBeNull();
+  });
+});
+
+async function startExport(
+  user: ReturnType<typeof userEvent.setup>,
+): Promise<void> {
+  const shortcuts = vi.mocked(useKeyboardShortcuts).mock.lastCall?.[0];
+  await act(async () => shortcuts?.onOpenExport?.());
+  const exportButtons = screen.getAllByRole('button', {
+    name: 'export.exportButton',
+  });
+  await user.click(exportButtons.at(-1)!);
+}
+
+function makeAbortError(): Error {
+  const error = new Error('Export aborted');
+  error.name = 'AbortError';
+  return error;
+}
+
+describe('App — progreso, cancelación y cleanup (Story 6.2G)', () => {
+  it('nunca reporta aria-valuenow para la ruta legacy indeterminada', async () => {
+    const user = userEvent.setup();
+    useVellumStore.getState().setCityData(mockCityData);
+    await act(async () => {
+      render(<App rasterExporter={mockRasterExporter} />);
+    });
+    await startExport(user);
+
+    await waitFor(() => {
+      expect(screen.getByText('export.successToast')).toBeInTheDocument();
+    });
+  });
+
+  it('Escape cancela una exportación tiled activa, muestra "Cancelando…" y termina en cancelledToast sin éxito ni error', async () => {
+    const user = userEvent.setup();
+    useVellumStore.getState().setCityData(mockCityData);
+    let capturedSignal: AbortSignal | undefined;
+    let rejectExport: ((reason?: unknown) => void) | undefined;
+    vi.mocked(mockRasterExporter.export).mockImplementationOnce(
+      (_snap, signal) =>
+        new Promise((_resolve, reject) => {
+          capturedSignal = signal;
+          rejectExport = reject;
+        }),
+    );
+
+    await act(async () => {
+      render(<App rasterExporter={mockRasterExporter} />);
+    });
+    await startExport(user);
+    await waitFor(() => expect(capturedSignal).toBeDefined());
+
+    await act(async () => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    });
+
+    expect(capturedSignal?.aborted).toBe(true);
+    expect(screen.getByText('export.cancelling')).toBeInTheDocument();
+
+    await act(async () => {
+      rejectExport?.(makeAbortError());
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('export.cancelledToast')).toBeInTheDocument();
+    });
+    expect(screen.queryByText('errors.ExportFailed')).toBeNull();
+    expect(screen.queryByText('errors.IoError')).toBeNull();
+    expect(screen.queryByText('export.successToast')).toBeNull();
+  });
+
+  it('una segunda cancelación sobre la misma operación no rompe ni produce un segundo desenlace', async () => {
+    const user = userEvent.setup();
+    useVellumStore.getState().setCityData(mockCityData);
+    let capturedSignal: AbortSignal | undefined;
+    let rejectExport: ((reason?: unknown) => void) | undefined;
+    vi.mocked(mockRasterExporter.export).mockImplementationOnce(
+      (_snap, signal) =>
+        new Promise((_resolve, reject) => {
+          capturedSignal = signal;
+          rejectExport = reject;
+        }),
+    );
+
+    await act(async () => {
+      render(<App rasterExporter={mockRasterExporter} />);
+    });
+    await startExport(user);
+    await waitFor(() => expect(capturedSignal).toBeDefined());
+
+    await act(async () => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    });
+    expect(capturedSignal?.aborted).toBe(true);
+
+    await act(async () => {
+      rejectExport?.(makeAbortError());
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('export.cancelledToast')).toBeInTheDocument();
+    });
+  });
+
+  it('reporta progreso real (aria-valuenow/aria-valuetext) y descarta progreso de una operación distinta', async () => {
+    const user = userEvent.setup();
+    useVellumStore.getState().setCityData(mockCityData);
+    let onProgressCb: ((progress: ExportProgress) => void) | undefined;
+    let resolveExport:
+      | ((receipt: { filePath: string; folderPath: string }) => void)
+      | undefined;
+    vi.mocked(mockRasterExporter.export).mockImplementationOnce(
+      (_snap, _signal, onProgress) => {
+        onProgressCb = onProgress;
+        return new Promise((resolve) => {
+          resolveExport = resolve;
+        });
+      },
+    );
+
+    await act(async () => {
+      render(<App rasterExporter={mockRasterExporter} />);
+    });
+    await startExport(user);
+    await waitFor(() => expect(onProgressCb).toBeDefined());
+
+    const progressbar = screen.getByRole('progressbar');
+    expect(progressbar).not.toHaveAttribute('aria-valuenow');
+
+    await act(async () => {
+      onProgressCb?.({
+        snapshotId: 'a-different-snapshot',
+        mode: 'tiled-png',
+        phase: 'capturing',
+        completedUnits: 1,
+        totalUnits: 4,
+        percent: 25,
+      });
+    });
+    expect(progressbar).not.toHaveAttribute('aria-valuenow');
+
+    await act(async () => {
+      onProgressCb?.({
+        snapshotId: 'snap-1',
+        sessionId: 'session-1',
+        mode: 'tiled-png',
+        phase: 'composing',
+        completedUnits: 2,
+        totalUnits: 4,
+        percent: 50,
+      });
+    });
+    expect(progressbar).toHaveAttribute('aria-valuenow', '50');
+    expect(progressbar).toHaveAttribute('aria-busy', 'true');
+
+    await act(async () => {
+      resolveExport?.({ filePath: '/tmp/export.png', folderPath: '/tmp' });
+    });
+    await waitFor(() => {
+      expect(screen.getByText('export.successToast')).toBeInTheDocument();
+    });
+  });
+
+  it('mapea un VellumError a la clave i18n existente (errors.IoError), nunca muestra .reason', async () => {
+    const user = userEvent.setup();
+    useVellumStore.getState().setCityData(mockCityData);
+    vi.mocked(mockRasterExporter.export).mockRejectedValueOnce({
+      type: 'IoError',
+      reason: 'disk is full: /var/tmp/vellum-export-xyz.part',
+    });
+
+    await act(async () => {
+      render(<App rasterExporter={mockRasterExporter} />);
+    });
+    await startExport(user);
+
+    await waitFor(() => {
+      expect(screen.getByText('errors.IoError')).toBeInTheDocument();
+    });
+    expect(screen.queryByText(/disk is full/)).toBeNull();
+    expect(screen.queryByText('export.successToast')).toBeNull();
+  });
+
+  it('cancela una exportación activa cuando cityData cambia (carga de otra ciudad)', async () => {
+    const user = userEvent.setup();
+    useVellumStore.getState().setCityData(mockCityData);
+    let capturedSignal: AbortSignal | undefined;
+    vi.mocked(mockRasterExporter.export).mockImplementationOnce(
+      (_snap, signal) => {
+        capturedSignal = signal;
+        return new Promise(() => undefined);
+      },
+    );
+
+    await act(async () => {
+      render(<App rasterExporter={mockRasterExporter} />);
+    });
+    await startExport(user);
+    await waitFor(() => expect(capturedSignal).toBeDefined());
+
+    act(() => {
+      useVellumStore
+        .getState()
+        .setCityData({ ...mockCityData, cityName: 'Another City' });
+    });
+
+    expect(capturedSignal?.aborted).toBe(true);
+  });
+
+  it('expone exportCancelHandlerRef mientras la exportación está activa y lo limpia al terminar', async () => {
+    const user = userEvent.setup();
+    useVellumStore.getState().setCityData(mockCityData);
+    let capturedSignal: AbortSignal | undefined;
+    let rejectExport: ((reason?: unknown) => void) | undefined;
+    vi.mocked(mockRasterExporter.export).mockImplementationOnce(
+      (_snap, signal) =>
+        new Promise((_resolve, reject) => {
+          capturedSignal = signal;
+          rejectExport = reject;
+        }),
+    );
+    const cancelHandlerRef: ExportCancelHandlerRef = { current: null };
+
+    await act(async () => {
+      render(
+        <App
+          rasterExporter={mockRasterExporter}
+          exportCancelHandlerRef={cancelHandlerRef}
+        />,
+      );
+    });
+    expect(cancelHandlerRef.current).toBeNull();
+
+    await startExport(user);
+    await waitFor(() => expect(cancelHandlerRef.current).not.toBeNull());
+
+    const cancelPromise = cancelHandlerRef.current!();
+    await act(async () => {
+      rejectExport?.(makeAbortError());
+      await cancelPromise;
+    });
+
+    expect(capturedSignal?.aborted).toBe(true);
+    expect(cancelHandlerRef.current).toBeNull();
+  });
+
+  it('un timeout aborta igual que el usuario, pero se reporta como error (no como cancelledToast)', async () => {
+    vi.useFakeTimers();
+    try {
+      useVellumStore.getState().setCityData(mockCityData);
+      let capturedSignal: AbortSignal | undefined;
+      let rejectExport: ((reason?: unknown) => void) | undefined;
+      vi.mocked(mockRasterExporter.export).mockImplementationOnce(
+        (_snap, signal) =>
+          new Promise((_resolve, reject) => {
+            capturedSignal = signal;
+            rejectExport = reject;
+          }),
+      );
+
+      await act(async () => {
+        render(<App rasterExporter={mockRasterExporter} />);
+      });
+      const shortcuts = vi.mocked(useKeyboardShortcuts).mock.lastCall?.[0];
+      await act(async () => shortcuts?.onOpenExport?.());
+      const exportButtons = screen.getAllByRole('button', {
+        name: 'export.exportButton',
+      });
+      act(() => {
+        fireEvent.click(exportButtons.at(-1)!);
+      });
+
+      expect(capturedSignal).toBeDefined();
+      expect(capturedSignal?.aborted).toBe(false);
+
+      act(() => {
+        vi.advanceTimersByTime(5 * 60 * 1000);
+      });
+      expect(capturedSignal?.aborted).toBe(true);
+
+      await act(async () => {
+        rejectExport?.(makeAbortError());
+        await Promise.resolve();
+      });
+
+      expect(screen.getByText('errors.ExportFailed')).toBeInTheDocument();
+      expect(screen.queryByText('export.cancelledToast')).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
