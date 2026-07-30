@@ -9,6 +9,7 @@ export {
 export { vellumLogoDataUri } from './assets/vellum-logo';
 export { LegacyRasterExporter } from './export/legacy-raster-exporter';
 export { planTiles } from './export/tile-planner';
+export { TiledRasterExporter } from './export/tiled-raster-exporter';
 export {
   MapLibreRenderer,
   PngExportOptions,

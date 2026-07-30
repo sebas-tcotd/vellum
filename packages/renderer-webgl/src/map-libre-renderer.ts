@@ -22,6 +22,7 @@ import {
   DEFAULT_LAYER_OPTIONS,
   LAYER_NAMES,
   type CityData,
+  type ExportCamera,
   type ExportPreviewAnnotation,
   type ExportPreviewScale,
   type ExportPreviewSnapshot,
@@ -114,12 +115,14 @@ export class MapLibreRenderer implements IRenderer {
    * @param style - Initial theme colors, applied to the base map style at construction.
    * @param preserveDrawingBuffer - Enables readback only for a disposable export surface.
    * @param releasesDemProtocol - Whether disposing this renderer may unregister the shared DEM protocol.
+   * @param pixelRatio - Fixes the canvas backing-store ratio; only the tiled export surface pins this to `1` so captured pixels match the plan regardless of `devicePixelRatio`.
    */
   constructor(
     container: HTMLDivElement,
     style: RenderStyleParams,
     preserveDrawingBuffer = false,
     releasesDemProtocol = true,
+    pixelRatio?: number,
   ) {
     this.style = style;
     this.releasesDemProtocol = releasesDemProtocol;
@@ -134,6 +137,7 @@ export class MapLibreRenderer implements IRenderer {
       maxZoom: 18,
       canvasContextAttributes: { preserveDrawingBuffer },
       style: createBaseStyle(initialColors),
+      ...(pixelRatio === undefined ? {} : { pixelRatio }),
     });
 
     this.layerManager = new MapLayerManager(this.map, initialColors);
@@ -306,11 +310,7 @@ export class MapLibreRenderer implements IRenderer {
           bearing: this.map.getBearing(),
         });
       }
-      exportRenderer.map.setPaintProperty(
-        'background',
-        'background-color',
-        this.exportBackgroundColor(options.background),
-      );
+      exportRenderer.applyExportBackground(options.background);
       await exportRenderer.waitForIdle();
       return await exportRenderer.captureCanvasBytes();
     } finally {
@@ -404,6 +404,54 @@ export class MapLibreRenderer implements IRenderer {
       : this.style.mapBackground;
   }
 
+  /**
+   * Paints the resolved export background onto this renderer's `background` layer.
+   * @internal Bounded export API — used by disposable export surfaces only.
+   */
+  applyExportBackground(background: ExportBackground): void {
+    this.map.setPaintProperty(
+      'background',
+      'background-color',
+      this.exportBackgroundColor(background),
+    );
+  }
+
+  /**
+   * Jumps the camera to an exact export camera without animation or fit/constrain.
+   * @internal Bounded export API — used by disposable export surfaces only.
+   */
+  setCamera(camera: ExportCamera): void {
+    this.map.jumpTo({
+      center: { lng: camera.longitude, lat: camera.latitude },
+      zoom: camera.zoom,
+      bearing: camera.bearing,
+      pitch: camera.pitch,
+    });
+  }
+
+  /**
+   * Re-reads the container's current CSS size into the MapLibre canvas immediately,
+   * instead of waiting on MapLibre's internal `ResizeObserver` tick.
+   * @internal Bounded export API — used by disposable export surfaces only.
+   */
+  syncCanvasSize(): void {
+    this.map.resize();
+  }
+
+  /**
+   * Removes the soft-boundary snap-back and the fit-derived `minZoom`/`maxBounds`
+   * clamp so an exact tile camera can never be silently reprojected.
+   * @remarks
+   * Only safe on a disposable export surface — the interactive map relies on these
+   * constraints for normal navigation.
+   * @internal Bounded export API — used by disposable export surfaces only.
+   */
+  disableNavigationConstraints(): void {
+    this.navigationManager.dispose();
+    this.map.setMaxBounds(undefined);
+    this.map.setMinZoom(0);
+  }
+
   /** Captures an immutable snapshot on a disposable renderer surface. */
   static async captureSnapshotPng(
     snapshot: ExportSnapshot,
@@ -440,21 +488,9 @@ export class MapLibreRenderer implements IRenderer {
       exportRenderer.setLayerOptions(snapshot.layerOptions);
       exportRenderer.setWatermarkVisibility(snapshot.watermarkVisible);
       if (options.area === 'viewport') {
-        exportRenderer.map.jumpTo({
-          center: {
-            lng: snapshot.camera.longitude,
-            lat: snapshot.camera.latitude,
-          },
-          zoom: snapshot.camera.zoom,
-          bearing: snapshot.camera.bearing,
-          pitch: snapshot.camera.pitch,
-        });
+        exportRenderer.setCamera(snapshot.camera);
       }
-      exportRenderer.map.setPaintProperty(
-        'background',
-        'background-color',
-        exportRenderer.exportBackgroundColor(options.background),
-      );
+      exportRenderer.applyExportBackground(options.background);
       throwIfAborted(signal);
       await exportRenderer.waitForIdle();
       throwIfAborted(signal);
@@ -465,8 +501,11 @@ export class MapLibreRenderer implements IRenderer {
     }
   }
 
-  /** Waits until MapLibre has painted all pending sources and layers. */
-  private waitForIdle(): Promise<void> {
+  /**
+   * Waits until MapLibre has painted all pending sources and layers.
+   * @internal Bounded export API — used by disposable export surfaces only.
+   */
+  waitForIdle(): Promise<void> {
     return new Promise((resolve, reject) => {
       const finish = (): void => {
         clearTimeout(timeout);
@@ -481,8 +520,11 @@ export class MapLibreRenderer implements IRenderer {
     });
   }
 
-  /** Captures an encoded PNG after the temporary renderer has become idle. */
-  private captureCanvasBytes(): Promise<Uint8Array> {
+  /**
+   * Captures an encoded PNG after the temporary renderer has become idle.
+   * @internal Bounded export API — used by disposable export surfaces only.
+   */
+  captureCanvasBytes(): Promise<Uint8Array> {
     return new Promise((resolve, reject) => {
       let settled = false;
       const finish = (result: Uint8Array | Error): void => {
