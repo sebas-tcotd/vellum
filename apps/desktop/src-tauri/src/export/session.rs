@@ -59,11 +59,12 @@ pub struct AcceptedTile {
 pub trait TileConsumer: Send {
     /// Records one already-validated chunk. Framing/budget/coverage checks
     /// happen in the session before this is called; `tile` carries the
-    /// geometry a real compositor will need starting in 6.2F.
+    /// geometry and `payload` the raw encoded PNG bytes the compositor needs
+    /// to decode, crop, and stream out.
     ///
     /// # Errors
     /// Returns a typed `VellumError` when the chunk cannot be accepted.
-    fn accept(&mut self, tile: &AcceptedTile) -> Result<(), VellumError>;
+    fn accept(&mut self, tile: &AcceptedTile, payload: &[u8]) -> Result<(), VellumError>;
     /// Confirms full coverage. Only `Ok(())` allows the `.part` file to be
     /// committed via rename.
     ///
@@ -73,28 +74,12 @@ pub trait TileConsumer: Send {
     fn finish(&mut self) -> Result<(), VellumError>;
 }
 
-/// Production consumer: fail-closed until 6.2F wires a real compositor.
-///
-/// Never publishes a concatenation of tiles as a final PNG — `finish` always
-/// rejects, so `finish_export` cannot commit a fake file in this story.
-struct FailClosedConsumer;
-
-impl TileConsumer for FailClosedConsumer {
-    fn accept(&mut self, _tile: &AcceptedTile) -> Result<(), VellumError> {
-        Ok(())
-    }
-
-    fn finish(&mut self) -> Result<(), VellumError> {
-        Err(VellumError::ExportFailed {
-            reason: "tiled PNG compositing is not implemented until story 6.2F".to_string(),
-        })
-    }
-}
-
-/// Builds one `TileConsumer` per session. Tests substitute a double via
-/// [`ExportSessionManager::with_consumer_factory`]; production always installs
-/// [`FailClosedConsumer`].
-pub type ConsumerFactory = Box<dyn Fn() -> Box<dyn TileConsumer> + Send + Sync>;
+/// Builds one `TileConsumer` per session, given the declared output
+/// dimensions and the `.part` path it should stream into. Tests substitute a
+/// double via [`ExportSessionManager::with_consumer_factory`]; production
+/// always installs a real [`super::tile_composer::TileComposer`].
+pub type ConsumerFactory =
+    Box<dyn Fn(u32, u32, &Path) -> Result<Box<dyn TileConsumer>, VellumError> + Send + Sync>;
 
 /// Explicit session lifecycle (AC1: `Created → Active → Finishing → Committed`
 /// or `Cancelled`/`Failed`). `Created` is instantaneous — a session is only
@@ -297,11 +282,12 @@ fn validate_rect_contained(inner: &PixelRectRaw, outer: &PixelRectRaw) -> Result
 }
 
 impl ExportSessionManager {
-    /// Creates a manager using the production fail-closed consumer.
+    /// Creates a manager using the production streaming compositor.
     #[must_use]
     pub fn new() -> Self {
-        Self::with_consumer_factory(Box::new(|| {
-            Box::new(FailClosedConsumer) as Box<dyn TileConsumer>
+        Self::with_consumer_factory(Box::new(|width, height, part_path| {
+            super::tile_composer::TileComposer::create(width, height, part_path)
+                .map(|composer| Box::new(composer) as Box<dyn TileConsumer>)
         }))
     }
 
@@ -390,6 +376,9 @@ impl ExportSessionManager {
             reason: format!("failed to create export temp file: {e}"),
         })?;
 
+        let consumer =
+            (self.consumer_factory)(metadata.output_width, metadata.output_height, &part_path)?;
+
         let session = Session {
             state: SessionState::Active,
             cancel_requested: false,
@@ -402,7 +391,7 @@ impl ExportSessionManager {
             output_height: metadata.output_height,
             part_path,
             final_path,
-            consumer: Some((self.consumer_factory)()),
+            consumer: Some(consumer),
         };
         self.lock_sessions().insert(session_id.clone(), session);
 
@@ -488,13 +477,16 @@ impl ExportSessionManager {
             .consumer
             .as_mut()
             .ok_or_else(unknown_session_error)?;
-        consumer.accept(&AcceptedTile {
-            tile_x: header.tile_x,
-            tile_y: header.tile_y,
-            useful_rect: header.useful_rect,
-            render_rect: header.render_rect,
-            encoded_len: payload.len(),
-        })?;
+        consumer.accept(
+            &AcceptedTile {
+                tile_x: header.tile_x,
+                tile_y: header.tile_y,
+                useful_rect: header.useful_rect,
+                render_rect: header.render_rect,
+                encoded_len: payload.len(),
+            },
+            payload,
+        )?;
 
         // Every validation above passed — only now is state mutated (AC5).
         session.accepted_bytes = new_accepted_bytes;
@@ -732,7 +724,7 @@ mod tests {
     }
 
     impl TileConsumer for TestConsumer {
-        fn accept(&mut self, _tile: &AcceptedTile) -> Result<(), VellumError> {
+        fn accept(&mut self, _tile: &AcceptedTile, _payload: &[u8]) -> Result<(), VellumError> {
             if self.reject_accept {
                 return Err(VellumError::ExportFailed {
                     reason: "test consumer rejected chunk".to_string(),
@@ -754,12 +746,12 @@ mod tests {
     }
 
     fn manager_with(finish_ok: bool, reject_accept: bool) -> ExportSessionManager {
-        ExportSessionManager::with_consumer_factory(Box::new(move || {
-            Box::new(TestConsumer {
+        ExportSessionManager::with_consumer_factory(Box::new(move |_width, _height, _part_path| {
+            Ok(Box::new(TestConsumer {
                 finish_ok,
                 accept_calls: Arc::new(std::sync::atomic::AtomicU32::new(0)),
                 reject_accept,
-            }) as Box<dyn TileConsumer>
+            }) as Box<dyn TileConsumer>)
         }))
     }
 
@@ -1211,7 +1203,7 @@ mod tests {
         }
 
         impl TileConsumer for BlockingConsumer {
-            fn accept(&mut self, _tile: &AcceptedTile) -> Result<(), VellumError> {
+            fn accept(&mut self, _tile: &AcceptedTile, _payload: &[u8]) -> Result<(), VellumError> {
                 Ok(())
             }
 
@@ -1228,16 +1220,16 @@ mod tests {
         let release_rx = Mutex::new(Some(release_rx));
 
         let manager = Arc::new(ExportSessionManager::with_consumer_factory(Box::new(
-            move || {
+            move |_width, _height, _part_path| {
                 let release = release_rx
                     .lock()
                     .unwrap()
                     .take()
                     .expect("consumer factory is only called once in this test");
-                Box::new(BlockingConsumer {
+                Ok(Box::new(BlockingConsumer {
                     started: started_tx.clone(),
                     release,
-                }) as Box<dyn TileConsumer>
+                }) as Box<dyn TileConsumer>)
             },
         )));
 
@@ -1455,26 +1447,17 @@ mod tests {
     }
 
     #[test]
-    fn fail_closed_consumer_never_confirms_finish() {
-        let mut consumer = FailClosedConsumer;
-        let tile = AcceptedTile {
-            tile_x: 0,
-            tile_y: 0,
-            useful_rect: PixelRectRaw {
-                x: 0,
-                y: 0,
-                width: 10,
-                height: 10,
-            },
-            render_rect: PixelRectRaw {
-                x: 0,
-                y: 0,
-                width: 10,
-                height: 10,
-            },
-            encoded_len: 10,
-        };
-        assert!(consumer.accept(&tile).is_ok());
-        assert!(consumer.finish().is_err());
+    fn begin_propagates_a_consumer_factory_failure() {
+        let dir = unique_temp_dir("factory-failure");
+        let manager =
+            ExportSessionManager::with_consumer_factory(Box::new(|_width, _height, _part_path| {
+                Err(VellumError::ExportFailed {
+                    reason: "consumer factory refused to build a compositor".to_string(),
+                })
+            }));
+        let metadata = begin_metadata("factory-failure-map", 10, 10);
+        assert!(manager.begin(&metadata, &dir).is_err());
+
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 }
