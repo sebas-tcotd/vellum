@@ -13,6 +13,10 @@ export const EXPORT_FRAME_HEADER_BYTES = 76;
  * frontend e IPC") — the complete frame crossing IPC, header included.
  * Enforced independently of the session's reported `maxChunkBytes` so a
  * misreported ceiling can never build an over-budget frame.
+ *
+ * Mirrored by `MAX_PENDING_FRAME_BYTES` in
+ * `apps/desktop/src-tauri/src/export/session.rs` — no codegen ties the two
+ * together, so a change here must be applied there too in the same commit.
  */
 export const EXPORT_FRAME_MAX_TOTAL_BYTES = 64 * 1024 * 1024;
 

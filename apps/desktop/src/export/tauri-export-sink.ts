@@ -121,13 +121,17 @@ export class TauriExportSink implements ExportSink {
       this.sessions.delete(session.sessionId);
       return asExportReceipt(result);
     } catch (error) {
-      this.sessions.delete(session.sessionId);
-      await this.invokeCommand(IPC_COMMANDS.CANCEL_EXPORT, {
-        sessionId: session.sessionId,
-      }).catch(() => {
-        // Best-effort: cancel_export is idempotent, and a failed cancel here
-        // still leaves the startup sweep to reclaim an orphaned `.part`.
-      });
+      try {
+        await this.invokeCommand(IPC_COMMANDS.CANCEL_EXPORT, {
+          sessionId: session.sessionId,
+        });
+        this.sessions.delete(session.sessionId);
+      } catch {
+        // Best-effort cleanup failed too — keep the local session rather
+        // than forgetting it outright, so a caller can still retry cancel()
+        // instead of losing track of it. Worst case, the startup sweep
+        // reclaims the orphaned `.part` on next launch.
+      }
       throw error;
     }
   }

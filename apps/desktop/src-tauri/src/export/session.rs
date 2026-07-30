@@ -18,6 +18,10 @@ use crate::ipc_contract::{
 /// frontend e IPC") — this is the complete frame crossing IPC, header
 /// included, since `maxInFlight` is always 1 and only one frame is ever
 /// pending at a time.
+///
+/// Mirrored by `EXPORT_FRAME_MAX_TOTAL_BYTES` in
+/// `apps/desktop/src/export/export-frame.ts` — no codegen ties the two
+/// together, so a change here must be applied there too in the same commit.
 pub const MAX_PENDING_FRAME_BYTES: u64 = 64 * 1024 * 1024;
 /// Maximum encoded PNG payload accepted in a single chunk. Derived by
 /// subtracting the fixed 76-byte header so a full wire frame (header +
@@ -314,7 +318,17 @@ impl ExportSessionManager {
     fn lock_sessions(&self) -> MutexGuard<'_, HashMap<String, Session>> {
         match self.sessions.lock() {
             Ok(guard) => guard,
-            Err(poisoned) => poisoned.into_inner(),
+            Err(poisoned) => {
+                // A panic while holding this lock would otherwise poison it
+                // forever, permanently wedging every export. Recovering is
+                // the pragmatic choice for a long-lived desktop app — but the
+                // panic itself is surfaced here rather than silently eaten.
+                eprintln!(
+                    "export session mutex was poisoned by a panicking thread; \
+                     recovering the guard so in-flight exports are not stuck"
+                );
+                poisoned.into_inner()
+            }
         }
     }
 
@@ -464,7 +478,7 @@ impl ExportSessionManager {
         if session.seen_tiles.contains(&tile_coord) {
             return Err(coverage_error("tile coordinate already accepted (overlap)"));
         }
-        if u32::try_from(session.seen_tiles.len()).unwrap_or(u32::MAX) >= session.expected_tiles {
+        if session.seen_tiles.len() >= session.expected_tiles as usize {
             return Err(coverage_error("more tiles received than expectedTiles"));
         }
 
@@ -513,8 +527,8 @@ impl ExportSessionManager {
             if session.state != SessionState::Active {
                 return Err(session_not_active_error(session.state));
             }
-            let accepted_tiles = u32::try_from(session.seen_tiles.len()).unwrap_or(u32::MAX);
-            if accepted_tiles != session.expected_tiles {
+            let accepted_tiles = session.seen_tiles.len();
+            if accepted_tiles != session.expected_tiles as usize {
                 return Err(coverage_error(&format!(
                     "expected {} tiles, received {accepted_tiles}",
                     session.expected_tiles
@@ -561,19 +575,24 @@ impl ExportSessionManager {
         outcome
     }
 
-    /// Abandons a session idempotently: an unknown id, or a session already in
-    /// a terminal state, is a no-op. Never touches a file that has already
-    /// been committed.
+    /// Abandons a session idempotently: an unknown id, a session already in a
+    /// terminal state, or one that is `Finishing`, is a no-op. Never touches a
+    /// file that has already been committed.
     ///
     /// # Errors
     /// This method does not fail — it always returns `Ok(())`.
     pub fn cancel(&self, session_id: &str) -> Result<(), VellumError> {
         let mut sessions = self.lock_sessions();
         if let Some(session) = sessions.get_mut(session_id) {
-            if matches!(
-                session.state,
-                SessionState::Active | SessionState::Finishing
-            ) {
+            // `Finishing` is deliberately excluded: per the documented state
+            // table, no concurrent operation is allowed once a session is
+            // finishing. `finish()` releases the lock while it runs the
+            // consumer and renames `.part` — if cancel raced in here and
+            // deleted `.part` out from under it, a concurrently in-flight
+            // `finish()` could rename a file that no longer exists. Letting
+            // `finish()` alone decide the terminal state (Committed/Failed)
+            // closes that window.
+            if session.state == SessionState::Active {
                 let _ = std::fs::remove_file(&session.part_path);
                 session.consumer = None;
                 session.state = SessionState::Cancelled;
@@ -582,11 +601,11 @@ impl ExportSessionManager {
         Ok(())
     }
 
-    /// Removes every non-terminal session's `.part` file and clears all
-    /// state. Called on window close and process exit so a crashed or
-    /// abandoned session never leaves a stray temp file behind; harmless for
-    /// tombstoned terminal sessions since a committed `.part` no longer exists
-    /// at that path.
+    /// Removes every session's `.part` file (active or already-tombstoned)
+    /// and clears all state. Called on window close and process exit so a
+    /// crashed or abandoned session never leaves a stray temp file behind;
+    /// harmless for tombstoned terminal sessions since a committed `.part`
+    /// no longer exists at that path.
     pub fn cleanup_all(&self) {
         let mut sessions = self.lock_sessions();
         for (_, session) in sessions.drain() {
@@ -1166,6 +1185,93 @@ mod tests {
         assert!(
             final_path.exists(),
             "cancel must never remove an already-committed file"
+        );
+
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn cancel_is_a_no_op_while_a_session_is_finishing() {
+        use std::sync::mpsc;
+        use std::thread;
+        use std::time::Duration;
+
+        /// A double whose `finish` blocks until released, so the test can
+        /// deterministically land a `cancel()` call inside the window where
+        /// `finish()` has already transitioned to `Finishing` and released
+        /// the session-map lock, but has not yet renamed `.part`.
+        struct BlockingConsumer {
+            started: mpsc::Sender<()>,
+            release: mpsc::Receiver<()>,
+        }
+
+        impl TileConsumer for BlockingConsumer {
+            fn accept(&mut self, _tile: &AcceptedTile) -> Result<(), VellumError> {
+                Ok(())
+            }
+
+            fn finish(&mut self) -> Result<(), VellumError> {
+                let _ = self.started.send(());
+                let _ = self.release.recv();
+                Ok(())
+            }
+        }
+
+        let dir = unique_temp_dir("cancel-during-finish");
+        let (started_tx, started_rx) = mpsc::channel::<()>();
+        let (release_tx, release_rx) = mpsc::channel::<()>();
+        let release_rx = Mutex::new(Some(release_rx));
+
+        let manager = Arc::new(ExportSessionManager::with_consumer_factory(Box::new(
+            move || {
+                let release = release_rx
+                    .lock()
+                    .unwrap()
+                    .take()
+                    .expect("consumer factory is only called once in this test");
+                Box::new(BlockingConsumer {
+                    started: started_tx.clone(),
+                    release,
+                }) as Box<dyn TileConsumer>
+            },
+        )));
+
+        let metadata = begin_metadata("race-map", 10, 10);
+        let session = manager.begin(&metadata, &dir).expect("begin must succeed");
+        let frame = frame_bytes(
+            &session.session_id,
+            0,
+            (0, 0),
+            (0, 0, 10, 10),
+            (0, 0, 10, 10),
+            &[1],
+        );
+        manager.append(&frame).expect("append must succeed");
+
+        let finish_manager = Arc::clone(&manager);
+        let session_id = session.session_id.clone();
+        let finish_thread = thread::spawn(move || finish_manager.finish(&session_id));
+
+        started_rx
+            .recv_timeout(Duration::from_secs(5))
+            .expect("finish must reach the blocking consumer");
+
+        let part_path = dir.join(format!(".vellum-export-{}.part", session.session_id));
+        assert!(manager.cancel(&session.session_id).is_ok());
+        assert!(
+            part_path.exists(),
+            "cancel must not remove .part while finish is in flight"
+        );
+
+        release_tx.send(()).unwrap();
+        let receipt = finish_thread
+            .join()
+            .unwrap()
+            .expect("finish must still succeed after the no-op cancel");
+        assert!(dir.join("race-map.png").exists());
+        assert_eq!(
+            receipt.file_path,
+            dir.join("race-map.png").to_string_lossy()
         );
 
         std::fs::remove_dir_all(&dir).unwrap();
