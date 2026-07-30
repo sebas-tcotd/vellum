@@ -302,6 +302,17 @@ export function App({
       setExportResult(null);
       setExportProgress(null);
       timedOutRef.current = false;
+      // The one terminal, localized outcome for anything the AbortSignal
+      // covers — a thrown AbortError, or a promise that raced to success
+      // just behind abort() — so neither path can leave the UI silently
+      // stuck without a toast.
+      const finalizeAbortedOutcome = (): void => {
+        if (timedOutRef.current) {
+          setExportError({ type: 'ExportFailed', reason: 'export timed out' });
+        } else {
+          setExportCancelled(true);
+        }
+      };
       const controller = new AbortController();
       abortControllerRef.current = controller;
       setExportPhase('exporting');
@@ -338,7 +349,15 @@ export function App({
           // regardless of identity — a callback racing just behind abort()
           // must not resurrect the UI out of "Cancelando…".
           if (controller.signal.aborted) return;
-          if (exportOperationRef.current?.snapshotId !== progress.snapshotId) {
+          const current = exportOperationRef.current;
+          if (!current || current.snapshotId !== progress.snapshotId) return;
+          // Once the session is known, a progress event must match it too —
+          // a same-snapshotId event from a different session is never ours.
+          if (
+            current.sessionId !== undefined &&
+            progress.sessionId !== undefined &&
+            current.sessionId !== progress.sessionId
+          ) {
             return;
           }
           exportOperationRef.current = {
@@ -356,24 +375,21 @@ export function App({
         );
         // Never publish a success toast for an operation the user (or a
         // timeout) already cancelled, even if the underlying promise still
-        // resolved with a receipt.
-        if (
-          controller.signal.aborted ||
-          exportOperationRef.current?.snapshotId !== snapshot.snapshotId
-        ) {
+        // resolved with a receipt (a legitimate photo-finish race) — this
+        // must reach the exact same terminal, localized outcome as the
+        // `catch` below, never a silent no-op that leaves the UI stuck on
+        // "Cancelando…" with no toast at all.
+        if (controller.signal.aborted) {
+          finalizeAbortedOutcome();
+          return;
+        }
+        if (exportOperationRef.current?.snapshotId !== snapshot.snapshotId) {
           return;
         }
         setExportResult(receipt);
       } catch (error: unknown) {
         if (controller.signal.aborted) {
-          if (timedOutRef.current) {
-            setExportError({
-              type: 'ExportFailed',
-              reason: 'export timed out',
-            });
-          } else {
-            setExportCancelled(true);
-          }
+          finalizeAbortedOutcome();
         } else {
           console.error('[App] PNG export failed:', error);
           setExportError(toExportError(error));

@@ -27,7 +27,10 @@ export function createCloseRequestedHandler(
     if (!cancel) return;
     event.preventDefault();
     await Promise.race([
-      cancel(),
+      // A rejected cancel must never block the close — swallow it here so
+      // the race always settles and `destroy()` still runs, bounded by the
+      // same timeout either way.
+      cancel().catch(() => undefined),
       new Promise<void>((resolve) => setTimeout(resolve, timeoutMs)),
     ]);
     await destroy();

@@ -277,6 +277,77 @@ describe('TiledRasterExporter', () => {
     expect(sink.cancel).not.toHaveBeenCalled();
   });
 
+  it('cancels proactively — not after waiting for it to settle — when abort() fires while sink.finish() is in flight', async () => {
+    const { createRenderer } = makeFakeRenderer([]);
+    let resolveFinish: ((receipt: ExportReceipt) => void) | undefined;
+    let rejectFinish: ((reason?: unknown) => void) | undefined;
+    const sink = makeSink({
+      finish: vi.fn(
+        () =>
+          new Promise<ExportReceipt>((resolve, reject) => {
+            resolveFinish = resolve;
+            rejectFinish = reject;
+          }),
+      ),
+    });
+    const exporter = new TiledRasterExporter(capability, createRenderer);
+    const controller = new AbortController();
+
+    const exportPromise = exporter.export(
+      snapshot(100, 100),
+      sink,
+      controller.signal,
+    );
+
+    // Let the export reach `sink.finish()` before aborting.
+    await new Promise((r) => setTimeout(r, 0));
+    expect(sink.finish).toHaveBeenCalledOnce();
+    expect(sink.cancel).not.toHaveBeenCalled();
+
+    controller.abort();
+    // The cancel must fire immediately, without waiting for finish() to settle.
+    expect(sink.cancel).toHaveBeenCalledWith(makeSession(), 'aborted');
+
+    // Simulates Rust's own `cancel_requested` check rejecting the publish.
+    rejectFinish?.(new Error('export session was cancelled while finishing'));
+
+    await expect(exportPromise).rejects.toThrow(
+      'export session was cancelled while finishing',
+    );
+    expect(sink.cancel).toHaveBeenCalledOnce();
+
+    resolveFinish?.({ filePath: '/tmp/unused.png', folderPath: '/tmp' });
+  });
+
+  it('does not double-cancel if finish() still resolves successfully after an abort raced in', async () => {
+    const { createRenderer } = makeFakeRenderer([]);
+    let resolveFinish: ((receipt: ExportReceipt) => void) | undefined;
+    const sink = makeSink({
+      finish: vi.fn(
+        () =>
+          new Promise<ExportReceipt>((resolve) => {
+            resolveFinish = resolve;
+          }),
+      ),
+    });
+    const exporter = new TiledRasterExporter(capability, createRenderer);
+    const controller = new AbortController();
+
+    const exportPromise = exporter.export(
+      snapshot(100, 100),
+      sink,
+      controller.signal,
+    );
+    await new Promise((r) => setTimeout(r, 0));
+    controller.abort();
+    expect(sink.cancel).toHaveBeenCalledOnce();
+
+    // Rust wins the race and commits anyway (a legitimate photo-finish).
+    resolveFinish?.({ filePath: '/tmp/export.png', folderPath: '/tmp' });
+    await expect(exportPromise).resolves.toBeUndefined();
+    expect(sink.cancel).toHaveBeenCalledOnce();
+  });
+
   it('reports monotonic, phase-tagged progress that only advances after each AppendAck', async () => {
     const { createRenderer } = makeFakeRenderer([]);
     // Real Rust always reports `completed_units: 1` per ack (never a running

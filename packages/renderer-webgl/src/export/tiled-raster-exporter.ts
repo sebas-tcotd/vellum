@@ -130,7 +130,22 @@ export class TiledRasterExporter implements RasterExportPort {
       throwIfAborted(signal);
       finishStarted = true;
       emit('finishing', completedUnits);
-      await sink.finish(session);
+      // `sink.finish()` is the only point a tile export is durably
+      // published — a cancellation that arrives while it's in flight must
+      // still reach Rust before the atomic rename, not after. Racing a
+      // proactive `cancel` alongside the await (rather than waiting for
+      // `finish()` to settle first) is what lets `session.rs`'s own
+      // `cancel_requested` check — already race-safe on its side — actually
+      // fire in time.
+      const cancelIfAborted = (): void => {
+        void sink.cancel(session, 'aborted');
+      };
+      signal.addEventListener('abort', cancelIfAborted, { once: true });
+      try {
+        await sink.finish(session);
+      } finally {
+        signal.removeEventListener('abort', cancelIfAborted);
+      }
     } catch (error: unknown) {
       if (!finishStarted) {
         await sink.cancel(session, signal.aborted ? 'aborted' : cancelReason);

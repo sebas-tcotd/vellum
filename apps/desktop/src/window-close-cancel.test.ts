@@ -53,4 +53,16 @@ describe('createCloseRequestedHandler', () => {
       vi.useRealTimers();
     }
   });
+
+  it('still destroys the window even if the cancel handler rejects', async () => {
+    const preventDefault = vi.fn();
+    const destroy = vi.fn().mockResolvedValue(undefined);
+    const cancel = vi.fn().mockRejectedValue(new Error('cancel blew up'));
+    const handler = createCloseRequestedHandler(() => cancel, destroy, 2_000);
+
+    await expect(handler({ preventDefault })).resolves.toBeUndefined();
+
+    expect(cancel).toHaveBeenCalledOnce();
+    expect(destroy).toHaveBeenCalledOnce();
+  });
 });

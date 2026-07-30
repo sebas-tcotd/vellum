@@ -301,4 +301,34 @@ describe('ExportCoordinator', () => {
     await expect(coordinator.export(tiltedSnapshot)).resolves.toEqual(receipt);
     expect(tiledExporter.export).not.toHaveBeenCalled();
   });
+
+  it.each([0, -1, 1.5])(
+    'treats a non-positive-integer maxCanvasSize (%s) as ineligible ("gpu"), never as valid',
+    async (maxCanvasSize) => {
+      const tiledExporter: RasterExportPort = {
+        mode: 'tiled-png',
+        export: vi.fn(),
+      };
+      const coordinator = new ExportCoordinator(
+        new LegacyRasterExporter(async () => new Uint8Array([1])),
+        { begin: vi.fn(), append: vi.fn(), finish: vi.fn(), cancel: vi.fn() },
+        {
+          exporter: tiledExporter,
+          sink: {
+            begin: vi.fn(),
+            append: vi.fn(),
+            finish: vi.fn(),
+            cancel: vi.fn(),
+          },
+          capability: { ...eligibleCapability, maxCanvasSize },
+          enabled: true,
+        },
+      );
+
+      await expect(coordinator.capabilities(request)).resolves.toEqual({
+        legacy: { eligible: true },
+        tiled: { eligible: false, reason: 'gpu' },
+      });
+    },
+  );
 });

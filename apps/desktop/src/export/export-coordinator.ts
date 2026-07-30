@@ -143,7 +143,8 @@ export class ExportCoordinator implements RasterExportV2 {
       return { eligible: false, reason: 'to-blob' };
     if (
       capability.maxCanvasSize === 'unknown' ||
-      !Number.isFinite(capability.maxCanvasSize)
+      !Number.isInteger(capability.maxCanvasSize) ||
+      capability.maxCanvasSize <= 0
     ) {
       return { eligible: false, reason: 'gpu' };
     }

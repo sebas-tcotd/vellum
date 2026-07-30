@@ -626,6 +626,22 @@ describe('App — progreso, cancelación y cleanup (Story 6.2G)', () => {
     expect(progressbar).toHaveAttribute('aria-valuenow', '50');
     expect(progressbar).toHaveAttribute('aria-busy', 'true');
 
+    // Same snapshotId, but a *different* sessionId than the one already
+    // bound to this operation — must be discarded too, not just a mismatch
+    // on snapshotId.
+    await act(async () => {
+      onProgressCb?.({
+        snapshotId: 'snap-1',
+        sessionId: 'a-different-session',
+        mode: 'tiled-png',
+        phase: 'composing',
+        completedUnits: 4,
+        totalUnits: 4,
+        percent: 100,
+      });
+    });
+    expect(progressbar).toHaveAttribute('aria-valuenow', '50');
+
     await act(async () => {
       resolveExport?.({ filePath: '/tmp/export.png', folderPath: '/tmp' });
     });
@@ -853,6 +869,11 @@ describe('App — progreso, cancelación y cleanup (Story 6.2G)', () => {
     });
 
     expect(screen.queryByText('export.successToast')).toBeNull();
+    // The same terminal, localized outcome as an actual AbortError — never
+    // a silent no-op that leaves the UI stuck without any toast at all.
+    await waitFor(() => {
+      expect(screen.getByText('export.cancelledToast')).toBeInTheDocument();
+    });
   });
 
   it('setea exportCancelHandlerRef sincrónicamente al hacer click en exportar, sin esperar un efecto', async () => {
