@@ -8,7 +8,6 @@ import {
   addDistrictsLayer,
   addForestsLayer,
   addGridLayer,
-  addGridPattern,
   addMapFrameLayer,
   addParksLayer,
   addRoadsLayer,
@@ -43,7 +42,6 @@ export class MapSourceManager {
     // Must precede addTerrainReliefLayers: the raster-dem source starts requesting tiles
     // the moment it is registered, and the protocol has to be able to answer them.
     await registerDemProtocol(cityData.terrainDem);
-    await addGridPattern(this.map);
     // Insertion order is the z-order, and the relief must sit between the two basemap
     // passes: over the flat land fill, under the water surface that masks the sea.
     addBasemapLandLayer(this.map, cityData, this.colors);
@@ -110,7 +108,5 @@ export class MapSourceManager {
         this.map.removeSource(id);
       }
     }
-
-    this.map.setPaintProperty('background', 'background-pattern', null);
   }
 }

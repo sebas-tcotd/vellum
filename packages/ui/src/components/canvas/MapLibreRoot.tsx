@@ -1,7 +1,11 @@
 import type { UnlistenFn } from '@tauri-apps/api/event';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
-import type { ExportPreviewSnapshot, LayerVisibility } from '@vellum/core';
-import type { PngExportOptions } from '@vellum/renderer-webgl';
+import type {
+  ExportPreviewSnapshot,
+  ExportRequest,
+  ExportSnapshot,
+  LayerVisibility,
+} from '@vellum/core';
 import type {
   ServiceIconLegendState,
   TooltipInfo,
@@ -52,9 +56,9 @@ export interface MapLibreRootProps {
   previewCaptureRef?: React.RefObject<
     (() => Promise<ExportPreviewSnapshot | null>) | null
   >;
-  /** Ref populated with an isolated PNG raster capture callback. */
-  pngCaptureRef?: React.RefObject<
-    ((options: PngExportOptions) => Promise<Uint8Array>) | null
+  /** Ref populated with a pure export snapshot callback. */
+  snapshotCaptureRef?: React.RefObject<
+    ((request: ExportRequest) => ExportSnapshot | null) | null
   >;
 }
 
@@ -80,7 +84,7 @@ export function MapLibreRoot({
   themes = [],
   subscribeServiceIconLegendRef,
   previewCaptureRef,
-  pngCaptureRef,
+  snapshotCaptureRef,
 }: MapLibreRootProps) {
   const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -265,18 +269,15 @@ export function MapLibreRoot({
     };
   }, [previewCaptureRef]);
 
+  // The callback exposes only the core snapshot; MapLibre remains renderer-owned.
   useEffect(() => {
-    if (!pngCaptureRef) return;
-    pngCaptureRef.current = (options) => {
-      const renderer = rendererRef.current;
-      return renderer
-        ? renderer.capturePng(options)
-        : Promise.reject(new Error('Map renderer is unavailable'));
-    };
+    if (!snapshotCaptureRef) return;
+    snapshotCaptureRef.current = (request) =>
+      rendererRef.current?.createExportSnapshot(request) ?? null;
     return () => {
-      if (pngCaptureRef.current) pngCaptureRef.current = null;
+      if (snapshotCaptureRef.current) snapshotCaptureRef.current = null;
     };
-  }, [pngCaptureRef]);
+  }, [snapshotCaptureRef]);
 
   // Register subscribeServiceIconLegend into the external ref — same pattern as
   // fitToScreenRef/zoomInRef above, but exposing a subscription instead of an action.

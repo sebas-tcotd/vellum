@@ -3,7 +3,11 @@ import type { Mock } from 'vitest';
 import maplibregl from 'maplibre-gl';
 import { MapLibreRenderer } from './map-libre-renderer';
 import { makeCityData } from '@vellum/core/testing';
-import type { RenderStyleParams, RoadCategoryColors } from '@vellum/core';
+import type {
+  ExportRequest,
+  RenderStyleParams,
+  RoadCategoryColors,
+} from '@vellum/core';
 import { buildBuildingColorExpression } from './expressions/building-color';
 import { buildParkColorExpression } from './expressions/park-color';
 import { resolveColors } from './style-adapter';
@@ -42,6 +46,8 @@ const mockMap = vi.hoisted(() => ({
   setMaxZoom: vi.fn(),
   getZoom: vi.fn(() => 12),
   getBearing: vi.fn(() => 25),
+  getCenter: vi.fn(() => ({ lng: 1, lat: 2 })),
+  getPitch: vi.fn(() => 3),
   project: vi.fn((coordinate: [number, number] | { lng: number }) => ({
     x:
       ((Array.isArray(coordinate) ? coordinate[0] : coordinate.lng) + 0.08) *
@@ -167,6 +173,28 @@ const ALL_LAYERS_VISIBLE = {
   districts: true,
 };
 
+const baseSnapshotRequest = {
+  format: 'png-1x',
+  area: 'viewport',
+  background: 'white',
+  fileName: 'baseline',
+  presentation: {
+    showCityName: true,
+    showVellumLogo: false,
+    showSourceFile: false,
+    showGeneratedAt: false,
+    showDistrictNames: true,
+    showParkNames: false,
+    showLayerLegend: true,
+    showRoadLegend: true,
+    showTransitLegend: true,
+    showElevationLegend: true,
+    showScaleBar: true,
+    showOrientation: true,
+    showSummary: false,
+  },
+} as const satisfies ExportRequest;
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function makeRenderer(): MapLibreRenderer {
@@ -184,6 +212,15 @@ describe('MapLibreRenderer', () => {
     mockMap.getSource.mockReturnValue(undefined);
     mockMap.isStyleLoaded.mockReturnValue(true);
     mockMap.getZoom.mockReturnValue(12);
+    // `clearAllMocks` wipes call records but keeps implementations, so a canvas
+    // or bounds installed by one test would silently leak into the next ones.
+    mockMap.getCanvas.mockReturnValue({ style: { cursor: '' } } as never);
+    mockMap.getBounds.mockReturnValue({
+      getWest: () => -0.08,
+      getEast: () => 0.08,
+      getNorth: () => 0.08,
+      getSouth: () => -0.08,
+    } as never);
   });
 
   it.skip('calls addSource for each layer when render() is called', async () => {
@@ -230,6 +267,23 @@ describe('MapLibreRenderer', () => {
     const renderer = makeRenderer();
     await renderer.render(makeCityData(), { activeLayers: ALL_LAYERS_VISIBLE });
     expect(mockMap.fitBounds).toHaveBeenCalledOnce();
+  });
+
+  it('never sets a background-pattern, which would silently discard background-color', async () => {
+    // Regression: MapLibre/Mapbox background layers render `background-pattern`
+    // instead of `background-color` once a pattern is set, not composited on
+    // top of it. A decorative grid texture used to be attached here and made
+    // every theme color and every export background (white/dark/transparent)
+    // render as the pattern's own mostly-transparent pixels instead.
+    const renderer = makeRenderer();
+    await renderer.render(makeCityData(), { activeLayers: ALL_LAYERS_VISIBLE });
+    renderer.clear();
+
+    const patternCalls = (mockMap.setPaintProperty as Mock).mock.calls.filter(
+      (call: unknown[]) =>
+        call[0] === 'background' && call[1] === 'background-pattern',
+    );
+    expect(patternCalls).toHaveLength(0);
   });
 
   it('mantiene el drawing buffer sólo en el renderer temporal de exportación', async () => {
@@ -297,6 +351,123 @@ describe('MapLibreRenderer', () => {
         background: 'white',
       }),
     ).rejects.toThrow('No map is available');
+  });
+
+  it('captures an isolated export snapshot from the renderer state', async () => {
+    mockMap.getCanvas.mockReturnValue({
+      style: { cursor: '' },
+      clientWidth: 640,
+      clientHeight: 480,
+      width: 640,
+      height: 480,
+    } as never);
+    const renderer = makeRenderer();
+    await renderer.render(makeCityData(), { activeLayers: ALL_LAYERS_VISIBLE });
+
+    const snapshot = renderer.createExportSnapshot({
+      format: 'png-1x',
+      area: 'viewport',
+      background: 'white',
+      fileName: 'baseline',
+      presentation: {
+        showCityName: true,
+        showVellumLogo: false,
+        showSourceFile: false,
+        showGeneratedAt: false,
+        showDistrictNames: true,
+        showParkNames: false,
+        showLayerLegend: true,
+        showRoadLegend: true,
+        showTransitLegend: true,
+        showElevationLegend: true,
+        showScaleBar: true,
+        showOrientation: true,
+        showSummary: false,
+      },
+    });
+
+    expect(snapshot).toMatchObject({
+      cityData: expect.any(Object),
+      camera: { longitude: 1, latitude: 2, zoom: 12, bearing: 25, pitch: 3 },
+      surface: { width: 640, height: 480 },
+    });
+    expect(snapshot).not.toHaveProperty('map');
+  });
+
+  it('scales the export surface by the requested density', async () => {
+    mockMap.getCanvas.mockReturnValue({
+      style: { cursor: '' },
+      clientWidth: 640,
+      clientHeight: 480,
+      width: 640,
+      height: 480,
+    } as never);
+    const renderer = makeRenderer();
+    await renderer.render(makeCityData(), { activeLayers: ALL_LAYERS_VISIBLE });
+
+    const snapshot = renderer.createExportSnapshot({
+      ...baseSnapshotRequest,
+      format: 'png-4x',
+      area: 'viewport',
+    });
+
+    expect(snapshot?.surface).toEqual({ width: 2560, height: 1920 });
+  });
+
+  it('derives the viewport extent from the camera, not the whole map', async () => {
+    mockMap.getCanvas.mockReturnValue({
+      style: { cursor: '' },
+      clientWidth: 640,
+      clientHeight: 480,
+      width: 640,
+      height: 480,
+    } as never);
+    const renderer = makeRenderer();
+    await renderer.render(makeCityData(), { activeLayers: ALL_LAYERS_VISIBLE });
+
+    // A genuinely zoomed-in window. The default mock covers +/-0.08 deg, which
+    // is wider than the whole CS1 extent, so it cannot show a viewport crop.
+    mockMap.getBounds.mockReturnValueOnce({
+      getWest: () => -0.01,
+      getEast: () => 0.01,
+      getNorth: () => 0.01,
+      getSouth: () => -0.01,
+    } as never);
+
+    const viewport = renderer.createExportSnapshot({
+      ...baseSnapshotRequest,
+      area: 'viewport',
+    });
+    const fullMap = renderer.createExportSnapshot({
+      ...baseSnapshotRequest,
+      area: 'full-map',
+    });
+
+    expect(viewport?.extent.minX).toBeGreaterThan(-8640);
+    expect(viewport?.extent.maxX).toBeLessThan(8640);
+    expect(viewport?.extent).not.toEqual(fullMap?.extent);
+    expect(fullMap?.extent).toEqual({
+      minX: -8640,
+      maxX: 8640,
+      minZ: -8640,
+      maxZ: 8640,
+    });
+  });
+
+  it('rejects a canvas whose logical size cannot be observed', async () => {
+    mockMap.getCanvas.mockReturnValue({
+      style: { cursor: '' },
+      clientWidth: 0,
+      clientHeight: 0,
+      width: 1280,
+      height: 960,
+    } as never);
+    const renderer = makeRenderer();
+    await renderer.render(makeCityData(), { activeLayers: ALL_LAYERS_VISIBLE });
+
+    // Falling back to the backing store would silently report device pixels
+    // (1280x960 for a 640 CSS-px canvas on a DPR-2 display).
+    expect(renderer.createExportSnapshot(baseSnapshotRequest)).toBeNull();
   });
 
   it('registers nonempty park areas with distinct marker and label layers', async () => {
@@ -474,6 +645,27 @@ describe('MapLibreRenderer', () => {
       'visibility',
       'none',
     );
+  });
+
+  it('reflects setLayerVisibility toggles in exported snapshots and PNGs', async () => {
+    // Regression: setLayerVisibility only told the layer manager, never updated
+    // this.activeLayers — so capturePng/createExportSnapshot kept using
+    // whatever layers were active at the last full render(), silently ignoring
+    // every toggle made afterwards through the layer panel.
+    mockMap.getCanvas.mockReturnValue({
+      style: { cursor: '' },
+      clientWidth: 640,
+      clientHeight: 480,
+      width: 640,
+      height: 480,
+    } as never);
+    const renderer = makeRenderer();
+    await renderer.render(makeCityData(), { activeLayers: ALL_LAYERS_VISIBLE });
+
+    renderer.setLayerVisibility('forests', false);
+
+    const snapshot = renderer.createExportSnapshot(baseSnapshotRequest);
+    expect(snapshot?.activeLayers.forests).toBe(false);
   });
 
   it('setLayerVisibility for terrain controls the color-relief layer', async () => {
@@ -812,16 +1004,6 @@ describe('MapLibreRenderer', () => {
       for (const id of ALL_CITY_SOURCE_IDS) {
         expect(mockMap.removeSource).toHaveBeenCalledWith(id);
       }
-    });
-
-    it('resets background-pattern to null', () => {
-      const renderer = makeRenderer();
-      renderer.clear();
-      expect(mockMap.setPaintProperty).toHaveBeenCalledWith(
-        'background',
-        'background-pattern',
-        null,
-      );
     });
 
     it('is safe to call when no layers or sources exist (idempotent)', () => {

@@ -27,11 +27,15 @@ import {
   type ExportPreviewSnapshot,
   type ExportArea,
   type ExportBackground,
+  type ExportRequest,
+  type ExportSnapshot,
   type IRenderer,
   type LayerName,
   type LayerOptions,
   type RenderParams,
   type RenderStyleParams,
+  createExportSnapshot,
+  exportScaleForFormat,
 } from '@vellum/core';
 import maplibregl from 'maplibre-gl';
 import { csToGeo, geoToCs } from './coordinate-transform';
@@ -97,6 +101,7 @@ export class MapLibreRenderer implements IRenderer {
   private style: RenderStyleParams;
   private activeLayers: RenderParams['activeLayers'] | null = null;
   private transitDimming = false;
+  private watermarkVisible = true;
   private layerOptions: LayerOptions = DEFAULT_LAYER_OPTIONS;
   private readonly pendingPreviewCaptures = new Set<
     (snapshot: ExportPreviewSnapshot | null) => void
@@ -314,12 +319,150 @@ export class MapLibreRenderer implements IRenderer {
     }
   }
 
+  /** Captures all export inputs without exposing the MapLibre instance. */
+  createExportSnapshot(request: ExportRequest): ExportSnapshot | null {
+    if (!this.cityData || !this.activeLayers) return null;
+    const canvas = this.map.getCanvas();
+    // Logical (CSS) pixels only. `canvas.width` is the backing store, i.e.
+    // CSS px x devicePixelRatio, so falling back to it would silently report a
+    // DPR-inflated surface for a canvas whose container is hidden.
+    const baseWidth = canvas.clientWidth;
+    const baseHeight = canvas.clientHeight;
+    if (
+      !Number.isFinite(baseWidth) ||
+      !Number.isFinite(baseHeight) ||
+      baseWidth <= 0 ||
+      baseHeight <= 0
+    )
+      return null;
+    const extent = this.exportExtent(request.area);
+    if (!extent) return null;
+    const scale = exportScaleForFormat(request.format);
+    const center = this.map.getCenter();
+    return createExportSnapshot({
+      cityData: this.cityData,
+      style: this.style,
+      activeLayers: this.activeLayers,
+      layerOptions: this.layerOptions,
+      transitDimming: this.transitDimming,
+      watermarkVisible: this.watermarkVisible,
+      camera: {
+        longitude: center.lng,
+        latitude: center.lat,
+        zoom: this.map.getZoom(),
+        bearing: this.map.getBearing(),
+        pitch: this.map.getPitch(),
+      },
+      extent,
+      // The surface is the final output, matching how the legacy `capturePng`
+      // path sizes its container — this is what capability checks measure.
+      surface: { width: baseWidth * scale, height: baseHeight * scale },
+      request,
+    });
+  }
+
+  /** Resolves the world extent an export request actually covers. */
+  private exportExtent(area: ExportArea): ExportSnapshot['extent'] | null {
+    if (!this.cityData) return null;
+    const { bounds } = this.cityData;
+    if (area === 'full-map') {
+      return {
+        minX: bounds.minX,
+        maxX: bounds.maxX,
+        minZ: bounds.minZ,
+        maxZ: bounds.maxZ,
+      };
+    }
+    try {
+      const viewport = this.map.getBounds();
+      // Latitude is inverted relative to CS1 Z (positive Z = south), so the
+      // northern edge yields the smaller Z. Sort rather than assume.
+      const west = geoToCs({
+        lng: viewport.getWest(),
+        lat: viewport.getNorth(),
+      });
+      const east = geoToCs({
+        lng: viewport.getEast(),
+        lat: viewport.getSouth(),
+      });
+      return {
+        minX: Math.min(west.x, east.x),
+        maxX: Math.max(west.x, east.x),
+        minZ: Math.min(west.z, east.z),
+        maxZ: Math.max(west.z, east.z),
+      };
+    } catch {
+      return null;
+    }
+  }
+
   /** Resolves export backgrounds from theme tokens instead of CSS literals. */
   private exportBackgroundColor(background: ExportBackground): string {
     if (background === 'transparent') return 'rgba(0, 0, 0, 0)';
     return background === 'dark'
       ? this.style.transitBackground
       : this.style.mapBackground;
+  }
+
+  /** Captures an immutable snapshot on a disposable renderer surface. */
+  static async captureSnapshotPng(
+    snapshot: ExportSnapshot,
+    options: PngExportOptions,
+    signal: AbortSignal,
+  ): Promise<Uint8Array> {
+    throwIfAborted(signal);
+    const { width, height } = snapshot.surface;
+    if (
+      !Number.isSafeInteger(width) ||
+      !Number.isSafeInteger(height) ||
+      width <= 0 ||
+      height <= 0 ||
+      width * height > MAX_EXPORT_PIXELS
+    ) {
+      throw new Error('Requested export dimensions exceed the safe limit');
+    }
+
+    const container = document.createElement('div');
+    container.style.cssText = `position:fixed;left:-100000px;top:0;width:${width}px;height:${height}px;`;
+    document.body.append(container);
+    const exportRenderer = new MapLibreRenderer(
+      container,
+      snapshot.style,
+      true,
+      false,
+    );
+    try {
+      await exportRenderer.render(snapshot.cityData, {
+        activeLayers: snapshot.activeLayers,
+      });
+      throwIfAborted(signal);
+      exportRenderer.setTransitDimming(snapshot.transitDimming);
+      exportRenderer.setLayerOptions(snapshot.layerOptions);
+      exportRenderer.setWatermarkVisibility(snapshot.watermarkVisible);
+      if (options.area === 'viewport') {
+        exportRenderer.map.jumpTo({
+          center: {
+            lng: snapshot.camera.longitude,
+            lat: snapshot.camera.latitude,
+          },
+          zoom: snapshot.camera.zoom,
+          bearing: snapshot.camera.bearing,
+          pitch: snapshot.camera.pitch,
+        });
+      }
+      exportRenderer.map.setPaintProperty(
+        'background',
+        'background-color',
+        exportRenderer.exportBackgroundColor(options.background),
+      );
+      throwIfAborted(signal);
+      await exportRenderer.waitForIdle();
+      throwIfAborted(signal);
+      return await exportRenderer.captureCanvasBytes();
+    } finally {
+      exportRenderer.dispose();
+      container.remove();
+    }
   }
 
   /** Waits until MapLibre has painted all pending sources and layers. */
@@ -452,6 +595,9 @@ export class MapLibreRenderer implements IRenderer {
    * @param visible - `true` to show, `false` to hide.
    */
   setLayerVisibility(layer: LayerName, visible: boolean): void {
+    if (this.activeLayers) {
+      this.activeLayers = { ...this.activeLayers, [layer]: visible };
+    }
     this.layerManager.setVisibility(layer, visible);
   }
 
@@ -472,6 +618,7 @@ export class MapLibreRenderer implements IRenderer {
 
   /** Shows or hides the Vellum watermark logo. */
   setWatermarkVisibility(visible: boolean): void {
+    this.watermarkVisible = visible;
     this.layerManager.setWatermarkVisibility(visible);
   }
 
@@ -591,4 +738,20 @@ export class MapLibreRenderer implements IRenderer {
   ): () => void {
     return subscribeServiceIconLegendImpl(this.map, callback);
   }
+}
+
+/** Captures a snapshot through the renderer's isolated export surface. */
+export function captureExportSnapshotPng(
+  snapshot: ExportSnapshot,
+  options: PngExportOptions,
+  signal: AbortSignal,
+): Promise<Uint8Array> {
+  return MapLibreRenderer.captureSnapshotPng(snapshot, options, signal);
+}
+
+function throwIfAborted(signal: AbortSignal): void {
+  if (!signal.aborted) return;
+  const error = new Error('Export aborted');
+  error.name = 'AbortError';
+  throw error;
 }

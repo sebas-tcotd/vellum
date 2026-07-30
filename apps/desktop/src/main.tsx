@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { App, AppMetaProvider, useVellumStore } from '@vellum/ui';
+import { LegacyRasterExporter } from '@vellum/renderer-webgl';
 // CSS global importado aquí (entry point de Vite) para que los @font-face con
 // url() a @fontsource y los design tokens se procesen en build time.
 // No puede importarse desde dentro de @vellum/ui (compilado con TSC, no Vite).
@@ -12,8 +13,14 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { version } from '../package.json';
 import { useParseCslmap } from './hooks/use-parse-cslmap';
 import { useExportPng } from './hooks/use-export-png';
+import { ExportCoordinator } from './export/export-coordinator';
+import { LegacyExportSink } from './export/legacy-export-sink';
 
 const win = getCurrentWindow();
+const rasterExporter = new ExportCoordinator(
+  new LegacyRasterExporter(),
+  new LegacyExportSink(),
+);
 
 // Bridge: Tauri → browser custom event
 // WebView2 (Windows) no propaga el evento browser 'dragenter' para drags externos
@@ -65,13 +72,13 @@ if (import.meta.hot) {
  */
 function AppShell() {
   const { loadFile, openFileDialog, loadFilePartial } = useParseCslmap();
-  const { exportPng, openExportFolder } = useExportPng();
+  const { openExportFolder } = useExportPng();
   return (
     <App
       loadFile={loadFile}
       openFileDialog={openFileDialog}
       loadFilePartial={loadFilePartial}
-      onExport={exportPng}
+      rasterExporter={rasterExporter}
       onOpenExportFolder={openExportFolder}
     />
   );
