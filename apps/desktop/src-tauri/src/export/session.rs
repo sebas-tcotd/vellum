@@ -111,6 +111,7 @@ enum SessionState {
 
 struct Session {
     state: SessionState,
+    cancel_requested: bool,
     expected_sequence: u64,
     accepted_bytes: u64,
     accepted_pixels: u64,
@@ -391,6 +392,7 @@ impl ExportSessionManager {
 
         let session = Session {
             state: SessionState::Active,
+            cancel_requested: false,
             expected_sequence: 0,
             accepted_bytes: 0,
             accepted_pixels: 0,
@@ -543,8 +545,21 @@ impl ExportSessionManager {
             )
         };
 
-        let outcome = match consumer.finish() {
-            Ok(()) => std::fs::rename(&part_path, &final_path)
+        let consumer_result = consumer.finish();
+        let mut sessions = self.lock_sessions();
+        let session = sessions
+            .get_mut(session_id)
+            .ok_or_else(unknown_session_error)?;
+        if session.cancel_requested {
+            let _ = std::fs::remove_file(&part_path);
+            session.state = SessionState::Cancelled;
+            return Err(VellumError::ExportFailed {
+                reason: "export session was cancelled while finishing".to_string(),
+            });
+        }
+
+        let outcome = consumer_result.and_then(|()| {
+            std::fs::rename(&part_path, &final_path)
                 .map(|()| ExportReceiptResponse {
                     file_path: final_path.to_string_lossy().into_owned(),
                     folder_path: final_path
@@ -552,50 +567,40 @@ impl ExportSessionManager {
                         .map(|p| p.to_string_lossy().into_owned())
                         .unwrap_or_default(),
                 })
-                .map_err(|e| {
-                    let _ = std::fs::remove_file(&part_path);
-                    VellumError::IoError {
-                        reason: format!("export finalize failed: {e}"),
-                    }
-                }),
-            Err(e) => {
-                let _ = std::fs::remove_file(&part_path);
-                Err(e)
-            }
-        };
-
-        let mut sessions = self.lock_sessions();
-        if let Some(session) = sessions.get_mut(session_id) {
-            session.state = if outcome.is_ok() {
-                SessionState::Committed
-            } else {
-                SessionState::Failed
-            };
+                .map_err(|e| VellumError::IoError {
+                    reason: format!("export finalize failed: {e}"),
+                })
+        });
+        if outcome.is_err() {
+            let _ = std::fs::remove_file(&part_path);
         }
+        session.state = if outcome.is_ok() {
+            SessionState::Committed
+        } else {
+            SessionState::Failed
+        };
         outcome
     }
 
     /// Abandons a session idempotently: an unknown id, a session already in a
-    /// terminal state, or one that is `Finishing`, is a no-op. Never touches a
-    /// file that has already been committed.
+    /// terminal state, is a no-op. During `Finishing`, it requests cancellation
+    /// without removing the `.part` under the in-flight rename.
     ///
     /// # Errors
     /// This method does not fail — it always returns `Ok(())`.
     pub fn cancel(&self, session_id: &str) -> Result<(), VellumError> {
         let mut sessions = self.lock_sessions();
         if let Some(session) = sessions.get_mut(session_id) {
-            // `Finishing` is deliberately excluded: per the documented state
-            // table, no concurrent operation is allowed once a session is
-            // finishing. `finish()` releases the lock while it runs the
-            // consumer and renames `.part` — if cancel raced in here and
-            // deleted `.part` out from under it, a concurrently in-flight
-            // `finish()` could rename a file that no longer exists. Letting
-            // `finish()` alone decide the terminal state (Committed/Failed)
-            // closes that window.
-            if session.state == SessionState::Active {
-                let _ = std::fs::remove_file(&session.part_path);
-                session.consumer = None;
-                session.state = SessionState::Cancelled;
+            match session.state {
+                SessionState::Active => {
+                    let _ = std::fs::remove_file(&session.part_path);
+                    session.consumer = None;
+                    session.state = SessionState::Cancelled;
+                }
+                SessionState::Finishing => {
+                    session.cancel_requested = true;
+                }
+                SessionState::Committed | SessionState::Cancelled | SessionState::Failed => {}
             }
         }
         Ok(())
@@ -1191,7 +1196,7 @@ mod tests {
     }
 
     #[test]
-    fn cancel_is_a_no_op_while_a_session_is_finishing() {
+    fn cancel_during_finish_prevents_publication_without_removing_the_part_early() {
         use std::sync::mpsc;
         use std::thread;
         use std::time::Duration;
@@ -1264,15 +1269,13 @@ mod tests {
         );
 
         release_tx.send(()).unwrap();
-        let receipt = finish_thread
+        let error = finish_thread
             .join()
             .unwrap()
-            .expect("finish must still succeed after the no-op cancel");
-        assert!(dir.join("race-map.png").exists());
-        assert_eq!(
-            receipt.file_path,
-            dir.join("race-map.png").to_string_lossy()
-        );
+            .expect_err("finish must report the pending cancellation");
+        assert!(matches!(error, VellumError::ExportFailed { .. }));
+        assert!(!part_path.exists());
+        assert!(!dir.join("race-map.png").exists());
 
         std::fs::remove_dir_all(&dir).unwrap();
     }
