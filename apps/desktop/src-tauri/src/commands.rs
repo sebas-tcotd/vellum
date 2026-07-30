@@ -1,7 +1,13 @@
 use crate::city_data::CityData;
 use crate::errors::VellumError;
+use crate::export::session::ExportSessionManager;
+use crate::ipc_contract::{
+    AppendAckResponse, BeginExport, ExportReceiptResponse, ExportSessionResponse,
+};
 use parser_cslmap::parser::parse_cslmap_file;
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
+use tauri::ipc::InvokeBody;
 use tauri::Manager;
 
 // ─── Export types (mirrors of ExportOptions/ExportResult in ipc-contract.ts) ─
@@ -241,7 +247,7 @@ fn validate_png_options(options: &ExportOptions) -> Result<(), VellumError> {
     }
 }
 
-fn is_safe_export_name(name: &str) -> bool {
+pub(crate) fn is_safe_export_name(name: &str) -> bool {
     !name.is_empty()
         && name.len() <= 160
         && !name.contains(['/', '\\', '\0'])
@@ -373,6 +379,102 @@ pub async fn export_svg(_options: ExportOptions) -> Result<ExportResult, VellumE
     Err(VellumError::ExportFailed {
         reason: "SVG export not yet implemented".to_string(),
     })
+}
+
+// ─── Tiled export session (story 6.2C) ────────────────────────────────────────
+// Transactional boundary consumed by the tiled exporters landing in 6.2D–6.2F.
+// Legacy `export_png` above is untouched and remains the only active/default
+// route; this session cannot publish a real composited PNG until 6.2F wires a
+// production `TileConsumer`.
+
+/// Opens a transactional tiled-export session: validates the request, creates a
+/// `.part` placeholder in the user's Downloads directory, and returns an opaque
+/// session handle.
+///
+/// # Errors
+/// - `VellumError::ExportFailed` — unsupported mode, invalid output dimensions,
+///   or an unsafe file name.
+/// - `VellumError::IoError` — Downloads cannot be resolved, or the `.part` file
+///   cannot be created.
+#[tauri::command]
+pub async fn begin_export(
+    metadata: BeginExport,
+    state: tauri::State<'_, Arc<ExportSessionManager>>,
+    app_handle: tauri::AppHandle,
+) -> Result<ExportSessionResponse, VellumError> {
+    let manager = state.inner().clone();
+    tokio::task::spawn_blocking(move || {
+        let downloads_dir = app_handle
+            .path()
+            .download_dir()
+            .map_err(|e| VellumError::IoError {
+                reason: format!("download directory unavailable: {e}"),
+            })?;
+        manager.begin(&metadata, &downloads_dir)
+    })
+    .await
+    .map_err(|e| VellumError::IoError {
+        reason: format!("export begin task failed: {e}"),
+    })?
+}
+
+/// Accepts one raw binary export frame (see `export/framing.rs` for the wire
+/// layout) and returns an acknowledgement once it is validated and recorded.
+///
+/// # Errors
+/// Returns `VellumError::ExportFailed` for a non-raw body or any framing,
+/// session, sequence, rectangle, or budget validation failure — see
+/// `ExportSessionManager::append`.
+#[tauri::command]
+pub async fn append_export_chunk(
+    request: tauri::ipc::Request<'_>,
+    state: tauri::State<'_, Arc<ExportSessionManager>>,
+) -> Result<AppendAckResponse, VellumError> {
+    let bytes: Vec<u8> = match request.body() {
+        InvokeBody::Raw(bytes) => bytes.clone(),
+        InvokeBody::Json(_) => {
+            return Err(VellumError::ExportFailed {
+                reason: "append_export_chunk requires a raw binary body".to_string(),
+            });
+        }
+    };
+    state.inner().append(&bytes)
+}
+
+/// Confirms full tile coverage and atomically publishes the committed file.
+///
+/// # Errors
+/// Returns a typed `VellumError` when the session is unknown or not active, the
+/// consumer reports incomplete coverage, or the final rename fails.
+#[tauri::command]
+pub async fn finish_export(
+    session_id: String,
+    state: tauri::State<'_, Arc<ExportSessionManager>>,
+) -> Result<ExportReceiptResponse, VellumError> {
+    let manager = state.inner().clone();
+    tokio::task::spawn_blocking(move || manager.finish(&session_id))
+        .await
+        .map_err(|e| VellumError::IoError {
+            reason: format!("export finish task failed: {e}"),
+        })?
+}
+
+/// Abandons a tiled-export session idempotently, removing its `.part` file if
+/// one exists. Never removes an already-committed file.
+///
+/// # Errors
+/// This command does not fail — it always returns `Ok(())`.
+#[tauri::command]
+pub async fn cancel_export(
+    session_id: String,
+    state: tauri::State<'_, Arc<ExportSessionManager>>,
+) -> Result<(), VellumError> {
+    let manager = state.inner().clone();
+    tokio::task::spawn_blocking(move || manager.cancel(&session_id))
+        .await
+        .map_err(|e| VellumError::IoError {
+            reason: format!("export cancel task failed: {e}"),
+        })?
 }
 
 #[cfg(test)]
