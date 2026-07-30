@@ -130,7 +130,8 @@
     "failedToast": "Error al exportar. Intenta de nuevo.",
     "cancelling": "Cancelando…",
     "indeterminate": "Indeterminado",
-    "progressPercent": "Exportando… {{percent}}%"
+    "progressPercent": "Exportando… {{percent}}%",
+    "outputNotPublished": "No se guardó ningún archivo."
   },
   "preferences": {
     "title": "Preferencias",

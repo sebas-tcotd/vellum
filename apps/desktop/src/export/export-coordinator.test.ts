@@ -30,7 +30,10 @@ const request = {
   presentation: {} as ExportRequest['presentation'],
 } satisfies ExportRequest;
 
-function snapshot(surface = { width: 400, height: 300 }): ExportSnapshot {
+function snapshot(
+  surface = { width: 400, height: 300 },
+  camera = { longitude: 0, latitude: 0, zoom: 5, bearing: 0, pitch: 0 },
+): ExportSnapshot {
   return createExportSnapshot({
     snapshotId: 'snapshot-coordinator',
     cityData: makeCityData(),
@@ -57,7 +60,7 @@ function snapshot(surface = { width: 400, height: 300 }): ExportSnapshot {
     },
     transitDimming: false,
     watermarkVisible: false,
-    camera: { longitude: 0, latitude: 0, zoom: 5, bearing: 0, pitch: 0 },
+    camera,
     extent: { minX: -8640, maxX: 8640, minZ: -8640, maxZ: 8640 },
     surface,
     request,
@@ -244,5 +247,58 @@ describe('ExportCoordinator', () => {
     expect(onProgress).toHaveBeenCalledWith(
       expect.objectContaining({ phase: 'finishing', completedUnits: 1 }),
     );
+  });
+
+  it('falls back to legacy at export() time when the real snapshot has a bearing/pitch the tiled plan rejects, even though the device is generically eligible', async () => {
+    const receipt = { filePath: '/tmp/legacy.png', folderPath: '/tmp' };
+    const legacySink: ExportSink = {
+      begin: vi.fn().mockResolvedValue({
+        sessionId: 'legacy-session',
+        mode: 'legacy-png',
+        maxChunkBytes: 1024,
+        maxInFlight: 1,
+      }),
+      append: vi.fn().mockResolvedValue({
+        sessionId: 'legacy-session',
+        sequence: 0,
+        acceptedBytes: 1,
+        completedUnits: 1,
+      }),
+      finish: vi.fn().mockResolvedValue(receipt),
+      cancel: vi.fn(),
+    };
+    const tiledExporter: RasterExportPort = {
+      mode: 'tiled-png',
+      export: vi.fn(),
+    };
+    const coordinator = new ExportCoordinator(
+      new LegacyRasterExporter(async () => new Uint8Array([1])),
+      legacySink,
+      {
+        exporter: tiledExporter,
+        sink: {
+          begin: vi.fn(),
+          append: vi.fn(),
+          finish: vi.fn(),
+          cancel: vi.fn(),
+        },
+        capability: eligibleCapability,
+        enabled: true,
+      },
+    );
+
+    // Device-level capabilities() still says tiled is eligible — it has no
+    // way to know this specific operation's camera yet.
+    await expect(coordinator.capabilities(request)).resolves.toEqual({
+      legacy: { eligible: true },
+      tiled: { eligible: true },
+    });
+
+    const tiltedSnapshot = snapshot(
+      { width: 400, height: 300 },
+      { longitude: 0, latitude: 0, zoom: 5, bearing: 45, pitch: 0 },
+    );
+    await expect(coordinator.export(tiltedSnapshot)).resolves.toEqual(receipt);
+    expect(tiledExporter.export).not.toHaveBeenCalled();
   });
 });

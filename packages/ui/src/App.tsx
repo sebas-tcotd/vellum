@@ -207,21 +207,15 @@ export function App({
     handleCancelExport();
   }, [cityData, handleCancelExport]);
 
-  // Lets a composition root (e.g. main.tsx's window close handler) request a
-  // bounded cancellation of whichever export is currently active.
+  // Clears the composition-root cancel bridge on unmount — set/cleared
+  // synchronously by `handleExport` itself the rest of the time (never via a
+  // passive effect: a window-close race could otherwise see a stale `null`
+  // in the gap between starting the export and an effect actually running).
   useEffect(() => {
-    if (!exportCancelHandlerRef) return undefined;
-    exportCancelHandlerRef.current =
-      exportPhase === 'idle'
-        ? null
-        : async () => {
-            handleCancelExport();
-            await (pendingExportRef.current ?? Promise.resolve());
-          };
     return () => {
-      exportCancelHandlerRef.current = null;
+      if (exportCancelHandlerRef) exportCancelHandlerRef.current = null;
     };
-  }, [exportCancelHandlerRef, exportPhase, handleCancelExport]);
+  }, [exportCancelHandlerRef]);
 
   // Escape cancels an active export once the configuration dialog itself has
   // already closed (Radix's own onOpenChange handles Escape while it's open).
@@ -315,6 +309,15 @@ export function App({
       pendingExportRef.current = new Promise((resolve) => {
         resolvePending = resolve;
       });
+      // Set synchronously — never via a passive effect — so a composition
+      // root (main.tsx's window-close handler, or the city-load guard) can
+      // never observe a stale `null` in the gap before an effect runs.
+      if (exportCancelHandlerRef) {
+        exportCancelHandlerRef.current = async () => {
+          handleCancelExport();
+          await (pendingExportRef.current ?? Promise.resolve());
+        };
+      }
       const timeoutId = window.setTimeout(() => {
         timedOutRef.current = true;
         controller.abort();
@@ -331,6 +334,10 @@ export function App({
         if (!snapshot) throw new Error('Export snapshot is unavailable');
         exportOperationRef.current = { snapshotId: snapshot.snapshotId };
         const onProgress = (progress: ExportProgress): void => {
+          // A cancelled/aborted operation never advances progress again,
+          // regardless of identity — a callback racing just behind abort()
+          // must not resurrect the UI out of "Cancelando…".
+          if (controller.signal.aborted) return;
           if (exportOperationRef.current?.snapshotId !== progress.snapshotId) {
             return;
           }
@@ -347,7 +354,13 @@ export function App({
           controller.signal,
           onProgress,
         );
-        if (exportOperationRef.current?.snapshotId !== snapshot.snapshotId) {
+        // Never publish a success toast for an operation the user (or a
+        // timeout) already cancelled, even if the underlying promise still
+        // resolved with a receipt.
+        if (
+          controller.signal.aborted ||
+          exportOperationRef.current?.snapshotId !== snapshot.snapshotId
+        ) {
           return;
         }
         setExportResult(receipt);
@@ -370,13 +383,14 @@ export function App({
         if (abortControllerRef.current === controller) {
           abortControllerRef.current = null;
         }
+        if (exportCancelHandlerRef) exportCancelHandlerRef.current = null;
         exportOperationRef.current = null;
         setExportProgress(null);
         setExportPhase('idle');
         resolvePending?.();
       }
     },
-    [rasterExporter],
+    [rasterExporter, exportCancelHandlerRef, handleCancelExport],
   );
 
   const handleOpenAdvancedOptions = useCallback(
@@ -641,7 +655,8 @@ export function App({
               exportError.type === 'IoError'
                 ? 'errors.IoError'
                 : 'errors.ExportFailed',
-            )}
+            )}{' '}
+            {t('export.outputNotPublished')}
           </div>
         )}
       </div>

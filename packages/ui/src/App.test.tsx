@@ -648,8 +648,10 @@ describe('App — progreso, cancelación y cleanup (Story 6.2G)', () => {
     await startExport(user);
 
     await waitFor(() => {
-      expect(screen.getByText('errors.IoError')).toBeInTheDocument();
+      expect(screen.getByText(/errors\.IoError/)).toBeInTheDocument();
     });
+    // AC12: the message must indicate the output was never published.
+    expect(screen.getByText(/export\.outputNotPublished/)).toBeInTheDocument();
     expect(screen.queryByText(/disk is full/)).toBeNull();
     expect(screen.queryByText('export.successToast')).toBeNull();
   });
@@ -756,10 +758,131 @@ describe('App — progreso, cancelación y cleanup (Story 6.2G)', () => {
         await Promise.resolve();
       });
 
-      expect(screen.getByText('errors.ExportFailed')).toBeInTheDocument();
+      expect(screen.getByText(/errors\.ExportFailed/)).toBeInTheDocument();
       expect(screen.queryByText('export.cancelledToast')).toBeNull();
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('ignora un evento de progreso tardío que llega después de abort(), aunque su snapshotId siga siendo el de la operación actual', async () => {
+    const user = userEvent.setup();
+    useVellumStore.getState().setCityData(mockCityData);
+    let onProgressCb: ((progress: ExportProgress) => void) | undefined;
+    let rejectExport: ((reason?: unknown) => void) | undefined;
+    vi.mocked(mockRasterExporter.export).mockImplementationOnce(
+      (_snap, _signal, onProgress) => {
+        onProgressCb = onProgress;
+        return new Promise((_resolve, reject) => {
+          rejectExport = reject;
+        });
+      },
+    );
+
+    await act(async () => {
+      render(<App rasterExporter={mockRasterExporter} />);
+    });
+    await startExport(user);
+    await waitFor(() => expect(onProgressCb).toBeDefined());
+
+    await act(async () => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    });
+    expect(screen.getByText('export.cancelling')).toBeInTheDocument();
+
+    // A progress event races in just behind the abort — same snapshotId,
+    // but the operation is already cancelling.
+    act(() => {
+      onProgressCb?.({
+        snapshotId: 'snap-1',
+        sessionId: 'session-1',
+        mode: 'tiled-png',
+        phase: 'composing',
+        completedUnits: 3,
+        totalUnits: 4,
+        percent: 75,
+      });
+    });
+
+    expect(screen.getByText('export.cancelling')).toBeInTheDocument();
+    expect(screen.queryByText('export.progressPercent')).toBeNull();
+    const progressbar = screen.getByRole('progressbar');
+    expect(progressbar).not.toHaveAttribute('aria-valuenow', '75');
+
+    await act(async () => {
+      rejectExport?.(makeAbortError());
+      await Promise.resolve();
+    });
+    await waitFor(() => {
+      expect(screen.getByText('export.cancelledToast')).toBeInTheDocument();
+    });
+  });
+
+  it('ignora una resolución tardía (éxito) que llega después de abort(), aunque el snapshotId coincida', async () => {
+    const user = userEvent.setup();
+    useVellumStore.getState().setCityData(mockCityData);
+    let capturedSignal: AbortSignal | undefined;
+    let resolveExport:
+      | ((receipt: { filePath: string; folderPath: string }) => void)
+      | undefined;
+    vi.mocked(mockRasterExporter.export).mockImplementationOnce(
+      (_snap, signal) => {
+        capturedSignal = signal;
+        return new Promise((resolve) => {
+          resolveExport = resolve;
+        });
+      },
+    );
+
+    await act(async () => {
+      render(<App rasterExporter={mockRasterExporter} />);
+    });
+    await startExport(user);
+    await waitFor(() => expect(capturedSignal).toBeDefined());
+
+    await act(async () => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    });
+    expect(capturedSignal?.aborted).toBe(true);
+
+    // The underlying operation "wins the race" and resolves successfully
+    // anyway, after the user already cancelled it.
+    await act(async () => {
+      resolveExport?.({ filePath: '/tmp/export.png', folderPath: '/tmp' });
+      await Promise.resolve();
+    });
+
+    expect(screen.queryByText('export.successToast')).toBeNull();
+  });
+
+  it('setea exportCancelHandlerRef sincrónicamente al hacer click en exportar, sin esperar un efecto', async () => {
+    useVellumStore.getState().setCityData(mockCityData);
+    vi.mocked(mockRasterExporter.export).mockImplementationOnce(
+      () => new Promise(() => undefined),
+    );
+    const cancelHandlerRef: ExportCancelHandlerRef = { current: null };
+
+    await act(async () => {
+      render(
+        <App
+          rasterExporter={mockRasterExporter}
+          exportCancelHandlerRef={cancelHandlerRef}
+        />,
+      );
+    });
+    const shortcuts = vi.mocked(useKeyboardShortcuts).mock.lastCall?.[0];
+    await act(async () => shortcuts?.onOpenExport?.());
+    const exportButtons = screen.getAllByRole('button', {
+      name: 'export.exportButton',
+    });
+
+    expect(cancelHandlerRef.current).toBeNull();
+    act(() => {
+      fireEvent.click(exportButtons.at(-1)!);
+    });
+    // Checked immediately after a synchronous click dispatch — no awaited
+    // microtask in between — so this only passes if the ref is set inline
+    // inside handleExport, not via a passive effect scheduled later.
+    expect(cancelHandlerRef.current).not.toBeNull();
   });
 });

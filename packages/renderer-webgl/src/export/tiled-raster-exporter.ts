@@ -116,7 +116,14 @@ export class TiledRasterExporter implements RasterExportPort {
           renderRect: tile.renderRect,
           encodedPng,
         });
-        completedUnits = ack.completedUnits;
+        // `AppendAck.completedUnits` counts only the units this ack just
+        // accepted (Rust always reports `1` per tile), never a running
+        // total — accumulate here, clamped so a duplicate/repeated ack can
+        // never push progress past `totalUnits`.
+        completedUnits =
+          totalUnits > 0
+            ? Math.min(totalUnits, completedUnits + ack.completedUnits)
+            : completedUnits + ack.completedUnits;
         emit('composing', completedUnits);
         cancelReason = 'capture-failed';
       }

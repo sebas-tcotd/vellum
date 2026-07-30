@@ -112,4 +112,43 @@ describe('useParseCslmap', () => {
       reason: 'Dialog failed',
     });
   });
+
+  it('awaits exportCancelHandlerRef before replacing cityData — cancels before the shared store/DEM mutates (AD-15)', async () => {
+    const fakeCityData = makeCityData();
+    vi.mocked(invoke).mockResolvedValue(fakeCityData);
+    const exportCancelHandlerRef = {
+      current: vi.fn(async () => {
+        // Must run while the store still holds the OLD cityData — proves
+        // cancellation happens before, not reactively after, the swap.
+        expect(useVellumStore.getState().cityData).toBeNull();
+      }),
+    };
+
+    const { result } = renderHook(() => useParseCslmap(exportCancelHandlerRef));
+    await act(() => result.current.loadFile('/path/to/city.cslmap'));
+
+    expect(exportCancelHandlerRef.current).toHaveBeenCalledOnce();
+    expect(useVellumStore.getState().cityData).toEqual(fakeCityData);
+  });
+
+  it('awaits exportCancelHandlerRef before replacing cityData in the partial-parse retry path', async () => {
+    const fakeCityData = makeCityData();
+    vi.mocked(invoke).mockResolvedValue(fakeCityData);
+    const exportCancelHandlerRef = {
+      current: vi.fn(async () => {
+        expect(useVellumStore.getState().cityData).toBeNull();
+      }),
+    };
+
+    const { result } = renderHook(() => useParseCslmap(exportCancelHandlerRef));
+    // loadFilePartial re-uses the last attempted path, set by a prior loadFile.
+    await act(() => result.current.loadFile('/path/to/city.cslmap'));
+    exportCancelHandlerRef.current.mockClear();
+    useVellumStore.setState({ cityData: null });
+
+    await act(() => result.current.loadFilePartial());
+
+    expect(exportCancelHandlerRef.current).toHaveBeenCalledOnce();
+    expect(useVellumStore.getState().cityData).toEqual(fakeCityData);
+  });
 });

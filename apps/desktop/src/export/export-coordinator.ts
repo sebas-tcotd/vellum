@@ -9,10 +9,9 @@ import type {
   RasterExportPort,
   RasterExportV2,
   TiledCapabilityDecision,
-  TilePlan,
 } from '@vellum/core';
 import { evaluateTiledCapability } from '@vellum/core';
-import { LegacyRasterExporter } from '@vellum/renderer-webgl';
+import { LegacyRasterExporter, planTiles } from '@vellum/renderer-webgl';
 
 /** Typed reason for rejecting a legacy request before capture begins. */
 export type LegacyCapabilityReason = 'area' | 'pixels' | 'memory';
@@ -50,16 +49,6 @@ export interface TiledRouteConfig {
   readonly enabled?: boolean;
 }
 
-/** A plan-shaped placeholder used only to reuse `evaluateTiledCapability`'s flag/GPU checks. */
-const NOMINAL_PLAN: TilePlan = {
-  tiles: [],
-  expectedTiles: 1,
-  pixelRatio: 1,
-  renderExtent: { minX: 0, maxX: 0, minZ: 0, maxZ: 0 },
-  worldUnitsPerPixel: 1,
-  zoom: 0,
-};
-
 /** Composition service that selects between the legacy and (opt-in) tiled routes. */
 export class ExportCoordinator implements RasterExportV2 {
   /** Version of the application-level export contract. */
@@ -87,11 +76,23 @@ export class ExportCoordinator implements RasterExportV2 {
     this.tiledRoute = tiledRoute;
   }
 
-  /** Reports the legacy default and only reports tiled when explicitly enabled. */
+  /**
+   * Reports the legacy default and, when tiled is explicitly enabled, a
+   * device-level eligibility only.
+   *
+   * @remarks
+   * `ExportRequest` alone carries no camera/extent/surface, so the real,
+   * per-operation dimension/camera check (the one `planTiles` performs)
+   * cannot run here — only `export()` has the full `ExportSnapshot` needed
+   * for that. A caller must not treat `tiled.eligible: true` here as a
+   * guarantee that a specific operation will be planned successfully;
+   * `export()` re-checks against the real snapshot before ever selecting
+   * this route.
+   */
   async capabilities(_request: ExportRequest): Promise<ExportCapabilities> {
     return {
       legacy: { eligible: true },
-      tiled: this.tiledDecision(),
+      tiled: this.deviceTiledDecision(),
     };
   }
 
@@ -104,7 +105,10 @@ export class ExportCoordinator implements RasterExportV2 {
     if (this.active) throw new Error('An export operation is already active');
     this.active = true;
     try {
-      if (this.tiledRoute?.enabled && this.tiledDecision().eligible) {
+      if (
+        this.tiledRoute?.enabled &&
+        this.realTiledDecision(snapshot).eligible
+      ) {
         return await this.runRoute(
           this.tiledRoute.exporter,
           this.tiledRoute.sink,
@@ -129,13 +133,34 @@ export class ExportCoordinator implements RasterExportV2 {
     }
   }
 
-  private tiledDecision(): TiledCapabilityDecision {
-    if (!this.tiledRoute) return { eligible: false, reason: 'flag' };
-    return evaluateTiledCapability(
-      this.tiledRoute.capability,
-      NOMINAL_PLAN,
-      this.tiledRoute.enabled ?? false,
-    );
+  /** Device-only decision (GPU/canvas/encoder) — no snapshot dimensions available yet. */
+  private deviceTiledDecision(): TiledCapabilityDecision {
+    if (!this.tiledRoute?.enabled) return { eligible: false, reason: 'flag' };
+    const { capability } = this.tiledRoute;
+    if (capability.webgl2 === false)
+      return { eligible: false, reason: 'webgl' };
+    if (capability.toBlob !== true)
+      return { eligible: false, reason: 'to-blob' };
+    if (
+      capability.maxCanvasSize === 'unknown' ||
+      !Number.isFinite(capability.maxCanvasSize)
+    ) {
+      return { eligible: false, reason: 'gpu' };
+    }
+    return { eligible: true };
+  }
+
+  /**
+   * Real decision built from the actual snapshot's dimensions and camera —
+   * built with the exact same {@link planTiles} the tiled exporter itself
+   * uses, so eligibility here can never diverge from what `export()` is
+   * about to attempt.
+   */
+  private realTiledDecision(snapshot: ExportSnapshot): TiledCapabilityDecision {
+    if (!this.tiledRoute?.enabled) return { eligible: false, reason: 'flag' };
+    const plan = planTiles(snapshot, this.tiledRoute.capability);
+    if ('rejected' in plan) return { eligible: false, reason: plan.reason };
+    return evaluateTiledCapability(this.tiledRoute.capability, plan, true);
   }
 
   private async runRoute(

@@ -107,7 +107,9 @@ if (import.meta.hot) {
  * Keeps `@vellum/ui` free of direct Tauri runtime dependencies.
  */
 function AppShell() {
-  const { loadFile, openFileDialog, loadFilePartial } = useParseCslmap();
+  const { loadFile, openFileDialog, loadFilePartial } = useParseCslmap(
+    exportCancelHandlerRef,
+  );
   const { openExportFolder } = useExportPng();
   return (
     <App

@@ -2,7 +2,7 @@ import { useCallback, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { open } from '@tauri-apps/plugin-dialog';
-import { useVellumStore } from '@vellum/ui';
+import { useVellumStore, type ExportCancelHandlerRef } from '@vellum/ui';
 import type { CityData, VellumError, ParseWarningsPayload } from '@vellum/core';
 import { IPC_EVENTS } from '@vellum/core';
 
@@ -12,6 +12,11 @@ import { IPC_EVENTS } from '@vellum/core';
  * Lives in `apps/desktop` (not `@vellum/ui`) so that `@vellum/ui` remains
  * free of direct Tauri runtime dependencies.
  *
+ * @param exportCancelHandlerRef - Read (and awaited) right before a newly
+ * loaded city replaces the store's `CityData`/DEM, so an active export is
+ * always cancelled *before* that shared global mutates (AD-15) — not
+ * reactively afterward, which a `useEffect` keyed on `cityData` could never
+ * guarantee.
  * @returns `loadFile` — loads a `.cslmap` path via IPC, with anti-race guard.
  * @returns `openFileDialog` — opens the OS file picker, then calls `loadFile`.
  * @returns `loadFilePartial` — retries the last file path with allow_partial=true.
@@ -41,7 +46,9 @@ function toVellumError(err: unknown): VellumError {
   };
 }
 
-export function useParseCslmap() {
+export function useParseCslmap(
+  exportCancelHandlerRef?: ExportCancelHandlerRef,
+) {
   const setLoadingState = useVellumStore((s) => s.setLoadingState);
   const setCityData = useVellumStore((s) => s.setCityData);
   const setDlcWarnings = useVellumStore((s) => s.setDlcWarnings);
@@ -85,6 +92,13 @@ export function useParseCslmap() {
         // Guard: discard stale response if a newer load started
         if (useVellumStore.getState().loadRequestId !== requestId) return;
 
+        // Cancel any active export *before* replacing the shared
+        // CityData/DEM (AD-15) — awaited here, at the actual mutation site,
+        // not reactively from a `cityData` effect that would only run after
+        // `setCityData` below already swapped the store.
+        await exportCancelHandlerRef?.current?.();
+        if (useVellumStore.getState().loadRequestId !== requestId) return;
+
         setCityData(cityData); // also sets loadingState: 'idle' and clears error
         if (pendingWarnings.length > 0) {
           setDlcWarnings(pendingWarnings);
@@ -99,7 +113,13 @@ export function useParseCslmap() {
         unlistenRef.current?.();
       }
     },
-    [incrementLoadRequestId, setCityData, setLoadingState, setDlcWarnings],
+    [
+      incrementLoadRequestId,
+      setCityData,
+      setLoadingState,
+      setDlcWarnings,
+      exportCancelHandlerRef,
+    ],
   );
 
   const loadFilePartial = useCallback(async (): Promise<void> => {
@@ -131,6 +151,9 @@ export function useParseCslmap() {
 
       if (useVellumStore.getState().loadRequestId !== requestId) return;
 
+      await exportCancelHandlerRef?.current?.();
+      if (useVellumStore.getState().loadRequestId !== requestId) return;
+
       setCityData(cityData);
       setHasPartialData(true);
       if (pendingWarnings.length > 0) {
@@ -151,6 +174,7 @@ export function useParseCslmap() {
     setLoadingState,
     setHasPartialData,
     setDlcWarnings,
+    exportCancelHandlerRef,
   ]);
 
   const openFileDialog = useCallback(async (): Promise<void> => {

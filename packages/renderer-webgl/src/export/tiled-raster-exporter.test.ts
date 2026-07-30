@@ -279,12 +279,14 @@ describe('TiledRasterExporter', () => {
 
   it('reports monotonic, phase-tagged progress that only advances after each AppendAck', async () => {
     const { createRenderer } = makeFakeRenderer([]);
+    // Real Rust always reports `completed_units: 1` per ack (never a running
+    // total, per `session.rs`) — the exporter itself must accumulate it.
     const sink = makeSink({
       append: vi.fn(async (_session, chunk: RasterTileChunk) => ({
         sessionId: 'session-test',
         sequence: chunk.sequence,
         acceptedBytes: chunk.encodedPng.byteLength,
-        completedUnits: chunk.sequence + 1,
+        completedUnits: 1,
       })),
     });
     const exporter = new TiledRasterExporter(capability, createRenderer);
@@ -320,6 +322,65 @@ describe('TiledRasterExporter', () => {
       expect(event.sessionId).toBe('session-test');
       expect(event.mode).toBe('tiled-png');
     }
+  });
+
+  it('accumulates completedUnits across tiles instead of resetting to the last ack (regression)', async () => {
+    const { createRenderer } = makeFakeRenderer([]);
+    // `completed_units: 1` on every single ack, exactly as Rust really sends it.
+    const sink = makeSink({
+      append: vi.fn().mockResolvedValue({
+        sessionId: 'session-test',
+        sequence: 0,
+        acceptedBytes: 4,
+        completedUnits: 1,
+      }),
+    });
+    const exporter = new TiledRasterExporter(capability, createRenderer);
+    const onProgress = vi.fn();
+
+    await exporter.export(
+      snapshot(4100, 2200),
+      sink,
+      new AbortController().signal,
+      onProgress,
+    );
+
+    const completedByComposingEvent = onProgress.mock.calls
+      .map(([progress]) => progress)
+      .filter((progress) => progress.phase === 'composing')
+      .map((progress) => progress.completedUnits);
+    expect(completedByComposingEvent).toEqual([1, 2, 3, 4, 5, 6]);
+  });
+
+  it('clamps accumulated progress at totalUnits even if an ack over-reports', async () => {
+    const { createRenderer } = makeFakeRenderer([]);
+    const sink = makeSink({
+      // A misbehaving/duplicate ack claims more units than remain.
+      append: vi.fn().mockResolvedValue({
+        sessionId: 'session-test',
+        sequence: 0,
+        acceptedBytes: 4,
+        completedUnits: 5,
+      }),
+    });
+    const exporter = new TiledRasterExporter(capability, createRenderer);
+    const onProgress = vi.fn();
+
+    await exporter.export(
+      snapshot(4100, 2200),
+      sink,
+      new AbortController().signal,
+      onProgress,
+    );
+
+    const completedByComposingEvent = onProgress.mock.calls
+      .map(([progress]) => progress)
+      .filter((progress) => progress.phase === 'composing')
+      .map((progress) => progress.completedUnits);
+    for (const completed of completedByComposingEvent) {
+      expect(completed).toBeLessThanOrEqual(6);
+    }
+    expect(completedByComposingEvent.at(-1)).toBe(6);
   });
 
   it('never reports progress for the legacy-style caller when onProgress is omitted', async () => {
