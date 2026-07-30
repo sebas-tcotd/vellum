@@ -1,12 +1,21 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import type {
+  CapabilityReport,
+  ExportRequest,
+  ExportSnapshot,
+} from '@vellum/core';
 import {
   App,
   AppMetaProvider,
   useVellumStore,
   type ExportCancelHandlerRef,
 } from '@vellum/ui';
-import { LegacyRasterExporter } from '@vellum/renderer-webgl';
+import {
+  CapabilityProbe,
+  LegacyRasterExporter,
+  TiledRasterExporter,
+} from '@vellum/renderer-webgl';
 // CSS global importado aquí (entry point de Vite) para que los @font-face con
 // url() a @fontsource y los design tokens se procesen en build time.
 // No puede importarse desde dentro de @vellum/ui (compilado con TSC, no Vite).
@@ -18,15 +27,113 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { version } from '../package.json';
 import { useParseCslmap } from './hooks/use-parse-cslmap';
 import { useExportPng } from './hooks/use-export-png';
-import { ExportCoordinator } from './export/export-coordinator';
+import {
+  EXPORT_FORCE_LEGACY_KEY,
+  EXPORT_TILED_GATE_KEY,
+  ExportCoordinator,
+  readExportRuntimeFlag,
+} from './export/export-coordinator';
 import { LegacyExportSink } from './export/legacy-export-sink';
+import { TauriExportSink } from './export/tauri-export-sink';
+import {
+  RasterBenchmarkRunner,
+  type RasterBenchmarkRoute,
+} from './export/raster-benchmark-runner';
 import { createCloseRequestedHandler } from './window-close-cancel';
 
 const win = getCurrentWindow();
-const rasterExporter = new ExportCoordinator(
-  new LegacyRasterExporter(),
-  new LegacyExportSink(),
-);
+const legacyExporter = new LegacyRasterExporter();
+const legacySink = new LegacyExportSink();
+const rasterExporter = new ExportCoordinator(legacyExporter, legacySink);
+let measuredCapability: CapabilityReport | null = null;
+const benchmarkSnapshotCaptureRef = React.createRef<
+  ((request: ExportRequest) => ExportSnapshot | null) | null
+>();
+
+// The gate is intentionally false until the versioned 6.2I report has real
+// WebView/Tauri evidence for the declared platforms. Both flags are read at
+// export time, so an operator can approve or roll back from the WebView's
+// runtime storage without rebuilding the UI or adding an ExportDialog control.
+void new CapabilityProbe()
+  .measure()
+  .then((capability) => {
+    measuredCapability = capability;
+    rasterExporter.setTiledRoute({
+      exporter: new TiledRasterExporter(capability),
+      sink: new TauriExportSink(),
+      capability,
+      enabled: true,
+      cutover: {
+        gateApproved: () => readExportRuntimeFlag(EXPORT_TILED_GATE_KEY),
+        tiledEnabled: true,
+        killSwitch: () => readExportRuntimeFlag(EXPORT_FORCE_LEGACY_KEY),
+      },
+    });
+  })
+  .catch((error: unknown) => {
+    console.warn(
+      'Tiled export capability probe unavailable; using legacy',
+      error,
+    );
+  });
+
+/** Runs an operation with a temporary dev-only route selection and restores it afterwards. */
+async function runWithBenchmarkRoute<Result>(
+  route: RasterBenchmarkRoute,
+  operation: () => Promise<Result>,
+): Promise<Result> {
+  const forceLegacy = readStoredValue(EXPORT_FORCE_LEGACY_KEY);
+  const tiledGate = readStoredValue(EXPORT_TILED_GATE_KEY);
+  try {
+    if (route === 'legacy') {
+      localStorage.setItem(EXPORT_FORCE_LEGACY_KEY, 'true');
+      localStorage.removeItem(EXPORT_TILED_GATE_KEY);
+    } else {
+      localStorage.removeItem(EXPORT_FORCE_LEGACY_KEY);
+      localStorage.setItem(EXPORT_TILED_GATE_KEY, 'true');
+    }
+    return await operation();
+  } finally {
+    restoreStoredValue(EXPORT_FORCE_LEGACY_KEY, forceLegacy);
+    restoreStoredValue(EXPORT_TILED_GATE_KEY, tiledGate);
+  }
+}
+
+function readStoredValue(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function restoreStoredValue(key: string, value: string | null): void {
+  try {
+    if (value === null) localStorage.removeItem(key);
+    else localStorage.setItem(key, value);
+  } catch {
+    // The normal export path already treats unavailable browser storage as legacy.
+  }
+}
+
+if (import.meta.env.DEV) {
+  const benchmarkRunner = new RasterBenchmarkRunner({
+    captureSnapshot: (request) =>
+      benchmarkSnapshotCaptureRef.current?.(request) ?? null,
+    exportRaster: (snapshot) => rasterExporter.export(snapshot),
+    getLastRoute: () => rasterExporter.getLastRoute(),
+    getCapability: () => measuredCapability,
+    runWithRoute: runWithBenchmarkRoute,
+  });
+  window.__vellumRasterBenchmark = {
+    run: (options) => benchmarkRunner.run(options),
+  };
+  if (import.meta.hot) {
+    import.meta.hot.dispose(() => {
+      delete window.__vellumRasterBenchmark;
+    });
+  }
+}
 
 /**
  * Set by `App` (via `AppShell`) to a bounded, awaitable cancel request while
@@ -119,6 +226,7 @@ function AppShell() {
       rasterExporter={rasterExporter}
       onOpenExportFolder={openExportFolder}
       exportCancelHandlerRef={exportCancelHandlerRef}
+      exportSnapshotCaptureRef={benchmarkSnapshotCaptureRef}
     />
   );
 }

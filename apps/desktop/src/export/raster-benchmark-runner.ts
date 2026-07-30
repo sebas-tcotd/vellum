@@ -1,0 +1,250 @@
+import {
+  type CapabilityReport,
+  type ExportArea,
+  type ExportBackground,
+  type ExportMode,
+  type ExportRequest,
+  type ExportSnapshot,
+} from '@vellum/core';
+import { planTiles } from '@vellum/renderer-webgl';
+
+const AREAS = ['viewport', 'full-map'] as const satisfies readonly ExportArea[];
+const FORMATS = ['png-1x', 'png-2x', 'png-4x'] as const;
+const BACKGROUNDS = [
+  'white',
+  'dark',
+  'transparent',
+] as const satisfies readonly ExportBackground[];
+
+/** A route requested from the reproducible raster benchmark. */
+export type RasterBenchmarkRoute = 'legacy' | 'tiled';
+
+/** A measurement that cannot be observed safely from the renderer process. */
+export type RasterBenchmarkUnknown = 'unknown';
+
+/** Manual verification state that remains outside the automated benchmark. */
+export type RasterBenchmarkVisualState = 'pending-manual';
+
+/** One privacy-safe result from a single raster benchmark export. */
+export interface RasterBenchmarkCase {
+  /** Fixture identifier supplied by the operator; no source path is retained. */
+  readonly fixture: string;
+  /** Export area exercised by this case. */
+  readonly area: ExportArea;
+  /** PNG format exercised by this case. */
+  readonly format: (typeof FORMATS)[number];
+  /** Numeric density implied by `format`. */
+  readonly scale: 1 | 2 | 4;
+  /** Background treatment exercised by this case. */
+  readonly background: ExportBackground;
+  /** Route actually selected by the coordinator after fallback decisions. */
+  readonly route: ExportMode | null;
+  /** Wall-clock duration of the export operation. */
+  readonly durationMs: number;
+  /** Heap usage when the browser exposes it; otherwise intentionally unknown. */
+  readonly peakMemoryBytes: number | RasterBenchmarkUnknown;
+  /** Dimensions requested from the captured export snapshot. */
+  readonly requestedDimensions: Readonly<{ width: number; height: number }>;
+  /** Planned tiled chunks, unavailable for legacy or rejected plans. */
+  readonly tileCount: number | RasterBenchmarkUnknown;
+  /** Alpha verification requires a human review of the generated PNG. */
+  readonly alpha: RasterBenchmarkUnknown;
+  /** Visual comparison against golden output remains a manual gate. */
+  readonly visual: RasterBenchmarkVisualState;
+}
+
+/** JSON-safe report produced after one warmup and measured benchmark matrix. */
+export interface RasterBenchmarkReport {
+  /** Operator-provided environment label, such as `macOS 15.5`. */
+  readonly platform: string;
+  /** Application build or commit supplied by the operator. */
+  readonly build: string;
+  /** Fixture identifier supplied by the operator. */
+  readonly fixture: string;
+  /** Requested route; each case records the route actually selected. */
+  readonly requestedRoute: RasterBenchmarkRoute;
+  /** Number of measured repetitions per matrix entry. */
+  readonly repeats: number;
+  /** ISO timestamp when the run started. */
+  readonly startedAt: string;
+  /** Individual measurements, with no output paths or PNG bytes. */
+  readonly cases: readonly RasterBenchmarkCase[];
+}
+
+/** Configuration supplied by the dev-only bridge. */
+export interface RasterBenchmarkRunnerDependencies {
+  /** Captures the current loaded map without exposing its data to the report. */
+  readonly captureSnapshot: (request: ExportRequest) => ExportSnapshot | null;
+  /** Runs the real coordinator already paired with the Tauri export sink. */
+  readonly exportRaster: (snapshot: ExportSnapshot) => Promise<unknown>;
+  /** Reads the coordinator route once the current operation is complete. */
+  readonly getLastRoute: () => ExportMode | null;
+  /** Reads the measured browser/GPU capability report. */
+  readonly getCapability: () => CapabilityReport | null;
+  /** Temporarily selects the requested route while an entire benchmark run executes. */
+  readonly runWithRoute: <Result>(
+    route: RasterBenchmarkRoute,
+    operation: () => Promise<Result>,
+  ) => Promise<Result>;
+  /** Injectable clock for deterministic tests. */
+  readonly now?: () => number;
+}
+
+/** Arguments an operator must provide to run a benchmark against a loaded fixture. */
+export interface RasterBenchmarkRunOptions {
+  /** Privacy-safe identifier of the currently loaded fixture. */
+  readonly fixture: string;
+  /** Route requested for this run; the report preserves actual fallback selection. */
+  readonly route: RasterBenchmarkRoute;
+  /** Measured repetitions after optional warmup. */
+  readonly repeats: number;
+  /** Whether to run an unreported warmup matrix before measurements. */
+  readonly warmup: boolean;
+  /** Operating-system and browser/WebView label. */
+  readonly platform: string;
+  /** Application build or commit label. */
+  readonly build: string;
+}
+
+/** DevTools bridge used to run the benchmark against the currently loaded map. */
+export interface RasterBenchmarkBridge {
+  /** Executes a benchmark and returns a JSON-safe report for the release evidence. */
+  run(options: RasterBenchmarkRunOptions): Promise<RasterBenchmarkReport>;
+}
+
+declare global {
+  interface Window {
+    /** Development-only raster benchmark bridge; absent from production builds. */
+    __vellumRasterBenchmark?: RasterBenchmarkBridge;
+  }
+}
+
+/** Runs a fixed 2 × 3 × 3 raster matrix against the map currently loaded in Tauri. */
+export class RasterBenchmarkRunner {
+  private readonly now: () => number;
+
+  /** Creates a dev-only runner around the already-composed desktop export path. */
+  constructor(
+    private readonly dependencies: RasterBenchmarkRunnerDependencies,
+  ) {
+    this.now = dependencies.now ?? (() => performance.now());
+  }
+
+  /** Executes optional warmups followed by the complete measured matrix. */
+  async run(
+    options: RasterBenchmarkRunOptions,
+  ): Promise<RasterBenchmarkReport> {
+    if (!Number.isInteger(options.repeats) || options.repeats < 1)
+      throw new Error('Benchmark repeats must be a positive integer');
+    const capability = this.dependencies.getCapability();
+    if (!capability)
+      throw new Error(
+        'Benchmark unavailable until capability probing completes',
+      );
+    return this.dependencies.runWithRoute(options.route, async () => {
+      const startedAt = new Date().toISOString();
+      if (options.warmup) await this.executeMatrix(options, capability, false);
+      const cases = await this.executeMatrix(options, capability, true);
+      return {
+        platform: options.platform,
+        build: options.build,
+        fixture: options.fixture,
+        requestedRoute: options.route,
+        repeats: options.repeats,
+        startedAt,
+        cases,
+      };
+    });
+  }
+
+  private async executeMatrix(
+    options: RasterBenchmarkRunOptions,
+    capability: CapabilityReport,
+    retain: boolean,
+  ): Promise<RasterBenchmarkCase[]> {
+    const cases: RasterBenchmarkCase[] = [];
+    for (const area of AREAS)
+      for (const format of FORMATS)
+        for (const background of BACKGROUNDS)
+          for (let repeat = 0; repeat < options.repeats; repeat += 1) {
+            const entry = await this.executeCase(
+              options.fixture,
+              area,
+              format,
+              background,
+              capability,
+            );
+            if (retain) cases.push(entry);
+          }
+    return cases;
+  }
+
+  private async executeCase(
+    fixture: string,
+    area: ExportArea,
+    format: (typeof FORMATS)[number],
+    background: ExportBackground,
+    capability: CapabilityReport,
+  ): Promise<RasterBenchmarkCase> {
+    const request: ExportRequest = {
+      format,
+      area,
+      background,
+      fileName: `benchmark-${fixture}-${area}-${format}-${background}`,
+      presentation: emptyPresentation(),
+    };
+    const snapshot = this.dependencies.captureSnapshot(request);
+    if (!snapshot) throw new Error('Benchmark requires a loaded map');
+    const startedAt = this.now();
+    await this.dependencies.exportRaster(snapshot);
+    const plan = planTiles(snapshot, capability);
+    return {
+      fixture,
+      area,
+      format,
+      scale: scaleFor(format),
+      background,
+      route: this.dependencies.getLastRoute(),
+      durationMs: Math.max(0, this.now() - startedAt),
+      peakMemoryBytes: readHeapBytes(),
+      requestedDimensions: snapshot.surface,
+      tileCount: 'rejected' in plan ? 'unknown' : plan.expectedTiles,
+      alpha: 'unknown',
+      visual: 'pending-manual',
+    };
+  }
+}
+
+function scaleFor(format: (typeof FORMATS)[number]): 1 | 2 | 4 {
+  if (format === 'png-1x') return 1;
+  if (format === 'png-2x') return 2;
+  return 4;
+}
+
+function emptyPresentation(): ExportRequest['presentation'] {
+  return {
+    showCityName: false,
+    showVellumLogo: false,
+    showSourceFile: false,
+    showGeneratedAt: false,
+    showDistrictNames: false,
+    showParkNames: false,
+    showLayerLegend: false,
+    showRoadLegend: false,
+    showTransitLegend: false,
+    showElevationLegend: false,
+    showScaleBar: false,
+    showOrientation: false,
+    showSummary: false,
+  };
+}
+
+function readHeapBytes(): number | RasterBenchmarkUnknown {
+  const candidate = performance as Performance & {
+    readonly memory?: { readonly usedJSHeapSize?: unknown };
+  };
+  const value = candidate.memory?.usedJSHeapSize;
+  return typeof value === 'number' && Number.isFinite(value)
+    ? value
+    : 'unknown';
+}

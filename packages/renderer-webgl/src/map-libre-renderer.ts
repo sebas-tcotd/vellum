@@ -562,7 +562,9 @@ export class MapLibreRenderer implements IRenderer {
     for (const finish of [...this.pendingPreviewCaptures]) finish(null);
     if (this.releasesDemProtocol) unregisterDemProtocol();
     this.navigationManager.dispose();
+    const canvas = this.map.getCanvas();
     this.map.remove();
+    if (!this.releasesDemProtocol) releaseTemporaryWebGlContext(canvas);
   }
 
   private buildPreviewSnapshot(): ExportPreviewSnapshot | null {
@@ -783,6 +785,16 @@ export class MapLibreRenderer implements IRenderer {
     callback: (state: ServiceIconLegendState) => void,
   ): () => void {
     return subscribeServiceIconLegendImpl(this.map, callback);
+  }
+}
+
+/** Explicitly releases a disposable export surface when WebKit delays MapLibre cleanup. */
+function releaseTemporaryWebGlContext(canvas: HTMLCanvasElement): void {
+  if (typeof canvas.getContext !== 'function') return;
+  const contexts = [canvas.getContext('webgl2'), canvas.getContext('webgl')];
+  for (const context of contexts) {
+    const loseContext = context?.getExtension('WEBGL_lose_context');
+    loseContext?.loseContext();
   }
 }
 

@@ -7,9 +7,16 @@ import {
   type RasterExportPort,
 } from '@vellum/core';
 import { makeCityData } from '@vellum/core/testing';
-import { LegacyRasterExporter } from '@vellum/renderer-webgl';
+import {
+  LegacyRasterExporter,
+  TiledExportCapabilityError,
+} from '@vellum/renderer-webgl';
 import { describe, expect, it, vi } from 'vitest';
-import { ExportCoordinator, ExportCapabilityError } from './export-coordinator';
+import {
+  ExportCoordinator,
+  ExportCapabilityError,
+  ExportPairingError,
+} from './export-coordinator';
 
 const eligibleCapability: CapabilityReport = {
   contextType: 'webgl2',
@@ -65,6 +72,21 @@ function snapshot(
     surface,
     request,
   });
+}
+
+function tiledCutover(
+  overrides: Partial<{
+    gateApproved: boolean;
+    tiledEnabled: boolean;
+    killSwitch: () => boolean;
+  }> = {},
+) {
+  return {
+    gateApproved: true,
+    tiledEnabled: true,
+    killSwitch: () => false,
+    ...overrides,
+  };
 }
 
 describe('ExportCoordinator', () => {
@@ -331,4 +353,206 @@ describe('ExportCoordinator', () => {
       });
     },
   );
+
+  it('mantiene legacy mientras el gate de calidad no está aprobado', async () => {
+    const tiledExporter: RasterExportPort = {
+      mode: 'tiled-png',
+      export: vi.fn(),
+    };
+    const legacySink = makeLegacySink('/tmp/pre-gate.png');
+    const coordinator = new ExportCoordinator(
+      new LegacyRasterExporter(async () => new Uint8Array([1])),
+      legacySink,
+      {
+        exporter: tiledExporter,
+        sink: makeLegacySink('/tmp/tiled.png'),
+        capability: eligibleCapability,
+        enabled: true,
+        cutover: tiledCutover({ gateApproved: false }),
+      },
+    );
+
+    await expect(coordinator.capabilities(request)).resolves.toEqual({
+      legacy: { eligible: true },
+      tiled: { eligible: false, reason: 'flag' },
+    });
+    await coordinator.export(snapshot());
+    expect(tiledExporter.export).not.toHaveBeenCalled();
+  });
+
+  it('aplica el kill switch runtime en la siguiente exportación sin recompilar', async () => {
+    let killSwitch = false;
+    const tiledExporter = makeTiledExporter('/tmp/tiled.png');
+    const legacyExporter = new LegacyRasterExporter(
+      async () => new Uint8Array([1]),
+    );
+    const coordinator = new ExportCoordinator(
+      legacyExporter,
+      makeLegacySink('/tmp/legacy.png'),
+      {
+        exporter: tiledExporter,
+        sink: makeTiledSink('/tmp/tiled.png'),
+        capability: eligibleCapability,
+        enabled: true,
+        cutover: tiledCutover({ killSwitch: () => killSwitch }),
+      },
+    );
+
+    await coordinator.export(snapshot());
+    killSwitch = true;
+    await coordinator.export(snapshot());
+
+    expect(tiledExporter.export).toHaveBeenCalledOnce();
+  });
+
+  it('rechaza pairing incorrecto y no intenta cambiar de sink', async () => {
+    const tiledExporter: RasterExportPort = {
+      mode: 'tiled-png',
+      export: vi.fn(async (_snapshot, sink) => {
+        await sink.begin({
+          mode: 'legacy-png',
+          snapshotId: 'snapshot-coordinator',
+          request,
+          outputWidth: 400,
+          outputHeight: 300,
+          expectedTiles: 1,
+        });
+      }),
+    };
+    const legacyExporter = new LegacyRasterExporter(async () => {
+      throw new Error('legacy must not be used for pairing errors');
+    });
+    const coordinator = new ExportCoordinator(
+      legacyExporter,
+      makeLegacySink('/tmp/legacy.png'),
+      {
+        exporter: tiledExporter,
+        sink: makeLegacySink('/tmp/tiled.png'),
+        capability: eligibleCapability,
+        enabled: true,
+        cutover: tiledCutover(),
+      },
+    );
+
+    await expect(coordinator.export(snapshot())).rejects.toBeInstanceOf(
+      ExportPairingError,
+    );
+  });
+
+  it('hace fallback sólo ante incapacidad tiled recuperable y limpia antes legacy', async () => {
+    const tiledSink = makeTiledSink('/tmp/tiled.png');
+    const tiledExporter: RasterExportPort = {
+      mode: 'tiled-png',
+      export: vi.fn(async (_snapshot, sink) => {
+        const session = await sink.begin({
+          mode: 'tiled-png',
+          snapshotId: 'snapshot-coordinator',
+          request,
+          outputWidth: 400,
+          outputHeight: 300,
+          expectedTiles: 1,
+        });
+        await sink.cancel(session, 'capture-failed');
+        throw new TiledExportCapabilityError('gpu');
+      }),
+    };
+    const coordinator = new ExportCoordinator(
+      new LegacyRasterExporter(async () => new Uint8Array([1])),
+      makeLegacySink('/tmp/legacy.png'),
+      {
+        exporter: tiledExporter,
+        sink: tiledSink,
+        capability: eligibleCapability,
+        enabled: true,
+        cutover: tiledCutover(),
+      },
+    );
+
+    await expect(coordinator.export(snapshot())).resolves.toEqual({
+      filePath: '/tmp/legacy.png',
+      folderPath: '/tmp',
+    });
+    expect(tiledSink.cancel).toHaveBeenCalledOnce();
+  });
+
+  it('no hace fallback ante cancelación ni errores terminales', async () => {
+    const legacyExporter = new LegacyRasterExporter(async () => {
+      throw new Error('legacy must not be used');
+    });
+    const cases = [
+      Object.assign(new Error('Export aborted'), { name: 'AbortError' }),
+      new Error('memory budget exceeded'),
+    ];
+
+    for (const failure of cases) {
+      const tiledExporter: RasterExportPort = {
+        mode: 'tiled-png',
+        export: vi.fn().mockRejectedValue(failure),
+      };
+      const coordinator = new ExportCoordinator(
+        legacyExporter,
+        makeLegacySink('/tmp/legacy.png'),
+        {
+          exporter: tiledExporter,
+          sink: makeTiledSink('/tmp/tiled.png'),
+          capability: eligibleCapability,
+          enabled: true,
+          cutover: tiledCutover(),
+        },
+      );
+
+      await expect(coordinator.export(snapshot())).rejects.toBe(failure);
+    }
+  });
 });
+
+function makeLegacySink(filePath: string): ExportSink {
+  return {
+    begin: vi.fn().mockResolvedValue({
+      sessionId: 'legacy-session',
+      mode: 'legacy-png',
+      maxChunkBytes: 1024,
+      maxInFlight: 1,
+    }),
+    append: vi.fn().mockResolvedValue({
+      sessionId: 'legacy-session',
+      sequence: 0,
+      acceptedBytes: 1,
+      completedUnits: 1,
+    }),
+    finish: vi.fn().mockResolvedValue({ filePath, folderPath: '/tmp' }),
+    cancel: vi.fn().mockResolvedValue(undefined),
+  };
+}
+
+function makeTiledSink(filePath: string): ExportSink {
+  return {
+    begin: vi.fn().mockResolvedValue({
+      sessionId: 'tiled-session',
+      mode: 'tiled-png',
+      maxChunkBytes: 1024,
+      maxInFlight: 1,
+    }),
+    append: vi.fn(),
+    finish: vi.fn().mockResolvedValue({ filePath, folderPath: '/tmp' }),
+    cancel: vi.fn().mockResolvedValue(undefined),
+  };
+}
+
+function makeTiledExporter(filePath: string): RasterExportPort {
+  return {
+    mode: 'tiled-png',
+    export: vi.fn(async (snap, sink) => {
+      const session = await sink.begin({
+        mode: 'tiled-png',
+        snapshotId: snap.snapshotId,
+        request: snap.request,
+        outputWidth: snap.surface.width,
+        outputHeight: snap.surface.height,
+        expectedTiles: 1,
+      });
+      await sink.finish(session);
+      expect(filePath).toContain('tiled');
+    }),
+  };
+}

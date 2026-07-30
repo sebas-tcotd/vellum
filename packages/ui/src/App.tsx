@@ -91,6 +91,10 @@ export interface AppProps {
   isExporting?: boolean;
   /** Ref set (while an export is active) to a bounded, awaitable cancel request. */
   exportCancelHandlerRef?: ExportCancelHandlerRef;
+  /** Optional composition-root bridge for dev-only snapshot consumers. */
+  exportSnapshotCaptureRef?: React.RefObject<
+    ((request: ExportRequest) => ExportSnapshot | null) | null
+  >;
 }
 
 /**
@@ -117,6 +121,7 @@ export function App({
   onOpenExportFolder,
   isExporting: isExportingProp = false,
   exportCancelHandlerRef,
+  exportSnapshotCaptureRef,
 }: AppProps) {
   const { t } = useTranslation();
   const [i18nReady, setI18nReady] = useState(false);
@@ -150,9 +155,11 @@ export function App({
   const previewCaptureRef = useRef<
     (() => Promise<ExportPreviewSnapshot | null>) | null
   >(null);
-  const snapshotCaptureRef = useRef<
+  const ownedSnapshotCaptureRef = useRef<
     ((request: ExportRequest) => ExportSnapshot | null) | null
   >(null);
+  const snapshotCaptureRef =
+    exportSnapshotCaptureRef ?? ownedSnapshotCaptureRef;
   const isExportingRef = useRef(isExporting);
   isExportingRef.current = isExporting;
   const previewCapturePendingRef = useRef(false);

@@ -29,7 +29,10 @@ export {
   type RasterImage,
   type RasterQualityCodec,
 } from './export/export-quality';
-export { TiledRasterExporter } from './export/tiled-raster-exporter';
+export {
+  TiledExportCapabilityError,
+  TiledRasterExporter,
+} from './export/tiled-raster-exporter';
 export {
   MapLibreRenderer,
   PngExportOptions,

@@ -1,4 +1,5 @@
 import type {
+  CapabilityUnavailableReason,
   CapabilityReport,
   ExportSink,
   ExportSnapshot,
@@ -34,6 +35,19 @@ export interface TileCapture {
   ): Promise<Uint8Array>;
   /** Releases the temporary surface. Idempotent. */
   dispose(): void;
+}
+
+/** A typed, recoverable tiled-route failure raised before publication. */
+export class TiledExportCapabilityError extends Error {
+  /** Capability reason that made the tiled route unavailable. */
+  readonly reason: CapabilityUnavailableReason;
+
+  /** Creates a failure that may preserve user intent through legacy fallback. */
+  constructor(reason: CapabilityUnavailableReason) {
+    super(`Tiled PNG export is unavailable: ${reason}`);
+    this.name = 'TiledExportCapabilityError';
+    this.reason = reason;
+  }
 }
 
 /** Adapter that produces a tiled PNG raster export with bounded overscan. */
@@ -81,7 +95,7 @@ export class TiledRasterExporter implements RasterExportPort {
     throwIfAborted(signal);
     const plan = this.plan(snapshot, signal);
     if ('rejected' in plan) {
-      throw new Error(`Tiled PNG export is unavailable: ${plan.reason}`);
+      throw new TiledExportCapabilityError(plan.reason);
     }
 
     const session = await sink.begin({
