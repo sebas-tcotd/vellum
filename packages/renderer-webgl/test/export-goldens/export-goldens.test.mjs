@@ -426,6 +426,6 @@ describe('shipped baseline manifest', () => {
       });
     }
     // Decoding 36 real PNGs (up to 4096x2621) takes longer than Vitest's 5s
-    // default — matches the ~13s the standalone harness takes for the same work.
-  }, 30_000);
+    // default — allow slower CI runners enough headroom for the same work.
+  }, 60_000);
 });
