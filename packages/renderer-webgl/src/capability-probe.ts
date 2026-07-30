@@ -1,9 +1,10 @@
 import {
   evaluateTiledCapability,
   type CapabilityReport,
-  type ExportSurface,
+  type ExportSnapshot,
   type TiledCapabilityDecision,
 } from '@vellum/core';
+import { planTiles } from './export/tile-planner';
 
 /** Optional dependencies used to make the capability probe deterministic in tests. */
 export interface CapabilityProbeOptions {
@@ -218,12 +219,16 @@ export class CapabilityProbe {
     return probeCapabilities(this.options);
   }
 
-  /** Evaluates a measured report for a requested output surface. */
+  /** Evaluates a measured report against a real deterministic tile plan. */
   decide(
     report: CapabilityReport,
-    surface: ExportSurface,
+    snapshot: ExportSnapshot,
     enabled = true,
   ): TiledCapabilityDecision {
-    return evaluateTiledCapability(report, surface, enabled);
+    if (!enabled) return { eligible: false, reason: 'flag' };
+    const plan = planTiles(snapshot, report);
+    return 'rejected' in plan
+      ? { eligible: false, reason: plan.reason }
+      : evaluateTiledCapability(report, plan);
   }
 }

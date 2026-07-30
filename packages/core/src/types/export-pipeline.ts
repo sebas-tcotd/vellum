@@ -213,6 +213,48 @@ export interface PixelRect {
   readonly height: number;
 }
 
+/** One deterministic tile in a tiled raster export plan. */
+export interface TilePlanTile {
+  /** Zero-based row-major sequence number. */
+  readonly sequence: number;
+  /** Zero-based tile column. */
+  readonly tileX: number;
+  /** Zero-based tile row. */
+  readonly tileY: number;
+  /** Output pixels owned exclusively by this tile. */
+  readonly usefulRect: PixelRect;
+  /** Output pixels rendered for this tile, including clipped overscan. */
+  readonly renderRect: PixelRect;
+  /** Camera centered on the rendered rectangle. */
+  readonly camera: ExportCamera;
+  /** World extent represented by the rendered rectangle. */
+  readonly extent: ExportExtent;
+}
+
+/** Pure, reproducible plan consumed by the future tiled raster renderer. */
+export interface TilePlan {
+  /** Tiles in row-major order. */
+  readonly tiles: readonly TilePlanTile[];
+  /** Number of tiles the downstream session must receive. */
+  readonly expectedTiles: number;
+  /** Explicit logical-to-physical scale; fixed at one for the MVP. */
+  readonly pixelRatio: 1;
+  /** Aspect-corrected world extent represented by the complete output. */
+  readonly renderExtent: ExportExtent;
+  /** Uniform output density in CS1 world units per output pixel. */
+  readonly worldUnitsPerPixel: number;
+  /** MapLibre zoom derived from the output density. */
+  readonly zoom: number;
+}
+
+/** Typed non-throwing result when a tile plan cannot be built. */
+export interface TilePlanRejection {
+  /** Discriminator for a rejected plan. */
+  readonly rejected: true;
+  /** Technical reason the plan cannot be built. */
+  readonly reason: CapabilityUnavailableReason;
+}
+
 /** Capability decision exposed to the application before an export begins. */
 export interface ExportCapabilities {
   /** Eligibility of the preserved single-surface PNG path. */
@@ -227,7 +269,7 @@ export interface ExportCapabilities {
     /** Whether the tiled path can be selected. */
     readonly eligible: boolean;
     /** Why the tiled path is unavailable, when applicable. */
-    readonly reason?: 'gpu' | 'webgl' | 'memory' | 'flag';
+    readonly reason?: CapabilityUnavailableReason;
   };
 }
 
@@ -438,19 +480,13 @@ export function createExportSnapshot(
  * Decides tiled eligibility without changing renderer or interactive map state.
  *
  * @remarks
- * **Provisional dimension check.** This story (6.2A) does not implement the
- * tile planner (6.2D) — there is no notion of tile size yet. Until then,
- * `eligible: true` means "the whole surface fits within a single GPU-sized
- * canvas," not "a tile plan exists that covers it." A surface that exceeds
- * `maxCanvasSize` on either edge is rejected even if it could theoretically
- * be split into valid tiles, per AD-12's stated intent ("elegible sólo si el
- * tile plan cabe") — because no planner exists yet to actually verify that.
- * 6.2D must replace the per-edge check below with one that consults a real
- * tile plan instead of the raw surface dimensions.
+ * The renderer-webgl adapter builds and validates the real {@link TilePlan}
+ * first. This function only combines that plan with WebGL, encoder, and flag
+ * availability, preserving core's dependency-free boundary.
  */
 export function evaluateTiledCapability(
   report: CapabilityReport,
-  surface: ExportSurface,
+  plan: TilePlan,
   enabled = true,
 ): TiledCapabilityDecision {
   if (!enabled) return { eligible: false, reason: 'flag' };
@@ -462,23 +498,7 @@ export function evaluateTiledCapability(
   ) {
     return { eligible: false, reason: 'gpu' };
   }
-  if (
-    !Number.isFinite(surface.width) ||
-    !Number.isFinite(surface.height) ||
-    surface.width <= 0 ||
-    surface.height <= 0
-  ) {
-    return { eligible: false, reason: 'dimensions' };
-  }
-  if (
-    surface.width > report.maxCanvasSize ||
-    surface.height > report.maxCanvasSize
-  ) {
-    return { eligible: false, reason: 'dimensions' };
-  }
-  // Both edges can fit the driver limit while the total area still blows the
-  // per-operation budget (40k x 40k = 1.6e9 pixels on an 8k-capable GPU).
-  if (surface.width * surface.height > MAX_TILED_LOGICAL_PIXELS) {
+  if (plan.expectedTiles <= 0) {
     return { eligible: false, reason: 'dimensions' };
   }
   return { eligible: true };

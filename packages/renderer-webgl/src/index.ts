@@ -8,6 +8,7 @@ export {
 } from './capability-probe';
 export { vellumLogoDataUri } from './assets/vellum-logo';
 export { LegacyRasterExporter } from './export/legacy-raster-exporter';
+export { planTiles } from './export/tile-planner';
 export {
   MapLibreRenderer,
   PngExportOptions,
