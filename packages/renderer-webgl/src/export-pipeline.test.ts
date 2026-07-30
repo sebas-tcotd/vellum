@@ -152,23 +152,55 @@ describe('export pipeline baseline contracts', () => {
 
   it('returns a typed technical decision without selecting a fallback', () => {
     expect(
-      evaluateTiledCapability(capableReport, { width: 4096, height: 4096 }),
+      evaluateTiledCapability(capableReport, {
+        tiles: [],
+        expectedTiles: 1,
+        pixelRatio: 1,
+        renderExtent: { minX: 0, maxX: 1, minZ: 0, maxZ: 1 },
+        worldUnitsPerPixel: 1,
+        zoom: 1,
+      }),
     ).toEqual({ eligible: true });
     expect(
-      evaluateTiledCapability(capableReport, { width: 9000, height: 1 }),
+      evaluateTiledCapability(capableReport, {
+        tiles: [],
+        expectedTiles: 0,
+        pixelRatio: 1,
+        renderExtent: { minX: 0, maxX: 1, minZ: 0, maxZ: 1 },
+        worldUnitsPerPixel: 1,
+        zoom: 1,
+      }),
     ).toEqual({ eligible: false, reason: 'dimensions' });
     expect(
-      evaluateTiledCapability(capableReport, { width: 1, height: 1 }, false),
+      evaluateTiledCapability(
+        capableReport,
+        {
+          tiles: [],
+          expectedTiles: 1,
+          pixelRatio: 1,
+          renderExtent: { minX: 0, maxX: 1, minZ: 0, maxZ: 1 },
+          worldUnitsPerPixel: 1,
+          zoom: 1,
+        },
+        false,
+      ),
     ).toEqual({ eligible: false, reason: 'flag' });
     expect(
       evaluateTiledCapability(
         { ...capableReport, maxCanvasSize: Number.NaN },
-        { width: 1, height: 1 },
+        {
+          tiles: [],
+          expectedTiles: 1,
+          pixelRatio: 1,
+          renderExtent: { minX: 0, maxX: 1, minZ: 0, maxZ: 1 },
+          worldUnitsPerPixel: 1,
+          zoom: 1,
+        },
       ),
     ).toEqual({ eligible: false, reason: 'gpu' });
   });
 
-  it('rejects a surface beyond the 1e9 logical-pixel budget', () => {
+  it('leaves plan-size validation to the renderer-webgl planner', () => {
     const roomyReport: CapabilityReport = {
       ...capableReport,
       maxTextureSize: 40_000,
@@ -180,11 +212,15 @@ describe('export pipeline baseline contracts', () => {
     // Both dimensions fit maxCanvasSize, but 40000 x 40000 = 1.6e9 pixels
     // exceeds the tiled budget from ARCHITECTURE-SPINE AD-10.
     expect(
-      evaluateTiledCapability(roomyReport, { width: 40_000, height: 40_000 }),
+      evaluateTiledCapability(roomyReport, {
+        tiles: [],
+        expectedTiles: 0,
+        pixelRatio: 1,
+        renderExtent: { minX: 0, maxX: 1, minZ: 0, maxZ: 1 },
+        worldUnitsPerPixel: 1,
+        zoom: 1,
+      }),
     ).toEqual({ eligible: false, reason: 'dimensions' });
-    expect(
-      evaluateTiledCapability(roomyReport, { width: 30_000, height: 30_000 }),
-    ).toEqual({ eligible: true });
   });
 
   it('reports unavailable WebGL without reading user-agent or leaking app data', async () => {

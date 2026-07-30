@@ -59,11 +59,12 @@ pub struct AcceptedTile {
 pub trait TileConsumer: Send {
     /// Records one already-validated chunk. Framing/budget/coverage checks
     /// happen in the session before this is called; `tile` carries the
-    /// geometry a real compositor will need starting in 6.2F.
+    /// geometry and `payload` the raw encoded PNG bytes the compositor needs
+    /// to decode, crop, and stream out.
     ///
     /// # Errors
     /// Returns a typed `VellumError` when the chunk cannot be accepted.
-    fn accept(&mut self, tile: &AcceptedTile) -> Result<(), VellumError>;
+    fn accept(&mut self, tile: &AcceptedTile, payload: &[u8]) -> Result<(), VellumError>;
     /// Confirms full coverage. Only `Ok(())` allows the `.part` file to be
     /// committed via rename.
     ///
@@ -73,28 +74,12 @@ pub trait TileConsumer: Send {
     fn finish(&mut self) -> Result<(), VellumError>;
 }
 
-/// Production consumer: fail-closed until 6.2F wires a real compositor.
-///
-/// Never publishes a concatenation of tiles as a final PNG — `finish` always
-/// rejects, so `finish_export` cannot commit a fake file in this story.
-struct FailClosedConsumer;
-
-impl TileConsumer for FailClosedConsumer {
-    fn accept(&mut self, _tile: &AcceptedTile) -> Result<(), VellumError> {
-        Ok(())
-    }
-
-    fn finish(&mut self) -> Result<(), VellumError> {
-        Err(VellumError::ExportFailed {
-            reason: "tiled PNG compositing is not implemented until story 6.2F".to_string(),
-        })
-    }
-}
-
-/// Builds one `TileConsumer` per session. Tests substitute a double via
-/// [`ExportSessionManager::with_consumer_factory`]; production always installs
-/// [`FailClosedConsumer`].
-pub type ConsumerFactory = Box<dyn Fn() -> Box<dyn TileConsumer> + Send + Sync>;
+/// Builds one `TileConsumer` per session, given the declared output
+/// dimensions and the `.part` path it should stream into. Tests substitute a
+/// double via [`ExportSessionManager::with_consumer_factory`]; production
+/// always installs a real [`super::tile_composer::TileComposer`].
+pub type ConsumerFactory =
+    Box<dyn Fn(u32, u32, &Path) -> Result<Box<dyn TileConsumer>, VellumError> + Send + Sync>;
 
 /// Explicit session lifecycle (AC1: `Created → Active → Finishing → Committed`
 /// or `Cancelled`/`Failed`). `Created` is instantaneous — a session is only
@@ -208,6 +193,18 @@ fn coverage_error(reason: &str) -> VellumError {
     }
 }
 
+/// Transitions `session` straight to `Failed`, drops its consumer, and
+/// best-effort removes its `.part` file. Called for any error that leaves
+/// the compositor/encoder irrecoverable (a poisoned consumer) or that
+/// permanently rules out ever reaching a publishable state (incomplete
+/// coverage discovered at `finish`) — the session must not linger `Active`
+/// with resources that can never be committed.
+fn fail_session(session: &mut Session) {
+    let _ = std::fs::remove_file(&session.part_path);
+    session.consumer = None;
+    session.state = SessionState::Failed;
+}
+
 /// Adds `added` to `current` with checked arithmetic and rejects the result if
 /// it would exceed `budget`. Factored out so the cumulative-budget arithmetic
 /// is unit-testable with small numbers instead of allocating real megabytes.
@@ -297,11 +294,12 @@ fn validate_rect_contained(inner: &PixelRectRaw, outer: &PixelRectRaw) -> Result
 }
 
 impl ExportSessionManager {
-    /// Creates a manager using the production fail-closed consumer.
+    /// Creates a manager using the production streaming compositor.
     #[must_use]
     pub fn new() -> Self {
-        Self::with_consumer_factory(Box::new(|| {
-            Box::new(FailClosedConsumer) as Box<dyn TileConsumer>
+        Self::with_consumer_factory(Box::new(|width, height, part_path| {
+            super::tile_composer::TileComposer::create(width, height, part_path)
+                .map(|composer| Box::new(composer) as Box<dyn TileConsumer>)
         }))
     }
 
@@ -390,6 +388,21 @@ impl ExportSessionManager {
             reason: format!("failed to create export temp file: {e}"),
         })?;
 
+        let consumer = match (self.consumer_factory)(
+            metadata.output_width,
+            metadata.output_height,
+            &part_path,
+        ) {
+            Ok(consumer) => consumer,
+            Err(e) => {
+                // No session is registered yet to track this `.part` for
+                // later cleanup — remove it immediately rather than leaving
+                // it orphaned until the next process-start sweep.
+                let _ = std::fs::remove_file(&part_path);
+                return Err(e);
+            }
+        };
+
         let session = Session {
             state: SessionState::Active,
             cancel_requested: false,
@@ -402,7 +415,7 @@ impl ExportSessionManager {
             output_height: metadata.output_height,
             part_path,
             final_path,
-            consumer: Some((self.consumer_factory)()),
+            consumer: Some(consumer),
         };
         self.lock_sessions().insert(session_id.clone(), session);
 
@@ -488,13 +501,22 @@ impl ExportSessionManager {
             .consumer
             .as_mut()
             .ok_or_else(unknown_session_error)?;
-        consumer.accept(&AcceptedTile {
-            tile_x: header.tile_x,
-            tile_y: header.tile_y,
-            useful_rect: header.useful_rect,
-            render_rect: header.render_rect,
-            encoded_len: payload.len(),
-        })?;
+        if let Err(e) = consumer.accept(
+            &AcceptedTile {
+                tile_x: header.tile_x,
+                tile_y: header.tile_y,
+                useful_rect: header.useful_rect,
+                render_rect: header.render_rect,
+                encoded_len: payload.len(),
+            },
+            payload,
+        ) {
+            // Every consumer rejection, including decode failures, makes this
+            // export terminal: AC9 requires cleanup rather than a retry over
+            // a partially validated PNG stream.
+            fail_session(session);
+            return Err(e);
+        }
 
         // Every validation above passed — only now is state mutated (AC5).
         session.accepted_bytes = new_accepted_bytes;
@@ -531,10 +553,15 @@ impl ExportSessionManager {
             }
             let accepted_tiles = session.seen_tiles.len();
             if accepted_tiles != session.expected_tiles as usize {
-                return Err(coverage_error(&format!(
+                let err = coverage_error(&format!(
                     "expected {} tiles, received {accepted_tiles}",
                     session.expected_tiles
-                )));
+                ));
+                // Coverage can never become complete after this point for the
+                // same session — fail and clean up now instead of leaving
+                // `.part` and the consumer alive until an explicit cancel.
+                fail_session(session);
+                return Err(err);
             }
             session.state = SessionState::Finishing;
             let consumer = session.consumer.take().ok_or_else(unknown_session_error)?;
@@ -732,7 +759,7 @@ mod tests {
     }
 
     impl TileConsumer for TestConsumer {
-        fn accept(&mut self, _tile: &AcceptedTile) -> Result<(), VellumError> {
+        fn accept(&mut self, _tile: &AcceptedTile, _payload: &[u8]) -> Result<(), VellumError> {
             if self.reject_accept {
                 return Err(VellumError::ExportFailed {
                     reason: "test consumer rejected chunk".to_string(),
@@ -754,12 +781,12 @@ mod tests {
     }
 
     fn manager_with(finish_ok: bool, reject_accept: bool) -> ExportSessionManager {
-        ExportSessionManager::with_consumer_factory(Box::new(move || {
-            Box::new(TestConsumer {
+        ExportSessionManager::with_consumer_factory(Box::new(move |_width, _height, _part_path| {
+            Ok(Box::new(TestConsumer {
                 finish_ok,
                 accept_calls: Arc::new(std::sync::atomic::AtomicU32::new(0)),
                 reject_accept,
-            }) as Box<dyn TileConsumer>
+            }) as Box<dyn TileConsumer>)
         }))
     }
 
@@ -994,11 +1021,12 @@ mod tests {
     }
 
     #[test]
-    fn append_rejects_when_consumer_rejects_and_does_not_advance_sequence() {
+    fn append_consumer_rejection_fails_the_session_and_cleans_the_part_file() {
         let dir = unique_temp_dir("consumer-reject");
         let manager = manager_with(true, true);
         let metadata = begin_metadata("reject-map", 10, 10);
         let session = manager.begin(&metadata, &dir).expect("begin must succeed");
+        let part_path = dir.join(format!(".vellum-export-{}.part", session.session_id));
 
         let frame = frame_bytes(
             &session.session_id,
@@ -1011,15 +1039,16 @@ mod tests {
         let first_err = manager.append(&frame).unwrap_err();
         assert!(matches!(first_err, VellumError::ExportFailed { .. }));
 
-        // Retrying the same sequence=0 frame must hit the same consumer
-        // rejection again rather than an "out-of-order" error — proving the
-        // failed attempt above never advanced `expected_sequence`.
+        assert!(!part_path.exists());
+
+        // A rejected payload is terminal: a retry must never reuse the same
+        // session or leave the corrupted export eligible for publication.
         let second_err = manager.append(&frame).unwrap_err();
         match second_err {
             VellumError::ExportFailed { reason } => {
-                assert!(reason.contains("test consumer rejected"));
+                assert!(reason.contains("not active"));
             }
-            other => panic!("expected the same consumer rejection again, got {other:?}"),
+            other => panic!("expected terminal session error, got {other:?}"),
         }
 
         std::fs::remove_dir_all(&dir).unwrap();
@@ -1103,8 +1132,17 @@ mod tests {
         );
         manager.append(&first).expect("first tile must be accepted");
 
+        let part_path = dir.join(format!(".vellum-export-{}.part", session.session_id));
         let err = manager.finish(&session.session_id).unwrap_err();
         assert!(matches!(err, VellumError::ExportFailed { .. }));
+        assert!(
+            !part_path.exists(),
+            "incomplete coverage discovered at finish must clean up .part immediately"
+        );
+        assert!(
+            manager.append(&first).is_err(),
+            "a session failed at finish must reject further append, not stay Active"
+        );
 
         std::fs::remove_dir_all(&dir).unwrap();
     }
@@ -1211,7 +1249,7 @@ mod tests {
         }
 
         impl TileConsumer for BlockingConsumer {
-            fn accept(&mut self, _tile: &AcceptedTile) -> Result<(), VellumError> {
+            fn accept(&mut self, _tile: &AcceptedTile, _payload: &[u8]) -> Result<(), VellumError> {
                 Ok(())
             }
 
@@ -1228,16 +1266,16 @@ mod tests {
         let release_rx = Mutex::new(Some(release_rx));
 
         let manager = Arc::new(ExportSessionManager::with_consumer_factory(Box::new(
-            move || {
+            move |_width, _height, _part_path| {
                 let release = release_rx
                     .lock()
                     .unwrap()
                     .take()
                     .expect("consumer factory is only called once in this test");
-                Box::new(BlockingConsumer {
+                Ok(Box::new(BlockingConsumer {
                     started: started_tx.clone(),
                     release,
-                }) as Box<dyn TileConsumer>
+                }) as Box<dyn TileConsumer>)
             },
         )));
 
@@ -1455,26 +1493,85 @@ mod tests {
     }
 
     #[test]
-    fn fail_closed_consumer_never_confirms_finish() {
-        let mut consumer = FailClosedConsumer;
-        let tile = AcceptedTile {
-            tile_x: 0,
-            tile_y: 0,
-            useful_rect: PixelRectRaw {
-                x: 0,
-                y: 0,
-                width: 10,
-                height: 10,
-            },
-            render_rect: PixelRectRaw {
-                x: 0,
-                y: 0,
-                width: 10,
-                height: 10,
-            },
-            encoded_len: 10,
-        };
-        assert!(consumer.accept(&tile).is_ok());
-        assert!(consumer.finish().is_err());
+    fn begin_propagates_a_consumer_factory_failure() {
+        let dir = unique_temp_dir("factory-failure");
+        let manager =
+            ExportSessionManager::with_consumer_factory(Box::new(|_width, _height, _part_path| {
+                Err(VellumError::ExportFailed {
+                    reason: "consumer factory refused to build a compositor".to_string(),
+                })
+            }));
+        let metadata = begin_metadata("factory-failure-map", 10, 10);
+        assert!(manager.begin(&metadata, &dir).is_err());
+
+        let leftovers: Vec<_> = std::fs::read_dir(&dir).unwrap().collect();
+        assert!(
+            leftovers.is_empty(),
+            "a factory failure during begin() must not leave an orphaned .part file: {leftovers:?}"
+        );
+
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// A double whose `accept` always rejects and reports itself poisoned —
+    /// standing in for a real compositor whose encoder write has failed
+    /// irrecoverably, to prove the session (not just the consumer) fails
+    /// closed rather than staying `Active`.
+    struct PoisoningConsumer;
+
+    impl TileConsumer for PoisoningConsumer {
+        fn accept(&mut self, _tile: &AcceptedTile, _payload: &[u8]) -> Result<(), VellumError> {
+            Err(VellumError::IoError {
+                reason: "synthetic irrecoverable write failure".to_string(),
+            })
+        }
+
+        fn finish(&mut self) -> Result<(), VellumError> {
+            Err(VellumError::ExportFailed {
+                reason: "should never be reached in this test".to_string(),
+            })
+        }
+    }
+
+    #[test]
+    fn append_fails_the_whole_session_when_the_consumer_rejects() {
+        let dir = unique_temp_dir("poisoned-consumer");
+        let manager =
+            ExportSessionManager::with_consumer_factory(Box::new(|_width, _height, _part_path| {
+                Ok(Box::new(PoisoningConsumer) as Box<dyn TileConsumer>)
+            }));
+        let metadata = begin_metadata("poisoned-map", 10, 10);
+        let session = manager.begin(&metadata, &dir).expect("begin must succeed");
+        let part_path = dir.join(format!(".vellum-export-{}.part", session.session_id));
+        assert!(part_path.exists());
+
+        let frame = frame_bytes(
+            &session.session_id,
+            0,
+            (0, 0),
+            (0, 0, 10, 10),
+            (0, 0, 10, 10),
+            &[1],
+        );
+        assert!(manager.append(&frame).is_err());
+        assert!(
+            !part_path.exists(),
+            "a poisoned consumer must fail the session and clean up .part immediately, \
+             not leave it Active until an explicit cancel"
+        );
+
+        let err = manager.append(&frame).unwrap_err();
+        match err {
+            VellumError::ExportFailed { reason } => {
+                assert!(
+                    reason.contains("not active"),
+                    "a second append after poisoning must hit the terminal-state check, \
+                     not retry into the consumer again: {reason}"
+                );
+            }
+            other => panic!("expected ExportFailed(\"...not active...\"), got {other:?}"),
+        }
+
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 }

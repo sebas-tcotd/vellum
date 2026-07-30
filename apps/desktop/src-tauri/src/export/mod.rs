@@ -5,3 +5,4 @@
 //! session, framing, and IPC surface to target.
 pub mod framing;
 pub mod session;
+pub mod tile_composer;
