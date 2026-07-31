@@ -454,6 +454,61 @@ describe('MapLibreRenderer', () => {
     });
   });
 
+  it('sizes a full-map surface to the square world extent, not a wide canvas', async () => {
+    mockMap.getCanvas.mockReturnValue({
+      style: { cursor: '' },
+      clientWidth: 1024,
+      clientHeight: 655,
+      width: 1024,
+      height: 655,
+    } as never);
+    const renderer = makeRenderer();
+    await renderer.render(makeCityData(), { activeLayers: ALL_LAYERS_VISIBLE });
+
+    const fullMap = renderer.createExportSnapshot({
+      ...baseSnapshotRequest,
+      format: 'png-4x',
+      area: 'full-map',
+    });
+
+    // The CS1 world extent is square, so the surface must be square too — a
+    // 1024x655 canvas must never letterbox the square world into its shape.
+    expect(fullMap?.surface).toEqual({ width: 4096, height: 4096 });
+  });
+
+  it('rounds a full-map surface to safe integers for a non-exactly-square city', async () => {
+    mockMap.getCanvas.mockReturnValue({
+      style: { cursor: '' },
+      clientWidth: 1512,
+      clientHeight: 982,
+      width: 1512,
+      height: 982,
+    } as never);
+    const renderer = makeRenderer();
+    await renderer.render(
+      makeCityData({
+        bounds: {
+          minX: -8639.98,
+          maxX: 8640.02,
+          minZ: -8640,
+          maxZ: 8640,
+          seaLevel: 40,
+        },
+      }),
+      { activeLayers: ALL_LAYERS_VISIBLE },
+    );
+
+    const fullMap = renderer.createExportSnapshot({
+      ...baseSnapshotRequest,
+      format: 'png-4x',
+      area: 'full-map',
+    });
+
+    expect(fullMap?.surface).not.toBeNull();
+    expect(Number.isSafeInteger(fullMap?.surface.width)).toBe(true);
+    expect(Number.isSafeInteger(fullMap?.surface.height)).toBe(true);
+  });
+
   it('rejects a canvas whose logical size cannot be observed', async () => {
     mockMap.getCanvas.mockReturnValue({
       style: { cursor: '' },

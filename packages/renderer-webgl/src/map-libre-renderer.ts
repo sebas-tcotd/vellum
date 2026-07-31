@@ -343,6 +343,15 @@ export class MapLibreRenderer implements IRenderer {
     if (!extent) return null;
     const scale = exportScaleForFormat(request.format);
     const center = this.map.getCenter();
+    // `viewport` extent already shares the on-screen canvas aspect (it comes
+    // from `map.getBounds()`), but `full-map` extent is the city's own bounds
+    // and must size the surface itself — reusing the canvas aspect there
+    // stretched the world extent into the window's shape, padding the sides
+    // with empty world space (see tile-planner's `fitAspect`).
+    const { width: surfaceWidth, height: surfaceHeight } =
+      request.area === 'full-map'
+        ? surfaceForExtent(extent, baseWidth, baseHeight)
+        : { width: baseWidth, height: baseHeight };
     return createExportSnapshot({
       cityData: this.cityData,
       style: this.style,
@@ -360,7 +369,10 @@ export class MapLibreRenderer implements IRenderer {
       extent,
       // The surface is the final output, matching how the legacy `capturePng`
       // path sizes its container — this is what capability checks measure.
-      surface: { width: baseWidth * scale, height: baseHeight * scale },
+      surface: {
+        width: surfaceWidth * scale,
+        height: surfaceHeight * scale,
+      },
       request,
     });
   }
@@ -805,6 +817,26 @@ export function captureExportSnapshotPng(
   signal: AbortSignal,
 ): Promise<Uint8Array> {
   return MapLibreRenderer.captureSnapshotPng(snapshot, options, signal);
+}
+
+/**
+ * Sizes a surface to the extent's own aspect ratio instead of the on-screen
+ * canvas's, using the canvas's larger side as the pixel budget.
+ */
+function surfaceForExtent(
+  extent: ExportSnapshot['extent'],
+  canvasWidth: number,
+  canvasHeight: number,
+): { width: number; height: number } {
+  const extentAspect =
+    (extent.maxX - extent.minX) / (extent.maxZ - extent.minZ);
+  const side = Math.max(canvasWidth, canvasHeight);
+  // Real city bounds are rarely a mathematically exact square, so the
+  // divided side must be rounded — every downstream capability check
+  // (legacy and tiled alike) requires a safe integer pixel count.
+  return extentAspect >= 1
+    ? { width: side, height: Math.max(1, Math.round(side / extentAspect)) }
+    : { width: Math.max(1, Math.round(side * extentAspect)), height: side };
 }
 
 function throwIfAborted(signal: AbortSignal): void {
