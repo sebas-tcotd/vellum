@@ -131,7 +131,10 @@ export function useParseCslmap(
         // Guard: discard stale response if a newer load started
         if (useVellumStore.getState().loadRequestId !== requestId) return;
 
-        setCityData(cityData); // also sets loadingState: 'idle' and clears error
+        setCityData({
+          ...cityData,
+          fileName: fileNameFromPath(filePath),
+        }); // also sets loadingState: 'idle' and clears error
         if (pendingWarnings.length > 0) {
           setDlcWarnings(pendingWarnings);
         }
@@ -194,7 +197,10 @@ export function useParseCslmap(
 
       if (useVellumStore.getState().loadRequestId !== requestId) return;
 
-      setCityData(cityData);
+      setCityData({
+        ...cityData,
+        fileName: fileNameFromPath(filePath),
+      });
       setHasPartialData(true);
       if (pendingWarnings.length > 0) {
         setDlcWarnings(pendingWarnings);
@@ -239,4 +245,9 @@ export function useParseCslmap(
   }, [loadFile, setLoadingState]);
 
   return { loadFile, openFileDialog, loadFilePartial };
+}
+
+function fileNameFromPath(filePath: string): string {
+  const parts = filePath.split(/[\\/]/);
+  return parts[parts.length - 1] ?? filePath;
 }

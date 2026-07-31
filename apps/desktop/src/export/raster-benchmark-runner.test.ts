@@ -17,7 +17,7 @@ const capability: CapabilityReport = {
 function snapshot(): ExportSnapshot {
   return {
     snapshotId: 'benchmark',
-    cityData: makeCityData(),
+    cityData: makeCityData({ fileName: 'altavento.cslmap' }),
     style: {} as never,
     activeLayers: {
       terrain: true,
@@ -82,5 +82,43 @@ describe('RasterBenchmarkRunner', () => {
       alpha: 'unknown',
       visual: 'pending-manual',
     });
+  });
+
+  it('no exporta un snapshot de otra fixture mientras el mapa termina de cargar', async () => {
+    const stale = snapshot();
+    const current = {
+      ...snapshot(),
+      cityData: makeCityData({ fileName: 'aurelia-del-delta.cslmap' }),
+    };
+    const captureSnapshot = vi
+      .fn<() => ExportSnapshot | null>()
+      .mockReturnValueOnce(stale)
+      .mockReturnValue(current);
+    const exportRaster = vi.fn().mockResolvedValue({
+      filePath: '/private/output.png',
+      folderPath: '/private',
+    });
+    const runner = new RasterBenchmarkRunner({
+      captureSnapshot,
+      exportRaster,
+      getLastRoute: () => 'tiled-png',
+      getCapability: () => capability,
+      runWithRoute: async (_route, operation) => operation(),
+      releaseGpuContext: async () => undefined,
+    });
+
+    await runner.run({
+      fixture: 'aurelia-del-delta',
+      route: 'tiled',
+      repeats: 1,
+      warmup: false,
+      platform: 'macOS/WebKit',
+      build: 'test',
+    });
+
+    expect(exportRaster).toHaveBeenCalled();
+    expect(exportRaster.mock.calls[0]?.[0].cityData.fileName).toBe(
+      'aurelia-del-delta.cslmap',
+    );
   });
 });

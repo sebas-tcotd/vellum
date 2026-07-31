@@ -15,6 +15,8 @@ const BACKGROUNDS = [
   'dark',
   'transparent',
 ] as const satisfies readonly ExportBackground[];
+const FIXTURE_READY_TIMEOUT_MS = 10_000;
+const FIXTURE_POLL_INTERVAL_MS = 100;
 
 /** A route requested from the reproducible raster benchmark. */
 export type RasterBenchmarkRoute = 'legacy' | 'tiled';
@@ -181,6 +183,7 @@ export class RasterBenchmarkRunner {
     retain: boolean,
   ): Promise<RasterBenchmarkCase[]> {
     const cases: RasterBenchmarkCase[] = [];
+    const phase = retain ? 'measured' : 'warmup';
     for (const area of AREAS)
       for (const format of FORMATS)
         for (const background of BACKGROUNDS)
@@ -191,6 +194,8 @@ export class RasterBenchmarkRunner {
               format,
               background,
               capability,
+              phase,
+              repeat,
             );
             if (retain) cases.push(entry);
             await this.releaseGpuContext();
@@ -204,16 +209,17 @@ export class RasterBenchmarkRunner {
     format: (typeof FORMATS)[number],
     background: ExportBackground,
     capability: CapabilityReport,
+    phase: 'warmup' | 'measured',
+    repeat: number,
   ): Promise<RasterBenchmarkCase> {
     const request: ExportRequest = {
       format,
       area,
       background,
-      fileName: `benchmark-${fixture}-${area}-${format}-${background}`,
+      fileName: `benchmark-${fixture}-${phase}-${repeat + 1}-${area}-${format}-${background}`,
       presentation: emptyPresentation(),
     };
-    const snapshot = this.dependencies.captureSnapshot(request);
-    if (!snapshot) throw new Error('Benchmark requires a loaded map');
+    const snapshot = await this.captureFixtureSnapshot(request, fixture);
     const startedAt = this.now();
     await this.dependencies.exportRaster(snapshot);
     const plan = planTiles(snapshot, capability);
@@ -231,6 +237,25 @@ export class RasterBenchmarkRunner {
       alpha: 'unknown',
       visual: 'pending-manual',
     };
+  }
+
+  private async captureFixtureSnapshot(
+    request: ExportRequest,
+    fixture: string,
+  ): Promise<ExportSnapshot> {
+    const deadline = Date.now() + FIXTURE_READY_TIMEOUT_MS;
+    let snapshot = this.dependencies.captureSnapshot(request);
+    while (!snapshot || !matchesFixture(snapshot.cityData.fileName, fixture)) {
+      if (Date.now() >= deadline) {
+        const actual = snapshot?.cityData.fileName ?? 'no map';
+        throw new Error(
+          `Benchmark fixture mismatch: requested ${fixture}, loaded ${actual}`,
+        );
+      }
+      await delay(FIXTURE_POLL_INTERVAL_MS);
+      snapshot = this.dependencies.captureSnapshot(request);
+    }
+    return snapshot;
   }
 }
 
@@ -266,4 +291,19 @@ function readHeapBytes(): number | RasterBenchmarkUnknown {
   return typeof value === 'number' && Number.isFinite(value)
     ? value
     : 'unknown';
+}
+
+function matchesFixture(fileName: string, fixture: string): boolean {
+  return normalizeFixture(fileName) === normalizeFixture(fixture);
+}
+
+function normalizeFixture(value: string): string {
+  return value
+    .replace(/\.cslmap$/i, '')
+    .replace(/[^a-z0-9]/gi, '')
+    .toLowerCase();
+}
+
+function delay(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }

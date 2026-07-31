@@ -59,7 +59,10 @@ describe('useParseCslmap', () => {
     await act(() => result.current.loadFile('/path/to/city.cslmap'));
 
     expect(useVellumStore.getState().loadingState).toBe('idle');
-    expect(useVellumStore.getState().cityData).toEqual(fakeCityData);
+    expect(useVellumStore.getState().cityData).toEqual({
+      ...fakeCityData,
+      fileName: 'city.cslmap',
+    });
   });
 
   it('transitions to error when invoke rejects', async () => {
@@ -135,7 +138,10 @@ describe('useParseCslmap', () => {
     await act(() => result.current.loadFile('/path/to/city.cslmap'));
 
     expect(exportCancelHandlerRef.current).toHaveBeenCalledOnce();
-    expect(useVellumStore.getState().cityData).toEqual(fakeCityData);
+    expect(useVellumStore.getState().cityData).toEqual({
+      ...fakeCityData,
+      fileName: 'city.cslmap',
+    });
   });
 
   it('awaits exportCancelHandlerRef before incrementLoadRequestId in the partial-parse retry path', async () => {
@@ -159,7 +165,10 @@ describe('useParseCslmap', () => {
     await act(() => result.current.loadFilePartial());
 
     expect(exportCancelHandlerRef.current).toHaveBeenCalledOnce();
-    expect(useVellumStore.getState().cityData).toEqual(fakeCityData);
+    expect(useVellumStore.getState().cityData).toEqual({
+      ...fakeCityData,
+      fileName: 'city.cslmap',
+    });
   });
 
   it('times out waiting for export cancellation, keeps the current city untouched, and surfaces a localized error', async () => {
