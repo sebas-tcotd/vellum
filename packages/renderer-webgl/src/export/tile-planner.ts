@@ -10,7 +10,6 @@ import {
 } from '@vellum/core';
 import {
   CS1_EXTENT_DEG,
-  CS1_WORLD_HALF,
   CS1_WORLD_SIZE,
   csToGeo,
 } from '../coordinate-transform';
@@ -40,10 +39,7 @@ export function planTiles(
   if (!limits) return reject('gpu');
   const side = chooseUsefulSide(width, height, limits, signal);
   if (!side) return reject('dimensions');
-  const renderExtent = fitAspect(
-    snapshot.request.area === 'full-map' ? worldExtent() : snapshot.extent,
-    width / height,
-  );
+  const renderExtent = fitAspect(snapshot.extent, width / height);
   const worldUnitsPerPixel = (renderExtent.maxX - renderExtent.minX) / width;
   const zoom = zoomFor(worldUnitsPerPixel);
   const tiles = makeTiles(
@@ -206,14 +202,6 @@ function zoomFor(units: number): number {
   return Math.log2(
     360 / (MAPLIBRE_TILE_SIZE_PX * (CS1_EXTENT_DEG / CS1_WORLD_SIZE) * units),
   );
-}
-function worldExtent(): ExportExtent {
-  return {
-    minX: -CS1_WORLD_HALF,
-    maxX: CS1_WORLD_HALF,
-    minZ: -CS1_WORLD_HALF,
-    maxZ: CS1_WORLD_HALF,
-  };
 }
 function isPositiveInteger(value: number): boolean {
   return Number.isSafeInteger(value) && value > 0;

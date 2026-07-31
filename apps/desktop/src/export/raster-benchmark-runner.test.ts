@@ -58,6 +58,7 @@ describe('RasterBenchmarkRunner', () => {
       getCapability: () => capability,
       runWithRoute: async (_route, operation) => operation(),
       now: () => 123,
+      releaseGpuContext: async () => undefined,
     });
 
     const report = await runner.run({

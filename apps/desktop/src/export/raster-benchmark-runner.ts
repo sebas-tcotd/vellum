@@ -88,6 +88,14 @@ export interface RasterBenchmarkRunnerDependencies {
   ) => Promise<Result>;
   /** Injectable clock for deterministic tests. */
   readonly now?: () => number;
+  /**
+   * Awaited between matrix cases so WebKit has time to actually reclaim a
+   * `WEBGL_lose_context`-released context before the next temporary renderer
+   * requests one — back-to-back creation can outrun the browser's async
+   * reclaim and exhaust its active-context cap. Defaults to a real delay;
+   * tests inject a no-op to stay fast.
+   */
+  readonly releaseGpuContext?: () => Promise<void>;
 }
 
 /** Arguments an operator must provide to run a benchmark against a loaded fixture. */
@@ -119,15 +127,25 @@ declare global {
   }
 }
 
+/** Real-world delay found sufficient for WebKit to reclaim a lost WebGL context. */
+const GPU_CONTEXT_RELEASE_DELAY_MS = 50;
+
 /** Runs a fixed 2 × 3 × 3 raster matrix against the map currently loaded in Tauri. */
 export class RasterBenchmarkRunner {
   private readonly now: () => number;
+  private readonly releaseGpuContext: () => Promise<void>;
 
   /** Creates a dev-only runner around the already-composed desktop export path. */
   constructor(
     private readonly dependencies: RasterBenchmarkRunnerDependencies,
   ) {
     this.now = dependencies.now ?? (() => performance.now());
+    this.releaseGpuContext =
+      dependencies.releaseGpuContext ??
+      (() =>
+        new Promise((resolve) =>
+          setTimeout(resolve, GPU_CONTEXT_RELEASE_DELAY_MS),
+        ));
   }
 
   /** Executes optional warmups followed by the complete measured matrix. */
@@ -175,6 +193,7 @@ export class RasterBenchmarkRunner {
               capability,
             );
             if (retain) cases.push(entry);
+            await this.releaseGpuContext();
           }
     return cases;
   }
