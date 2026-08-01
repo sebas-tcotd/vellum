@@ -35,14 +35,12 @@ export class RasterTileRenderer {
     this.container.style.cssText =
       'position:fixed;left:-100000px;top:0;width:1px;height:1px;';
     document.body.append(this.container);
-    this.renderer = new MapLibreRenderer(
-      this.container,
-      style,
-      true,
-      false,
-      TILE_PIXEL_RATIO,
-      TILE_MAX_ZOOM,
-    );
+    this.renderer = new MapLibreRenderer(this.container, style, {
+      preserveDrawingBuffer: true,
+      releasesDemProtocol: false,
+      pixelRatio: TILE_PIXEL_RATIO,
+      maxZoom: TILE_MAX_ZOOM,
+    });
   }
 
   /**

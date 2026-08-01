@@ -24,7 +24,6 @@ import {
   type CityData,
   type ExportCamera,
   type ExportPreviewSnapshot,
-  type ExportArea,
   type ExportBackground,
   type ExportRequest,
   type ExportSnapshot,
@@ -33,11 +32,12 @@ import {
   type LayerOptions,
   type RenderParams,
   type RenderStyleParams,
-  createExportSnapshot,
-  exportScaleForFormat,
 } from '@vellum/core';
 import maplibregl from 'maplibre-gl';
-import { geoToCs } from './coordinate-transform';
+import {
+  captureCanvasOnNextRender,
+  captureOnNextRender,
+} from './capture/map-render-capture';
 import {
   captureExportSnapshotPng as captureExportSnapshotPngImpl,
   capturePng as capturePngImpl,
@@ -45,6 +45,10 @@ import {
   EXPORT_CAPTURE_TIMEOUT_MS,
 } from './export/maplibre-png-capture';
 import type { PngExportOptions } from './export/export-types';
+import {
+  buildExportSnapshot,
+  getCurrentCamera,
+} from './export/export-snapshot-builder';
 import {
   subscribeHover as subscribeHoverImpl,
   subscribeServiceIconLegend as subscribeServiceIconLegendImpl,
@@ -54,7 +58,9 @@ import { createBaseStyle } from './layers';
 import { MapLayerManager } from './managers/map-layer.manager';
 import { MapNavigationManager } from './managers/map-navigation.manager';
 import { MapSourceManager } from './managers/map-source.manager';
+import type { MapLibreRendererOptions } from './map-libre-renderer-options';
 import { unregisterDemProtocol } from './sources/dem-protocol';
+import { releaseTemporaryWebGlContext } from './sources/webgl-context';
 import { resolveColors } from './style-adapter';
 import { buildPreviewSnapshot as buildPreviewSnapshotImpl } from './preview/preview-snapshot';
 import type {
@@ -89,28 +95,26 @@ export class MapLibreRenderer implements IRenderer {
   private transitDimming = false;
   private watermarkVisible = true;
   private layerOptions: LayerOptions = DEFAULT_LAYER_OPTIONS;
-  private readonly pendingPreviewCaptures = new Set<
-    (snapshot: ExportPreviewSnapshot | null) => void
-  >();
+  private readonly pendingPreviewCaptures = new Set<() => void>();
 
   /**
    * Creates a new `MapLibreRenderer` and attaches it to the given container.
    *
    * @param container - A DOM div that MapLibre will populate.
    * @param style - Initial theme colors, applied to the base map style at construction.
-   * @param preserveDrawingBuffer - Enables readback only for a disposable export surface.
-   * @param releasesDemProtocol - Whether disposing this renderer may unregister the shared DEM protocol.
-   * @param pixelRatio - Fixes the canvas backing-store ratio; only the tiled export surface pins this to `1` so captured pixels match the plan regardless of `devicePixelRatio`.
-   * @param maxZoom - Maximum zoom permitted by this surface; temporary tiled surfaces allow MapLibre's documented maximum of 24 so 2x/4x captures preserve the plan's exact density.
+   * @param options - Optional named configuration for a disposable export surface.
    */
   constructor(
     container: HTMLDivElement,
     style: RenderStyleParams,
-    preserveDrawingBuffer = false,
-    releasesDemProtocol = true,
-    pixelRatio?: number,
-    maxZoom = 18,
+    options: MapLibreRendererOptions = {},
   ) {
+    const {
+      preserveDrawingBuffer = false,
+      releasesDemProtocol = true,
+      pixelRatio,
+      maxZoom = 18,
+    } = options;
     this.style = style;
     this.releasesDemProtocol = releasesDemProtocol;
     const initialColors = resolveColors(style);
@@ -210,39 +214,17 @@ export class MapLibreRenderer implements IRenderer {
    */
   capturePreview(): Promise<ExportPreviewSnapshot | null> {
     if (!this.cityData) return Promise.resolve(null);
-    return new Promise((resolve) => {
-      let settled = false;
-      const finish = (snapshot: ExportPreviewSnapshot | null): void => {
-        if (settled) return;
-        settled = true;
-        clearTimeout(timeout);
-        this.pendingPreviewCaptures.delete(finish);
-        try {
-          this.map.off('render', handleRender);
-        } catch {
-          // The map may already have been removed during component teardown.
-        }
-        resolve(snapshot);
-      };
-      const handleRender = (): void => {
-        try {
-          finish(this.buildPreviewSnapshot());
-        } catch {
-          finish(null);
-        }
-      };
-      const timeout = setTimeout(
-        () => finish(null),
-        PREVIEW_CAPTURE_TIMEOUT_MS,
-      );
-      this.pendingPreviewCaptures.add(finish);
-      try {
-        this.map.once('render', handleRender);
-        this.map.triggerRepaint();
-      } catch {
-        finish(null);
-      }
-    });
+    const capture = captureOnNextRender(
+      this.map,
+      PREVIEW_CAPTURE_TIMEOUT_MS,
+      () => this.buildPreviewSnapshot(),
+      () => null,
+    );
+    this.pendingPreviewCaptures.add(capture.cancel);
+    void capture.promise.finally(() =>
+      this.pendingPreviewCaptures.delete(capture.cancel),
+    );
+    return capture.promise;
   }
 
   /**
@@ -268,104 +250,30 @@ export class MapLibreRenderer implements IRenderer {
         transitDimming: this.transitDimming,
         sourceWidth: baseWidth,
         sourceHeight: baseHeight,
-        sourceCamera: this.getCurrentCamera(),
+        sourceCamera: getCurrentCamera(this.map),
       },
       options,
-      (container, style) => new MapLibreRenderer(container, style, true, false),
+      (container, exportStyle) =>
+        new MapLibreRenderer(container, exportStyle, {
+          preserveDrawingBuffer: true,
+          releasesDemProtocol: false,
+        }),
     );
   }
 
   /** Captures all export inputs without exposing the MapLibre instance. */
   createExportSnapshot(request: ExportRequest): ExportSnapshot | null {
     if (!this.cityData || !this.activeLayers) return null;
-    const canvas = this.map.getCanvas();
-    // Logical (CSS) pixels only. `canvas.width` is the backing store, i.e.
-    // CSS px x devicePixelRatio, so falling back to it would silently report a
-    // DPR-inflated surface for a canvas whose container is hidden.
-    const baseWidth = canvas.clientWidth;
-    const baseHeight = canvas.clientHeight;
-    if (
-      !Number.isFinite(baseWidth) ||
-      !Number.isFinite(baseHeight) ||
-      baseWidth <= 0 ||
-      baseHeight <= 0
-    )
-      return null;
-    const extent = this.exportExtent(request.area);
-    if (!extent) return null;
-    const scale = exportScaleForFormat(request.format);
-    // `viewport` extent already shares the on-screen canvas aspect (it comes
-    // from `map.getBounds()`), but `full-map` extent is the city's own bounds
-    // and must size the surface itself — reusing the canvas aspect there
-    // stretched the world extent into the window's shape, padding the sides
-    // with empty world space (see tile-planner's `fitAspect`).
-    const { width: surfaceWidth, height: surfaceHeight } =
-      request.area === 'full-map'
-        ? surfaceForExtent(extent, baseWidth, baseHeight)
-        : { width: baseWidth, height: baseHeight };
-    return createExportSnapshot({
+    return buildExportSnapshot({
+      map: this.map,
       cityData: this.cityData,
       style: this.style,
       activeLayers: this.activeLayers,
       layerOptions: this.layerOptions,
       transitDimming: this.transitDimming,
       watermarkVisible: this.watermarkVisible,
-      camera: this.getCurrentCamera(),
-      extent,
-      // The surface is the final output, matching how the legacy `capturePng`
-      // path sizes its container — this is what capability checks measure.
-      surface: {
-        width: surfaceWidth * scale,
-        height: surfaceHeight * scale,
-      },
       request,
     });
-  }
-
-  private getCurrentCamera(): ExportCamera {
-    const center = this.map.getCenter();
-    return {
-      longitude: center.lng,
-      latitude: center.lat,
-      zoom: this.map.getZoom(),
-      bearing: this.map.getBearing(),
-      pitch: this.map.getPitch(),
-    };
-  }
-
-  /** Resolves the world extent an export request actually covers. */
-  private exportExtent(area: ExportArea): ExportSnapshot['extent'] | null {
-    if (!this.cityData) return null;
-    const { bounds } = this.cityData;
-    if (area === 'full-map') {
-      return {
-        minX: bounds.minX,
-        maxX: bounds.maxX,
-        minZ: bounds.minZ,
-        maxZ: bounds.maxZ,
-      };
-    }
-    try {
-      const viewport = this.map.getBounds();
-      // Latitude is inverted relative to CS1 Z (positive Z = south), so the
-      // northern edge yields the smaller Z. Sort rather than assume.
-      const west = geoToCs({
-        lng: viewport.getWest(),
-        lat: viewport.getNorth(),
-      });
-      const east = geoToCs({
-        lng: viewport.getEast(),
-        lat: viewport.getSouth(),
-      });
-      return {
-        minX: Math.min(west.x, east.x),
-        maxX: Math.max(west.x, east.x),
-        minZ: Math.min(west.z, east.z),
-        maxZ: Math.max(west.z, east.z),
-      };
-    } catch {
-      return null;
-    }
   }
 
   /** Resolves export backgrounds from theme tokens instead of CSS literals. */
@@ -434,7 +342,11 @@ export class MapLibreRenderer implements IRenderer {
       snapshot,
       options,
       signal,
-      (container, style) => new MapLibreRenderer(container, style, true, false),
+      (container, exportStyle) =>
+        new MapLibreRenderer(container, exportStyle, {
+          preserveDrawingBuffer: true,
+          releasesDemProtocol: false,
+        }),
     );
   }
 
@@ -462,37 +374,12 @@ export class MapLibreRenderer implements IRenderer {
    * @internal Bounded export API — used by disposable export surfaces only.
    */
   captureCanvasBytes(): Promise<Uint8Array> {
-    return new Promise((resolve, reject) => {
-      let settled = false;
-      const finish = (result: Uint8Array | Error): void => {
-        if (settled) return;
-        settled = true;
-        clearTimeout(timeout);
-        this.map.off('render', capture);
-        result instanceof Error ? reject(result) : resolve(result);
-      };
-      const capture = (): void => {
-        const canvas = this.map.getCanvas();
-        canvas.toBlob((blob) => {
-          if (!blob) return finish(new Error('PNG encoding failed'));
-          void blob.arrayBuffer().then(
-            (buffer) => finish(new Uint8Array(buffer)),
-            () => finish(new Error('PNG encoding failed')),
-          );
-        }, 'image/png');
-      };
-      const timeout = setTimeout(
-        () => finish(new Error('PNG capture timed out')),
-        EXPORT_CAPTURE_TIMEOUT_MS,
-      );
-      this.map.once('render', capture);
-      this.map.triggerRepaint();
-    });
+    return captureCanvasOnNextRender(this.map, EXPORT_CAPTURE_TIMEOUT_MS);
   }
 
   /** Removes the MapLibre map and releases all GPU resources. */
   dispose(): void {
-    for (const finish of [...this.pendingPreviewCaptures]) finish(null);
+    for (const cancel of [...this.pendingPreviewCaptures]) cancel();
     if (this.releasesDemProtocol) unregisterDemProtocol();
     this.navigationManager.dispose();
     const canvas = this.map.getCanvas();
@@ -662,16 +549,6 @@ export class MapLibreRenderer implements IRenderer {
   }
 }
 
-/** Explicitly releases a disposable export surface when WebKit delays MapLibre cleanup. */
-function releaseTemporaryWebGlContext(canvas: HTMLCanvasElement): void {
-  if (typeof canvas.getContext !== 'function') return;
-  const contexts = [canvas.getContext('webgl2'), canvas.getContext('webgl')];
-  for (const context of contexts) {
-    const loseContext = context?.getExtension('WEBGL_lose_context');
-    loseContext?.loseContext();
-  }
-}
-
 /** Captures a snapshot through the renderer's isolated export surface. */
 export function captureExportSnapshotPng(
   snapshot: ExportSnapshot,
@@ -682,26 +559,10 @@ export function captureExportSnapshotPng(
     snapshot,
     options,
     signal,
-    (container, style) => new MapLibreRenderer(container, style, true, false),
+    (container, exportStyle) =>
+      new MapLibreRenderer(container, exportStyle, {
+        preserveDrawingBuffer: true,
+        releasesDemProtocol: false,
+      }),
   );
-}
-
-/**
- * Sizes a surface to the extent's own aspect ratio instead of the on-screen
- * canvas's, using the canvas's larger side as the pixel budget.
- */
-function surfaceForExtent(
-  extent: ExportSnapshot['extent'],
-  canvasWidth: number,
-  canvasHeight: number,
-): { width: number; height: number } {
-  const extentAspect =
-    (extent.maxX - extent.minX) / (extent.maxZ - extent.minZ);
-  const side = Math.max(canvasWidth, canvasHeight);
-  // Real city bounds are rarely a mathematically exact square, so the
-  // divided side must be rounded — every downstream capability check
-  // (legacy and tiled alike) requires a safe integer pixel count.
-  return extentAspect >= 1
-    ? { width: side, height: Math.max(1, Math.round(side / extentAspect)) }
-    : { width: Math.max(1, Math.round(side * extentAspect)), height: side };
 }

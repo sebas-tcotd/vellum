@@ -36,7 +36,10 @@ export class LegacyRasterExporter implements RasterExportPort {
         options,
         signal,
         (container, style) =>
-          new MapLibreRenderer(container, style, true, false),
+          new MapLibreRenderer(container, style, {
+            preserveDrawingBuffer: true,
+            releasesDemProtocol: false,
+          }),
       ),
   ) {
     this.capture = capture;
