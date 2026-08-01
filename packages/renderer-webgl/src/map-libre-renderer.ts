@@ -23,8 +23,6 @@ import {
   LAYER_NAMES,
   type CityData,
   type ExportCamera,
-  type ExportPreviewAnnotation,
-  type ExportPreviewScale,
   type ExportPreviewSnapshot,
   type ExportArea,
   type ExportBackground,
@@ -39,7 +37,14 @@ import {
   exportScaleForFormat,
 } from '@vellum/core';
 import maplibregl from 'maplibre-gl';
-import { csToGeo, geoToCs } from './coordinate-transform';
+import { geoToCs } from './coordinate-transform';
+import {
+  captureExportSnapshotPng as captureExportSnapshotPngImpl,
+  capturePng as capturePngImpl,
+  captureSnapshotPng as captureSnapshotPngImpl,
+  EXPORT_CAPTURE_TIMEOUT_MS,
+} from './export/maplibre-png-capture';
+import type { PngExportOptions } from './export/export-types';
 import {
   subscribeHover as subscribeHoverImpl,
   subscribeServiceIconLegend as subscribeServiceIconLegendImpl,
@@ -51,6 +56,7 @@ import { MapNavigationManager } from './managers/map-navigation.manager';
 import { MapSourceManager } from './managers/map-source.manager';
 import { unregisterDemProtocol } from './sources/dem-protocol';
 import { resolveColors } from './style-adapter';
+import { buildPreviewSnapshot as buildPreviewSnapshotImpl } from './preview/preview-snapshot';
 import type {
   ServiceIconLegendState,
   TooltipInfo,
@@ -64,27 +70,6 @@ export type {
 } from './types/renderer.types';
 
 const PREVIEW_CAPTURE_TIMEOUT_MS = 1_500;
-const SCALE_SAMPLE_PIXELS = 100;
-const SCALE_TARGET_PIXELS = 80;
-const EXPORT_CAPTURE_TIMEOUT_MS = 8_000;
-const MAX_EXPORT_PIXELS = 64_000_000;
-
-/** Options for producing an isolated PNG raster from the current map state. */
-export interface PngExportOptions {
-  /** Requested raster density. */
-  scale: 1 | 2 | 4;
-  /** Current viewport or the full city extent. */
-  area: ExportArea;
-  /** Background treatment applied by the isolated export surface. */
-  background: ExportBackground;
-}
-
-function niceScaleDistance(distance: number): number {
-  const magnitude = 10 ** Math.floor(Math.log10(distance));
-  const normalized = distance / magnitude;
-  const multiplier = normalized >= 5 ? 5 : normalized >= 2 ? 2 : 1;
-  return multiplier * magnitude;
-}
 
 /**
  * GPU-accelerated renderer that converts `CityData` to MapLibre GL JS sources
@@ -158,22 +143,18 @@ export class MapLibreRenderer implements IRenderer {
     this.cityData = cityData;
     this.activeLayers = params.activeLayers;
 
-    return new Promise((resolve, reject) => {
-      const executeRender = async (): Promise<void> => {
-        await this.sourceManager.initializeSourcesAndLayers(cityData);
-        this.layerManager.setTerrainDem(cityData.terrainDem);
-        this.applyInitialState(params);
-        this.navigationManager.fitAndConstrain(cityData);
-        resolve();
-      };
+    const executeRender = async (): Promise<void> => {
+      await this.sourceManager.initializeSourcesAndLayers(cityData);
+      this.layerManager.setTerrainDem(cityData.terrainDem);
+      this.applyInitialState(params);
+      this.navigationManager.fitAndConstrain(cityData);
+    };
 
-      if (this.map.isStyleLoaded()) {
+    if (this.map.isStyleLoaded()) return executeRender();
+    return new Promise((resolve, reject) => {
+      this.map.once('load', () => {
         void executeRender().then(resolve, reject);
-      } else {
-        this.map.once('load', () => {
-          void executeRender().then(resolve, reject);
-        });
-      }
+      });
     });
   }
 
@@ -278,49 +259,20 @@ export class MapLibreRenderer implements IRenderer {
     const sourceCanvas = this.map.getCanvas();
     const baseWidth = sourceCanvas.clientWidth || sourceCanvas.width;
     const baseHeight = sourceCanvas.clientHeight || sourceCanvas.height;
-    const width = baseWidth * options.scale;
-    const height = baseHeight * options.scale;
-    if (
-      !Number.isSafeInteger(width) ||
-      !Number.isSafeInteger(height) ||
-      width * height > MAX_EXPORT_PIXELS
-    ) {
-      throw new Error('Requested export dimensions exceed the safe limit');
-    }
-
-    const container = document.createElement('div');
-    container.style.cssText = `position:fixed;left:-100000px;top:0;width:${width}px;height:${height}px;`;
-    document.body.append(container);
-    // `toBlob()` runs asynchronously. The export-only context must retain the
-    // completed frame until that encoder reads it; the interactive map remains
-    // on MapLibre's performant default (`preserveDrawingBuffer: false`).
-    const exportRenderer = new MapLibreRenderer(
-      container,
-      this.style,
-      true,
-      false,
-    );
-    try {
-      await exportRenderer.render(this.cityData, {
+    return capturePngImpl(
+      {
+        cityData: this.cityData,
         activeLayers: this.activeLayers,
-      });
-      exportRenderer.setTransitDimming(this.transitDimming);
-      exportRenderer.setLayerOptions(this.layerOptions);
-      if (options.area === 'viewport') {
-        const center = this.map.getCenter();
-        exportRenderer.map.jumpTo({
-          center,
-          zoom: this.map.getZoom(),
-          bearing: this.map.getBearing(),
-        });
-      }
-      exportRenderer.applyExportBackground(options.background);
-      await exportRenderer.waitForIdle();
-      return await exportRenderer.captureCanvasBytes();
-    } finally {
-      exportRenderer.dispose();
-      container.remove();
-    }
+        style: this.style,
+        layerOptions: this.layerOptions,
+        transitDimming: this.transitDimming,
+        sourceWidth: baseWidth,
+        sourceHeight: baseHeight,
+        sourceCamera: this.getCurrentCamera(),
+      },
+      options,
+      (container, style) => new MapLibreRenderer(container, style, true, false),
+    );
   }
 
   /** Captures all export inputs without exposing the MapLibre instance. */
@@ -342,7 +294,6 @@ export class MapLibreRenderer implements IRenderer {
     const extent = this.exportExtent(request.area);
     if (!extent) return null;
     const scale = exportScaleForFormat(request.format);
-    const center = this.map.getCenter();
     // `viewport` extent already shares the on-screen canvas aspect (it comes
     // from `map.getBounds()`), but `full-map` extent is the city's own bounds
     // and must size the surface itself — reusing the canvas aspect there
@@ -359,13 +310,7 @@ export class MapLibreRenderer implements IRenderer {
       layerOptions: this.layerOptions,
       transitDimming: this.transitDimming,
       watermarkVisible: this.watermarkVisible,
-      camera: {
-        longitude: center.lng,
-        latitude: center.lat,
-        zoom: this.map.getZoom(),
-        bearing: this.map.getBearing(),
-        pitch: this.map.getPitch(),
-      },
+      camera: this.getCurrentCamera(),
       extent,
       // The surface is the final output, matching how the legacy `capturePng`
       // path sizes its container — this is what capability checks measure.
@@ -375,6 +320,17 @@ export class MapLibreRenderer implements IRenderer {
       },
       request,
     });
+  }
+
+  private getCurrentCamera(): ExportCamera {
+    const center = this.map.getCenter();
+    return {
+      longitude: center.lng,
+      latitude: center.lat,
+      zoom: this.map.getZoom(),
+      bearing: this.map.getBearing(),
+      pitch: this.map.getPitch(),
+    };
   }
 
   /** Resolves the world extent an export request actually covers. */
@@ -474,47 +430,12 @@ export class MapLibreRenderer implements IRenderer {
     options: PngExportOptions,
     signal: AbortSignal,
   ): Promise<Uint8Array> {
-    throwIfAborted(signal);
-    const { width, height } = snapshot.surface;
-    if (
-      !Number.isSafeInteger(width) ||
-      !Number.isSafeInteger(height) ||
-      width <= 0 ||
-      height <= 0 ||
-      width * height > MAX_EXPORT_PIXELS
-    ) {
-      throw new Error('Requested export dimensions exceed the safe limit');
-    }
-
-    const container = document.createElement('div');
-    container.style.cssText = `position:fixed;left:-100000px;top:0;width:${width}px;height:${height}px;`;
-    document.body.append(container);
-    const exportRenderer = new MapLibreRenderer(
-      container,
-      snapshot.style,
-      true,
-      false,
+    return captureSnapshotPngImpl(
+      snapshot,
+      options,
+      signal,
+      (container, style) => new MapLibreRenderer(container, style, true, false),
     );
-    try {
-      await exportRenderer.render(snapshot.cityData, {
-        activeLayers: snapshot.activeLayers,
-      });
-      throwIfAborted(signal);
-      exportRenderer.setTransitDimming(snapshot.transitDimming);
-      exportRenderer.setLayerOptions(snapshot.layerOptions);
-      exportRenderer.setWatermarkVisibility(snapshot.watermarkVisible);
-      if (options.area === 'viewport') {
-        exportRenderer.setCamera(snapshot.camera);
-      }
-      exportRenderer.applyExportBackground(options.background);
-      throwIfAborted(signal);
-      await exportRenderer.waitForIdle();
-      throwIfAborted(signal);
-      return await exportRenderer.captureCanvasBytes();
-    } finally {
-      exportRenderer.dispose();
-      container.remove();
-    }
   }
 
   /**
@@ -580,70 +501,11 @@ export class MapLibreRenderer implements IRenderer {
   }
 
   private buildPreviewSnapshot(): ExportPreviewSnapshot | null {
-    const canvas = this.map.getCanvas();
-    const width = canvas.clientWidth || canvas.width;
-    const height = canvas.clientHeight || canvas.height;
-    if (!this.cityData || width <= 0 || height <= 0) return null;
-    const scale = this.buildPreviewScale(width, height);
-    if (!scale) return null;
-    return {
-      dataUrl: canvas.toDataURL('image/png'),
-      bearingDegrees: this.navigationManager.getBearing(),
-      scale,
-      annotations: this.buildPreviewAnnotations(width, height),
-    };
-  }
-
-  private buildPreviewScale(
-    width: number,
-    height: number,
-  ): ExportPreviewScale | null {
-    const centerX = width / 2;
-    const centerY = height / 2;
-    const start = geoToCs(this.map.unproject([centerX, centerY]));
-    const end = geoToCs(
-      this.map.unproject([centerX + SCALE_SAMPLE_PIXELS, centerY]),
+    return buildPreviewSnapshotImpl(
+      this.map,
+      this.cityData,
+      this.navigationManager.getBearing(),
     );
-    const metresPerPixel =
-      Math.hypot(end.x - start.x, end.z - start.z) / SCALE_SAMPLE_PIXELS;
-    if (!Number.isFinite(metresPerPixel) || metresPerPixel <= 0) return null;
-    const distanceMeters = niceScaleDistance(
-      metresPerPixel * SCALE_TARGET_PIXELS,
-    );
-    return {
-      distanceMeters,
-      widthPercent: (distanceMeters / metresPerPixel / width) * 100,
-    };
-  }
-
-  private buildPreviewAnnotations(
-    width: number,
-    height: number,
-  ): ExportPreviewAnnotation[] {
-    if (!this.cityData) return [];
-    const annotations = [
-      ...this.cityData.districts.map((district) => ({
-        id: district.id,
-        name: district.name,
-        kind: 'district' as const,
-        position: district.position,
-      })),
-      ...this.cityData.parkAreas.map((park) => ({
-        id: park.id,
-        name: park.name,
-        kind: 'park' as const,
-        position: park.position,
-      })),
-    ];
-    return annotations.flatMap(({ id, name, kind, position }) => {
-      const point = this.map.project(csToGeo(position));
-      const xPercent = (point.x / width) * 100;
-      const yPercent = (point.y / height) * 100;
-      if (xPercent < 0 || xPercent > 100 || yPercent < 0 || yPercent > 100) {
-        return [];
-      }
-      return [{ id, name, kind, xPercent, yPercent }];
-    });
   }
 
   // ─── Layer API Delegation ───────────────────────────────────────────────
@@ -816,7 +678,12 @@ export function captureExportSnapshotPng(
   options: PngExportOptions,
   signal: AbortSignal,
 ): Promise<Uint8Array> {
-  return MapLibreRenderer.captureSnapshotPng(snapshot, options, signal);
+  return captureExportSnapshotPngImpl(
+    snapshot,
+    options,
+    signal,
+    (container, style) => new MapLibreRenderer(container, style, true, false),
+  );
 }
 
 /**
@@ -837,11 +704,4 @@ function surfaceForExtent(
   return extentAspect >= 1
     ? { width: side, height: Math.max(1, Math.round(side / extentAspect)) }
     : { width: Math.max(1, Math.round(side * extentAspect)), height: side };
-}
-
-function throwIfAborted(signal: AbortSignal): void {
-  if (!signal.aborted) return;
-  const error = new Error('Export aborted');
-  error.name = 'AbortError';
-  throw error;
 }
