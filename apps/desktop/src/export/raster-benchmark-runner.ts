@@ -114,6 +114,12 @@ export interface RasterBenchmarkRunOptions {
   readonly platform: string;
   /** Application build or commit label. */
   readonly build: string;
+  /** Restricts the matrix to a single area instead of both. */
+  readonly area?: ExportArea;
+  /** Restricts the matrix to a single format instead of all three. */
+  readonly format?: (typeof FORMATS)[number];
+  /** Restricts the matrix to a single background instead of all three. */
+  readonly background?: ExportBackground;
 }
 
 /** DevTools bridge used to run the benchmark against the currently loaded map. */
@@ -184,9 +190,12 @@ export class RasterBenchmarkRunner {
   ): Promise<RasterBenchmarkCase[]> {
     const cases: RasterBenchmarkCase[] = [];
     const phase = retain ? 'measured' : 'warmup';
-    for (const area of AREAS)
-      for (const format of FORMATS)
-        for (const background of BACKGROUNDS)
+    const areas = options.area ? [options.area] : AREAS;
+    const formats = options.format ? [options.format] : FORMATS;
+    const backgrounds = options.background ? [options.background] : BACKGROUNDS;
+    for (const area of areas)
+      for (const format of formats)
+        for (const background of backgrounds)
           for (let repeat = 0; repeat < options.repeats; repeat += 1) {
             const entry = await this.executeCase(
               options.fixture,

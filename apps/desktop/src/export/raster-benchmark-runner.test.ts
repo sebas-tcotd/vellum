@@ -84,6 +84,44 @@ describe('RasterBenchmarkRunner', () => {
     });
   });
 
+  it('restringe la matriz a un solo caso cuando se filtra area/format/background', async () => {
+    const exportSnapshot = vi.fn(() => snapshot());
+    const exportRaster = vi.fn().mockResolvedValue({
+      filePath: '/private/output.png',
+      folderPath: '/private',
+    });
+    const runner = new RasterBenchmarkRunner({
+      captureSnapshot: exportSnapshot,
+      exportRaster,
+      getLastRoute: () => 'tiled-png',
+      getCapability: () => capability,
+      runWithRoute: async (_route, operation) => operation(),
+      now: () => 123,
+      releaseGpuContext: async () => undefined,
+    });
+
+    const report = await runner.run({
+      fixture: 'altavento',
+      route: 'tiled',
+      repeats: 1,
+      warmup: false,
+      platform: 'macOS/WebKit',
+      build: '8d94b1f',
+      area: 'full-map',
+      format: 'png-4x',
+      background: 'dark',
+    });
+
+    expect(exportRaster).toHaveBeenCalledTimes(1);
+    expect(report.cases).toEqual([
+      expect.objectContaining({
+        area: 'full-map',
+        format: 'png-4x',
+        background: 'dark',
+      }),
+    ]);
+  });
+
   it('no exporta un snapshot de otra fixture mientras el mapa termina de cargar', async () => {
     const stale = snapshot();
     const current = {
