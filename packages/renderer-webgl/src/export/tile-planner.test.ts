@@ -145,7 +145,12 @@ describe('planTiles', () => {
     expect(fourX.zoom - oneX.zoom).toBeCloseTo(2);
   });
 
-  it('uses an aspect-correct full-world extent and lowers the useful side for constrained GPUs', () => {
+  it('fits full-map to the snapshot extent, not a hardcoded world square', () => {
+    // The snapshot's extent for `full-map` is the city's real bounds (set by
+    // `createExportSnapshot`), not the theoretical CS1 world square — a map
+    // whose real terrain doesn't span the full ±8640 world must not be
+    // zoomed out to show mostly-empty world, which is what a hardcoded
+    // world extent here used to do (diverging from the legacy route).
     const fullMap = planTiles(
       {
         ...snapshot(1000, 1000),
@@ -153,6 +158,18 @@ describe('planTiles', () => {
       },
       capability,
     );
+    if ('rejected' in fullMap) throw new Error('expected a plan');
+    // Base extent is -1000..1000 (X) x -500..500 (Z), aspect 2; a 1000x1000
+    // (aspect 1) surface must pad Z to match, not substitute the world extent.
+    expect(fullMap.renderExtent).toEqual({
+      minX: -1000,
+      maxX: 1000,
+      minZ: -1000,
+      maxZ: 1000,
+    });
+  });
+
+  it('lowers the useful side for constrained GPUs', () => {
     const constrained = planTiles(snapshot(3000, 3000), {
       ...capability,
       maxTextureSize: 1000,
@@ -160,14 +177,7 @@ describe('planTiles', () => {
       maxViewportDims: [1000, 1000],
       maxCanvasSize: 1000,
     });
-    if ('rejected' in fullMap || 'rejected' in constrained)
-      throw new Error('expected plans');
-    expect(fullMap.renderExtent).toEqual({
-      minX: -8640,
-      maxX: 8640,
-      minZ: -8640,
-      maxZ: 8640,
-    });
+    if ('rejected' in constrained) throw new Error('expected a plan');
     expect(
       Math.max(...constrained.tiles.map((tile) => tile.usefulRect.width)),
     ).toBeLessThanOrEqual(512);
@@ -201,5 +211,14 @@ describe('planTiles', () => {
       configurable: true,
       value: originalDpr,
     });
+  });
+
+  it('stops planning immediately when its signal is already aborted', () => {
+    const controller = new AbortController();
+    controller.abort();
+
+    expect(() =>
+      planTiles(snapshot(100, 100), capability, controller.signal),
+    ).toThrow('Export aborted');
   });
 });

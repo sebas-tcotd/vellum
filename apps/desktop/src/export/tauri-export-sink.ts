@@ -26,9 +26,8 @@ interface TiledSessionState {
  * (`begin_export` / `append_export_chunk` / `finish_export` / `cancel_export`).
  *
  * @remarks
- * Not wired into {@link ExportCoordinator} yet — legacy remains the only active
- * route. This sink exists so the tiled exporters landing in 6.2D–6.2F have a
- * transactional persistence port to target.
+ * Wired by the desktop composition root behind the 6.2I cutover gate; legacy
+ * remains the safe default until the runtime gate is approved.
  */
 export class TauriExportSink implements ExportSink {
   private readonly invokeCommand: TiledInvoke;

@@ -344,6 +344,36 @@ export interface ExportReceipt {
   readonly folderPath: string;
 }
 
+/** Lifecycle phase reported by a raster exporter while an operation is active. */
+export type ExportProgressPhase = 'capturing' | 'composing' | 'finishing';
+
+/**
+ * Progress payload derived entirely from already-accepted units (`AppendAck`).
+ *
+ * @remarks
+ * `percent` only exists once `totalUnits` is known and greater than zero —
+ * legacy exports never report it, keeping the UI's indeterminate state honest.
+ */
+export interface ExportProgress {
+  /** Snapshot this progress belongs to; stale callbacks are discarded by identity. */
+  readonly snapshotId: string;
+  /** Sink session once the tiled route has opened one. */
+  readonly sessionId?: string;
+  /** Route reporting this progress. */
+  readonly mode: ExportMode;
+  /** Current lifecycle phase. */
+  readonly phase: ExportProgressPhase;
+  /** Units accepted so far — only advances after a sink `AppendAck`. */
+  readonly completedUnits: number;
+  /** Total units the operation expects to accept. */
+  readonly totalUnits: number;
+  /** Rounded 0–100 completion, present only when `totalUnits` is determinate. */
+  readonly percent?: number;
+}
+
+/** Callback an exporter invokes after each accepted unit; never a required param. */
+export type ExportProgressCallback = (progress: ExportProgress) => void;
+
 /** Segregated port implemented by a concrete raster exporter. */
 export interface RasterExportPort {
   /** Route implemented by this exporter. */
@@ -353,6 +383,7 @@ export interface RasterExportPort {
     snapshot: ExportSnapshot,
     sink: ExportSink,
     signal: AbortSignal,
+    onProgress?: ExportProgressCallback,
   ): Promise<void>;
 }
 
@@ -378,6 +409,7 @@ export interface RasterExportV2 {
   export(
     snapshot: ExportSnapshot,
     signal?: AbortSignal,
+    onProgress?: ExportProgressCallback,
   ): Promise<ExportReceipt>;
 }
 

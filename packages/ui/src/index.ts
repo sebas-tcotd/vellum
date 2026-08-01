@@ -10,6 +10,7 @@ export type { MapLibreRootProps } from './components/canvas/MapLibreRoot';
 export { CanvasLayer } from './components/canvas/CanvasLayer';
 export type { CanvasLayerProps } from './components/canvas/CanvasLayer';
 export { App } from './App';
+export type { ExportCancelHandlerRef } from './App';
 export { EmptyState } from './components/empty-state';
 export { AppMetaProvider } from './context/AppMetaContext';
 export { initI18n } from './i18n/i18n-setup';

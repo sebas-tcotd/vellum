@@ -2,7 +2,7 @@ import { useCallback, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { open } from '@tauri-apps/plugin-dialog';
-import { useVellumStore } from '@vellum/ui';
+import { useVellumStore, type ExportCancelHandlerRef } from '@vellum/ui';
 import type { CityData, VellumError, ParseWarningsPayload } from '@vellum/core';
 import { IPC_EVENTS } from '@vellum/core';
 
@@ -12,10 +12,39 @@ import { IPC_EVENTS } from '@vellum/core';
  * Lives in `apps/desktop` (not `@vellum/ui`) so that `@vellum/ui` remains
  * free of direct Tauri runtime dependencies.
  *
+ * @param exportCancelHandlerRef - Read (and awaited) right before a newly
+ * loaded city replaces the store's `CityData`/DEM, so an active export is
+ * always cancelled *before* that shared global mutates (AD-15) — not
+ * reactively afterward, which a `useEffect` keyed on `cityData` could never
+ * guarantee.
  * @returns `loadFile` — loads a `.cslmap` path via IPC, with anti-race guard.
  * @returns `openFileDialog` — opens the OS file picker, then calls `loadFile`.
  * @returns `loadFilePartial` — retries the last file path with allow_partial=true.
  */
+
+/** Bounded wait for an active export to yield before a new city replaces the store. */
+const CANCEL_BEFORE_LOAD_TIMEOUT_MS = 3_000;
+
+/**
+ * Cancels any active export *before* this hook touches the store at all —
+ * never after, and never unboundedly. A stuck/never-resolving export cancel
+ * must not hang a new file load forever; on timeout, the caller keeps the
+ * current map untouched and surfaces a localized error instead of loading.
+ */
+async function cancelActiveExportBeforeLoad(
+  exportCancelHandlerRef: ExportCancelHandlerRef | undefined,
+): Promise<'ok' | 'timeout'> {
+  const cancel = exportCancelHandlerRef?.current;
+  if (!cancel) return 'ok';
+  const timedOut = Symbol('timeout');
+  const result = await Promise.race([
+    cancel().then((): 'ok' => 'ok'),
+    new Promise<typeof timedOut>((resolve) =>
+      setTimeout(() => resolve(timedOut), CANCEL_BEFORE_LOAD_TIMEOUT_MS),
+    ),
+  ]);
+  return result === timedOut ? 'timeout' : 'ok';
+}
 
 function toVellumError(err: unknown): VellumError {
   if (err && typeof err === 'object' && 'type' in err) {
@@ -41,7 +70,9 @@ function toVellumError(err: unknown): VellumError {
   };
 }
 
-export function useParseCslmap() {
+export function useParseCslmap(
+  exportCancelHandlerRef?: ExportCancelHandlerRef,
+) {
   const setLoadingState = useVellumStore((s) => s.setLoadingState);
   const setCityData = useVellumStore((s) => s.setCityData);
   const setDlcWarnings = useVellumStore((s) => s.setDlcWarnings);
@@ -55,6 +86,21 @@ export function useParseCslmap() {
 
   const loadFile = useCallback(
     async (filePath: string): Promise<void> => {
+      // Cancel before touching the store at all — never reset loadingState
+      // or the current map on the strength of a cancellation that hasn't
+      // actually happened yet.
+      if (
+        (await cancelActiveExportBeforeLoad(exportCancelHandlerRef)) ===
+        'timeout'
+      ) {
+        setLoadingState('error', {
+          type: 'IoError',
+          reason:
+            'Timed out waiting for the active export to cancel before loading a new city',
+        });
+        return;
+      }
+
       lastFilePathRef.current = filePath;
       // incrementLoadRequestId atomically resets state and sets loadingState: 'loading'
       const requestId = incrementLoadRequestId();
@@ -85,7 +131,10 @@ export function useParseCslmap() {
         // Guard: discard stale response if a newer load started
         if (useVellumStore.getState().loadRequestId !== requestId) return;
 
-        setCityData(cityData); // also sets loadingState: 'idle' and clears error
+        setCityData({
+          ...cityData,
+          fileName: fileNameFromPath(filePath),
+        }); // also sets loadingState: 'idle' and clears error
         if (pendingWarnings.length > 0) {
           setDlcWarnings(pendingWarnings);
         }
@@ -99,12 +148,29 @@ export function useParseCslmap() {
         unlistenRef.current?.();
       }
     },
-    [incrementLoadRequestId, setCityData, setLoadingState, setDlcWarnings],
+    [
+      incrementLoadRequestId,
+      setCityData,
+      setLoadingState,
+      setDlcWarnings,
+      exportCancelHandlerRef,
+    ],
   );
 
   const loadFilePartial = useCallback(async (): Promise<void> => {
     const filePath = lastFilePathRef.current;
     if (!filePath) return;
+
+    if (
+      (await cancelActiveExportBeforeLoad(exportCancelHandlerRef)) === 'timeout'
+    ) {
+      setLoadingState('error', {
+        type: 'IoError',
+        reason:
+          'Timed out waiting for the active export to cancel before loading a new city',
+      });
+      return;
+    }
 
     const requestId = incrementLoadRequestId();
 
@@ -131,7 +197,10 @@ export function useParseCslmap() {
 
       if (useVellumStore.getState().loadRequestId !== requestId) return;
 
-      setCityData(cityData);
+      setCityData({
+        ...cityData,
+        fileName: fileNameFromPath(filePath),
+      });
       setHasPartialData(true);
       if (pendingWarnings.length > 0) {
         setDlcWarnings(pendingWarnings);
@@ -151,6 +220,7 @@ export function useParseCslmap() {
     setLoadingState,
     setHasPartialData,
     setDlcWarnings,
+    exportCancelHandlerRef,
   ]);
 
   const openFileDialog = useCallback(async (): Promise<void> => {
@@ -175,4 +245,9 @@ export function useParseCslmap() {
   }, [loadFile, setLoadingState]);
 
   return { loadFile, openFileDialog, loadFilePartial };
+}
+
+function fileNameFromPath(filePath: string): string {
+  const parts = filePath.split(/[\\/]/);
+  return parts[parts.length - 1] ?? filePath;
 }

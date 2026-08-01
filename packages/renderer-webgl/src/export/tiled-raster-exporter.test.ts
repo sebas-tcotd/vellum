@@ -276,4 +276,384 @@ describe('TiledRasterExporter', () => {
 
     expect(sink.cancel).not.toHaveBeenCalled();
   });
+
+  it('cancels proactively — not after waiting for it to settle — when abort() fires while sink.finish() is in flight', async () => {
+    const { createRenderer } = makeFakeRenderer([]);
+    let resolveFinish: ((receipt: ExportReceipt) => void) | undefined;
+    let rejectFinish: ((reason?: unknown) => void) | undefined;
+    const sink = makeSink({
+      finish: vi.fn(
+        () =>
+          new Promise<ExportReceipt>((resolve, reject) => {
+            resolveFinish = resolve;
+            rejectFinish = reject;
+          }),
+      ),
+    });
+    const exporter = new TiledRasterExporter(capability, createRenderer);
+    const controller = new AbortController();
+
+    const exportPromise = exporter.export(
+      snapshot(100, 100),
+      sink,
+      controller.signal,
+    );
+
+    // Let the export reach `sink.finish()` before aborting.
+    await new Promise((r) => setTimeout(r, 0));
+    expect(sink.finish).toHaveBeenCalledOnce();
+    expect(sink.cancel).not.toHaveBeenCalled();
+
+    controller.abort();
+    // The cancel must fire immediately, without waiting for finish() to settle.
+    expect(sink.cancel).toHaveBeenCalledWith(makeSession(), 'aborted');
+
+    // Simulates Rust's own `cancel_requested` check rejecting the publish.
+    rejectFinish?.(new Error('export session was cancelled while finishing'));
+
+    await expect(exportPromise).rejects.toThrow(
+      'export session was cancelled while finishing',
+    );
+    expect(sink.cancel).toHaveBeenCalledOnce();
+
+    resolveFinish?.({ filePath: '/tmp/unused.png', folderPath: '/tmp' });
+  });
+
+  it('does not double-cancel if finish() still resolves successfully after an abort raced in', async () => {
+    const { createRenderer } = makeFakeRenderer([]);
+    let resolveFinish: ((receipt: ExportReceipt) => void) | undefined;
+    const sink = makeSink({
+      finish: vi.fn(
+        () =>
+          new Promise<ExportReceipt>((resolve) => {
+            resolveFinish = resolve;
+          }),
+      ),
+    });
+    const exporter = new TiledRasterExporter(capability, createRenderer);
+    const controller = new AbortController();
+
+    const exportPromise = exporter.export(
+      snapshot(100, 100),
+      sink,
+      controller.signal,
+    );
+    await new Promise((r) => setTimeout(r, 0));
+    controller.abort();
+    expect(sink.cancel).toHaveBeenCalledOnce();
+
+    // Rust wins the race and commits anyway (a legitimate photo-finish).
+    resolveFinish?.({ filePath: '/tmp/export.png', folderPath: '/tmp' });
+    await expect(exportPromise).resolves.toBeUndefined();
+    expect(sink.cancel).toHaveBeenCalledOnce();
+  });
+
+  it('requests cancellation when the finishing progress callback aborts synchronously', async () => {
+    const { createRenderer } = makeFakeRenderer([]);
+    const sink = makeSink();
+    const exporter = new TiledRasterExporter(capability, createRenderer);
+    const controller = new AbortController();
+
+    await exporter.export(
+      snapshot(100, 100),
+      sink,
+      controller.signal,
+      (progress) => {
+        if (progress.phase === 'finishing') controller.abort();
+      },
+    );
+
+    expect(sink.cancel).toHaveBeenCalledWith(makeSession(), 'aborted');
+  });
+
+  it('cancels if the finishing progress callback throws before finish starts', async () => {
+    const { createRenderer } = makeFakeRenderer([]);
+    const sink = makeSink();
+    const exporter = new TiledRasterExporter(capability, createRenderer);
+
+    await expect(
+      exporter.export(
+        snapshot(100, 100),
+        sink,
+        new AbortController().signal,
+        (progress) => {
+          if (progress.phase === 'finishing')
+            throw new Error('progress failed');
+        },
+      ),
+    ).rejects.toThrow('progress failed');
+
+    expect(sink.finish).not.toHaveBeenCalled();
+    expect(sink.cancel).toHaveBeenCalledWith(makeSession(), 'capture-failed');
+  });
+
+  it('reports monotonic, phase-tagged progress that only advances after each AppendAck', async () => {
+    const { createRenderer } = makeFakeRenderer([]);
+    // Real Rust always reports `completed_units: 1` per ack (never a running
+    // total, per `session.rs`) — the exporter itself must accumulate it.
+    const sink = makeSink({
+      append: vi.fn(async (_session, chunk: RasterTileChunk) => ({
+        sessionId: 'session-test',
+        sequence: chunk.sequence,
+        acceptedBytes: chunk.encodedPng.byteLength,
+        completedUnits: 1,
+      })),
+    });
+    const exporter = new TiledRasterExporter(capability, createRenderer);
+    const onProgress = vi.fn();
+
+    await exporter.export(
+      snapshot(4100, 2200),
+      sink,
+      new AbortController().signal,
+      onProgress,
+    );
+
+    const events = onProgress.mock.calls.map(([progress]) => progress);
+    expect(events[0]).toMatchObject({
+      phase: 'capturing',
+      completedUnits: 0,
+      totalUnits: 6,
+      percent: 0,
+    });
+    expect(events.at(-1)).toMatchObject({
+      phase: 'finishing',
+      completedUnits: 6,
+      totalUnits: 6,
+      percent: 100,
+    });
+    const percentages = events.map((e) => e.percent as number);
+    for (let i = 1; i < percentages.length; i += 1) {
+      expect(percentages[i]).toBeGreaterThanOrEqual(percentages[i - 1]);
+    }
+    // Every event must carry the identity needed to discard stale callbacks.
+    for (const event of events) {
+      expect(event.snapshotId).toBe('tiled-exporter-test');
+      expect(event.sessionId).toBe('session-test');
+      expect(event.mode).toBe('tiled-png');
+    }
+  });
+
+  it('accumulates completedUnits across tiles instead of resetting to the last ack (regression)', async () => {
+    const { createRenderer } = makeFakeRenderer([]);
+    // `completed_units: 1` on every single ack, exactly as Rust really sends it.
+    const sink = makeSink({
+      append: vi.fn().mockResolvedValue({
+        sessionId: 'session-test',
+        sequence: 0,
+        acceptedBytes: 4,
+        completedUnits: 1,
+      }),
+    });
+    const exporter = new TiledRasterExporter(capability, createRenderer);
+    const onProgress = vi.fn();
+
+    await exporter.export(
+      snapshot(4100, 2200),
+      sink,
+      new AbortController().signal,
+      onProgress,
+    );
+
+    const completedByComposingEvent = onProgress.mock.calls
+      .map(([progress]) => progress)
+      .filter((progress) => progress.phase === 'composing')
+      .map((progress) => progress.completedUnits);
+    expect(completedByComposingEvent).toEqual([1, 2, 3, 4, 5, 6]);
+  });
+
+  it('clamps accumulated progress at totalUnits even if an ack over-reports', async () => {
+    const { createRenderer } = makeFakeRenderer([]);
+    const sink = makeSink({
+      // A misbehaving/duplicate ack claims more units than remain.
+      append: vi.fn().mockResolvedValue({
+        sessionId: 'session-test',
+        sequence: 0,
+        acceptedBytes: 4,
+        completedUnits: 5,
+      }),
+    });
+    const exporter = new TiledRasterExporter(capability, createRenderer);
+    const onProgress = vi.fn();
+
+    await exporter.export(
+      snapshot(4100, 2200),
+      sink,
+      new AbortController().signal,
+      onProgress,
+    );
+
+    const completedByComposingEvent = onProgress.mock.calls
+      .map(([progress]) => progress)
+      .filter((progress) => progress.phase === 'composing')
+      .map((progress) => progress.completedUnits);
+    for (const completed of completedByComposingEvent) {
+      expect(completed).toBeLessThanOrEqual(6);
+    }
+    expect(completedByComposingEvent.at(-1)).toBe(6);
+  });
+
+  it('never reports progress for the legacy-style caller when onProgress is omitted', async () => {
+    const { createRenderer } = makeFakeRenderer([]);
+    const sink = makeSink();
+    const exporter = new TiledRasterExporter(capability, createRenderer);
+
+    await expect(
+      exporter.export(snapshot(100, 100), sink, new AbortController().signal),
+    ).resolves.toBeUndefined();
+  });
+
+  it('keeps the base capture byte-identical when quality is disabled', async () => {
+    const baseBytes = new Uint8Array([137, 80, 78, 71]);
+    const renderer: TileCapture = {
+      configure: vi.fn().mockResolvedValue(undefined),
+      captureTile: vi.fn().mockResolvedValue(baseBytes),
+      dispose: vi.fn(),
+    };
+    const sink = makeSink();
+    const exporter = new TiledRasterExporter(capability, () => renderer, {
+      enabled: false,
+      ssaa: 2,
+    });
+
+    await exporter.export(
+      snapshot(100, 100),
+      sink,
+      new AbortController().signal,
+    );
+
+    expect(sink.append).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ encodedPng: baseBytes }),
+    );
+    expect(renderer.captureTile).toHaveBeenCalledOnce();
+  });
+
+  it('captures SSAA physically and appends only the exact logical tile result', async () => {
+    const renderer: TileCapture = {
+      configure: vi.fn().mockResolvedValue(undefined),
+      captureTile: vi.fn().mockResolvedValue(new Uint8Array([1])),
+      captureTileAtScale: vi.fn().mockResolvedValue(new Uint8Array([2])),
+      dispose: vi.fn(),
+    };
+    const codec = {
+      decode: vi.fn().mockResolvedValue({
+        width: 200,
+        height: 200,
+        pixels: new Uint8Array(200 * 200 * 4).fill(255),
+      }),
+      encode: vi.fn().mockResolvedValue(new Uint8Array([9])),
+    };
+    const sink = makeSink();
+    const exporter = new TiledRasterExporter(capability, () => renderer, {
+      enabled: true,
+      ssaa: 2,
+      codec,
+    });
+
+    await exporter.export(
+      snapshot(100, 100),
+      sink,
+      new AbortController().signal,
+    );
+
+    expect(renderer.captureTileAtScale).toHaveBeenCalledWith(
+      expect.objectContaining({
+        renderRect: { x: 0, y: 0, width: 100, height: 100 },
+      }),
+      2,
+      expect.any(AbortSignal),
+    );
+    expect(sink.append).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ encodedPng: new Uint8Array([9]) }),
+    );
+  });
+
+  it('recaptures through the base path when the physical PNG was clamped', async () => {
+    const renderer: TileCapture = {
+      configure: vi.fn().mockResolvedValue(undefined),
+      captureTile: vi.fn().mockResolvedValue(new Uint8Array([1])),
+      captureTileAtScale: vi.fn().mockResolvedValue(new Uint8Array([2])),
+      dispose: vi.fn(),
+    };
+    const codec = {
+      decode: vi.fn().mockResolvedValue({
+        width: 199,
+        height: 200,
+        pixels: new Uint8Array(199 * 200 * 4),
+      }),
+      encode: vi.fn(),
+    };
+    const sink = makeSink();
+    const exporter = new TiledRasterExporter(capability, () => renderer, {
+      enabled: true,
+      ssaa: 2,
+      codec,
+    });
+
+    await exporter.export(
+      snapshot(100, 100),
+      sink,
+      new AbortController().signal,
+    );
+
+    expect(renderer.captureTile).toHaveBeenCalledOnce();
+    expect(sink.append).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ encodedPng: new Uint8Array([1]) }),
+    );
+    expect(codec.encode).not.toHaveBeenCalled();
+  });
+
+  it('keeps progress visible and cancels during quality phases for 4x full-map', async () => {
+    const controller = new AbortController();
+    const phases: string[] = [];
+    const renderer: TileCapture = {
+      configure: vi.fn().mockResolvedValue(undefined),
+      captureTile: vi.fn().mockResolvedValue(new Uint8Array([1])),
+      captureTileAtScale: vi.fn().mockResolvedValue(new Uint8Array([2])),
+      dispose: vi.fn(),
+    };
+    const codec = {
+      decode: vi.fn(async () => ({
+        width: 400,
+        height: 400,
+        pixels: new Uint8Array(400 * 400 * 4).fill(255),
+      })),
+      encode: vi.fn().mockResolvedValue(new Uint8Array([9])),
+    };
+    const sink = makeSink();
+    const onProgress = vi.fn();
+    const exporter = new TiledRasterExporter(capability, () => renderer, {
+      enabled: true,
+      ssaa: 4,
+      filter: 'box-3x3',
+      codec,
+      onPhase: (phase) => {
+        phases.push(phase);
+        if (phase === 'filtering') controller.abort();
+      },
+    });
+    const baseSnapshot = snapshot(100, 100);
+    const fullMapSnapshot: ExportSnapshot = {
+      ...baseSnapshot,
+      request: {
+        ...baseSnapshot.request,
+        area: 'full-map',
+        format: 'png-4x',
+      },
+    };
+
+    await expect(
+      exporter.export(fullMapSnapshot, sink, controller.signal, onProgress),
+    ).rejects.toMatchObject({ name: 'AbortError' });
+
+    expect(phases).toEqual(['decoding', 'downsampling', 'filtering']);
+    expect(onProgress).toHaveBeenCalledWith(
+      expect.objectContaining({ phase: 'capturing', percent: 0 }),
+    );
+    expect(sink.cancel).toHaveBeenCalledWith(makeSession(), 'aborted');
+    expect(codec.encode).not.toHaveBeenCalled();
+  });
 });

@@ -10,7 +10,6 @@ import {
 } from '@vellum/core';
 import {
   CS1_EXTENT_DEG,
-  CS1_WORLD_HALF,
   CS1_WORLD_SIZE,
   csToGeo,
 } from '../coordinate-transform';
@@ -24,7 +23,9 @@ const MAPLIBRE_TILE_SIZE_PX = 512;
 export function planTiles(
   snapshot: ExportSnapshot,
   capability: CapabilityReport,
+  signal?: AbortSignal,
 ): TilePlan | TilePlanRejection {
+  throwIfAborted(signal);
   const { width, height } = snapshot.surface;
   if (
     !isPositiveInteger(width) ||
@@ -36,12 +37,9 @@ export function planTiles(
     return reject('dimensions');
   const limits = limitsFrom(capability);
   if (!limits) return reject('gpu');
-  const side = chooseUsefulSide(width, height, limits);
+  const side = chooseUsefulSide(width, height, limits, signal);
   if (!side) return reject('dimensions');
-  const renderExtent = fitAspect(
-    snapshot.request.area === 'full-map' ? worldExtent() : snapshot.extent,
-    width / height,
-  );
+  const renderExtent = fitAspect(snapshot.extent, width / height);
   const worldUnitsPerPixel = (renderExtent.maxX - renderExtent.minX) / width;
   const zoom = zoomFor(worldUnitsPerPixel);
   const tiles = makeTiles(
@@ -51,6 +49,7 @@ export function planTiles(
     renderExtent,
     worldUnitsPerPixel,
     zoom,
+    signal,
   );
   return {
     tiles,
@@ -66,6 +65,7 @@ function chooseUsefulSide(
   width: number,
   height: number,
   limits: readonly [number, number],
+  signal?: AbortSignal,
 ): number | undefined {
   const minimum = Math.min(MIN_USEFUL_SIDE, width, height);
   for (
@@ -73,7 +73,8 @@ function chooseUsefulSide(
     side >= minimum;
     side = Math.floor(side / 2)
   ) {
-    if (gridFits(width, height, side, limits)) return side;
+    throwIfAborted(signal);
+    if (gridFits(width, height, side, limits, signal)) return side;
   }
   return undefined;
 }
@@ -83,9 +84,11 @@ function gridFits(
   height: number,
   side: number,
   limits: readonly [number, number],
+  signal?: AbortSignal,
 ): boolean {
   for (let y = 0; y < height; y += side)
     for (let x = 0; x < width; x += side) {
+      throwIfAborted(signal);
       const useful = {
         x,
         y,
@@ -110,10 +113,12 @@ function makeTiles(
   extent: ExportExtent,
   units: number,
   zoom: number,
+  signal?: AbortSignal,
 ): readonly TilePlanTile[] {
   const tiles: TilePlanTile[] = [];
   for (let y = 0, tileY = 0; y < height; y += side, tileY += 1)
     for (let x = 0, tileX = 0; x < width; x += side, tileX += 1) {
+      throwIfAborted(signal);
       const usefulRect = {
         x,
         y,
@@ -198,19 +203,18 @@ function zoomFor(units: number): number {
     360 / (MAPLIBRE_TILE_SIZE_PX * (CS1_EXTENT_DEG / CS1_WORLD_SIZE) * units),
   );
 }
-function worldExtent(): ExportExtent {
-  return {
-    minX: -CS1_WORLD_HALF,
-    maxX: CS1_WORLD_HALF,
-    minZ: -CS1_WORLD_HALF,
-    maxZ: CS1_WORLD_HALF,
-  };
-}
 function isPositiveInteger(value: number): boolean {
   return Number.isSafeInteger(value) && value > 0;
 }
 function reject(reason: TilePlanRejection['reason']): TilePlanRejection {
   return { rejected: true, reason };
+}
+
+function throwIfAborted(signal?: AbortSignal): void {
+  if (!signal?.aborted) return;
+  const error = new Error('Export aborted');
+  error.name = 'AbortError';
+  throw error;
 }
 function limitsFrom(
   report: CapabilityReport,

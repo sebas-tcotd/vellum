@@ -33,8 +33,11 @@ describe('useParseCslmap', () => {
 
     const { result } = renderHook(() => useParseCslmap());
 
-    act(() => {
+    await act(async () => {
       void result.current.loadFile('/path/to/city.cslmap');
+      // Flushes the bounded cancel-before-load microtask (a no-op here,
+      // since no export is active) before `incrementLoadRequestId()` runs.
+      await new Promise((r) => setTimeout(r, 0));
     });
 
     // incrementLoadRequestId atomically sets loadingState to 'loading'
@@ -56,7 +59,10 @@ describe('useParseCslmap', () => {
     await act(() => result.current.loadFile('/path/to/city.cslmap'));
 
     expect(useVellumStore.getState().loadingState).toBe('idle');
-    expect(useVellumStore.getState().cityData).toEqual(fakeCityData);
+    expect(useVellumStore.getState().cityData).toEqual({
+      ...fakeCityData,
+      fileName: 'city.cslmap',
+    });
   });
 
   it('transitions to error when invoke rejects', async () => {
@@ -111,5 +117,90 @@ describe('useParseCslmap', () => {
       type: 'IoError',
       reason: 'Dialog failed',
     });
+  });
+
+  it('awaits exportCancelHandlerRef before incrementLoadRequestId resets cityData/loadingState (AD-15)', async () => {
+    const oldCityData = makeCityData({ cityName: 'Old City' });
+    useVellumStore.setState({ cityData: oldCityData, loadingState: 'idle' });
+    const fakeCityData = makeCityData({ cityName: 'New City' });
+    vi.mocked(invoke).mockResolvedValue(fakeCityData);
+    const exportCancelHandlerRef = {
+      current: vi.fn(async () => {
+        // Must run before `incrementLoadRequestId()` resets cityData to
+        // null and loadingState to 'loading' — proves cancellation happens
+        // before the store mutates, not reactively after.
+        expect(useVellumStore.getState().cityData).toBe(oldCityData);
+        expect(useVellumStore.getState().loadingState).toBe('idle');
+      }),
+    };
+
+    const { result } = renderHook(() => useParseCslmap(exportCancelHandlerRef));
+    await act(() => result.current.loadFile('/path/to/city.cslmap'));
+
+    expect(exportCancelHandlerRef.current).toHaveBeenCalledOnce();
+    expect(useVellumStore.getState().cityData).toEqual({
+      ...fakeCityData,
+      fileName: 'city.cslmap',
+    });
+  });
+
+  it('awaits exportCancelHandlerRef before incrementLoadRequestId in the partial-parse retry path', async () => {
+    const oldCityData = makeCityData({ cityName: 'Old City' });
+    const fakeCityData = makeCityData({ cityName: 'New City' });
+    useVellumStore.setState({ cityData: oldCityData, loadingState: 'idle' });
+    vi.mocked(invoke).mockResolvedValue(fakeCityData);
+    const exportCancelHandlerRef = {
+      current: vi.fn(async () => {
+        expect(useVellumStore.getState().cityData).toBe(oldCityData);
+        expect(useVellumStore.getState().loadingState).toBe('idle');
+      }),
+    };
+
+    const { result } = renderHook(() => useParseCslmap(exportCancelHandlerRef));
+    // loadFilePartial re-uses the last attempted path, set by a prior loadFile.
+    await act(() => result.current.loadFile('/path/to/city.cslmap'));
+    exportCancelHandlerRef.current.mockClear();
+    useVellumStore.setState({ cityData: oldCityData, loadingState: 'idle' });
+
+    await act(() => result.current.loadFilePartial());
+
+    expect(exportCancelHandlerRef.current).toHaveBeenCalledOnce();
+    expect(useVellumStore.getState().cityData).toEqual({
+      ...fakeCityData,
+      fileName: 'city.cslmap',
+    });
+  });
+
+  it('times out waiting for export cancellation, keeps the current city untouched, and surfaces a localized error', async () => {
+    vi.useFakeTimers();
+    try {
+      const oldCityData = makeCityData({ cityName: 'Old City' });
+      useVellumStore.setState({ cityData: oldCityData, loadingState: 'idle' });
+      const exportCancelHandlerRef = {
+        // Never resolves — simulates a stuck/hanging export cancellation.
+        current: vi.fn(() => new Promise<void>(() => undefined)),
+      };
+
+      const { result } = renderHook(() =>
+        useParseCslmap(exportCancelHandlerRef),
+      );
+
+      await act(async () => {
+        const loadPromise = result.current.loadFile('/path/to/city.cslmap');
+        await vi.advanceTimersByTimeAsync(3_000);
+        await loadPromise;
+      });
+
+      expect(invoke).not.toHaveBeenCalled();
+      expect(useVellumStore.getState().cityData).toBe(oldCityData);
+      expect(useVellumStore.getState().loadingState).toBe('error');
+      expect(useVellumStore.getState().loadingError).toEqual({
+        type: 'IoError',
+        reason:
+          'Timed out waiting for the active export to cancel before loading a new city',
+      });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

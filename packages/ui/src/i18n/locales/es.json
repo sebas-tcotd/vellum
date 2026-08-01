@@ -127,7 +127,16 @@
     "successToast": "Exportado como {{fileName}}",
     "openFolder": "Abrir carpeta",
     "cancelledToast": "Exportación cancelada",
-    "failedToast": "Error al exportar. Intenta de nuevo."
+    "failedToast": "Error al exportar. Intenta de nuevo.",
+    "cancelling": "Cancelando…",
+    "indeterminate": "Indeterminado",
+    "phase": {
+      "capturing": "Capturando tiles",
+      "composing": "Componiendo salida",
+      "finishing": "Finalizando archivo"
+    },
+    "progressPercent": "{{percent}}%",
+    "outputNotPublished": "No se guardó ningún archivo."
   },
   "preferences": {
     "title": "Preferencias",
