@@ -86,9 +86,11 @@ export interface RasterBenchmarkReport {
   /** ISO timestamp when the run started. */
   readonly startedAt: string;
   /**
-   * Whether this run covered the full 2×3×3 matrix. `false` when `area`,
-   * `format`, or `background` filtered it to a subset — such a report must
-   * never be treated as AC1/AC2/AC12 gate evidence.
+   * Whether this run covered the full matrix — 9 viewport cases (3 formats ×
+   * 3 backgrounds) plus 12 full-map cases (4 `targetLongEdge` presets × 3
+   * backgrounds), 21 total. `false` when `area`, `format`, or `background`
+   * filtered it to a subset — such a report must never be treated as
+   * AC1/AC2/AC12 gate evidence.
    */
   readonly isCompleteMatrix: boolean;
   /** Individual measurements, with no output paths or PNG bytes. */
@@ -183,7 +185,11 @@ function assertValidFilter<Value extends string>(
   }
 }
 
-/** Runs a fixed 2 × 3 × 3 raster matrix against the map currently loaded in Tauri. */
+/**
+ * Runs a fixed raster matrix against the map currently loaded in Tauri: 9
+ * viewport cases (3 formats × 3 backgrounds) plus 12 full-map cases (4
+ * `targetLongEdge` presets × 3 backgrounds), 21 total.
+ */
 export class RasterBenchmarkRunner {
   private readonly now: () => number;
   private readonly releaseGpuContext: () => Promise<void>;
@@ -210,9 +216,12 @@ export class RasterBenchmarkRunner {
     assertValidFilter('area', options.area, AREAS);
     assertValidFilter('format', options.format, FORMATS);
     assertValidFilter('background', options.background, BACKGROUNDS);
-    if (options.area === 'full-map' && options.format !== undefined) {
+    if (options.area !== 'viewport' && options.format !== undefined) {
+      // `format` has no effect on full-map rows (always png-1x); reject the
+      // combination whenever a full-map row could run — area left unset
+      // matches both areas, not just an explicit "full-map".
       throw new Error(
-        'Invalid benchmark filter: format cannot be combined with area "full-map" — full-map always uses png-1x, filter by area alone',
+        'Invalid benchmark filter: format cannot be combined with area "full-map" — full-map always uses png-1x, filter by area: "viewport" too if you need a format filter',
       );
     }
     const capability = this.dependencies.getCapability();
@@ -303,13 +312,14 @@ export class RasterBenchmarkRunner {
       }-${background}`,
       presentation: emptyPresentation(),
     };
+    const resolvedTargetLongEdge = targetLongEdge ?? 6000;
     const request: ExportRequest =
       area === 'full-map'
         ? {
             ...requestBase,
             area,
             format: 'png-1x',
-            targetLongEdge: targetLongEdge ?? 6000,
+            targetLongEdge: resolvedTargetLongEdge,
           }
         : { ...requestBase, area };
     const startedAt = this.now();
@@ -317,7 +327,12 @@ export class RasterBenchmarkRunner {
       fixture,
       area,
       format,
-      ...(targetLongEdge !== undefined ? { targetLongEdge } : {}),
+      // Reports the target-long-edge the request actually sent, including
+      // the default — a case must never describe a different export than
+      // the one it ran.
+      ...(area === 'full-map'
+        ? { targetLongEdge: resolvedTargetLongEdge }
+        : {}),
       scale: scaleFor(format),
       background,
     } as const;

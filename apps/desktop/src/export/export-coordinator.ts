@@ -58,9 +58,6 @@ export interface ExportCutoverConfig {
 /** Local-storage key used by the operational rollback procedure. */
 export const EXPORT_FORCE_LEGACY_KEY = 'vellum.export.forceLegacy';
 
-/** Local-storage key used to approve the cutover after the release gate. */
-export const EXPORT_TILED_GATE_KEY = 'vellum.export.tiledGateApproved';
-
 /** Reads a boolean runtime override without making browser storage mandatory. */
 export function readExportRuntimeFlag(key: string): boolean {
   try {

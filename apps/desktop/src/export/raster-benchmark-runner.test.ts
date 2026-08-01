@@ -1,6 +1,13 @@
-import type { CapabilityReport, ExportSnapshot } from '@vellum/core';
+import type {
+  CapabilityReport,
+  ExportRequest,
+  ExportSink,
+  ExportSnapshot,
+} from '@vellum/core';
 import { makeCityData } from '@vellum/core/testing';
+import { LegacyRasterExporter } from '@vellum/renderer-webgl';
 import { describe, expect, it, vi } from 'vitest';
+import { ExportCoordinator } from './export-coordinator';
 import { RasterBenchmarkRunner } from './raster-benchmark-runner';
 
 const capability: CapabilityReport = {
@@ -162,20 +169,48 @@ describe('RasterBenchmarkRunner', () => {
     ).rejects.toThrow(/format cannot be combined with area "full-map"/);
   });
 
-  it('registra un caso fallido con su error en vez de abortar toda la matriz', async () => {
-    const exportRaster = vi
-      .fn()
-      .mockRejectedValueOnce(
-        new Error('Legacy PNG export is unavailable: pixels'),
-      )
-      .mockResolvedValue({
-        filePath: '/private/output.png',
-        folderPath: '/private',
-      });
+  it('registra un caso fallido con un rechazo legacy real, sin abortar el resto de la matriz', async () => {
+    // Uses the real ExportCoordinator + LegacyRasterExporter (not a mocked
+    // exportRaster) so the rejection is a genuine >64M-px pixel-cap failure,
+    // not just whatever a test double is told to throw.
+    const sink: ExportSink = {
+      begin: vi.fn().mockResolvedValue({
+        sessionId: 'session-benchmark',
+        mode: 'legacy-png',
+        maxChunkBytes: 1024,
+        maxInFlight: 1,
+      }),
+      append: vi.fn().mockResolvedValue({
+        sessionId: 'session-benchmark',
+        sequence: 0,
+        acceptedBytes: 1,
+        completedUnits: 1,
+      }),
+      finish: vi.fn().mockResolvedValue({
+        filePath: '/tmp/benchmark.png',
+        folderPath: '/tmp',
+      }),
+      cancel: vi.fn().mockResolvedValue(undefined),
+    };
+    const capture = vi.fn(async () => new Uint8Array([1]));
+    const coordinator = new ExportCoordinator(
+      new LegacyRasterExporter(capture),
+      sink,
+    );
+    const captureSnapshot = vi.fn(
+      (request: ExportRequest): ExportSnapshot => ({
+        ...snapshot(),
+        request,
+        surface:
+          request.area === 'full-map'
+            ? { width: request.targetLongEdge, height: request.targetLongEdge }
+            : { width: 400, height: 300 },
+      }),
+    );
     const runner = new RasterBenchmarkRunner({
-      captureSnapshot: () => snapshot(),
-      exportRaster,
-      getLastRoute: () => 'legacy-png',
+      captureSnapshot,
+      exportRaster: (snap) => coordinator.export(snap),
+      getLastRoute: () => coordinator.getLastRoute(),
       getCapability: () => capability,
       runWithRoute: async (_route, operation) => operation(),
       now: () => 123,
@@ -193,14 +228,16 @@ describe('RasterBenchmarkRunner', () => {
       background: 'dark',
     });
 
-    expect(exportRaster).toHaveBeenCalledTimes(4);
     expect(report.cases).toHaveLength(4);
-    expect(report.cases[0]).toMatchObject({
-      targetLongEdge: 6000,
-      error: 'Legacy PNG export is unavailable: pixels',
-    });
+    // 6000² = 36M px — under the 64M legacy cap, genuinely eligible.
+    expect(report.cases[0]).toMatchObject({ targetLongEdge: 6000 });
+    expect(report.cases[0].error).toBeUndefined();
+    expect(capture).toHaveBeenCalledTimes(1);
+    // 12000/16000/20000 squared all exceed the cap — real ExportCapabilityError.
     expect(
-      report.cases.slice(1).every((entry) => entry.error === undefined),
+      report.cases
+        .slice(1)
+        .every((entry) => entry.error?.includes('unavailable: pixels')),
     ).toBe(true);
   });
 

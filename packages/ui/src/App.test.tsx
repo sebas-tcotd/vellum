@@ -706,6 +706,28 @@ describe('App — progreso, cancelación y cleanup (Story 6.2G)', () => {
     expect(screen.queryByText('export.successToast')).toBeNull();
   });
 
+  it('muestra el mensaje accionable de capacidad cuando el preflight rechaza ambas rutas, nunca export() ni el toast genérico', async () => {
+    const user = userEvent.setup();
+    useVellumStore.getState().setCityData(mockCityData);
+    vi.mocked(mockRasterExporter.capabilitiesForSnapshot).mockReturnValueOnce({
+      legacy: { eligible: false, reason: 'pixels' },
+      tiled: { eligible: false, reason: 'flag' },
+    });
+
+    await act(async () => {
+      render(<App rasterExporter={mockRasterExporter} />);
+    });
+    await startExport(user);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/errors\.ExportCapacityUnavailable/),
+      ).toBeInTheDocument();
+    });
+    expect(screen.queryByText(/^errors\.ExportFailed$/)).toBeNull();
+    expect(mockRasterExporter.export).not.toHaveBeenCalled();
+  });
+
   it('cancela una exportación activa cuando cityData cambia (carga de otra ciudad)', async () => {
     const user = userEvent.setup();
     useVellumStore.getState().setCityData(mockCityData);
@@ -791,11 +813,8 @@ describe('App — progreso, cancelación y cleanup (Story 6.2G)', () => {
       const exportButtons = screen.getAllByRole('button', {
         name: 'export.exportButton',
       });
-      await act(async () => {
+      act(() => {
         fireEvent.click(exportButtons.at(-1)!);
-        // Flushes the async `capabilities()` pre-flight check ahead of
-        // `export()`, so `capturedSignal` is set before the assertion below.
-        await Promise.resolve();
       });
 
       expect(capturedSignal).toBeDefined();

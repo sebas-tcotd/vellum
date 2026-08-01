@@ -29,7 +29,6 @@ import { useParseCslmap } from './hooks/use-parse-cslmap';
 import { useExportPng } from './hooks/use-export-png';
 import {
   EXPORT_FORCE_LEGACY_KEY,
-  EXPORT_TILED_GATE_KEY,
   ExportCoordinator,
   readExportRuntimeFlag,
 } from './export/export-coordinator';
@@ -78,25 +77,29 @@ void new CapabilityProbe()
     );
   });
 
-/** Runs an operation with a temporary dev-only route selection and restores it afterwards. */
+/**
+ * Runs an operation with a temporary dev-only route selection and restores it
+ * afterwards.
+ *
+ * @remarks
+ * The tiled gate is approved unconditionally (see the `CapabilityProbe`
+ * comment above), so forcing `'tiled'` only needs to lift the legacy kill
+ * switch — there is no gate flag left to set.
+ */
 async function runWithBenchmarkRoute<Result>(
   route: RasterBenchmarkRoute,
   operation: () => Promise<Result>,
 ): Promise<Result> {
   const forceLegacy = readStoredValue(EXPORT_FORCE_LEGACY_KEY);
-  const tiledGate = readStoredValue(EXPORT_TILED_GATE_KEY);
   try {
     if (route === 'legacy') {
       localStorage.setItem(EXPORT_FORCE_LEGACY_KEY, 'true');
-      localStorage.removeItem(EXPORT_TILED_GATE_KEY);
     } else {
       localStorage.removeItem(EXPORT_FORCE_LEGACY_KEY);
-      localStorage.setItem(EXPORT_TILED_GATE_KEY, 'true');
     }
     return await operation();
   } finally {
     restoreStoredValue(EXPORT_FORCE_LEGACY_KEY, forceLegacy);
-    restoreStoredValue(EXPORT_TILED_GATE_KEY, tiledGate);
   }
 }
 

@@ -15,6 +15,7 @@
     "UnsupportedVersion": "Este mapa fue exportado con una versión no soportada ({{found}}).",
     "PartialParse": "Mapa cargado con advertencias. Algunos elementos pueden no mostrarse correctamente.",
     "ExportFailed": "Error al exportar. Verifica que la carpeta de destino sea accesible.",
+    "ExportCapacityUnavailable": "Esta resolución no está disponible en este momento. Probá con un preset menor, o reiniciá la app si el problema persiste.",
     "IoError": "Error de acceso al archivo. El archivo puede haber sido movido o eliminado.",
     "partialParseTitle": "Archivo cargado con problemas",
     "partialParseDescription": "Este archivo tiene algunas secciones dañadas. Puedes intentar renderizar los datos que se pudieron leer, o cancelar y probar otro archivo.",

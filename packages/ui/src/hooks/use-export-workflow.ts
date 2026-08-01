@@ -16,6 +16,17 @@ import { useVellumStore } from '../store/vellum-store';
 /** Bounded time an export may run before it is treated as timed out and aborted. */
 const EXPORT_TIMEOUT_MS = 5 * 60 * 1000;
 
+/**
+ * Stable `VellumError.reason` sentinel for a `capabilitiesForSnapshot` bail-out.
+ *
+ * @remarks
+ * Matched by identity (not displayed) so `ExportStatusOverlay` can show the
+ * actionable `errors.ExportCapacityUnavailable` copy instead of the generic
+ * `errors.ExportFailed` one — this never crosses the Rust IPC boundary, so
+ * it isn't part of the mirrored `VellumError` contract.
+ */
+export const EXPORT_CAPACITY_UNAVAILABLE_REASON = 'export-capacity-unavailable';
+
 /** Maps an export failure to the existing `errors.*` i18n keys — never `.reason`. */
 function toExportError(err: unknown): VellumError {
   if (err && typeof err === 'object' && 'type' in err) {
@@ -234,7 +245,7 @@ export function useExportWorkflow({
         // inside `export()`.
         const capabilities = rasterExporter.capabilitiesForSnapshot(snapshot);
         if (!capabilities.legacy.eligible && !capabilities.tiled.eligible) {
-          throw new Error('export not available for these settings');
+          throw new Error(EXPORT_CAPACITY_UNAVAILABLE_REASON);
         }
         exportOperationRef.current = { snapshotId: snapshot.snapshotId };
         const onProgress = (progress: ExportProgress): void => {
