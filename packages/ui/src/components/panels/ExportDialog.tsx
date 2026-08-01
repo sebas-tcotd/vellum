@@ -10,7 +10,11 @@ import type {
   LayerName,
   TransitMode,
 } from '@vellum/core';
-import { vellumLogoDataUri } from '@vellum/renderer-webgl';
+import { exportScaleForFormat } from '@vellum/core';
+import {
+  resolveFullMapOutputSurface,
+  vellumLogoDataUri,
+} from '@vellum/renderer-webgl';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../../lib/button';
@@ -301,7 +305,7 @@ function ResolutionGroup({
 }
 
 function formatPixels(value: number): string {
-  return value.toLocaleString('en-US');
+  return value.toLocaleString();
 }
 
 function outputDimensions(
@@ -312,28 +316,14 @@ function outputDimensions(
   bounds: ExportDialogProps['fullMapBounds'],
 ): { width: number; height: number } | null {
   if (area === 'viewport') {
-    if (!preview) return null;
-    const scale = format === 'png-2x' ? 2 : format === 'png-4x' ? 4 : 1;
+    if (!preview || format === 'svg') return null;
+    const scale = exportScaleForFormat(format);
     return { width: preview.width * scale, height: preview.height * scale };
   }
   const extentWidth = bounds.maxX - bounds.minX;
   const extentHeight = bounds.maxZ - bounds.minZ;
   if (extentWidth <= 0 || extentHeight <= 0) return null;
-  return extentWidth >= extentHeight
-    ? {
-        width: targetLongEdge,
-        height: Math.max(
-          1,
-          Math.round(targetLongEdge * (extentHeight / extentWidth)),
-        ),
-      }
-    : {
-        width: Math.max(
-          1,
-          Math.round(targetLongEdge * (extentWidth / extentHeight)),
-        ),
-        height: targetLongEdge,
-      };
+  return resolveFullMapOutputSurface(bounds, targetLongEdge);
 }
 
 function OutputDimensions({
@@ -755,6 +745,7 @@ export function ExportDialog(props: ExportDialogProps) {
     initialFileName(props.cityName),
   );
   const [format, setFormat] = useState<ExportFormat>('png-1x');
+  const viewportFormatRef = useRef<ExportFormat>('png-1x');
   const [area, setArea] = useState<ExportArea>('viewport');
   const [targetLongEdge, setTargetLongEdge] =
     useState<ExportTargetLongEdge>(6000);
@@ -767,6 +758,7 @@ export function ExportDialog(props: ExportDialogProps) {
     if (!props.open) return;
     setFileName(initialFileName(props.cityName));
     setFormat('png-1x');
+    viewportFormatRef.current = 'png-1x';
     setArea('viewport');
     setTargetLongEdge(6000);
     setBackground(props.defaultBackground);
@@ -876,7 +868,12 @@ export function ExportDialog(props: ExportDialogProps) {
               choices={AREA_CHOICES}
               onChange={(nextArea) => {
                 setArea(nextArea);
-                if (nextArea === 'full-map') setFormat('png-1x');
+                if (nextArea === 'full-map') {
+                  viewportFormatRef.current = format;
+                  setFormat('png-1x');
+                } else {
+                  setFormat(viewportFormatRef.current);
+                }
               }}
             />
             {area === 'full-map' ? (

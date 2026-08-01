@@ -50,10 +50,11 @@ const benchmarkSnapshotCaptureRef = React.createRef<
   ((request: ExportRequest) => ExportSnapshot | null) | null
 >();
 
-// The gate is intentionally false until the versioned 6.2I report has real
-// WebView/Tauri evidence for the declared platforms. Both flags are read at
-// export time, so an operator can approve or roll back from the WebView's
-// runtime storage without rebuilding the UI or adding an ExportDialog control.
+// The 6.2I report (`adopt`, 2026-08-01) has real WebView/Tauri evidence for
+// all three declared platforms — 324 exports, 0 rejections, no visual
+// artifacts — so the gate is approved by default. `EXPORT_FORCE_LEGACY_KEY`
+// remains the operational rollback, still readable at export time without
+// rebuilding the UI.
 void new CapabilityProbe()
   .measure()
   .then((capability) => {
@@ -64,7 +65,7 @@ void new CapabilityProbe()
       capability,
       enabled: true,
       cutover: {
-        gateApproved: () => readExportRuntimeFlag(EXPORT_TILED_GATE_KEY),
+        gateApproved: true,
         tiledEnabled: true,
         killSwitch: () => readExportRuntimeFlag(EXPORT_FORCE_LEGACY_KEY),
       },

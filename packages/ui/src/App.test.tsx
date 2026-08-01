@@ -787,8 +787,11 @@ describe('App — progreso, cancelación y cleanup (Story 6.2G)', () => {
       const exportButtons = screen.getAllByRole('button', {
         name: 'export.exportButton',
       });
-      act(() => {
+      await act(async () => {
         fireEvent.click(exportButtons.at(-1)!);
+        // Flushes the async `capabilities()` pre-flight check ahead of
+        // `export()`, so `capturedSignal` is set before the assertion below.
+        await Promise.resolve();
       });
 
       expect(capturedSignal).toBeDefined();

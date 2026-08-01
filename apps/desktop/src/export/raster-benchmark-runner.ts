@@ -5,11 +5,17 @@ import {
   type ExportMode,
   type ExportRequest,
   type ExportSnapshot,
+  type ExportTargetLongEdge,
 } from '@vellum/core';
 import { planTiles } from '@vellum/renderer-webgl';
 
 const AREAS = ['viewport', 'full-map'] as const satisfies readonly ExportArea[];
 const FORMATS = ['png-1x', 'png-2x', 'png-4x'] as const;
+// Full-map exports only ever request `png-1x` (see FullMapExportDialogOptions),
+// so their benchmark axis is the target-resolution preset instead of format.
+const TARGET_LONG_EDGES = [
+  6000, 12000, 16000, 20000,
+] as const satisfies readonly ExportTargetLongEdge[];
 const BACKGROUNDS = [
   'white',
   'dark',
@@ -35,6 +41,8 @@ export interface RasterBenchmarkCase {
   readonly area: ExportArea;
   /** PNG format exercised by this case. */
   readonly format: (typeof FORMATS)[number];
+  /** Target long-edge preset exercised by this case; only set for `full-map`. */
+  readonly targetLongEdge?: ExportTargetLongEdge;
   /** Numeric density implied by `format`. */
   readonly scale: 1 | 2 | 4;
   /** Background treatment exercised by this case. */
@@ -227,16 +235,31 @@ export class RasterBenchmarkRunner {
     const cases: RasterBenchmarkCase[] = [];
     const phase = retain ? 'measured' : 'warmup';
     const areas = options.area ? [options.area] : AREAS;
-    const formats = options.format ? [options.format] : FORMATS;
     const backgrounds = options.background ? [options.background] : BACKGROUNDS;
-    for (const area of areas)
-      for (const format of formats)
+    for (const area of areas) {
+      // `full-map` only ever sends `png-1x` (see FullMapExportDialogOptions), so
+      // its resolution matrix varies `targetLongEdge`, not `format` — otherwise
+      // every full-map row captures an identical scale:1 surface.
+      const variants: Array<{
+        format: (typeof FORMATS)[number];
+        targetLongEdge?: ExportTargetLongEdge;
+      }> =
+        area === 'full-map'
+          ? TARGET_LONG_EDGES.map((targetLongEdge) => ({
+              format: 'png-1x',
+              targetLongEdge,
+            }))
+          : (options.format ? [options.format] : FORMATS).map((format) => ({
+              format,
+            }));
+      for (const variant of variants)
         for (const background of backgrounds)
           for (let repeat = 0; repeat < options.repeats; repeat += 1) {
             const entry = await this.executeCase(
               options.fixture,
               area,
-              format,
+              variant.format,
+              variant.targetLongEdge,
               background,
               capability,
               phase,
@@ -245,6 +268,7 @@ export class RasterBenchmarkRunner {
             if (retain) cases.push(entry);
             await this.releaseGpuContext();
           }
+    }
     return cases;
   }
 
@@ -252,6 +276,7 @@ export class RasterBenchmarkRunner {
     fixture: string,
     area: ExportArea,
     format: (typeof FORMATS)[number],
+    targetLongEdge: ExportTargetLongEdge | undefined,
     background: ExportBackground,
     capability: CapabilityReport,
     phase: 'warmup' | 'measured',
@@ -260,12 +285,14 @@ export class RasterBenchmarkRunner {
     const requestBase = {
       format,
       background,
-      fileName: `benchmark-${fixture}-${phase}-${repeat + 1}-${area}-${format}-${background}`,
+      fileName: `benchmark-${fixture}-${phase}-${repeat + 1}-${area}-${format}${
+        targetLongEdge ? `-${targetLongEdge}` : ''
+      }-${background}`,
       presentation: emptyPresentation(),
     };
     const request: ExportRequest =
       area === 'full-map'
-        ? { ...requestBase, area, targetLongEdge: 6000 }
+        ? { ...requestBase, area, targetLongEdge: targetLongEdge ?? 6000 }
         : { ...requestBase, area };
     const snapshot = await this.captureFixtureSnapshot(request, fixture);
     const startedAt = this.now();
@@ -275,6 +302,7 @@ export class RasterBenchmarkRunner {
       fixture,
       area,
       format,
+      ...(targetLongEdge !== undefined ? { targetLongEdge } : {}),
       scale: scaleFor(format),
       background,
       route: this.dependencies.getLastRoute(),

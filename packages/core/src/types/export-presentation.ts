@@ -105,9 +105,14 @@ export interface ViewportExportDialogOptions extends ExportDialogOptionsBase {
 }
 
 /** Export dialog configuration for the complete city extent. */
-export interface FullMapExportDialogOptions extends ExportDialogOptionsBase {
+export interface FullMapExportDialogOptions extends Omit<
+  ExportDialogOptionsBase,
+  'format'
+> {
   /** Spatial area selected by the user. */
   area: 'full-map';
+  /** Full-map exports only ever request the base density. */
+  format: 'png-1x';
   /** Long edge of the final raster in logical pixels. */
   targetLongEdge: ExportTargetLongEdge;
 }

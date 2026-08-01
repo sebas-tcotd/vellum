@@ -171,6 +171,23 @@ export function useExportWorkflow({
         });
         return;
       }
+      const request: ExportRequest =
+        options.area === 'full-map'
+          ? {
+              format: options.format,
+              area: options.area,
+              targetLongEdge: options.targetLongEdge,
+              background: options.background,
+              fileName: options.fileName,
+              presentation: options.presentation,
+            }
+          : {
+              format: options.format,
+              area: options.area,
+              background: options.background,
+              fileName: options.fileName,
+              presentation: options.presentation,
+            };
       setExportError(null);
       setExportCancelled(false);
       setExportResult(null);
@@ -209,23 +226,10 @@ export function useExportWorkflow({
         controller.abort();
       }, EXPORT_TIMEOUT_MS);
       try {
-        const request: ExportRequest =
-          options.area === 'full-map'
-            ? {
-                format: options.format,
-                area: options.area,
-                targetLongEdge: options.targetLongEdge,
-                background: options.background,
-                fileName: options.fileName,
-                presentation: options.presentation,
-              }
-            : {
-                format: options.format,
-                area: options.area,
-                background: options.background,
-                fileName: options.fileName,
-                presentation: options.presentation,
-              };
+        const capabilities = await rasterExporter.capabilities(request);
+        if (!capabilities.legacy.eligible && !capabilities.tiled.eligible) {
+          throw new Error('export not available for these settings');
+        }
         const snapshot = snapshotCaptureRef.current?.(request);
         if (!snapshot) throw new Error('Export snapshot is unavailable');
         exportOperationRef.current = { snapshotId: snapshot.snapshotId };

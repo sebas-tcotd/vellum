@@ -9,9 +9,14 @@ vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));
 
-vi.mock('@vellum/renderer-webgl', () => ({
-  vellumLogoDataUri: () => 'data:image/svg+xml;base64,vellum-logo',
-}));
+vi.mock('@vellum/renderer-webgl', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('@vellum/renderer-webgl')>();
+  return {
+    ...actual,
+    vellumLogoDataUri: () => 'data:image/svg+xml;base64,vellum-logo',
+  };
+});
 
 const onOpenChange = vi.fn();
 const onExport = vi.fn();

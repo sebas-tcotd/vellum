@@ -70,8 +70,10 @@ describe('RasterBenchmarkRunner', () => {
       build: '8d94b1f',
     });
 
-    expect(exportRaster).toHaveBeenCalledTimes(18);
-    expect(report.cases).toHaveLength(18);
+    // 3 formats × 3 backgrounds (viewport) + 4 targetLongEdge presets × 3
+    // backgrounds (full-map, always png-1x) = 9 + 12.
+    expect(exportRaster).toHaveBeenCalledTimes(21);
+    expect(report.cases).toHaveLength(21);
     expect(report.cases.every((entry) => entry.route === 'tiled-png')).toBe(
       true,
     );
@@ -159,7 +161,7 @@ describe('RasterBenchmarkRunner', () => {
       warmup: false,
       platform: 'macOS/WebKit',
       build: '8d94b1f',
-      area: 'full-map',
+      area: 'viewport',
       format: 'png-4x',
       background: 'dark',
     });
@@ -167,11 +169,45 @@ describe('RasterBenchmarkRunner', () => {
     expect(exportRaster).toHaveBeenCalledTimes(1);
     expect(report.cases).toEqual([
       expect.objectContaining({
-        area: 'full-map',
+        area: 'viewport',
         format: 'png-4x',
         background: 'dark',
       }),
     ]);
+  });
+
+  it('recorre los presets de targetLongEdge para full-map en vez del eje format', async () => {
+    const exportSnapshot = vi.fn(() => snapshot());
+    const exportRaster = vi.fn().mockResolvedValue({
+      filePath: '/private/output.png',
+      folderPath: '/private',
+    });
+    const runner = new RasterBenchmarkRunner({
+      captureSnapshot: exportSnapshot,
+      exportRaster,
+      getLastRoute: () => 'tiled-png',
+      getCapability: () => capability,
+      runWithRoute: async (_route, operation) => operation(),
+      now: () => 123,
+      releaseGpuContext: async () => undefined,
+    });
+
+    const report = await runner.run({
+      fixture: 'altavento',
+      route: 'tiled',
+      repeats: 1,
+      warmup: false,
+      platform: 'macOS/WebKit',
+      build: '8d94b1f',
+      area: 'full-map',
+      background: 'dark',
+    });
+
+    expect(exportRaster).toHaveBeenCalledTimes(4);
+    expect(report.cases.map((entry) => entry.targetLongEdge)).toEqual([
+      6000, 12000, 16000, 20000,
+    ]);
+    expect(report.cases.every((entry) => entry.format === 'png-1x')).toBe(true);
   });
 
   it('no exporta un snapshot de otra fixture mientras el mapa termina de cargar', async () => {

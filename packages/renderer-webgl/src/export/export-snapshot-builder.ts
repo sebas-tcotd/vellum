@@ -51,11 +51,11 @@ export function buildExportSnapshot(
 
   const surface =
     input.request.area === 'full-map'
-      ? surfaceForExtent(
+      ? resolveFullMapOutputSurface(
           extent,
+          input.request.targetLongEdge,
           baseWidth,
           baseHeight,
-          input.request.targetLongEdge,
         )
       : { width: baseWidth, height: baseHeight };
   const scale =
@@ -119,11 +119,19 @@ function resolveExportExtent(
   }
 }
 
-function surfaceForExtent(
+/**
+ * Resolves full-map output pixel dimensions from a world extent.
+ *
+ * @remarks
+ * The single point of resolution math for full-map exports — the export
+ * dialog's preview must call this same function rather than re-deriving the
+ * aspect-ratio rounding itself, or the two can silently drift apart.
+ */
+export function resolveFullMapOutputSurface(
   extent: ExportSnapshot['extent'],
-  canvasWidth: number,
-  canvasHeight: number,
-  targetLongEdge?: ExportTargetLongEdge,
+  targetLongEdge: ExportTargetLongEdge | undefined,
+  canvasWidth = 0,
+  canvasHeight = 0,
 ): { width: number; height: number } {
   const extentAspect =
     (extent.maxX - extent.minX) / (extent.maxZ - extent.minZ);

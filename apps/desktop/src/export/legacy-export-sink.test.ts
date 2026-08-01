@@ -62,6 +62,45 @@ describe('LegacyExportSink', () => {
     });
   });
 
+  it('reenvía targetLongEdge en el payload para un request full-map', async () => {
+    const fullMapRequest = {
+      format: 'png-1x',
+      area: 'full-map',
+      targetLongEdge: 12000,
+      background: 'transparent',
+      fileName: 'my-map',
+      presentation: {} as ExportRequest['presentation'],
+    } satisfies ExportRequest;
+    const fullMapMetadata = {
+      ...metadata,
+      request: fullMapRequest,
+    } satisfies ExportBeginMetadata;
+    const invoke =
+      vi.fn<
+        (command: string, args: Record<string, unknown>) => Promise<unknown>
+      >();
+    invoke.mockResolvedValue({
+      filePath: '/tmp/my-map.png',
+      folderPath: '/tmp',
+    });
+    const sink = new LegacyExportSink(invoke);
+    const session = await sink.begin(fullMapMetadata);
+
+    await sink.append(session, chunk);
+    await sink.finish(session);
+
+    expect(invoke).toHaveBeenCalledWith('export_png', {
+      options: {
+        format: 'png-1x',
+        area: 'full-map',
+        targetLongEdge: 12000,
+        background: 'transparent',
+        fileName: 'my-map',
+        pngBytes: [137, 80, 78, 71],
+      },
+    });
+  });
+
   it('rechaza un segundo append o un chunk que no cubre la salida completa', async () => {
     const sink = new LegacyExportSink(vi.fn());
     const session = await sink.begin(metadata);
