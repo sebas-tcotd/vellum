@@ -11,7 +11,6 @@ import type {
   DistrictFeatureProperties,
   TransitStopFeatureProperties,
 } from '../geojson';
-import type { ViewportBounds } from '../map-libre-renderer';
 import { SERVICE_GROUPS, SERVICE_ICONS_MIN_ZOOM } from '../service-icons';
 import type { ServiceGroup } from '../service-icons';
 import type {
@@ -19,6 +18,7 @@ import type {
   ServiceIconLegendState,
   TooltipInfo,
   TransitTooltipInfo,
+  ViewportBounds,
 } from '../types/renderer.types';
 
 type TransitLineInfo = { name: string; color: string; mode: TransitMode };

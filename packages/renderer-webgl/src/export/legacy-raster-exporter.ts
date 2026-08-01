@@ -5,10 +5,9 @@ import type {
   RasterExportPort,
 } from '@vellum/core';
 import { exportScaleForFormat } from '@vellum/core';
-import {
-  captureExportSnapshotPng,
-  type PngExportOptions,
-} from '../map-libre-renderer';
+import { captureExportSnapshotPng } from './maplibre-png-capture';
+import type { PngExportOptions } from './export-types';
+import { MapLibreRenderer } from '../map-libre-renderer';
 
 const MAX_LEGACY_EXPORT_PIXELS = 64_000_000;
 
@@ -30,7 +29,19 @@ export class LegacyRasterExporter implements RasterExportPort {
    *
    * @param capture - Optional isolated-surface capture implementation.
    */
-  constructor(capture: SnapshotCapture = captureExportSnapshotPng) {
+  constructor(
+    capture: SnapshotCapture = (snapshot, options, signal) =>
+      captureExportSnapshotPng(
+        snapshot,
+        options,
+        signal,
+        (container, style) =>
+          new MapLibreRenderer(container, style, {
+            preserveDrawingBuffer: true,
+            releasesDemProtocol: false,
+          }),
+      ),
+  ) {
     this.capture = capture;
   }
 

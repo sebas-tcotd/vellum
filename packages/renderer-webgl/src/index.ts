@@ -35,11 +35,12 @@ export {
 } from './export/tiled-raster-exporter';
 export {
   MapLibreRenderer,
-  PngExportOptions,
   ServiceIconLegendState,
   TooltipInfo,
   ViewportBounds,
 } from './map-libre-renderer';
+export type { MapLibreRendererOptions } from './map-libre-renderer-options';
+export type { PngExportOptions } from './export/export-types';
 export {
   buildServiceIconSvg,
   resolveServiceGroup,
