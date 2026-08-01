@@ -24,6 +24,8 @@ export function buildPreviewSnapshot(
   if (!scale) return null;
   return {
     dataUrl: canvas.toDataURL('image/png'),
+    width,
+    height,
     bearingDegrees,
     scale,
     annotations: buildPreviewAnnotations(map, cityData, width, height),

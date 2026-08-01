@@ -13,6 +13,8 @@ import { useVellumStore } from './store/vellum-store';
 const mockPreviewCapture = vi.hoisted(() =>
   vi.fn().mockResolvedValue({
     dataUrl: 'data:image/png;base64,viewport',
+    width: 640,
+    height: 480,
     bearingDegrees: 0,
     scale: { distanceMeters: 500, widthPercent: 20 },
     annotations: [],
@@ -168,6 +170,8 @@ beforeEach(() => {
   mockPreviewCapture.mockReset();
   mockPreviewCapture.mockResolvedValue({
     dataUrl: 'data:image/png;base64,viewport',
+    width: 640,
+    height: 480,
     bearingDegrees: 0,
     scale: { distanceMeters: 500, widthPercent: 20 },
     annotations: [],
@@ -465,6 +469,8 @@ describe('App — ExportDialog (Story 6.1)', () => {
     await act(async () => {
       resolveCapture?.({
         dataUrl: 'data:image/png;base64,late',
+        width: 640,
+        height: 480,
         bearingDegrees: 0,
         scale: { distanceMeters: 500, widthPercent: 20 },
         annotations: [],

@@ -169,6 +169,7 @@ function makeSnapshot(): ExportSnapshot {
     request: {
       format: 'png-1x',
       area: 'full-map',
+      targetLongEdge: 6000,
       background: 'white',
       fileName: 'tiled',
       presentation: {

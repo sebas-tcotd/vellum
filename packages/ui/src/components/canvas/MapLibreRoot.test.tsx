@@ -5,6 +5,8 @@ import { MapLibreRoot } from './MapLibreRoot';
 const mockCapturePreview = vi.hoisted(() =>
   vi.fn().mockResolvedValue({
     dataUrl: 'data:image/png;base64,viewport',
+    width: 640,
+    height: 480,
     bearingDegrees: 0,
     scale: { distanceMeters: 500, widthPercent: 20 },
     annotations: [],

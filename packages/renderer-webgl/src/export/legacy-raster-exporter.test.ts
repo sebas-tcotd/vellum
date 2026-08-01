@@ -127,6 +127,28 @@ describe('LegacyRasterExporter', () => {
     expect(sink.finish).toHaveBeenCalledWith(makeSession());
   });
 
+  it('captures a target-resolution full-map snapshot at density 1', async () => {
+    const capture = vi.fn().mockResolvedValue(new Uint8Array([1]));
+    const sink = makeSink();
+    const exporter = new LegacyRasterExporter(capture);
+    const snapshot = {
+      ...makeSnapshot({ width: 6000, height: 6000 }),
+      request: {
+        ...makeSnapshot().request,
+        area: 'full-map' as const,
+        targetLongEdge: 6000 as const,
+      },
+    };
+
+    await exporter.export(snapshot, sink, new AbortController().signal);
+
+    expect(capture).toHaveBeenCalledWith(
+      expect.anything(),
+      { scale: 1, area: 'full-map', background: 'transparent' },
+      expect.any(AbortSignal),
+    );
+  });
+
   it('rechaza una superficie por encima de 64M píxeles antes de capturar', async () => {
     const capture = vi.fn();
     const sink = makeSink();

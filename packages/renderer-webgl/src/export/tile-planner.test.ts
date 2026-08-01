@@ -154,7 +154,11 @@ describe('planTiles', () => {
     const fullMap = planTiles(
       {
         ...snapshot(1000, 1000),
-        request: { ...snapshot(1000, 1000).request, area: 'full-map' },
+        request: {
+          ...snapshot(1000, 1000).request,
+          area: 'full-map',
+          targetLongEdge: 6000,
+        },
       },
       capability,
     );

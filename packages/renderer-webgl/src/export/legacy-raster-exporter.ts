@@ -88,7 +88,10 @@ export class LegacyRasterExporter implements RasterExportPort {
     try {
       throwIfAborted(signal);
       const captureOptions: PngExportOptions = {
-        scale: exportScaleForFormat(snapshot.request.format),
+        scale:
+          snapshot.request.area === 'full-map'
+            ? 1
+            : exportScaleForFormat(snapshot.request.format),
         area: snapshot.request.area,
         background: snapshot.request.background,
       };

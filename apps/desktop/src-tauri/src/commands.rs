@@ -23,6 +23,8 @@ pub struct ExportOptions {
     pub format: String,
     /// Spatial area to capture (e.g., `"viewport"`, `"full-map"`).
     pub area: String,
+    /// Explicit long-edge resolution for full-map exports.
+    pub target_long_edge: Option<u32>,
     /// Background rendering behavior (e.g., `"white"`, `"dark"`, `"transparent"`).
     pub background: String,
     /// Desired base filename provided by the user (without extension).
@@ -232,8 +234,16 @@ pub async fn load_themes(app_handle: tauri::AppHandle) -> Result<Vec<RawThemeFil
 }
 
 fn validate_png_options(options: &ExportOptions) -> Result<(), VellumError> {
-    let valid = matches!(options.format.as_str(), "png-1x" | "png-2x" | "png-4x")
-        && matches!(options.area.as_str(), "viewport" | "full-map")
+    let valid_format = matches!(options.format.as_str(), "png-1x" | "png-2x" | "png-4x");
+    let valid_area = matches!(options.area.as_str(), "viewport" | "full-map");
+    let valid_target = match options.area.as_str() {
+        "viewport" => options.target_long_edge.is_none(),
+        "full-map" => matches!(options.target_long_edge, Some(6000 | 12000 | 16000 | 20000)),
+        _ => false,
+    };
+    let valid = valid_format
+        && valid_area
+        && valid_target
         && matches!(
             options.background.as_str(),
             "white" | "dark" | "transparent"
@@ -583,6 +593,7 @@ mod tests {
         let valid = ExportOptions {
             format: "png-4x".into(),
             area: "full-map".into(),
+            target_long_edge: Some(6000),
             background: "transparent".into(),
             file_name: "Altavento".into(),
         };
@@ -596,6 +607,7 @@ mod tests {
             format: "png-1x".into(),
             file_name: "../../map.png".into(),
             area: "viewport".into(),
+            target_long_edge: None,
             background: "white".into(),
         };
         assert!(validate_png_options(&invalid_name).is_err());

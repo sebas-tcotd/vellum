@@ -32,6 +32,7 @@ const eligibleCapability: CapabilityReport = {
 const request = {
   format: 'png-1x',
   area: 'full-map',
+  targetLongEdge: 6000,
   background: 'white',
   fileName: 'map',
   presentation: {} as ExportRequest['presentation'],

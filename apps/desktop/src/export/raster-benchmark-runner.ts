@@ -257,13 +257,16 @@ export class RasterBenchmarkRunner {
     phase: 'warmup' | 'measured',
     repeat: number,
   ): Promise<RasterBenchmarkCase> {
-    const request: ExportRequest = {
+    const requestBase = {
       format,
-      area,
       background,
       fileName: `benchmark-${fixture}-${phase}-${repeat + 1}-${area}-${format}-${background}`,
       presentation: emptyPresentation(),
     };
+    const request: ExportRequest =
+      area === 'full-map'
+        ? { ...requestBase, area, targetLongEdge: 6000 }
+        : { ...requestBase, area };
     const snapshot = await this.captureFixtureSnapshot(request, fixture);
     const startedAt = this.now();
     await this.dependencies.exportRaster(snapshot);

@@ -1,8 +1,8 @@
 import type { CityData } from './city-data';
 import type {
-  ExportArea,
   ExportBackground,
   ExportFormat,
+  ExportTargetLongEdge,
 } from '../ipc-contract';
 import type { LayerOptions, LayerVisibility } from './layer';
 import type { RenderStyleParams } from './theme';
@@ -77,12 +77,10 @@ export interface ExportSurface {
   readonly height: number;
 }
 
-/** Raster-specific request captured in an export snapshot. */
-export interface ExportRequest {
+/** Shared raster request fields captured in an export snapshot. */
+interface ExportRequestBase {
   /** Requested PNG density. */
   readonly format: Exclude<ExportFormat, 'svg'>;
-  /** Area selected for capture. */
-  readonly area: ExportArea;
   /** Background selected for capture. */
   readonly background: ExportBackground;
   /** Base filename supplied by the caller; sanitization is outside this contract. */
@@ -90,6 +88,23 @@ export interface ExportRequest {
   /** Cartographic presentation options resolved at capture time. */
   readonly presentation: Readonly<ExportPresentationOptions>;
 }
+
+/** Raster request for the current viewport, preserving density semantics. */
+export interface ViewportExportRequest extends ExportRequestBase {
+  /** Area selected for capture. */
+  readonly area: 'viewport';
+}
+
+/** Raster request for the complete city extent at an explicit resolution. */
+export interface FullMapExportRequest extends ExportRequestBase {
+  /** Area selected for capture. */
+  readonly area: 'full-map';
+  /** Long edge of the final raster in logical pixels. */
+  readonly targetLongEdge: ExportTargetLongEdge;
+}
+
+/** Raster-specific request captured in an export snapshot. */
+export type ExportRequest = ViewportExportRequest | FullMapExportRequest;
 
 /** Immutable input consumed by every future raster exporter. */
 export interface ExportSnapshot {

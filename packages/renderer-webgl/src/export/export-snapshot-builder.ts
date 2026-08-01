@@ -5,6 +5,7 @@ import {
   type ExportArea,
   type ExportCamera,
   type ExportSnapshot,
+  type ExportTargetLongEdge,
   type LayerOptions,
   type RenderParams,
   type RenderStyleParams,
@@ -50,9 +51,17 @@ export function buildExportSnapshot(
 
   const surface =
     input.request.area === 'full-map'
-      ? surfaceForExtent(extent, baseWidth, baseHeight)
+      ? surfaceForExtent(
+          extent,
+          baseWidth,
+          baseHeight,
+          input.request.targetLongEdge,
+        )
       : { width: baseWidth, height: baseHeight };
-  const scale = exportScaleForFormat(input.request.format);
+  const scale =
+    input.request.area === 'full-map'
+      ? 1
+      : exportScaleForFormat(input.request.format);
 
   return createExportSnapshot({
     cityData: input.cityData,
@@ -114,10 +123,11 @@ function surfaceForExtent(
   extent: ExportSnapshot['extent'],
   canvasWidth: number,
   canvasHeight: number,
+  targetLongEdge?: ExportTargetLongEdge,
 ): { width: number; height: number } {
   const extentAspect =
     (extent.maxX - extent.minX) / (extent.maxZ - extent.minZ);
-  const side = Math.max(canvasWidth, canvasHeight);
+  const side = targetLongEdge ?? Math.max(canvasWidth, canvasHeight);
   return extentAspect >= 1
     ? { width: side, height: Math.max(1, Math.round(side / extentAspect)) }
     : { width: Math.max(1, Math.round(side * extentAspect)), height: side };

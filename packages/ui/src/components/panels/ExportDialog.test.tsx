@@ -18,6 +18,8 @@ const onExport = vi.fn();
 
 const preview = {
   dataUrl: 'data:image/png;base64,preview',
+  width: 640,
+  height: 480,
   bearingDegrees: 35,
   scale: { distanceMeters: 500, widthPercent: 24 },
   annotations: [
@@ -45,6 +47,12 @@ const defaultProps: ExportDialogProps = {
   generatedAt: '2026-07-27T12:00:00Z',
   defaultBackground: 'white',
   preview,
+  fullMapBounds: {
+    minX: -8640,
+    maxX: 8640,
+    minZ: -8640,
+    maxZ: 8640,
+  },
   availability: {
     districts: true,
     parks: true,
@@ -229,6 +237,59 @@ describe('ExportDialog', () => {
     expect(
       screen.queryByTestId('export-preview-scale'),
     ).not.toBeInTheDocument();
+  });
+
+  it('muestra presets de resolución para mapa completo y recalcula dimensiones', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    await user.click(screen.getByLabelText('export.area_fullMap'));
+
+    expect(screen.getByLabelText('export.resolution_standard')).toBeChecked();
+    expect(screen.getByLabelText('export.resolution_high')).toBeInTheDocument();
+    expect(
+      screen.getByLabelText('export.resolution_veryHigh'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByLabelText('export.resolution_maximum'),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByLabelText('export.format_png2x'),
+    ).not.toBeInTheDocument();
+    expect(screen.getByTestId('export-output-dimensions')).toHaveTextContent(
+      '6,000 × 6,000 px · ~40 MB',
+    );
+
+    await user.click(screen.getByLabelText('export.resolution_veryHigh'));
+
+    expect(screen.getByTestId('export-output-dimensions')).toHaveTextContent(
+      '16,000 × 16,000 px · ~282 MB',
+    );
+
+    await user.click(screen.getByLabelText('export.area_viewport'));
+    expect(screen.getByLabelText('export.format_png1x')).toBeChecked();
+    expect(
+      screen.queryByLabelText('export.resolution_standard'),
+    ).not.toBeInTheDocument();
+  });
+
+  it('envía targetLongEdge para un export de mapa completo', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    await user.click(screen.getByLabelText('export.area_fullMap'));
+    await user.click(screen.getByLabelText('export.resolution_high'));
+    await user.click(
+      screen.getByRole('button', { name: 'export.exportButton' }),
+    );
+
+    expect(onExport).toHaveBeenCalledWith(
+      expect.objectContaining({
+        area: 'full-map',
+        format: 'png-1x',
+        targetLongEdge: 12000,
+      }),
+    );
   });
 
   it('hace visible el fondo seleccionado bajo la captura opaca', async () => {
