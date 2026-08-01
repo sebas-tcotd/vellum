@@ -61,6 +61,14 @@ export interface RasterBenchmarkCase {
   readonly alpha: RasterBenchmarkUnknown;
   /** Visual comparison against golden output remains a manual gate. */
   readonly visual: RasterBenchmarkVisualState;
+  /**
+   * Present only when this case threw instead of completing — e.g. a legacy
+   * capture rejected for exceeding the single-surface pixel cap. When set,
+   * `route`/`durationMs`/`peakMemoryBytes`/`requestedDimensions`/`tileCount`
+   * are not meaningful measurements, only sentinel values, so the matrix can
+   * still return every other case instead of aborting the whole run.
+   */
+  readonly error?: string;
 }
 
 /** JSON-safe report produced after one warmup and measured benchmark matrix. */
@@ -202,6 +210,11 @@ export class RasterBenchmarkRunner {
     assertValidFilter('area', options.area, AREAS);
     assertValidFilter('format', options.format, FORMATS);
     assertValidFilter('background', options.background, BACKGROUNDS);
+    if (options.area === 'full-map' && options.format !== undefined) {
+      throw new Error(
+        'Invalid benchmark filter: format cannot be combined with area "full-map" — full-map always uses png-1x, filter by area alone',
+      );
+    }
     const capability = this.dependencies.getCapability();
     if (!capability)
       throw new Error(
@@ -292,27 +305,51 @@ export class RasterBenchmarkRunner {
     };
     const request: ExportRequest =
       area === 'full-map'
-        ? { ...requestBase, area, targetLongEdge: targetLongEdge ?? 6000 }
+        ? {
+            ...requestBase,
+            area,
+            format: 'png-1x',
+            targetLongEdge: targetLongEdge ?? 6000,
+          }
         : { ...requestBase, area };
-    const snapshot = await this.captureFixtureSnapshot(request, fixture);
     const startedAt = this.now();
-    await this.dependencies.exportRaster(snapshot);
-    const plan = planTiles(snapshot, capability);
-    return {
+    const shared = {
       fixture,
       area,
       format,
       ...(targetLongEdge !== undefined ? { targetLongEdge } : {}),
       scale: scaleFor(format),
       background,
-      route: this.dependencies.getLastRoute(),
-      durationMs: Math.max(0, this.now() - startedAt),
-      peakMemoryBytes: readHeapBytes(),
-      requestedDimensions: snapshot.surface,
-      tileCount: 'rejected' in plan ? 'unknown' : plan.expectedTiles,
-      alpha: 'unknown',
-      visual: 'pending-manual',
-    };
+    } as const;
+    try {
+      const snapshot = await this.captureFixtureSnapshot(request, fixture);
+      await this.dependencies.exportRaster(snapshot);
+      const plan = planTiles(snapshot, capability);
+      return {
+        ...shared,
+        route: this.dependencies.getLastRoute(),
+        durationMs: Math.max(0, this.now() - startedAt),
+        peakMemoryBytes: readHeapBytes(),
+        requestedDimensions: snapshot.surface,
+        tileCount: 'rejected' in plan ? 'unknown' : plan.expectedTiles,
+        alpha: 'unknown',
+        visual: 'pending-manual',
+      };
+    } catch (error: unknown) {
+      // One rejected case (e.g. a legacy capture over the pixel cap) must
+      // not discard every other case already measured in this matrix.
+      return {
+        ...shared,
+        route: this.dependencies.getLastRoute(),
+        durationMs: Math.max(0, this.now() - startedAt),
+        peakMemoryBytes: 'unknown',
+        requestedDimensions: { width: 0, height: 0 },
+        tileCount: 'unknown',
+        alpha: 'unknown',
+        visual: 'pending-manual',
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
   }
 
   private async captureFixtureSnapshot(

@@ -138,6 +138,31 @@ describe('ExportCoordinator', () => {
     expect(capture).not.toHaveBeenCalled();
   });
 
+  it('capabilitiesForSnapshot reporta legacy inelegible para una superficie sobre el cap, a diferencia de capabilities()', async () => {
+    const coordinator = new ExportCoordinator(
+      new LegacyRasterExporter(async () => new Uint8Array([1])),
+      {
+        begin: vi.fn(),
+        append: vi.fn(),
+        finish: vi.fn(),
+        cancel: vi.fn(),
+      },
+    );
+    const oversized = snapshot({ width: 8_001, height: 8_001 });
+
+    // capabilities(request) is request-level only and always says legacy is
+    // eligible — it has no surface to check against.
+    await expect(coordinator.capabilities(request)).resolves.toMatchObject({
+      legacy: { eligible: true },
+    });
+    // capabilitiesForSnapshot(snapshot) is falsifiable: it reuses the exact
+    // check export() is about to run and reports the real ineligibility.
+    expect(coordinator.capabilitiesForSnapshot(oversized)).toEqual({
+      legacy: { eligible: false, reason: 'pixels' },
+      tiled: { eligible: false, reason: 'flag' },
+    });
+  });
+
   it('keeps tiled ineligible (reason "flag") when no tiled route is paired', async () => {
     const coordinator = new ExportCoordinator(
       new LegacyRasterExporter(async () => new Uint8Array([1])),

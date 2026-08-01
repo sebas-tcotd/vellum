@@ -262,13 +262,13 @@ describe('ExportDialog', () => {
       screen.queryByLabelText('export.format_png2x'),
     ).not.toBeInTheDocument();
     expect(screen.getByTestId('export-output-dimensions')).toHaveTextContent(
-      '6,000 × 6,000 px · ~40 MB',
+      `${(6000).toLocaleString()} × ${(6000).toLocaleString()} px · ~40 MB`,
     );
 
     await user.click(screen.getByLabelText('export.resolution_veryHigh'));
 
     expect(screen.getByTestId('export-output-dimensions')).toHaveTextContent(
-      '16,000 × 16,000 px · ~282 MB',
+      `${(16000).toLocaleString()} × ${(16000).toLocaleString()} px · ~282 MB`,
     );
 
     await user.click(screen.getByLabelText('export.area_viewport'));

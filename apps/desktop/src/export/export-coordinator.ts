@@ -152,6 +152,18 @@ export class ExportCoordinator implements RasterExportV2 {
     };
   }
 
+  /**
+   * Real, falsifiable eligibility for an already captured snapshot — reuses
+   * the exact same checks `export()` is about to run, so it can never
+   * diverge from what that call would actually do.
+   */
+  capabilitiesForSnapshot(snapshot: ExportSnapshot): ExportCapabilities {
+    return {
+      legacy: this.legacyExporter.capabilities(snapshot),
+      tiled: this.realTiledDecision(snapshot),
+    };
+  }
+
   /** Captures and persists one snapshot, returning only a committed receipt. */
   async export(
     snapshot: ExportSnapshot,

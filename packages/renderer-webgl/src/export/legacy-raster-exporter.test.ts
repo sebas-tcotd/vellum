@@ -136,6 +136,7 @@ describe('LegacyRasterExporter', () => {
       request: {
         ...makeSnapshot().request,
         area: 'full-map' as const,
+        format: 'png-1x' as const,
         targetLongEdge: 6000 as const,
       },
     };

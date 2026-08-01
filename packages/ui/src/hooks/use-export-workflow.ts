@@ -226,12 +226,16 @@ export function useExportWorkflow({
         controller.abort();
       }, EXPORT_TIMEOUT_MS);
       try {
-        const capabilities = await rasterExporter.capabilities(request);
+        const snapshot = snapshotCaptureRef.current?.(request);
+        if (!snapshot) throw new Error('Export snapshot is unavailable');
+        // Falsifiable, unlike `capabilities(request)`: it evaluates the real
+        // captured surface, so an oversized legacy surface or a rejected
+        // tile plan actually shows up here instead of only failing later
+        // inside `export()`.
+        const capabilities = rasterExporter.capabilitiesForSnapshot(snapshot);
         if (!capabilities.legacy.eligible && !capabilities.tiled.eligible) {
           throw new Error('export not available for these settings');
         }
-        const snapshot = snapshotCaptureRef.current?.(request);
-        if (!snapshot) throw new Error('Export snapshot is unavailable');
         exportOperationRef.current = { snapshotId: snapshot.snapshotId };
         const onProgress = (progress: ExportProgress): void => {
           // A cancelled/aborted operation never advances progress again,

@@ -4,7 +4,7 @@ import type {
   ExportSnapshot,
   RasterExportPort,
 } from '@vellum/core';
-import { exportScaleForFormat } from '@vellum/core';
+import { exportScaleForRequest } from '@vellum/core';
 import { captureExportSnapshotPng } from './maplibre-png-capture';
 import type { PngExportOptions } from './export-types';
 import { MapLibreRenderer } from '../map-libre-renderer';
@@ -88,10 +88,7 @@ export class LegacyRasterExporter implements RasterExportPort {
     try {
       throwIfAborted(signal);
       const captureOptions: PngExportOptions = {
-        scale:
-          snapshot.request.area === 'full-map'
-            ? 1
-            : exportScaleForFormat(snapshot.request.format),
+        scale: exportScaleForRequest(snapshot.request),
         area: snapshot.request.area,
         background: snapshot.request.background,
       };

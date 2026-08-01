@@ -233,21 +233,27 @@ pub async fn load_themes(app_handle: tauri::AppHandle) -> Result<Vec<RawThemeFil
         })?
 }
 
-fn validate_png_options(options: &ExportOptions) -> Result<(), VellumError> {
-    let valid_area = matches!(options.area.as_str(), "viewport" | "full-map");
-    let valid_format = match options.area.as_str() {
+/// `full-map` only ever sends `png-1x` (see `FullMapExportDialogOptions` in
+/// `@vellum/core`) — `viewport` keeps all three densities.
+fn valid_area_and_format(options: &ExportOptions) -> bool {
+    match options.area.as_str() {
         "viewport" => matches!(options.format.as_str(), "png-1x" | "png-2x" | "png-4x"),
         "full-map" => options.format.as_str() == "png-1x",
         _ => false,
-    };
-    let valid_target = match options.area.as_str() {
+    }
+}
+
+fn valid_target_long_edge(options: &ExportOptions) -> bool {
+    match options.area.as_str() {
         "viewport" => options.target_long_edge.is_none(),
         "full-map" => matches!(options.target_long_edge, Some(6000 | 12000 | 16000 | 20000)),
         _ => false,
-    };
-    let valid = valid_format
-        && valid_area
-        && valid_target
+    }
+}
+
+fn validate_png_options(options: &ExportOptions) -> Result<(), VellumError> {
+    let valid = valid_area_and_format(options)
+        && valid_target_long_edge(options)
         && matches!(
             options.background.as_str(),
             "white" | "dark" | "transparent"

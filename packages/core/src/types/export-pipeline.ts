@@ -34,6 +34,20 @@ export function exportScaleForFormat(
 }
 
 /**
+ * Resolves the capture density for a raster request.
+ *
+ * @remarks
+ * `full-map` always captures at density 1 — `targetLongEdge` already encodes
+ * the exact output resolution, so multiplying by `exportScaleForFormat` would
+ * double-apply it. This is the single point of that rule; the renderer and
+ * legacy exporter must call this instead of repeating the
+ * `area === 'full-map' ? 1 : exportScaleForFormat(...)` conditional.
+ */
+export function exportScaleForRequest(request: ExportRequest): ExportScale {
+  return request.area === 'full-map' ? 1 : exportScaleForFormat(request.format);
+}
+
+/**
  * Maximum logical pixels a single tiled export operation may produce.
  *
  * @remarks
@@ -99,6 +113,8 @@ export interface ViewportExportRequest extends ExportRequestBase {
 export interface FullMapExportRequest extends ExportRequestBase {
   /** Area selected for capture. */
   readonly area: 'full-map';
+  /** Full-map exports only ever request the base density. */
+  readonly format: 'png-1x';
   /** Long edge of the final raster in logical pixels. */
   readonly targetLongEdge: ExportTargetLongEdge;
 }
@@ -420,6 +436,18 @@ export interface RasterExportV2 {
   readonly version: 2;
   /** Reports capability without changing renderer or store state. */
   capabilities(request: ExportRequest): Promise<ExportCapabilities>;
+  /**
+   * Reports the real, falsifiable per-operation eligibility for an already
+   * captured snapshot.
+   *
+   * @remarks
+   * `capabilities(request)` alone carries no camera/extent/surface, so it can
+   * only ever report device-level tiled eligibility and a static
+   * `legacy.eligible: true` — it cannot detect an oversized legacy surface or
+   * a rejected tile plan. This method re-runs the same checks `export()` is
+   * about to perform, so a caller can bail out before ever invoking it.
+   */
+  capabilitiesForSnapshot(snapshot: ExportSnapshot): ExportCapabilities;
   /** Exports one immutable snapshot and returns its persisted receipt. */
   export(
     snapshot: ExportSnapshot,

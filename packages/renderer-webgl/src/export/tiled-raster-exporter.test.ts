@@ -641,7 +641,7 @@ describe('TiledRasterExporter', () => {
       request: {
         ...baseSnapshot.request,
         area: 'full-map',
-        format: 'png-4x',
+        format: 'png-1x',
         targetLongEdge: 6000,
       },
     };

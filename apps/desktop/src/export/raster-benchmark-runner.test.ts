@@ -138,6 +138,72 @@ describe('RasterBenchmarkRunner', () => {
     ).rejects.toThrow(/Invalid benchmark area filter/);
   });
 
+  it('rechaza combinar un filtro de format con area: full-map', async () => {
+    const runner = new RasterBenchmarkRunner({
+      captureSnapshot: () => snapshot(),
+      exportRaster: vi.fn(),
+      getLastRoute: () => 'tiled-png',
+      getCapability: () => capability,
+      runWithRoute: async (_route, operation) => operation(),
+      releaseGpuContext: async () => undefined,
+    });
+
+    await expect(
+      runner.run({
+        fixture: 'altavento',
+        route: 'tiled',
+        repeats: 1,
+        warmup: false,
+        platform: 'macOS/WebKit',
+        build: 'test',
+        area: 'full-map',
+        format: 'png-4x',
+      }),
+    ).rejects.toThrow(/format cannot be combined with area "full-map"/);
+  });
+
+  it('registra un caso fallido con su error en vez de abortar toda la matriz', async () => {
+    const exportRaster = vi
+      .fn()
+      .mockRejectedValueOnce(
+        new Error('Legacy PNG export is unavailable: pixels'),
+      )
+      .mockResolvedValue({
+        filePath: '/private/output.png',
+        folderPath: '/private',
+      });
+    const runner = new RasterBenchmarkRunner({
+      captureSnapshot: () => snapshot(),
+      exportRaster,
+      getLastRoute: () => 'legacy-png',
+      getCapability: () => capability,
+      runWithRoute: async (_route, operation) => operation(),
+      now: () => 123,
+      releaseGpuContext: async () => undefined,
+    });
+
+    const report = await runner.run({
+      fixture: 'altavento',
+      route: 'legacy',
+      repeats: 1,
+      warmup: false,
+      platform: 'macOS/WebKit',
+      build: 'test',
+      area: 'full-map',
+      background: 'dark',
+    });
+
+    expect(exportRaster).toHaveBeenCalledTimes(4);
+    expect(report.cases).toHaveLength(4);
+    expect(report.cases[0]).toMatchObject({
+      targetLongEdge: 6000,
+      error: 'Legacy PNG export is unavailable: pixels',
+    });
+    expect(
+      report.cases.slice(1).every((entry) => entry.error === undefined),
+    ).toBe(true);
+  });
+
   it('restringe la matriz a un solo caso cuando se filtra area/format/background', async () => {
     const exportSnapshot = vi.fn(() => snapshot());
     const exportRaster = vi.fn().mockResolvedValue({

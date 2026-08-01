@@ -1,6 +1,6 @@
 import {
   createExportSnapshot,
-  exportScaleForFormat,
+  exportScaleForRequest,
   type CityData,
   type ExportArea,
   type ExportCamera,
@@ -58,10 +58,7 @@ export function buildExportSnapshot(
           baseHeight,
         )
       : { width: baseWidth, height: baseHeight };
-  const scale =
-    input.request.area === 'full-map'
-      ? 1
-      : exportScaleForFormat(input.request.format);
+  const scale = exportScaleForRequest(input.request);
 
   return createExportSnapshot({
     cityData: input.cityData,

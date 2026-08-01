@@ -28,6 +28,10 @@ const mockRasterExporter: RasterExportV2 = {
     legacy: { eligible: true },
     tiled: { eligible: false, reason: 'flag' },
   }),
+  capabilitiesForSnapshot: vi.fn().mockReturnValue({
+    legacy: { eligible: true },
+    tiled: { eligible: false, reason: 'flag' },
+  }),
   export: vi.fn().mockResolvedValue({
     filePath: '/tmp/export.png',
     folderPath: '/tmp',

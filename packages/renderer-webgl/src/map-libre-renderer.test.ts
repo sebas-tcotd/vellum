@@ -468,7 +468,7 @@ describe('MapLibreRenderer', () => {
 
     const fullMap = renderer.createExportSnapshot({
       ...baseSnapshotRequest,
-      format: 'png-4x',
+      format: 'png-1x',
       area: 'full-map',
       targetLongEdge: 6000,
     });
@@ -555,7 +555,7 @@ describe('MapLibreRenderer', () => {
 
     const fullMap = renderer.createExportSnapshot({
       ...baseSnapshotRequest,
-      format: 'png-4x',
+      format: 'png-1x',
       area: 'full-map',
       targetLongEdge: 6000,
     });

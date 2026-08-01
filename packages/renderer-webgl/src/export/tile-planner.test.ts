@@ -157,6 +157,7 @@ describe('planTiles', () => {
         request: {
           ...snapshot(1000, 1000).request,
           area: 'full-map',
+          format: 'png-1x',
           targetLongEdge: 6000,
         },
       },
