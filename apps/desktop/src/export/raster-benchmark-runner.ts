@@ -69,6 +69,12 @@ export interface RasterBenchmarkReport {
   readonly repeats: number;
   /** ISO timestamp when the run started. */
   readonly startedAt: string;
+  /**
+   * Whether this run covered the full 2×3×3 matrix. `false` when `area`,
+   * `format`, or `background` filtered it to a subset — such a report must
+   * never be treated as AC1/AC2/AC12 gate evidence.
+   */
+  readonly isCompleteMatrix: boolean;
   /** Individual measurements, with no output paths or PNG bytes. */
   readonly cases: readonly RasterBenchmarkCase[];
 }
@@ -138,6 +144,29 @@ declare global {
 /** Real-world delay found sufficient for WebKit to reclaim a lost WebGL context. */
 const GPU_CONTEXT_RELEASE_DELAY_MS = 50;
 
+/**
+ * Rejects a filter value that isn't one of the allowed options.
+ *
+ * @remarks
+ * `undefined` means "no filter" and is always accepted — only an explicitly
+ * supplied, invalid value throws. This bridge is invoked from a DevTools
+ * console, an untyped boundary where a typo would otherwise silently
+ * fall through (e.g. an empty string is falsy and would have matched
+ * "unset" under a truthy check) or reach `ExportRequest` unchecked.
+ */
+function assertValidFilter<Value extends string>(
+  label: string,
+  value: Value | undefined,
+  allowed: readonly Value[],
+): void {
+  if (value === undefined) return;
+  if (!allowed.includes(value)) {
+    throw new Error(
+      `Invalid benchmark ${label} filter: ${JSON.stringify(value)} (allowed: ${allowed.join(', ')})`,
+    );
+  }
+}
+
 /** Runs a fixed 2 × 3 × 3 raster matrix against the map currently loaded in Tauri. */
 export class RasterBenchmarkRunner {
   private readonly now: () => number;
@@ -162,6 +191,9 @@ export class RasterBenchmarkRunner {
   ): Promise<RasterBenchmarkReport> {
     if (!Number.isInteger(options.repeats) || options.repeats < 1)
       throw new Error('Benchmark repeats must be a positive integer');
+    assertValidFilter('area', options.area, AREAS);
+    assertValidFilter('format', options.format, FORMATS);
+    assertValidFilter('background', options.background, BACKGROUNDS);
     const capability = this.dependencies.getCapability();
     if (!capability)
       throw new Error(
@@ -178,6 +210,10 @@ export class RasterBenchmarkRunner {
         requestedRoute: options.route,
         repeats: options.repeats,
         startedAt,
+        isCompleteMatrix:
+          options.area === undefined &&
+          options.format === undefined &&
+          options.background === undefined,
         cases,
       };
     });

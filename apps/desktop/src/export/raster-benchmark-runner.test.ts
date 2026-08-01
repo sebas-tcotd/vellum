@@ -82,6 +82,58 @@ describe('RasterBenchmarkRunner', () => {
       alpha: 'unknown',
       visual: 'pending-manual',
     });
+    expect(report.isCompleteMatrix).toBe(true);
+  });
+
+  it('marca isCompleteMatrix en false cuando el reporte es de un caso filtrado', async () => {
+    const runner = new RasterBenchmarkRunner({
+      captureSnapshot: () => snapshot(),
+      exportRaster: vi.fn().mockResolvedValue({
+        filePath: '/private/output.png',
+        folderPath: '/private',
+      }),
+      getLastRoute: () => 'tiled-png',
+      getCapability: () => capability,
+      runWithRoute: async (_route, operation) => operation(),
+      releaseGpuContext: async () => undefined,
+    });
+
+    const report = await runner.run({
+      fixture: 'altavento',
+      route: 'tiled',
+      repeats: 1,
+      warmup: false,
+      platform: 'macOS/WebKit',
+      build: 'test',
+      area: 'full-map',
+    });
+
+    expect(report.isCompleteMatrix).toBe(false);
+  });
+
+  it('rechaza un filtro de area/format/background que no sea uno de los valores permitidos', async () => {
+    const runner = new RasterBenchmarkRunner({
+      captureSnapshot: () => snapshot(),
+      exportRaster: vi.fn(),
+      getLastRoute: () => 'tiled-png',
+      getCapability: () => capability,
+      runWithRoute: async (_route, operation) => operation(),
+      releaseGpuContext: async () => undefined,
+    });
+
+    await expect(
+      runner.run({
+        fixture: 'altavento',
+        route: 'tiled',
+        repeats: 1,
+        warmup: false,
+        platform: 'macOS/WebKit',
+        build: 'test',
+        // A console typo — falsy, but must be rejected, not silently treated
+        // as "no filter" (which would run the full matrix unexpectedly).
+        area: '' as never,
+      }),
+    ).rejects.toThrow(/Invalid benchmark area filter/);
   });
 
   it('restringe la matriz a un solo caso cuando se filtra area/format/background', async () => {
