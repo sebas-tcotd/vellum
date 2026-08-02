@@ -290,7 +290,12 @@ export function useExportWorkflow({
         if (controller.signal.aborted) {
           finalizeAbortedOutcome();
         } else {
-          console.error('[App] PNG export failed:', error);
+          if (
+            !(error instanceof Error) ||
+            error.message !== EXPORT_CAPACITY_UNAVAILABLE_REASON
+          ) {
+            console.error('[App] PNG export failed:', error);
+          }
           setExportError(toExportError(error));
         }
       } finally {

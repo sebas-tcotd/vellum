@@ -141,6 +141,9 @@ export class ExportCoordinator implements RasterExportV2 {
    * guarantee that a specific operation will be planned successfully;
    * `export()` re-checks against the real snapshot before ever selecting
    * this route.
+   *
+   * @deprecated Use {@link capabilitiesForSnapshot} after capturing a
+   * snapshot. This request-level method cannot evaluate dimensions or camera.
    */
   async capabilities(_request: ExportRequest): Promise<ExportCapabilities> {
     return {

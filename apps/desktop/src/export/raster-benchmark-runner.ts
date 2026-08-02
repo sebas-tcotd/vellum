@@ -355,7 +355,7 @@ export class RasterBenchmarkRunner {
       // not discard every other case already measured in this matrix.
       return {
         ...shared,
-        route: this.dependencies.getLastRoute(),
+        route: null,
         durationMs: Math.max(0, this.now() - startedAt),
         peakMemoryBytes: 'unknown',
         requestedDimensions: { width: 0, height: 0 },

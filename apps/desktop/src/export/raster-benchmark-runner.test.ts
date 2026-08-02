@@ -239,6 +239,9 @@ describe('RasterBenchmarkRunner', () => {
         .slice(1)
         .every((entry) => entry.error?.includes('unavailable: pixels')),
     ).toBe(true);
+    expect(report.cases.slice(1).every((entry) => entry.route === null)).toBe(
+      true,
+    );
   });
 
   it('restringe la matriz a un solo caso cuando se filtra area/format/background', async () => {

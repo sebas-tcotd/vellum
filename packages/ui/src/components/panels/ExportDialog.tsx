@@ -271,7 +271,8 @@ function ResolutionGroup({
   value: ExportTargetLongEdge;
   onChange: (value: ExportTargetLongEdge) => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const locale = i18n.resolvedLanguage ?? i18n.language;
   return (
     <fieldset className="space-y-2" data-testid="export-resolution-options">
       <legend className="font-ui text-xs font-semibold">
@@ -288,12 +289,11 @@ function ResolutionGroup({
               name="export-resolution"
               value={choice.value}
               checked={value === choice.value}
-              aria-label={t(choice.label)}
               onChange={() => onChange(choice.value)}
             />
             <span className="flex flex-col">
               <span className="font-semibold">
-                {t(choice.label)} · {formatPixels(choice.value)} px
+                {t(choice.label)} · {formatPixels(choice.value, locale)} px
               </span>
               <span className="opacity-70">{t(choice.description)}</span>
             </span>
@@ -304,8 +304,8 @@ function ResolutionGroup({
   );
 }
 
-function formatPixels(value: number): string {
-  return value.toLocaleString();
+function formatPixels(value: number, locale?: string): string {
+  return value.toLocaleString(locale);
 }
 
 function outputDimensions(
@@ -339,7 +339,8 @@ function OutputDimensions({
   preview: ExportPreviewSnapshot | null;
   bounds: ExportDialogProps['fullMapBounds'];
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const locale = i18n.resolvedLanguage ?? i18n.language;
   const dimensions = outputDimensions(
     area,
     format,
@@ -358,8 +359,8 @@ function OutputDimensions({
       data-testid="export-output-dimensions"
     >
       <span className="font-semibold">{t('export.outputDimensions')}: </span>
-      {formatPixels(dimensions.width)} × {formatPixels(dimensions.height)} px ·
-      ~{estimatedMegabytes} MB
+      {formatPixels(dimensions.width, locale)} ×{' '}
+      {formatPixels(dimensions.height, locale)} px · ~{estimatedMegabytes} MB
     </div>
   );
 }

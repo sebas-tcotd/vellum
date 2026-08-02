@@ -478,6 +478,28 @@ describe('MapLibreRenderer', () => {
     expect(fullMap?.surface).toEqual({ width: 6000, height: 6000 });
   });
 
+  it('neutralizes bearing and pitch for full-map exports', async () => {
+    mockMap.getCanvas.mockReturnValue({
+      style: { cursor: '' },
+      clientWidth: 1024,
+      clientHeight: 655,
+      width: 1024,
+      height: 655,
+    } as never);
+    const renderer = makeRenderer();
+    await renderer.render(makeCityData(), { activeLayers: ALL_LAYERS_VISIBLE });
+
+    const fullMap = renderer.createExportSnapshot({
+      ...baseSnapshotRequest,
+      format: 'png-1x',
+      area: 'full-map',
+      targetLongEdge: 12000,
+    });
+
+    expect(fullMap?.camera).toMatchObject({ bearing: 0, pitch: 0 });
+    expect(fullMap?.camera).toMatchObject({ longitude: 1, latitude: 2 });
+  });
+
   it('uses targetLongEdge for full-map output instead of the canvas size', async () => {
     mockMap.getCanvas.mockReturnValue({
       style: { cursor: '' },

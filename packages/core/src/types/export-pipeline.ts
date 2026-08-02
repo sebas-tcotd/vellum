@@ -434,7 +434,12 @@ export interface ExportSink {
 export interface RasterExportV2 {
   /** Contract version for the new export boundary. */
   readonly version: 2;
-  /** Reports capability without changing renderer or store state. */
+  /**
+   * Reports device-level capability without changing renderer or store state.
+   *
+   * @deprecated Use {@link capabilitiesForSnapshot} after capturing a
+   * snapshot. This request-level method cannot evaluate dimensions or camera.
+   */
   capabilities(request: ExportRequest): Promise<ExportCapabilities>;
   /**
    * Reports the real, falsifiable per-operation eligibility for an already

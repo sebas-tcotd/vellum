@@ -60,6 +60,12 @@ export function buildExportSnapshot(
       : { width: baseWidth, height: baseHeight };
   const scale = exportScaleForRequest(input.request);
 
+  const camera = getCurrentCamera(input.map);
+  const exportCamera =
+    input.request.area === 'full-map'
+      ? { ...camera, bearing: 0, pitch: 0 }
+      : camera;
+
   return createExportSnapshot({
     cityData: input.cityData,
     style: input.style,
@@ -67,7 +73,7 @@ export function buildExportSnapshot(
     layerOptions: input.layerOptions,
     transitDimming: input.transitDimming,
     watermarkVisible: input.watermarkVisible,
-    camera: getCurrentCamera(input.map),
+    camera: exportCamera,
     extent,
     surface: { width: surface.width * scale, height: surface.height * scale },
     request: input.request,

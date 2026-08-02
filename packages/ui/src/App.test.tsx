@@ -45,6 +45,7 @@ vi.mock('react-i18next', () => ({
       if (key === 'export.progressPercent') return `${options?.percent ?? ''}%`;
       return key;
     },
+    i18n: { language: 'en', resolvedLanguage: 'en' },
   }),
   Trans: ({ children }: { children: React.ReactNode }) => children,
 }));
@@ -708,6 +709,9 @@ describe('App — progreso, cancelación y cleanup (Story 6.2G)', () => {
 
   it('muestra el mensaje accionable de capacidad cuando el preflight rechaza ambas rutas, nunca export() ni el toast genérico', async () => {
     const user = userEvent.setup();
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
     useVellumStore.getState().setCityData(mockCityData);
     vi.mocked(mockRasterExporter.capabilitiesForSnapshot).mockReturnValueOnce({
       legacy: { eligible: false, reason: 'pixels' },
@@ -726,6 +730,11 @@ describe('App — progreso, cancelación y cleanup (Story 6.2G)', () => {
     });
     expect(screen.queryByText(/^errors\.ExportFailed$/)).toBeNull();
     expect(mockRasterExporter.export).not.toHaveBeenCalled();
+    expect(consoleError).not.toHaveBeenCalledWith(
+      '[App] PNG export failed:',
+      expect.anything(),
+    );
+    consoleError.mockRestore();
   });
 
   it('cancela una exportación activa cuando cityData cambia (carga de otra ciudad)', async () => {

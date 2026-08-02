@@ -10,6 +10,7 @@ import type { PngExportOptions } from './export-types';
 import { MapLibreRenderer } from '../map-libre-renderer';
 
 const MAX_LEGACY_EXPORT_PIXELS = 64_000_000;
+const LEGACY_EXPORT_MAX_ZOOM = 24;
 
 type SnapshotCapture = (
   snapshot: ExportSnapshot,
@@ -39,6 +40,7 @@ export class LegacyRasterExporter implements RasterExportPort {
           new MapLibreRenderer(container, style, {
             preserveDrawingBuffer: true,
             releasesDemProtocol: false,
+            maxZoom: LEGACY_EXPORT_MAX_ZOOM,
           }),
       ),
   ) {
