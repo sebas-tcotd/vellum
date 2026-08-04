@@ -16,6 +16,17 @@ import { useVellumStore } from '../store/vellum-store';
 /** Bounded time an export may run before it is treated as timed out and aborted. */
 const EXPORT_TIMEOUT_MS = 5 * 60 * 1000;
 
+/**
+ * Stable `VellumError.reason` sentinel for a `capabilitiesForSnapshot` bail-out.
+ *
+ * @remarks
+ * Matched by identity (not displayed) so `ExportStatusOverlay` can show the
+ * actionable `errors.ExportCapacityUnavailable` copy instead of the generic
+ * `errors.ExportFailed` one — this never crosses the Rust IPC boundary, so
+ * it isn't part of the mirrored `VellumError` contract.
+ */
+export const EXPORT_CAPACITY_UNAVAILABLE_REASON = 'export-capacity-unavailable';
+
 /** Maps an export failure to the existing `errors.*` i18n keys — never `.reason`. */
 function toExportError(err: unknown): VellumError {
   if (err && typeof err === 'object' && 'type' in err) {
@@ -171,6 +182,23 @@ export function useExportWorkflow({
         });
         return;
       }
+      const request: ExportRequest =
+        options.area === 'full-map'
+          ? {
+              format: options.format,
+              area: options.area,
+              targetLongEdge: options.targetLongEdge,
+              background: options.background,
+              fileName: options.fileName,
+              presentation: options.presentation,
+            }
+          : {
+              format: options.format,
+              area: options.area,
+              background: options.background,
+              fileName: options.fileName,
+              presentation: options.presentation,
+            };
       setExportError(null);
       setExportCancelled(false);
       setExportResult(null);
@@ -209,15 +237,16 @@ export function useExportWorkflow({
         controller.abort();
       }, EXPORT_TIMEOUT_MS);
       try {
-        const request: ExportRequest = {
-          format: options.format,
-          area: options.area,
-          background: options.background,
-          fileName: options.fileName,
-          presentation: options.presentation,
-        };
         const snapshot = snapshotCaptureRef.current?.(request);
         if (!snapshot) throw new Error('Export snapshot is unavailable');
+        // Falsifiable, unlike `capabilities(request)`: it evaluates the real
+        // captured surface, so an oversized legacy surface or a rejected
+        // tile plan actually shows up here instead of only failing later
+        // inside `export()`.
+        const capabilities = rasterExporter.capabilitiesForSnapshot(snapshot);
+        if (!capabilities.legacy.eligible && !capabilities.tiled.eligible) {
+          throw new Error(EXPORT_CAPACITY_UNAVAILABLE_REASON);
+        }
         exportOperationRef.current = { snapshotId: snapshot.snapshotId };
         const onProgress = (progress: ExportProgress): void => {
           // A cancelled/aborted operation never advances progress again,
@@ -261,7 +290,12 @@ export function useExportWorkflow({
         if (controller.signal.aborted) {
           finalizeAbortedOutcome();
         } else {
-          console.error('[App] PNG export failed:', error);
+          if (
+            !(error instanceof Error) ||
+            error.message !== EXPORT_CAPACITY_UNAVAILABLE_REASON
+          ) {
+            console.error('[App] PNG export failed:', error);
+          }
           setExportError(toExportError(error));
         }
       } finally {

@@ -84,11 +84,15 @@ export class LegacyExportSink implements ExportSink {
       throw new Error('Legacy PNG session cannot finish before append');
     }
     this.sessions.delete(session.sessionId);
+    const { request } = state.metadata;
     const payload: ExportPngOptions = {
-      format: state.metadata.request.format,
-      area: state.metadata.request.area,
-      background: state.metadata.request.background,
-      fileName: state.metadata.request.fileName,
+      format: request.format,
+      area: request.area,
+      background: request.background,
+      fileName: request.fileName,
+      ...(request.area === 'full-map'
+        ? { targetLongEdge: request.targetLongEdge }
+        : {}),
       pngBytes: Array.from(state.chunk.encodedPng),
     };
     const result = await this.invokeCommand(IPC_COMMANDS.EXPORT_PNG, {

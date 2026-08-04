@@ -58,9 +58,6 @@ export interface ExportCutoverConfig {
 /** Local-storage key used by the operational rollback procedure. */
 export const EXPORT_FORCE_LEGACY_KEY = 'vellum.export.forceLegacy';
 
-/** Local-storage key used to approve the cutover after the release gate. */
-export const EXPORT_TILED_GATE_KEY = 'vellum.export.tiledGateApproved';
-
 /** Reads a boolean runtime override without making browser storage mandatory. */
 export function readExportRuntimeFlag(key: string): boolean {
   try {
@@ -144,11 +141,26 @@ export class ExportCoordinator implements RasterExportV2 {
    * guarantee that a specific operation will be planned successfully;
    * `export()` re-checks against the real snapshot before ever selecting
    * this route.
+   *
+   * @deprecated Use {@link capabilitiesForSnapshot} after capturing a
+   * snapshot. This request-level method cannot evaluate dimensions or camera.
    */
   async capabilities(_request: ExportRequest): Promise<ExportCapabilities> {
     return {
       legacy: { eligible: true },
       tiled: this.deviceTiledDecision(),
+    };
+  }
+
+  /**
+   * Real, falsifiable eligibility for an already captured snapshot — reuses
+   * the exact same checks `export()` is about to run, so it can never
+   * diverge from what that call would actually do.
+   */
+  capabilitiesForSnapshot(snapshot: ExportSnapshot): ExportCapabilities {
+    return {
+      legacy: this.legacyExporter.capabilities(snapshot),
+      tiled: this.realTiledDecision(snapshot),
     };
   }
 

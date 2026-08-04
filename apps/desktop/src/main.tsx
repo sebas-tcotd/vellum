@@ -29,7 +29,6 @@ import { useParseCslmap } from './hooks/use-parse-cslmap';
 import { useExportPng } from './hooks/use-export-png';
 import {
   EXPORT_FORCE_LEGACY_KEY,
-  EXPORT_TILED_GATE_KEY,
   ExportCoordinator,
   readExportRuntimeFlag,
 } from './export/export-coordinator';
@@ -50,10 +49,11 @@ const benchmarkSnapshotCaptureRef = React.createRef<
   ((request: ExportRequest) => ExportSnapshot | null) | null
 >();
 
-// The gate is intentionally false until the versioned 6.2I report has real
-// WebView/Tauri evidence for the declared platforms. Both flags are read at
-// export time, so an operator can approve or roll back from the WebView's
-// runtime storage without rebuilding the UI or adding an ExportDialog control.
+// The 6.2I report (`adopt`, 2026-08-01) has real WebView/Tauri evidence for
+// all three declared platforms — 324 exports, 0 rejections, no visual
+// artifacts — so the gate is approved by default. `EXPORT_FORCE_LEGACY_KEY`
+// remains the operational rollback, still readable at export time without
+// rebuilding the UI.
 void new CapabilityProbe()
   .measure()
   .then((capability) => {
@@ -64,7 +64,7 @@ void new CapabilityProbe()
       capability,
       enabled: true,
       cutover: {
-        gateApproved: () => readExportRuntimeFlag(EXPORT_TILED_GATE_KEY),
+        gateApproved: true,
         tiledEnabled: true,
         killSwitch: () => readExportRuntimeFlag(EXPORT_FORCE_LEGACY_KEY),
       },
@@ -77,25 +77,29 @@ void new CapabilityProbe()
     );
   });
 
-/** Runs an operation with a temporary dev-only route selection and restores it afterwards. */
+/**
+ * Runs an operation with a temporary dev-only route selection and restores it
+ * afterwards.
+ *
+ * @remarks
+ * The tiled gate is approved unconditionally (see the `CapabilityProbe`
+ * comment above), so forcing `'tiled'` only needs to lift the legacy kill
+ * switch — there is no gate flag left to set.
+ */
 async function runWithBenchmarkRoute<Result>(
   route: RasterBenchmarkRoute,
   operation: () => Promise<Result>,
 ): Promise<Result> {
   const forceLegacy = readStoredValue(EXPORT_FORCE_LEGACY_KEY);
-  const tiledGate = readStoredValue(EXPORT_TILED_GATE_KEY);
   try {
     if (route === 'legacy') {
       localStorage.setItem(EXPORT_FORCE_LEGACY_KEY, 'true');
-      localStorage.removeItem(EXPORT_TILED_GATE_KEY);
     } else {
       localStorage.removeItem(EXPORT_FORCE_LEGACY_KEY);
-      localStorage.setItem(EXPORT_TILED_GATE_KEY, 'true');
     }
     return await operation();
   } finally {
     restoreStoredValue(EXPORT_FORCE_LEGACY_KEY, forceLegacy);
-    restoreStoredValue(EXPORT_TILED_GATE_KEY, tiledGate);
   }
 }
 

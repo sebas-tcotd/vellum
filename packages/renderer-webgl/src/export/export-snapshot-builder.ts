@@ -1,10 +1,11 @@
 import {
   createExportSnapshot,
-  exportScaleForFormat,
+  exportScaleForRequest,
   type CityData,
   type ExportArea,
   type ExportCamera,
   type ExportSnapshot,
+  type ExportTargetLongEdge,
   type LayerOptions,
   type RenderParams,
   type RenderStyleParams,
@@ -50,9 +51,20 @@ export function buildExportSnapshot(
 
   const surface =
     input.request.area === 'full-map'
-      ? surfaceForExtent(extent, baseWidth, baseHeight)
+      ? resolveFullMapOutputSurface(
+          extent,
+          input.request.targetLongEdge,
+          baseWidth,
+          baseHeight,
+        )
       : { width: baseWidth, height: baseHeight };
-  const scale = exportScaleForFormat(input.request.format);
+  const scale = exportScaleForRequest(input.request);
+
+  const camera = getCurrentCamera(input.map);
+  const exportCamera =
+    input.request.area === 'full-map'
+      ? { ...camera, bearing: 0, pitch: 0 }
+      : camera;
 
   return createExportSnapshot({
     cityData: input.cityData,
@@ -61,7 +73,7 @@ export function buildExportSnapshot(
     layerOptions: input.layerOptions,
     transitDimming: input.transitDimming,
     watermarkVisible: input.watermarkVisible,
-    camera: getCurrentCamera(input.map),
+    camera: exportCamera,
     extent,
     surface: { width: surface.width * scale, height: surface.height * scale },
     request: input.request,
@@ -110,14 +122,23 @@ function resolveExportExtent(
   }
 }
 
-function surfaceForExtent(
+/**
+ * Resolves full-map output pixel dimensions from a world extent.
+ *
+ * @remarks
+ * The single point of resolution math for full-map exports — the export
+ * dialog's preview must call this same function rather than re-deriving the
+ * aspect-ratio rounding itself, or the two can silently drift apart.
+ */
+export function resolveFullMapOutputSurface(
   extent: ExportSnapshot['extent'],
-  canvasWidth: number,
-  canvasHeight: number,
+  targetLongEdge: ExportTargetLongEdge | undefined,
+  canvasWidth = 0,
+  canvasHeight = 0,
 ): { width: number; height: number } {
   const extentAspect =
     (extent.maxX - extent.minX) / (extent.maxZ - extent.minZ);
-  const side = Math.max(canvasWidth, canvasHeight);
+  const side = targetLongEdge ?? Math.max(canvasWidth, canvasHeight);
   return extentAspect >= 1
     ? { width: side, height: Math.max(1, Math.round(side / extentAspect)) }
     : { width: Math.max(1, Math.round(side * extentAspect)), height: side };

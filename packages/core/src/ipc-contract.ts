@@ -97,6 +97,9 @@ export type ExportFormat = 'png-1x' | 'png-2x' | 'png-4x' | 'svg';
 /** Defines the spatial boundaries to be included in the exported file. */
 export type ExportArea = 'viewport' | 'full-map';
 
+/** Supported long-edge resolutions for full-map PNG exports. */
+export type ExportTargetLongEdge = 6000 | 12000 | 16000 | 20000;
+
 /** Defines the background rendering behavior for the exported file. */
 export type ExportBackground = 'white' | 'dark' | 'transparent';
 
@@ -106,6 +109,8 @@ export interface ExportOptions {
   format: ExportFormat;
   /** The spatial area to capture. */
   area: ExportArea;
+  /** Explicit long-edge resolution for full-map exports. */
+  targetLongEdge?: ExportTargetLongEdge;
   /** The background color or transparency setting. */
   background: ExportBackground;
   /** The desired filename (without extension) provided by the user. */

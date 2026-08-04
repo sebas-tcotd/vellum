@@ -5,19 +5,34 @@ import { ExportDialog, type ExportDialogProps } from './ExportDialog';
 import en from '../../i18n/locales/en.json';
 import es from '../../i18n/locales/es.json';
 
-vi.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
+const mockI18n = vi.hoisted(() => ({
+  language: 'en',
+  resolvedLanguage: 'en',
 }));
 
-vi.mock('@vellum/renderer-webgl', () => ({
-  vellumLogoDataUri: () => 'data:image/svg+xml;base64,vellum-logo',
+vi.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key: string) => key,
+    i18n: mockI18n,
+  }),
 }));
+
+vi.mock('@vellum/renderer-webgl', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('@vellum/renderer-webgl')>();
+  return {
+    ...actual,
+    vellumLogoDataUri: () => 'data:image/svg+xml;base64,vellum-logo',
+  };
+});
 
 const onOpenChange = vi.fn();
 const onExport = vi.fn();
 
 const preview = {
   dataUrl: 'data:image/png;base64,preview',
+  width: 640,
+  height: 480,
   bearingDegrees: 35,
   scale: { distanceMeters: 500, widthPercent: 24 },
   annotations: [
@@ -45,6 +60,12 @@ const defaultProps: ExportDialogProps = {
   generatedAt: '2026-07-27T12:00:00Z',
   defaultBackground: 'white',
   preview,
+  fullMapBounds: {
+    minX: -8640,
+    maxX: 8640,
+    minZ: -8640,
+    maxZ: 8640,
+  },
   availability: {
     districts: true,
     parks: true,
@@ -73,6 +94,8 @@ function renderDialog(overrides: Partial<ExportDialogProps> = {}) {
 describe('ExportDialog', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockI18n.language = 'en';
+    mockI18n.resolvedLanguage = 'en';
   });
 
   it('inicializa nombre, formato, área y fondo de forma determinista', () => {
@@ -229,6 +252,83 @@ describe('ExportDialog', () => {
     expect(
       screen.queryByTestId('export-preview-scale'),
     ).not.toBeInTheDocument();
+  });
+
+  it('muestra presets de resolución para mapa completo y recalcula dimensiones', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    await user.click(screen.getByLabelText('export.area_fullMap'));
+
+    expect(
+      screen.getByRole('radio', { name: /export\.resolution_standard/ }),
+    ).toBeChecked();
+    expect(
+      screen.getByRole('radio', { name: /export\.resolution_high/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('radio', { name: /export\.resolution_veryHigh/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('radio', { name: /export\.resolution_maximum/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByLabelText('export.format_png2x'),
+    ).not.toBeInTheDocument();
+    expect(screen.getByTestId('export-output-dimensions')).toHaveTextContent(
+      `${(6000).toLocaleString()} × ${(6000).toLocaleString()} px · ~40 MB`,
+    );
+
+    await user.click(
+      screen.getByRole('radio', { name: /export\.resolution_veryHigh/ }),
+    );
+
+    expect(screen.getByTestId('export-output-dimensions')).toHaveTextContent(
+      `${(16000).toLocaleString()} × ${(16000).toLocaleString()} px · ~282 MB`,
+    );
+
+    await user.click(screen.getByLabelText('export.area_viewport'));
+    expect(screen.getByLabelText('export.format_png1x')).toBeChecked();
+    expect(
+      screen.queryByRole('radio', { name: /export\.resolution_standard/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('formatea el preview con el idioma seleccionado en la app', async () => {
+    const user = userEvent.setup();
+    mockI18n.language = 'es';
+    mockI18n.resolvedLanguage = 'es';
+    renderDialog();
+
+    await user.click(screen.getByLabelText('export.area_fullMap'));
+    await user.click(
+      screen.getByRole('radio', { name: /export\.resolution_high/ }),
+    );
+
+    expect(screen.getByTestId('export-output-dimensions')).toHaveTextContent(
+      '12.000 × 12.000 px · ~158 MB',
+    );
+  });
+
+  it('envía targetLongEdge para un export de mapa completo', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    await user.click(screen.getByLabelText('export.area_fullMap'));
+    await user.click(
+      screen.getByRole('radio', { name: /export\.resolution_high/ }),
+    );
+    await user.click(
+      screen.getByRole('button', { name: 'export.exportButton' }),
+    );
+
+    expect(onExport).toHaveBeenCalledWith(
+      expect.objectContaining({
+        area: 'full-map',
+        format: 'png-1x',
+        targetLongEdge: 12000,
+      }),
+    );
   });
 
   it('hace visible el fondo seleccionado bajo la captura opaca', async () => {

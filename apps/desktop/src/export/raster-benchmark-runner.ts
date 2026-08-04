@@ -5,11 +5,17 @@ import {
   type ExportMode,
   type ExportRequest,
   type ExportSnapshot,
+  type ExportTargetLongEdge,
 } from '@vellum/core';
 import { planTiles } from '@vellum/renderer-webgl';
 
 const AREAS = ['viewport', 'full-map'] as const satisfies readonly ExportArea[];
 const FORMATS = ['png-1x', 'png-2x', 'png-4x'] as const;
+// Full-map exports only ever request `png-1x` (see FullMapExportDialogOptions),
+// so their benchmark axis is the target-resolution preset instead of format.
+const TARGET_LONG_EDGES = [
+  6000, 12000, 16000, 20000,
+] as const satisfies readonly ExportTargetLongEdge[];
 const BACKGROUNDS = [
   'white',
   'dark',
@@ -35,6 +41,8 @@ export interface RasterBenchmarkCase {
   readonly area: ExportArea;
   /** PNG format exercised by this case. */
   readonly format: (typeof FORMATS)[number];
+  /** Target long-edge preset exercised by this case; only set for `full-map`. */
+  readonly targetLongEdge?: ExportTargetLongEdge;
   /** Numeric density implied by `format`. */
   readonly scale: 1 | 2 | 4;
   /** Background treatment exercised by this case. */
@@ -53,6 +61,14 @@ export interface RasterBenchmarkCase {
   readonly alpha: RasterBenchmarkUnknown;
   /** Visual comparison against golden output remains a manual gate. */
   readonly visual: RasterBenchmarkVisualState;
+  /**
+   * Present only when this case threw instead of completing — e.g. a legacy
+   * capture rejected for exceeding the single-surface pixel cap. When set,
+   * `route`/`durationMs`/`peakMemoryBytes`/`requestedDimensions`/`tileCount`
+   * are not meaningful measurements, only sentinel values, so the matrix can
+   * still return every other case instead of aborting the whole run.
+   */
+  readonly error?: string;
 }
 
 /** JSON-safe report produced after one warmup and measured benchmark matrix. */
@@ -70,9 +86,11 @@ export interface RasterBenchmarkReport {
   /** ISO timestamp when the run started. */
   readonly startedAt: string;
   /**
-   * Whether this run covered the full 2×3×3 matrix. `false` when `area`,
-   * `format`, or `background` filtered it to a subset — such a report must
-   * never be treated as AC1/AC2/AC12 gate evidence.
+   * Whether this run covered the full matrix — 9 viewport cases (3 formats ×
+   * 3 backgrounds) plus 12 full-map cases (4 `targetLongEdge` presets × 3
+   * backgrounds), 21 total. `false` when `area`, `format`, or `background`
+   * filtered it to a subset — such a report must never be treated as
+   * AC1/AC2/AC12 gate evidence.
    */
   readonly isCompleteMatrix: boolean;
   /** Individual measurements, with no output paths or PNG bytes. */
@@ -167,7 +185,11 @@ function assertValidFilter<Value extends string>(
   }
 }
 
-/** Runs a fixed 2 × 3 × 3 raster matrix against the map currently loaded in Tauri. */
+/**
+ * Runs a fixed raster matrix against the map currently loaded in Tauri: 9
+ * viewport cases (3 formats × 3 backgrounds) plus 12 full-map cases (4
+ * `targetLongEdge` presets × 3 backgrounds), 21 total.
+ */
 export class RasterBenchmarkRunner {
   private readonly now: () => number;
   private readonly releaseGpuContext: () => Promise<void>;
@@ -194,6 +216,14 @@ export class RasterBenchmarkRunner {
     assertValidFilter('area', options.area, AREAS);
     assertValidFilter('format', options.format, FORMATS);
     assertValidFilter('background', options.background, BACKGROUNDS);
+    if (options.area !== 'viewport' && options.format !== undefined) {
+      // `format` has no effect on full-map rows (always png-1x); reject the
+      // combination whenever a full-map row could run — area left unset
+      // matches both areas, not just an explicit "full-map".
+      throw new Error(
+        'Invalid benchmark filter: format cannot be combined with area "full-map" — full-map always uses png-1x, filter by area: "viewport" too if you need a format filter',
+      );
+    }
     const capability = this.dependencies.getCapability();
     if (!capability)
       throw new Error(
@@ -227,16 +257,31 @@ export class RasterBenchmarkRunner {
     const cases: RasterBenchmarkCase[] = [];
     const phase = retain ? 'measured' : 'warmup';
     const areas = options.area ? [options.area] : AREAS;
-    const formats = options.format ? [options.format] : FORMATS;
     const backgrounds = options.background ? [options.background] : BACKGROUNDS;
-    for (const area of areas)
-      for (const format of formats)
+    for (const area of areas) {
+      // `full-map` only ever sends `png-1x` (see FullMapExportDialogOptions), so
+      // its resolution matrix varies `targetLongEdge`, not `format` — otherwise
+      // every full-map row captures an identical scale:1 surface.
+      const variants: Array<{
+        format: (typeof FORMATS)[number];
+        targetLongEdge?: ExportTargetLongEdge;
+      }> =
+        area === 'full-map'
+          ? TARGET_LONG_EDGES.map((targetLongEdge) => ({
+              format: 'png-1x',
+              targetLongEdge,
+            }))
+          : (options.format ? [options.format] : FORMATS).map((format) => ({
+              format,
+            }));
+      for (const variant of variants)
         for (const background of backgrounds)
           for (let repeat = 0; repeat < options.repeats; repeat += 1) {
             const entry = await this.executeCase(
               options.fixture,
               area,
-              format,
+              variant.format,
+              variant.targetLongEdge,
               background,
               capability,
               phase,
@@ -245,6 +290,7 @@ export class RasterBenchmarkRunner {
             if (retain) cases.push(entry);
             await this.releaseGpuContext();
           }
+    }
     return cases;
   }
 
@@ -252,36 +298,73 @@ export class RasterBenchmarkRunner {
     fixture: string,
     area: ExportArea,
     format: (typeof FORMATS)[number],
+    targetLongEdge: ExportTargetLongEdge | undefined,
     background: ExportBackground,
     capability: CapabilityReport,
     phase: 'warmup' | 'measured',
     repeat: number,
   ): Promise<RasterBenchmarkCase> {
-    const request: ExportRequest = {
+    const requestBase = {
       format,
-      area,
       background,
-      fileName: `benchmark-${fixture}-${phase}-${repeat + 1}-${area}-${format}-${background}`,
+      fileName: `benchmark-${fixture}-${phase}-${repeat + 1}-${area}-${format}${
+        targetLongEdge ? `-${targetLongEdge}` : ''
+      }-${background}`,
       presentation: emptyPresentation(),
     };
-    const snapshot = await this.captureFixtureSnapshot(request, fixture);
+    const resolvedTargetLongEdge = targetLongEdge ?? 6000;
+    const request: ExportRequest =
+      area === 'full-map'
+        ? {
+            ...requestBase,
+            area,
+            format: 'png-1x',
+            targetLongEdge: resolvedTargetLongEdge,
+          }
+        : { ...requestBase, area };
     const startedAt = this.now();
-    await this.dependencies.exportRaster(snapshot);
-    const plan = planTiles(snapshot, capability);
-    return {
+    const shared = {
       fixture,
       area,
       format,
+      // Reports the target-long-edge the request actually sent, including
+      // the default — a case must never describe a different export than
+      // the one it ran.
+      ...(area === 'full-map'
+        ? { targetLongEdge: resolvedTargetLongEdge }
+        : {}),
       scale: scaleFor(format),
       background,
-      route: this.dependencies.getLastRoute(),
-      durationMs: Math.max(0, this.now() - startedAt),
-      peakMemoryBytes: readHeapBytes(),
-      requestedDimensions: snapshot.surface,
-      tileCount: 'rejected' in plan ? 'unknown' : plan.expectedTiles,
-      alpha: 'unknown',
-      visual: 'pending-manual',
-    };
+    } as const;
+    try {
+      const snapshot = await this.captureFixtureSnapshot(request, fixture);
+      await this.dependencies.exportRaster(snapshot);
+      const plan = planTiles(snapshot, capability);
+      return {
+        ...shared,
+        route: this.dependencies.getLastRoute(),
+        durationMs: Math.max(0, this.now() - startedAt),
+        peakMemoryBytes: readHeapBytes(),
+        requestedDimensions: snapshot.surface,
+        tileCount: 'rejected' in plan ? 'unknown' : plan.expectedTiles,
+        alpha: 'unknown',
+        visual: 'pending-manual',
+      };
+    } catch (error: unknown) {
+      // One rejected case (e.g. a legacy capture over the pixel cap) must
+      // not discard every other case already measured in this matrix.
+      return {
+        ...shared,
+        route: null,
+        durationMs: Math.max(0, this.now() - startedAt),
+        peakMemoryBytes: 'unknown',
+        requestedDimensions: { width: 0, height: 0 },
+        tileCount: 'unknown',
+        alpha: 'unknown',
+        visual: 'pending-manual',
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
   }
 
   private async captureFixtureSnapshot(

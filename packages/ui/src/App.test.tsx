@@ -13,6 +13,8 @@ import { useVellumStore } from './store/vellum-store';
 const mockPreviewCapture = vi.hoisted(() =>
   vi.fn().mockResolvedValue({
     dataUrl: 'data:image/png;base64,viewport',
+    width: 640,
+    height: 480,
     bearingDegrees: 0,
     scale: { distanceMeters: 500, widthPercent: 20 },
     annotations: [],
@@ -23,6 +25,10 @@ const mockSnapshot = { snapshotId: 'snap-1' } as ExportSnapshot;
 const mockRasterExporter: RasterExportV2 = {
   version: 2,
   capabilities: vi.fn().mockResolvedValue({
+    legacy: { eligible: true },
+    tiled: { eligible: false, reason: 'flag' },
+  }),
+  capabilitiesForSnapshot: vi.fn().mockReturnValue({
     legacy: { eligible: true },
     tiled: { eligible: false, reason: 'flag' },
   }),
@@ -39,6 +45,7 @@ vi.mock('react-i18next', () => ({
       if (key === 'export.progressPercent') return `${options?.percent ?? ''}%`;
       return key;
     },
+    i18n: { language: 'en', resolvedLanguage: 'en' },
   }),
   Trans: ({ children }: { children: React.ReactNode }) => children,
 }));
@@ -168,6 +175,8 @@ beforeEach(() => {
   mockPreviewCapture.mockReset();
   mockPreviewCapture.mockResolvedValue({
     dataUrl: 'data:image/png;base64,viewport',
+    width: 640,
+    height: 480,
     bearingDegrees: 0,
     scale: { distanceMeters: 500, widthPercent: 20 },
     annotations: [],
@@ -465,6 +474,8 @@ describe('App — ExportDialog (Story 6.1)', () => {
     await act(async () => {
       resolveCapture?.({
         dataUrl: 'data:image/png;base64,late',
+        width: 640,
+        height: 480,
         bearingDegrees: 0,
         scale: { distanceMeters: 500, widthPercent: 20 },
         annotations: [],
@@ -694,6 +705,36 @@ describe('App — progreso, cancelación y cleanup (Story 6.2G)', () => {
     expect(screen.getByText(/export\.outputNotPublished/)).toBeInTheDocument();
     expect(screen.queryByText(/disk is full/)).toBeNull();
     expect(screen.queryByText('export.successToast')).toBeNull();
+  });
+
+  it('muestra el mensaje accionable de capacidad cuando el preflight rechaza ambas rutas, nunca export() ni el toast genérico', async () => {
+    const user = userEvent.setup();
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    useVellumStore.getState().setCityData(mockCityData);
+    vi.mocked(mockRasterExporter.capabilitiesForSnapshot).mockReturnValueOnce({
+      legacy: { eligible: false, reason: 'pixels' },
+      tiled: { eligible: false, reason: 'flag' },
+    });
+
+    await act(async () => {
+      render(<App rasterExporter={mockRasterExporter} />);
+    });
+    await startExport(user);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/errors\.ExportCapacityUnavailable/),
+      ).toBeInTheDocument();
+    });
+    expect(screen.queryByText(/^errors\.ExportFailed$/)).toBeNull();
+    expect(mockRasterExporter.export).not.toHaveBeenCalled();
+    expect(consoleError).not.toHaveBeenCalledWith(
+      '[App] PNG export failed:',
+      expect.anything(),
+    );
+    consoleError.mockRestore();
   });
 
   it('cancela una exportación activa cuando cityData cambia (carga de otra ciudad)', async () => {

@@ -441,6 +441,7 @@ describe('MapLibreRenderer', () => {
     const fullMap = renderer.createExportSnapshot({
       ...baseSnapshotRequest,
       area: 'full-map',
+      targetLongEdge: 6000,
     });
 
     expect(viewport?.extent.minX).toBeGreaterThan(-8640);
@@ -467,13 +468,89 @@ describe('MapLibreRenderer', () => {
 
     const fullMap = renderer.createExportSnapshot({
       ...baseSnapshotRequest,
-      format: 'png-4x',
+      format: 'png-1x',
       area: 'full-map',
+      targetLongEdge: 6000,
     });
 
     // The CS1 world extent is square, so the surface must be square too — a
     // 1024x655 canvas must never letterbox the square world into its shape.
-    expect(fullMap?.surface).toEqual({ width: 4096, height: 4096 });
+    expect(fullMap?.surface).toEqual({ width: 6000, height: 6000 });
+  });
+
+  it('neutralizes bearing and pitch for full-map exports', async () => {
+    mockMap.getCanvas.mockReturnValue({
+      style: { cursor: '' },
+      clientWidth: 1024,
+      clientHeight: 655,
+      width: 1024,
+      height: 655,
+    } as never);
+    const renderer = makeRenderer();
+    await renderer.render(makeCityData(), { activeLayers: ALL_LAYERS_VISIBLE });
+
+    const fullMap = renderer.createExportSnapshot({
+      ...baseSnapshotRequest,
+      format: 'png-1x',
+      area: 'full-map',
+      targetLongEdge: 12000,
+    });
+
+    expect(fullMap?.camera).toMatchObject({ bearing: 0, pitch: 0 });
+    expect(fullMap?.camera).toMatchObject({ longitude: 1, latitude: 2 });
+  });
+
+  it('uses targetLongEdge for full-map output instead of the canvas size', async () => {
+    mockMap.getCanvas.mockReturnValue({
+      style: { cursor: '' },
+      clientWidth: 1024,
+      clientHeight: 655,
+      width: 1024,
+      height: 655,
+    } as never);
+    const renderer = makeRenderer();
+    await renderer.render(makeCityData(), { activeLayers: ALL_LAYERS_VISIBLE });
+
+    const fullMap = renderer.createExportSnapshot({
+      ...baseSnapshotRequest,
+      area: 'full-map',
+      targetLongEdge: 12000,
+    });
+
+    expect(fullMap?.surface).toEqual({ width: 12000, height: 12000 });
+  });
+
+  it('rounds targetLongEdge output for non-square city bounds', async () => {
+    mockMap.getCanvas.mockReturnValue({
+      style: { cursor: '' },
+      clientWidth: 1024,
+      clientHeight: 655,
+      width: 1024,
+      height: 655,
+    } as never);
+    const renderer = makeRenderer();
+    await renderer.render(
+      makeCityData({
+        bounds: {
+          minX: -9000,
+          maxX: 9000,
+          minZ: -8000,
+          maxZ: 8000,
+          seaLevel: 40,
+        },
+      }),
+      { activeLayers: ALL_LAYERS_VISIBLE },
+    );
+
+    const fullMap = renderer.createExportSnapshot({
+      ...baseSnapshotRequest,
+      area: 'full-map',
+      targetLongEdge: 12000,
+    });
+
+    expect(fullMap?.surface).toEqual({ width: 12000, height: 10667 });
+    expect(Number.isSafeInteger(fullMap?.surface.width)).toBe(true);
+    expect(Number.isSafeInteger(fullMap?.surface.height)).toBe(true);
   });
 
   it('rounds a full-map surface to safe integers for a non-exactly-square city', async () => {
@@ -500,8 +577,9 @@ describe('MapLibreRenderer', () => {
 
     const fullMap = renderer.createExportSnapshot({
       ...baseSnapshotRequest,
-      format: 'png-4x',
+      format: 'png-1x',
       area: 'full-map',
+      targetLongEdge: 6000,
     });
 
     expect(fullMap?.surface).not.toBeNull();
@@ -633,6 +711,8 @@ describe('MapLibreRenderer', () => {
 
     await expect(renderer.capturePreview()).resolves.toEqual({
       dataUrl: 'data:image/png;base64,viewport',
+      width: 1000,
+      height: 1000,
       bearingDegrees: 25,
       scale: expect.objectContaining({
         distanceMeters: expect.any(Number),

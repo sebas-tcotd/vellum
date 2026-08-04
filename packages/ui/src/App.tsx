@@ -353,6 +353,7 @@ export function App({
                 : 'white'
             }
             preview={exportPreview}
+            fullMapBounds={cityData.bounds}
             availability={{
               districts: cityData.districts.length > 0,
               parks: cityData.parkAreas.length > 0,

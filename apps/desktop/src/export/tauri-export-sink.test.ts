@@ -9,8 +9,9 @@ import { TauriExportSink } from './tauri-export-sink';
 const SESSION_ID = '11223344556677881122334455667788';
 
 const request = {
-  format: 'png-4x',
+  format: 'png-1x',
   area: 'full-map',
+  targetLongEdge: 6000,
   background: 'white',
   fileName: 'big-map',
   presentation: {} as ExportRequest['presentation'],

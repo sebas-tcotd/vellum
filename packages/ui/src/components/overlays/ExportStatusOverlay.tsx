@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import type { ExportProgress, ExportResult, VellumError } from '@vellum/core';
 import { cn } from '../../lib/utils';
+import { EXPORT_CAPACITY_UNAVAILABLE_REASON } from '../../hooks/use-export-workflow';
 
 export interface ExportStatusOverlayProps {
   isExporting: boolean;
@@ -87,14 +88,34 @@ export function ExportStatusOverlay({
       )}
       {exportError && (
         <div role="alert" className={cn(TOAST_CLASSNAME)}>
-          {t(
-            exportError.type === 'IoError'
-              ? 'errors.IoError'
-              : 'errors.ExportFailed',
-          )}{' '}
+          {t(exportErrorMessageKey(exportError))}{' '}
           {t('export.outputNotPublished')}
         </div>
       )}
     </>
   );
+}
+
+/**
+ * Selects the i18n key for a terminal export error.
+ *
+ * @remarks
+ * `reason` is matched by identity, never displayed — the sentinel is a
+ * stable internal string, not user-facing copy, so this doesn't violate the
+ * "never show `.reason`" rule; it only picks which localized key to render.
+ */
+function exportErrorMessageKey(
+  error: VellumError,
+):
+  | 'errors.IoError'
+  | 'errors.ExportCapacityUnavailable'
+  | 'errors.ExportFailed' {
+  if (error.type === 'IoError') return 'errors.IoError';
+  if (
+    error.type === 'ExportFailed' &&
+    error.reason === EXPORT_CAPACITY_UNAVAILABLE_REASON
+  ) {
+    return 'errors.ExportCapacityUnavailable';
+  }
+  return 'errors.ExportFailed';
 }

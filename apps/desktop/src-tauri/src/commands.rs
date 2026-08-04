@@ -23,6 +23,8 @@ pub struct ExportOptions {
     pub format: String,
     /// Spatial area to capture (e.g., `"viewport"`, `"full-map"`).
     pub area: String,
+    /// Explicit long-edge resolution for full-map exports.
+    pub target_long_edge: Option<u32>,
     /// Background rendering behavior (e.g., `"white"`, `"dark"`, `"transparent"`).
     pub background: String,
     /// Desired base filename provided by the user (without extension).
@@ -231,9 +233,27 @@ pub async fn load_themes(app_handle: tauri::AppHandle) -> Result<Vec<RawThemeFil
         })?
 }
 
+/// `full-map` only ever sends `png-1x` (see `FullMapExportDialogOptions` in
+/// `@vellum/core`) — `viewport` keeps all three densities.
+fn valid_area_and_format(options: &ExportOptions) -> bool {
+    match options.area.as_str() {
+        "viewport" => matches!(options.format.as_str(), "png-1x" | "png-2x" | "png-4x"),
+        "full-map" => options.format.as_str() == "png-1x",
+        _ => false,
+    }
+}
+
+fn valid_target_long_edge(options: &ExportOptions) -> bool {
+    match options.area.as_str() {
+        "viewport" => options.target_long_edge.is_none(),
+        "full-map" => matches!(options.target_long_edge, Some(6000 | 12000 | 16000 | 20000)),
+        _ => false,
+    }
+}
+
 fn validate_png_options(options: &ExportOptions) -> Result<(), VellumError> {
-    let valid = matches!(options.format.as_str(), "png-1x" | "png-2x" | "png-4x")
-        && matches!(options.area.as_str(), "viewport" | "full-map")
+    let valid = valid_area_and_format(options)
+        && valid_target_long_edge(options)
         && matches!(
             options.background.as_str(),
             "white" | "dark" | "transparent"
@@ -581,8 +601,9 @@ mod tests {
     #[test]
     fn png_options_reject_non_png_formats_and_unsafe_names() {
         let valid = ExportOptions {
-            format: "png-4x".into(),
+            format: "png-1x".into(),
             area: "full-map".into(),
+            target_long_edge: Some(6000),
             background: "transparent".into(),
             file_name: "Altavento".into(),
         };
@@ -596,9 +617,22 @@ mod tests {
             format: "png-1x".into(),
             file_name: "../../map.png".into(),
             area: "viewport".into(),
+            target_long_edge: None,
             background: "white".into(),
         };
         assert!(validate_png_options(&invalid_name).is_err());
+    }
+
+    #[test]
+    fn png_options_reject_scaled_formats_for_full_map() {
+        let scaled_full_map = ExportOptions {
+            format: "png-2x".into(),
+            area: "full-map".into(),
+            target_long_edge: Some(6000),
+            background: "transparent".into(),
+            file_name: "Altavento".into(),
+        };
+        assert!(validate_png_options(&scaled_full_map).is_err());
     }
 
     #[test]

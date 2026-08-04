@@ -3,12 +3,18 @@ import type {
   ExportBackground,
   ExportDialogOptions,
   ExportFormat,
+  ExportExtent,
   ExportPresentationOptions,
   ExportPreviewSnapshot,
+  ExportTargetLongEdge,
   LayerName,
   TransitMode,
 } from '@vellum/core';
-import { vellumLogoDataUri } from '@vellum/renderer-webgl';
+import { exportScaleForFormat } from '@vellum/core';
+import {
+  resolveFullMapOutputSurface,
+  vellumLogoDataUri,
+} from '@vellum/renderer-webgl';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../../lib/button';
@@ -66,6 +72,8 @@ export interface ExportDialogProps {
   defaultBackground: ExportBackground;
   /** Captured MapLibre viewport and its projection-derived metadata. */
   preview: ExportPreviewSnapshot | null;
+  /** Full city extent used to calculate target-resolution dimensions. */
+  fullMapBounds: Pick<ExportExtent, 'minX' | 'maxX' | 'minZ' | 'maxZ'>;
   /** Optional-content availability derived from the loaded city. */
   availability: ExportContentAvailability;
   /** Collection counts derived from the loaded city. */
@@ -96,7 +104,18 @@ type ExportChoiceKey =
   | 'export.format_png1x'
   | 'export.format_png2x'
   | 'export.format_png4x'
+  | 'export.format_png'
   | 'export.format_svg'
+  | 'export.quality'
+  | 'export.resolution_standard'
+  | 'export.resolution_standardDescription'
+  | 'export.resolution_high'
+  | 'export.resolution_highDescription'
+  | 'export.resolution_veryHigh'
+  | 'export.resolution_veryHighDescription'
+  | 'export.resolution_maximum'
+  | 'export.resolution_maximumDescription'
+  | 'export.outputDimensions'
   | 'export.area_viewport'
   | 'export.area_fullMap'
   | 'export.background_white'
@@ -116,6 +135,12 @@ interface ChoiceGroupProps<T extends string> {
   onChange: (value: T) => void;
 }
 
+interface ResolutionChoice {
+  value: ExportTargetLongEdge;
+  label: ExportChoiceKey;
+  description: ExportChoiceKey;
+}
+
 interface PresentationToggleProps {
   label: string;
   checked: boolean;
@@ -128,6 +153,29 @@ const FORMAT_CHOICES: Choice<ExportFormat>[] = [
   { value: 'png-2x', label: 'export.format_png2x' },
   { value: 'png-4x', label: 'export.format_png4x' },
   { value: 'svg', label: 'export.format_svg' },
+];
+
+const RESOLUTION_CHOICES: ResolutionChoice[] = [
+  {
+    value: 6000,
+    label: 'export.resolution_standard',
+    description: 'export.resolution_standardDescription',
+  },
+  {
+    value: 12000,
+    label: 'export.resolution_high',
+    description: 'export.resolution_highDescription',
+  },
+  {
+    value: 16000,
+    label: 'export.resolution_veryHigh',
+    description: 'export.resolution_veryHighDescription',
+  },
+  {
+    value: 20000,
+    label: 'export.resolution_maximum',
+    description: 'export.resolution_maximumDescription',
+  },
 ];
 
 const AREA_CHOICES: Choice<ExportArea>[] = [
@@ -213,6 +261,107 @@ function ChoiceGroup<T extends string>({
         ))}
       </div>
     </fieldset>
+  );
+}
+
+function ResolutionGroup({
+  value,
+  onChange,
+}: {
+  value: ExportTargetLongEdge;
+  onChange: (value: ExportTargetLongEdge) => void;
+}) {
+  const { t, i18n } = useTranslation();
+  const locale = i18n.resolvedLanguage ?? i18n.language;
+  return (
+    <fieldset className="space-y-2" data-testid="export-resolution-options">
+      <legend className="font-ui text-xs font-semibold">
+        {t('export.quality')}
+      </legend>
+      <div className="space-y-2">
+        {RESOLUTION_CHOICES.map((choice) => (
+          <label
+            key={choice.value}
+            className="flex cursor-pointer items-start gap-2 rounded-md border border-panel-border px-2 py-1.5 text-xs"
+          >
+            <input
+              type="radio"
+              name="export-resolution"
+              value={choice.value}
+              checked={value === choice.value}
+              onChange={() => onChange(choice.value)}
+            />
+            <span className="flex flex-col">
+              <span className="font-semibold">
+                {t(choice.label)} · {formatPixels(choice.value, locale)} px
+              </span>
+              <span className="opacity-70">{t(choice.description)}</span>
+            </span>
+          </label>
+        ))}
+      </div>
+    </fieldset>
+  );
+}
+
+function formatPixels(value: number, locale?: string): string {
+  return value.toLocaleString(locale);
+}
+
+function outputDimensions(
+  area: ExportArea,
+  format: ExportFormat,
+  targetLongEdge: ExportTargetLongEdge,
+  preview: ExportPreviewSnapshot | null,
+  bounds: ExportDialogProps['fullMapBounds'],
+): { width: number; height: number } | null {
+  if (area === 'viewport') {
+    if (!preview || format === 'svg') return null;
+    const scale = exportScaleForFormat(format);
+    return { width: preview.width * scale, height: preview.height * scale };
+  }
+  const extentWidth = bounds.maxX - bounds.minX;
+  const extentHeight = bounds.maxZ - bounds.minZ;
+  if (extentWidth <= 0 || extentHeight <= 0) return null;
+  return resolveFullMapOutputSurface(bounds, targetLongEdge);
+}
+
+function OutputDimensions({
+  area,
+  format,
+  targetLongEdge,
+  preview,
+  bounds,
+}: {
+  area: ExportArea;
+  format: ExportFormat;
+  targetLongEdge: ExportTargetLongEdge;
+  preview: ExportPreviewSnapshot | null;
+  bounds: ExportDialogProps['fullMapBounds'];
+}) {
+  const { t, i18n } = useTranslation();
+  const locale = i18n.resolvedLanguage ?? i18n.language;
+  const dimensions = outputDimensions(
+    area,
+    format,
+    targetLongEdge,
+    preview,
+    bounds,
+  );
+  if (!dimensions) return null;
+  const estimatedMegabytes = Math.max(
+    1,
+    Math.round((dimensions.width * dimensions.height * 1.1) / 1_000_000),
+  );
+  return (
+    <div
+      className="rounded-md border border-panel-border bg-muted/40 px-3 py-2 text-xs"
+      data-testid="export-output-dimensions"
+    >
+      <span className="font-semibold">{t('export.outputDimensions')}: </span>
+      {formatPixels(dimensions.width, locale)} ×{' '}
+      {formatPixels(dimensions.height, locale)} px · ~{estimatedMegabytes} MB
+    </div>
   );
 }
 
@@ -597,7 +746,10 @@ export function ExportDialog(props: ExportDialogProps) {
     initialFileName(props.cityName),
   );
   const [format, setFormat] = useState<ExportFormat>('png-1x');
+  const viewportFormatRef = useRef<ExportFormat>('png-1x');
   const [area, setArea] = useState<ExportArea>('viewport');
+  const [targetLongEdge, setTargetLongEdge] =
+    useState<ExportTargetLongEdge>(6000);
   const [background, setBackground] = useState<ExportBackground>(
     props.defaultBackground,
   );
@@ -607,7 +759,9 @@ export function ExportDialog(props: ExportDialogProps) {
     if (!props.open) return;
     setFileName(initialFileName(props.cityName));
     setFormat('png-1x');
+    viewportFormatRef.current = 'png-1x';
     setArea('viewport');
+    setTargetLongEdge(6000);
     setBackground(props.defaultBackground);
     setPresentationState(initialPresentation());
   }, [props.cityName, props.defaultBackground, props.open]);
@@ -625,13 +779,24 @@ export function ExportDialog(props: ExportDialogProps) {
   const handleExport = () => {
     if (!sanitizedFileName || props.isExporting) return;
     props.onOpenChange(false);
-    void props.onExport({
-      format,
-      area,
-      background,
-      fileName: sanitizedFileName,
-      presentation,
-    });
+    void props.onExport(
+      area === 'full-map'
+        ? {
+            format: 'png-1x',
+            area,
+            targetLongEdge,
+            background,
+            fileName: sanitizedFileName,
+            presentation,
+          }
+        : {
+            format,
+            area,
+            background,
+            fileName: sanitizedFileName,
+            presentation,
+          },
+    );
   };
 
   return (
@@ -683,19 +848,47 @@ export function ExportDialog(props: ExportDialogProps) {
                 className="h-9 w-full rounded-md border border-input bg-background px-3 font-normal"
               />
             </label>
-            <ChoiceGroup
-              legend={t('export.format')}
-              name="export-format"
-              value={format}
-              choices={FORMAT_CHOICES}
-              onChange={setFormat}
-            />
+            {area === 'viewport' ? (
+              <ChoiceGroup
+                legend={t('export.format')}
+                name="export-format"
+                value={format}
+                choices={FORMAT_CHOICES}
+                onChange={setFormat}
+              />
+            ) : (
+              <div className="text-xs" data-testid="export-format-png">
+                <span className="font-semibold">{t('export.format')}: </span>
+                {t('export.format_png')}
+              </div>
+            )}
             <ChoiceGroup
               legend={t('export.area')}
               name="export-area"
               value={area}
               choices={AREA_CHOICES}
-              onChange={setArea}
+              onChange={(nextArea) => {
+                setArea(nextArea);
+                if (nextArea === 'full-map') {
+                  viewportFormatRef.current = format;
+                  setFormat('png-1x');
+                } else {
+                  setFormat(viewportFormatRef.current);
+                }
+              }}
+            />
+            {area === 'full-map' ? (
+              <ResolutionGroup
+                value={targetLongEdge}
+                onChange={setTargetLongEdge}
+              />
+            ) : null}
+            <OutputDimensions
+              area={area}
+              format={format}
+              targetLongEdge={targetLongEdge}
+              preview={props.preview}
+              bounds={props.fullMapBounds}
             />
             <ChoiceGroup
               legend={t('export.background')}

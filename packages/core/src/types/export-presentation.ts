@@ -1,7 +1,7 @@
 import type {
-  ExportArea,
   ExportBackground,
   ExportFormat,
+  ExportTargetLongEdge,
 } from '../ipc-contract';
 
 /** A map annotation projected into preview-relative coordinates. */
@@ -30,6 +30,10 @@ export interface ExportPreviewScale {
 export interface ExportPreviewSnapshot {
   /** Captured viewport encoded as a PNG data URL. */
   dataUrl: string;
+  /** Captured viewport width in logical pixels. */
+  width: number;
+  /** Captured viewport height in logical pixels. */
+  height: number;
   /** Clockwise map bearing in degrees at capture time. */
   bearingDegrees: number;
   /** Projection-derived graphic scale at capture time. */
@@ -83,11 +87,9 @@ export interface ExportPresentationOptions {
  * pass this object to `export_png` or `export_svg` until the synchronized
  * TypeScript/Rust contract work in Stories 6.2 and 6.3.
  */
-export interface ExportDialogOptions {
+interface ExportDialogOptionsBase {
   /** Output format and raster scale. */
   format: ExportFormat;
-  /** Spatial area selected by the user. */
-  area: ExportArea;
   /** Background treatment selected by the user. */
   background: ExportBackground;
   /** Sanitized base filename without an extension. */
@@ -95,3 +97,27 @@ export interface ExportDialogOptions {
   /** Shared cartographic presentation configuration. */
   presentation: ExportPresentationOptions;
 }
+
+/** Export dialog configuration for the current viewport. */
+export interface ViewportExportDialogOptions extends ExportDialogOptionsBase {
+  /** Spatial area selected by the user. */
+  area: 'viewport';
+}
+
+/** Export dialog configuration for the complete city extent. */
+export interface FullMapExportDialogOptions extends Omit<
+  ExportDialogOptionsBase,
+  'format'
+> {
+  /** Spatial area selected by the user. */
+  area: 'full-map';
+  /** Full-map exports only ever request the base density. */
+  format: 'png-1x';
+  /** Long edge of the final raster in logical pixels. */
+  targetLongEdge: ExportTargetLongEdge;
+}
+
+/** Complete UI configuration prepared for the PNG and SVG exporters. */
+export type ExportDialogOptions =
+  | ViewportExportDialogOptions
+  | FullMapExportDialogOptions;

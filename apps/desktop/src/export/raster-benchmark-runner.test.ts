@@ -1,6 +1,13 @@
-import type { CapabilityReport, ExportSnapshot } from '@vellum/core';
+import type {
+  CapabilityReport,
+  ExportRequest,
+  ExportSink,
+  ExportSnapshot,
+} from '@vellum/core';
 import { makeCityData } from '@vellum/core/testing';
+import { LegacyRasterExporter } from '@vellum/renderer-webgl';
 import { describe, expect, it, vi } from 'vitest';
+import { ExportCoordinator } from './export-coordinator';
 import { RasterBenchmarkRunner } from './raster-benchmark-runner';
 
 const capability: CapabilityReport = {
@@ -70,8 +77,10 @@ describe('RasterBenchmarkRunner', () => {
       build: '8d94b1f',
     });
 
-    expect(exportRaster).toHaveBeenCalledTimes(18);
-    expect(report.cases).toHaveLength(18);
+    // 3 formats × 3 backgrounds (viewport) + 4 targetLongEdge presets × 3
+    // backgrounds (full-map, always png-1x) = 9 + 12.
+    expect(exportRaster).toHaveBeenCalledTimes(21);
+    expect(report.cases).toHaveLength(21);
     expect(report.cases.every((entry) => entry.route === 'tiled-png')).toBe(
       true,
     );
@@ -136,6 +145,105 @@ describe('RasterBenchmarkRunner', () => {
     ).rejects.toThrow(/Invalid benchmark area filter/);
   });
 
+  it('rechaza combinar un filtro de format con area: full-map', async () => {
+    const runner = new RasterBenchmarkRunner({
+      captureSnapshot: () => snapshot(),
+      exportRaster: vi.fn(),
+      getLastRoute: () => 'tiled-png',
+      getCapability: () => capability,
+      runWithRoute: async (_route, operation) => operation(),
+      releaseGpuContext: async () => undefined,
+    });
+
+    await expect(
+      runner.run({
+        fixture: 'altavento',
+        route: 'tiled',
+        repeats: 1,
+        warmup: false,
+        platform: 'macOS/WebKit',
+        build: 'test',
+        area: 'full-map',
+        format: 'png-4x',
+      }),
+    ).rejects.toThrow(/format cannot be combined with area "full-map"/);
+  });
+
+  it('registra un caso fallido con un rechazo legacy real, sin abortar el resto de la matriz', async () => {
+    // Uses the real ExportCoordinator + LegacyRasterExporter (not a mocked
+    // exportRaster) so the rejection is a genuine >64M-px pixel-cap failure,
+    // not just whatever a test double is told to throw.
+    const sink: ExportSink = {
+      begin: vi.fn().mockResolvedValue({
+        sessionId: 'session-benchmark',
+        mode: 'legacy-png',
+        maxChunkBytes: 1024,
+        maxInFlight: 1,
+      }),
+      append: vi.fn().mockResolvedValue({
+        sessionId: 'session-benchmark',
+        sequence: 0,
+        acceptedBytes: 1,
+        completedUnits: 1,
+      }),
+      finish: vi.fn().mockResolvedValue({
+        filePath: '/tmp/benchmark.png',
+        folderPath: '/tmp',
+      }),
+      cancel: vi.fn().mockResolvedValue(undefined),
+    };
+    const capture = vi.fn(async () => new Uint8Array([1]));
+    const coordinator = new ExportCoordinator(
+      new LegacyRasterExporter(capture),
+      sink,
+    );
+    const captureSnapshot = vi.fn(
+      (request: ExportRequest): ExportSnapshot => ({
+        ...snapshot(),
+        request,
+        surface:
+          request.area === 'full-map'
+            ? { width: request.targetLongEdge, height: request.targetLongEdge }
+            : { width: 400, height: 300 },
+      }),
+    );
+    const runner = new RasterBenchmarkRunner({
+      captureSnapshot,
+      exportRaster: (snap) => coordinator.export(snap),
+      getLastRoute: () => coordinator.getLastRoute(),
+      getCapability: () => capability,
+      runWithRoute: async (_route, operation) => operation(),
+      now: () => 123,
+      releaseGpuContext: async () => undefined,
+    });
+
+    const report = await runner.run({
+      fixture: 'altavento',
+      route: 'legacy',
+      repeats: 1,
+      warmup: false,
+      platform: 'macOS/WebKit',
+      build: 'test',
+      area: 'full-map',
+      background: 'dark',
+    });
+
+    expect(report.cases).toHaveLength(4);
+    // 6000² = 36M px — under the 64M legacy cap, genuinely eligible.
+    expect(report.cases[0]).toMatchObject({ targetLongEdge: 6000 });
+    expect(report.cases[0].error).toBeUndefined();
+    expect(capture).toHaveBeenCalledTimes(1);
+    // 12000/16000/20000 squared all exceed the cap — real ExportCapabilityError.
+    expect(
+      report.cases
+        .slice(1)
+        .every((entry) => entry.error?.includes('unavailable: pixels')),
+    ).toBe(true);
+    expect(report.cases.slice(1).every((entry) => entry.route === null)).toBe(
+      true,
+    );
+  });
+
   it('restringe la matriz a un solo caso cuando se filtra area/format/background', async () => {
     const exportSnapshot = vi.fn(() => snapshot());
     const exportRaster = vi.fn().mockResolvedValue({
@@ -159,7 +267,7 @@ describe('RasterBenchmarkRunner', () => {
       warmup: false,
       platform: 'macOS/WebKit',
       build: '8d94b1f',
-      area: 'full-map',
+      area: 'viewport',
       format: 'png-4x',
       background: 'dark',
     });
@@ -167,11 +275,45 @@ describe('RasterBenchmarkRunner', () => {
     expect(exportRaster).toHaveBeenCalledTimes(1);
     expect(report.cases).toEqual([
       expect.objectContaining({
-        area: 'full-map',
+        area: 'viewport',
         format: 'png-4x',
         background: 'dark',
       }),
     ]);
+  });
+
+  it('recorre los presets de targetLongEdge para full-map en vez del eje format', async () => {
+    const exportSnapshot = vi.fn(() => snapshot());
+    const exportRaster = vi.fn().mockResolvedValue({
+      filePath: '/private/output.png',
+      folderPath: '/private',
+    });
+    const runner = new RasterBenchmarkRunner({
+      captureSnapshot: exportSnapshot,
+      exportRaster,
+      getLastRoute: () => 'tiled-png',
+      getCapability: () => capability,
+      runWithRoute: async (_route, operation) => operation(),
+      now: () => 123,
+      releaseGpuContext: async () => undefined,
+    });
+
+    const report = await runner.run({
+      fixture: 'altavento',
+      route: 'tiled',
+      repeats: 1,
+      warmup: false,
+      platform: 'macOS/WebKit',
+      build: '8d94b1f',
+      area: 'full-map',
+      background: 'dark',
+    });
+
+    expect(exportRaster).toHaveBeenCalledTimes(4);
+    expect(report.cases.map((entry) => entry.targetLongEdge)).toEqual([
+      6000, 12000, 16000, 20000,
+    ]);
+    expect(report.cases.every((entry) => entry.format === 'png-1x')).toBe(true);
   });
 
   it('no exporta un snapshot de otra fixture mientras el mapa termina de cargar', async () => {

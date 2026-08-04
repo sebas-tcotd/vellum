@@ -1,8 +1,8 @@
 import type { CityData } from './city-data';
 import type {
-  ExportArea,
   ExportBackground,
   ExportFormat,
+  ExportTargetLongEdge,
 } from '../ipc-contract';
 import type { LayerOptions, LayerVisibility } from './layer';
 import type { RenderStyleParams } from './theme';
@@ -31,6 +31,20 @@ export function exportScaleForFormat(
   format: Exclude<ExportFormat, 'svg'>,
 ): ExportScale {
   return SCALE_BY_FORMAT[format];
+}
+
+/**
+ * Resolves the capture density for a raster request.
+ *
+ * @remarks
+ * `full-map` always captures at density 1 — `targetLongEdge` already encodes
+ * the exact output resolution, so multiplying by `exportScaleForFormat` would
+ * double-apply it. This is the single point of that rule; the renderer and
+ * legacy exporter must call this instead of repeating the
+ * `area === 'full-map' ? 1 : exportScaleForFormat(...)` conditional.
+ */
+export function exportScaleForRequest(request: ExportRequest): ExportScale {
+  return request.area === 'full-map' ? 1 : exportScaleForFormat(request.format);
 }
 
 /**
@@ -77,12 +91,10 @@ export interface ExportSurface {
   readonly height: number;
 }
 
-/** Raster-specific request captured in an export snapshot. */
-export interface ExportRequest {
+/** Shared raster request fields captured in an export snapshot. */
+interface ExportRequestBase {
   /** Requested PNG density. */
   readonly format: Exclude<ExportFormat, 'svg'>;
-  /** Area selected for capture. */
-  readonly area: ExportArea;
   /** Background selected for capture. */
   readonly background: ExportBackground;
   /** Base filename supplied by the caller; sanitization is outside this contract. */
@@ -90,6 +102,25 @@ export interface ExportRequest {
   /** Cartographic presentation options resolved at capture time. */
   readonly presentation: Readonly<ExportPresentationOptions>;
 }
+
+/** Raster request for the current viewport, preserving density semantics. */
+export interface ViewportExportRequest extends ExportRequestBase {
+  /** Area selected for capture. */
+  readonly area: 'viewport';
+}
+
+/** Raster request for the complete city extent at an explicit resolution. */
+export interface FullMapExportRequest extends ExportRequestBase {
+  /** Area selected for capture. */
+  readonly area: 'full-map';
+  /** Full-map exports only ever request the base density. */
+  readonly format: 'png-1x';
+  /** Long edge of the final raster in logical pixels. */
+  readonly targetLongEdge: ExportTargetLongEdge;
+}
+
+/** Raster-specific request captured in an export snapshot. */
+export type ExportRequest = ViewportExportRequest | FullMapExportRequest;
 
 /** Immutable input consumed by every future raster exporter. */
 export interface ExportSnapshot {
@@ -403,8 +434,25 @@ export interface ExportSink {
 export interface RasterExportV2 {
   /** Contract version for the new export boundary. */
   readonly version: 2;
-  /** Reports capability without changing renderer or store state. */
+  /**
+   * Reports device-level capability without changing renderer or store state.
+   *
+   * @deprecated Use {@link capabilitiesForSnapshot} after capturing a
+   * snapshot. This request-level method cannot evaluate dimensions or camera.
+   */
   capabilities(request: ExportRequest): Promise<ExportCapabilities>;
+  /**
+   * Reports the real, falsifiable per-operation eligibility for an already
+   * captured snapshot.
+   *
+   * @remarks
+   * `capabilities(request)` alone carries no camera/extent/surface, so it can
+   * only ever report device-level tiled eligibility and a static
+   * `legacy.eligible: true` — it cannot detect an oversized legacy surface or
+   * a rejected tile plan. This method re-runs the same checks `export()` is
+   * about to perform, so a caller can bail out before ever invoking it.
+   */
+  capabilitiesForSnapshot(snapshot: ExportSnapshot): ExportCapabilities;
   /** Exports one immutable snapshot and returns its persisted receipt. */
   export(
     snapshot: ExportSnapshot,
