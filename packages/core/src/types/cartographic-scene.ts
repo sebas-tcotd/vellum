@@ -182,14 +182,28 @@ export type SceneLayerId =
   | 'forests'
   | 'districts';
 
-/** Scene layers in painting order, bottom first. */
+/**
+ * Scene layers in painting order, bottom first.
+ *
+ * @remarks
+ * Forests sit low in the stack, under everything built — the interactive
+ * renderer registers them right after the basemap for the same reason. Drawn
+ * on top instead, a whole-map export turns into a green speckle that swallows
+ * the roads and buildings underneath it.
+ *
+ * One deliberate divergence from the interactive renderer: it registers roads
+ * *after* buildings, so streets paint over footprints. A printed map reads
+ * better the other way round — building blocks stay legible and roads behave
+ * like the gaps between them — so buildings paint last here. Everything else
+ * matches the registration order in `managers/map-source.manager.ts`.
+ */
 export const SCENE_LAYER_ORDER: readonly SceneLayerId[] = Object.freeze([
   'terrain',
   'water',
-  'roads',
-  'transit',
-  'buildings',
   'forests',
+  'roads',
+  'buildings',
+  'transit',
   'districts',
 ]);
 
