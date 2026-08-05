@@ -12,15 +12,28 @@
  * | Layer | Labelled? | Source |
  * | --- | --- | --- |
  * | `districts` | yes | `District.name` + `District.position` |
- * | `districts` (parks) | yes | `ParkArea.name` + `ParkArea.position`, gated on `showParkAreas` |
- * | `transit` | yes | `TransitLine.name`, falling back to `TransitLine.id` |
+ * | `districts` (parks) | yes | `ParkArea.name` + `ParkArea.position` |
+ * | `transit` | **no** | Product decision for v1 — see below |
  * | `roads` | **no** | `.cslmap` carries no street names — nothing to label with |
  * | `buildings` | **no** | `Building.name` is an asset name, not a place name |
  * | `terrain`/`water`/`forests` | **no** | No per-entity domain identity |
  *
- * `Building.name` is deliberately excluded: it is the game's asset identifier
- * ("Small House 03"), not a name a cartographer would print on a map, and
- * labelling every footprint with it would bury the map in noise.
+ * `Building.name` is excluded because it is the game's asset identifier
+ * ("Small House 03"), not a name a cartographer would print, and labelling
+ * every footprint with it would bury the map in noise.
+ *
+ * **Transit names and stop markers are out for v1.** The data supports them —
+ * `TransitLine.name` and the stop positions are right there — but a printed
+ * city map is not a transit diagram, and line labels crowded out the place
+ * names that are the point of the export. Revisiting this after v1 is a
+ * product decision, not a data problem. The symbol catalogue is still emitted
+ * into `<defs>` so a designer can place markers by hand.
+ *
+ * **The two interactive display toggles are deliberately ignored.**
+ * `districts.showNameOnMap` and `districts.showParkAreas` govern how much
+ * marker clutter the *interactive* map carries; a print export exists to
+ * carry the names. District and park names therefore appear on the same
+ * footing whenever the districts layer is visible.
  */
 
 import type {
@@ -29,9 +42,7 @@ import type {
   LayerVisibility,
   SceneLabel,
   SceneLabelStyle,
-  SceneSymbolId,
   SceneSymbolInstance,
-  TransitMode,
 } from '@vellum/core';
 import type { ResolvedColors } from '../style-adapter';
 
@@ -50,7 +61,6 @@ export const LABEL_FONT_FAMILY = "'DM Mono', ui-monospace, monospace";
 /** Label sizes in output pixels, per label kind. */
 const DISTRICT_FONT_PX = 13;
 const PARK_FONT_PX = 11;
-const TRANSIT_FONT_PX = 10;
 
 /** Halo width in output pixels — a stroke behind the glyphs, never a raster. */
 const HALO_WIDTH_PX = 2.5;
@@ -60,33 +70,22 @@ const HALO_WIDTH_PX = 2.5;
  *
  * @remarks
  * Districts name whole areas and are the coarsest, most useful text on a city
- * map, so they win over park and line names when the space is contested.
+ * map, so they win over park names when the space is contested.
  */
-const PRIORITY = Object.freeze({ district: 0, park: 1, transit: 2 });
-
-/** Transit modes mapped onto their catalogue entry. */
-const SYMBOL_BY_MODE: Readonly<Record<TransitMode, SceneSymbolId>> =
-  Object.freeze({
-    Bus: 'transit-bus',
-    Tram: 'transit-tram',
-    Train: 'transit-train',
-    Metro: 'transit-metro',
-    CableCar: 'transit-cablecar',
-    Monorail: 'transit-monorail',
-    Ferry: 'transit-ferry',
-    Blimp: 'transit-blimp',
-    Trolleybus: 'transit-trolleybus',
-    Unknown: 'transit-unknown',
-  });
-
-/** Rendered size of a transit symbol, in output pixels. */
-const TRANSIT_SYMBOL_PX = 11;
+const PRIORITY = Object.freeze({ district: 0, park: 1 });
 
 /** What one annotation pass produced, plus what it could not represent. */
 export interface SceneAnnotations {
   /** Labels in deterministic order. */
   readonly labels: readonly SceneLabel[];
-  /** Symbol instances in deterministic order. */
+  /**
+   * Symbol instances in deterministic order.
+   *
+   * @remarks
+   * Empty for v1: the catalogue is published in `<defs>` but nothing places an
+   * instance, because stop markers are out of scope. Kept in the shape so
+   * turning them back on is a change here rather than through the serializer.
+   */
   readonly symbols: readonly SceneSymbolInstance[];
   /** Entities skipped because the domain held no text for them. */
   readonly missingLabelSources: number;
@@ -120,7 +119,7 @@ export function buildSceneAnnotations(
   const labels: SceneLabel[] = [];
   const symbols: SceneSymbolInstance[] = [];
   let missingLabelSources = 0;
-  let symbolFallbacks = 0;
+  const symbolFallbacks = 0;
 
   if (input.activeLayers.districts) {
     for (const district of input.cityData.districts) {
@@ -136,63 +135,24 @@ export function buildSceneAnnotations(
         at: { x: district.position.x, z: district.position.z },
         anchor: 'center',
         priority: PRIORITY.district,
-        style: resolveLabelStyle(DISTRICT_FONT_PX, 600, input, 'district'),
+        style: resolveLabelStyle(DISTRICT_FONT_PX, 600, input),
       });
     }
 
-    if (input.layerOptions.districts.showParkAreas) {
-      for (const park of input.cityData.parkAreas) {
-        if (!hasText(park.name)) {
-          missingLabelSources += 1;
-          continue;
-        }
-        labels.push({
-          id: `label-park-${park.id}`,
-          layer: 'districts',
-          entityId: park.id,
-          text: park.name.trim(),
-          at: { x: park.position.x, z: park.position.z },
-          anchor: 'center',
-          priority: PRIORITY.park,
-          style: resolveLabelStyle(PARK_FONT_PX, 400, input, 'park'),
-        });
+    for (const park of input.cityData.parkAreas) {
+      if (!hasText(park.name)) {
+        missingLabelSources += 1;
+        continue;
       }
-    }
-  }
-
-  if (input.activeLayers.transit) {
-    const visibleModes = new Set<string>(
-      input.layerOptions.transit.visibleModes,
-    );
-    for (const line of input.cityData.transitLines) {
-      if (!visibleModes.has(line.mode)) continue;
-      const at = firstStopPosition(line);
-      if (!at) continue;
-
-      // Falling back to the identifier is not fabrication: an id is a real
-      // datum the user can correlate with the game. An empty name is not.
-      const text = hasText(line.name) ? line.name.trim() : line.id;
       labels.push({
-        id: `label-transit-${line.id}`,
-        layer: 'transit',
-        entityId: line.id,
-        text,
-        at,
-        anchor: 'left',
-        priority: PRIORITY.transit,
-        style: resolveLabelStyle(TRANSIT_FONT_PX, 500, input, 'transit'),
-      });
-
-      const symbol = SYMBOL_BY_MODE[line.mode];
-      if (symbol === 'transit-unknown') symbolFallbacks += 1;
-      symbols.push({
-        id: `symbol-transit-${line.id}`,
-        symbol: symbol ?? 'transit-unknown',
-        layer: 'transit',
-        entityId: line.id,
-        at,
-        sizePx: TRANSIT_SYMBOL_PX,
-        color: line.color || input.colors.ferry,
+        id: `label-park-${park.id}`,
+        layer: 'districts',
+        entityId: park.id,
+        text: park.name.trim(),
+        at: { x: park.position.x, z: park.position.z },
+        anchor: 'center',
+        priority: PRIORITY.park,
+        style: resolveLabelStyle(PARK_FONT_PX, 400, input),
       });
     }
   }
@@ -212,16 +172,12 @@ function resolveLabelStyle(
   fontSizePx: number,
   fontWeight: number,
   input: SceneAnnotationInput,
-  kind: 'district' | 'park' | 'transit',
 ): SceneLabelStyle {
   return {
     fontFamily: LABEL_FONT_FAMILY,
     fontSizePx,
     fontWeight,
-    color:
-      kind === 'transit'
-        ? input.colors.districtLabel
-        : input.colors.districtLabel,
+    color: input.colors.districtLabel,
     // A transparent export has no background to contrast against, so the halo
     // is omitted rather than guessed — an invented colour would be the one
     // thing the user cannot restyle away.
@@ -233,14 +189,4 @@ function resolveLabelStyle(
 
 function hasText(value: string | undefined): value is string {
   return typeof value === 'string' && value.trim().length > 0;
-}
-
-/** Anchors a line's label at its first stop, the only position it truly has. */
-function firstStopPosition(
-  line: CityData['transitLines'][number],
-): { x: number; z: number } | null {
-  const stop = line.stops[0];
-  if (!stop) return null;
-  const { x, z } = stop.position;
-  return Number.isFinite(x) && Number.isFinite(z) ? { x, z } : null;
 }

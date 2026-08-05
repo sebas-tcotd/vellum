@@ -521,8 +521,18 @@ function buildDistrictEntities(context: LayerContext): SceneEntity[] {
 
 // ─── Shared helpers ──────────────────────────────────────────────────────────
 
-/** Fraction of the document's shorter edge the watermark occupies. */
-const EMBLEM_SIZE_RATIO = 0.12;
+/**
+ * Fraction of the document's shorter edge the watermark occupies.
+ *
+ * @remarks
+ * The artwork carries `opacity="0.2"` of its own — it is a deliberately faint
+ * mark — so it only reads at size. `layer-watermark.ts` renders it through a
+ * zoom-interpolated `icon-size` that works out to roughly 220–360 CSS px on a
+ * ~1000 px canvas at the overview zooms where every layer is typically off,
+ * i.e. around 30% of the shorter edge. An earlier 12% was faithful to nothing
+ * and simply disappeared.
+ */
+const EMBLEM_SIZE_RATIO = 0.3;
 
 /**
  * Places the Vellum mark at the centre of the document.

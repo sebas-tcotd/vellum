@@ -66,7 +66,9 @@ describe('buildSceneAnnotations — the coverage matrix', () => {
     expect(result.missingLabelSources).toBe(1);
   });
 
-  it('labels park areas only when the user asked to see them', () => {
+  it('labels park areas on the same footing as districts', () => {
+    // `showParkAreas` governs interactive marker clutter; a print export
+    // exists to carry the names, so it is deliberately not consulted.
     const city = makeCityData({
       parkAreas: [
         {
@@ -77,22 +79,24 @@ describe('buildSceneAnnotations — the coverage matrix', () => {
         },
       ] as unknown as CityData['parkAreas'],
     });
-    expect(annotate(city).labels).toHaveLength(0);
-    const shown = annotate(city, {
+    expect(annotate(city).labels.map((label) => label.text)).toEqual([
+      'Parque Norte',
+    ]);
+    const withToggleOff = annotate(city, {
       layerOptions: {
         ...DEFAULT_LAYER_OPTIONS,
-        districts: { ...DEFAULT_LAYER_OPTIONS.districts, showParkAreas: true },
+        districts: { ...DEFAULT_LAYER_OPTIONS.districts, showParkAreas: false },
       },
     });
-    expect(shown.labels.map((label) => label.text)).toEqual(['Parque Norte']);
+    expect(withToggleOff.labels).toHaveLength(1);
   });
 
-  it('falls back to a line id, which is real data, not a fabricated name', () => {
+  it('never labels transit lines — out of scope for v1', () => {
     const city = makeCityData({
       transitLines: [
         makeTransitLine({
           id: 'line-7',
-          name: '',
+          name: 'Línea 7',
           mode: 'Metro',
           stops: [
             { id: 's1', position: { x: 0, y: 0, z: 0 } },
@@ -100,8 +104,11 @@ describe('buildSceneAnnotations — the coverage matrix', () => {
         }),
       ],
     });
-    const { labels } = annotate(city);
-    expect(labels.map((label) => label.text)).toEqual(['line-7']);
+    const { labels, symbols } = annotate(city);
+    // A printed city map is not a transit diagram; line names crowded out the
+    // place names the export exists for.
+    expect(labels).toHaveLength(0);
+    expect(symbols).toHaveLength(0);
   });
 
   it('never labels roads or buildings — the domain holds no place names', () => {
@@ -149,13 +156,16 @@ describe('buildSceneAnnotations — the coverage matrix', () => {
 });
 
 describe('buildSceneAnnotations — symbols', () => {
-  function cityWithMode(mode: string): CityData {
-    return makeCityData({
+  it('places no symbol instances at all in v1', () => {
+    // The catalogue is still published in `<defs>` by the serializer, so a
+    // designer can drop markers in by hand; what is out of scope is Vellum
+    // deciding where they go.
+    const city = makeCityData({
       transitLines: [
         makeTransitLine({
           id: 'l-1',
           name: 'Línea 1',
-          mode: mode as never,
+          mode: 'Bus',
           color: '#ff6600',
           stops: [
             { id: 's1', position: { x: 0, y: 0, z: 0 } },
@@ -163,50 +173,9 @@ describe('buildSceneAnnotations — symbols', () => {
         }),
       ],
     });
-  }
-
-  it.each([
-    ['Bus', 'transit-bus'],
-    ['Tram', 'transit-tram'],
-    ['Train', 'transit-train'],
-    ['Metro', 'transit-metro'],
-    ['CableCar', 'transit-cablecar'],
-    ['Monorail', 'transit-monorail'],
-    ['Ferry', 'transit-ferry'],
-    ['Blimp', 'transit-blimp'],
-    ['Trolleybus', 'transit-trolleybus'],
-  ])('covers the %s mode with its own catalogue entry', (mode, symbol) => {
-    const { symbols, symbolFallbacks } = annotate(cityWithMode(mode));
-    expect(symbols.map((instance) => instance.symbol)).toEqual([symbol]);
-    expect(symbolFallbacks).toBe(0);
-  });
-
-  it('reports a fallback rather than dropping an unknown mode', () => {
-    const { symbols, symbolFallbacks } = annotate(cityWithMode('Unknown'));
-    expect(symbols.map((instance) => instance.symbol)).toEqual([
-      'transit-unknown',
-    ]);
-    expect(symbolFallbacks).toBe(1);
-  });
-
-  it('carries the line colour and its own stable instance identity', () => {
-    const { symbols } = annotate(cityWithMode('Bus'));
-    expect(symbols[0]).toMatchObject({
-      id: 'symbol-transit-l-1',
-      entityId: 'l-1',
-      color: '#ff6600',
-    });
-  });
-
-  it('respects the transit mode filter', () => {
-    const filtered = annotate(cityWithMode('Bus'), {
-      layerOptions: {
-        ...DEFAULT_LAYER_OPTIONS,
-        transit: { visibleModes: ['Metro'] },
-      },
-    });
-    expect(filtered.symbols).toHaveLength(0);
-    expect(filtered.labels).toHaveLength(0);
+    const result = annotate(city);
+    expect(result.symbols).toEqual([]);
+    expect(result.symbolFallbacks).toBe(0);
   });
 });
 

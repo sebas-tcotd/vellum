@@ -526,10 +526,12 @@ describe('buildCartographicScene', () => {
     expect(scene.emblem!.svgMarkup).toContain('<path');
     expect(scene.emblem!.svgMarkup).not.toContain('<svg');
     expect(scene.emblem!.svgMarkup).not.toContain('data:image');
-    // Centred on the document, proportional to its shorter edge.
-    expect(scene.emblem!.widthPx).toBeCloseTo(1728 * 0.12, 6);
-    expect(scene.emblem!.xPx).toBeCloseTo((1728 - 1728 * 0.12) / 2, 6);
-    expect(scene.emblem!.yPx).toBeCloseTo((1728 - 1728 * 0.12) / 2, 6);
+    // The artwork carries opacity 0.2 of its own, so it only reads at size:
+    // 12% of the shorter edge was faithful to nothing and vanished on screen.
+    expect(scene.emblem!.svgMarkup).toContain('opacity="0.2"');
+    expect(scene.emblem!.widthPx).toBeCloseTo(1728 * 0.3, 6);
+    expect(scene.emblem!.xPx).toBeCloseTo((1728 - 1728 * 0.3) / 2, 6);
+    expect(scene.emblem!.yPx).toBeCloseTo((1728 - 1728 * 0.3) / 2, 6);
   });
 
   it('omits the mark when the watermark was off at capture time', () => {
