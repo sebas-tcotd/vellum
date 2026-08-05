@@ -38,6 +38,9 @@ export async function runSvgSerialization(
   let sequence = 0;
   try {
     for (const text of serializeSceneToSvg(scene, chunkTargetBytes)) {
+      // One chunk in flight at a time: nothing is emitted until Rust has
+      // accepted the previous one, so `maxInFlight = 1` holds inside the
+      // worker rather than only at the IPC edge.
       ports.emit({ type: 'chunk', snapshotId, sequence, text });
       const proceed = await ports.awaitAck(sequence);
       if (!proceed) {

@@ -31,6 +31,8 @@ import {
 } from '@vellum/core';
 import { buildCartographicScene } from '@vellum/renderer-webgl';
 import { resolveSvgExportPolicy } from './svg-export-policy';
+import type { SvgExportMetrics } from './svg-export-metrics';
+import { peakOf, readPeakMemoryBytes } from './svg-export-metrics';
 import type {
   SvgWorkerCommand,
   SvgWorkerEvent,
@@ -64,6 +66,14 @@ export interface SvgExporterOptions {
   readonly chunkTargetBytes?: number;
   /** Receives aggregated, privacy-safe fallbacks for localized surfacing. */
   readonly onWarnings?: (warnings: readonly SceneWarning[]) => void;
+  /**
+   * Receives the aggregated run metrics AC 10 requires.
+   *
+   * @remarks
+   * Duration, published size and peak memory only — never a path, a city
+   * name, or anything read out of `CityData`.
+   */
+  readonly onMetrics?: (metrics: SvgExportMetrics) => void;
 }
 
 /** Error raised when the snapshot's camera or surface rules out an SVG export. */
@@ -148,12 +158,16 @@ export class SvgExporter implements SvgExportPort {
       snapshot,
       background: snapshot.request.background,
       roadWidthFactor: policy.roadWidthFactor,
+      roadCasingAddPx: policy.roadCasingAddPx,
     });
     throwIfAborted(signal);
 
     const worker = this.options.createWorker();
+    const startedAt = Date.now();
+    const memoryAtStart = readPeakMemoryBytes();
     let session: ExportSession | null = null;
     let committed = false;
+    let bytes = 0;
     try {
       session = await this.options.sink.begin({
         mode: 'streaming-svg',
@@ -165,7 +179,7 @@ export class SvgExporter implements SvgExportPort {
         // "streaming" and checks completeness at the writer instead.
         expectedTiles: 0,
       });
-      const warnings = await this.pump(
+      const outcome = await this.pump(
         worker,
         session,
         snapshot,
@@ -173,9 +187,16 @@ export class SvgExporter implements SvgExportPort {
         signal,
         onProgress,
       );
+      bytes = outcome.bytes;
       const receipt = await this.options.sink.finish(session);
       committed = true;
-      this.options.onWarnings?.(warnings);
+      this.options.onWarnings?.(outcome.warnings);
+      this.options.onMetrics?.({
+        durationMs: Date.now() - startedAt,
+        byteLength: bytes,
+        chunks: outcome.chunks,
+        peakMemoryBytes: peakOf(memoryAtStart, readPeakMemoryBytes()),
+      });
       return receipt;
     } catch (error: unknown) {
       if (session && !committed) {
@@ -204,11 +225,12 @@ export class SvgExporter implements SvgExportPort {
     scene: CartographicScene,
     signal: AbortSignal,
     onProgress: ExportProgressCallback | undefined,
-  ): Promise<readonly SceneWarning[]> {
+  ): Promise<SvgPumpOutcome> {
     const { snapshotId } = snapshot;
-    return new Promise<readonly SceneWarning[]>((resolve, reject) => {
+    return new Promise<SvgPumpOutcome>((resolve, reject) => {
       let settled = false;
       let acceptedChunks = 0;
+      let acceptedBytes = 0;
 
       const settle = (outcome: () => void): void => {
         if (settled) return;
@@ -247,15 +269,22 @@ export class SvgExporter implements SvgExportPort {
           return;
         }
         if (event.type === 'ready-to-commit') {
-          settle(() => resolve(event.warnings));
+          settle(() =>
+            resolve({
+              warnings: event.warnings,
+              chunks: acceptedChunks,
+              bytes: acceptedBytes,
+            }),
+          );
           return;
         }
 
         void this.options.sink
           .append(session, { sequence: event.sequence, text: event.text })
-          .then(() => {
+          .then((ack) => {
             if (settled) return;
             acceptedChunks += 1;
+            acceptedBytes += ack.acceptedBytes;
             onProgress?.(
               buildProgress(snapshotId, session, acceptedChunks, 'composing'),
             );
@@ -305,6 +334,13 @@ function buildProgress(
     completedUnits: acceptedChunks,
     totalUnits: 0,
   };
+}
+
+/** What one completed pump reports back for metrics and warnings. */
+interface SvgPumpOutcome {
+  readonly warnings: readonly SceneWarning[];
+  readonly chunks: number;
+  readonly bytes: number;
 }
 
 function throwIfAborted(signal: AbortSignal): void {

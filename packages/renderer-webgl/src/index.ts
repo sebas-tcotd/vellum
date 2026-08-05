@@ -14,7 +14,9 @@ export {
 } from './export/cartographic-scene-builder';
 export {
   resolveRoadWidthPx,
+  roadCasingAddPxAtZoom,
   roadWidthFactorAtZoom,
+  ROAD_CASING_ADD_PX,
   ROAD_WIDTH_FACTOR_STOPS,
 } from './expressions/road-width-curve';
 export { zoomForWorldUnitsPerPixel } from './export/output-density';

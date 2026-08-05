@@ -327,4 +327,14 @@ describe('encodeSvgExportFrame', () => {
   it('respeta el presupuesto total de 64 MiB del frame', () => {
     expect(EXPORT_FRAME_MAX_TOTAL_BYTES).toBe(64 * 1024 * 1024);
   });
+
+  it('rechaza un payload declarado vacío, igual que Rust', () => {
+    const empty = EXPECTED_FRAME.slice(0, EXPORT_FRAME_HEADER_BYTES);
+    new DataView(empty.buffer, empty.byteOffset, empty.byteLength).setUint32(
+      72,
+      0,
+      true,
+    );
+    expect(() => decodeExportFrame(empty)).toThrow('empty');
+  });
 });

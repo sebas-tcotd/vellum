@@ -98,6 +98,7 @@ function build(
     snapshot: snapshot(cityData, overrides),
     background: 'white',
     roadWidthFactor,
+    roadCasingAddPx: 1.1,
   });
 }
 
@@ -292,6 +293,7 @@ describe('buildCartographicScene', () => {
         snapshot: base,
         background: 'white',
         roadWidthFactor: 1,
+        roadCasingAddPx: 1.1,
       }).background,
     ).toBe('#ffffff');
     expect(
@@ -299,6 +301,7 @@ describe('buildCartographicScene', () => {
         snapshot: base,
         background: 'dark',
         roadWidthFactor: 1,
+        roadCasingAddPx: 1.1,
       }).background,
     ).toBe('#101010');
     expect(
@@ -306,6 +309,7 @@ describe('buildCartographicScene', () => {
         snapshot: base,
         background: 'transparent',
         roadWidthFactor: 1,
+        roadCasingAddPx: 1.1,
       }).background,
     ).toBeNull();
   });
@@ -416,6 +420,98 @@ describe('buildCartographicScene', () => {
     expect(north).toBeLessThan(south!);
     expect(north).toBeCloseTo(0, 6);
     expect(south).toBeCloseTo(1728, 6);
+  });
+
+  it.each([
+    'Airplane Path',
+    'Ship Path',
+    'Water Facility',
+    'Earthquake Sensor',
+    'Firewatch',
+    'Radio',
+    'Tsunami Buoy',
+  ])('never draws the utility class %s as a building', (itemClass) => {
+    const city = makeCityData({
+      buildings: [
+        makeBuilding({
+          id: 'b-utility',
+          itemClass,
+          name: 'Utility',
+          footprint: [
+            { x: 0, y: 0, z: 0 },
+            { x: 10, y: 0, z: 0 },
+            { x: 10, y: 0, z: 10 },
+          ],
+        }),
+      ],
+    });
+    expect(layerEntities(build(city), 'buildings')).toHaveLength(0);
+  });
+
+  it('discards a polygon whose exterior ring is degenerate, holes and all', () => {
+    // Dropping only the bad ring would promote the first hole to exterior,
+    // painting a lake as solid land.
+    const city = makeCityData({
+      landPolygon: [
+        {
+          exterior: [
+            csToGeoArray({ x: 0, z: 0 }),
+            csToGeoArray({ x: 0, z: 0 }),
+            csToGeoArray({ x: 0, z: 0 }),
+          ],
+          holes: [
+            [
+              csToGeoArray({ x: 100, z: 100 }),
+              csToGeoArray({ x: 500, z: 100 }),
+              csToGeoArray({ x: 500, z: 500 }),
+            ],
+          ],
+        },
+      ] as CityData['landPolygon'],
+    });
+    const scene = build(city);
+    expect(
+      layerEntities(scene, 'terrain').filter((entity) =>
+        entity.id.includes('-land-'),
+      ),
+    ).toHaveLength(0);
+    expect(scene.warnings).toContainEqual(
+      expect.objectContaining({ code: 'degenerate-geometry' }),
+    );
+  });
+
+  it('reproduces transit dimming on every layer except transit itself', () => {
+    const city = makeCityData({
+      districts: [
+        { id: 'd-1', name: 'Centro', position: { x: 0, z: 0 } },
+      ] as CityData['districts'],
+    });
+    const dimmed = buildCartographicScene({
+      snapshot: { ...snapshot(city), transitDimming: true },
+      background: 'white',
+      roadWidthFactor: 7.25,
+      roadCasingAddPx: 1.1,
+    });
+    const district = layerEntities(dimmed, 'districts')[0]!;
+    // TRANSIT_DIM_FACTOR is 0.15; the district fill was fully opaque.
+    expect(district.fill!.opacity).toBeCloseTo(0.15, 10);
+    // Undimmed, it stays untouched — the flag is what drives it.
+    expect(layerEntities(build(city), 'districts')[0]!.fill!.opacity).toBe(
+      undefined,
+    );
+  });
+
+  it('adds the casing border the caller resolved, not one derived from the width', () => {
+    const scene = buildCartographicScene({
+      snapshot: snapshot(roadCity('Highway')),
+      background: 'white',
+      roadWidthFactor: 1,
+      roadCasingAddPx: 2.4,
+    });
+    const roads = layerEntities(scene, 'roads');
+    const casing = roads.find((entity) => entity.id.endsWith('-casing'))!;
+    const fill = roads.find((entity) => !entity.id.endsWith('-casing'))!;
+    expect(casing.stroke!.widthPx - fill.stroke!.widthPx).toBeCloseTo(2.4, 10);
   });
 
   it('never mutates the CityData it reads', () => {

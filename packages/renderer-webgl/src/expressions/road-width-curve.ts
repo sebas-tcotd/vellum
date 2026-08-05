@@ -28,6 +28,20 @@ export const ROAD_WIDTH_FACTOR_STOPS: ReadonlyArray<
 export const ROAD_WIDTH_INTERPOLATION_BASE = 2;
 
 /**
+ * Casing border added to the fill width, per stop of the same curve.
+ *
+ * @remarks
+ * Casing = fill width + a thin, gently growing border, so the outline stays
+ * legible under the much wider detail-zoom roads without ballooning itself.
+ * Lives here alongside the factor stops for the same reason they do: a static
+ * exporter has to reproduce the border a viewer would have seen, and a second
+ * copy of these numbers is how the two drift apart.
+ */
+export const ROAD_CASING_ADD_PX: readonly number[] = Object.freeze([
+  0.5, 0.9, 1.1, 2.4, 4,
+]);
+
+/**
  * Evaluates `factor(zoom)` exactly as MapLibre's
  * `['interpolate', ['exponential', 2], ['zoom'], ...]` would.
  *
@@ -45,24 +59,53 @@ export const ROAD_WIDTH_INTERPOLATION_BASE = 2;
  * @returns The multiplier applied to a tier's `scaledWidth`.
  */
 export function roadWidthFactorAtZoom(zoom: number): number {
+  return interpolateAtZoom(
+    zoom,
+    ROAD_WIDTH_FACTOR_STOPS.map(([, factor]) => factor),
+  );
+}
+
+/**
+ * Evaluates the casing border width at a zoom, on the same curve.
+ *
+ * @remarks
+ * MapLibre grows the border along the identical `interpolate exponential(2)`
+ * ramp as the fill; deriving it from the fill width instead (say
+ * `width × 0.25`) flattens the hierarchy, because the border would then scale
+ * with the tier rather than with the zoom.
+ *
+ * @param zoom - Zoom level to evaluate the curve at.
+ * @returns The border width in pixels to add to a tier's fill width.
+ */
+export function roadCasingAddPxAtZoom(zoom: number): number {
+  return interpolateAtZoom(zoom, ROAD_CASING_ADD_PX);
+}
+
+/** Interpolates per-stop outputs against the shared zoom anchors. */
+function interpolateAtZoom(zoom: number, outputs: readonly number[]): number {
   const stops = ROAD_WIDTH_FACTOR_STOPS;
   const first = stops[0];
   const last = stops[stops.length - 1];
-  // Defensive only: the frozen table above always has entries. Without this
+  // Defensive only: the frozen tables above always have entries. Without this
   // the non-null assertions below would be the thing standing between a
   // future empty table and a silent NaN width on every road.
-  if (!first || !last) return 1;
-  if (!Number.isFinite(zoom) || zoom <= first[0]) return first[1];
-  if (zoom >= last[0]) return last[1];
+  const firstOut = outputs[0];
+  const lastOut = outputs[outputs.length - 1];
+  if (!first || !last || firstOut === undefined || lastOut === undefined) {
+    return 1;
+  }
+  if (!Number.isFinite(zoom) || zoom <= first[0]) return firstOut;
+  if (zoom >= last[0]) return lastOut;
 
   for (let i = 1; i < stops.length; i += 1) {
-    const [lowZoom, lowFactor] = stops[i - 1]!;
-    const [highZoom, highFactor] = stops[i]!;
+    const lowZoom = stops[i - 1]![0];
+    const highZoom = stops[i]![0];
     if (zoom > highZoom) continue;
-    const t = exponentialProgress(zoom, lowZoom, highZoom);
-    return lowFactor + t * (highFactor - lowFactor);
+    const low = outputs[i - 1]!;
+    const high = outputs[i]!;
+    return low + exponentialProgress(zoom, lowZoom, highZoom) * (high - low);
   }
-  return last[1];
+  return lastOut;
 }
 
 /**

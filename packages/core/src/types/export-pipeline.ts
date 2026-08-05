@@ -122,23 +122,10 @@ export interface FullMapExportRequest extends ExportRequestBase {
 /** Raster-specific request captured in an export snapshot. */
 export type ExportRequest = ViewportExportRequest | FullMapExportRequest;
 
-/**
- * Vector request captured in an SVG export snapshot.
- *
- * @remarks
- * A separate discriminated shape rather than a widened {@link ExportRequest}:
- * `ExportScale` and `png-*` densities are meaningless for a vector document,
- * and letting them be type-legal here would make `format: 'svg', scale: 4`
- * representable with nothing able to check it. `targetLongEdge` is optional
- * and only meaningful for `full-map`, where it sizes the `viewBox`.
- */
-export interface SvgExportRequest {
+/** Shared vector request fields captured in an SVG export snapshot. */
+interface SvgExportRequestBase {
   /** Vector exports have exactly one format. */
   readonly format: 'svg';
-  /** Area selected for capture. */
-  readonly area: 'viewport' | 'full-map';
-  /** Long edge of the document in pixels; `full-map` only. */
-  readonly targetLongEdge?: ExportTargetLongEdge;
   /** Background selected for capture. */
   readonly background: ExportBackground;
   /** Base filename supplied by the caller; sanitization is outside this contract. */
@@ -146,6 +133,45 @@ export interface SvgExportRequest {
   /** Cartographic presentation options resolved at capture time. */
   readonly presentation: Readonly<ExportPresentationOptions>;
 }
+
+/** Vector request for the current viewport, whose size the canvas fixes. */
+export interface ViewportSvgExportRequest extends SvgExportRequestBase {
+  /** Area selected for capture. */
+  readonly area: 'viewport';
+  /**
+   * Never present: a viewport export is sized by the canvas.
+   *
+   * @remarks
+   * Declared as `never` rather than omitted so `{ area: 'viewport',
+   * targetLongEdge: 6000 }` is a type error instead of an excess property a
+   * spread would carry through unnoticed.
+   */
+  readonly targetLongEdge?: never;
+}
+
+/** Vector request for the complete city extent at an explicit document size. */
+export interface FullMapSvgExportRequest extends SvgExportRequestBase {
+  /** Area selected for capture. */
+  readonly area: 'full-map';
+  /** Long edge of the document in pixels; required for a full-map export. */
+  readonly targetLongEdge: ExportTargetLongEdge;
+}
+
+/**
+ * Vector request captured in an SVG export snapshot.
+ *
+ * @remarks
+ * Discriminated by `area`, mirroring {@link ExportRequest}, so the two invalid
+ * combinations are unrepresentable rather than merely discouraged: a viewport
+ * request cannot carry a `targetLongEdge` it would ignore, and a full-map one
+ * cannot omit the value that sizes its `viewBox`.
+ *
+ * `ExportScale` and the `png-*` densities stay out entirely — they are
+ * meaningless for a vector document.
+ */
+export type SvgExportRequest =
+  | ViewportSvgExportRequest
+  | FullMapSvgExportRequest;
 
 /** Every request shape an export snapshot may carry. */
 export type AnyExportRequest = ExportRequest | SvgExportRequest;
@@ -741,7 +767,17 @@ export function evaluateSvgCapability(
   ) {
     return { eligible: false, reason: 'dimensions' };
   }
-  if (extent.maxX <= extent.minX || extent.maxZ <= extent.minZ) {
+  // Finiteness is checked before the ordering comparisons, not folded into
+  // them: every comparison against `NaN` is false, so `maxX <= minX` would
+  // wave a `NaN` extent straight through into an unparseable `viewBox`.
+  if (
+    !Number.isFinite(extent.minX) ||
+    !Number.isFinite(extent.maxX) ||
+    !Number.isFinite(extent.minZ) ||
+    !Number.isFinite(extent.maxZ) ||
+    extent.maxX <= extent.minX ||
+    extent.maxZ <= extent.minZ
+  ) {
     return { eligible: false, reason: 'extent' };
   }
   return { eligible: true };

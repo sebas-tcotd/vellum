@@ -22,6 +22,10 @@ pub struct SvgWriter {
     writer: BufWriter<File>,
     accepted_chunks: u64,
     tail: Vec<u8>,
+    /// Trailing bytes of an incomplete multi-byte character, carried into the
+    /// next chunk so encoding is validated across the whole document rather
+    /// than per fragment.
+    utf8_carry: Vec<u8>,
 }
 
 fn writer_error(reason: &str) -> VellumError {
@@ -44,7 +48,30 @@ impl SvgWriter {
             writer: BufWriter::new(file),
             accepted_chunks: 0,
             tail: Vec::with_capacity(TAIL_BYTES),
+            utf8_carry: Vec::new(),
         })
+    }
+
+    /// Validates the stream is UTF-8, tolerating a character split across a
+    /// chunk boundary.
+    ///
+    /// # Errors
+    /// Returns `VellumError::ExportFailed` on a genuine encoding error.
+    fn validate_utf8(&mut self, payload: &[u8]) -> Result<(), VellumError> {
+        // Every chunk is checked, not just the first: a serializer bug or a
+        // corrupted transfer later in the document would otherwise reach the
+        // atomic rename. Bytes that merely *end* mid-character are carried
+        // forward instead of rejected.
+        let mut buffer = std::mem::take(&mut self.utf8_carry);
+        buffer.extend_from_slice(payload);
+        match std::str::from_utf8(&buffer) {
+            Ok(_) => Ok(()),
+            Err(error) if error.error_len().is_none() => {
+                self.utf8_carry = buffer[error.valid_up_to()..].to_vec();
+                Ok(())
+            }
+            Err(_) => Err(writer_error("chunk is not valid UTF-8")),
+        }
     }
 
     /// Keeps only the last [`TAIL_BYTES`] seen, so completeness is checkable
@@ -67,13 +94,7 @@ impl TileConsumer for SvgWriter {
     /// Returns `VellumError::ExportFailed` for a non-UTF-8 payload and
     /// `VellumError::IoError` when the write fails.
     fn accept(&mut self, _tile: &AcceptedTile, payload: &[u8]) -> Result<(), VellumError> {
-        // A chunk boundary may split a multi-byte character, so validate the
-        // encoding by reconstructing rather than requiring each chunk to be
-        // independently valid UTF-8 — the serializer splits on element
-        // boundaries, but this must not depend on that.
-        if std::str::from_utf8(payload).is_err() && self.accepted_chunks == 0 {
-            return Err(writer_error("first chunk is not valid UTF-8"));
-        }
+        self.validate_utf8(payload)?;
         self.writer
             .write_all(payload)
             .map_err(|e| VellumError::IoError {
@@ -92,6 +113,9 @@ impl TileConsumer for SvgWriter {
     fn finish(&mut self) -> Result<(), VellumError> {
         if self.accepted_chunks == 0 {
             return Err(writer_error("no chunk was appended"));
+        }
+        if !self.utf8_carry.is_empty() {
+            return Err(writer_error("document ends mid-character"));
         }
         self.writer.flush().map_err(|e| VellumError::IoError {
             reason: format!("svg export flush failed: {e}"),
@@ -169,6 +193,40 @@ mod tests {
     fn finish_rejects_a_document_with_no_chunks() {
         let path = temp_part("empty");
         let mut writer = SvgWriter::create(&path).unwrap();
+        assert!(writer.finish().is_err());
+        std::fs::remove_file(&path).unwrap();
+    }
+
+    #[test]
+    fn accepts_a_multi_byte_character_split_across_two_chunks() {
+        let path = temp_part("split-utf8");
+        let mut writer = SvgWriter::create(&path).unwrap();
+        // "ñ" is 0xC3 0xB1 — the split lands between its two bytes.
+        writer.accept(&zero_tile(), b"<svg id=\"\xc3").unwrap();
+        writer.accept(&zero_tile(), b"\xb1\"></svg>").unwrap();
+        writer.finish().unwrap();
+        assert_eq!(
+            std::fs::read_to_string(&path).unwrap(),
+            "<svg id=\"ñ\"></svg>"
+        );
+        std::fs::remove_file(&path).unwrap();
+    }
+
+    #[test]
+    fn rejects_invalid_utf8_in_a_later_chunk() {
+        let path = temp_part("late-bad-utf8");
+        let mut writer = SvgWriter::create(&path).unwrap();
+        writer.accept(&zero_tile(), b"<svg>").unwrap();
+        // 0xFF can never begin a UTF-8 sequence.
+        assert!(writer.accept(&zero_tile(), b"\xff\xfe").is_err());
+        std::fs::remove_file(&path).unwrap();
+    }
+
+    #[test]
+    fn finish_rejects_a_document_ending_mid_character() {
+        let path = temp_part("truncated-utf8");
+        let mut writer = SvgWriter::create(&path).unwrap();
+        writer.accept(&zero_tile(), b"<svg></svg>\xc3").unwrap();
         assert!(writer.finish().is_err());
         std::fs::remove_file(&path).unwrap();
     }

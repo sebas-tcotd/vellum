@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
   resolveRoadWidthPx,
+  roadCasingAddPxAtZoom,
   roadWidthFactorAtZoom,
 } from '@vellum/renderer-webgl';
 import {
   DEFAULT_LOCAL_ROAD_WIDTH_PX,
   LOCAL_ROAD_WIDTH_STYLE,
   resolveSvgExportPolicy,
+  SvgExportPolicyError,
 } from './svg-export-policy';
 
 /** `ROAD_WIDTH_STYLES` — duplicated here only so a drift in it fails loudly. */
@@ -124,6 +126,41 @@ describe('resolveSvgExportPolicy', () => {
     });
     expect(pinned.pixelsPerWorldUnit).toBe(policy.pixelsPerWorldUnit);
     expect(pinned.roadWidthFactor).not.toBe(policy.roadWidthFactor);
+  });
+
+  it('rejects a pinned width that could not produce a usable stroke', () => {
+    for (const localRoadWidthPx of [
+      0,
+      -3,
+      Number.NaN,
+      Number.POSITIVE_INFINITY,
+    ]) {
+      expect(() =>
+        resolveSvgExportPolicy({
+          outputWidth: 1000,
+          worldSpanX: 17280,
+          localRoadWidthPx,
+        }),
+      ).toThrow(SvgExportPolicyError);
+    }
+  });
+
+  it('resolves the casing border off the same zoom curve as the fill', () => {
+    const policy = resolveSvgExportPolicy({
+      outputWidth: 6000,
+      worldSpanX: 17280,
+    });
+    expect(policy.roadCasingAddPx).toBeCloseTo(
+      roadCasingAddPxAtZoom(policy.equivalentZoom),
+      10,
+    );
+    // A larger document sits at a higher zoom, so the border grows with it
+    // instead of being a fixed fraction of the fill.
+    const larger = resolveSvgExportPolicy({
+      outputWidth: 20000,
+      worldSpanX: 17280,
+    });
+    expect(larger.roadCasingAddPx).toBeGreaterThan(policy.roadCasingAddPx);
   });
 
   it('reports a zero geometric scale for a degenerate extent instead of Infinity', () => {

@@ -20,9 +20,13 @@ interface Rgb {
   readonly b: number;
 }
 
-const HEX_PATTERN = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;
+// Must accept everything `theme-engine`'s `isColorToken` accepts, or a theme
+// that validates cleanly still fails to mix and silently freezes on its start
+// colour: `#rgba`/`#rrggbbaa` hex, and `hsl()` with an optional `deg` suffix,
+// space or comma separators, and an optional alpha after `,` or `/`.
+const HEX_PATTERN = /^#([0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
 const HSL_PATTERN =
-  /^hsl\(\s*(-?[\d.]+)\s*[, ]\s*([\d.]+)%\s*[, ]\s*([\d.]+)%\s*\)$/i;
+  /^hsl\(\s*(-?\d+(?:\.\d+)?)(?:deg)?\s*[,\s]\s*(\d+(?:\.\d+)?)%\s*[,\s]\s*(\d+(?:\.\d+)?)%(?:\s*[,\s/]\s*(?:\d+(?:\.\d+)?%?|\.\d+))?\s*\)$/i;
 
 /**
  * Parses a `ColorToken` into RGB components.
@@ -34,13 +38,17 @@ function parseColorToken(token: string): Rgb | null {
   const hex = HEX_PATTERN.exec(token.trim());
   if (hex) {
     const digits = hex[1]!;
-    const full =
-      digits.length === 3
+    // Alpha is parsed but dropped: the ramp mixes opaque colours and the
+    // caller carries opacity as its own attribute, so a colour string never
+    // smuggles a second opacity channel into an export.
+    const expanded =
+      digits.length <= 4
         ? digits
             .split('')
             .map((digit) => digit + digit)
             .join('')
         : digits;
+    const full = expanded.slice(0, 6);
     return {
       r: Number.parseInt(full.slice(0, 2), 16),
       g: Number.parseInt(full.slice(2, 4), 16),

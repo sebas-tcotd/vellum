@@ -34,6 +34,14 @@ pub const MAX_SESSION_BYTES: u64 = 256 * 1024 * 1024;
 /// Maximum logical pixels covered by one export operation (AD-10; mirrors
 /// `MAX_TILED_LOGICAL_PIXELS` in `@vellum/core`).
 pub const MAX_LOGICAL_PIXELS: u64 = 1_000_000_000;
+/// Maximum payload accepted in a single `streaming-svg` chunk (AD-10's initial
+/// 1 MiB fragment budget).
+///
+/// Deliberately far below [`MAX_CHUNK_BYTES`]: a raster tile is an indivisible
+/// encoded image whose size the planner already bounds, whereas a serializer
+/// chooses its own fragment boundaries and so can — and must — respect a much
+/// smaller ceiling. Mirrored by `SVG_CHUNK_TARGET_BYTES` in `@vellum/core`.
+pub const MAX_SVG_CHUNK_BYTES: u64 = 1024 * 1024;
 
 const TEMP_FILE_PREFIX: &str = ".vellum-export-";
 const TEMP_FILE_SUFFIX: &str = ".part";
@@ -95,6 +103,14 @@ impl SessionMode {
         match self {
             Self::TiledPng => framing::KIND_PNG_TILE,
             Self::StreamingSvg => framing::KIND_SVG_CHUNK,
+        }
+    }
+
+    /// Payload ceiling this mode reports as `maxChunkBytes` and enforces.
+    fn max_chunk_bytes(self) -> u64 {
+        match self {
+            Self::TiledPng => MAX_CHUNK_BYTES,
+            Self::StreamingSvg => MAX_SVG_CHUNK_BYTES,
         }
     }
 }
@@ -488,7 +504,7 @@ impl ExportSessionManager {
         Ok(ExportSessionResponse {
             session_id,
             mode: mode.as_str().to_string(),
-            max_chunk_bytes: MAX_CHUNK_BYTES,
+            max_chunk_bytes: mode.max_chunk_bytes(),
             max_in_flight: 1,
         })
     }
@@ -538,7 +554,13 @@ impl ExportSessionManager {
         let frame_total_bytes = header_bytes
             .checked_add(encoded_len)
             .ok_or_else(|| budget_error("frame size overflows"))?;
-        if frame_total_bytes > MAX_PENDING_FRAME_BYTES {
+        // Checked against the mode's own ceiling, which is what `begin`
+        // reported as `maxChunkBytes` — not against the whole-session pending
+        // budget, or an SVG session would silently accept 64 MiB fragments
+        // after promising 1 MiB ones.
+        if encoded_len > session.mode.max_chunk_bytes()
+            || frame_total_bytes > MAX_PENDING_FRAME_BYTES
+        {
             return Err(budget_error("chunk exceeds maxChunkBytes"));
         }
         let new_accepted_bytes = checked_add_within_budget(
@@ -676,11 +698,15 @@ impl ExportSessionManager {
             });
         }
 
+        // Resolved at publish time, not at `begin`: a file could have appeared
+        // in the meantime, and the window between the two is exactly when a
+        // second export of the same city would collide.
+        let target = unique_destination(&final_path);
         let outcome = consumer_result.and_then(|()| {
-            std::fs::rename(&part_path, &final_path)
+            std::fs::rename(&part_path, &target)
                 .map(|()| ExportReceiptResponse {
-                    file_path: final_path.to_string_lossy().into_owned(),
-                    folder_path: final_path
+                    file_path: target.to_string_lossy().into_owned(),
+                    folder_path: target
                         .parent()
                         .map(|p| p.to_string_lossy().into_owned())
                         .unwrap_or_default(),
@@ -742,6 +768,42 @@ impl Default for ExportSessionManager {
         Self::new()
     }
 }
+
+/// Picks a destination that does not already exist, suffixing `" (n)"`.
+///
+/// `std::fs::rename` is not portable across an existing target: on Unix it
+/// silently replaces the file, on Windows it fails. Neither is acceptable —
+/// one destroys a map the user already exported, the other turns a re-export
+/// into an unexplained error. Choosing a free name gives both platforms the
+/// same behaviour, and it is the convention a Downloads folder already uses.
+///
+/// Falls back to the original path after [`MAX_NAME_ATTEMPTS`], so a pathological
+/// directory cannot spin here forever; the rename then reports the real error.
+fn unique_destination(desired: &Path) -> PathBuf {
+    if !desired.exists() {
+        return desired.to_path_buf();
+    }
+    let parent = desired.parent().unwrap_or(Path::new(""));
+    let stem = desired
+        .file_stem()
+        .map(|s| s.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    let extension = desired
+        .extension()
+        .map(|e| format!(".{}", e.to_string_lossy()))
+        .unwrap_or_default();
+
+    for attempt in 2..=MAX_NAME_ATTEMPTS {
+        let candidate = parent.join(format!("{stem} ({attempt}){extension}"));
+        if !candidate.exists() {
+            return candidate;
+        }
+    }
+    desired.to_path_buf()
+}
+
+/// Upper bound on `" (n)"` suffixes tried before giving up.
+const MAX_NAME_ATTEMPTS: u32 = 999;
 
 /// Removes stray `.vellum-export-*.part` files left behind by a crashed
 /// process. Restricted to the exact Vellum temp-file prefix/suffix so it can
@@ -1664,6 +1726,64 @@ mod tests {
         assert!(
             manager.begin(&svg_begin_metadata("vector"), &dir).is_ok(),
             "zero expectedTiles means 'unknown' only for streaming-svg"
+        );
+
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn svg_session_reports_and_enforces_the_one_mib_chunk_ceiling() {
+        let dir = unique_temp_dir("svg-chunk-ceiling");
+        let manager = ExportSessionManager::new();
+        let session = manager
+            .begin(&svg_begin_metadata("ceiling"), &dir)
+            .expect("begin must succeed");
+        assert_eq!(session.max_chunk_bytes, MAX_SVG_CHUNK_BYTES);
+
+        let oversized = vec![b'x'; usize::try_from(MAX_SVG_CHUNK_BYTES).unwrap() + 1];
+        assert!(manager
+            .append(&svg_frame_bytes(&session.session_id, 0, &oversized))
+            .is_err());
+
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn tiled_session_keeps_its_own_larger_chunk_ceiling() {
+        let dir = unique_temp_dir("png-chunk-ceiling");
+        let manager = manager_with(true, false);
+        let session = manager
+            .begin(&begin_metadata("png-ceiling", 10, 10), &dir)
+            .expect("begin must succeed");
+        assert_eq!(session.max_chunk_bytes, MAX_CHUNK_BYTES);
+
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn publishing_over_an_existing_file_picks_a_free_name_instead() {
+        let dir = unique_temp_dir("collision");
+        std::fs::write(dir.join("altavento.svg"), b"previous export").unwrap();
+        let manager = ExportSessionManager::new();
+        let session = manager
+            .begin(&svg_begin_metadata("altavento"), &dir)
+            .expect("begin must succeed");
+        manager
+            .append(&svg_frame_bytes(&session.session_id, 0, b"<svg></svg>"))
+            .expect("chunk must be accepted");
+
+        let receipt = manager
+            .finish(&session.session_id)
+            .expect("finish must publish");
+        assert_eq!(
+            receipt.file_path,
+            dir.join("altavento (2).svg").to_string_lossy()
+        );
+        // The earlier export must survive untouched — rename overwrites
+        // silently on Unix and fails outright on Windows.
+        assert_eq!(
+            std::fs::read_to_string(dir.join("altavento.svg")).unwrap(),
+            "previous export"
         );
 
         std::fs::remove_dir_all(&dir).unwrap();

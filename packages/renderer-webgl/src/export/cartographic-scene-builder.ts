@@ -49,6 +49,14 @@ import {
   buildTransitRenderData,
   buildWaterSurfaceGeoJson,
 } from '../geojson';
+import {
+  STATION_DOT_MIN_PX,
+  STATION_FILL,
+  STATION_STROKE,
+  STATION_STROKE_MIN_PX,
+  TRANSIT_LINE_MIN_PX,
+} from '../layers/layer-transit';
+import { TRANSIT_DIM_FACTOR } from '../constants/layer.constants';
 import { resolveColors, type ResolvedColors } from '../style-adapter';
 import { LINE_WIDTH_M, SLOT_M } from '../transit/render-geometry';
 
@@ -69,6 +77,16 @@ export interface CartographicSceneInput {
    * map at a given zoom instead.
    */
   readonly roadWidthFactor: number;
+  /**
+   * Casing border added to each road's fill width, in output pixels.
+   *
+   * @remarks
+   * Also the caller's, and for the same reason: MapLibre grows the border
+   * along its own zoom curve, so only the exporter knows which point of that
+   * curve its document sits at. Deriving it from the fill width here would
+   * make the border scale with the tier instead of with the scale.
+   */
+  readonly roadCasingAddPx: number;
 }
 
 /** Identifier prefix per layer, keeping generated ids collision-free. */
@@ -82,13 +100,16 @@ const ID_PREFIX: Readonly<Record<SceneLayerId, string>> = Object.freeze({
   districts: 'district',
 });
 
-// Stroke and marker sizes the interactive layers use as zoom-independent
-// literals (`layer-terrain.ts`, `layer-basemap.ts`, `layer-buildings.ts`,
-// `layer-forests.ts`, `layer-districts.ts`). Repeated here as export defaults
-// rather than imported, because those modules bind them into MapLibre paint
-// objects that a static document cannot consume.
+// Stroke and marker sizes the interactive layers bind into MapLibre paint
+// objects as plain literals. A static document cannot consume a paint object,
+// so the numbers are restated here — but the *station* styling is imported
+// from `layer-transit.ts` rather than copied, because those values are a fixed
+// cartographic convention (black-on-white, deliberately theme-independent) and
+// two copies of a convention is how they stop matching.
 const CONTOUR_WIDTH_PX = 0.5;
+const CONTOUR_OPACITY = 0.5;
 const COASTLINE_WIDTH_PX = 4;
+const COASTLINE_OPACITY = 0.8;
 const BUILDING_STROKE_PX = 0.5;
 const BUILDING_FILL_OPACITY = 0.85;
 const FOREST_MIN_RADIUS_PX = 1;
@@ -96,11 +117,6 @@ const FOREST_MAX_RADIUS_PX = 4;
 const FOREST_MIN_OPACITY = 0.3;
 const FOREST_MAX_OPACITY = 0.7;
 const DISTRICT_RADIUS_PX = 6;
-const STATION_RADIUS_PX = 3.4;
-const STATION_FILL = '#ffffff';
-const STATION_STROKE = '#111111';
-const STATION_STROKE_PX = 1.2;
-const MIN_TRANSIT_WIDTH_PX = 0.75;
 
 /**
  * Builds the neutral scene for one snapshot.
@@ -126,6 +142,13 @@ export function buildCartographicScene(
       warnings,
       pixelsPerWorldUnit,
       roadWidthFactor: input.roadWidthFactor,
+      roadCasingAddPx: input.roadCasingAddPx,
+      // The transit theme dims everything that is not transit. It is a
+      // renderer effect (`MapLayerManager.setTransitDimming` scales each
+      // non-transit layer's opacity), not UI chrome, so an export captured
+      // with it on has to reproduce it or it silently loses the emphasis the
+      // user was looking at.
+      dimFactor: snapshot.transitDimming ? TRANSIT_DIM_FACTOR : 1,
     }),
   );
 
@@ -150,6 +173,9 @@ interface LayerContext {
   readonly warnings: WarningTally;
   readonly pixelsPerWorldUnit: number;
   readonly roadWidthFactor: number;
+  readonly roadCasingAddPx: number;
+  /** Multiplier applied to every non-transit opacity; 1 when dimming is off. */
+  readonly dimFactor: number;
 }
 
 function buildLayer(id: SceneLayerId, context: LayerContext): SceneLayer {
@@ -158,7 +184,13 @@ function buildLayer(id: SceneLayerId, context: LayerContext): SceneLayer {
   // an editor finds the group where the z-order says it should be.
   const entities = visible ? LAYER_BUILDERS[id](context) : [];
   if (visible && entities.length === 0) context.warnings.add('empty-layer');
-  return { id, visible, entities };
+  // Transit is the layer the dimming exists to emphasise, so it keeps its own
+  // opacity while everything around it is knocked back.
+  const dimmed =
+    id === 'transit' || context.dimFactor === 1
+      ? entities
+      : entities.map((entity) => dimEntity(entity, context.dimFactor));
+  return { id, visible, entities: dimmed };
 }
 
 /** Maps the neutral layer ids onto the domain's `LayerVisibility` keys. */
@@ -231,6 +263,7 @@ function buildTerrainEntities(context: LayerContext): SceneEntity[] {
                 )
               : colors.contourLine,
             widthPx: CONTOUR_WIDTH_PX,
+            opacity: CONTOUR_OPACITY,
           },
         });
       },
@@ -268,6 +301,7 @@ function buildWaterEntities(context: LayerContext): SceneEntity[] {
         stroke: {
           color: colors.coastlineStroke,
           widthPx: COASTLINE_WIDTH_PX,
+          opacity: COASTLINE_OPACITY,
           lineJoin: 'round',
         },
       });
@@ -278,7 +312,8 @@ function buildWaterEntities(context: LayerContext): SceneEntity[] {
 }
 
 function buildRoadEntities(context: LayerContext): SceneEntity[] {
-  const { snapshot, colors, warnings, roadWidthFactor } = context;
+  const { snapshot, colors, warnings, roadWidthFactor, roadCasingAddPx } =
+    context;
   const casings: SceneEntity[] = [];
   const fills: SceneEntity[] = [];
 
@@ -301,7 +336,7 @@ function buildRoadEntities(context: LayerContext): SceneEntity[] {
       geometry,
       stroke: {
         color: colors.roadCasing[tier],
-        widthPx: widthPx + casingAddPx(widthPx),
+        widthPx: widthPx + roadCasingAddPx,
         lineCap: cap,
         lineJoin: 'round',
       },
@@ -321,19 +356,6 @@ function buildRoadEntities(context: LayerContext): SceneEntity[] {
   return [...casings, ...fills];
 }
 
-/**
- * Casing border added around a road's fill width.
- *
- * @remarks
- * `expressions/road-width.ts` grows this with zoom (0.5px at z11 → 4px at
- * z22). A static document has one scale, so the border is derived from the
- * fill width instead — proportional, with the same floor and ceiling as the
- * live curve, which keeps thin paths legible without ballooning wide ones.
- */
-function casingAddPx(widthPx: number): number {
-  return Math.min(4, Math.max(0.5, widthPx * 0.25));
-}
-
 function buildTransitEntities(context: LayerContext): SceneEntity[] {
   const { snapshot, colors, warnings, pixelsPerWorldUnit } = context;
   const visibleModes = new Set<string>(
@@ -341,7 +363,7 @@ function buildTransitEntities(context: LayerContext): SceneEntity[] {
   );
   const data = buildTransitRenderData(snapshot.cityData);
   const widthPx = Math.max(
-    MIN_TRANSIT_WIDTH_PX,
+    TRANSIT_LINE_MIN_PX,
     LINE_WIDTH_M * pixelsPerWorldUnit,
   );
   const slotWorld = SLOT_M;
@@ -376,10 +398,10 @@ function buildTransitEntities(context: LayerContext): SceneEntity[] {
       geometry: {
         kind: 'circle',
         center: geoToCs({ lng, lat }),
-        radiusPx: STATION_RADIUS_PX,
+        radiusPx: STATION_DOT_MIN_PX,
       },
       fill: { color: STATION_FILL },
-      stroke: { color: STATION_STROKE, widthPx: STATION_STROKE_PX },
+      stroke: { color: STATION_STROKE, widthPx: STATION_STROKE_MIN_PX },
     });
   }
 
@@ -521,7 +543,7 @@ function toWorldRings(
   warnings: WarningTally,
 ): ScenePoint[][] {
   const rings: ScenePoint[][] = [];
-  for (const ring of coordinates) {
+  for (const [index, ring] of coordinates.entries()) {
     const points: ScenePoint[] = [];
     for (const coordinate of ring) {
       const point = toWorldPoint(coordinate);
@@ -529,13 +551,39 @@ function toWorldRings(
     }
     if (countDistinct(points) < 3) {
       warnings.add('degenerate-geometry');
+      // GeoJSON puts the exterior ring first. Dropping it and keeping the
+      // rest would promote the first surviving *hole* to exterior, painting a
+      // lake as solid land. There is nothing to reconstruct the outline from,
+      // so the whole feature goes.
+      if (index === 0) return [];
       continue;
     }
     rings.push(points);
   }
-  // A polygon whose exterior ring was dropped cannot be reconstructed from its
-  // holes alone — discard the whole feature rather than draw the holes solid.
-  return rings.length === 0 || rings[0] === undefined ? [] : rings;
+  return rings;
+}
+
+/** Scales an entity's fill and stroke opacity, leaving its geometry alone. */
+function dimEntity(entity: SceneEntity, factor: number): SceneEntity {
+  return {
+    ...entity,
+    ...(entity.fill
+      ? {
+          fill: {
+            ...entity.fill,
+            opacity: (entity.fill.opacity ?? 1) * factor,
+          },
+        }
+      : {}),
+    ...(entity.stroke
+      ? {
+          stroke: {
+            ...entity.stroke,
+            opacity: (entity.stroke.opacity ?? 1) * factor,
+          },
+        }
+      : {}),
+  };
 }
 
 function countDistinct(points: readonly ScenePoint[]): number {

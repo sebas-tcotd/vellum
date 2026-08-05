@@ -387,7 +387,11 @@ describe('ExportDialog', () => {
 
   it('evita combinaciones de escala imposibles al seleccionar SVG', async () => {
     const user = userEvent.setup();
-    renderDialog();
+    // El preview por defecto está rotado 35°, que ahora deshabilita SVG:
+    // este caso prueba la lógica de escala, no la elegibilidad de cámara.
+    renderDialog({
+      preview: { ...defaultProps.preview!, bearingDegrees: 0 },
+    });
 
     await user.click(screen.getByLabelText('export.format_svg'));
 
@@ -396,6 +400,35 @@ describe('ExportDialog', () => {
       'svg',
     );
     expect(screen.queryByText('export.scale_4x')).toBeNull();
+  });
+
+  it('deshabilita SVG mientras la cámara está rotada, con una razón accionable', async () => {
+    const user = userEvent.setup();
+    // AC 19: una ruta no elegible vuelve a estado deshabilitado, en vez de
+    // dejarse elegir y fallar recién al confirmar la exportación.
+    renderDialog({
+      preview: { ...defaultProps.preview!, bearingDegrees: 35 },
+    });
+
+    const svg = screen.getByLabelText('export.format_svg');
+    expect(svg).toBeDisabled();
+    expect(svg.closest('label')).toHaveAttribute(
+      'title',
+      'errors.SvgExportUnsupportedCamera',
+    );
+
+    await user.click(svg);
+    expect(screen.getByTestId('export-preview')).toHaveAttribute(
+      'data-format',
+      'png-1x',
+    );
+  });
+
+  it('vuelve a ofrecer SVG cuando la cámara regresa a norte arriba', () => {
+    renderDialog({
+      preview: { ...defaultProps.preview!, bearingDegrees: 0 },
+    });
+    expect(screen.getByLabelText('export.format_svg')).toBeEnabled();
   });
 
   it('deshabilita opciones cuyos datos no están disponibles', () => {

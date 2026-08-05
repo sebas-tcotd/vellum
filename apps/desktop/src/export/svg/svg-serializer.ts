@@ -38,7 +38,7 @@ const COORDINATE_PRECISION = 2;
  * split mid-tag and the caller never has to re-join anything.
  *
  * @param scene - The neutral scene to serialize.
- * @param chunkTargetBytes - Soft ceiling for one fragment's UTF-16 length.
+ * @param chunkTargetBytes - Ceiling for one chunk's UTF-8 byte length.
  * @yields XML fragments in document order.
  */
 export function* serializeSceneToSvg(
@@ -208,11 +208,23 @@ export function attribute(value: string): string {
   );
 }
 
-/** Accumulates fragments and releases them once they reach the target size. */
+/**
+ * Accumulates fragments and releases them once they reach the target size.
+ *
+ * @remarks
+ * The budget is counted in **UTF-8 bytes**, not UTF-16 code units, because
+ * that is what the wire frame and the Rust session measure. A city name full
+ * of accents would otherwise let a chunk exceed a limit it appeared to
+ * respect.
+ *
+ * Counting is incremental: only the non-ASCII characters of each fragment are
+ * measured, so the common all-ASCII path stays a length lookup rather than a
+ * full re-encode per fragment.
+ */
 class ChunkBuffer {
   private readonly target: number;
   private parts: string[] = [];
-  private length = 0;
+  private bytes = 0;
 
   constructor(target: number) {
     // A non-positive target would release a chunk per fragment, which is
@@ -223,19 +235,34 @@ class ChunkBuffer {
   /** Adds a fragment, returning a chunk when the buffer is full enough. */
   push(fragment: string): string | null {
     this.parts.push(fragment);
-    this.length += fragment.length;
-    return this.length >= this.target ? this.take() : null;
+    this.bytes += utf8Length(fragment);
+    return this.bytes >= this.target ? this.take() : null;
   }
 
   /** Releases whatever is left; `null` when nothing is pending. */
   flush(): string | null {
-    return this.length > 0 ? this.take() : null;
+    return this.bytes > 0 ? this.take() : null;
   }
 
   private take(): string {
     const chunk = this.parts.join('');
     this.parts = [];
-    this.length = 0;
+    this.bytes = 0;
     return chunk;
   }
+}
+
+/** UTF-8 byte length of a string, without allocating an encoded copy. */
+function utf8Length(value: string): number {
+  let bytes = value.length;
+  for (let i = 0; i < value.length; i += 1) {
+    const code = value.charCodeAt(i);
+    if (code < 0x80) continue;
+    // Surrogate pairs already cost 2 UTF-16 units for a 4-byte character, so
+    // the lead surrogate adds the remaining 2 and the trail adds nothing.
+    if (code < 0x800) bytes += 1;
+    else if (code < 0xd800 || code >= 0xe000) bytes += 2;
+    else if (code < 0xdc00) bytes += 2;
+  }
+  return bytes;
 }

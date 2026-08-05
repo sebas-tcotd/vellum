@@ -26,6 +26,8 @@ const scope = self as unknown as DedicatedWorkerGlobalScope;
 
 /** Resolver for the acknowledgement the driver is currently waiting on. */
 let pendingAck: ((proceed: boolean) => void) | null = null;
+/** Sequence that resolver is waiting for; anything else is not our ack. */
+let pendingSequence: number | null = null;
 /** Operation currently being serialized; anything else is stale. */
 let activeSnapshotId: string | null = null;
 
@@ -45,6 +47,7 @@ scope.onmessage = (
     // the whole document has been produced.
     const resolve = pendingAck;
     pendingAck = null;
+    pendingSequence = null;
     activeSnapshotId = null;
     if (resolve) resolve(false);
     else emit({ type: 'cancelled', snapshotId: command.snapshotId });
@@ -52,9 +55,19 @@ scope.onmessage = (
   }
 
   if (command.type === 'ack') {
-    if (command.snapshotId !== activeSnapshotId) return;
+    // Correlating on `snapshotId` alone is not enough: a duplicated or
+    // out-of-order ack would release the chunk *after* the one it actually
+    // confirms, breaking `maxInFlight = 1` and letting an unacknowledged
+    // chunk be followed by another.
+    if (
+      command.snapshotId !== activeSnapshotId ||
+      command.sequence !== pendingSequence
+    ) {
+      return;
+    }
     const resolve = pendingAck;
     pendingAck = null;
+    pendingSequence = null;
     resolve?.(true);
     return;
   }
@@ -78,11 +91,12 @@ scope.onmessage = (
           resolve(false);
           return;
         }
-        void sequence;
         pendingAck = resolve;
+        pendingSequence = sequence;
       }),
   }).finally(() => {
     if (activeSnapshotId === command.snapshotId) activeSnapshotId = null;
     pendingAck = null;
+    pendingSequence = null;
   });
 };

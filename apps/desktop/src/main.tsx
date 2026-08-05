@@ -83,10 +83,16 @@ const svgExporter = new SvgExporter({
   },
   sink: new TauriSvgExportSink(),
   onWarnings: (warnings) => {
-    // Aggregated counts only — no path, city name, or CityData content — so
-    // this is safe to log next to the export metrics.
+    // Aggregated counts only — no path, city name, or CityData content.
+    // The user-facing half of this lives in `use-export-workflow`, which
+    // surfaces the localized keys; this is the diagnostic half.
     if (warnings.length > 0)
       console.info('[App] SVG export warnings', warnings);
+  },
+  onMetrics: (metrics) => {
+    // AC 10: duration, published size and peak memory. Every field is a
+    // number by construction, so nothing here can carry user data.
+    console.info('[App] SVG export metrics', metrics);
   },
 });
 let measuredCapability: CapabilityReport | null = null;

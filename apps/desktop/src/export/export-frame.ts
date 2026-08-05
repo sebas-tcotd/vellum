@@ -226,6 +226,11 @@ export function decodeExportFrame(bytes: Uint8Array): DecodedExportFrame {
   const renderRect = readRect(view, 56);
   const encodedLength = view.getUint32(72, true);
 
+  // Rust rejects an empty payload outright; accepting it here would let a
+  // round-trip test pass over a frame the real decoder refuses.
+  if (encodedLength === 0) {
+    throw new Error('Export frame encoded payload must not be empty');
+  }
   const expectedTotal = EXPORT_FRAME_HEADER_BYTES + encodedLength;
   if (bytes.byteLength < expectedTotal) {
     throw new Error('Export frame is truncated after the header');

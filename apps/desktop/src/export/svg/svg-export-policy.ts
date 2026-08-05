@@ -14,6 +14,7 @@
  */
 
 import {
+  roadCasingAddPxAtZoom,
   roadWidthFactorAtZoom,
   zoomForWorldUnitsPerPixel,
 } from '@vellum/renderer-webgl';
@@ -51,6 +52,14 @@ export interface SvgExportPolicy {
    * {@link SvgExportPolicy.pixelsPerWorldUnit} for the geometric scale.
    */
   readonly roadWidthFactor: number;
+  /**
+   * Casing border added to every road's fill width, in output pixels.
+   *
+   * @remarks
+   * Read off the same zoom curve MapLibre uses, so the outline keeps the
+   * proportion it has on screen instead of being guessed from the fill width.
+   */
+  readonly roadCasingAddPx: number;
   /**
    * MapLibre zoom this document's density corresponds to.
    *
@@ -109,22 +118,47 @@ export function resolveSvgExportPolicy(
   input: SvgExportPolicyInput,
 ): SvgExportPolicy {
   const pixelsPerWorldUnit =
-    input.worldSpanX > 0 ? input.outputWidth / input.worldSpanX : 0;
+    Number.isFinite(input.outputWidth) &&
+    Number.isFinite(input.worldSpanX) &&
+    input.worldSpanX > 0 &&
+    input.outputWidth > 0
+      ? input.outputWidth / input.worldSpanX
+      : 0;
   const equivalentZoom =
     pixelsPerWorldUnit > 0
       ? zoomForWorldUnitsPerPixel(1 / pixelsPerWorldUnit)
       : 0;
+  const pinned = input.localRoadWidthPx;
+  // A pinned width has to be a usable stroke. Left unchecked, a negative or
+  // non-finite override propagates into every road's `stroke-width` and Rust
+  // publishes a document full of invalid attributes — reject it here, where
+  // the caller's mistake is still local.
+  if (pinned !== undefined && (!Number.isFinite(pinned) || pinned <= 0)) {
+    throw new SvgExportPolicyError(
+      `localRoadWidthPx must be a positive finite number, received ${pinned}`,
+    );
+  }
   const roadWidthFactor =
-    input.localRoadWidthPx !== undefined
-      ? (input.localRoadWidthPx - LOCAL_ROAD_FIXED) / LOCAL_ROAD_SCALED
+    pinned !== undefined
+      ? (pinned - LOCAL_ROAD_FIXED) / LOCAL_ROAD_SCALED
       : roadWidthFactorAtZoom(equivalentZoom);
 
   return {
     roadWidthFactor,
+    roadCasingAddPx: roadCasingAddPxAtZoom(equivalentZoom),
     equivalentZoom,
     pixelsPerWorldUnit,
     localRoadWidthPx: LOCAL_ROAD_FIXED + LOCAL_ROAD_SCALED * roadWidthFactor,
   };
+}
+
+/** Raised when an export policy is asked for something it cannot resolve. */
+export class SvgExportPolicyError extends Error {
+  /** Creates a typed policy failure. */
+  constructor(message: string) {
+    super(message);
+    this.name = 'SvgExportPolicyError';
+  }
 }
 
 /**

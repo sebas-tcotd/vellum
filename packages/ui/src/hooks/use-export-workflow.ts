@@ -111,17 +111,18 @@ function buildExportRequest(
     presentation: options.presentation,
   } as const;
 
+  // Presentation is carried verbatim so the user's configuration round-trips,
+  // but the MVP renders none of it — `unsupportedSvgPresentationOptions`
+  // reports what was enabled so nothing ever looks applied when it was not.
   if (options.format === 'svg') {
-    return {
-      ...shared,
-      format: 'svg',
-      // Carried verbatim so the user's configuration round-trips, but the MVP
-      // renders none of it — `unsupportedSvgPresentationOptions` reports what
-      // was enabled so nothing ever looks applied when it was not.
-      ...(options.area === 'full-map'
-        ? { targetLongEdge: options.targetLongEdge }
-        : {}),
-    };
+    return options.area === 'full-map'
+      ? {
+          ...shared,
+          area: 'full-map',
+          format: 'svg',
+          targetLongEdge: options.targetLongEdge,
+        }
+      : { ...shared, area: 'viewport', format: 'svg' };
   }
   return options.area === 'full-map'
     ? {
@@ -270,6 +271,7 @@ export function useExportWorkflow({
   const [exportResult, setExportResult] = useState<ExportResult | null>(null);
   const [exportCancelled, setExportCancelled] = useState(false);
   const [exportError, setExportError] = useState<VellumError | null>(null);
+  const [exportWarnings, setExportWarnings] = useState<readonly string[]>([]);
   const abortControllerRef = useRef<AbortController | null>(null);
   const exportOperationRef = useRef<{
     snapshotId: string;
@@ -365,6 +367,12 @@ export function useExportWorkflow({
       // problem, not a silent no-op: SVG goes back to unavailable with an
       // actionable message instead of leaving the dialog in limbo.
       if (isSvg && (!svgExporter || !svgSnapshotCaptureRef)) {
+        // Clear the previous outcome first: bailing out while a prior success
+        // toast is still mounted would show "exported" and "unavailable" at
+        // the same time.
+        setExportResult(null);
+        setExportCancelled(false);
+        setExportProgress(null);
         setExportError({
           type: 'ExportFailed',
           reason: SVG_UNSUPPORTED_AREA_REASON,
@@ -378,6 +386,14 @@ export function useExportWorkflow({
       setExportCancelled(false);
       setExportResult(null);
       setExportProgress(null);
+      // AC 14/15: whatever the MVP cannot render is named up front, as i18n
+      // keys, so an omission is never published as an unqualified success.
+      setExportWarnings(
+        isSvg &&
+          unsupportedSvgPresentationOptions(request.presentation).length > 0
+          ? ['exportWarnings.svgUnsupportedPresentation']
+          : [],
+      );
       timedOutRef.current = false;
       // The one terminal, localized outcome for anything the AbortSignal
       // covers — a thrown AbortError, or a promise that raced to success
@@ -507,6 +523,7 @@ export function useExportWorkflow({
     exportResult,
     exportCancelled,
     exportError,
+    exportWarnings,
     handleCancelExport,
     handleOpenExport,
     handleExport,

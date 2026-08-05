@@ -32,6 +32,7 @@
 
 import type maplibregl from 'maplibre-gl';
 import {
+  ROAD_CASING_ADD_PX,
   ROAD_WIDTH_FACTOR_STOPS,
   ROAD_WIDTH_INTERPOLATION_BASE,
 } from './road-width-curve';
@@ -45,9 +46,8 @@ import {
 // second copy of these numbers.
 const FACTOR_STOPS = ROAD_WIDTH_FACTOR_STOPS;
 
-// Casing = fill width + a thin, gently growing border, so the outline stays
-// legible under the much wider detail-zoom roads without ballooning itself.
-const CASING_ADD_PX: readonly number[] = [0.5, 0.9, 1.1, 2.4, 4];
+// Shared with the SVG exporter — see `road-width-curve.ts`.
+const CASING_ADD_PX = ROAD_CASING_ADD_PX;
 
 /** `fixedWidth + scaledWidth × factor` (+ optional casing border) for one stop. */
 function widthOutput(
