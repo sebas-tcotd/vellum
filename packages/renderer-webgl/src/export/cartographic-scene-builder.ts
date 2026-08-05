@@ -37,6 +37,7 @@ import {
 import { geoToCs } from '../coordinate-transform';
 import { resolveBuildingColor } from '../expressions/building-color';
 import { resolveRoadWidthPx } from '../expressions/road-width-curve';
+import { resolveElevationColor } from '../expressions/terrain-relief';
 import {
   buildBuildingsGeoJson,
   buildCoastlineGeoJson,
@@ -205,6 +206,13 @@ function buildTerrainEntities(context: LayerContext): SceneEntity[] {
   );
 
   if (snapshot.layerOptions.terrain.showContourLines) {
+    // Hypsometric contours: each isoline is tinted by the altitude it actually
+    // sits at, using the theme's own `terrain.{low,mid,high}` ramp — the same
+    // one the GPU paints the relief with. This is what carries elevation in a
+    // vector document now that the meaningless document-wide gradient is gone,
+    // and unlike that gradient it cannot lie: a line's colour and its position
+    // both come from the same measured elevation.
+    const relief = snapshot.layerOptions.terrain.showColorRelief;
     buildContourLinesGeoJson(snapshot.cityData).features.forEach(
       (feature, index) => {
         const points = toWorldPath(feature.geometry.coordinates, warnings);
@@ -212,7 +220,18 @@ function buildTerrainEntities(context: LayerContext): SceneEntity[] {
         entities.push({
           id: `${ID_PREFIX.terrain}-contour-${index}`,
           geometry: { kind: 'path', points },
-          stroke: { color: colors.contourLine, widthPx: CONTOUR_WIDTH_PX },
+          stroke: {
+            // With relief switched off the user asked for a plain contour map,
+            // so the flat theme colour is the honest answer there.
+            color: relief
+              ? resolveElevationColor(
+                  colors.terrain,
+                  snapshot.cityData.terrainDem,
+                  feature.properties.elevation,
+                )
+              : colors.contourLine,
+            widthPx: CONTOUR_WIDTH_PX,
+          },
         });
       },
     );

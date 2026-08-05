@@ -22,6 +22,7 @@ import type { TerrainDem } from '@vellum/core';
 import type maplibregl from 'maplibre-gl';
 import { DEM_PAD_OFFSET } from '../sources/dem-protocol';
 import type { ResolvedColors } from '../style-adapter';
+import { mixColorTokens } from './color-mix';
 
 /** Smallest ramp domain accepted, in raw units, so a flat map never yields a zero-width interpolation. */
 const MIN_DOMAIN_RAW = 64;
@@ -37,9 +38,7 @@ export function buildColorReliefRamp(
   terrain: ResolvedColors['terrain'],
   dem: TerrainDem,
 ): maplibregl.ExpressionSpecification {
-  const min = dem.elevMin;
-  const max = Math.max(dem.elevMax, min + MIN_DOMAIN_RAW);
-  const mid = (min + max) / 2;
+  const { min, mid, max } = reliefDomain(dem);
 
   return [
     'interpolate',
@@ -57,4 +56,58 @@ export function buildColorReliefRamp(
     max,
     terrain.high,
   ] as unknown as maplibregl.ExpressionSpecification;
+}
+
+/**
+ * The ramp's three anchor elevations, in raw game units.
+ *
+ * @remarks
+ * Shared so the GPU expression above and the literal resolver below cannot
+ * drift onto different domains — the whole point of colouring an exported
+ * contour is that it lands on the colour the map would have painted there.
+ */
+function reliefDomain(dem: TerrainDem): {
+  min: number;
+  mid: number;
+  max: number;
+} {
+  const min = dem.elevMin;
+  const max = Math.max(dem.elevMax, min + MIN_DOMAIN_RAW);
+  return { min, mid: (min + max) / 2, max };
+}
+
+/**
+ * Resolves one elevation to its hypsometric colour, as a literal.
+ *
+ * @remarks
+ * The same `low → mid → high` linear ramp `buildColorReliefRamp` hands the
+ * GPU, evaluated in TypeScript for consumers with no expression engine. A
+ * static exporter uses it to tint contour lines by the altitude they actually
+ * sit at, so the ramp still comes from the active theme rather than from a
+ * hardcoded palette.
+ *
+ * Elevations outside the measured dry-land range clamp to the nearest anchor;
+ * the transparent out-of-map sentinel has no meaning for a line feature and is
+ * deliberately not reproduced.
+ *
+ * @param terrain - The theme's resolved terrain colours.
+ * @param dem - The city's DEM metadata, supplying the ramp domain.
+ * @param elevation - Elevation in raw game units.
+ * @returns A `#rrggbb` colour string.
+ */
+export function resolveElevationColor(
+  terrain: ResolvedColors['terrain'],
+  dem: TerrainDem,
+  elevation: number,
+): string {
+  const { min, mid, max } = reliefDomain(dem);
+  if (!Number.isFinite(elevation) || elevation <= min) return terrain.low;
+  if (elevation >= max) return terrain.high;
+  return elevation <= mid
+    ? mixColorTokens(terrain.low, terrain.mid, (elevation - min) / (mid - min))
+    : mixColorTokens(
+        terrain.mid,
+        terrain.high,
+        (elevation - mid) / (max - mid),
+      );
 }

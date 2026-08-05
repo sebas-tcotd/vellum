@@ -108,6 +108,14 @@ function layerEntities(
   return scene.layers.find((layer) => layer.id === id)!.entities;
 }
 
+/** A short polyline in WGS-84, offset so each ring is distinguishable. */
+function ring(offset: number): [number, number][] {
+  return [
+    csToGeoArray({ x: offset * 100, z: 0 }),
+    csToGeoArray({ x: offset * 100 + 500, z: 500 }),
+  ];
+}
+
 /** Two connected nodes so a segment survives `isValidSegment`. */
 function roadCity(itemClass: string, id = 'seg-1'): CityData {
   return makeCityData({
@@ -311,6 +319,54 @@ describe('buildCartographicScene', () => {
     for (const entity of layerEntities(scene, 'terrain')) {
       expect(entity.fill?.gradientId).toBeUndefined();
     }
+  });
+
+  it('tints contour lines by their own elevation, using the active theme ramp', () => {
+    const city = makeCityData({
+      terrainDem: {
+        dataUri: 'data:image/png;base64,',
+        elevMin: 0,
+        elevMax: 100,
+      },
+      contourLines: [
+        { elevation: 0, lines: [ring(0)] },
+        { elevation: 50, lines: [ring(1)] },
+        { elevation: 100, lines: [ring(2)] },
+      ],
+    });
+    const contours = layerEntities(build(city), 'terrain').filter((entity) =>
+      entity.id.includes('-contour-'),
+    );
+    // low / mid / high straight from RenderStyleParams.terrain — a theme
+    // change moves these, which is the whole point.
+    expect(contours.map((entity) => entity.stroke!.color)).toEqual([
+      '#d9e6c3',
+      '#c9b98a',
+      '#f2f2f2',
+    ]);
+  });
+
+  it('falls back to the flat contour colour when relief is switched off', () => {
+    // Relief off means the user asked for a plain contour map; tinting it
+    // would be applying an option they turned off.
+    const city = makeCityData({
+      terrainDem: {
+        dataUri: 'data:image/png;base64,',
+        elevMin: 0,
+        elevMax: 100,
+      },
+      contourLines: [{ elevation: 50, lines: [ring(0)] }],
+    });
+    const scene = build(city, {
+      layerOptions: {
+        ...DEFAULT_LAYER_OPTIONS,
+        terrain: { ...DEFAULT_LAYER_OPTIONS.terrain, showColorRelief: false },
+      },
+    });
+    const contour = layerEntities(scene, 'terrain').find((entity) =>
+      entity.id.includes('-contour-'),
+    )!;
+    expect(contour.stroke!.color).toBe('#b0a080');
   });
 
   it('handles an empty city without throwing and reports the empty layers', () => {
