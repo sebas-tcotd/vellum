@@ -122,8 +122,36 @@ export interface FullMapExportRequest extends ExportRequestBase {
 /** Raster-specific request captured in an export snapshot. */
 export type ExportRequest = ViewportExportRequest | FullMapExportRequest;
 
-/** Immutable input consumed by every future raster exporter. */
-export interface ExportSnapshot {
+/**
+ * Vector request captured in an SVG export snapshot.
+ *
+ * @remarks
+ * A separate discriminated shape rather than a widened {@link ExportRequest}:
+ * `ExportScale` and `png-*` densities are meaningless for a vector document,
+ * and letting them be type-legal here would make `format: 'svg', scale: 4`
+ * representable with nothing able to check it. `targetLongEdge` is optional
+ * and only meaningful for `full-map`, where it sizes the `viewBox`.
+ */
+export interface SvgExportRequest {
+  /** Vector exports have exactly one format. */
+  readonly format: 'svg';
+  /** Area selected for capture. */
+  readonly area: 'viewport' | 'full-map';
+  /** Long edge of the document in pixels; `full-map` only. */
+  readonly targetLongEdge?: ExportTargetLongEdge;
+  /** Background selected for capture. */
+  readonly background: ExportBackground;
+  /** Base filename supplied by the caller; sanitization is outside this contract. */
+  readonly fileName: string;
+  /** Cartographic presentation options resolved at capture time. */
+  readonly presentation: Readonly<ExportPresentationOptions>;
+}
+
+/** Every request shape an export snapshot may carry. */
+export type AnyExportRequest = ExportRequest | SvgExportRequest;
+
+/** Everything an export snapshot captures apart from the user's request. */
+export interface ExportSnapshotBase {
   /** Opaque identifier unique to this export operation. */
   readonly snapshotId: string;
   /** Parsed city model retained by reference and never mutated by export. */
@@ -144,12 +172,30 @@ export interface ExportSnapshot {
   readonly extent: ExportExtent;
   /** Temporary surface dimensions captured by value. */
   readonly surface: ExportSurface;
+}
+
+/** Immutable input consumed by every raster exporter. */
+export interface ExportSnapshot extends ExportSnapshotBase {
   /** User request captured by value. */
   readonly request: ExportRequest;
 }
 
-/** Arguments used to create an immutable {@link ExportSnapshot}. */
-export interface ExportSnapshotInput {
+/**
+ * Immutable input consumed by the SVG exporter.
+ *
+ * @remarks
+ * Structurally identical to {@link ExportSnapshot} except for `request`, which
+ * keeps raster and vector operations from ever being passed to the wrong
+ * exporter: a `SvgExportSnapshot` is not assignable to a raster port, and a
+ * raster snapshot is not assignable to {@link SvgExportPort}.
+ */
+export interface SvgExportSnapshot extends ExportSnapshotBase {
+  /** User request captured by value. */
+  readonly request: SvgExportRequest;
+}
+
+/** Arguments used to create an immutable snapshot, minus the request. */
+export interface ExportSnapshotInputBase {
   /** Optional caller-owned identifier, useful for reproducible harnesses. */
   readonly snapshotId?: string;
   /** Parsed city model retained by reference. */
@@ -170,8 +216,18 @@ export interface ExportSnapshotInput {
   readonly extent: ExportExtent;
   /** Current surface dimensions. */
   readonly surface: ExportSurface;
+}
+
+/** Arguments used to create an immutable {@link ExportSnapshot}. */
+export interface ExportSnapshotInput extends ExportSnapshotInputBase {
   /** Current export request. */
   readonly request: ExportRequest;
+}
+
+/** Arguments used to create an immutable {@link SvgExportSnapshot}. */
+export interface SvgExportSnapshotInput extends ExportSnapshotInputBase {
+  /** Current export request. */
+  readonly request: SvgExportRequest;
 }
 
 /** WebGL and canvas limits measured on a disposable surface. */
@@ -229,8 +285,16 @@ export interface ExportBaselineMetrics {
   readonly peakMemoryBytes: number | 'unknown';
 }
 
-/** Export route represented by a raster adapter and its sink. */
-export type ExportMode = 'legacy-png' | 'tiled-png';
+/**
+ * Export route represented by an adapter and its sink.
+ *
+ * @remarks
+ * AD-11: an exporter and a sink are paired by mode. `streaming-svg` carries
+ * UTF-8 XML chunks rather than encoded raster tiles, so it is never
+ * interchangeable with either PNG route even though it reuses the same
+ * transactional `begin/append/finish/cancel` lifecycle.
+ */
+export type ExportMode = 'legacy-png' | 'tiled-png' | 'streaming-svg';
 
 /** A rectangle expressed in output pixels. */
 export interface PixelRect {
@@ -311,12 +375,20 @@ export interface ExportBeginMetadata {
   /** Snapshot identifier associated with this operation. */
   readonly snapshotId: string;
   /** Request whose legacy fields are persisted by the sink. */
-  readonly request: ExportRequest;
+  readonly request: AnyExportRequest;
   /** Exact output width in pixels. */
   readonly outputWidth: number;
   /** Exact output height in pixels. */
   readonly outputHeight: number;
-  /** Number of chunks the adapter promises to append. */
+  /**
+   * Number of chunks the adapter promises to append.
+   *
+   * @remarks
+   * Zero is only legal for `streaming-svg`, where the chunk count is not
+   * knowable before serialization runs; the session then accepts any number
+   * of chunks and only requires at least one before publishing. Every raster
+   * route must declare a positive, exact tile budget.
+   */
   readonly expectedTiles: number;
 }
 
@@ -430,6 +502,79 @@ export interface ExportSink {
   cancel(session: ExportSession, reason: ExportCancelReason): Promise<void>;
 }
 
+/**
+ * Maximum bytes a single SVG chunk may carry.
+ *
+ * @remarks
+ * AD-10's initial 1 MiB chunk budget. Deliberately far below the session's
+ * 64 MiB in-flight ceiling: with `maxInFlight = 1`, a smaller chunk is what
+ * keeps peak memory bounded and cancellation responsive during a long
+ * serialization.
+ */
+export const SVG_CHUNK_TARGET_BYTES = 1024 * 1024;
+
+/** One UTF-8 XML fragment delivered from the SVG serializer to its sink. */
+export interface SvgTextChunk {
+  /** Strictly increasing chunk sequence, beginning at zero. */
+  readonly sequence: number;
+  /** XML fragment; concatenating every chunk in order yields the document. */
+  readonly text: string;
+}
+
+/** Persistence port for the transactional SVG streaming session. */
+export interface SvgExportSink {
+  /** Opens a `streaming-svg` session. */
+  begin(metadata: ExportBeginMetadata): Promise<ExportSession>;
+  /** Accepts one XML fragment. */
+  append(session: ExportSession, chunk: SvgTextChunk): Promise<AppendAck>;
+  /** Publishes the completed document and returns its receipt. */
+  finish(session: ExportSession): Promise<ExportReceipt>;
+  /** Abandons a session without publishing a file. */
+  cancel(session: ExportSession, reason: ExportCancelReason): Promise<void>;
+}
+
+/** Why an SVG export cannot be produced for a captured snapshot. */
+export type SvgUnavailableReason =
+  /** The camera is tilted; the MVP projection is strictly top-down. */
+  | 'camera-pitch'
+  /** The camera is rotated; the MVP projection has a fixed orientation. */
+  | 'camera-bearing'
+  /** The requested output surface is degenerate or not finite. */
+  | 'dimensions'
+  /** The requested area covers no world extent. */
+  | 'extent';
+
+/** Typed, non-throwing eligibility result for an SVG export. */
+export interface SvgCapabilityDecision {
+  /** Whether the snapshot can be exported as SVG. */
+  readonly eligible: boolean;
+  /** Technical reason for a negative decision. */
+  readonly reason?: SvgUnavailableReason;
+}
+
+/**
+ * Application-level vector export contract.
+ *
+ * @remarks
+ * Deliberately not folded into {@link RasterExportV2}: a caller holding this
+ * port cannot accidentally hand it a raster snapshot, and the raster
+ * coordinator's tile/capability vocabulary has no meaning here. AC 9 lives in
+ * {@link capabilitiesForSnapshot} — an unsupported camera is rejected before
+ * a session is ever opened, never silently flattened.
+ */
+export interface SvgExportPort {
+  /** Route implemented by this exporter. */
+  readonly mode: 'streaming-svg';
+  /** Reports eligibility for an already captured snapshot, without side effects. */
+  capabilitiesForSnapshot(snapshot: SvgExportSnapshot): SvgCapabilityDecision;
+  /** Serializes one snapshot and returns only a committed receipt. */
+  export(
+    snapshot: SvgExportSnapshot,
+    signal?: AbortSignal,
+    onProgress?: ExportProgressCallback,
+  ): Promise<ExportReceipt>;
+}
+
 /** Application-level raster export contract implemented by the coordinator. */
 export interface RasterExportV2 {
   /** Contract version for the new export boundary. */
@@ -535,10 +680,9 @@ function makeSnapshotId(): string {
   return `snapshot-${snapshotSequence}-${randomBytes[0].toString(16)}${randomBytes[1].toString(16)}-${Math.random().toString(16).slice(2)}`;
 }
 
-/** Creates a stable snapshot while retaining the original CityData reference. */
-export function createExportSnapshot(
-  input: ExportSnapshotInput,
-): ExportSnapshot {
+function freezeSnapshot<Request extends AnyExportRequest>(
+  input: ExportSnapshotInputBase & { readonly request: Request },
+): ExportSnapshotBase & { readonly request: Request } {
   const request = copy(input.request);
   deepFreeze(request);
   return Object.freeze({
@@ -554,6 +698,76 @@ export function createExportSnapshot(
     surface: deepFreeze(copy(input.surface)),
     request,
   });
+}
+
+/** Creates a stable snapshot while retaining the original CityData reference. */
+export function createExportSnapshot(
+  input: ExportSnapshotInput,
+): ExportSnapshot {
+  return freezeSnapshot(input);
+}
+
+/** Creates a stable SVG snapshot while retaining the original CityData reference. */
+export function createSvgExportSnapshot(
+  input: SvgExportSnapshotInput,
+): SvgExportSnapshot {
+  return freezeSnapshot(input);
+}
+
+/**
+ * Decides whether a captured snapshot can be exported as SVG.
+ *
+ * @remarks
+ * AC 9: an unsupported camera is a *content* rejection, not a device
+ * limitation — there is no GPU or encoder involved. Keeping it here, in the
+ * dependency-free core, is what lets both the exporter and its caller run the
+ * identical check without either owning the rule.
+ */
+export function evaluateSvgCapability(
+  snapshot: SvgExportSnapshot,
+): SvgCapabilityDecision {
+  const { camera, surface, extent } = snapshot;
+  if (!isNeutralAngle(camera.pitch)) {
+    return { eligible: false, reason: 'camera-pitch' };
+  }
+  if (!isNeutralAngle(normalizeBearing(camera.bearing))) {
+    return { eligible: false, reason: 'camera-bearing' };
+  }
+  if (
+    !Number.isFinite(surface.width) ||
+    !Number.isFinite(surface.height) ||
+    surface.width < 1 ||
+    surface.height < 1
+  ) {
+    return { eligible: false, reason: 'dimensions' };
+  }
+  if (extent.maxX <= extent.minX || extent.maxZ <= extent.minZ) {
+    return { eligible: false, reason: 'extent' };
+  }
+  return { eligible: true };
+}
+
+/**
+ * Tolerance in degrees for treating a camera angle as top-down/north-up.
+ *
+ * @remarks
+ * MapLibre reports floating-point angles, so an untouched camera can read as
+ * `1e-14` rather than exactly zero. A tolerance well below one degree accepts
+ * that noise while still rejecting any rotation or tilt a user could have
+ * applied deliberately.
+ */
+const CAMERA_ANGLE_EPSILON_DEG = 1e-6;
+
+function isNeutralAngle(degrees: number): boolean {
+  return (
+    Number.isFinite(degrees) && Math.abs(degrees) < CAMERA_ANGLE_EPSILON_DEG
+  );
+}
+
+function normalizeBearing(degrees: number): number {
+  if (!Number.isFinite(degrees)) return Number.NaN;
+  const wrapped = ((degrees % 360) + 360) % 360;
+  return wrapped > 180 ? wrapped - 360 : wrapped;
 }
 
 /**

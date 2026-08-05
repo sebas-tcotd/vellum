@@ -39,7 +39,6 @@ pub fn run() {
             commands::parse_cslmap,
             commands::export_png,
             commands::open_export_folder,
-            commands::export_svg,
             commands::load_themes,
             commands::begin_export,
             commands::append_export_chunk,

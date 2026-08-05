@@ -27,6 +27,8 @@ import {
   type ExportBackground,
   type ExportRequest,
   type ExportSnapshot,
+  type SvgExportRequest,
+  type SvgExportSnapshot,
   type IRenderer,
   type LayerName,
   type LayerOptions,
@@ -47,6 +49,7 @@ import {
 import type { PngExportOptions } from './export/export-types';
 import {
   buildExportSnapshot,
+  buildSvgExportSnapshot,
   getCurrentCamera,
 } from './export/export-snapshot-builder';
 import {
@@ -265,6 +268,21 @@ export class MapLibreRenderer implements IRenderer {
   createExportSnapshot(request: ExportRequest): ExportSnapshot | null {
     if (!this.cityData || !this.activeLayers) return null;
     return buildExportSnapshot({
+      map: this.map,
+      cityData: this.cityData,
+      style: this.style,
+      activeLayers: this.activeLayers,
+      layerOptions: this.layerOptions,
+      transitDimming: this.transitDimming,
+      watermarkVisible: this.watermarkVisible,
+      request,
+    });
+  }
+
+  /** Captures the same inputs for a vector export, keeping the camera intact. */
+  createSvgExportSnapshot(request: SvgExportRequest): SvgExportSnapshot | null {
+    if (!this.cityData || !this.activeLayers) return null;
+    return buildSvgExportSnapshot({
       map: this.map,
       cityData: this.cityData,
       style: this.style,

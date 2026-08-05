@@ -1,7 +1,11 @@
 import { useTranslation } from 'react-i18next';
 import type { ExportProgress, ExportResult, VellumError } from '@vellum/core';
 import { cn } from '../../lib/utils';
-import { EXPORT_CAPACITY_UNAVAILABLE_REASON } from '../../hooks/use-export-workflow';
+import {
+  EXPORT_CAPACITY_UNAVAILABLE_REASON,
+  SVG_UNSUPPORTED_AREA_REASON,
+  SVG_UNSUPPORTED_CAMERA_REASON,
+} from '../../hooks/use-export-workflow';
 
 export interface ExportStatusOverlayProps {
   isExporting: boolean;
@@ -109,13 +113,28 @@ function exportErrorMessageKey(
 ):
   | 'errors.IoError'
   | 'errors.ExportCapacityUnavailable'
+  | 'errors.SvgExportUnsupportedCamera'
+  | 'errors.SvgExportUnavailable'
   | 'errors.ExportFailed' {
   if (error.type === 'IoError') return 'errors.IoError';
-  if (
-    error.type === 'ExportFailed' &&
-    error.reason === EXPORT_CAPACITY_UNAVAILABLE_REASON
-  ) {
-    return 'errors.ExportCapacityUnavailable';
+  if (error.type === 'ExportFailed') {
+    const key = SENTINEL_MESSAGE_KEYS[error.reason];
+    if (key) return key;
   }
   return 'errors.ExportFailed';
 }
+
+/** Internal sentinel → localized key. Sentinels are matched, never displayed. */
+const SENTINEL_MESSAGE_KEYS: Readonly<
+  Record<
+    string,
+    | 'errors.ExportCapacityUnavailable'
+    | 'errors.SvgExportUnsupportedCamera'
+    | 'errors.SvgExportUnavailable'
+    | undefined
+  >
+> = {
+  [EXPORT_CAPACITY_UNAVAILABLE_REASON]: 'errors.ExportCapacityUnavailable',
+  [SVG_UNSUPPORTED_CAMERA_REASON]: 'errors.SvgExportUnsupportedCamera',
+  [SVG_UNSUPPORTED_AREA_REASON]: 'errors.SvgExportUnavailable',
+};

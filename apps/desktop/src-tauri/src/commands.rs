@@ -387,22 +387,15 @@ fn folder_reveal_command(path: &std::path::Path) -> std::process::Command {
     command
 }
 
-/// Exports the current map rendering state to a scalable vector graphic (SVG).
-///
-/// **Future Implementation (Story 6.3):** /// Currently a stub. Will generate mathematical vector outputs representing the `CityData` geometry.
-///
-/// # Errors
-/// Returns a `VellumError::ExportFailed` if the operation is unsupported or fails.
-#[tauri::command]
-pub async fn export_svg(_options: ExportOptions) -> Result<ExportResult, VellumError> {
-    // TODO(story-6.3): implementar exportación SVG
-    Err(VellumError::ExportFailed {
-        reason: "SVG export not yet implemented".to_string(),
-    })
-}
+// SVG export has no single-shot command. Story 6.3A's `export_svg` stub was
+// removed rather than implemented: a command that takes options and returns a
+// finished file can only build the whole document in memory first, which is
+// exactly what AC 10 forbids. Vector exports go through the session commands
+// below with `mode: "streaming-svg"`, like every other streaming route.
 
-// ─── Tiled export session (story 6.2C) ────────────────────────────────────────
-// Transactional boundary consumed by the tiled exporters landing in 6.2D–6.2F.
+// ─── Transactional export session (stories 6.2C, 6.3A) ────────────────────────
+// One binary boundary shared by the tiled-png compositor and the streaming-svg
+// writer; the session mode decides which consumer and frame kind apply.
 // Legacy `export_png` above is untouched and remains the only active/default
 // route; this session cannot publish a real composited PNG until 6.2F wires a
 // production `TileConsumer`.

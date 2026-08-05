@@ -33,6 +33,9 @@ import type {
   ExportSnapshot,
   LayerName,
   RasterExportV2,
+  SvgExportPort,
+  SvgExportRequest,
+  SvgExportSnapshot,
 } from '@vellum/core';
 import { useVellumStore } from './store/vellum-store';
 
@@ -72,6 +75,8 @@ export interface AppProps {
   exportSnapshotCaptureRef?: React.RefObject<
     ((request: ExportRequest) => ExportSnapshot | null) | null
   >;
+  /** Executes the injected vector exporter; SVG stays unavailable without it. */
+  svgExporter?: SvgExportPort;
 }
 
 /**
@@ -99,6 +104,7 @@ export function App({
   isExporting: isExportingProp = false,
   exportCancelHandlerRef,
   exportSnapshotCaptureRef,
+  svgExporter,
 }: AppProps) {
   const [i18nReady, setI18nReady] = useState(false);
   const [isCleanMode, setIsCleanMode] = useState(false);
@@ -116,6 +122,9 @@ export function App({
   >(null);
   const snapshotCaptureRef =
     exportSnapshotCaptureRef ?? ownedSnapshotCaptureRef;
+  const svgSnapshotCaptureRef = useRef<
+    ((request: SvgExportRequest) => SvgExportSnapshot | null) | null
+  >(null);
   const subscribeServiceIconLegendRef = useRef<
     ((callback: (state: ServiceIconLegendState) => void) => () => void) | null
   >(null);
@@ -157,9 +166,11 @@ export function App({
     cityData,
     loadingState,
     rasterExporter,
+    svgExporter,
     exportCancelHandlerRef,
     previewCaptureRef,
     snapshotCaptureRef,
+    svgSnapshotCaptureRef,
     isExportingProp,
   });
 
@@ -294,6 +305,7 @@ export function App({
             subscribeServiceIconLegendRef={subscribeServiceIconLegendRef}
             previewCaptureRef={previewCaptureRef}
             snapshotCaptureRef={snapshotCaptureRef}
+            svgSnapshotCaptureRef={svgSnapshotCaptureRef}
           />
         </div>
         {showEmptyState && <EmptyState />}

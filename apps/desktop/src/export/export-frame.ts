@@ -1,11 +1,21 @@
-import type { PixelRect, RasterTileChunk } from '@vellum/core';
+import type { PixelRect, RasterTileChunk, SvgTextChunk } from '@vellum/core';
 
-/** ASCII magic identifying a Vellum tiled-export wire frame. */
+/** ASCII magic identifying a Vellum export wire frame. */
 export const EXPORT_FRAME_MAGIC = 'VEXP';
 /** Wire format version encoded in every frame header. */
 export const EXPORT_FRAME_VERSION = 1;
-/** `kind` value for a PNG tile chunk — the only kind this story emits. */
+/** `kind` value for a PNG tile chunk. */
 export const EXPORT_FRAME_KIND_PNG_TILE = 1;
+/**
+ * `kind` value for a UTF-8 SVG text chunk.
+ *
+ * @remarks
+ * Reuses the same fixed 76-byte header rather than adding a second wire
+ * layout. A text fragment has no tile or rectangle geometry, so those fields
+ * are written as zeroes — and Rust *rejects* a non-zero one, so a frame can
+ * never carry raster geometry the SVG writer would quietly discard.
+ */
+export const EXPORT_FRAME_KIND_SVG_CHUNK = 2;
 /** Fixed size in bytes of the v1 header, before the encoded PNG payload. */
 export const EXPORT_FRAME_HEADER_BYTES = 76;
 /**
@@ -37,6 +47,8 @@ export interface ExportFrameInput {
 
 /** Result of decoding one wire frame — used by round-trip tests. */
 export interface DecodedExportFrame {
+  /** Payload discriminator recovered from the header. */
+  readonly kind: number;
   /** Session id recovered from the header, re-encoded as 32 lowercase hex characters. */
   readonly sessionId: string;
   /** Strictly increasing chunk sequence. */
@@ -115,6 +127,62 @@ export function encodeExportFrame(
 }
 
 /**
+ * Encodes one SVG text chunk into the same fixed 76-byte v1 wire frame.
+ *
+ * @remarks
+ * Anticipatory validation only — Rust re-validates every field, including that
+ * the zeroed raster fields really are zero. The text is encoded as UTF-8 here
+ * and never re-encoded downstream, so a chunk's on-wire size is its byte
+ * length, not its character count.
+ *
+ * @param sessionId - Session id as 32 lowercase hex characters.
+ * @param chunk - Sequence and XML fragment to encode.
+ * @param maxChunkBytes - Session-reported ceiling for the encoded payload.
+ * @returns The raw frame bytes, ready to pass directly to `invoke()`.
+ */
+export function encodeSvgExportFrame(
+  sessionId: string,
+  chunk: SvgTextChunk,
+  maxChunkBytes: number,
+): Uint8Array {
+  const sessionIdBytes = decodeSessionIdHex(sessionId);
+  const payload = new TextEncoder().encode(chunk.text);
+  const encodedLength = payload.byteLength;
+  if (encodedLength <= 0) {
+    throw new Error('Export frame requires a non-empty encoded payload');
+  }
+  if (encodedLength > maxChunkBytes) {
+    throw new Error(
+      `Export frame encoded payload (${encodedLength} bytes) exceeds maxChunkBytes (${maxChunkBytes})`,
+    );
+  }
+  const totalBytes = EXPORT_FRAME_HEADER_BYTES + encodedLength;
+  if (totalBytes > EXPORT_FRAME_MAX_TOTAL_BYTES) {
+    throw new Error(
+      `Export frame total size (${totalBytes} bytes) exceeds the ${EXPORT_FRAME_MAX_TOTAL_BYTES}-byte IPC pending budget`,
+    );
+  }
+  assertSequence(chunk.sequence);
+
+  const buffer = new ArrayBuffer(totalBytes);
+  const bytes = new Uint8Array(buffer);
+  const view = new DataView(buffer);
+
+  bytes.set(MAGIC_BYTES, 0);
+  view.setUint16(4, EXPORT_FRAME_VERSION, true);
+  view.setUint8(6, EXPORT_FRAME_KIND_SVG_CHUNK);
+  view.setUint8(7, 0);
+  bytes.set(sessionIdBytes, 8);
+  view.setBigUint64(24, BigInt(chunk.sequence), true);
+  // Offsets 32..72 (tileX, tileY, usefulRect, renderRect) stay zero — the
+  // ArrayBuffer is already zero-filled, and Rust requires exactly that.
+  view.setUint32(72, encodedLength, true);
+  bytes.set(payload, EXPORT_FRAME_HEADER_BYTES);
+
+  return bytes;
+}
+
+/**
  * Decodes and validates one wire frame produced by {@link encodeExportFrame}.
  *
  * @remarks
@@ -139,7 +207,10 @@ export function decodeExportFrame(bytes: Uint8Array): DecodedExportFrame {
     throw new Error(`Unsupported export frame version: ${version}`);
   }
   const kind = view.getUint8(6);
-  if (kind !== EXPORT_FRAME_KIND_PNG_TILE) {
+  if (
+    kind !== EXPORT_FRAME_KIND_PNG_TILE &&
+    kind !== EXPORT_FRAME_KIND_SVG_CHUNK
+  ) {
     throw new Error(`Unsupported export frame kind: ${kind}`);
   }
   const reserved = view.getUint8(7);
@@ -162,8 +233,18 @@ export function decodeExportFrame(bytes: Uint8Array): DecodedExportFrame {
   if (bytes.byteLength > expectedTotal) {
     throw new Error('Export frame has trailing bytes past its declared length');
   }
+  if (
+    kind === EXPORT_FRAME_KIND_SVG_CHUNK &&
+    (tileX !== 0 ||
+      tileY !== 0 ||
+      !isZeroRect(usefulRect) ||
+      !isZeroRect(renderRect))
+  ) {
+    throw new Error('Export frame svg chunk must zero every raster field');
+  }
 
   return {
+    kind,
     sessionId,
     sequence,
     tileX,
@@ -172,6 +253,10 @@ export function decodeExportFrame(bytes: Uint8Array): DecodedExportFrame {
     renderRect,
     encodedPng: bytes.slice(EXPORT_FRAME_HEADER_BYTES, expectedTotal),
   };
+}
+
+function isZeroRect(rect: PixelRect): boolean {
+  return rect.x === 0 && rect.y === 0 && rect.width === 0 && rect.height === 0;
 }
 
 function writeRect(view: DataView, offset: number, rect: PixelRect): void {

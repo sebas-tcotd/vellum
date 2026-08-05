@@ -31,17 +31,19 @@
  */
 
 import type maplibregl from 'maplibre-gl';
+import {
+  ROAD_WIDTH_FACTOR_STOPS,
+  ROAD_WIDTH_INTERPOLATION_BASE,
+} from './road-width-curve';
 
 // factor(zoom): cartographic floor below z14, then geographic 2^(z−14) to z22.
 // The z11/z13/z14 anchors reproduce the previous linear curve's far-zoom values
 // (≈0.55 / 0.85 / 1.0); z18 = 2^4 = 16 and z22 = 2^8 = 256 continue the doubling.
-const FACTOR_STOPS: ReadonlyArray<readonly [zoom: number, factor: number]> = [
-  [11, 0.55],
-  [13, 0.85],
-  [14, 1.0],
-  [18, 16],
-  [22, 256],
-];
+//
+// The table itself lives in `road-width-curve.ts` so the SVG exporter — which
+// has no MapLibre expression engine — evaluates the same curve rather than a
+// second copy of these numbers.
+const FACTOR_STOPS = ROAD_WIDTH_FACTOR_STOPS;
 
 // Casing = fill width + a thin, gently growing border, so the outline stays
 // legible under the much wider detail-zoom roads without ballooning itself.
@@ -67,7 +69,7 @@ function buildWidthExpr(
 ): maplibregl.ExpressionSpecification {
   return [
     'interpolate',
-    ['exponential', 2],
+    ['exponential', ROAD_WIDTH_INTERPOLATION_BASE],
     ['zoom'],
     ...outputs.flatMap(([zoom, out]) => [zoom, out]),
   ] as unknown as maplibregl.ExpressionSpecification;

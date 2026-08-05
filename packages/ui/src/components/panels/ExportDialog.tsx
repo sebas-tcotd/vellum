@@ -155,6 +155,19 @@ const FORMAT_CHOICES: Choice<ExportFormat>[] = [
   { value: 'svg', label: 'export.format_svg' },
 ];
 
+/**
+ * Formats a full-map export may request.
+ *
+ * @remarks
+ * The raster densities are absent because `targetLongEdge` already fixes the
+ * output resolution — offering `2x` there would double-apply it. SVG has no
+ * density at all, so it is offered unchanged.
+ */
+const FULL_MAP_FORMAT_CHOICES: Choice<'png-1x' | 'svg'>[] = [
+  { value: 'png-1x', label: 'export.format_png' },
+  { value: 'svg', label: 'export.format_svg' },
+];
+
 const RESOLUTION_CHOICES: ResolutionChoice[] = [
   {
     value: 6000,
@@ -782,7 +795,7 @@ export function ExportDialog(props: ExportDialogProps) {
     void props.onExport(
       area === 'full-map'
         ? {
-            format: 'png-1x',
+            format: format === 'svg' ? 'svg' : 'png-1x',
             area,
             targetLongEdge,
             background,
@@ -857,10 +870,13 @@ export function ExportDialog(props: ExportDialogProps) {
                 onChange={setFormat}
               />
             ) : (
-              <div className="text-xs" data-testid="export-format-png">
-                <span className="font-semibold">{t('export.format')}: </span>
-                {t('export.format_png')}
-              </div>
+              <ChoiceGroup
+                legend={t('export.format')}
+                name="export-format"
+                value={format === 'svg' ? 'svg' : 'png-1x'}
+                choices={FULL_MAP_FORMAT_CHOICES}
+                onChange={setFormat}
+              />
             )}
             <ChoiceGroup
               legend={t('export.area')}
@@ -871,7 +887,8 @@ export function ExportDialog(props: ExportDialogProps) {
                 setArea(nextArea);
                 if (nextArea === 'full-map') {
                   viewportFormatRef.current = format;
-                  setFormat('png-1x');
+                  // SVG survives the switch — it has no density to collapse.
+                  if (format !== 'svg') setFormat('png-1x');
                 } else {
                   setFormat(viewportFormatRef.current);
                 }

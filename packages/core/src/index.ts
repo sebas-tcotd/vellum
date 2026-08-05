@@ -1,6 +1,7 @@
 // @vellum/core — barrel export
 export * from './constants';
 export * from './ipc-contract';
+export * from './types/cartographic-scene';
 export * from './types/city-data';
 export * from './types/color-tokens';
 export * from './types/export-presentation';

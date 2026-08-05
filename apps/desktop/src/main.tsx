@@ -34,6 +34,12 @@ import {
 } from './export/export-coordinator';
 import { LegacyExportSink } from './export/legacy-export-sink';
 import { TauriExportSink } from './export/tauri-export-sink';
+import { SvgExporter, type SvgWorkerHandle } from './export/svg/svg-exporter';
+import { TauriSvgExportSink } from './export/svg/tauri-svg-export-sink';
+import type {
+  SvgWorkerCommand,
+  SvgWorkerReply,
+} from './export/svg/svg-worker-protocol';
 import {
   RasterBenchmarkRunner,
   type RasterBenchmarkRoute,
@@ -44,6 +50,45 @@ const win = getCurrentWindow();
 const legacyExporter = new LegacyRasterExporter();
 const legacySink = new LegacyExportSink();
 const rasterExporter = new ExportCoordinator(legacyExporter, legacySink);
+
+/**
+ * Vector export route.
+ *
+ * @remarks
+ * A fresh worker per operation, so a cancelled or failed serialization can
+ * never leak state into the next one — `terminate()` is the only reliable way
+ * to stop a generator mid-document. `type: 'module'` keeps the worker on the
+ * same ESM graph Vite builds for the app.
+ */
+const svgExporter = new SvgExporter({
+  createWorker: () => {
+    const worker = new Worker(
+      new URL('./export/svg/svg-export-worker.ts', import.meta.url),
+      { type: 'module' },
+    );
+    // Handlers are stored on the adapter and forwarded, rather than assigned
+    // straight onto the worker: `Worker.onerror` is typed against `ErrorEvent`
+    // and the port deliberately accepts `unknown`, which does not round-trip
+    // through a getter/setter pair.
+    const handle: SvgWorkerHandle = {
+      postMessage: (message: SvgWorkerCommand | SvgWorkerReply) =>
+        worker.postMessage(message),
+      onmessage: null,
+      onerror: null,
+      terminate: () => worker.terminate(),
+    };
+    worker.onmessage = (event) => handle.onmessage?.(event);
+    worker.onerror = (event) => handle.onerror?.(event);
+    return handle;
+  },
+  sink: new TauriSvgExportSink(),
+  onWarnings: (warnings) => {
+    // Aggregated counts only — no path, city name, or CityData content — so
+    // this is safe to log next to the export metrics.
+    if (warnings.length > 0)
+      console.info('[App] SVG export warnings', warnings);
+  },
+});
 let measuredCapability: CapabilityReport | null = null;
 const benchmarkSnapshotCaptureRef = React.createRef<
   ((request: ExportRequest) => ExportSnapshot | null) | null
@@ -228,6 +273,7 @@ function AppShell() {
       openFileDialog={openFileDialog}
       loadFilePartial={loadFilePartial}
       rasterExporter={rasterExporter}
+      svgExporter={svgExporter}
       onOpenExportFolder={openExportFolder}
       exportCancelHandlerRef={exportCancelHandlerRef}
       exportSnapshotCaptureRef={benchmarkSnapshotCaptureRef}

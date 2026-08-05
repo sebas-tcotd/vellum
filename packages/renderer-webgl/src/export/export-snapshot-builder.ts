@@ -1,5 +1,6 @@
 import {
   createExportSnapshot,
+  createSvgExportSnapshot,
   exportScaleForRequest,
   type CityData,
   type ExportArea,
@@ -9,6 +10,8 @@ import {
   type LayerOptions,
   type RenderParams,
   type RenderStyleParams,
+  type SvgExportRequest,
+  type SvgExportSnapshot,
 } from '@vellum/core';
 import type maplibregl from 'maplibre-gl';
 import { geoToCs } from '../coordinate-transform';
@@ -76,6 +79,53 @@ export function buildExportSnapshot(
     camera: exportCamera,
     extent,
     surface: { width: surface.width * scale, height: surface.height * scale },
+    request: input.request,
+  });
+}
+
+/** Builds an SVG export snapshot from the same live map state. */
+export function buildSvgExportSnapshot(
+  input: Omit<ExportSnapshotBuildInput, 'request'> & {
+    request: SvgExportRequest;
+  },
+): SvgExportSnapshot | null {
+  const canvas = input.map.getCanvas();
+  const baseWidth = canvas.clientWidth;
+  const baseHeight = canvas.clientHeight;
+  if (!isUsableSurface(baseWidth, baseHeight)) return null;
+
+  const extent = resolveExportExtent(
+    input.map,
+    input.cityData,
+    input.request.area,
+  );
+  if (!extent) return null;
+
+  // Vector output has no raster density to apply — `targetLongEdge` (or the
+  // canvas, for a viewport export) *is* the final document size.
+  const surface =
+    input.request.area === 'full-map'
+      ? resolveFullMapOutputSurface(
+          extent,
+          input.request.targetLongEdge,
+          baseWidth,
+          baseHeight,
+        )
+      : { width: baseWidth, height: baseHeight };
+
+  return createSvgExportSnapshot({
+    cityData: input.cityData,
+    style: input.style,
+    activeLayers: input.activeLayers,
+    layerOptions: input.layerOptions,
+    transitDimming: input.transitDimming,
+    watermarkVisible: input.watermarkVisible,
+    // Captured verbatim, never neutralized: an unsupported camera has to reach
+    // `evaluateSvgCapability` so the user is told, rather than being flattened
+    // into a top-down view they did not ask for (AC 9).
+    camera: getCurrentCamera(input.map),
+    extent,
+    surface,
     request: input.request,
   });
 }

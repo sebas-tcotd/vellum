@@ -55,7 +55,56 @@ pub struct AcceptedTile {
     pub encoded_len: usize,
 }
 
-/// Accepts validated tile chunks and confirms full coverage before a commit.
+/// Transport route a session accepts, decided once at `begin`.
+///
+/// The lifecycle, budgets, `.part` file and atomic rename are identical for
+/// both; the mode only decides the published extension, which frame `kind` is
+/// accepted, and whether tile coverage is a meaningful completeness check.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SessionMode {
+    /// Raster tiles composited into a PNG.
+    TiledPng,
+    /// UTF-8 XML fragments appended into an SVG document.
+    StreamingSvg,
+}
+
+impl SessionMode {
+    fn parse(mode: &str) -> Option<Self> {
+        match mode {
+            "tiled-png" => Some(Self::TiledPng),
+            "streaming-svg" => Some(Self::StreamingSvg),
+            _ => None,
+        }
+    }
+
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::TiledPng => "tiled-png",
+            Self::StreamingSvg => "streaming-svg",
+        }
+    }
+
+    fn extension(self) -> &'static str {
+        match self {
+            Self::TiledPng => "png",
+            Self::StreamingSvg => "svg",
+        }
+    }
+
+    fn frame_kind(self) -> u8 {
+        match self {
+            Self::TiledPng => framing::KIND_PNG_TILE,
+            Self::StreamingSvg => framing::KIND_SVG_CHUNK,
+        }
+    }
+}
+
+/// Accepts validated chunks and confirms a publishable result before a commit.
+///
+/// `AcceptedTile` carries raster geometry, which a `streaming-svg` chunk does
+/// not have: those chunks are framed with every tile/rect field zeroed
+/// (enforced in `framing::parse_frame`) and their consumer ignores the
+/// argument entirely.
 pub trait TileConsumer: Send {
     /// Records one already-validated chunk. Framing/budget/coverage checks
     /// happen in the session before this is called; `tile` carries the
@@ -74,12 +123,16 @@ pub trait TileConsumer: Send {
     fn finish(&mut self) -> Result<(), VellumError>;
 }
 
-/// Builds one `TileConsumer` per session, given the declared output
-/// dimensions and the `.part` path it should stream into. Tests substitute a
-/// double via [`ExportSessionManager::with_consumer_factory`]; production
-/// always installs a real [`super::tile_composer::TileComposer`].
-pub type ConsumerFactory =
-    Box<dyn Fn(u32, u32, &Path) -> Result<Box<dyn TileConsumer>, VellumError> + Send + Sync>;
+/// Builds one `TileConsumer` per session, given the session mode, the declared
+/// output dimensions, and the `.part` path it should stream into. Tests
+/// substitute a double via [`ExportSessionManager::with_consumer_factory`];
+/// production installs [`super::tile_composer::TileComposer`] or
+/// [`super::svg_writer::SvgWriter`] according to the mode.
+pub type ConsumerFactory = Box<
+    dyn Fn(SessionMode, u32, u32, &Path) -> Result<Box<dyn TileConsumer>, VellumError>
+        + Send
+        + Sync,
+>;
 
 /// Explicit session lifecycle (AC1: `Created → Active → Finishing → Committed`
 /// or `Cancelled`/`Failed`). `Created` is instantaneous — a session is only
@@ -95,6 +148,7 @@ enum SessionState {
 }
 
 struct Session {
+    mode: SessionMode,
     state: SessionState,
     cancel_requested: bool,
     expected_sequence: u64,
@@ -294,12 +348,16 @@ fn validate_rect_contained(inner: &PixelRectRaw, outer: &PixelRectRaw) -> Result
 }
 
 impl ExportSessionManager {
-    /// Creates a manager using the production streaming compositor.
+    /// Creates a manager using the production consumers for both modes.
     #[must_use]
     pub fn new() -> Self {
-        Self::with_consumer_factory(Box::new(|width, height, part_path| {
-            super::tile_composer::TileComposer::create(width, height, part_path)
-                .map(|composer| Box::new(composer) as Box<dyn TileConsumer>)
+        Self::with_consumer_factory(Box::new(|mode, width, height, part_path| match mode {
+            SessionMode::TiledPng => {
+                super::tile_composer::TileComposer::create(width, height, part_path)
+                    .map(|composer| Box::new(composer) as Box<dyn TileConsumer>)
+            }
+            SessionMode::StreamingSvg => super::svg_writer::SvgWriter::create(part_path)
+                .map(|writer| Box::new(writer) as Box<dyn TileConsumer>),
         }))
     }
 
@@ -349,17 +407,19 @@ impl ExportSessionManager {
         metadata: &BeginExport,
         downloads_dir: &Path,
     ) -> Result<ExportSessionResponse, VellumError> {
-        if metadata.mode != "tiled-png" {
-            return Err(VellumError::ExportFailed {
-                reason: format!("unsupported export session mode: {}", metadata.mode),
-            });
-        }
+        let mode = SessionMode::parse(&metadata.mode).ok_or_else(|| VellumError::ExportFailed {
+            reason: format!("unsupported export session mode: {}", metadata.mode),
+        })?;
         if metadata.output_width == 0 || metadata.output_height == 0 {
             return Err(VellumError::ExportFailed {
                 reason: "export session requires positive output dimensions".to_string(),
             });
         }
-        if metadata.expected_tiles == 0 {
+        // A raster export knows its exact tile budget before it starts; a
+        // streaming serializer does not know its chunk count until it has
+        // finished, so zero means "unknown" there and completeness is checked
+        // by the consumer at `finish` instead of by tile coverage.
+        if metadata.expected_tiles == 0 && mode != SessionMode::StreamingSvg {
             return Err(VellumError::ExportFailed {
                 reason: "export session requires at least one expected tile".to_string(),
             });
@@ -378,7 +438,11 @@ impl ExportSessionManager {
             });
         }
 
-        let final_path = downloads_dir.join(format!("{}.png", metadata.request.file_name));
+        let final_path = downloads_dir.join(format!(
+            "{}.{}",
+            metadata.request.file_name,
+            mode.extension()
+        ));
         let token = generate_session_token();
         let session_id = hex_encode(&token);
         let part_path =
@@ -389,6 +453,7 @@ impl ExportSessionManager {
         })?;
 
         let consumer = match (self.consumer_factory)(
+            mode,
             metadata.output_width,
             metadata.output_height,
             &part_path,
@@ -404,6 +469,7 @@ impl ExportSessionManager {
         };
 
         let session = Session {
+            mode,
             state: SessionState::Active,
             cancel_requested: false,
             expected_sequence: 0,
@@ -421,7 +487,7 @@ impl ExportSessionManager {
 
         Ok(ExportSessionResponse {
             session_id,
-            mode: "tiled-png".to_string(),
+            mode: mode.as_str().to_string(),
             max_chunk_bytes: MAX_CHUNK_BYTES,
             max_in_flight: 1,
         })
@@ -444,6 +510,17 @@ impl ExportSessionManager {
             .ok_or_else(unknown_session_error)?;
         if session.state != SessionState::Active {
             return Err(session_not_active_error(session.state));
+        }
+        // A frame kind from the other route would otherwise reach a consumer
+        // that cannot interpret it — reject it here, where nothing has been
+        // mutated yet.
+        if header.kind != session.mode.frame_kind() {
+            return Err(VellumError::ExportFailed {
+                reason: format!(
+                    "chunk kind does not match the {} session",
+                    session.mode.as_str()
+                ),
+            });
         }
         if header.sequence != session.expected_sequence {
             return Err(VellumError::ExportFailed {
@@ -471,31 +548,39 @@ impl ExportSessionManager {
             "session exceeds its total byte budget",
         )?;
 
-        validate_bounded_rect(
-            &header.useful_rect,
-            session.output_width,
-            session.output_height,
-        )?;
-        validate_positive_rect(&header.render_rect)?;
-        validate_rect_contained(&header.useful_rect, &header.render_rect)?;
+        // Raster geometry only exists on the tiled route; `framing::parse_frame`
+        // has already proved an SVG chunk carries none, so there is nothing to
+        // validate or de-duplicate for it.
+        let raster_coverage = if session.mode == SessionMode::TiledPng {
+            validate_bounded_rect(
+                &header.useful_rect,
+                session.output_width,
+                session.output_height,
+            )?;
+            validate_positive_rect(&header.render_rect)?;
+            validate_rect_contained(&header.useful_rect, &header.render_rect)?;
 
-        let pixel_area = u64::from(header.useful_rect.width)
-            .checked_mul(u64::from(header.useful_rect.height))
-            .ok_or_else(|| budget_error("useful rect area overflows"))?;
-        let new_accepted_pixels = checked_add_within_budget(
-            session.accepted_pixels,
-            pixel_area,
-            MAX_LOGICAL_PIXELS,
-            "session exceeds the logical pixel budget",
-        )?;
+            let pixel_area = u64::from(header.useful_rect.width)
+                .checked_mul(u64::from(header.useful_rect.height))
+                .ok_or_else(|| budget_error("useful rect area overflows"))?;
+            let new_accepted_pixels = checked_add_within_budget(
+                session.accepted_pixels,
+                pixel_area,
+                MAX_LOGICAL_PIXELS,
+                "session exceeds the logical pixel budget",
+            )?;
 
-        let tile_coord = (header.tile_x, header.tile_y);
-        if session.seen_tiles.contains(&tile_coord) {
-            return Err(coverage_error("tile coordinate already accepted (overlap)"));
-        }
-        if session.seen_tiles.len() >= session.expected_tiles as usize {
-            return Err(coverage_error("more tiles received than expectedTiles"));
-        }
+            let tile_coord = (header.tile_x, header.tile_y);
+            if session.seen_tiles.contains(&tile_coord) {
+                return Err(coverage_error("tile coordinate already accepted (overlap)"));
+            }
+            if session.seen_tiles.len() >= session.expected_tiles as usize {
+                return Err(coverage_error("more tiles received than expectedTiles"));
+            }
+            Some((new_accepted_pixels, tile_coord))
+        } else {
+            None
+        };
 
         let consumer = session
             .consumer
@@ -520,9 +605,11 @@ impl ExportSessionManager {
 
         // Every validation above passed — only now is state mutated (AC5).
         session.accepted_bytes = new_accepted_bytes;
-        session.accepted_pixels = new_accepted_pixels;
         session.expected_sequence += 1;
-        session.seen_tiles.insert(tile_coord);
+        if let Some((new_accepted_pixels, tile_coord)) = raster_coverage {
+            session.accepted_pixels = new_accepted_pixels;
+            session.seen_tiles.insert(tile_coord);
+        }
 
         Ok(AppendAckResponse {
             session_id,
@@ -551,8 +638,12 @@ impl ExportSessionManager {
             if session.state != SessionState::Active {
                 return Err(session_not_active_error(session.state));
             }
+            // Streaming SVG has no tile grid to cover; its completeness check
+            // is the consumer's own (a non-empty, properly closed document).
             let accepted_tiles = session.seen_tiles.len();
-            if accepted_tiles != session.expected_tiles as usize {
+            if session.mode == SessionMode::TiledPng
+                && accepted_tiles != session.expected_tiles as usize
+            {
                 let err = coverage_error(&format!(
                     "expected {} tiles, received {accepted_tiles}",
                     session.expected_tiles
@@ -749,6 +840,35 @@ mod tests {
         bytes
     }
 
+    /// A `streaming-svg` wire frame: same 76-byte header, kind 2, every tile
+    /// and rectangle field zeroed.
+    fn svg_frame_bytes(session_id_hex: &str, sequence: u64, payload: &[u8]) -> Vec<u8> {
+        let mut bytes = frame_bytes(
+            session_id_hex,
+            sequence,
+            (0, 0),
+            (0, 0, 0, 0),
+            (0, 0, 0, 0),
+            payload,
+        );
+        bytes[6] = framing::KIND_SVG_CHUNK;
+        bytes
+    }
+
+    fn svg_begin_metadata(file_name: &str) -> BeginExport {
+        BeginExport {
+            mode: "streaming-svg".to_string(),
+            snapshot_id: "snapshot-svg".to_string(),
+            request: BeginExportRequest {
+                file_name: file_name.to_string(),
+            },
+            output_width: 1000,
+            output_height: 800,
+            // Streaming serializers cannot know their chunk count up front.
+            expected_tiles: 0,
+        }
+    }
+
     /// A double whose `finish` outcome is controllable — standing in for the
     /// real compositor that ships in 6.2F. Counts `accept` calls so tests can
     /// assert coverage bookkeeping without a real encoder.
@@ -781,13 +901,15 @@ mod tests {
     }
 
     fn manager_with(finish_ok: bool, reject_accept: bool) -> ExportSessionManager {
-        ExportSessionManager::with_consumer_factory(Box::new(move |_width, _height, _part_path| {
-            Ok(Box::new(TestConsumer {
-                finish_ok,
-                accept_calls: Arc::new(std::sync::atomic::AtomicU32::new(0)),
-                reject_accept,
-            }) as Box<dyn TileConsumer>)
-        }))
+        ExportSessionManager::with_consumer_factory(Box::new(
+            move |_mode, _width, _height, _part_path| {
+                Ok(Box::new(TestConsumer {
+                    finish_ok,
+                    accept_calls: Arc::new(std::sync::atomic::AtomicU32::new(0)),
+                    reject_accept,
+                }) as Box<dyn TileConsumer>)
+            },
+        ))
     }
 
     #[test]
@@ -1266,7 +1388,7 @@ mod tests {
         let release_rx = Mutex::new(Some(release_rx));
 
         let manager = Arc::new(ExportSessionManager::with_consumer_factory(Box::new(
-            move |_width, _height, _part_path| {
+            move |_mode, _width, _height, _part_path| {
                 let release = release_rx
                     .lock()
                     .unwrap()
@@ -1384,6 +1506,169 @@ mod tests {
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
+    // ─── streaming-svg mode (story 6.3A) ─────────────────────────────────────
+
+    #[test]
+    fn svg_session_publishes_with_an_svg_extension_after_streaming_chunks() {
+        let dir = unique_temp_dir("svg-lifecycle");
+        let manager = ExportSessionManager::new();
+        let session = manager
+            .begin(&svg_begin_metadata("altavento"), &dir)
+            .expect("streaming-svg begin must succeed");
+        assert_eq!(session.mode, "streaming-svg");
+        let part_path = dir.join(format!(".vellum-export-{}.part", session.session_id));
+        assert!(part_path.exists());
+
+        manager
+            .append(&svg_frame_bytes(&session.session_id, 0, b"<svg><g>"))
+            .expect("first chunk must be accepted");
+        manager
+            .append(&svg_frame_bytes(&session.session_id, 1, b"</g></svg>"))
+            .expect("second chunk must be accepted");
+
+        let receipt = manager
+            .finish(&session.session_id)
+            .expect("finish must publish");
+        let final_path = dir.join("altavento.svg");
+        assert_eq!(receipt.file_path, final_path.to_string_lossy());
+        assert!(!part_path.exists(), ".part must disappear after rename");
+        assert_eq!(
+            std::fs::read_to_string(&final_path).unwrap(),
+            "<svg><g></g></svg>"
+        );
+
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn svg_session_rejects_a_png_tile_frame() {
+        let dir = unique_temp_dir("svg-wrong-kind");
+        let manager = ExportSessionManager::new();
+        let session = manager
+            .begin(&svg_begin_metadata("wrong-kind"), &dir)
+            .expect("begin must succeed");
+
+        let png_frame = frame_bytes(
+            &session.session_id,
+            0,
+            (0, 0),
+            (0, 0, 10, 10),
+            (0, 0, 10, 10),
+            &[1, 2, 3],
+        );
+        assert!(manager.append(&png_frame).is_err());
+
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn tiled_session_rejects_an_svg_chunk_frame() {
+        let dir = unique_temp_dir("png-wrong-kind");
+        let manager = ExportSessionManager::new();
+        let session = manager
+            .begin(&begin_metadata("png-session", 10, 10), &dir)
+            .expect("begin must succeed");
+
+        assert!(manager
+            .append(&svg_frame_bytes(&session.session_id, 0, b"<svg/>"))
+            .is_err());
+
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn svg_finish_without_any_chunk_leaves_no_file_behind() {
+        let dir = unique_temp_dir("svg-no-chunks");
+        let manager = ExportSessionManager::new();
+        let session = manager
+            .begin(&svg_begin_metadata("no-chunks"), &dir)
+            .expect("begin must succeed");
+        let part_path = dir.join(format!(".vellum-export-{}.part", session.session_id));
+
+        assert!(manager.finish(&session.session_id).is_err());
+        assert!(!part_path.exists());
+        assert!(!dir.join("no-chunks.svg").exists());
+
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn svg_finish_rejects_a_truncated_document_and_publishes_nothing() {
+        let dir = unique_temp_dir("svg-truncated");
+        let manager = ExportSessionManager::new();
+        let session = manager
+            .begin(&svg_begin_metadata("truncated"), &dir)
+            .expect("begin must succeed");
+        manager
+            .append(&svg_frame_bytes(&session.session_id, 0, b"<svg><g>"))
+            .expect("chunk must be accepted");
+
+        assert!(manager.finish(&session.session_id).is_err());
+        assert!(!dir.join("truncated.svg").exists());
+        let part_path = dir.join(format!(".vellum-export-{}.part", session.session_id));
+        assert!(!part_path.exists());
+
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn svg_cancel_mid_stream_removes_the_part_file_and_publishes_nothing() {
+        let dir = unique_temp_dir("svg-cancel");
+        let manager = ExportSessionManager::new();
+        let session = manager
+            .begin(&svg_begin_metadata("cancelled"), &dir)
+            .expect("begin must succeed");
+        manager
+            .append(&svg_frame_bytes(&session.session_id, 0, b"<svg>"))
+            .expect("chunk must be accepted");
+        let part_path = dir.join(format!(".vellum-export-{}.part", session.session_id));
+
+        assert!(manager.cancel(&session.session_id).is_ok());
+        assert!(!part_path.exists());
+        assert!(!dir.join("cancelled.svg").exists());
+        assert!(manager
+            .append(&svg_frame_bytes(&session.session_id, 1, b"</svg>"))
+            .is_err());
+
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn svg_session_rejects_out_of_order_chunks() {
+        let dir = unique_temp_dir("svg-sequence");
+        let manager = ExportSessionManager::new();
+        let session = manager
+            .begin(&svg_begin_metadata("sequence"), &dir)
+            .expect("begin must succeed");
+
+        assert!(manager
+            .append(&svg_frame_bytes(&session.session_id, 1, b"<svg/>"))
+            .is_err());
+        assert!(manager
+            .append(&svg_frame_bytes(&session.session_id, 0, b"<svg/>"))
+            .is_ok());
+
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn begin_still_requires_a_positive_tile_budget_for_the_raster_route() {
+        let dir = unique_temp_dir("svg-tile-budget");
+        let manager = ExportSessionManager::new();
+        assert!(
+            manager
+                .begin(&begin_metadata_with_tiles("raster", 10, 10, 0), &dir)
+                .is_err(),
+            "zero expectedTiles must stay illegal for tiled-png"
+        );
+        assert!(
+            manager.begin(&svg_begin_metadata("vector"), &dir).is_ok(),
+            "zero expectedTiles means 'unknown' only for streaming-svg"
+        );
+
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
     #[test]
     fn begin_rejects_legacy_png_mode() {
         let dir = unique_temp_dir("mode");
@@ -1495,12 +1780,13 @@ mod tests {
     #[test]
     fn begin_propagates_a_consumer_factory_failure() {
         let dir = unique_temp_dir("factory-failure");
-        let manager =
-            ExportSessionManager::with_consumer_factory(Box::new(|_width, _height, _part_path| {
+        let manager = ExportSessionManager::with_consumer_factory(Box::new(
+            |_mode, _width, _height, _part_path| {
                 Err(VellumError::ExportFailed {
                     reason: "consumer factory refused to build a compositor".to_string(),
                 })
-            }));
+            },
+        ));
         let metadata = begin_metadata("factory-failure-map", 10, 10);
         assert!(manager.begin(&metadata, &dir).is_err());
 
@@ -1536,10 +1822,11 @@ mod tests {
     #[test]
     fn append_fails_the_whole_session_when_the_consumer_rejects() {
         let dir = unique_temp_dir("poisoned-consumer");
-        let manager =
-            ExportSessionManager::with_consumer_factory(Box::new(|_width, _height, _part_path| {
+        let manager = ExportSessionManager::with_consumer_factory(Box::new(
+            |_mode, _width, _height, _part_path| {
                 Ok(Box::new(PoisoningConsumer) as Box<dyn TileConsumer>)
-            }));
+            },
+        ));
         let metadata = begin_metadata("poisoned-map", 10, 10);
         let session = manager.begin(&metadata, &dir).expect("begin must succeed");
         let part_path = dir.join(format!(".vellum-export-{}.part", session.session_id));
