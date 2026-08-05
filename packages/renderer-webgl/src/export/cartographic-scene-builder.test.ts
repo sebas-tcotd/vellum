@@ -302,24 +302,15 @@ describe('buildCartographicScene', () => {
     ).toBeNull();
   });
 
-  it('exposes the elevation ramp as an editable gradient, only when relief is on', () => {
-    const withRelief = build(makeCityData());
-    expect(
-      withRelief.gradients.map((gradient) => gradient.stops.length),
-    ).toEqual([3]);
-    expect(withRelief.gradients[0]!.stops.map((stop) => stop.color)).toEqual([
-      '#d9e6c3',
-      '#c9b98a',
-      '#f2f2f2',
-    ]);
-
-    const withoutRelief = build(makeCityData(), {
-      layerOptions: {
-        ...DEFAULT_LAYER_OPTIONS,
-        terrain: { ...DEFAULT_LAYER_OPTIONS.terrain, showColorRelief: false },
-      },
-    });
-    expect(withoutRelief.gradients).toEqual([]);
+  it('fills land flat and emits no colour ramp, leaving relief to the contours', () => {
+    // A document-wide gradient only looks like elevation: it is a
+    // top-to-bottom fade unrelated to the terrain under it. Flat fill plus
+    // real contour lines is the honest MVP until 6.3B.
+    const scene = build(makeCityData());
+    expect(scene.gradients).toEqual([]);
+    for (const entity of layerEntities(scene, 'terrain')) {
+      expect(entity.fill?.gradientId).toBeUndefined();
+    }
   });
 
   it('handles an empty city without throwing and reports the empty layers', () => {
@@ -344,7 +335,31 @@ describe('buildCartographicScene', () => {
     expect(Number.isFinite(projected.x)).toBe(true);
     expect(Number.isFinite(projected.y)).toBe(true);
     expect(projected.x).toBeCloseTo(0, 6);
-    expect(projected.y).toBeCloseTo(1728, 6);
+    // maxZ is the top row, so the northernmost point lands at y = 0.
+    expect(projected.y).toBeCloseTo(0, 6);
+  });
+
+  it('puts the northernmost world point at the top of the document', () => {
+    // Pins the orientation against the raster planner's own convention
+    // (`tile-planner.ts` resolves tile extents descending from maxZ). A flip
+    // here silently mirrors every exported map.
+    const city = makeCityData({
+      districts: [
+        { id: 'd-north', name: 'North', position: { x: 0, z: 8640 } },
+        { id: 'd-south', name: 'South', position: { x: 0, z: -8640 } },
+      ] as CityData['districts'],
+    });
+    const scene = build(city);
+    const [north, south] = layerEntities(scene, 'districts').map(
+      (entity) =>
+        projectScenePoint(
+          scene.projection,
+          (entity.geometry as { center: { x: number; z: number } }).center,
+        ).y,
+    );
+    expect(north).toBeLessThan(south!);
+    expect(north).toBeCloseTo(0, 6);
+    expect(south).toBeCloseTo(1728, 6);
   });
 
   it('never mutates the CityData it reads', () => {

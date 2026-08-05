@@ -8,30 +8,40 @@
  * `RenderStyleParams` and MapLibre are all inputs to it and never learn about
  * it.
  *
- * Imports nothing but types: this module is on the SVG worker's import graph,
- * which must never reach `renderer-webgl`, MapLibre, React, Tauri, or the DOM
- * (ARCHITECTURE-SPINE AD-16, `architecture.md` Gotcha 10).
+ * Main-thread only. It is not on the SVG worker's import graph (worker →
+ * `svg-serialization-driver` → `svg-serializer`), which is what lets it reach
+ * `renderer-webgl` for the shared scale conversions without violating AD-16.
  */
 
+import {
+  roadWidthFactorAtZoom,
+  zoomForWorldUnitsPerPixel,
+} from '@vellum/renderer-webgl';
+
 /**
- * Reference width of a local road in the exported document, in pixels.
+ * Local-road width, in pixels, used when a caller pins the weight explicitly.
  *
  * @remarks
- * The one calibration knob of the MVP. Every other tier is then resolved from
- * its *existing* `fixed`/`scaled` pair against the factor this width implies —
- * never by multiplying the local road's width by a hand-picked ratio, which
- * would silently re-invent the tier hierarchy the theme already defines.
+ * Story 6.3A specified this as *the* MVP calibration. Measured against the
+ * real fixtures it turned out to be the wrong model, not the wrong number: a
+ * width fixed in output pixels is only correct at one document size. The same
+ * city exported to a 1000px viewport and to a 20000px full map got the same
+ * 6px roads, which read as motorway-thick on the small one and as hairlines
+ * on the large one — while the interactive map, whose weight is what the user
+ * is comparing against, scales road width with zoom.
+ *
+ * So the default is now derived from the document's own density (see
+ * {@link resolveSvgExportPolicy}) and this constant survives as the explicit
+ * override for a caller that genuinely wants a constant weight.
  */
 export const DEFAULT_LOCAL_ROAD_WIDTH_PX = 6;
 
-/** `ROAD_WIDTH_STYLES.local` — the tier the policy calibrates against. */
+/** `ROAD_WIDTH_STYLES.local` — the tier a pinned width calibrates against. */
 const LOCAL_ROAD_FIXED = 0.2;
 const LOCAL_ROAD_SCALED = 0.8;
 
 /** Resolved scales an SVG export applies to one scene. */
 export interface SvgExportPolicy {
-  /** Reference local-road width this policy was calibrated to, in pixels. */
-  readonly localRoadWidthPx: number;
   /**
    * Multiplier applied to every tier's `scaledWidth`.
    *
@@ -42,6 +52,15 @@ export interface SvgExportPolicy {
    */
   readonly roadWidthFactor: number;
   /**
+   * MapLibre zoom this document's density corresponds to.
+   *
+   * @remarks
+   * The bridge between a static document and a zoom-driven style: it is what
+   * lets the export ask the interactive width curve "what would you paint at
+   * this scale?" instead of inventing an answer.
+   */
+  readonly equivalentZoom: number;
+  /**
    * Output pixels per CS1 world unit, derived from the document surface.
    *
    * @remarks
@@ -51,6 +70,8 @@ export interface SvgExportPolicy {
    * up with roads that are correct and everything else that is not.
    */
   readonly pixelsPerWorldUnit: number;
+  /** Width a local road resolves to under this policy, in pixels. */
+  readonly localRoadWidthPx: number;
 }
 
 /** Arguments needed to resolve a policy for one document. */
@@ -59,26 +80,50 @@ export interface SvgExportPolicyInput {
   readonly outputWidth: number;
   /** World units spanned by the output along X. */
   readonly worldSpanX: number;
-  /** Optional override of the reference local-road width. */
+  /**
+   * Pins the local-road width instead of deriving it from the density.
+   *
+   * @remarks
+   * Escape hatch, not the normal path — see
+   * {@link DEFAULT_LOCAL_ROAD_WIDTH_PX}.
+   */
   readonly localRoadWidthPx?: number;
 }
 
 /**
  * Resolves the export policy for one document.
  *
- * @param input - Output surface and world span, plus an optional calibration.
+ * @remarks
+ * By default the road-width factor comes from the document's own density: the
+ * density gives an equivalent MapLibre zoom, and that zoom is fed to the very
+ * same `factor(zoom)` curve the GPU evaluates. An exported map therefore
+ * carries the road weight the user was already looking at, at whatever scale
+ * they asked for — a viewport export of a whole island gets hairlines, a
+ * viewport export of three blocks gets full-width streets, exactly as on
+ * screen.
+ *
+ * @param input - Output surface and world span, plus an optional pinned width.
  * @returns The resolved stylistic and geometric scales.
  */
 export function resolveSvgExportPolicy(
   input: SvgExportPolicyInput,
 ): SvgExportPolicy {
-  const localRoadWidthPx =
-    input.localRoadWidthPx ?? DEFAULT_LOCAL_ROAD_WIDTH_PX;
+  const pixelsPerWorldUnit =
+    input.worldSpanX > 0 ? input.outputWidth / input.worldSpanX : 0;
+  const equivalentZoom =
+    pixelsPerWorldUnit > 0
+      ? zoomForWorldUnitsPerPixel(1 / pixelsPerWorldUnit)
+      : 0;
+  const roadWidthFactor =
+    input.localRoadWidthPx !== undefined
+      ? (input.localRoadWidthPx - LOCAL_ROAD_FIXED) / LOCAL_ROAD_SCALED
+      : roadWidthFactorAtZoom(equivalentZoom);
+
   return {
-    localRoadWidthPx,
-    roadWidthFactor: (localRoadWidthPx - LOCAL_ROAD_FIXED) / LOCAL_ROAD_SCALED,
-    pixelsPerWorldUnit:
-      input.worldSpanX > 0 ? input.outputWidth / input.worldSpanX : 0,
+    roadWidthFactor,
+    equivalentZoom,
+    pixelsPerWorldUnit,
+    localRoadWidthPx: LOCAL_ROAD_FIXED + LOCAL_ROAD_SCALED * roadWidthFactor,
   };
 }
 
@@ -87,9 +132,9 @@ export function resolveSvgExportPolicy(
  *
  * @remarks
  * `svg-export-policy.test.ts` feeds these through `renderer-webgl`'s own
- * `resolveRoadWidthPx` and asserts a 6px request really resolves back to 6px —
- * proving the calibration goes through the shared width model rather than a
- * special case for the tier it was calibrated on.
+ * `resolveRoadWidthPx` and asserts a pinned 6px request really resolves back
+ * to 6px — proving the calibration goes through the shared width model rather
+ * than a special case for the tier it was calibrated on.
  */
 export const LOCAL_ROAD_WIDTH_STYLE = Object.freeze({
   fixed: LOCAL_ROAD_FIXED,

@@ -19,15 +19,63 @@ const TIERS = {
 } as const;
 
 describe('resolveSvgExportPolicy', () => {
-  it('calibrates the factor so a local road resolves to exactly the requested width', () => {
+  // A full CS1 map (17280 world units) exported at these widths.
+  const FULL_MAP = 17280;
+
+  it('derives the road factor from the document density, matching the live map', () => {
     const policy = resolveSvgExportPolicy({
-      outputWidth: 4000,
-      worldSpanX: 17280,
+      outputWidth: 6000,
+      worldSpanX: FULL_MAP,
     });
-    expect(policy.localRoadWidthPx).toBe(DEFAULT_LOCAL_ROAD_WIDTH_PX);
-    // (6 - 0.2) / 0.8
-    expect(policy.roadWidthFactor).toBeCloseTo(7.25, 10);
-    // Round-trips through the shared width model, not a special case.
+    // The document covers 17280 units in 6000px; the factor must be exactly
+    // what the GPU would paint at the zoom that renders at that density.
+    expect(policy.roadWidthFactor).toBeCloseTo(
+      roadWidthFactorAtZoom(policy.equivalentZoom),
+      10,
+    );
+    expect(
+      resolveRoadWidthPx(
+        LOCAL_ROAD_WIDTH_STYLE.fixed,
+        LOCAL_ROAD_WIDTH_STYLE.scaled,
+        policy.roadWidthFactor,
+      ),
+    ).toBeCloseTo(policy.localRoadWidthPx, 10);
+  });
+
+  it('scales road weight with the document, instead of pinning it to one width', () => {
+    // The bug this replaced: a fixed 6px local road read as motorway-thick on
+    // a small document and as a hairline on a huge one.
+    const widths = [1000, 6000, 16000, 20000].map(
+      (outputWidth) =>
+        resolveSvgExportPolicy({ outputWidth, worldSpanX: FULL_MAP })
+          .localRoadWidthPx,
+    );
+    for (let i = 1; i < widths.length; i += 1) {
+      expect(widths[i]!).toBeGreaterThan(widths[i - 1]!);
+    }
+  });
+
+  it('gives a zoomed-in viewport heavier roads than a whole-island one', () => {
+    // Same output surface, different world span: this is exactly the
+    // difference between exporting three blocks and exporting the map.
+    const blocks = resolveSvgExportPolicy({
+      outputWidth: 1600,
+      worldSpanX: 400,
+    });
+    const island = resolveSvgExportPolicy({
+      outputWidth: 1600,
+      worldSpanX: FULL_MAP,
+    });
+    expect(blocks.localRoadWidthPx).toBeGreaterThan(island.localRoadWidthPx);
+    expect(blocks.equivalentZoom).toBeGreaterThan(island.equivalentZoom);
+  });
+
+  it('still honours a pinned width through the shared width model', () => {
+    const policy = resolveSvgExportPolicy({
+      outputWidth: 1000,
+      worldSpanX: FULL_MAP,
+      localRoadWidthPx: DEFAULT_LOCAL_ROAD_WIDTH_PX,
+    });
     expect(
       resolveRoadWidthPx(
         LOCAL_ROAD_WIDTH_STYLE.fixed,
@@ -35,12 +83,14 @@ describe('resolveSvgExportPolicy', () => {
         policy.roadWidthFactor,
       ),
     ).toBeCloseTo(DEFAULT_LOCAL_ROAD_WIDTH_PX, 10);
+    // (6 - 0.2) / 0.8
+    expect(policy.roadWidthFactor).toBeCloseTo(7.25, 10);
   });
 
   it('derives every other tier from its own fixed/scaled pair, preserving the hierarchy', () => {
     const { roadWidthFactor } = resolveSvgExportPolicy({
-      outputWidth: 4000,
-      worldSpanX: 17280,
+      outputWidth: 6000,
+      worldSpanX: FULL_MAP,
     });
     const widths = Object.fromEntries(
       Object.entries(TIERS).map(([tier, style]) => [
@@ -52,48 +102,35 @@ describe('resolveSvgExportPolicy', () => {
     expect(widths.largeArterial).toBeGreaterThan(widths.mediumArterial!);
     expect(widths.mediumArterial).toBeGreaterThan(widths.local!);
     expect(widths.local).toBeGreaterThan(widths.pedestrianWay!);
-    // A highway is 3.0/0.8 of a local road's *scaled* weight — not a hand-picked
-    // multiple of the calibrated 6px.
+    // A highway is 3.0/0.8 of a local road's *scaled* weight — not a
+    // hand-picked multiple of the local road's resolved width.
     expect((widths.highway! - 0.3) / (widths.local! - 0.2)).toBeCloseTo(
       3.0 / 0.8,
       10,
     );
   });
 
-  it('honours an explicit calibration override', () => {
+  it('keeps the geometric scale reported separately from the road weight', () => {
     const policy = resolveSvgExportPolicy({
-      outputWidth: 1000,
-      worldSpanX: 1000,
-      localRoadWidthPx: 10,
-    });
-    expect(
-      resolveRoadWidthPx(
-        LOCAL_ROAD_WIDTH_STYLE.fixed,
-        LOCAL_ROAD_WIDTH_STYLE.scaled,
-        policy.roadWidthFactor,
-      ),
-    ).toBeCloseTo(10, 10);
-  });
-
-  it('keeps the geometric scale independent of the road-width policy', () => {
-    const wide = resolveSvgExportPolicy({
       outputWidth: 8000,
-      worldSpanX: 17280,
+      worldSpanX: FULL_MAP,
     });
-    const narrow = resolveSvgExportPolicy({
-      outputWidth: 1000,
-      worldSpanX: 17280,
+    expect(policy.pixelsPerWorldUnit).toBeCloseTo(8000 / FULL_MAP, 10);
+    // Pinning the road weight must not disturb the geometric scale.
+    const pinned = resolveSvgExportPolicy({
+      outputWidth: 8000,
+      worldSpanX: FULL_MAP,
+      localRoadWidthPx: 3,
     });
-    // Doubling the document changes pixels-per-world-unit and nothing else:
-    // road weight is stylistic and must not ride the geometric scale.
-    expect(wide.pixelsPerWorldUnit).toBeCloseTo(8000 / 17280, 10);
-    expect(narrow.pixelsPerWorldUnit).toBeCloseTo(1000 / 17280, 10);
-    expect(wide.roadWidthFactor).toBe(narrow.roadWidthFactor);
+    expect(pinned.pixelsPerWorldUnit).toBe(policy.pixelsPerWorldUnit);
+    expect(pinned.roadWidthFactor).not.toBe(policy.roadWidthFactor);
   });
 
   it('reports a zero geometric scale for a degenerate extent instead of Infinity', () => {
     const policy = resolveSvgExportPolicy({ outputWidth: 500, worldSpanX: 0 });
     expect(policy.pixelsPerWorldUnit).toBe(0);
+    expect(Number.isFinite(policy.roadWidthFactor)).toBe(true);
+    expect(Number.isFinite(policy.localRoadWidthPx)).toBe(true);
   });
 });
 

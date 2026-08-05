@@ -17,6 +17,7 @@ export {
   roadWidthFactorAtZoom,
   ROAD_WIDTH_FACTOR_STOPS,
 } from './expressions/road-width-curve';
+export { zoomForWorldUnitsPerPixel } from './export/output-density';
 export { resolveFullMapOutputSurface } from './export/export-snapshot-builder';
 export { planTiles } from './export/tile-planner';
 export {

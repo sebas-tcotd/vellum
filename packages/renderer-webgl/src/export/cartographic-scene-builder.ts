@@ -24,11 +24,9 @@ import {
   type ExportBackground,
   type ExportExtent,
   type ExportSnapshotBase,
-  type LayerOptions,
   type LayerVisibility,
   type RenderStyleParams,
   type SceneEntity,
-  type SceneGradient,
   type SceneLayer,
   type SceneLayerId,
   type ScenePoint,
@@ -82,9 +80,6 @@ const ID_PREFIX: Readonly<Record<SceneLayerId, string>> = Object.freeze({
   forests: 'forest',
   districts: 'district',
 });
-
-/** Gradient id for the hypsometric terrain ramp. */
-const TERRAIN_GRADIENT_ID = 'vellum-terrain-elevation';
 
 // Stroke and marker sizes the interactive layers use as zoom-independent
 // literals (`layer-terrain.ts`, `layer-basemap.ts`, `layer-buildings.ts`,
@@ -140,7 +135,8 @@ export function buildCartographicScene(
       height: snapshot.surface.height,
     },
     background: resolveBackground(input.background, snapshot.style),
-    gradients: buildGradients(snapshot.layerOptions, colors),
+    // No colour ramp is emitted in the MVP; see buildTerrainEntities.
+    gradients: [],
     layers,
     warnings: warnings.collect(),
   };
@@ -188,7 +184,6 @@ const LAYER_BUILDERS: Readonly<
 
 function buildTerrainEntities(context: LayerContext): SceneEntity[] {
   const { snapshot, colors, warnings } = context;
-  const useRelief = snapshot.layerOptions.terrain.showColorRelief;
   const entities: SceneEntity[] = [];
 
   buildLandPolygonGeoJson(snapshot.cityData).features.forEach(
@@ -198,11 +193,13 @@ function buildTerrainEntities(context: LayerContext): SceneEntity[] {
       entities.push({
         id: `${ID_PREFIX.terrain}-land-${index}`,
         geometry: { kind: 'polygon', rings },
-        fill: {
-          color: colors.land,
-          ...(useRelief ? { gradientId: TERRAIN_GRADIENT_ID } : {}),
-          fillRule: 'evenodd',
-        },
+        // Flat, on purpose. The interactive relief is a `color-relief` ramp
+        // sampled per DEM texel; there is no vector primitive that carries
+        // that, and a document-wide gradient only *looks* like elevation —
+        // it is a top-to-bottom fade that says nothing about the terrain
+        // underneath it. Contour lines below carry the real relief until
+        // 6.3B vectorizes hypsometric bands.
+        fill: { color: colors.land, fillRule: 'evenodd' },
       });
     },
   );
@@ -450,24 +447,6 @@ function buildDistrictEntities(context: LayerContext): SceneEntity[] {
 }
 
 // ─── Shared helpers ──────────────────────────────────────────────────────────
-
-function buildGradients(
-  layerOptions: Readonly<LayerOptions>,
-  colors: ResolvedColors,
-): SceneGradient[] {
-  if (!layerOptions.terrain.showColorRelief) return [];
-  return [
-    {
-      id: TERRAIN_GRADIENT_ID,
-      kind: 'linear',
-      stops: [
-        { offset: 0, color: colors.terrain.low },
-        { offset: 0.5, color: colors.terrain.mid },
-        { offset: 1, color: colors.terrain.high },
-      ],
-    },
-  ];
-}
 
 function resolveBackground(
   background: ExportBackground,

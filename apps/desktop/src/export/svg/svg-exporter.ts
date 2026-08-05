@@ -55,7 +55,10 @@ export interface SvgExporterOptions {
   readonly createWorker: () => SvgWorkerHandle;
   /** Transactional sink speaking the streaming-svg session. */
   readonly sink: SvgExportSink;
-  /** Optional override of the local-road calibration, for tests and tuning. */
+  /**
+   * Pins the local-road width instead of deriving it from the document's own
+   * density. Normally omitted — see `svg-export-policy.ts`.
+   */
   readonly localRoadWidthPx?: number;
   /** Optional override of the chunk budget, for tests. */
   readonly chunkTargetBytes?: number;

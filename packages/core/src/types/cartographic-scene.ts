@@ -30,9 +30,17 @@ export interface ScenePoint {
  *
  * @remarks
  * `pixelX = (x - extent.minX) / (extent.maxX - extent.minX) * width` and
- * `pixelY = (z - extent.minZ) / (extent.maxZ - extent.minZ) * height` — the
- * documented CS1 canvas projection, with world Z mapping to output Y. No
- * pitch or bearing is representable, which is exactly why a rotated or
+ * `pixelY = (extent.maxZ - z) / (extent.maxZ - minZ) * height`.
+ *
+ * **Output Y descends from `maxZ`, not up from `minZ`.** With
+ * `CS1_LAT_SIGN = 1` the interactive renderer maps increasing Z to increasing
+ * latitude, and MapLibre draws increasing latitude at the *top* of the
+ * screen — so the highest Z is the topmost output row. Deriving Y the other
+ * way produces a document that is a vertical mirror of what the user was
+ * looking at. The tiled raster planner resolves its own tile extents the same
+ * way, for the same reason.
+ *
+ * No pitch or bearing is representable, which is exactly why a rotated or
  * tilted camera must be rejected before a scene is ever built.
  */
 export interface SceneProjection {
@@ -243,6 +251,7 @@ export function projectScenePoint(
   const spanZ = extent.maxZ - extent.minZ;
   return {
     x: spanX === 0 ? 0 : ((point.x - extent.minX) / spanX) * width,
-    y: spanZ === 0 ? 0 : ((point.z - extent.minZ) / spanZ) * height,
+    // Descends from maxZ — see the note on SceneProjection.
+    y: spanZ === 0 ? 0 : ((extent.maxZ - point.z) / spanZ) * height,
   };
 }
