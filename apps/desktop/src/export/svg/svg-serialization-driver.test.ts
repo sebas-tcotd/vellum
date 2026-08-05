@@ -4,6 +4,9 @@ import { runSvgSerialization } from './svg-serialization-driver';
 import type { SvgWorkerEvent } from './svg-worker-protocol';
 
 const SCENE: CartographicScene = {
+  info: { title: 'Testville', description: 'Cartographic export.' },
+  labels: [],
+  symbols: [],
   projection: {
     extent: { minX: -10, maxX: 10, minZ: -10, maxZ: 10 },
     width: 100,
@@ -28,6 +31,7 @@ const SCENE: CartographicScene = {
       })),
     },
   ],
+  emblem: null,
   warnings: [{ code: 'degenerate-geometry', count: 3 }],
 };
 

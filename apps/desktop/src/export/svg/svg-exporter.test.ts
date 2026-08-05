@@ -10,6 +10,7 @@ import type {
 } from '@vellum/core';
 import { createSvgExportSnapshot, DEFAULT_LAYER_OPTIONS } from '@vellum/core';
 import { makeCityData } from '@vellum/core/testing';
+import { buildCartographicScene } from '@vellum/renderer-webgl';
 import { SvgExportCapabilityError, SvgExporter } from './svg-exporter';
 import { runSvgSerialization } from './svg-serialization-driver';
 import type {
@@ -202,7 +203,12 @@ function makeExporter(options: {
   sink: SvgExportSink;
   chunkTargetBytes?: number;
 }) {
-  return new SvgExporter(options as never);
+  // The real builder, injected as the composition root does — the port is
+  // about *where the import lives*, not about faking the scene.
+  return new SvgExporter({
+    buildScene: buildCartographicScene,
+    ...options,
+  } as never);
 }
 
 let sink: RecordingSink;

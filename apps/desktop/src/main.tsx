@@ -12,6 +12,7 @@ import {
   type ExportCancelHandlerRef,
 } from '@vellum/ui';
 import {
+  buildCartographicScene,
   CapabilityProbe,
   LegacyRasterExporter,
   TiledRasterExporter,
@@ -61,6 +62,10 @@ const rasterExporter = new ExportCoordinator(legacyExporter, legacySink);
  * same ESM graph Vite builds for the app.
  */
 const svgExporter = new SvgExporter({
+  // The one place the SVG route is allowed to meet `renderer-webgl`: the
+  // composition root. `svg-exporter.ts` takes this as a port so the adapter
+  // itself stays core-only (AD-16).
+  buildScene: buildCartographicScene,
   createWorker: () => {
     const worker = new Worker(
       new URL('./export/svg/svg-export-worker.ts', import.meta.url),

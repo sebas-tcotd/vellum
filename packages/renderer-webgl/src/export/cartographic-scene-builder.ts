@@ -26,6 +26,7 @@ import {
   type ExportSnapshotBase,
   type LayerVisibility,
   type RenderStyleParams,
+  type SceneEmblem,
   type SceneEntity,
   type SceneLayer,
   type SceneLayerId,
@@ -34,6 +35,7 @@ import {
   type SceneWarningCode,
   type TransitMode,
 } from '@vellum/core';
+import { VELLUM_LOGO_SIZE, vellumLogoInnerSvg } from '../assets/vellum-logo';
 import { geoToCs } from '../coordinate-transform';
 import { resolveBuildingColor } from '../expressions/building-color';
 import { resolveRoadWidthPx } from '../expressions/road-width-curve';
@@ -57,6 +59,7 @@ import {
   TRANSIT_LINE_MIN_PX,
 } from '../layers/layer-transit';
 import { TRANSIT_DIM_FACTOR } from '../constants/layer.constants';
+import { buildSceneAnnotations } from './scene-annotations';
 import { resolveColors, type ResolvedColors } from '../style-adapter';
 import { LINE_WIDTH_M, SLOT_M } from '../transit/render-geometry';
 
@@ -152,16 +155,45 @@ export function buildCartographicScene(
     }),
   );
 
+  const background = resolveBackground(input.background, snapshot.style);
+  const annotations = buildSceneAnnotations({
+    cityData: snapshot.cityData,
+    activeLayers: snapshot.activeLayers,
+    layerOptions: snapshot.layerOptions,
+    colors,
+    background,
+  });
+  if (annotations.missingLabelSources > 0) {
+    warnings.add('label-source-missing', annotations.missingLabelSources);
+  }
+  if (annotations.symbolFallbacks > 0) {
+    warnings.add('symbol-fallback', annotations.symbolFallbacks);
+  }
+  // AC 4/13: the document names a font stack but embeds no font file, and
+  // says so rather than letting the reader assume otherwise.
+  warnings.add('font-not-embedded');
+
   return {
+    info: {
+      title: snapshot.cityData.cityName.trim() || 'Vellum map',
+      description: `Cartographic export of ${
+        snapshot.cityData.cityName.trim() || 'a Cities: Skylines map'
+      }.`,
+    },
     projection: {
       extent: snapshot.extent,
       width: snapshot.surface.width,
       height: snapshot.surface.height,
     },
-    background: resolveBackground(input.background, snapshot.style),
+    background,
     // No colour ramp is emitted in the MVP; see buildTerrainEntities.
     gradients: [],
     layers,
+    labels: annotations.labels,
+    symbols: annotations.symbols,
+    emblem: snapshot.watermarkVisible
+      ? buildEmblem(snapshot.surface.width, snapshot.surface.height)
+      : null,
     warnings: warnings.collect(),
   };
 }
@@ -489,6 +521,33 @@ function buildDistrictEntities(context: LayerContext): SceneEntity[] {
 
 // ─── Shared helpers ──────────────────────────────────────────────────────────
 
+/** Fraction of the document's shorter edge the watermark occupies. */
+const EMBLEM_SIZE_RATIO = 0.12;
+
+/**
+ * Places the Vellum mark at the centre of the document.
+ *
+ * @remarks
+ * Centred to match `layer-watermark.ts`, which anchors it at world origin.
+ * Its *size*, though, cannot be matched: the interactive mark is driven by a
+ * zoom-interpolated `icon-size`, and a static document has no zoom. A fixed
+ * fraction of the shorter edge is the export's own choice — the same kind of
+ * documented policy decision as the road-width scale — so the mark keeps its
+ * proportion whatever resolution was requested.
+ */
+function buildEmblem(width: number, height: number): SceneEmblem {
+  const size = Math.min(width, height) * EMBLEM_SIZE_RATIO;
+  return {
+    id: 'vellum-watermark',
+    svgMarkup: vellumLogoInnerSvg(),
+    sourceWidth: VELLUM_LOGO_SIZE,
+    sourceHeight: VELLUM_LOGO_SIZE,
+    xPx: (width - size) / 2,
+    yPx: (height - size) / 2,
+    widthPx: size,
+  };
+}
+
 function resolveBackground(
   background: ExportBackground,
   style: Readonly<RenderStyleParams>,
@@ -636,8 +695,8 @@ function lerp(from: number, to: number, t: number): number {
 class WarningTally {
   private readonly counts = new Map<SceneWarningCode, number>();
 
-  add(code: SceneWarningCode): void {
-    this.counts.set(code, (this.counts.get(code) ?? 0) + 1);
+  add(code: SceneWarningCode, count = 1): void {
+    this.counts.set(code, (this.counts.get(code) ?? 0) + count);
   }
 
   collect(): SceneWarning[] {

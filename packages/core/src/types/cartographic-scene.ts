@@ -224,7 +224,15 @@ export type SceneWarningCode =
   /** A presentation option has no MVP representation and was not applied. */
   | 'unsupported-presentation'
   /** A visible layer produced no entities at all. */
-  | 'empty-layer';
+  | 'empty-layer'
+  /** Entities were skipped because the domain holds no text to label them with. */
+  | 'label-source-missing'
+  /** Labels were withheld because a higher-priority one already occupied the space. */
+  | 'label-collision'
+  /** A transit mode has no catalogue entry and fell back to the generic marker. */
+  | 'symbol-fallback'
+  /** No font was embedded; the document relies on a generic family stack. */
+  | 'font-not-embedded';
 
 /**
  * An aggregated, localizable fallback notice.
@@ -241,8 +249,155 @@ export interface SceneWarning {
   readonly count: number;
 }
 
+/** Where a label's anchor point sits relative to its text box. */
+export type SceneLabelAnchor = 'center' | 'left' | 'right' | 'top' | 'bottom';
+
+/**
+ * Resolved typographic style for a label.
+ *
+ * @remarks
+ * `fontFamily` is a family *stack*, not a file: nothing here references a
+ * font resource, so a document carrying it stays self-contained. Layout
+ * determinism comes from the exporter's own metric table, never from whatever
+ * the viewer resolves the stack to.
+ */
+export interface SceneLabelStyle {
+  /** CSS font-family stack, resolved by the viewer. */
+  readonly fontFamily: string;
+  /** Font size in output pixels. */
+  readonly fontSizePx: number;
+  /** CSS font weight. */
+  readonly fontWeight: number;
+  /** Fill colour of the glyphs. */
+  readonly color: string;
+  /** Halo colour painted behind the glyphs, when one is wanted. */
+  readonly haloColor?: string;
+  /** Halo width in output pixels; drawn as a stroke, never rasterized. */
+  readonly haloWidthPx?: number;
+}
+
+/**
+ * One piece of map text, derived only from data the domain already holds.
+ *
+ * @remarks
+ * Never fabricated: a label exists because `CityData` carried a name or an
+ * identifier for that entity. Anything the domain does not know — street
+ * names, for instance — produces an aggregated warning rather than invented
+ * text.
+ */
+export interface SceneLabel {
+  /** Stable identifier, unique within the scene. */
+  readonly id: string;
+  /** Layer this label belongs to, preserving its provenance. */
+  readonly layer: SceneLayerId;
+  /** Identifier of the domain entity this label describes. */
+  readonly entityId: string;
+  /** The text itself, unescaped; the serializer owns escaping. */
+  readonly text: string;
+  /** Anchor position in CS1 world coordinates. */
+  readonly at: ScenePoint;
+  /** How the text box sits around {@link SceneLabel.at}. */
+  readonly anchor: SceneLabelAnchor;
+  /**
+   * Collision priority; lower wins when two labels overlap.
+   *
+   * @remarks
+   * Ties break on `id`, so a layout never depends on iteration order.
+   */
+  readonly priority: number;
+  /** Resolved typography. */
+  readonly style: SceneLabelStyle;
+}
+
+/** Transit modes the symbol catalogue covers. */
+export type SceneSymbolId =
+  | 'transit-bus'
+  | 'transit-tram'
+  | 'transit-train'
+  | 'transit-metro'
+  | 'transit-cablecar'
+  | 'transit-monorail'
+  | 'transit-ferry'
+  | 'transit-blimp'
+  | 'transit-trolleybus'
+  | 'transit-unknown';
+
+/**
+ * One placed instance of a reusable symbol.
+ *
+ * @remarks
+ * A definition is emitted once and referenced many times, but every instance
+ * keeps its own selectable group and id — editing one marker must never
+ * change the others.
+ */
+export interface SceneSymbolInstance {
+  /** Stable identifier for this instance's group. */
+  readonly id: string;
+  /** Catalogue entry to instantiate. */
+  readonly symbol: SceneSymbolId;
+  /** Layer this instance belongs to. */
+  readonly layer: SceneLayerId;
+  /** Identifier of the domain entity this instance marks. */
+  readonly entityId: string;
+  /** Placement in CS1 world coordinates. */
+  readonly at: ScenePoint;
+  /** Rendered size in output pixels; symbols are square. */
+  readonly sizePx: number;
+  /** Fill applied to the instance, overriding the definition. */
+  readonly color: string;
+}
+
+/**
+ * Vector artwork placed on the document without being map geometry.
+ *
+ * @remarks
+ * The one place this model carries document-format content rather than
+ * neutral primitives, and deliberately so: the Vellum mark is *authored* as
+ * SVG paths with Bézier curves, and {@link ScenePathGeometry} is polyline
+ * only — re-expressing it here would flatten those curves for no gain. The
+ * markup is bundled, never user-supplied, so it is not an injection surface.
+ *
+ * A consumer that cannot host foreign markup can simply skip the emblem; it
+ * is a watermark, not cartography.
+ */
+export interface SceneEmblem {
+  /** Identifier for the emitted group. */
+  readonly id: string;
+  /** Inner SVG markup, without its own root element. */
+  readonly svgMarkup: string;
+  /** Width of the artwork's own coordinate system. */
+  readonly sourceWidth: number;
+  /** Height of the artwork's own coordinate system. */
+  readonly sourceHeight: number;
+  /** Left edge of the placed artwork, in output pixels. */
+  readonly xPx: number;
+  /** Top edge of the placed artwork, in output pixels. */
+  readonly yPx: number;
+  /** Rendered width in output pixels; height follows the source aspect. */
+  readonly widthPx: number;
+  /** Opacity in `[0, 1]`; omitted means fully opaque. */
+  readonly opacity?: number;
+}
+
+/**
+ * Human-readable description of the document, when safe data exists.
+ *
+ * @remarks
+ * Feeds `<title>`/`<desc>`. Deliberately narrow: a city name is content the
+ * user already published inside the map, whereas a file path or an output
+ * directory is not, and must never reach the document.
+ */
+export interface SceneDocumentInfo {
+  /** City name, when the domain has one. */
+  readonly title: string;
+  /** One-line description of what the document shows. */
+  readonly description: string;
+}
+
 /** A complete, serializable scene ready for a vector document writer. */
 export interface CartographicScene {
+  /** Accessible title and description for the document. */
+  readonly info: SceneDocumentInfo;
   /** Deterministic world-to-pixel mapping for every coordinate in the scene. */
   readonly projection: SceneProjection;
   /** Resolved background colour, or `null` for a transparent document. */
@@ -251,6 +406,27 @@ export interface CartographicScene {
   readonly gradients: readonly SceneGradient[];
   /** Layers in painting order; see {@link SCENE_LAYER_ORDER}. */
   readonly layers: readonly SceneLayer[];
+  /**
+   * Map text, in no particular order.
+   *
+   * @remarks
+   * Kept beside the layers rather than inside them so a single deterministic
+   * layout pass can see every label at once — collision is a document-wide
+   * question, not a per-layer one. Each label still carries its
+   * {@link SceneLabel.layer}, so provenance survives.
+   */
+  readonly labels: readonly SceneLabel[];
+  /** Reusable-symbol instances, each with its own selectable identity. */
+  readonly symbols: readonly SceneSymbolInstance[];
+  /**
+   * Watermark artwork drawn above every layer, or `null` when disabled.
+   *
+   * @remarks
+   * Outside the layer stack on purpose: it is not cartography, so a user
+   * deleting it in an editor must not have to hunt through a map layer, and
+   * hiding every layer must still leave it visible.
+   */
+  readonly emblem: SceneEmblem | null;
   /** Aggregated fallbacks applied while building the scene. */
   readonly warnings: readonly SceneWarning[];
 }

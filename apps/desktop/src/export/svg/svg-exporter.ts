@@ -4,10 +4,12 @@
  * @remarks
  * Owns the parts that must not live in the worker (Tauri IPC, cancellation
  * wiring, progress) and none of the parts that must not live on the main
- * thread (XML construction). The scene is built here, on the main thread,
- * because deriving it needs `renderer-webgl`'s geometry builders; it is a
- * single pass over already-parsed data producing plain arrays, and every
- * string-heavy step — which is the expensive half — happens in the worker.
+ * thread (XML construction). The scene is built on the main thread through an
+ * injected {@link CartographicSceneBuilder} — deriving it needs
+ * `renderer-webgl`'s geometry builders, so the dependency is declared as a
+ * port and satisfied by the composition root rather than imported here. It is
+ * a single pass over already-parsed data producing plain arrays; every
+ * string-heavy step — the expensive half — happens in the worker.
  *
  * The transactional order is deliberate and never reordered: the worker only
  * signals `ready-to-commit` once every chunk has been *acknowledged by Rust*,
@@ -29,7 +31,6 @@ import {
   type SvgExportSink,
   type SvgExportSnapshot,
 } from '@vellum/core';
-import { buildCartographicScene } from '@vellum/renderer-webgl';
 import { resolveSvgExportPolicy } from './svg-export-policy';
 import type { SvgExportMetrics } from './svg-export-metrics';
 import { peakOf, readPeakMemoryBytes } from './svg-export-metrics';
@@ -51,8 +52,28 @@ export interface SvgWorkerHandle {
   terminate(): void;
 }
 
+/**
+ * Builds the neutral scene for a snapshot.
+ *
+ * @remarks
+ * Injected rather than imported so this module stays free of
+ * `@vellum/renderer-webgl` (AD-16). The scene builder genuinely needs that
+ * package — it is built on its GeoJSON builders — but the *coupling* belongs
+ * in `main.tsx`, the composition root, where it is visible. An adapter
+ * importing another adapter is exactly what the boundary forbids, and
+ * "it happens to live under apps/desktop" is not a reason to hide it.
+ */
+export type CartographicSceneBuilder = (input: {
+  readonly snapshot: SvgExportSnapshot;
+  readonly background: SvgExportSnapshot['request']['background'];
+  readonly roadWidthFactor: number;
+  readonly roadCasingAddPx: number;
+}) => CartographicScene;
+
 /** Everything the exporter needs wired from the composition root. */
 export interface SvgExporterOptions {
+  /** Derives the neutral scene; supplied by the composition root. */
+  readonly buildScene: CartographicSceneBuilder;
   /** Creates a fresh worker per operation, so state never leaks between exports. */
   readonly createWorker: () => SvgWorkerHandle;
   /** Transactional sink speaking the streaming-svg session. */
@@ -154,7 +175,7 @@ export class SvgExporter implements SvgExportPort {
         ? { localRoadWidthPx: this.options.localRoadWidthPx }
         : {}),
     });
-    const scene = buildCartographicScene({
+    const scene = this.options.buildScene({
       snapshot,
       background: snapshot.request.background,
       roadWidthFactor: policy.roadWidthFactor,

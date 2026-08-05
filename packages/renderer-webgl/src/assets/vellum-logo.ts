@@ -130,6 +130,24 @@ export const VELLUM_LOGO_SVG = `<svg width="728" height="728" viewBox="0 0 728 7
 </svg>
 `;
 
+/** Intrinsic side of {@link VELLUM_LOGO_SVG}'s own coordinate system. */
+export const VELLUM_LOGO_SIZE = 728;
+
+/**
+ * The logo's markup with its own `<svg>` root stripped off.
+ *
+ * @remarks
+ * Lets a vector exporter place the mark as real paths inside its own
+ * document, rather than embedding a raster copy of it — nesting a second
+ * `<svg>` root would also drag along a `width`/`height` that fights the
+ * placement transform.
+ */
+export function vellumLogoInnerSvg(): string {
+  return VELLUM_LOGO_SVG.replace(/^[\s\S]*?<svg[^>]*>/, '')
+    .replace(/<\/svg>\s*$/, '')
+    .trim();
+}
+
 /** Returns the bundled Vellum logo as a browser-safe SVG data URL. */
 export function vellumLogoDataUri(): string {
   return `data:image/svg+xml;base64,${btoa(VELLUM_LOGO_SVG)}`;

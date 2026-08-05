@@ -514,6 +514,52 @@ describe('buildCartographicScene', () => {
     expect(casing.stroke!.widthPx - fill.stroke!.widthPx).toBeCloseTo(2.4, 10);
   });
 
+  it('emits the Vellum mark as vector artwork when the watermark is on', () => {
+    const scene = buildCartographicScene({
+      snapshot: { ...snapshot(makeCityData()), watermarkVisible: true },
+      background: 'white',
+      roadWidthFactor: 1,
+      roadCasingAddPx: 1.1,
+    });
+    expect(scene.emblem).not.toBeNull();
+    // Real paths from the bundled asset, never a raster stand-in.
+    expect(scene.emblem!.svgMarkup).toContain('<path');
+    expect(scene.emblem!.svgMarkup).not.toContain('<svg');
+    expect(scene.emblem!.svgMarkup).not.toContain('data:image');
+    // Centred on the document, proportional to its shorter edge.
+    expect(scene.emblem!.widthPx).toBeCloseTo(1728 * 0.12, 6);
+    expect(scene.emblem!.xPx).toBeCloseTo((1728 - 1728 * 0.12) / 2, 6);
+    expect(scene.emblem!.yPx).toBeCloseTo((1728 - 1728 * 0.12) / 2, 6);
+  });
+
+  it('omits the mark when the watermark was off at capture time', () => {
+    expect(build(makeCityData()).emblem).toBeNull();
+  });
+
+  it('keeps the mark out of the layer stack, so hiding every layer keeps it', () => {
+    const scene = buildCartographicScene({
+      snapshot: {
+        ...snapshot(makeCityData(), {
+          activeLayers: {
+            terrain: false,
+            basemap: false,
+            roads: false,
+            transit: false,
+            buildings: false,
+            forests: false,
+            districts: false,
+          },
+        }),
+        watermarkVisible: true,
+      },
+      background: 'white',
+      roadWidthFactor: 1,
+      roadCasingAddPx: 1.1,
+    });
+    expect(scene.layers.every((layer) => !layer.visible)).toBe(true);
+    expect(scene.emblem).not.toBeNull();
+  });
+
   it('never mutates the CityData it reads', () => {
     const city = roadCity('Small Road');
     const before = JSON.stringify(city);
