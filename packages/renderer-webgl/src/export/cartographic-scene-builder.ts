@@ -525,14 +525,24 @@ function buildDistrictEntities(context: LayerContext): SceneEntity[] {
  * Fraction of the document's shorter edge the watermark occupies.
  *
  * @remarks
- * The artwork carries `opacity="0.2"` of its own — it is a deliberately faint
- * mark — so it only reads at size. `layer-watermark.ts` renders it through a
- * zoom-interpolated `icon-size` that works out to roughly 220–360 CSS px on a
- * ~1000 px canvas at the overview zooms where every layer is typically off,
- * i.e. around 30% of the shorter edge. An earlier 12% was faithful to nothing
- * and simply disappeared.
+ * `layer-watermark.ts` renders the mark through a zoom-interpolated
+ * `icon-size` that works out to roughly 220–360 CSS px on a ~1000 px canvas at
+ * the overview zooms where every layer is typically off — around 30% of the
+ * shorter edge.
  */
 const EMBLEM_SIZE_RATIO = 0.3;
+
+/**
+ * Opacity the exported watermark is drawn at.
+ *
+ * @remarks
+ * Chosen here rather than inherited from the artwork, which hard-codes 20% —
+ * a level tuned for sitting over cartography, where the map behind it supplies
+ * contrast. An export may have nothing behind it but white, and at 20% the
+ * mark resolves to `#DBD9D7` and vanishes. Half opacity keeps it unmistakably
+ * a watermark while leaving it legible on a blank page.
+ */
+const EMBLEM_OPACITY = 0.5;
 
 /**
  * Places the Vellum mark at the centre of the document.
@@ -555,6 +565,7 @@ function buildEmblem(width: number, height: number): SceneEmblem {
     xPx: (width - size) / 2,
     yPx: (height - size) / 2,
     widthPx: size,
+    opacity: EMBLEM_OPACITY,
   };
 }
 

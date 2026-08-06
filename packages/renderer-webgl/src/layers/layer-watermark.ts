@@ -71,7 +71,6 @@ export async function addWatermarkLayer(map: maplibregl.Map): Promise<void> {
     },
   });
 
-  const firstLayerId = map.getStyle().layers?.[0]?.id;
   map.addLayer(
     {
       id: WATERMARK_LAYER_ID,
@@ -87,6 +86,36 @@ export async function addWatermarkLayer(map: maplibregl.Map): Promise<void> {
         'icon-opacity': 1,
       },
     },
-    firstLayerId,
+    layerAboveBackground(map),
   );
+}
+
+/**
+ * Id of the layer that sits directly above the opaque background.
+ *
+ * @remarks
+ * `addLayer`'s second argument is a `beforeId`, so passing the *first* layer's
+ * id — as this once did — inserted the watermark underneath everything,
+ * including the `background` layer. A MapLibre `background` layer paints the
+ * whole viewport opaque, so the mark was drawn and then completely covered:
+ * present in the style, invisible on screen. It only became noticeable once
+ * the background started following the active theme; before that it was
+ * transparent enough to see through.
+ *
+ * Directly above the background is also the right place on its own terms — a
+ * watermark belongs behind the cartography, not over it — so with layers on it
+ * stays hidden, and with every layer off it is the only thing left to see.
+ *
+ * @param map - Map whose current layer stack is inspected.
+ * @returns The `beforeId` to insert at, or `undefined` to append on top.
+ */
+function layerAboveBackground(map: maplibregl.Map): string | undefined {
+  const layers = map.getStyle().layers ?? [];
+  const backgroundIndex = layers.findIndex(
+    (layer) => layer.id === 'background',
+  );
+  // No background to sit above: appending on top is the only safe choice, and
+  // is still better than being buried at the bottom.
+  if (backgroundIndex < 0) return undefined;
+  return layers[backgroundIndex + 1]?.id;
 }

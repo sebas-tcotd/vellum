@@ -526,9 +526,11 @@ describe('buildCartographicScene', () => {
     expect(scene.emblem!.svgMarkup).toContain('<path');
     expect(scene.emblem!.svgMarkup).not.toContain('<svg');
     expect(scene.emblem!.svgMarkup).not.toContain('data:image');
-    // The artwork carries opacity 0.2 of its own, so it only reads at size:
-    // 12% of the shorter edge was faithful to nothing and vanished on screen.
-    expect(scene.emblem!.svgMarkup).toContain('opacity="0.2"');
+    // The artwork's own `<g opacity="0.2">` ceiling is unwrapped — group
+    // opacity multiplies, so leaving it would cap the mark at 20% no matter
+    // what the scene asks for, and on a white export that is invisible.
+    expect(scene.emblem!.svgMarkup.startsWith('<g opacity="0.2"')).toBe(false);
+    expect(scene.emblem!.opacity).toBe(0.5);
     expect(scene.emblem!.widthPx).toBeCloseTo(1728 * 0.3, 6);
     expect(scene.emblem!.xPx).toBeCloseTo((1728 - 1728 * 0.3) / 2, 6);
     expect(scene.emblem!.yPx).toBeCloseTo((1728 - 1728 * 0.3) / 2, 6);
