@@ -205,6 +205,6 @@
   "exportWarnings": {
     "svgDegenerateGeometry": "{{count}} elemento(s) no se pudieron dibujar por geometría inválida y se omitieron del SVG.",
     "svgEmptyLayer": "{{count}} capa(s) visible(s) quedaron vacías en el SVG.",
-    "svgUnsupportedPresentation": "El SVG no incluye etiquetas, leyendas ni escala gráfica: esas opciones no se aplicaron."
+    "svgUnsupportedPresentation": "Algunas opciones de presentación que seleccionaste no se aplicaron a este SVG."
   }
 }
