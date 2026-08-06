@@ -178,6 +178,7 @@
   },
   "a11y": {
     "mapCanvas": "Canvas del mapa de ciudad",
+    "minimap": "Minimapa de navegación",
     "mapCanvasCity": "Mapa de ciudad {{cityName}}",
     "loadingProgress": "Progreso de carga",
     "exportProgress": "Progreso de exportación",

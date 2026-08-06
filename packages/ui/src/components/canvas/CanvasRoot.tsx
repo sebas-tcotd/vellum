@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import type { UnlistenFn } from '@tauri-apps/api/event';
 import { useRenderLoop } from './hooks/useRenderLoop';
@@ -72,6 +73,7 @@ export function CanvasRoot({
   activeLayers,
   fitToScreenRef,
 }: CanvasRootProps) {
+  const { t } = useTranslation();
   const unlistenRef = useRef<UnlistenFn | null>(null);
   const viewportRef = useRef<ViewportState>({ zoom: 1, panX: 0, panY: 0 });
   const rendererRef = useRef<IRenderer | null>(renderer ?? null);
@@ -469,7 +471,7 @@ export function CanvasRoot({
       ref={wrapperRef}
       className="canvas-root relative w-full h-full overflow-hidden"
       role="region"
-      aria-label="Map canvas"
+      aria-label={t('a11y.mapCanvas')}
     >
       <div
         ref={containerRef}

@@ -7,6 +7,10 @@ import { useVellumStore } from '../../store/vellum-store';
 import { CanvasRenderer } from '@vellum/renderer-canvas';
 import { makeCityData } from '@vellum/core/testing';
 
+vi.mock('react-i18next', () => ({
+  useTranslation: () => ({ t: (key: string) => key }),
+}));
+
 // --- Mock RAF -----------------------------------------------------------
 describe('CanvasRoot — RAF lifecycle', () => {
   beforeEach(() => {
@@ -49,7 +53,7 @@ describe('CanvasRoot — rendering', () => {
   it('renders with an aria-label on the region', () => {
     const { container } = render(<CanvasRoot />);
     const region = container.querySelector('[role="region"]');
-    expect(region?.getAttribute('aria-label')).toBe('Map canvas');
+    expect(region?.getAttribute('aria-label')).toBe('a11y.mapCanvas');
   });
 
   it('accepts optional onElementHover and onElementLeave without errors', () => {
