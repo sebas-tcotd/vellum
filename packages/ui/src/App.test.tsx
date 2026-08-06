@@ -4,6 +4,8 @@ import type {
   ExportProgress,
   ExportSnapshot,
   RasterExportV2,
+  SvgExportPort,
+  SvgExportSnapshot,
 } from '@vellum/core';
 import { render, screen, cleanup, act, waitFor, fireEvent } from './test-utils';
 import { App, type ExportCancelHandlerRef } from './App';
@@ -22,6 +24,15 @@ const mockPreviewCapture = vi.hoisted(() =>
 );
 
 const mockSnapshot = { snapshotId: 'snap-1' } as ExportSnapshot;
+const mockSvgSnapshot = { snapshotId: 'svg-snap-1' } as SvgExportSnapshot;
+const mockSvgExporter: SvgExportPort = {
+  mode: 'streaming-svg',
+  capabilitiesForSnapshot: vi.fn().mockReturnValue({ eligible: true }),
+  export: vi.fn().mockResolvedValue({
+    filePath: '/tmp/export.svg',
+    folderPath: '/tmp',
+  }),
+};
 const mockRasterExporter: RasterExportV2 = {
   version: 2,
   capabilities: vi.fn().mockResolvedValue({
@@ -101,6 +112,7 @@ vi.mock('./components/canvas/MapLibreRoot', () => ({
   MapLibreRoot: ({
     previewCaptureRef,
     snapshotCaptureRef,
+    svgSnapshotCaptureRef,
   }: {
     previewCaptureRef?: React.RefObject<
       | (() => Promise<import('@vellum/core').ExportPreviewSnapshot | null>)
@@ -112,12 +124,21 @@ vi.mock('./components/canvas/MapLibreRoot', () => ({
         ) => ExportSnapshot | null)
       | null
     >;
+    svgSnapshotCaptureRef?: React.RefObject<
+      | ((
+          request: import('@vellum/core').SvgExportRequest,
+        ) => SvgExportSnapshot | null)
+      | null
+    >;
   }) => {
     if (previewCaptureRef) {
       previewCaptureRef.current = mockPreviewCapture;
     }
     if (snapshotCaptureRef) {
       snapshotCaptureRef.current = () => mockSnapshot;
+    }
+    if (svgSnapshotCaptureRef) {
+      svgSnapshotCaptureRef.current = () => mockSvgSnapshot;
     }
     return <div data-testid="maplibre-root" />;
   },
@@ -502,6 +523,31 @@ function makeAbortError(): Error {
   const error = new Error('Export aborted');
   error.name = 'AbortError';
   return error;
+}
+
+/**
+ * Drives the dialog to the vector route, toggling the named presentation
+ * options on the way.
+ *
+ * @remarks
+ * Each label is *toggled*, not set — `showCityName` ships enabled, so a test
+ * that wants a clean export has to switch it back off. Its only SVG output is
+ * `<title>` metadata, which keeps it on the unsupported list.
+ */
+async function startSvgExport(
+  user: ReturnType<typeof userEvent.setup>,
+  presentationLabels: readonly string[] = [],
+): Promise<void> {
+  const shortcuts = vi.mocked(useKeyboardShortcuts).mock.lastCall?.[0];
+  await act(async () => shortcuts?.onOpenExport?.());
+  await user.click(screen.getByLabelText('export.format_svg'));
+  for (const label of presentationLabels) {
+    await user.click(screen.getByLabelText(label));
+  }
+  const exportButtons = screen.getAllByRole('button', {
+    name: 'export.exportButton',
+  });
+  await user.click(exportButtons.at(-1)!);
 }
 
 describe('App — progreso, cancelación y cleanup (Story 6.2G)', () => {
@@ -968,5 +1014,147 @@ describe('App — progreso, cancelación y cleanup (Story 6.2G)', () => {
     // microtask in between — so this only passes if the ref is set inline
     // inside handleExport, not via a passive effect scheduled later.
     expect(cancelHandlerRef.current).not.toBeNull();
+  });
+});
+
+describe('App — estado de exportación (Story 6.4)', () => {
+  it('un segundo click en exportar no arranca una operación paralela', async () => {
+    // AD-15: sólo puede haber una exportación viva mientras el protocolo DEM
+    // sea global. El guardia es `isExportingRef`, no el estado de React, para
+    // que dos clicks en el mismo tick no pasen ambos.
+    useVellumStore.getState().setCityData(mockCityData);
+    vi.mocked(mockRasterExporter.export).mockImplementation(
+      () => new Promise(() => undefined),
+    );
+
+    await act(async () => {
+      render(<App rasterExporter={mockRasterExporter} />);
+    });
+    const shortcuts = vi.mocked(useKeyboardShortcuts).mock.lastCall?.[0];
+    await act(async () => shortcuts?.onOpenExport?.());
+    const exportButton = screen
+      .getAllByRole('button', { name: 'export.exportButton' })
+      .at(-1)!;
+
+    await act(async () => {
+      fireEvent.click(exportButton);
+      fireEvent.click(exportButton);
+    });
+
+    expect(vi.mocked(mockRasterExporter.export)).toHaveBeenCalledTimes(1);
+    vi.mocked(mockRasterExporter.export).mockReset();
+  });
+
+  it('Escape sin exportación activa no cancela nada (AC 7)', async () => {
+    // Con el diálogo abierto y nada corriendo, Escape es asunto del diálogo:
+    // el listener del workflow sólo existe mientras hay una operación viva, y
+    // si se quedara montado convertiría un cierre en una cancelación fantasma.
+    useVellumStore.getState().setCityData(mockCityData);
+
+    await act(async () => {
+      render(<App rasterExporter={mockRasterExporter} />);
+    });
+    const shortcuts = vi.mocked(useKeyboardShortcuts).mock.lastCall?.[0];
+    await act(async () => shortcuts?.onOpenExport?.());
+
+    await act(async () => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    });
+
+    expect(screen.queryByText('export.cancelledToast')).toBeNull();
+    expect(screen.queryByText('export.cancelling')).toBeNull();
+    expect(vi.mocked(mockRasterExporter.export)).not.toHaveBeenCalled();
+  });
+});
+
+describe('App — exportación parcial y advertencias (Story 6.4)', () => {
+  it('acompaña el éxito con la advertencia de lo que el SVG no dibujó', async () => {
+    // El archivo existe, pero no es el que se configuró. Sin este aviso la
+    // omisión sólo se descubre abriendo el SVG y buscando lo que falta.
+    const user = userEvent.setup();
+    useVellumStore.getState().setCityData(mockCityData);
+
+    await act(async () => {
+      render(<App svgExporter={mockSvgExporter} />);
+    });
+    await startSvgExport(user, ['export.element_scaleBar']);
+
+    await waitFor(() => {
+      expect(screen.getByText('export.successToast')).toBeInTheDocument();
+    });
+    expect(
+      screen.getByText('exportWarnings.svgUnsupportedPresentation'),
+    ).toBeInTheDocument();
+  });
+
+  it('no advierte nada cuando el SVG sí dibuja todo lo pedido', async () => {
+    // Los nombres de distrito son justo el caso que 6.3B implementó: avisar
+    // aquí contradiría el documento que el usuario tiene delante.
+    const user = userEvent.setup();
+    useVellumStore.getState().setCityData({
+      ...mockCityData,
+      districts: [
+        { id: 'd1', name: 'Centro', cells: [] },
+      ] as unknown as (typeof mockCityData)['districts'],
+    });
+
+    await act(async () => {
+      render(<App svgExporter={mockSvgExporter} />);
+    });
+    await startSvgExport(user, [
+      'export.element_cityName',
+      'export.element_districts',
+    ]);
+
+    await waitFor(() => {
+      expect(screen.getByText('export.successToast')).toBeInTheDocument();
+    });
+    expect(
+      screen.queryByText('exportWarnings.svgUnsupportedPresentation'),
+    ).toBeNull();
+  });
+
+  it('no muestra la advertencia mientras la exportación sigue corriendo', async () => {
+    const user = userEvent.setup();
+    useVellumStore.getState().setCityData(mockCityData);
+    vi.mocked(mockSvgExporter.export).mockImplementationOnce(
+      () => new Promise(() => undefined),
+    );
+
+    await act(async () => {
+      render(<App svgExporter={mockSvgExporter} />);
+    });
+    await startSvgExport(user, ['export.element_scaleBar']);
+
+    expect(
+      screen.queryByText('exportWarnings.svgUnsupportedPresentation'),
+    ).toBeNull();
+  });
+
+  it('descarta la advertencia anterior al arrancar una exportación nueva', async () => {
+    // Una advertencia que sobrevive a la operación que la produjo describe un
+    // archivo que ya no es el último exportado.
+    const user = userEvent.setup();
+    useVellumStore.getState().setCityData(mockCityData);
+
+    await act(async () => {
+      render(<App svgExporter={mockSvgExporter} />);
+    });
+    await startSvgExport(user, ['export.element_scaleBar']);
+    await waitFor(() => {
+      expect(
+        screen.getByText('exportWarnings.svgUnsupportedPresentation'),
+      ).toBeInTheDocument();
+    });
+
+    // Segunda vuelta: el diálogo se remonta con sus defaults (escala apagada,
+    // nombre de ciudad encendido), así que basta apagar el nombre para que no
+    // quede nada sin representar y la advertencia previa deba desaparecer.
+    await startSvgExport(user, ['export.element_cityName']);
+    await waitFor(() => {
+      expect(
+        screen.queryByText('exportWarnings.svgUnsupportedPresentation'),
+      ).toBeNull();
+    });
   });
 });

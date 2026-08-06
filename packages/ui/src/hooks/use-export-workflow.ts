@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { ParseKeys } from 'i18next';
 import type {
   CityData,
   ExportDialogOptions,
@@ -46,22 +47,32 @@ export const SVG_UNSUPPORTED_CAMERA_REASON = 'svg-unsupported-camera';
 export const SVG_UNSUPPORTED_AREA_REASON = 'svg-unsupported-area';
 
 /**
- * Presentation options the SVG MVP has no representation for.
+ * Presentation options the SVG writer emits no output for.
  *
  * @remarks
- * `ExportPresentationOptions` is shared with the raster route and 6.3B will
- * implement most of these. Until then the request may still *carry* them —
- * dropping them would lose the user's configuration — but the exporter must
- * never behave as though it applied them, so an enabled one produces a
- * localized warning instead.
+ * `ExportPresentationOptions` is shared with the raster route. The request
+ * still *carries* every option — dropping them would lose the user's
+ * configuration — but the exporter must never behave as though it applied one
+ * it cannot, so an enabled key here produces a localized warning instead.
+ *
+ * **Deliberately absent:** `showVellumLogo`, `showDistrictNames` and
+ * `showParkNames`. 6.3B gave the exporter real output for all three — the
+ * emblem via `SceneEmblem`, the names via `buildSceneAnnotations`. Listing
+ * them here told the user the document lacked annotations it visibly
+ * contained. What the exporter does *not* do is take those decisions from this
+ * dialog: it draws the names whenever the districts layer is visible and the
+ * emblem whenever the watermark is. That coupling is intentional and out of
+ * scope here; it means an unusual combination (names requested, districts
+ * layer hidden) still goes unwarned.
+ *
+ * `showCityName` stays listed on purpose. The name reaches the document only
+ * as `<title>` metadata — good for a screen reader and a browser tab, but the
+ * user asked for a caption on the map, and there is none.
  */
 const SVG_UNSUPPORTED_PRESENTATION_KEYS = [
   'showCityName',
-  'showVellumLogo',
   'showSourceFile',
   'showGeneratedAt',
-  'showDistrictNames',
-  'showParkNames',
   'showLayerLegend',
   'showRoadLegend',
   'showTransitLegend',
@@ -111,9 +122,10 @@ function buildExportRequest(
     presentation: options.presentation,
   } as const;
 
-  // Presentation is carried verbatim so the user's configuration round-trips,
-  // but the MVP renders none of it — `unsupportedSvgPresentationOptions`
-  // reports what was enabled so nothing ever looks applied when it was not.
+  // Presentation is carried verbatim so the user's configuration round-trips.
+  // The SVG writer renders only part of it, and takes those decisions from the
+  // layer toggles rather than from here — `unsupportedSvgPresentationOptions`
+  // names the rest so nothing ever looks applied when it was not.
   if (options.format === 'svg') {
     return options.area === 'full-map'
       ? {
@@ -271,7 +283,12 @@ export function useExportWorkflow({
   const [exportResult, setExportResult] = useState<ExportResult | null>(null);
   const [exportCancelled, setExportCancelled] = useState(false);
   const [exportError, setExportError] = useState<VellumError | null>(null);
-  const [exportWarnings, setExportWarnings] = useState<readonly string[]>([]);
+  // Typed as i18n keys, not free strings: the compiler then rejects a warning
+  // the translation files never got, which is the failure mode this state had
+  // while nothing rendered it.
+  const [exportWarnings, setExportWarnings] = useState<readonly ParseKeys[]>(
+    [],
+  );
   const abortControllerRef = useRef<AbortController | null>(null);
   const exportOperationRef = useRef<{
     snapshotId: string;
@@ -279,6 +296,13 @@ export function useExportWorkflow({
   } | null>(null);
   const timedOutRef = useRef(false);
   const pendingExportRef = useRef<Promise<void> | null>(null);
+  // Mirrors `isExporting` for callbacks that must not close over a stale
+  // render, and `handleExport` also raises it *synchronously* when an
+  // operation starts. Both matter: `setExportPhase` only lands on the next
+  // render, so two clicks dispatched in the same tick would otherwise both
+  // pass the guard and start a second export — which AD-15 forbids while the
+  // DEM protocol is global. Re-assigning on every render keeps it honest
+  // afterwards, since by then `exportPhase` carries the same answer.
   const isExportingRef = useRef(isExporting);
   isExportingRef.current = isExporting;
   const previewCapturePendingRef = useRef(false);
@@ -408,6 +432,10 @@ export function useExportWorkflow({
       };
       const controller = new AbortController();
       abortControllerRef.current = controller;
+      // Raised here, not left to `setExportPhase` — this is the point of no
+      // return, and React only re-renders after this tick. A second click
+      // dispatched before that render must see the guard already closed.
+      isExportingRef.current = true;
       setExportPhase('exporting');
       let resolvePending: (() => void) | undefined;
       pendingExportRef.current = new Promise((resolve) => {

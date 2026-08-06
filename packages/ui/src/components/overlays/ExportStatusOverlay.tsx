@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import type { ParseKeys } from 'i18next';
 import type { ExportProgress, ExportResult, VellumError } from '@vellum/core';
 import { cn } from '../../lib/utils';
 import {
@@ -14,6 +15,18 @@ export interface ExportStatusOverlayProps {
   exportResult: ExportResult | null;
   exportCancelled: boolean;
   exportError: VellumError | null;
+  /**
+   * i18n keys naming what the export could not render, if anything.
+   *
+   * @remarks
+   * Keys, never prose — the same rule `VellumError.reason` follows. An export
+   * that dropped something the user asked for is not a clean success, so these
+   * accompany the terminal toast instead of replacing it: the file does exist,
+   * it just isn't the one that was configured.
+   *
+   * @default []
+   */
+  exportWarnings?: readonly ParseKeys[];
   onCancelExport: () => void;
   onOpenExportFolder?: ((folderPath: string) => Promise<void>) | undefined;
 }
@@ -29,10 +42,16 @@ export function ExportStatusOverlay({
   exportResult,
   exportCancelled,
   exportError,
+  exportWarnings = [],
   onCancelExport,
   onOpenExportFolder,
 }: ExportStatusOverlayProps) {
   const { t } = useTranslation();
+
+  // Warnings belong to the outcome, not to the progress: while the export is
+  // still running nothing has been dropped yet, and showing them early would
+  // leave a notice on screen for the whole operation.
+  const showWarnings = exportWarnings.length > 0 && !isExporting;
 
   const exportProgressText =
     exportPhase === 'cancelling'
@@ -94,6 +113,18 @@ export function ExportStatusOverlay({
         <div role="alert" className={cn(TOAST_CLASSNAME)}>
           {t(exportErrorMessageKey(exportError))}{' '}
           {t('export.outputNotPublished')}
+        </div>
+      )}
+      {showWarnings && (
+        <div
+          role="status"
+          className="absolute bottom-16 left-1/2 -translate-x-1/2 rounded bg-background px-4 py-2 text-xs shadow"
+        >
+          {/* One element per key: joining them would produce a string no
+              translation file contains. */}
+          {exportWarnings.map((warning) => (
+            <p key={warning}>{t(warning)}</p>
+          ))}
         </div>
       )}
     </>

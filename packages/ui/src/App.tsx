@@ -159,6 +159,7 @@ export function App({
     exportResult,
     exportCancelled,
     exportError,
+    exportWarnings,
     handleCancelExport,
     handleOpenExport,
     handleExport,
@@ -404,6 +405,7 @@ export function App({
           exportResult={exportResult}
           exportCancelled={exportCancelled}
           exportError={exportError}
+          exportWarnings={exportWarnings}
           onCancelExport={handleCancelExport}
           onOpenExportFolder={onOpenExportFolder}
         />
