@@ -8,8 +8,10 @@ import type {
   RenderStyleParams,
   RoadCategoryColors,
 } from '@vellum/core';
+import { DEFAULT_LAYER_OPTIONS } from '@vellum/core';
 import { buildBuildingColorExpression } from './expressions/building-color';
 import { buildParkColorExpression } from './expressions/park-color';
+import { buildContourColorRamp } from './expressions/terrain-relief';
 import { resolveColors } from './style-adapter';
 
 // ─── Mock maplibre-gl ─────────────────────────────────────────────────────────
@@ -163,6 +165,17 @@ const MOCK_STYLE: RenderStyleParams = {
   },
 };
 
+const TRANSIT_TERRAIN_STYLE: RenderStyleParams = {
+  ...MOCK_STYLE,
+  terrain: {
+    base: '#1a1a2e',
+    low: '#16213e',
+    mid: '#1e2a45',
+    high: '#26324f',
+  },
+  contourLine: '#4a4a56',
+};
+
 const ALL_LAYERS_VISIBLE = {
   terrain: true,
   basemap: true,
@@ -200,6 +213,15 @@ const baseSnapshotRequest = {
 function makeRenderer(): MapLibreRenderer {
   const container = document.createElement('div');
   return new MapLibreRenderer(container, MOCK_STYLE);
+}
+
+function makeContourCity() {
+  return makeCityData({
+    contourLines: [
+      { elevation: 1600, lines: [] },
+      { elevation: 3200, lines: [] },
+    ],
+  });
 }
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
@@ -267,6 +289,62 @@ describe('MapLibreRenderer', () => {
     const renderer = makeRenderer();
     await renderer.render(makeCityData(), { activeLayers: ALL_LAYERS_VISIBLE });
     expect(mockMap.fitBounds).toHaveBeenCalledOnce();
+  });
+
+  it('registers the initial contour layer with the contrasted theme ramp', async () => {
+    const renderer = makeRenderer();
+    const city = makeContourCity();
+    await renderer.render(city, { activeLayers: ALL_LAYERS_VISIBLE });
+
+    const layerCall = (mockMap.addLayer as Mock).mock.calls.find(
+      (call: unknown[]) =>
+        (call[0] as { id?: string }).id === 'terrain-lines-layer',
+    );
+    const layer = layerCall?.[0] as
+      | { paint?: Record<string, unknown> }
+      | undefined;
+    expect(layer?.paint?.['line-color']).toEqual(
+      buildContourColorRamp(
+        resolveColors(MOCK_STYLE).terrain,
+        MOCK_STYLE.contourLine,
+        city.terrainDem,
+        city.contourLines.map((contour) => contour.elevation),
+      ),
+    );
+  });
+
+  it('switches contours between the flat token and contrasted ramp with color relief', async () => {
+    const renderer = makeRenderer();
+    const city = makeContourCity();
+    await renderer.render(city, { activeLayers: ALL_LAYERS_VISIBLE });
+    mockMap.getLayer.mockReturnValue({ id: 'any' } as unknown as undefined);
+    vi.clearAllMocks();
+
+    renderer.setLayerOptions({
+      ...DEFAULT_LAYER_OPTIONS,
+      terrain: {
+        ...DEFAULT_LAYER_OPTIONS.terrain,
+        showColorRelief: false,
+      },
+    });
+    expect(mockMap.setPaintProperty).toHaveBeenCalledWith(
+      'terrain-lines-layer',
+      'line-color',
+      MOCK_STYLE.contourLine,
+    );
+
+    vi.clearAllMocks();
+    renderer.setLayerOptions(DEFAULT_LAYER_OPTIONS);
+    expect(mockMap.setPaintProperty).toHaveBeenCalledWith(
+      'terrain-lines-layer',
+      'line-color',
+      buildContourColorRamp(
+        resolveColors(MOCK_STYLE).terrain,
+        MOCK_STYLE.contourLine,
+        city.terrainDem,
+        city.contourLines.map((contour) => contour.elevation),
+      ),
+    );
   });
 
   it('never sets a background-pattern, which would silently discard background-color', async () => {
@@ -1900,6 +1978,32 @@ describe('MapLibreRenderer', () => {
         'roads-railway-underground-fill',
         'line-color',
         expect.any(Array),
+      );
+    });
+
+    it('rebuilds contour contrast from the newly applied theme', async () => {
+      const renderer = makeRenderer();
+      const city = makeContourCity();
+      await renderer.render(city, { activeLayers: ALL_LAYERS_VISIBLE });
+      vi.clearAllMocks();
+      mockMap.getLayer.mockReturnValue({ id: 'any' } as unknown as undefined);
+
+      await renderer.applyTheme(TRANSIT_TERRAIN_STYLE);
+
+      expect(mockMap.setPaintProperty).toHaveBeenCalledWith(
+        'terrain-lines-layer',
+        'line-color',
+        buildContourColorRamp(
+          resolveColors(TRANSIT_TERRAIN_STYLE).terrain,
+          TRANSIT_TERRAIN_STYLE.contourLine,
+          city.terrainDem,
+          city.contourLines.map((contour) => contour.elevation),
+        ),
+      );
+      expect(mockMap.setPaintProperty).toHaveBeenCalledWith(
+        'terrain-lines-layer',
+        'line-opacity',
+        1,
       );
     });
 

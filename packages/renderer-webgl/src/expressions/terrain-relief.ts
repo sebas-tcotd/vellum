@@ -22,10 +22,16 @@ import type { TerrainDem } from '@vellum/core';
 import type maplibregl from 'maplibre-gl';
 import { DEM_PAD_OFFSET } from '../sources/dem-protocol';
 import type { ResolvedColors } from '../style-adapter';
-import { mixColorTokens } from './color-mix';
+import {
+  adjustColorForContrast,
+  mixColorTokens,
+  mixColorTokensPreservingAlpha,
+} from './color-mix';
 
 /** Smallest ramp domain accepted, in raw units, so a flat map never yields a zero-width interpolation. */
 const MIN_DOMAIN_RAW = 64;
+/** Minimum relative-luminance contrast between an interactive isoline and its terrain anchor. */
+const MIN_CONTOUR_CONTRAST_RATIO = 3;
 
 /**
  * Builds the `color-relief-color` ramp for a theme and a city's elevation range.
@@ -62,36 +68,44 @@ export function buildColorReliefRamp(
  * Builds the contour-line colour ramp for a theme and a city's elevation range.
  *
  * @remarks
- * Same `low → mid → high` ramp as {@link buildColorReliefRamp}, but driven by
- * each isoline's own `elevation` property instead of the DEM's decoded value,
- * so a contour is painted the colour the relief has *at that altitude*. That
- * turns the isolines from a uniform overlay into hypsometric contours: colour
- * and position then come from the same measured number and cannot disagree.
+ * Resolves the `low → mid → high` ramp at every elevation present in the
+ * city's contour data, then adjusts that literal in the direction indicated
+ * by the theme's flat contour token. A discrete `match` expression avoids an
+ * interpolation between contrast-safe stops crossing back through the terrain
+ * colour between anchors.
  *
  * The transparent out-of-map sentinel is deliberately not reproduced — it
  * exists so the raster relief stops at the world extent, and a line feature
  * has no such edge to fade at.
  *
  * @param terrain - The theme's terrain colours, as resolved by `style-adapter`.
+ * @param contourLine - Theme token indicating whether isolines should darken or lighten.
  * @param dem - The city's DEM metadata, supplying the ramp's domain.
- * @returns An `interpolate` expression mapping an isoline's elevation to colour.
+ * @param elevations - Elevations carried by the city's contour features.
+ * @returns A `match` expression mapping each real isoline elevation to a contrast-safe colour.
  */
 export function buildContourColorRamp(
   terrain: ResolvedColors['terrain'],
+  contourLine: string,
   dem: TerrainDem,
+  elevations: readonly number[],
 ): maplibregl.ExpressionSpecification {
   const { min, mid, max } = reliefDomain(dem);
-  return [
-    'interpolate',
-    ['linear'],
-    ['get', 'elevation'],
-    min,
-    terrain.low,
-    mid,
-    terrain.mid,
-    max,
-    terrain.high,
-  ] as unknown as maplibregl.ExpressionSpecification;
+  const unique = [...new Set(elevations.filter(Number.isFinite))].sort(
+    (a, b) => a - b,
+  );
+  const stops = unique.length > 0 ? unique : [min, mid, max];
+  const expression: unknown[] = ['match', ['get', 'elevation']];
+  for (const elevation of stops) {
+    expression.push(
+      elevation,
+      resolveInteractiveContourColor(terrain, dem, contourLine, elevation),
+    );
+  }
+  expression.push(
+    resolveInteractiveContourColor(terrain, dem, contourLine, min),
+  );
+  return expression as maplibregl.ExpressionSpecification;
 }
 
 /**
@@ -136,14 +150,39 @@ export function resolveElevationColor(
   dem: TerrainDem,
   elevation: number,
 ): string {
+  return resolveElevationColorWithMixer(
+    terrain,
+    dem,
+    elevation,
+    mixColorTokens,
+  );
+}
+
+function resolveInteractiveContourColor(
+  terrain: ResolvedColors['terrain'],
+  dem: TerrainDem,
+  contourLine: string,
+  elevation: number,
+): string {
+  const color = resolveElevationColorWithMixer(
+    terrain,
+    dem,
+    elevation,
+    mixColorTokensPreservingAlpha,
+  );
+  return adjustColorForContrast(color, contourLine, MIN_CONTOUR_CONTRAST_RATIO);
+}
+
+function resolveElevationColorWithMixer(
+  terrain: ResolvedColors['terrain'],
+  dem: TerrainDem,
+  elevation: number,
+  mix: (from: string, to: string, ratio: number) => string,
+): string {
   const { min, mid, max } = reliefDomain(dem);
   if (!Number.isFinite(elevation) || elevation <= min) return terrain.low;
   if (elevation >= max) return terrain.high;
   return elevation <= mid
-    ? mixColorTokens(terrain.low, terrain.mid, (elevation - min) / (mid - min))
-    : mixColorTokens(
-        terrain.mid,
-        terrain.high,
-        (elevation - mid) / (max - mid),
-      );
+    ? mix(terrain.low, terrain.mid, (elevation - min) / (mid - min))
+    : mix(terrain.mid, terrain.high, (elevation - mid) / (max - mid));
 }

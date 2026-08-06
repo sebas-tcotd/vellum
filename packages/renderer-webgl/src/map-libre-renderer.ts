@@ -152,7 +152,10 @@ export class MapLibreRenderer implements IRenderer {
 
     const executeRender = async (): Promise<void> => {
       await this.sourceManager.initializeSourcesAndLayers(cityData);
-      this.layerManager.setTerrainDem(cityData.terrainDem);
+      this.layerManager.setTerrainDem(
+        cityData.terrainDem,
+        cityData.contourLines.map((contour) => contour.elevation),
+      );
       this.applyInitialState(params);
       this.navigationManager.fitAndConstrain(cityData);
     };

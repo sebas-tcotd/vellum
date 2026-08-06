@@ -35,6 +35,8 @@ export class MapLayerManager {
    * theme switch. `null` until a city is rendered.
    */
   private terrainDem: TerrainDem | null = null;
+  /** Elevations present in the current contour GeoJSON, used for exact contrast-safe matches. */
+  private contourElevations: readonly number[] = [];
 
   constructor(
     private readonly map: maplibregl.Map,
@@ -45,9 +47,13 @@ export class MapLayerManager {
     this.colors = newColors;
   }
 
-  /** Records the elevation domain of the city currently on screen. */
-  setTerrainDem(dem: TerrainDem | null): void {
+  /** Records the elevation domain and actual contour stops of the city on screen. */
+  setTerrainDem(
+    dem: TerrainDem | null,
+    contourElevations: readonly number[] = [],
+  ): void {
     this.terrainDem = dem;
+    this.contourElevations = contourElevations;
   }
 
   /**
@@ -227,7 +233,12 @@ export class MapLayerManager {
       'terrain-lines-layer',
       'line-color',
       useRelief && dem
-        ? buildContourColorRamp(this.colors.terrain, dem)
+        ? buildContourColorRamp(
+            this.colors.terrain,
+            this.colors.contourLine,
+            dem,
+            this.contourElevations,
+          )
         : this.colors.contourLine,
     );
   }
@@ -351,7 +362,7 @@ export class MapLayerManager {
     this.setPaintIfExists(
       'terrain-lines-layer',
       'line-opacity',
-      terrainOpts.showContourLines ? 0.5 : 0,
+      terrainOpts.showContourLines ? 1 : 0,
     );
     this.setPaintIfExists(
       'terrain-color-relief',
