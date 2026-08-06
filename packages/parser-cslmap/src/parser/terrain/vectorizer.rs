@@ -1,5 +1,5 @@
 use super::grid::{TERRAIN_CELL_SIZE, TERRAIN_GRID_SIZE, TERRAIN_MAP_ORIGIN};
-use crate::city_data::{TerrainIsoline, TerrainPolygon, TerrainRing};
+use crate::city_data::{TerrainBand, TerrainIsoline, TerrainPolygon, TerrainRing};
 use contour::ContourBuilder;
 use geo::Simplify;
 
@@ -100,6 +100,62 @@ pub fn vectorize_inland_water(
             eprintln!("[parser-cslmap] inland water vectorization error: {e}");
             vec![]
         }
+    }
+}
+
+/// Vectorizes the terrain into elevation isobands — closed, fillable polygons
+/// covering `[elevation_min, elevation_max)` in raw game units.
+///
+/// The isolines from `vectorize_contour_lines` are open polylines and cannot be
+/// filled; these are what lets a flat vector document (the SVG export) carry the
+/// same hypsometric relief the interactive map gets from the DEM raster.
+///
+/// Takes the same `step` as the isolines, so every band edge coincides exactly
+/// with a drawn contour line — the two cannot disagree.
+///
+/// Water is deliberately not masked out: bands paint below the water layer,
+/// which covers the sea as the world extent with the landmasses punched out.
+///
+/// # Errors emitted
+/// Vectorization failures are logged to stderr and return an empty vec (no panic).
+pub fn vectorize_terrain_bands(elev_grid: &[f64], sea_level: f64, step: f64) -> Vec<TerrainBand> {
+    let thresholds = band_thresholds(elev_grid, sea_level, step);
+    if thresholds.len() < 2 {
+        return vec![];
+    }
+
+    match terrain_builder().contours(elev_grid, &thresholds) {
+        Ok(bands) => bands.iter().map(band_to_terrain_band).collect(),
+        Err(e) => {
+            eprintln!("[parser-cslmap] terrain band vectorization error: {e}");
+            vec![]
+        }
+    }
+}
+
+/// Band edges from `sea_level` upward, the last one past the summit so the top
+/// band is closed. Fewer than two edges means there is no dry land to band.
+fn band_thresholds(elev_grid: &[f64], sea_level: f64, step: f64) -> Vec<f64> {
+    let max_elev = elev_grid.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+    let mut thresholds = vec![sea_level];
+    let mut current = sea_level + step;
+    while current < max_elev + step {
+        thresholds.push(current);
+        current += step;
+    }
+    thresholds
+}
+
+fn band_to_terrain_band(band: &contour_isobands::Band) -> TerrainBand {
+    TerrainBand {
+        elevation_min: band.min_v(),
+        elevation_max: band.max_v(),
+        polygons: band
+            .geometry()
+            .0
+            .iter()
+            .map(|poly| geo_poly_to_terrain_polygon(&simplify_polygon(poly)))
+            .collect(),
     }
 }
 
@@ -205,4 +261,84 @@ pub fn terrain_builder() -> contour_isobands::ContourBuilder {
         .x_step(TERRAIN_CELL_SIZE)
         .y_origin(TERRAIN_MAP_ORIGIN)
         .y_step(TERRAIN_CELL_SIZE)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A grid that ramps linearly from `sea_level` to `sea_level + 3 * step`,
+    /// so the expected band count is known exactly.
+    fn ramp_grid(sea_level: f64, step: f64) -> Vec<f64> {
+        // Walking the elevation up per row keeps this free of usize→f64 casts,
+        // which clippy rejects workspace-wide.
+        let mut grid = Vec::with_capacity(TERRAIN_GRID_SIZE * TERRAIN_GRID_SIZE);
+        let mut elevation = sea_level;
+        let rise = 3.0 * step / GRID_ROW_SPANS;
+        for _ in 0..TERRAIN_GRID_SIZE {
+            grid.extend(std::iter::repeat_n(elevation, TERRAIN_GRID_SIZE));
+            elevation += rise;
+        }
+        grid
+    }
+
+    /// Gaps between grid rows — `TERRAIN_GRID_SIZE - 1`, as a literal so no cast
+    /// is needed. `grid_row_spans_matches_the_grid` keeps the two in sync.
+    const GRID_ROW_SPANS: f64 = 1080.0;
+
+    #[test]
+    fn grid_row_spans_matches_the_grid() {
+        assert_eq!(TERRAIN_GRID_SIZE, 1081);
+    }
+
+    #[test]
+    fn band_edges_start_at_sea_level_and_close_on_the_summit() {
+        // Edges walk up from sea level; the last one lands on the summit, so
+        // the top band is closed and nothing is banded above the terrain.
+        assert_eq!(
+            band_thresholds(&[40.0, 3240.0, 6440.0], 40.0, 3200.0),
+            vec![40.0, 3240.0, 6440.0]
+        );
+        // A summit between two edges still gets an edge above it.
+        assert_eq!(
+            band_thresholds(&[40.0, 5000.0], 40.0, 3200.0),
+            vec![40.0, 3240.0, 6440.0]
+        );
+    }
+
+    #[test]
+    fn a_fully_submerged_map_produces_no_bands() {
+        // Nothing above sea level means nothing to band — and the isoband
+        // builder must never be handed a single-edge threshold list.
+        assert!(band_thresholds(&[10.0, 20.0], 40.0, 3200.0).len() < 2);
+        assert!(vectorize_terrain_bands(&[10.0, 20.0], 40.0, 3200.0).is_empty());
+    }
+
+    #[test]
+    fn bands_tile_the_elevation_range_without_gaps() {
+        let bands = vectorize_terrain_bands(&ramp_grid(40.0, 3200.0), 40.0, 3200.0);
+        assert_eq!(bands.len(), 3, "three steps of range means three bands");
+        for pair in bands.windows(2) {
+            // A gap or an overlap here would show as a seam or a double-painted
+            // strip in the exported SVG.
+            assert!((pair[0].elevation_max - pair[1].elevation_min).abs() < 1e-9);
+        }
+        assert!(bands.iter().any(|b| !b.polygons.is_empty()));
+    }
+
+    #[test]
+    fn band_edges_line_up_with_the_contour_lines_drawn_at_the_same_step() {
+        let grid = ramp_grid(40.0, 3200.0);
+        let bands = vectorize_terrain_bands(&grid, 40.0, 3200.0);
+        let lines = vectorize_contour_lines(&grid, 40.0, 3200.0);
+        for line in &lines {
+            assert!(
+                bands
+                    .iter()
+                    .any(|b| (b.elevation_max - line.elevation).abs() < 1e-9),
+                "isoline at {} has no band edge to sit on",
+                line.elevation
+            );
+        }
+    }
 }

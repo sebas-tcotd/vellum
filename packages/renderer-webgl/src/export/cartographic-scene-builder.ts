@@ -48,9 +48,11 @@ import {
   buildForestsGeoJson,
   buildLandPolygonGeoJson,
   buildRoadsGeoJson,
+  buildTerrainBandsGeoJson,
   buildTransitRenderData,
   buildWaterSurfaceGeoJson,
 } from '../geojson';
+import type { TerrainBandProperties } from '../geojson';
 import {
   STATION_DOT_MIN_PX,
   STATION_FILL,
@@ -258,16 +260,40 @@ function buildTerrainEntities(context: LayerContext): SceneEntity[] {
       entities.push({
         id: `${ID_PREFIX.terrain}-land-${index}`,
         geometry: { kind: 'polygon', rings },
-        // Flat, on purpose. The interactive relief is a `color-relief` ramp
-        // sampled per DEM texel; there is no vector primitive that carries
-        // that, and a document-wide gradient only *looks* like elevation —
-        // it is a top-to-bottom fade that says nothing about the terrain
-        // underneath it. Contour lines below carry the real relief until
-        // 6.3B vectorizes hypsometric bands.
+        // Flat base coat. The hypsometric bands below paint over it, but they
+        // are simplified independently of the coastline, so this guarantees no
+        // sliver of background shows through where the two disagree.
         fill: { color: colors.land, fillRule: 'evenodd' },
       });
     },
   );
+
+  if (snapshot.layerOptions.terrain.showColorRelief) {
+    // Hypsometric bands: the vector equivalent of the interactive map's
+    // DEM-sampled `color-relief` ramp. Each band is filled with the colour the
+    // ramp has at its own midpoint, so elevation is carried by area and not
+    // just by the contour strokes below.
+    buildTerrainBandsGeoJson(snapshot.cityData).features.forEach(
+      (feature, index) => {
+        const rings = toWorldRings(feature.geometry.coordinates, warnings);
+        if (rings.length === 0) return;
+        const { elevationMin, elevationMax } =
+          feature.properties as TerrainBandProperties;
+        entities.push({
+          id: `${ID_PREFIX.terrain}-band-${index}`,
+          geometry: { kind: 'polygon', rings },
+          fill: {
+            color: resolveElevationColor(
+              colors.terrain,
+              snapshot.cityData.terrainDem,
+              (elevationMin + elevationMax) / 2,
+            ),
+            fillRule: 'evenodd',
+          },
+        });
+      },
+    );
+  }
 
   if (snapshot.layerOptions.terrain.showContourLines) {
     // Hypsometric contours: each isoline is tinted by the altitude it actually

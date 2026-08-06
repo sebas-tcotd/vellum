@@ -117,6 +117,33 @@ function ring(offset: number): [number, number][] {
   ];
 }
 
+/** A closed triangle in WGS-84, offset so each polygon is distinguishable. */
+function square(offset: number): CityData['landPolygon'][number] {
+  return {
+    exterior: [
+      csToGeoArray({ x: offset, z: 0 }),
+      csToGeoArray({ x: offset + 500, z: 0 }),
+      csToGeoArray({ x: offset + 500, z: 500 }),
+    ],
+    holes: [],
+  };
+}
+
+/**
+ * Two hypsometric bands over a 0–100 ramp domain, deliberately supplied out of
+ * order so the low-to-high paint order has to come from the builder.
+ */
+function bandCity(): CityData {
+  return makeCityData({
+    terrainDem: { dataUri: 'data:image/png;base64,', elevMin: 0, elevMax: 100 },
+    landPolygon: [square(0)],
+    terrainBands: [
+      { elevationMin: 50, elevationMax: 100, polygons: [square(600)] },
+      { elevationMin: 0, elevationMax: 50, polygons: [square(0)] },
+    ],
+  });
+}
+
 /** Two connected nodes so a segment survives `isValidSegment`. */
 function roadCity(itemClass: string, id = 'seg-1'): CityData {
   return makeCityData({
@@ -314,15 +341,53 @@ describe('buildCartographicScene', () => {
     ).toBeNull();
   });
 
-  it('fills land flat and emits no colour ramp, leaving relief to the contours', () => {
+  it('never paints terrain with a gradient', () => {
     // A document-wide gradient only looks like elevation: it is a
-    // top-to-bottom fade unrelated to the terrain under it. Flat fill plus
-    // real contour lines is the honest MVP until 6.3B.
+    // top-to-bottom fade unrelated to the terrain under it. Relief comes from
+    // the hypsometric bands and contours, both driven by measured elevation.
     const scene = build(makeCityData());
     expect(scene.gradients).toEqual([]);
     for (const entity of layerEntities(scene, 'terrain')) {
       expect(entity.fill?.gradientId).toBeUndefined();
     }
+  });
+
+  it('fills each hypsometric band with the ramp colour at its own midpoint', () => {
+    const city = bandCity();
+    const bands = layerEntities(build(city), 'terrain').filter((entity) =>
+      entity.id.includes('-band-'),
+    );
+    // Midpoints 25 and 75 over a 0–100 domain: halfway low→mid and halfway
+    // mid→high, straight from RenderStyleParams.terrain — a theme change moves
+    // both. Sorted low to high even though the city listed them high first.
+    expect(bands.map((entity) => entity.fill!.color)).toEqual([
+      '#d1d0a7',
+      '#ded6be',
+    ]);
+  });
+
+  it('keeps the flat land fill underneath the bands', () => {
+    // Bands are simplified independently of the coastline; without a base coat
+    // any disagreement between the two shows as background bleeding through.
+    const terrain = layerEntities(build(bandCity()), 'terrain');
+    const land = terrain.findIndex((entity) => entity.id.includes('-land-'));
+    const band = terrain.findIndex((entity) => entity.id.includes('-band-'));
+    expect(land).toBeGreaterThanOrEqual(0);
+    expect(land).toBeLessThan(band);
+  });
+
+  it('omits the bands entirely when relief is switched off', () => {
+    const scene = build(bandCity(), {
+      layerOptions: {
+        ...DEFAULT_LAYER_OPTIONS,
+        terrain: { ...DEFAULT_LAYER_OPTIONS.terrain, showColorRelief: false },
+      },
+    });
+    expect(
+      layerEntities(scene, 'terrain').filter((entity) =>
+        entity.id.includes('-band-'),
+      ),
+    ).toHaveLength(0);
   });
 
   it('tints contour lines by their own elevation, using the active theme ramp', () => {
