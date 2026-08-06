@@ -19,7 +19,9 @@
     "IoError": "Error de acceso al archivo. El archivo puede haber sido movido o eliminado.",
     "partialParseTitle": "Archivo cargado con problemas",
     "partialParseDescription": "Este archivo tiene algunas secciones dañadas. Puedes intentar renderizar los datos que se pudieron leer, o cancelar y probar otro archivo.",
-    "tryPartialRender": "Intentar renderizado parcial"
+    "tryPartialRender": "Intentar renderizado parcial",
+    "SvgExportUnsupportedCamera": "El SVG solo admite vista cenital. Restablecé la orientación y la inclinación del mapa antes de exportar.",
+    "SvgExportUnavailable": "La exportación SVG no está disponible para esta vista. Probá con otra área o reiniciá la app si el problema persiste."
   },
   "layers": {
     "terrain": "Terreno",
@@ -199,5 +201,10 @@
     "Blimp": "Dirigible",
     "Trolleybus": "Trolebús",
     "Unknown": ""
+  },
+  "exportWarnings": {
+    "svgDegenerateGeometry": "{{count}} elemento(s) no se pudieron dibujar por geometría inválida y se omitieron del SVG.",
+    "svgEmptyLayer": "{{count}} capa(s) visible(s) quedaron vacías en el SVG.",
+    "svgUnsupportedPresentation": "El SVG no incluye etiquetas, leyendas ni escala gráfica: esas opciones no se aplicaron."
   }
 }

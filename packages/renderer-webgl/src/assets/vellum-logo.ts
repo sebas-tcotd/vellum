@@ -130,6 +130,40 @@ export const VELLUM_LOGO_SVG = `<svg width="728" height="728" viewBox="0 0 728 7
 </svg>
 `;
 
+/** Intrinsic side of {@link VELLUM_LOGO_SVG}'s own coordinate system. */
+export const VELLUM_LOGO_SIZE = 728;
+
+/**
+ * The logo's drawable content, with its `<svg>` root and opacity wrapper
+ * removed.
+ *
+ * @remarks
+ * Lets a vector exporter place the mark as real paths inside its own document
+ * rather than embedding a raster copy — nesting a second `<svg>` root would
+ * also drag along a `width`/`height` that fights the placement transform.
+ *
+ * **The root `<g opacity="0.2">` is unwrapped deliberately.** SVG group
+ * opacity *multiplies*, so while that wrapper is in place no caller can make
+ * the mark more visible than 20% — only fainter. That is right on the
+ * interactive map, where cartography sits behind the mark and supplies
+ * contrast, and wrong on an export whose background may be plain white, where
+ * 20% of `#4A4035` lands on `#DBD9D7` and effectively disappears. Unwrapping
+ * hands the choice to the consumer, which sets it through
+ * `SceneEmblem.opacity`.
+ *
+ * The nested `<g opacity="0.5">` on the decorative texture is left alone: it
+ * is a relationship *within* the artwork, not a ceiling on the whole mark.
+ */
+export function vellumLogoInnerSvg(): string {
+  const withoutRoot = VELLUM_LOGO_SVG.replace(/^[\s\S]*?<svg[^>]*>/, '')
+    .replace(/<\/svg>\s*$/, '')
+    .trim();
+  const opacityWrapper = /^<g opacity="[\d.]+">([\s\S]*)<\/g>$/.exec(
+    withoutRoot,
+  );
+  return (opacityWrapper?.[1] ?? withoutRoot).trim();
+}
+
 /** Returns the bundled Vellum logo as a browser-safe SVG data URL. */
 export function vellumLogoDataUri(): string {
   return `data:image/svg+xml;base64,${btoa(VELLUM_LOGO_SVG)}`;

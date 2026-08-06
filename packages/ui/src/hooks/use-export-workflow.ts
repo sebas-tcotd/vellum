@@ -4,10 +4,15 @@ import type {
   ExportDialogOptions,
   ExportPreviewSnapshot,
   ExportProgress,
+  ExportProgressCallback,
+  ExportReceipt,
   ExportRequest,
   ExportResult,
   ExportSnapshot,
   RasterExportV2,
+  SvgExportPort,
+  SvgExportRequest,
+  SvgExportSnapshot,
   VellumError,
 } from '@vellum/core';
 import type { ExportCancelHandlerRef } from '../App';
@@ -26,6 +31,179 @@ const EXPORT_TIMEOUT_MS = 5 * 60 * 1000;
  * it isn't part of the mirrored `VellumError` contract.
  */
 export const EXPORT_CAPACITY_UNAVAILABLE_REASON = 'export-capacity-unavailable';
+
+/**
+ * Stable `VellumError.reason` sentinels for the SVG capability rejections.
+ *
+ * @remarks
+ * Matched by identity, never displayed — `ExportStatusOverlay` maps each to its
+ * own `errors.*` key so a tilted camera reads as "flatten the view first"
+ * rather than as a generic failure. Like the raster sentinel above, these never
+ * cross the Rust IPC boundary.
+ */
+export const SVG_UNSUPPORTED_CAMERA_REASON = 'svg-unsupported-camera';
+/** Sentinel for an SVG request the exporter cannot size or bound. */
+export const SVG_UNSUPPORTED_AREA_REASON = 'svg-unsupported-area';
+
+/**
+ * Presentation options the SVG MVP has no representation for.
+ *
+ * @remarks
+ * `ExportPresentationOptions` is shared with the raster route and 6.3B will
+ * implement most of these. Until then the request may still *carry* them —
+ * dropping them would lose the user's configuration — but the exporter must
+ * never behave as though it applied them, so an enabled one produces a
+ * localized warning instead.
+ */
+const SVG_UNSUPPORTED_PRESENTATION_KEYS = [
+  'showCityName',
+  'showVellumLogo',
+  'showSourceFile',
+  'showGeneratedAt',
+  'showDistrictNames',
+  'showParkNames',
+  'showLayerLegend',
+  'showRoadLegend',
+  'showTransitLegend',
+  'showElevationLegend',
+  'showScaleBar',
+  'showOrientation',
+  'showSummary',
+] as const;
+
+/** Lists the enabled presentation options an SVG export will not render. */
+export function unsupportedSvgPresentationOptions(
+  presentation: SvgExportRequest['presentation'],
+): string[] {
+  return SVG_UNSUPPORTED_PRESENTATION_KEYS.filter(
+    (key) => presentation[key] === true,
+  );
+}
+
+/**
+ * Capability sentinels that are expected outcomes, not bugs.
+ *
+ * @remarks
+ * These reach the UI as an actionable localized message, so logging a stack
+ * trace for them would only add noise to a console the user may be reading.
+ */
+const SILENT_CAPABILITY_REASONS = new Set([
+  EXPORT_CAPACITY_UNAVAILABLE_REASON,
+  SVG_UNSUPPORTED_CAMERA_REASON,
+  SVG_UNSUPPORTED_AREA_REASON,
+]);
+
+/**
+ * Turns dialog options into the request its route actually accepts.
+ *
+ * @remarks
+ * The one place the dialog's shape is converted, so an invalid combination —
+ * a `full-map` raster without `targetLongEdge`, or an SVG carrying a raster
+ * density — cannot be constructed anywhere else.
+ */
+function buildExportRequest(
+  options: ExportDialogOptions,
+): ExportRequest | SvgExportRequest {
+  const shared = {
+    area: options.area,
+    background: options.background,
+    fileName: options.fileName,
+    presentation: options.presentation,
+  } as const;
+
+  // Presentation is carried verbatim so the user's configuration round-trips,
+  // but the MVP renders none of it — `unsupportedSvgPresentationOptions`
+  // reports what was enabled so nothing ever looks applied when it was not.
+  if (options.format === 'svg') {
+    return options.area === 'full-map'
+      ? {
+          ...shared,
+          area: 'full-map',
+          format: 'svg',
+          targetLongEdge: options.targetLongEdge,
+        }
+      : { ...shared, area: 'viewport', format: 'svg' };
+  }
+  return options.area === 'full-map'
+    ? {
+        ...shared,
+        area: 'full-map',
+        format: options.format,
+        targetLongEdge: options.targetLongEdge,
+      }
+    : { ...shared, area: 'viewport', format: options.format };
+}
+
+/** A captured, pre-validated operation, ready to hand to its exporter. */
+interface PreparedExport {
+  /** Identity used to correlate progress and discard stale callbacks. */
+  readonly snapshotId: string;
+  /** Runs the export against the already-validated snapshot. */
+  readonly start: (
+    signal: AbortSignal,
+    onProgress: ExportProgressCallback,
+  ) => Promise<ExportReceipt>;
+}
+
+/**
+ * Captures and pre-validates a raster operation.
+ *
+ * @remarks
+ * `capabilitiesForSnapshot` is falsifiable, unlike `capabilities(request)`: it
+ * evaluates the real captured surface, so an oversized legacy surface or a
+ * rejected tile plan shows up here instead of only failing inside `export()`.
+ */
+function prepareRasterExport(
+  request: ExportRequest,
+  route: {
+    capture: ((request: ExportRequest) => ExportSnapshot | null) | null;
+    exporter: RasterExportV2;
+  },
+): PreparedExport {
+  const snapshot = route.capture?.(request);
+  if (!snapshot) throw new Error('Export snapshot is unavailable');
+  const capabilities = route.exporter.capabilitiesForSnapshot(snapshot);
+  if (!capabilities.legacy.eligible && !capabilities.tiled.eligible) {
+    throw new Error(EXPORT_CAPACITY_UNAVAILABLE_REASON);
+  }
+  return {
+    snapshotId: snapshot.snapshotId,
+    start: (signal, onProgress) =>
+      route.exporter.export(snapshot, signal, onProgress),
+  };
+}
+
+/**
+ * Captures and pre-validates a vector operation.
+ *
+ * @remarks
+ * Runs the exact check the exporter is about to run, so an unsupported camera
+ * is reported before a worker or a Rust session ever exists (AC 9) — it is
+ * never silently flattened into a top-down view.
+ */
+function prepareSvgExport(
+  request: SvgExportRequest,
+  route: {
+    capture: ((request: SvgExportRequest) => SvgExportSnapshot | null) | null;
+    exporter: SvgExportPort;
+  },
+): PreparedExport {
+  const snapshot = route.capture?.(request);
+  if (!snapshot) throw new Error('Export snapshot is unavailable');
+  const decision = route.exporter.capabilitiesForSnapshot(snapshot);
+  if (!decision.eligible) {
+    throw new Error(
+      decision.reason === 'camera-pitch' || decision.reason === 'camera-bearing'
+        ? SVG_UNSUPPORTED_CAMERA_REASON
+        : SVG_UNSUPPORTED_AREA_REASON,
+    );
+  }
+  return {
+    snapshotId: snapshot.snapshotId,
+    start: (signal, onProgress) =>
+      route.exporter.export(snapshot, signal, onProgress),
+  };
+}
 
 /** Maps an export failure to the existing `errors.*` i18n keys — never `.reason`. */
 function toExportError(err: unknown): VellumError {
@@ -48,12 +226,18 @@ export interface UseExportWorkflowParams {
   cityData: CityData | null;
   loadingState: string;
   rasterExporter?: RasterExportV2 | undefined;
+  /** Vector exporter; when absent, choosing SVG reports an actionable error. */
+  svgExporter?: SvgExportPort | undefined;
   exportCancelHandlerRef?: ExportCancelHandlerRef | undefined;
   previewCaptureRef: React.RefObject<
     (() => Promise<ExportPreviewSnapshot | null>) | null
   >;
   snapshotCaptureRef: React.RefObject<
     ((request: ExportRequest) => ExportSnapshot | null) | null
+  >;
+  /** Captures the vector counterpart of `snapshotCaptureRef`. */
+  svgSnapshotCaptureRef?: React.RefObject<
+    ((request: SvgExportRequest) => SvgExportSnapshot | null) | null
   >;
   isExportingProp: boolean;
 }
@@ -67,9 +251,11 @@ export function useExportWorkflow({
   cityData,
   loadingState,
   rasterExporter,
+  svgExporter,
   exportCancelHandlerRef,
   previewCaptureRef,
   snapshotCaptureRef,
+  svgSnapshotCaptureRef,
   isExportingProp,
 }: UseExportWorkflowParams) {
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
@@ -85,6 +271,7 @@ export function useExportWorkflow({
   const [exportResult, setExportResult] = useState<ExportResult | null>(null);
   const [exportCancelled, setExportCancelled] = useState(false);
   const [exportError, setExportError] = useState<VellumError | null>(null);
+  const [exportWarnings, setExportWarnings] = useState<readonly string[]>([]);
   const abortControllerRef = useRef<AbortController | null>(null);
   const exportOperationRef = useRef<{
     snapshotId: string;
@@ -174,35 +361,39 @@ export function useExportWorkflow({
 
   const handleExport = useCallback(
     async (options: ExportDialogOptions): Promise<void> => {
-      if (isExportingRef.current || !rasterExporter) return;
-      if (options.format === 'svg') {
+      if (isExportingRef.current) return;
+      const isSvg = options.format === 'svg';
+      // Choosing a route the composition root never wired is a capability
+      // problem, not a silent no-op: SVG goes back to unavailable with an
+      // actionable message instead of leaving the dialog in limbo.
+      if (isSvg && (!svgExporter || !svgSnapshotCaptureRef)) {
+        // Clear the previous outcome first: bailing out while a prior success
+        // toast is still mounted would show "exported" and "unavailable" at
+        // the same time.
+        setExportResult(null);
+        setExportCancelled(false);
+        setExportProgress(null);
         setExportError({
           type: 'ExportFailed',
-          reason: 'SVG export is not implemented',
+          reason: SVG_UNSUPPORTED_AREA_REASON,
         });
         return;
       }
-      const request: ExportRequest =
-        options.area === 'full-map'
-          ? {
-              format: options.format,
-              area: options.area,
-              targetLongEdge: options.targetLongEdge,
-              background: options.background,
-              fileName: options.fileName,
-              presentation: options.presentation,
-            }
-          : {
-              format: options.format,
-              area: options.area,
-              background: options.background,
-              fileName: options.fileName,
-              presentation: options.presentation,
-            };
+      if (!isSvg && !rasterExporter) return;
+
+      const request = buildExportRequest(options);
       setExportError(null);
       setExportCancelled(false);
       setExportResult(null);
       setExportProgress(null);
+      // AC 14/15: whatever the MVP cannot render is named up front, as i18n
+      // keys, so an omission is never published as an unqualified success.
+      setExportWarnings(
+        isSvg &&
+          unsupportedSvgPresentationOptions(request.presentation).length > 0
+          ? ['exportWarnings.svgUnsupportedPresentation']
+          : [],
+      );
       timedOutRef.current = false;
       // The one terminal, localized outcome for anything the AbortSignal
       // covers — a thrown AbortError, or a promise that raced to success
@@ -237,17 +428,20 @@ export function useExportWorkflow({
         controller.abort();
       }, EXPORT_TIMEOUT_MS);
       try {
-        const snapshot = snapshotCaptureRef.current?.(request);
-        if (!snapshot) throw new Error('Export snapshot is unavailable');
-        // Falsifiable, unlike `capabilities(request)`: it evaluates the real
-        // captured surface, so an oversized legacy surface or a rejected
-        // tile plan actually shows up here instead of only failing later
-        // inside `export()`.
-        const capabilities = rasterExporter.capabilitiesForSnapshot(snapshot);
-        if (!capabilities.legacy.eligible && !capabilities.tiled.eligible) {
-          throw new Error(EXPORT_CAPACITY_UNAVAILABLE_REASON);
-        }
-        exportOperationRef.current = { snapshotId: snapshot.snapshotId };
+        // Each route captures and validates its own snapshot shape, so the
+        // two are never conflated and neither exporter can be handed the
+        // other's snapshot.
+        const run = isSvg
+          ? prepareSvgExport(request as SvgExportRequest, {
+              capture: svgSnapshotCaptureRef?.current ?? null,
+              exporter: svgExporter!,
+            })
+          : prepareRasterExport(request as ExportRequest, {
+              capture: snapshotCaptureRef.current,
+              exporter: rasterExporter!,
+            });
+
+        exportOperationRef.current = { snapshotId: run.snapshotId };
         const onProgress = (progress: ExportProgress): void => {
           // A cancelled/aborted operation never advances progress again,
           // regardless of identity — a callback racing just behind abort()
@@ -272,12 +466,8 @@ export function useExportWorkflow({
           };
           setExportProgress(progress);
         };
-        const receipt = await rasterExporter.export(
-          snapshot,
-          controller.signal,
-          onProgress,
-        );
-        if (exportOperationRef.current?.snapshotId !== snapshot.snapshotId) {
+        const receipt = await run.start(controller.signal, onProgress);
+        if (exportOperationRef.current?.snapshotId !== run.snapshotId) {
           return;
         }
         // A receipt is the transactional authority: if `finish()` committed
@@ -292,9 +482,12 @@ export function useExportWorkflow({
         } else {
           if (
             !(error instanceof Error) ||
-            error.message !== EXPORT_CAPACITY_UNAVAILABLE_REASON
+            !SILENT_CAPABILITY_REASONS.has(error.message)
           ) {
-            console.error('[App] PNG export failed:', error);
+            console.error(
+              isSvg ? '[App] SVG export failed:' : '[App] PNG export failed:',
+              error,
+            );
           }
           setExportError(toExportError(error));
         }
@@ -312,6 +505,8 @@ export function useExportWorkflow({
     },
     [
       rasterExporter,
+      svgExporter,
+      svgSnapshotCaptureRef,
       exportCancelHandlerRef,
       handleCancelExport,
       snapshotCaptureRef,
@@ -328,6 +523,7 @@ export function useExportWorkflow({
     exportResult,
     exportCancelled,
     exportError,
+    exportWarnings,
     handleCancelExport,
     handleOpenExport,
     handleExport,

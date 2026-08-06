@@ -19,7 +19,9 @@
     "IoError": "File access error. The file may have been moved or deleted.",
     "partialParseTitle": "File loaded with issues",
     "partialParseDescription": "This file has some corrupted sections. You can try rendering the data that could be read, or cancel and try another file.",
-    "tryPartialRender": "Try partial render"
+    "tryPartialRender": "Try partial render",
+    "SvgExportUnsupportedCamera": "SVG export only supports a top-down view. Reset the map rotation and tilt before exporting.",
+    "SvgExportUnavailable": "SVG export is unavailable for this view. Try a different area, or restart the app if the problem persists."
   },
   "layers": {
     "terrain": "Terrain",
@@ -199,5 +201,10 @@
     "Blimp": "Blimp",
     "Trolleybus": "Trolleybus",
     "Unknown": ""
+  },
+  "exportWarnings": {
+    "svgDegenerateGeometry": "{{count}} element(s) could not be drawn due to invalid geometry and were left out of the SVG.",
+    "svgEmptyLayer": "{{count}} visible layer(s) came out empty in the SVG.",
+    "svgUnsupportedPresentation": "The SVG contains no labels, legends, or scale bar — those options were not applied."
   }
 }

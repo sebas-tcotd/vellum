@@ -125,6 +125,10 @@ type ExportChoiceKey =
 interface Choice<T extends string> {
   value: T;
   label: ExportChoiceKey;
+  /** Renders the choice greyed out and unselectable, with a reason. */
+  disabled?: boolean;
+  /** Localized explanation shown as the control's title when disabled. */
+  disabledReason?: string;
 }
 
 interface ChoiceGroupProps<T extends string> {
@@ -152,6 +156,50 @@ const FORMAT_CHOICES: Choice<ExportFormat>[] = [
   { value: 'png-1x', label: 'export.format_png1x' },
   { value: 'png-2x', label: 'export.format_png2x' },
   { value: 'png-4x', label: 'export.format_png4x' },
+  { value: 'svg', label: 'export.format_svg' },
+];
+
+/**
+ * Tolerance in degrees for treating the captured bearing as north-up.
+ *
+ * @remarks
+ * Mirrors `evaluateSvgCapability`'s own epsilon: MapLibre reports
+ * floating-point angles, so an untouched camera can read as `1e-14`.
+ */
+const BEARING_EPSILON_DEG = 1e-6;
+
+/**
+ * Marks SVG unselectable while the camera rules it out.
+ *
+ * @remarks
+ * AC 19: an ineligible route goes back to disabled with an actionable reason,
+ * rather than staying selectable and failing only once the user commits. The
+ * check mirrors `evaluateSvgCapability`, whose rejection is what the export
+ * would otherwise hit.
+ */
+function withSvgAvailability<T extends string>(
+  choices: Choice<T>[],
+  rotated: boolean,
+  reason: string,
+): Choice<T>[] {
+  if (!rotated) return choices;
+  return choices.map((choice) =>
+    choice.value === 'svg'
+      ? { ...choice, disabled: true, disabledReason: reason }
+      : choice,
+  );
+}
+
+/**
+ * Formats a full-map export may request.
+ *
+ * @remarks
+ * The raster densities are absent because `targetLongEdge` already fixes the
+ * output resolution — offering `2x` there would double-apply it. SVG has no
+ * density at all, so it is offered unchanged.
+ */
+const FULL_MAP_FORMAT_CHOICES: Choice<'png-1x' | 'svg'>[] = [
+  { value: 'png-1x', label: 'export.format_png' },
   { value: 'svg', label: 'export.format_svg' },
 ];
 
@@ -188,6 +236,13 @@ const BACKGROUND_CHOICES: Choice<ExportBackground>[] = [
   { value: 'dark', label: 'export.background_dark' },
   { value: 'transparent', label: 'export.background_transparent' },
 ];
+
+/** Wraps a bearing into `(-180, 180]` so 360° reads as north-up. */
+function normalizeBearing(degrees: number): number {
+  if (!Number.isFinite(degrees)) return Number.NaN;
+  const wrapped = ((degrees % 360) + 360) % 360;
+  return wrapped > 180 ? wrapped - 360 : wrapped;
+}
 
 const EMPTY_LAYERS: LayerName[] = [];
 const EMPTY_TRANSIT_LABELS: ExportTransitLegendItem[] = [];
@@ -247,13 +302,19 @@ function ChoiceGroup<T extends string>({
         {choices.map((choice) => (
           <label
             key={choice.value}
-            className="flex cursor-pointer items-center gap-1.5 rounded-md border border-panel-border px-2 py-1 text-xs"
+            title={choice.disabled ? choice.disabledReason : undefined}
+            className={
+              choice.disabled
+                ? 'flex cursor-not-allowed items-center gap-1.5 rounded-md border border-panel-border px-2 py-1 text-xs opacity-50'
+                : 'flex cursor-pointer items-center gap-1.5 rounded-md border border-panel-border px-2 py-1 text-xs'
+            }
           >
             <input
               type="radio"
               name={name}
               value={choice.value}
               checked={value === choice.value}
+              disabled={choice.disabled ?? false}
               onChange={() => onChange(choice.value)}
             />
             {t(choice.label)}
@@ -776,13 +837,24 @@ export function ExportDialog(props: ExportDialogProps) {
   ) => {
     setPresentationState((current) => ({ ...current, [key]: checked }));
   };
+  // A rotated capture cannot be projected top-down, so the vector route is
+  // withdrawn while it lasts instead of failing after the user commits.
+  const svgUnavailable =
+    props.preview !== null &&
+    Math.abs(normalizeBearing(props.preview.bearingDegrees)) >
+      BEARING_EPSILON_DEG;
+  const svgUnavailableReason = t('errors.SvgExportUnsupportedCamera');
+  useEffect(() => {
+    if (svgUnavailable && format === 'svg') setFormat('png-1x');
+  }, [svgUnavailable, format]);
+
   const handleExport = () => {
     if (!sanitizedFileName || props.isExporting) return;
     props.onOpenChange(false);
     void props.onExport(
       area === 'full-map'
         ? {
-            format: 'png-1x',
+            format: format === 'svg' ? 'svg' : 'png-1x',
             area,
             targetLongEdge,
             background,
@@ -853,14 +925,25 @@ export function ExportDialog(props: ExportDialogProps) {
                 legend={t('export.format')}
                 name="export-format"
                 value={format}
-                choices={FORMAT_CHOICES}
+                choices={withSvgAvailability(
+                  FORMAT_CHOICES,
+                  svgUnavailable,
+                  svgUnavailableReason,
+                )}
                 onChange={setFormat}
               />
             ) : (
-              <div className="text-xs" data-testid="export-format-png">
-                <span className="font-semibold">{t('export.format')}: </span>
-                {t('export.format_png')}
-              </div>
+              <ChoiceGroup
+                legend={t('export.format')}
+                name="export-format"
+                value={format === 'svg' ? 'svg' : 'png-1x'}
+                choices={withSvgAvailability(
+                  FULL_MAP_FORMAT_CHOICES,
+                  svgUnavailable,
+                  svgUnavailableReason,
+                )}
+                onChange={setFormat}
+              />
             )}
             <ChoiceGroup
               legend={t('export.area')}
@@ -871,7 +954,8 @@ export function ExportDialog(props: ExportDialogProps) {
                 setArea(nextArea);
                 if (nextArea === 'full-map') {
                   viewportFormatRef.current = format;
-                  setFormat('png-1x');
+                  // SVG survives the switch — it has no density to collapse.
+                  if (format !== 'svg') setFormat('png-1x');
                 } else {
                   setFormat(viewportFormatRef.current);
                 }

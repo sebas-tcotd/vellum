@@ -8,6 +8,18 @@ export {
 } from './capability-probe';
 export { vellumLogoDataUri } from './assets/vellum-logo';
 export { LegacyRasterExporter } from './export/legacy-raster-exporter';
+export {
+  buildCartographicScene,
+  type CartographicSceneInput,
+} from './export/cartographic-scene-builder';
+export {
+  resolveRoadWidthPx,
+  roadCasingAddPxAtZoom,
+  roadWidthFactorAtZoom,
+  ROAD_CASING_ADD_PX,
+  ROAD_WIDTH_FACTOR_STOPS,
+} from './expressions/road-width-curve';
+export { zoomForWorldUnitsPerPixel } from './export/output-density';
 export { resolveFullMapOutputSurface } from './export/export-snapshot-builder';
 export { planTiles } from './export/tile-planner';
 export {

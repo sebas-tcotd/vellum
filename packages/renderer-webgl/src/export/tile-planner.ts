@@ -8,16 +8,12 @@ import {
   type TilePlanRejection,
   type TilePlanTile,
 } from '@vellum/core';
-import {
-  CS1_EXTENT_DEG,
-  CS1_WORLD_SIZE,
-  csToGeo,
-} from '../coordinate-transform';
+import { csToGeo } from '../coordinate-transform';
+import { zoomForWorldUnitsPerPixel } from './output-density';
 
 const MAX_USEFUL_SIDE = 2048;
 const MIN_USEFUL_SIDE = 256;
 const MAX_TILE_RGBA_BYTES = 32 * 1024 * 1024;
-const MAPLIBRE_TILE_SIZE_PX = 512;
 
 /** Builds a pure, capability-bounded tile plan without allocating a surface. */
 export function planTiles(
@@ -41,7 +37,7 @@ export function planTiles(
   if (!side) return reject('dimensions');
   const renderExtent = fitAspect(snapshot.extent, width / height);
   const worldUnitsPerPixel = (renderExtent.maxX - renderExtent.minX) / width;
-  const zoom = zoomFor(worldUnitsPerPixel);
+  const zoom = zoomForWorldUnitsPerPixel(worldUnitsPerPixel);
   const tiles = makeTiles(
     width,
     height,
@@ -197,11 +193,6 @@ function extentFor(
     minZ: extent.maxZ - (rect.y + rect.height) * units,
     maxZ: extent.maxZ - rect.y * units,
   };
-}
-function zoomFor(units: number): number {
-  return Math.log2(
-    360 / (MAPLIBRE_TILE_SIZE_PX * (CS1_EXTENT_DEG / CS1_WORLD_SIZE) * units),
-  );
 }
 function isPositiveInteger(value: number): boolean {
   return Number.isSafeInteger(value) && value > 0;

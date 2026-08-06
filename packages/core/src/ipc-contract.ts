@@ -10,15 +10,22 @@ export const IPC_COMMANDS = {
   PARSE_CSLMAP: 'parse_cslmap',
   EXPORT_PNG: 'export_png',
   OPEN_EXPORT_FOLDER: 'open_export_folder',
-  EXPORT_SVG: 'export_svg',
   LOAD_THEMES: 'load_themes',
-  /** Opens a transactional tiled-export session. Invoked as `{ metadata }`. */
+  /**
+   * Opens a transactional export session. Invoked as `{ metadata }`.
+   *
+   * @remarks
+   * Serves both streaming routes; `metadata.mode` selects `tiled-png` or
+   * `streaming-svg`. There is deliberately no single-shot `export_svg`
+   * command — one would have to build the whole document in memory before
+   * returning, which the streaming contract exists to prevent.
+   */
   BEGIN_EXPORT: 'begin_export',
   /** Appends one raw binary export frame (see `export-frame.ts`). Invoked with the frame `Uint8Array` directly — no envelope object. */
   APPEND_EXPORT_CHUNK: 'append_export_chunk',
-  /** Confirms coverage and atomically publishes the tiled export. Invoked as `{ sessionId }`. */
+  /** Confirms completeness and atomically publishes the export. Invoked as `{ sessionId }`. */
   FINISH_EXPORT: 'finish_export',
-  /** Abandons a tiled-export session idempotently. Invoked as `{ sessionId }`. */
+  /** Abandons an export session idempotently. Invoked as `{ sessionId }`. */
   CANCEL_EXPORT: 'cancel_export',
 } as const;
 

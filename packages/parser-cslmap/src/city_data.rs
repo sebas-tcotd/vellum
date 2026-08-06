@@ -93,7 +93,8 @@ pub struct CityData {
     /// Vectorized inland water bodies (rivers and lakes) in WGS-84. Rendered above `land_polygon`.
     pub inland_water_polygons: Vec<TerrainPolygon>,
     /// Elevation isobands for the optional terrain-shading layer, in WGS-84.
-    //pub terrain_bands: Vec<TerrainBand>,
+    /// Consumed by the SVG export; the interactive map uses `terrain_dem` instead.
+    pub terrain_bands: Vec<TerrainBand>,
     /// Digital elevation model for the `MapLibre` color-relief and hillshade layers.
     pub terrain_dem: TerrainDem,
     pub road_nodes: Vec<RoadNode>,

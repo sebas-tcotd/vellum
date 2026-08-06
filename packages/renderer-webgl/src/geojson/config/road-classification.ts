@@ -42,10 +42,26 @@ export const ITEM_CLASS_TIER: Readonly<Record<string, RoadTier>> = {
   'Pedestrian Bridge': 'pedestrian',
 };
 
+/**
+ * Item classes that are never drawn as road geometry.
+ *
+ * @remarks
+ * The Rust parser already drops `Bus Line` and the landscaping tools from
+ * `road_segments` (see `parser/tests.rs`), so on a normally-parsed city these
+ * entries never match. They are listed anyway because this set is now the
+ * single filter point for *both* the interactive map and the SVG export: a
+ * partial parse, or a future parser change, must not be able to turn a virtual
+ * transit connector or a canal wall into a drawn road on either route.
+ */
 export const EXCLUDED_ROAD_CLASSES = new Set([
   'Electricity Wire',
   'Airplane Path',
   'Ship Path',
   'Tram Line',
   'Tram Facility',
+  // Virtual connectors used only for transit routing — never real geometry.
+  'Bus Line',
+  // Terrain-shaping landscaping tools, not part of the road network.
+  'Landscaping Canal',
+  'Landscaping Flood Wall',
 ]);

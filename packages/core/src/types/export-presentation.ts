@@ -111,8 +111,17 @@ export interface FullMapExportDialogOptions extends Omit<
 > {
   /** Spatial area selected by the user. */
   area: 'full-map';
-  /** Full-map exports only ever request the base density. */
-  format: 'png-1x';
+  /**
+   * Full-map raster exports only ever request the base density.
+   *
+   * @remarks
+   * `targetLongEdge` already encodes the exact output resolution, so a `2x`
+   * or `4x` density would double-apply it — keeping the literal here makes
+   * that combination unrepresentable rather than merely discouraged. `svg` is
+   * admitted because a vector document has no density to conflict with;
+   * `targetLongEdge` simply sizes its `viewBox`.
+   */
+  format: 'png-1x' | 'svg';
   /** Long edge of the final raster in logical pixels. */
   targetLongEdge: ExportTargetLongEdge;
 }

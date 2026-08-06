@@ -3,7 +3,9 @@ import { describe, expect, it } from 'vitest';
 import {
   decodeExportFrame,
   encodeExportFrame,
+  encodeSvgExportFrame,
   EXPORT_FRAME_HEADER_BYTES,
+  EXPORT_FRAME_KIND_SVG_CHUNK,
   EXPORT_FRAME_MAX_TOTAL_BYTES,
 } from './export-frame';
 
@@ -192,6 +194,7 @@ describe('decodeExportFrame', () => {
     );
     const decoded = decodeExportFrame(frame);
     expect(decoded).toEqual({
+      kind: 1,
       sessionId: SESSION_ID,
       sequence: chunk.sequence,
       tileX: chunk.tileX,
@@ -204,6 +207,7 @@ describe('decodeExportFrame', () => {
 
   it('decodifica el vector fijo esperado', () => {
     expect(decodeExportFrame(EXPECTED_FRAME)).toEqual({
+      kind: 1,
       sessionId: SESSION_ID,
       sequence: 5,
       tileX: 2,
@@ -228,8 +232,17 @@ describe('decodeExportFrame', () => {
 
   it('rechaza kind desconocido', () => {
     const bad = EXPECTED_FRAME.slice();
-    bad[6] = 0x02;
+    bad[6] = 0x7f;
     expect(() => decodeExportFrame(bad)).toThrow('kind');
+  });
+
+  it('rechaza un chunk svg que arrastra geometría ráster', () => {
+    // Kind 2 sobre el vector PNG: los campos de tile/rect siguen poblados, que
+    // es exactamente la trama que el escritor SVG tendría que ignorar en
+    // silencio. Rust aplica el mismo rechazo (framing.rs).
+    const bad = EXPECTED_FRAME.slice();
+    bad[6] = 0x02;
+    expect(() => decodeExportFrame(bad)).toThrow('raster');
   });
 
   it('rechaza reserved distinto de cero', () => {
@@ -261,5 +274,67 @@ describe('decodeExportFrame', () => {
     );
     expect(frame).toBeInstanceOf(Uint8Array);
     expect(Array.isArray(frame)).toBe(false);
+  });
+});
+
+describe('encodeSvgExportFrame', () => {
+  it('escribe kind 2 y deja en cero todos los campos ráster', () => {
+    const frame = encodeSvgExportFrame(
+      SESSION_ID,
+      { sequence: 0, text: '<svg/>' },
+      MAX_CHUNK_BYTES,
+    );
+    const decoded = decodeExportFrame(frame);
+    expect(decoded.kind).toBe(EXPORT_FRAME_KIND_SVG_CHUNK);
+    expect(decoded.tileX).toBe(0);
+    expect(decoded.tileY).toBe(0);
+    expect(decoded.usefulRect).toEqual({ x: 0, y: 0, width: 0, height: 0 });
+    expect(decoded.renderRect).toEqual({ x: 0, y: 0, width: 0, height: 0 });
+    expect(new TextDecoder().decode(decoded.encodedPng)).toBe('<svg/>');
+  });
+
+  it('mide el payload en bytes UTF-8, no en caracteres', () => {
+    // 'ñ' ocupa dos bytes: un límite contado en caracteres dejaría pasar una
+    // trama que Rust rechazaría por exceder maxChunkBytes.
+    const frame = encodeSvgExportFrame(
+      SESSION_ID,
+      { sequence: 0, text: 'ñ' },
+      MAX_CHUNK_BYTES,
+    );
+    expect(frame.byteLength).toBe(EXPORT_FRAME_HEADER_BYTES + 2);
+    expect(() =>
+      encodeSvgExportFrame(SESSION_ID, { sequence: 0, text: 'ñ' }, 1),
+    ).toThrow('maxChunkBytes');
+  });
+
+  it('rechaza un fragmento vacío y una secuencia inválida', () => {
+    expect(() =>
+      encodeSvgExportFrame(
+        SESSION_ID,
+        { sequence: 0, text: '' },
+        MAX_CHUNK_BYTES,
+      ),
+    ).toThrow('non-empty');
+    expect(() =>
+      encodeSvgExportFrame(
+        SESSION_ID,
+        { sequence: -1, text: '<svg/>' },
+        MAX_CHUNK_BYTES,
+      ),
+    ).toThrow('sequence');
+  });
+
+  it('respeta el presupuesto total de 64 MiB del frame', () => {
+    expect(EXPORT_FRAME_MAX_TOTAL_BYTES).toBe(64 * 1024 * 1024);
+  });
+
+  it('rechaza un payload declarado vacío, igual que Rust', () => {
+    const empty = EXPECTED_FRAME.slice(0, EXPORT_FRAME_HEADER_BYTES);
+    new DataView(empty.buffer, empty.byteOffset, empty.byteLength).setUint32(
+      72,
+      0,
+      true,
+    );
+    expect(() => decodeExportFrame(empty)).toThrow('empty');
   });
 });

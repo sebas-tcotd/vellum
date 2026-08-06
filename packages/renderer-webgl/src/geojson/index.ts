@@ -28,6 +28,7 @@ export {
   buildCoastlineGeoJson,
   buildContourLinesGeoJson,
   buildLandPolygonGeoJson,
+  buildTerrainBandsGeoJson,
 } from './builders/terrain.builder';
 export {
   buildTransitGeoJson,

@@ -527,12 +527,9 @@ fn sg_zero_filtered_from_path_segs() {
 }
 
 #[test]
-#[ignore = "manual only - validates against real .cslmap files in test-maps/"]
+#[ignore = "manual only - validates against the real .cslmap fixtures"]
 fn validate_real_altavento() {
-    let path = concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/../../test-maps/Altavento-20260404-020217.cslmap"
-    );
+    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/fixtures/altavento.cslmap");
     let bytes = std::fs::read(path).expect("read altavento");
     let result = parse_cslmap_bytes(&bytes); // BOM stripped internally
     assert!(result.is_ok(), "Altavento parse failed: {result:?}");
@@ -545,7 +542,15 @@ fn validate_real_altavento() {
         "inland_water_polygons: {}",
         city.inland_water_polygons.len()
     );
-    eprintln!("terrain_bands: {}", city.contour_lines.len());
+    eprintln!("contour_lines: {}", city.contour_lines.len());
+    eprintln!(
+        "terrain_bands: {} ({} polygons)",
+        city.terrain_bands.len(),
+        city.terrain_bands
+            .iter()
+            .map(|b| b.polygons.len())
+            .sum::<usize>()
+    );
     eprintln!("transit_lines: {}", city.transit_lines.len());
     eprintln!("buildings: {}", city.buildings.len());
     eprintln!("districts: {}", city.districts.len());

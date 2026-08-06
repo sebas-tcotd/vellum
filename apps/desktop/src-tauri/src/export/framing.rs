@@ -8,8 +8,16 @@ use crate::errors::VellumError;
 pub const MAGIC: [u8; 4] = *b"VEXP";
 /// Wire format version encoded in every frame header.
 pub const VERSION: u16 = 1;
-/// `kind` value for a PNG tile chunk — the only kind this story emits.
+/// `kind` value for a PNG tile chunk.
 pub const KIND_PNG_TILE: u8 = 1;
+/// `kind` value for a UTF-8 SVG text chunk.
+///
+/// SVG chunks reuse the same fixed 76-byte header rather than introducing a
+/// second wire layout (AD-9: one versioned binary transport). The tile and
+/// rectangle fields describe raster geometry that a text fragment does not
+/// have, so they are *required to be zero* and rejected otherwise — a frame
+/// can never carry raster geometry the SVG writer would silently ignore.
+pub const KIND_SVG_CHUNK: u8 = 2;
 /// Fixed size in bytes of the v1 header, before the encoded PNG payload.
 pub const HEADER_BYTES: usize = 76;
 /// Size in bytes of the binary session id embedded in the header.
@@ -31,6 +39,8 @@ pub struct PixelRectRaw {
 /// Fields decoded from one wire frame header, before session/sequence validation.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FrameHeader {
+    /// Payload discriminator — [`KIND_PNG_TILE`] or [`KIND_SVG_CHUNK`].
+    pub kind: u8,
     /// Raw 16-byte session token embedded in the frame.
     pub session_id: [u8; SESSION_ID_BYTES],
     /// Strictly increasing chunk sequence.
@@ -65,6 +75,30 @@ fn read_u64_le(bytes: &[u8]) -> u64 {
     ])
 }
 
+/// Rejects an SVG chunk that carries raster tile/rectangle geometry.
+///
+/// # Errors
+/// Returns `VellumError::ExportFailed` when any raster field is non-zero.
+fn reject_raster_geometry(
+    tile_x: u32,
+    tile_y: u32,
+    useful_rect: &PixelRectRaw,
+    render_rect: &PixelRectRaw,
+) -> Result<(), VellumError> {
+    let zeroed = PixelRectRaw {
+        x: 0,
+        y: 0,
+        width: 0,
+        height: 0,
+    };
+    if tile_x != 0 || tile_y != 0 || *useful_rect != zeroed || *render_rect != zeroed {
+        return Err(framing_error(
+            "svg chunk must zero every tile and rectangle field",
+        ));
+    }
+    Ok(())
+}
+
 fn read_rect_le(bytes: &[u8]) -> PixelRectRaw {
     PixelRectRaw {
         x: read_u32_le(&bytes[0..4]),
@@ -94,7 +128,7 @@ pub fn parse_frame(bytes: &[u8]) -> Result<(FrameHeader, &[u8]), VellumError> {
         return Err(framing_error("unsupported version"));
     }
     let kind = bytes[6];
-    if kind != KIND_PNG_TILE {
+    if kind != KIND_PNG_TILE && kind != KIND_SVG_CHUNK {
         return Err(framing_error("unsupported kind"));
     }
     let reserved = bytes[7];
@@ -114,6 +148,9 @@ pub fn parse_frame(bytes: &[u8]) -> Result<(FrameHeader, &[u8]), VellumError> {
     if encoded_length == 0 {
         return Err(framing_error("encoded payload must not be empty"));
     }
+    if kind == KIND_SVG_CHUNK {
+        reject_raster_geometry(tile_x, tile_y, &useful_rect, &render_rect)?;
+    }
     let expected_total = (HEADER_BYTES as u64)
         .checked_add(u64::from(encoded_length))
         .ok_or_else(|| framing_error("declared length overflows"))?;
@@ -127,6 +164,7 @@ pub fn parse_frame(bytes: &[u8]) -> Result<(FrameHeader, &[u8]), VellumError> {
 
     Ok((
         FrameHeader {
+            kind,
             session_id,
             sequence,
             tile_x,
@@ -243,8 +281,48 @@ mod tests {
     #[test]
     fn rejects_bad_kind() {
         let mut bytes = fixed_vector();
-        bytes[6] = 2;
+        bytes[6] = 3;
         assert!(parse_frame(&bytes).is_err());
+    }
+
+    /// Same offset table as the PNG vector, kind 2, with every raster field
+    /// zeroed — the layout contract for a streaming-svg chunk.
+    fn svg_vector(payload: &[u8]) -> Vec<u8> {
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(b"VEXP");
+        bytes.extend_from_slice(&1u16.to_le_bytes());
+        bytes.push(KIND_SVG_CHUNK);
+        bytes.push(0);
+        bytes.extend_from_slice(&[0u8; SESSION_ID_BYTES]);
+        bytes.extend_from_slice(&0u64.to_le_bytes()); // sequence
+        bytes.extend_from_slice(&[0u8; 40]); // tileX/tileY + both rects
+        bytes.extend_from_slice(&(u32::try_from(payload.len()).unwrap()).to_le_bytes());
+        bytes.extend_from_slice(payload);
+        assert_eq!(bytes.len(), HEADER_BYTES + payload.len());
+        bytes
+    }
+
+    #[test]
+    fn parses_an_svg_chunk_and_returns_its_kind() {
+        let bytes = svg_vector(b"<svg/>");
+        let (header, payload) = parse_frame(&bytes).expect("valid svg frame must parse");
+        assert_eq!(header.kind, KIND_SVG_CHUNK);
+        assert_eq!(header.sequence, 0);
+        assert_eq!(payload, b"<svg/>");
+    }
+
+    #[test]
+    fn rejects_an_svg_chunk_carrying_raster_geometry() {
+        // tileX, then each rect field in turn: any non-zero raster field is a
+        // frame the SVG writer would have to silently ignore.
+        for offset in [32, 36, 40, 48, 56, 64] {
+            let mut bytes = svg_vector(b"<svg/>");
+            bytes[offset..offset + 4].copy_from_slice(&7u32.to_le_bytes());
+            assert!(
+                parse_frame(&bytes).is_err(),
+                "non-zero raster field at offset {offset} must be rejected"
+            );
+        }
     }
 
     #[test]

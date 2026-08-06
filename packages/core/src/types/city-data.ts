@@ -45,6 +45,25 @@ export interface TerrainIsoline {
 }
 
 /**
+ * A closed, fillable elevation band covering `[elevationMin, elevationMax)`.
+ *
+ * @remarks
+ * Mirrors the Rust `TerrainBand` struct. Bands are what carries hypsometric
+ * relief into a flat vector document: an SVG has no equivalent of the
+ * interactive map's DEM-sampled `color-relief` ramp, and `TerrainIsoline` is an
+ * open polyline that cannot be filled. Band edges use the same interval as
+ * `contourLines`, so each one coincides with a drawn contour.
+ */
+export interface TerrainBand {
+  /** Lower bound of the range, inclusive, in raw game units. */
+  elevationMin: number;
+  /** Upper bound of the range, exclusive, in raw game units. */
+  elevationMax: number;
+  /** Polygons covering this elevation range, in WGS-84. */
+  polygons: TerrainPolygon[];
+}
+
+/**
  * A digital elevation model baked as a PNG, ready for a MapLibre `raster-dem` source.
  * @remarks
  * Mirrors the Rust `TerrainDem` struct. Elevations are packed losslessly as
@@ -326,6 +345,8 @@ export interface CityData {
   inlandWaterPolygons: TerrainPolygon[];
   /** Elevation isolines for the optional contour-line layer, in WGS-84. */
   contourLines: TerrainIsoline[];
+  /** Elevation isobands, in WGS-84. Consumed by the SVG export, not the interactive map. */
+  terrainBands: TerrainBand[];
   /** Digital elevation model for the MapLibre color-relief and hillshade layers. */
   terrainDem: TerrainDem;
   /** Intersections and terminuses for the road network. */

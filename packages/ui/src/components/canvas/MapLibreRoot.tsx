@@ -4,6 +4,8 @@ import type {
   ExportPreviewSnapshot,
   ExportRequest,
   ExportSnapshot,
+  SvgExportRequest,
+  SvgExportSnapshot,
   LayerVisibility,
 } from '@vellum/core';
 import type {
@@ -60,6 +62,10 @@ export interface MapLibreRootProps {
   snapshotCaptureRef?: React.RefObject<
     ((request: ExportRequest) => ExportSnapshot | null) | null
   >;
+  /** Ref populated with the vector counterpart of `snapshotCaptureRef`. */
+  svgSnapshotCaptureRef?: React.RefObject<
+    ((request: SvgExportRequest) => SvgExportSnapshot | null) | null
+  >;
 }
 
 /**
@@ -85,6 +91,7 @@ export function MapLibreRoot({
   subscribeServiceIconLegendRef,
   previewCaptureRef,
   snapshotCaptureRef,
+  svgSnapshotCaptureRef,
 }: MapLibreRootProps) {
   const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -278,6 +285,17 @@ export function MapLibreRoot({
       if (snapshotCaptureRef.current) snapshotCaptureRef.current = null;
     };
   }, [snapshotCaptureRef]);
+
+  // Separate from the raster ref on purpose: the two snapshot shapes are not
+  // interchangeable, so a single ref would need a cast at every call site.
+  useEffect(() => {
+    if (!svgSnapshotCaptureRef) return;
+    svgSnapshotCaptureRef.current = (request) =>
+      rendererRef.current?.createSvgExportSnapshot(request) ?? null;
+    return () => {
+      if (svgSnapshotCaptureRef.current) svgSnapshotCaptureRef.current = null;
+    };
+  }, [svgSnapshotCaptureRef]);
 
   // Register subscribeServiceIconLegend into the external ref — same pattern as
   // fitToScreenRef/zoomInRef above, but exposing a subscription instead of an action.

@@ -36,12 +36,12 @@ const SCALE_HI = 2 ** (Z_HI - Z_LO);
 // stroke). Kept as named constants here — consistent with how this layer
 // already carried its marker colors — rather than added to the theme system,
 // since the black-on-white station convention is fixed, not theme-dependent.
-const STATION_FILL = '#ffffff';
-const STATION_STROKE = '#111111';
+export const STATION_FILL = '#ffffff';
+export const STATION_STROKE = '#111111';
 /** Black outline width in world meters (drawn as a scaled line on the ring). */
 const STATION_STROKE_M = LINE_WIDTH_M * 0.4;
 /** Minimum on-screen stroke width in px, so the outline stays visible when zoomed out. */
-const STATION_STROKE_MIN_PX = 1.2;
+export const STATION_STROKE_MIN_PX = 1.2;
 
 /**
  * Minimum on-screen transit-line width, in px. Derived to match the largest
@@ -51,7 +51,7 @@ const STATION_STROKE_MIN_PX = 1.2;
  * detail zooms the geographic width takes over, keeping `line-offset` (which is
  * geographic) and the line width in agreement so bundles fill their slots.
  */
-const TRANSIT_LINE_MIN_PX = 2.2;
+export const TRANSIT_LINE_MIN_PX = 2.2;
 
 // Station capsule ⇆ dot cross-fade. The world-locked capsule only reads at
 // detail zoom (its thickness is geographic); below that it is sub-pixel, so a
@@ -59,7 +59,7 @@ const TRANSIT_LINE_MIN_PX = 2.2;
 const Z_FADE_LO = 15.5;
 const Z_FADE_HI = 16.5;
 /** Minimum station-dot radius in px — keeps stops discoverable/clickable at overview. */
-const STATION_DOT_MIN_PX = 3.4;
+export const STATION_DOT_MIN_PX = 3.4;
 
 /** Geographic exponential width expression scaled by `factor`, floored at `minPx`. */
 function scaledWidthExpression(

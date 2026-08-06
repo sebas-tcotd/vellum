@@ -28,6 +28,36 @@ export function buildLandPolygonGeoJson(
 }
 
 /**
+ * Builds a GeoJSON FeatureCollection from `cityData.terrainBands`.
+ *
+ * @remarks
+ * Ordered low to high so a consumer painting them in sequence gets the higher
+ * band on top, which is how the overlapping edges resolve correctly.
+ * Coordinates are already in WGS-84 — no conversion needed.
+ */
+export function buildTerrainBandsGeoJson(
+  cityData: CityData,
+): LandPolygonFeatureCollection {
+  const bands = [...cityData.terrainBands].sort(
+    (a, b) => a.elevationMin - b.elevationMin,
+  );
+  return {
+    type: 'FeatureCollection',
+    features: bands.flatMap((band) =>
+      band.polygons.map((poly) => ({
+        type: 'Feature' as const,
+        geometry: terrainPolygonToGeometry(poly),
+        properties: {
+          type: 'terrain_band' as const,
+          elevationMin: band.elevationMin,
+          elevationMax: band.elevationMax,
+        },
+      })),
+    ),
+  };
+}
+
+/**
  * Builds a GeoJSON FeatureCollection from `cityData.contourLines`.
  *
  * @remarks
