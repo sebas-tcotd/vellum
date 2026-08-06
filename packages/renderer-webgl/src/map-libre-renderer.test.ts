@@ -291,7 +291,7 @@ describe('MapLibreRenderer', () => {
     expect(mockMap.fitBounds).toHaveBeenCalledOnce();
   });
 
-  it('registers the initial contour layer with the contrasted theme ramp', async () => {
+  it('registers the initial contour layer with a contrasted ramp and full-pixel width', async () => {
     const renderer = makeRenderer();
     const city = makeContourCity();
     await renderer.render(city, { activeLayers: ALL_LAYERS_VISIBLE });
@@ -311,6 +311,7 @@ describe('MapLibreRenderer', () => {
         city.contourLines.map((contour) => contour.elevation),
       ),
     );
+    expect(layer?.paint?.['line-width']).toBe(1);
   });
 
   it('switches contours between the flat token and contrasted ramp with color relief', async () => {

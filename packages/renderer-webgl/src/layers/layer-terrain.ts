@@ -118,7 +118,7 @@ export function addTerrainContourLayer(
         cityData.terrainDem,
         cityData.contourLines.map((contour) => contour.elevation),
       ),
-      'line-width': 0.5,
+      'line-width': 1,
       'line-opacity': 1,
       'line-opacity-transition': { duration: 300 },
     },
