@@ -19,12 +19,10 @@ import type { CityData } from '@vellum/core';
 import type maplibregl from 'maplibre-gl';
 import { HILLSHADE_EXAGGERATION } from '../constants/layer.constants';
 import { CS1_HALF_EXTENT_DEG } from '../coordinate-transform';
-import {
-  buildColorReliefRamp,
-  buildContourColorRamp,
-} from '../expressions/terrain-relief';
+import { buildColorReliefRamp } from '../expressions/terrain-relief';
 import { buildContourLinesGeoJson } from '../geojson';
 import { addLayerIfAbsent, addSourceIfAbsent } from '../helpers';
+import { buildContourColorRamp } from '../expressions/terrain-relief';
 import {
   DEM_ENCODING,
   DEM_MAX_ZOOM,
@@ -109,16 +107,11 @@ export function addTerrainContourLayer(
     type: 'line',
     source: 'terrain-lines-source',
     paint: {
-      // Hypsometric from the start: each isoline follows the relief ramp at
-      // its own altitude with theme-directed contrast. `applyTheme` and
-      // `setOptions` use the same helper.
-      'line-color': buildContourColorRamp(
-        colors.terrain,
-        colors.contourLine,
-        cityData.terrainDem,
-        cityData.contourLines.map((contour) => contour.elevation),
-      ),
-      'line-width': 1,
+      // Hypsometric from the start: each isoline takes the colour the relief
+      // has at its own altitude. `applyTheme` and `setOptions` re-derive this
+      // from the same helper, so the three paths cannot drift apart.
+      'line-color': buildContourColorRamp(colors.terrain, cityData.terrainDem),
+      'line-width': 0.5,
       'line-opacity': 1,
       'line-opacity-transition': { duration: 300 },
     },

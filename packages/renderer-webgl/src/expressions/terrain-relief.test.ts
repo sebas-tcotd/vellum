@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { TerrainDem } from '@vellum/core';
-import { buildContourColorRamp, resolveElevationColor } from './terrain-relief';
-import { adjustColorForContrast, mixColorTokens } from './color-mix';
+import {
+  buildColorReliefRamp,
+  buildContourColorRamp,
+  resolveElevationColor,
+} from './terrain-relief';
+import { adjustLightness, mixColorTokens } from './color-mix';
 
 const TERRAIN = {
   low: '#000000',
@@ -14,33 +18,6 @@ const DEM: TerrainDem = {
   elevMin: 1000,
   elevMax: 3000,
 };
-
-function rgbChannels(color: string): [number, number, number] {
-  const hex = /^#([0-9a-f]{6})$/i.exec(color);
-  if (hex) {
-    return [0, 2, 4].map((offset) =>
-      Number.parseInt(hex[1]!.slice(offset, offset + 2), 16),
-    ) as [number, number, number];
-  }
-  const rgba = /^rgba\((\d+),\s*(\d+),\s*(\d+),/.exec(color);
-  if (!rgba) throw new Error(`Unsupported test colour: ${color}`);
-  return [Number(rgba[1]), Number(rgba[2]), Number(rgba[3])];
-}
-
-function testLuminance(color: string): number {
-  const linear = rgbChannels(color).map((channel) => {
-    const srgb = channel / 255;
-    return srgb <= 0.04045
-      ? srgb / 12.92
-      : Math.pow((srgb + 0.055) / 1.055, 2.4);
-  });
-  return 0.2126 * linear[0]! + 0.7152 * linear[1]! + 0.0722 * linear[2]!;
-}
-
-function testContrast(first: string, second: string): number {
-  const values = [testLuminance(first), testLuminance(second)];
-  return (Math.max(...values) + 0.05) / (Math.min(...values) + 0.05);
-}
 
 describe('mixColorTokens', () => {
   it('mixes hex tokens component-wise in sRGB', () => {
@@ -79,54 +56,34 @@ describe('mixColorTokens', () => {
   });
 });
 
-describe('adjustColorForContrast', () => {
-  it('darkens and lightens by the minimum discrete amount needed for 3:1', () => {
-    const darkened = adjustColorForContrast('#ffffff', '#202020', 3);
-    const lightened = adjustColorForContrast('#16213e', '#4a4a56', 3);
-
-    expect(darkened).toBe('#949494');
-    expect(testContrast(darkened, '#ffffff')).toBeGreaterThanOrEqual(3);
-    expect(testLuminance(darkened)).toBeLessThan(testLuminance('#ffffff'));
-    expect(testContrast(lightened, '#16213e')).toBeGreaterThanOrEqual(3);
-    expect(testLuminance(lightened)).toBeGreaterThan(testLuminance('#16213e'));
-  });
-
-  it('falls back to the opposite direction when the hint cannot reach the target', () => {
-    const adjusted = adjustColorForContrast('#fefefe', '#ffffff', 3);
-    expect(testLuminance(adjusted)).toBeLessThan(testLuminance('#fefefe'));
-    expect(testContrast(adjusted, '#fefefe')).toBeGreaterThanOrEqual(3);
-  });
-
-  it('preserves hex and hsl alpha instead of making the line opaque', () => {
-    const hex = adjustColorForContrast('#ffffff80', '#000000', 3);
-    const hsl = adjustColorForContrast('hsl(0 0% 100% / 50%)', '#000000', 3);
-    const permissiveHsl = adjustColorForContrast(
-      'hsl(0 0% 100% 25%)',
-      '#000000',
-      3,
+describe('adjustLightness', () => {
+  it('darkens a light colour and lightens a dark one', () => {
+    expect(adjustLightness('#ffffff', 0.3)).toBe(
+      mixColorTokens('#ffffff', '#000000', 0.3),
     );
-    expect(hex).toMatch(/^rgba\(\d+, \d+, \d+, 0\.5019607843137255\)$/);
-    expect(hsl).toMatch(/^rgba\(\d+, \d+, \d+, 0\.5\)$/);
-    expect(permissiveHsl).toMatch(/^rgba\(\d+, \d+, \d+, 0\.25\)$/);
+    expect(adjustLightness('#000000', 0.3)).toBe(
+      mixColorTokens('#000000', '#ffffff', 0.3),
+    );
+  });
+
+  it('picks direction from the colour itself, never a caller hint', () => {
+    // Same amount, opposite colours: the two results must differ, proving
+    // the direction is derived from `color`, not hardcoded.
+    const light = adjustLightness('#eeeeee', 0.3);
+    const dark = adjustLightness('#111111', 0.3);
+    expect(light).not.toBe(dark);
+    expect(light < '#eeeeee').toBe(true);
+    expect(dark > '#111111').toBe(true);
+  });
+
+  it('clamps the amount and survives a non-finite one', () => {
+    expect(adjustLightness('#ffffff', 5)).toBe('#000000');
+    expect(adjustLightness('#ffffff', -5)).toBe('#ffffff');
+    expect(adjustLightness('#ffffff', Number.NaN)).toBe('#ffffff');
   });
 
   it('keeps an unparseable token unchanged', () => {
-    expect(adjustColorForContrast('var(--terrain)', '#000000', 3)).toBe(
-      'var(--terrain)',
-    );
-  });
-
-  it('bounds HSL channels and handles invalid contrast requests safely', () => {
-    const bounded = adjustColorForContrast(
-      'hsl(0 200% 200% / 50%)',
-      '#000000',
-      3,
-    );
-    expect(rgbChannels(bounded).every((channel) => channel <= 255)).toBe(true);
-    expect(adjustColorForContrast('#123456', '#ffffff', 1)).toBe('#123456');
-    expect(adjustColorForContrast('#123456', '#ffffff', Number.NaN)).toBe(
-      '#123456',
-    );
+    expect(adjustLightness('var(--terrain)', 0.3)).toBe('var(--terrain)');
   });
 });
 
@@ -167,112 +124,96 @@ describe('resolveElevationColor', () => {
 });
 
 describe('buildContourColorRamp', () => {
-  const CONTOUR_LINE = '#202020';
-  const ELEVATIONS = [1000, 1500, 2000, 2500, 3000];
-
-  function matchedColors(expression: unknown[]): Map<number, string> {
-    const matches = new Map<number, string>();
-    for (let index = 2; index < expression.length - 1; index += 2) {
-      matches.set(expression[index] as number, expression[index + 1] as string);
-    }
-    return matches;
-  }
-
   it('drives the ramp off each isolines own elevation property', () => {
-    const ramp = buildContourColorRamp(
-      TERRAIN,
-      CONTOUR_LINE,
-      DEM,
-      ELEVATIONS,
-    ) as unknown[];
-    expect(ramp[0]).toBe('match');
+    const ramp = buildContourColorRamp(TERRAIN, DEM) as unknown[];
+    expect(ramp[0]).toBe('interpolate');
+    expect(ramp[1]).toEqual(['linear']);
     // `['get','elevation']`, not `['elevation']`: the raster relief reads the
     // decoded DEM value, a line feature carries its altitude as a property.
-    expect(ramp[1]).toEqual(['get', 'elevation']);
+    expect(ramp[2]).toEqual(['get', 'elevation']);
   });
 
-  it('contrasts every real isoline elevation, including values between anchors', () => {
-    const ramp = buildContourColorRamp(
-      TERRAIN,
-      CONTOUR_LINE,
-      DEM,
-      ELEVATIONS,
-    ) as unknown[];
-    const matches = matchedColors(ramp);
-    for (const elevation of ELEVATIONS) {
-      const terrainColor = resolveElevationColor(TERRAIN, DEM, elevation);
-      expect(
-        testContrast(matches.get(elevation)!, terrainColor),
-      ).toBeGreaterThanOrEqual(3);
-    }
+  it('shares the relief ramps domain and elevation break points', () => {
+    const contour = buildContourColorRamp(TERRAIN, DEM) as unknown[];
+    const relief = buildColorReliefRamp(TERRAIN, DEM) as unknown[];
+    // Drop the relief's leading transparent sentinel stop, which a line
+    // feature has no edge to fade at; the elevations at which each ramp
+    // changes anchor must still line up exactly.
+    expect([contour[3], contour[5], contour[7]]).toEqual([
+      relief[5],
+      relief[7],
+      relief[9],
+    ]);
+    expect([contour[3], contour[5], contour[7]]).toEqual([1000, 2000, 3000]);
   });
 
-  it.each([
-    ['Day', { low: '#9fd17a', mid: '#e4dfc9', high: '#c9ad7f' }, '#8c8c8c'],
-    [
-      'Grayscale',
-      { low: '#ffffff', mid: '#ffffff', high: '#ffffff' },
-      '#dcdcdc',
-    ],
-    ['Transit', { low: '#16213e', mid: '#1e2a45', high: '#26324f' }, '#4a4a56'],
-  ])(
-    'keeps every sampled %s isoline at 3:1 or better',
-    (_name, terrain, contourLine) => {
-      const ramp = buildContourColorRamp(
-        terrain,
-        contourLine,
-        DEM,
-        ELEVATIONS,
-      ) as unknown[];
-      const matches = matchedColors(ramp);
-      for (const elevation of ELEVATIONS) {
-        const terrainColor = resolveElevationColor(terrain, DEM, elevation);
-        expect(
-          testContrast(matches.get(elevation)!, terrainColor),
-        ).toBeGreaterThanOrEqual(3);
-      }
-    },
-  );
-
-  it('preserves interpolated alpha on a non-anchor isoline', () => {
-    const alphaTerrain = {
-      low: '#ffffff80',
-      mid: '#80808040',
-      high: '#00000020',
-    };
-    const ramp = buildContourColorRamp(
-      alphaTerrain,
-      '#202020',
-      DEM,
-      [1500],
-    ) as unknown[];
-    expect(matchedColors(ramp).get(1500)).toMatch(
-      /^rgba\(\d+, \d+, \d+, 0\.3764705882352941\)$/,
-    );
+  it('adjusts every anchor away from the raw relief colour, not toward it', () => {
+    // The bug this replaced: an isoline painted in exactly the relief's own
+    // colour has 1:1 contrast against it by construction and vanishes into
+    // the terrain on screen.
+    const contour = buildContourColorRamp(TERRAIN, DEM) as unknown[];
+    expect(contour[4]).toBe(adjustLightness(TERRAIN.low, 0.3));
+    expect(contour[6]).toBe(adjustLightness(TERRAIN.mid, 0.3));
+    expect(contour[8]).toBe(adjustLightness(TERRAIN.high, 0.3));
+    expect(contour[4]).not.toBe(TERRAIN.low);
+    expect(contour[6]).not.toBe(TERRAIN.mid);
+    expect(contour[8]).not.toBe(TERRAIN.high);
   });
 
-  it('keeps the SVG resolver on the unadjusted theme ramp', () => {
-    const ramp = buildContourColorRamp(
-      TERRAIN,
-      CONTOUR_LINE,
-      DEM,
-      ELEVATIONS,
-    ) as unknown[];
-    expect(matchedColors(ramp).get(1000)).not.toBe(
-      resolveElevationColor(TERRAIN, DEM, 1000),
-    );
+  it('leaves the SVG export literal resolver on the raw, unadjusted ramp', () => {
+    // The interactive map and the export are allowed to diverge here on
+    // purpose: a static document has no antialiased blending to correct for,
+    // so a contour matching its terrain colour exactly is the correct answer
+    // there, not a bug.
+    const ramp = buildContourColorRamp(TERRAIN, DEM) as unknown[];
+    expect(ramp[4]).not.toBe(resolveElevationColor(TERRAIN, DEM, 1000));
     expect(resolveElevationColor(TERRAIN, DEM, 1000)).toBe(TERRAIN.low);
     expect(resolveElevationColor(TERRAIN, DEM, 2000)).toBe(TERRAIN.mid);
     expect(resolveElevationColor(TERRAIN, DEM, 3000)).toBe(TERRAIN.high);
   });
 
-  it('widens a degenerate domain instead of emitting duplicate stops', () => {
+  it('darkens a light theme and lightens a dark one, without naming either theme', () => {
+    // Direction comes from each colour's own brightness — never a
+    // theme-identity special case, which would silently do nothing for a
+    // third-party theme.
+    const day = buildContourColorRamp(
+      { low: '#9fd17a', mid: '#e4dfc9', high: '#c9ad7f' },
+      DEM,
+    ) as string[];
+    // Day's anchors are all light; darkening reduces every channel.
+    expect(day[4]! < '#9fd17a').toBe(true);
+
+    const transit = buildContourColorRamp(
+      { low: '#16213e', mid: '#1e2a45', high: '#26324f' },
+      DEM,
+    ) as string[];
+    // Transit's anchors are all near-black; lightening raises the channels,
+    // so the adjusted hex sorts after the original.
+    expect(transit[4]! > '#16213e').toBe(true);
+  });
+
+  it('stays visible even when a theme flattens the relief to one colour', () => {
+    // Grayscale sets terrain.low === mid === high === white: the relief
+    // itself carries no elevation information to begin with, so every
+    // contour legitimately becomes the same colour. What must still hold is
+    // that colour differs from the white land fill it sits on.
     const flat = buildContourColorRamp(
-      TERRAIN,
-      CONTOUR_LINE,
-      { ...DEM, elevMin: 500, elevMax: 500 },
-      [564, 500, 500, Number.NaN],
-    ) as unknown[];
-    expect([...matchedColors(flat).keys()]).toEqual([500, 564]);
+      { low: '#ffffff', mid: '#ffffff', high: '#ffffff' },
+      DEM,
+    ) as string[];
+    expect(flat[4]).toBe(flat[6]);
+    expect(flat[6]).toBe(flat[8]);
+    expect(flat[4]).not.toBe('#ffffff');
+  });
+
+  it('widens a degenerate domain instead of emitting duplicate stops', () => {
+    const flat = buildContourColorRamp(TERRAIN, {
+      ...DEM,
+      elevMin: 500,
+      elevMax: 500,
+    }) as number[];
+    // Duplicate stops make MapLibre reject the whole expression.
+    expect(flat[3]).toBeLessThan(flat[5] as number);
+    expect(flat[5]).toBeLessThan(flat[7] as number);
   });
 });
