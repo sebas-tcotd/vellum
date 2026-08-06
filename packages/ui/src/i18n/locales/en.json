@@ -205,6 +205,6 @@
   "exportWarnings": {
     "svgDegenerateGeometry": "{{count}} element(s) could not be drawn due to invalid geometry and were left out of the SVG.",
     "svgEmptyLayer": "{{count}} visible layer(s) came out empty in the SVG.",
-    "svgUnsupportedPresentation": "The SVG contains no labels, legends, or scale bar — those options were not applied."
+    "svgUnsupportedPresentation": "Some presentation options you selected were not applied to this SVG."
   }
 }
