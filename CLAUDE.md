@@ -4,6 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Code Intelligence
 
+`LSP` is a deferred tool — load it at the start of the session with
+`ToolSearch("select:LSP")` before doing any code navigation, rather than
+waiting until a lookup is needed.
+
 Prefer LSP over Grep/Glob/Read for code navigation:
 
 - `goToDefinition` / `goToImplementation` to jump to source
