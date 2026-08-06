@@ -59,6 +59,42 @@ export function buildColorReliefRamp(
 }
 
 /**
+ * Builds the contour-line colour ramp for a theme and a city's elevation range.
+ *
+ * @remarks
+ * Same `low → mid → high` ramp as {@link buildColorReliefRamp}, but driven by
+ * each isoline's own `elevation` property instead of the DEM's decoded value,
+ * so a contour is painted the colour the relief has *at that altitude*. That
+ * turns the isolines from a uniform overlay into hypsometric contours: colour
+ * and position then come from the same measured number and cannot disagree.
+ *
+ * The transparent out-of-map sentinel is deliberately not reproduced — it
+ * exists so the raster relief stops at the world extent, and a line feature
+ * has no such edge to fade at.
+ *
+ * @param terrain - The theme's terrain colours, as resolved by `style-adapter`.
+ * @param dem - The city's DEM metadata, supplying the ramp's domain.
+ * @returns An `interpolate` expression mapping an isoline's elevation to colour.
+ */
+export function buildContourColorRamp(
+  terrain: ResolvedColors['terrain'],
+  dem: TerrainDem,
+): maplibregl.ExpressionSpecification {
+  const { min, mid, max } = reliefDomain(dem);
+  return [
+    'interpolate',
+    ['linear'],
+    ['get', 'elevation'],
+    min,
+    terrain.low,
+    mid,
+    terrain.mid,
+    max,
+    terrain.high,
+  ] as unknown as maplibregl.ExpressionSpecification;
+}
+
+/**
  * The ramp's three anchor elevations, in raw game units.
  *
  * @remarks

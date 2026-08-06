@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import type { TerrainDem } from '@vellum/core';
-import { resolveElevationColor } from './terrain-relief';
+import {
+  buildColorReliefRamp,
+  buildContourColorRamp,
+  resolveElevationColor,
+} from './terrain-relief';
 import { mixColorTokens } from './color-mix';
 
 const TERRAIN = {
@@ -85,5 +89,53 @@ describe('resolveElevationColor', () => {
     const warm = { low: '#004400', mid: '#cc9900', high: '#ffffff' };
     expect(resolveElevationColor(warm, DEM, 1000)).toBe('#004400');
     expect(resolveElevationColor(warm, DEM, 2000)).toBe('#cc9900');
+  });
+});
+
+describe('buildContourColorRamp', () => {
+  it('drives the ramp off each isolines own elevation property', () => {
+    const ramp = buildContourColorRamp(TERRAIN, DEM) as unknown[];
+    expect(ramp[0]).toBe('interpolate');
+    expect(ramp[1]).toEqual(['linear']);
+    // `['get','elevation']`, not `['elevation']`: the raster relief reads the
+    // decoded DEM value, a line feature carries its altitude as a property.
+    expect(ramp[2]).toEqual(['get', 'elevation']);
+  });
+
+  it('shares the relief ramps domain, so colour and terrain agree', () => {
+    const contour = buildContourColorRamp(TERRAIN, DEM) as unknown[];
+    const relief = buildColorReliefRamp(TERRAIN, DEM) as unknown[];
+    // Drop the relief's leading transparent sentinel stop, which a line
+    // feature has no edge to fade at, and the two must match stop for stop.
+    expect(contour.slice(3)).toEqual(relief.slice(5));
+    expect(contour.slice(3)).toEqual([
+      1000,
+      TERRAIN.low,
+      2000,
+      TERRAIN.mid,
+      3000,
+      TERRAIN.high,
+    ]);
+  });
+
+  it('agrees with the literal resolver the SVG export uses', () => {
+    // Same ramp, two engines: the GPU evaluates the expression, the exporter
+    // evaluates `resolveElevationColor`. A contour must not change colour just
+    // because it was exported.
+    const ramp = buildContourColorRamp(TERRAIN, DEM) as unknown[];
+    expect(ramp[4]).toBe(resolveElevationColor(TERRAIN, DEM, 1000));
+    expect(ramp[6]).toBe(resolveElevationColor(TERRAIN, DEM, 2000));
+    expect(ramp[8]).toBe(resolveElevationColor(TERRAIN, DEM, 3000));
+  });
+
+  it('widens a degenerate domain instead of emitting duplicate stops', () => {
+    const flat = buildContourColorRamp(TERRAIN, {
+      ...DEM,
+      elevMin: 500,
+      elevMax: 500,
+    }) as number[];
+    // Duplicate stops make MapLibre reject the whole expression.
+    expect(flat[3]).toBeLessThan(flat[5] as number);
+    expect(flat[5]).toBeLessThan(flat[7] as number);
   });
 });

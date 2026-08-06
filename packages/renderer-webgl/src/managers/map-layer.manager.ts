@@ -13,7 +13,10 @@ import {
   BRIDGE_CASING_DARKEN_PERCENT,
 } from '../expressions/road-color';
 import { buildParkColorExpression } from '../expressions/park-color';
-import { buildColorReliefRamp } from '../expressions/terrain-relief';
+import {
+  buildColorReliefRamp,
+  buildContourColorRamp,
+} from '../expressions/terrain-relief';
 import type { ResolvedColors } from '../style-adapter';
 
 /**
@@ -164,6 +167,7 @@ export class MapLayerManager {
     );
 
     const { terrain } = options;
+    this.applyContourColor(terrain.showColorRelief);
     this.setPaintIfExists(
       'terrain-lines-layer',
       'line-opacity',
@@ -206,6 +210,29 @@ export class MapLayerManager {
   }
 
   /**
+   * Colours the contour lines, hypsometrically or flat.
+   *
+   * @remarks
+   * With the relief switched off the user asked for a plain contour map, so
+   * tinting the isolines by altitude would be applying an option they turned
+   * off. The DEM is also required for the ramp's domain — without it there is
+   * no altitude scale to colour against, and the flat theme colour is the only
+   * honest answer.
+   *
+   * @param useRelief - Whether the hypsometric relief is currently enabled.
+   */
+  private applyContourColor(useRelief: boolean): void {
+    const dem = this.terrainDem;
+    this.setPaintIfExists(
+      'terrain-lines-layer',
+      'line-color',
+      useRelief && dem
+        ? buildContourColorRamp(this.colors.terrain, dem)
+        : this.colors.contourLine,
+    );
+  }
+
+  /**
    * Applies a new set of theme colors to every currently-registered layer via
    * `map.setPaintProperty()` — no source re-processing, no renderer teardown.
    *
@@ -235,7 +262,7 @@ export class MapLayerManager {
         buildColorReliefRamp(c.terrain, this.terrainDem),
       );
     }
-    this.setPaintIfExists('terrain-lines-layer', 'line-color', c.contourLine);
+    this.applyContourColor(options.terrain.showColorRelief);
     this.setPaintIfExists('forests-circles', 'circle-color', c.forests);
 
     const { colorByCategory } = options.buildings;
