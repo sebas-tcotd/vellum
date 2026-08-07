@@ -4,6 +4,10 @@
 
 Construido con Tauri 2 (Rust) + React 19 + TypeScript, organizado como monorepo con pnpm + Turborepo.
 
+[![PR & Main Validation](https://github.com/sebas-tcotd/vellum/actions/workflows/pr-validation.yml/badge.svg)](https://github.com/sebas-tcotd/vellum/actions/workflows/pr-validation.yml)
+&nbsp;[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](../LICENSE)
+&nbsp;·&nbsp;[English](../README.md)
+
 ---
 
 ## Para Usuarios
@@ -48,7 +52,7 @@ Descarga el instalador de tu plataforma desde la [última Release en GitHub](htt
 ### Inicio Rápido
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/sebas-tcotd/vellum.git
 cd vellum
 pnpm install          # o pnpm approve-builds && pnpm install si esbuild está bloqueado
 pnpm dev              # abre la ventana nativa
@@ -62,9 +66,9 @@ pnpm dev              # abre la ventana nativa
 | 2     | Carga de archivos y parser  | ✅ Completado  |
 | 3     | Renderizado cartográfico    | ✅ Completado  |
 | 4     | Exploración e interfaz      | ✅ Completado  |
-| 5     | Sistema de temas            | 🔜 Planificado |
-| 6     | Exportación PNG/SVG         | 🔜 Planificado |
-| 7     | i18n, preferencias, updates | 🔜 Planificado |
+| 5     | Sistema de temas            | ✅ Completado  |
+| 6     | Exportación PNG/SVG         | ✅ Completado  |
+| 7     | i18n, preferencias, updates | 🔜 En progreso |
 
 ---
 
@@ -202,19 +206,27 @@ find . -name "tsconfig.tsbuildinfo" -delete && pnpm build
 
 ### CI/CD
 
-| Workflow                                     | Trigger          | Propósito                                    |
-| -------------------------------------------- | ---------------- | -------------------------------------------- |
-| [ci.yml](.github/workflows/ci.yml)           | Push/PR a `main` | Build, test (Rust + TS), lint (TS + Clippy)  |
-| [release.yml](.github/workflows/release.yml) | Tag `v*`         | Build multiplataforma + GitHub Release draft |
+| Workflow                                                        | Trigger          | Propósito                                      |
+| --------------------------------------------------------------- | ---------------- | ---------------------------------------------- |
+| [pr-validation.yml](../.github/workflows/pr-validation.yml)     | Push/PR a `main` | Build, test (Rust + TS), lint (TS + Clippy)    |
+| [publish-release.yml](../.github/workflows/publish-release.yml) | Tag `v*`         | Build multiplataforma + publicación de release |
 
 ### Documentación
 
-Documentación adicional en [`docs/`](docs/):
+Documentación adicional en este mismo directorio (`docs/`):
 
-- [Project Overview](docs/project-overview.md)
-- [Development Guide](docs/development-guide.md)
-- [Integration Architecture](docs/integration-architecture.md)
-- [Architecture — Desktop](docs/architecture-desktop.md)
-- [Source Tree Analysis](docs/source-tree-analysis.md)
-- [Component Inventory](docs/component-inventory-desktop.md)
+- [Project Overview](project-overview.md)
+- [Development Guide](development-guide.md)
+- [Integration Architecture](integration-architecture.md)
+- [Architecture — Desktop](architecture-desktop.md)
+- [Source Tree Analysis](source-tree-analysis.md)
+- [Component Inventory](component-inventory-desktop.md)
 - [README (English)](../README.md)
+
+## Contribuir
+
+Consulta [`CONTRIBUTING.md`](../CONTRIBUTING.md) para clonar, instalar y el flujo de PR. Abre un issue primero para cualquier cambio que no sea un fix pequeño.
+
+## Licencia
+
+[MIT](../LICENSE)
