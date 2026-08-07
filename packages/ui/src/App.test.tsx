@@ -12,6 +12,17 @@ import { App, type ExportCancelHandlerRef } from './App';
 import { useKeyboardShortcuts } from './hooks/use-keyboard-shortcuts';
 import { useVellumStore } from './store/vellum-store';
 
+const mockUnlisten = vi.fn();
+const mockListen = vi.hoisted(() => vi.fn());
+const tauriEventHandlers = new Map<
+  string,
+  (event: { payload: unknown }) => void
+>();
+
+vi.mock('@tauri-apps/api/event', () => ({
+  listen: (...args: unknown[]) => mockListen(...args),
+}));
+
 const mockPreviewCapture = vi.hoisted(() =>
   vi.fn().mockResolvedValue({
     dataUrl: 'data:image/png;base64,viewport',
@@ -197,6 +208,14 @@ function resetStore() {
 beforeEach(() => {
   cleanup();
   vi.mocked(useKeyboardShortcuts).mockClear();
+  tauriEventHandlers.clear();
+  mockListen.mockReset();
+  mockListen.mockImplementation(
+    (event: string, handler: (event: { payload: unknown }) => void) => {
+      tauriEventHandlers.set(event, handler);
+      return Promise.resolve(mockUnlisten);
+    },
+  );
   mockPreviewCapture.mockReset();
   mockPreviewCapture.mockResolvedValue({
     dataUrl: 'data:image/png;base64,viewport',
@@ -378,6 +397,56 @@ describe('App — document.title (AC1)', () => {
     });
 
     expect(document.title).toBe('Vellum — Test City');
+  });
+});
+
+describe('App — PreferencesPanel (Story 7.3)', () => {
+  it('abre PreferencesPanel al recibir el evento vellum://open-preferences', async () => {
+    await act(async () => {
+      render(<App />);
+    });
+
+    expect(screen.queryByText('preferences.title')).toBeNull();
+
+    await act(async () => {
+      tauriEventHandlers.get('vellum://open-preferences')?.({
+        payload: undefined,
+      });
+    });
+
+    expect(screen.getByText('preferences.title')).toBeInTheDocument();
+  });
+
+  it('registra y limpia el listener de preferencias', async () => {
+    await act(async () => {
+      render(<App />);
+    });
+
+    await waitFor(() => {
+      expect(mockListen).toHaveBeenCalledWith(
+        'vellum://open-preferences',
+        expect.any(Function),
+      );
+    });
+
+    cleanup();
+    expect(mockUnlisten).toHaveBeenCalled();
+  });
+
+  it('permite abrir preferencias sin cityData cargado', async () => {
+    await act(async () => {
+      render(<App />);
+    });
+
+    expect(screen.getByTestId('empty-state')).toBeDefined();
+
+    await act(async () => {
+      tauriEventHandlers.get('vellum://open-preferences')?.({
+        payload: undefined,
+      });
+    });
+
+    expect(screen.getByText('preferences.title')).toBeInTheDocument();
   });
 });
 

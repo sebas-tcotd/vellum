@@ -15,7 +15,12 @@ mod ipc_contract;
 
 use export::session::{sweep_stale_temp_files, ExportSessionManager};
 use std::sync::Arc;
-use tauri::Manager;
+use tauri::menu::MenuItemBuilder;
+#[cfg(target_os = "macos")]
+use tauri::menu::MenuItemKind;
+#[cfg(not(target_os = "macos"))]
+use tauri::menu::SubmenuBuilder;
+use tauri::{Emitter, Manager};
 
 /// The main entry point for the Vellum desktop application backend.
 ///
@@ -53,6 +58,37 @@ pub fn run() {
             if let Ok(downloads_dir) = app.path().download_dir() {
                 sweep_stale_temp_files(&downloads_dir);
             }
+
+            // Menu::default() preserves the platform-standard submenus (Edit,
+            // Window, and on macOS the app submenu) — building from scratch
+            // would drop Edit and break copy/paste in text inputs.
+            let menu = tauri::menu::Menu::default(app.handle())?;
+            let preferences_item = MenuItemBuilder::with_id("preferences", "Preferences...")
+                .accelerator("CmdOrCtrl+,")
+                .build(app)?;
+            #[cfg(target_os = "macos")]
+            if let Some(MenuItemKind::Submenu(app_submenu)) = menu
+                .items()?
+                .into_iter()
+                .find(|item| matches!(item, MenuItemKind::Submenu(_)))
+            {
+                app_submenu.insert(&preferences_item, 1)?;
+            }
+            #[cfg(not(target_os = "macos"))]
+            {
+                let preferences_menu = SubmenuBuilder::new(app, "Vellum")
+                    .item(&preferences_item)
+                    .build()?;
+                menu.prepend(&preferences_menu)?;
+            }
+            app.set_menu(menu)?;
+
+            app.on_menu_event(move |app_handle, event| {
+                if event.id().0.as_str() == "preferences" {
+                    let _ = app_handle.emit("vellum://open-preferences", ());
+                }
+            });
+
             Ok(())
         })
         .on_window_event(|window, event| {

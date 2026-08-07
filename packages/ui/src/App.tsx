@@ -10,11 +10,13 @@ import { DlcWarningToast } from './components/overlays/DlcWarningToast';
 import { ThemeWarningToast } from './components/overlays/ThemeWarningToast';
 import { FloatingLayerPanel } from './components/panels/FloatingLayerPanel';
 import { ExportDialog } from './components/panels/ExportDialog';
+import { PreferencesPanel } from './components/panels/PreferencesPanel';
 import { IconLegend } from './components/panels/IconLegend';
 import { ExportStatusOverlay } from './components/overlays/ExportStatusOverlay';
 import { initI18n } from './i18n/i18n-setup';
 import { loadPersistedPreferences } from './store/preferences-store';
 import { useKeyboardShortcuts } from './hooks/use-keyboard-shortcuts';
+import { useTauriEvent } from './hooks/use-tauri-event';
 import { useThemes } from './hooks/use-themes';
 import { useExportWorkflow } from './hooks/use-export-workflow';
 import { cn } from './lib/utils';
@@ -38,6 +40,7 @@ import type {
   SvgExportRequest,
   SvgExportSnapshot,
 } from '@vellum/core';
+import { IPC_EVENTS } from '@vellum/core';
 import { useVellumStore } from './store/vellum-store';
 
 const noop = async (): Promise<void> => {};
@@ -109,6 +112,7 @@ export function App({
 }: AppProps) {
   const [i18nReady, setI18nReady] = useState(false);
   const [isCleanMode, setIsCleanMode] = useState(false);
+  const [isPreferencesOpen, setIsPreferencesOpen] = useState(false);
   const fitToScreenRef = useRef<(() => void) | null>(null);
   const zoomInRef = useRef<(() => void) | null>(null);
   const zoomOutRef = useRef<(() => void) | null>(null);
@@ -245,6 +249,8 @@ export function App({
       : {}),
     enabled: loadingState !== 'loading' && !isExportDialogOpen,
   });
+
+  useTauriEvent(IPC_EVENTS.OPEN_PREFERENCES, () => setIsPreferencesOpen(true));
 
   useEffect(() => {
     Promise.all([initI18n(), loadPersistedPreferences()])
@@ -408,6 +414,10 @@ export function App({
             onExport={handleExport}
           />
         )}
+        <PreferencesPanel
+          open={isPreferencesOpen}
+          onOpenChange={setIsPreferencesOpen}
+        />
         <ExportStatusOverlay
           isExporting={isExporting}
           exportPhase={exportPhase}

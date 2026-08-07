@@ -54,6 +54,7 @@ export const IPC_EVENTS = {
   PROGRESS: 'vellum://progress',
   UPDATE_AVAILABLE: 'vellum://update-available',
   PARSE_WARNINGS: 'vellum://parse-warnings',
+  OPEN_PREFERENCES: 'vellum://open-preferences',
 } as const;
 
 /** Payload for the `vellum://parse-warnings` event — emitted when DLC/mod assets are
