@@ -12,7 +12,9 @@ pub mod errors;
 pub mod export;
 /// Internal module containing auxiliary IPC payloads not intended for public re-export.
 mod ipc_contract;
-/// Background update checker — Story 7.4.
+/// Background update checker — Story 7.4. Desktop-only, same as the `tauri-plugin-updater`
+/// dependency it wraps (there is no updater on mobile).
+#[cfg(desktop)]
 pub mod updater;
 
 use export::session::{sweep_stale_temp_files, ExportSessionManager};
@@ -53,6 +55,8 @@ pub fn run() {
             commands::append_export_chunk,
             commands::finish_export,
             commands::cancel_export,
+            #[cfg(desktop)]
+            updater::get_pending_update,
         ])
         .setup(|app| {
             // Startup sweep: a crashed previous run may have left a `.part` temp
@@ -93,14 +97,17 @@ pub fn run() {
             });
 
             #[cfg(desktop)]
-            app.handle().plugin(tauri_plugin_updater::Builder::new().build())?;
+            {
+                app.handle()
+                    .plugin(tauri_plugin_updater::Builder::new().build())?;
 
-            tauri::async_runtime::spawn({
-                let app_handle = app.handle().clone();
-                async move {
-                    updater::check_for_updates(&app_handle).await;
-                }
-            });
+                tauri::async_runtime::spawn({
+                    let app_handle = app.handle().clone();
+                    async move {
+                        updater::check_for_updates(&app_handle).await;
+                    }
+                });
+            }
 
             Ok(())
         })

@@ -7,6 +7,7 @@
  * constants instead of literal strings when invoking commands from the frontend.
  */
 export const IPC_COMMANDS = {
+  GET_PENDING_UPDATE: 'get_pending_update',
   PARSE_CSLMAP: 'parse_cslmap',
   EXPORT_PNG: 'export_png',
   OPEN_EXPORT_FOLDER: 'open_export_folder',

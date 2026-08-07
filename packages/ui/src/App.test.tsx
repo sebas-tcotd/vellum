@@ -23,6 +23,16 @@ vi.mock('@tauri-apps/api/event', () => ({
   listen: (...args: unknown[]) => mockListen(...args),
 }));
 
+const mockInvoke = vi.hoisted(() => vi.fn());
+vi.mock('@tauri-apps/api/core', () => ({
+  invoke: (...args: unknown[]) => mockInvoke(...args),
+}));
+
+const mockOpenUrl = vi.hoisted(() => vi.fn());
+vi.mock('@tauri-apps/plugin-opener', () => ({
+  openUrl: (...args: unknown[]) => mockOpenUrl(...args),
+}));
+
 const mockPreviewCapture = vi.hoisted(() =>
   vi.fn().mockResolvedValue({
     dataUrl: 'data:image/png;base64,viewport',
@@ -228,6 +238,10 @@ beforeEach(() => {
   });
   vi.mocked(mockRasterExporter.capabilities).mockClear();
   vi.mocked(mockRasterExporter.export).mockClear();
+  mockInvoke.mockReset();
+  mockInvoke.mockResolvedValue(null);
+  mockOpenUrl.mockReset();
+  mockOpenUrl.mockResolvedValue(undefined);
   resetStore();
 });
 
@@ -488,6 +502,140 @@ describe('App — UpdateToast (Story 7.4)', () => {
     });
 
     expect(screen.getByText('updates.available')).toBeInTheDocument();
+  });
+
+  it('recupera una actualización perdida vía get_pending_update si el evento llegó antes de montar el listener', async () => {
+    mockInvoke.mockImplementation((command: string) =>
+      command === 'get_pending_update'
+        ? Promise.resolve({
+            version: '1.2.0',
+            url: 'https://example.com/v1.2.0',
+          })
+        : Promise.resolve(null),
+    );
+
+    await act(async () => {
+      render(<App />);
+    });
+
+    expect(mockInvoke).toHaveBeenCalledWith('get_pending_update');
+    expect(screen.getByText('updates.available')).toBeInTheDocument();
+  });
+
+  it('no consulta get_pending_update hasta que listen() resuelve (evita la carrera de arranque)', async () => {
+    let resolveListen: ((fn: () => void) => void) | undefined;
+    mockListen.mockReset();
+    mockListen.mockImplementation(
+      (event: string, handler: (event: { payload: unknown }) => void) => {
+        tauriEventHandlers.set(event, handler);
+        return new Promise<() => void>((resolve) => {
+          resolveListen = resolve;
+        });
+      },
+    );
+
+    render(<App />);
+
+    // listen() aún no resolvió — get_pending_update no debe haberse llamado todavía.
+    await Promise.resolve();
+    expect(mockInvoke).not.toHaveBeenCalledWith('get_pending_update');
+
+    await act(async () => {
+      resolveListen?.(mockUnlisten);
+    });
+
+    expect(mockInvoke).toHaveBeenCalledWith('get_pending_update');
+  });
+
+  it('no muestra el toast cuando get_pending_update resuelve null (nada pendiente)', async () => {
+    mockInvoke.mockResolvedValue(null);
+
+    await act(async () => {
+      render(<App />);
+    });
+
+    expect(screen.queryByText('updates.available')).toBeNull();
+  });
+
+  it('no rompe el montaje si get_pending_update rechaza (best-effort)', async () => {
+    mockInvoke.mockRejectedValue(new Error('no Tauri context'));
+
+    await act(async () => {
+      render(<App />);
+    });
+
+    expect(screen.getByTestId('empty-state')).toBeDefined();
+    expect(screen.queryByText('updates.available')).toBeNull();
+  });
+
+  it('AC2: no muestra el toast mientras isExporting=true, aparece cuando vuelve a false', async () => {
+    let renderResult!: ReturnType<typeof render>;
+    await act(async () => {
+      renderResult = render(<App isExporting />);
+    });
+    const { rerender } = renderResult;
+
+    await act(async () => {
+      tauriEventHandlers.get('vellum://update-available')?.({
+        payload: { version: '1.2.0', url: 'https://example.com/v1.2.0' },
+      });
+    });
+
+    expect(screen.queryByText('updates.available')).toBeNull();
+
+    await act(async () => {
+      rerender(<App isExporting={false} />);
+    });
+
+    expect(screen.getByText('updates.available')).toBeInTheDocument();
+  });
+
+  it('AC5: clic en "Ver novedades" llama openUrl con la URL de release notes', async () => {
+    const user = userEvent.setup();
+
+    await act(async () => {
+      render(<App />);
+    });
+
+    await act(async () => {
+      tauriEventHandlers.get('vellum://update-available')?.({
+        payload: { version: '1.2.0', url: 'https://example.com/v1.2.0' },
+      });
+    });
+
+    await user.click(
+      screen.getByRole('button', { name: 'updates.viewChangelog' }),
+    );
+
+    expect(mockOpenUrl).toHaveBeenCalledWith('https://example.com/v1.2.0');
+  });
+
+  it('un rechazo de openUrl no rompe la UI (best-effort, sólo se loguea)', async () => {
+    const user = userEvent.setup();
+    const consoleWarnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => {});
+    mockOpenUrl.mockRejectedValue(new Error('no default browser'));
+
+    await act(async () => {
+      render(<App />);
+    });
+
+    await act(async () => {
+      tauriEventHandlers.get('vellum://update-available')?.({
+        payload: { version: '1.2.0', url: 'https://example.com/v1.2.0' },
+      });
+    });
+
+    await act(async () => {
+      await user.click(
+        screen.getByRole('button', { name: 'updates.viewChangelog' }),
+      );
+    });
+
+    expect(screen.getByText('updates.available')).toBeInTheDocument();
+    expect(consoleWarnSpy).toHaveBeenCalled();
+    consoleWarnSpy.mockRestore();
   });
 });
 

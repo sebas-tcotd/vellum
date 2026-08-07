@@ -1,8 +1,32 @@
+use std::sync::{Mutex, OnceLock};
 use tauri::Emitter;
 use tauri_plugin_store::StoreExt;
 use tauri_plugin_updater::UpdaterExt;
 
 use crate::ipc_contract::UpdatePayload;
+
+static PENDING_UPDATE: OnceLock<Mutex<Option<UpdatePayload>>> = OnceLock::new();
+
+fn pending_update() -> &'static Mutex<Option<UpdatePayload>> {
+    PENDING_UPDATE.get_or_init(|| Mutex::new(None))
+}
+
+/// Returns and clears an update notification that arrived before the UI listener mounted.
+///
+/// # Remarks
+/// Mutates the process-wide pending-update slot: the first caller after an update was
+/// detected consumes it, so subsequent calls return `None` until another check finds a
+/// new version.
+///
+/// # Errors
+/// Never fails — returns `Option`, not `Result`, because there is no failure mode to
+/// report to the frontend (an unavailable pending update and a poisoned lock both
+/// collapse to `None`).
+#[must_use]
+#[tauri::command]
+pub fn get_pending_update() -> Option<UpdatePayload> {
+    pending_update().lock().ok()?.take()
+}
 
 /// Builds the GitHub Release notes URL for a given app version.
 ///
@@ -50,6 +74,9 @@ pub async fn check_for_updates(app: &tauri::AppHandle) {
         version: update.version.clone(),
         url: release_notes_url(&update.version),
     };
+    if let Ok(mut pending) = pending_update().lock() {
+        *pending = Some(payload.clone());
+    }
     let _ = app.emit("vellum://update-available", payload);
 
     let auto_update_enabled = app
@@ -60,7 +87,10 @@ pub async fn check_for_updates(app: &tauri::AppHandle) {
         .unwrap_or(false);
 
     if auto_update_enabled {
-        if let Err(error) = update.download_and_install(|_chunk, _total| {}, || {}).await {
+        if let Err(error) = update
+            .download_and_install(|_chunk, _total| {}, || {})
+            .await
+        {
             eprintln!("updater: auto-install failed: {error}");
             return;
         }
@@ -70,7 +100,8 @@ pub async fn check_for_updates(app: &tauri::AppHandle) {
 
 #[cfg(test)]
 mod tests {
-    use super::release_notes_url;
+    use super::{get_pending_update, pending_update, release_notes_url};
+    use crate::ipc_contract::UpdatePayload;
 
     #[test]
     fn release_notes_url_prefixes_version_with_v() {
@@ -78,5 +109,23 @@ mod tests {
             release_notes_url("1.2.0"),
             "https://github.com/sebas-tcotd/vellum/releases/tag/v1.2.0"
         );
+    }
+
+    /// Single test covering the full pending-update lifecycle — `PENDING_UPDATE` is a
+    /// process-wide static, so a second test touching it in parallel would race.
+    #[test]
+    fn get_pending_update_returns_and_clears_the_stored_payload() {
+        assert_eq!(get_pending_update(), None, "starts empty");
+
+        let payload = UpdatePayload {
+            version: "1.2.0".to_string(),
+            url: "https://example.com/v1.2.0".to_string(),
+        };
+        if let Ok(mut pending) = pending_update().lock() {
+            *pending = Some(payload.clone());
+        }
+
+        assert_eq!(get_pending_update(), Some(payload), "first read returns it");
+        assert_eq!(get_pending_update(), None, "second read finds it cleared");
     }
 }

@@ -42,7 +42,8 @@ import type {
   SvgExportSnapshot,
   UpdatePayload,
 } from '@vellum/core';
-import { IPC_EVENTS } from '@vellum/core';
+import { IPC_COMMANDS, IPC_EVENTS } from '@vellum/core';
+import { invoke } from '@tauri-apps/api/core';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { useVellumStore } from './store/vellum-store';
 
@@ -256,9 +257,28 @@ export function App({
   });
 
   useTauriEvent(IPC_EVENTS.OPEN_PREFERENCES, () => setIsPreferencesOpen(true));
-  useTauriEvent(IPC_EVENTS.UPDATE_AVAILABLE, (payload: UpdatePayload) =>
-    setUpdateInfo(payload),
+  const [updateListenerSettled, setUpdateListenerSettled] = useState(false);
+  useTauriEvent(
+    IPC_EVENTS.UPDATE_AVAILABLE,
+    (payload: UpdatePayload) => setUpdateInfo(payload),
+    { onSettled: () => setUpdateListenerSettled(true) },
   );
+
+  // Only check for a notification that arrived before the listener attached
+  // once the subscription attempt above has settled (success or failure) —
+  // checking earlier would race the listener and could still lose an event
+  // that fires in between (backend always writes the pending slot before
+  // emitting, so this ordering is race-free regardless of which side wins).
+  useEffect(() => {
+    if (!updateListenerSettled) return;
+    void invoke<UpdatePayload | null>(IPC_COMMANDS.GET_PENDING_UPDATE)
+      .then((payload) => {
+        if (payload !== null) setUpdateInfo(payload);
+      })
+      .catch((error: unknown) => {
+        console.warn('App: failed to load pending update notification', error);
+      });
+  }, [updateListenerSettled, setUpdateInfo]);
 
   useEffect(() => {
     Promise.all([initI18n(), loadPersistedPreferences()])
@@ -367,7 +387,9 @@ export function App({
           <UpdateToast
             version={updateInfo.version}
             onViewChangelog={() => {
-              void openUrl(updateInfo.url);
+              openUrl(updateInfo.url).catch((error: unknown) => {
+                console.warn('App: failed to open release notes URL', error);
+              });
             }}
             onDismiss={() => setUpdateInfo(null)}
           />

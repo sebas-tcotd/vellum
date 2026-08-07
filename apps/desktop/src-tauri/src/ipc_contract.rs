@@ -23,7 +23,7 @@ pub struct ProgressPayload {
 ///
 /// **CRITICAL RULE (IPC Contract):** This struct is an exact mirror of the `UpdatePayload`
 /// interface defined in `@vellum/core/ipc-contract.ts`. It serializes to `camelCase` JSON.
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct UpdatePayload {
     /// The semantic version string of the newly available release (e.g., `"1.2.0"`).
