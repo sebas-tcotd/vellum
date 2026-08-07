@@ -4,6 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Code Intelligence
 
+**Prerequisites:** LSP requires the language server binaries on PATH —
+`rust-analyzer` (Rust) and `typescript-language-server` (TypeScript). Install
+them once per machine; the Claude Code LSP plugin only bridges to them, it
+doesn't ship them.
+
 `LSP` is a deferred tool — load it at the start of the session with
 `ToolSearch("select:LSP")` before doing any code navigation, rather than
 waiting until a lookup is needed.
@@ -19,6 +24,12 @@ Prefer LSP over Grep/Glob/Read for code navigation:
 
 Before renaming or changing a function signature, use
 `findReferences` to find all call sites first.
+
+These read like text searches but are symbol lookups — use LSP, not grep:
+
+- "Where is X exported/imported from?" → `goToDefinition` or `workspaceSymbol`
+- "Who else calls/uses X before I change it?" → `findReferences`
+- "Is there an existing mock/helper for X I should reuse?" → `findReferences` or `documentSymbol`
 
 Use Grep/Glob only for text/pattern searches (comments,
 strings, config values) where LSP doesn't help.
