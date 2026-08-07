@@ -15,9 +15,11 @@ mod ipc_contract;
 
 use export::session::{sweep_stale_temp_files, ExportSessionManager};
 use std::sync::Arc;
+use tauri::menu::MenuItemBuilder;
+#[cfg(target_os = "macos")]
+use tauri::menu::MenuItemKind;
 #[cfg(not(target_os = "macos"))]
 use tauri::menu::SubmenuBuilder;
-use tauri::menu::{MenuItemBuilder, MenuItemKind};
 use tauri::{Emitter, Manager};
 
 /// The main entry point for the Vellum desktop application backend.
