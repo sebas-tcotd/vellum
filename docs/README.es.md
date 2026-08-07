@@ -33,6 +33,18 @@ Construido con Tauri 2 (Rust) + React 19 + TypeScript, organizado como monorepo 
 
 > Antes de ejecutar `pnpm install` o `pnpm dev`, instala los [prerrequisitos de Tauri 2](https://v2.tauri.app/start/prerequisites/) para tu sistema operativo. Además de Node.js, pnpm y Rust, Tauri requiere dependencias nativas: WebKitGTK y herramientas de compilación en Linux, Xcode Command Line Tools en macOS, y Microsoft C++ Build Tools junto con WebView2 en Windows. Estas dependencias no las instala pnpm.
 
+### Instalar una versión publicada
+
+Descarga el instalador de tu plataforma desde la [última Release en GitHub](https://github.com/sebas-tcotd/vellum/releases/latest):
+
+- **Windows** — ejecuta el `.msi`. Incluye un checkbox opcional para abrir archivos `.cslmap` con Vellum por defecto (desmarcado salvo que lo actives), y el instalador está firmado, por lo que Windows no debería advertir sobre un editor desconocido.
+- **macOS** — abre el `.dmg` y arrastra Vellum a `Aplicaciones`. **La v1 no está notarizada por Apple**, así que después de moverla debes quitar el flag de cuarentena una vez, desde una terminal:
+  ```bash
+  xattr -cr /Applications/Vellum.app
+  ```
+  Sin este paso, Gatekeeper de macOS se negará a abrir la app. Es una limitación manual y honesta de la v1, no un sustituto de la notarización.
+- **Linux** — ejecuta el `.AppImage` directamente (dale permisos con `chmod +x` si hace falta).
+
 ### Inicio Rápido
 
 ```bash

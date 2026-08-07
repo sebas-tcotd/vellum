@@ -1,5 +1,21 @@
 name: Publish Release
 
+# Required GitHub Actions secrets (Story 7.5):
+#   TAURI_SIGNING_PRIVATE_KEY, TAURI_SIGNING_PRIVATE_KEY_PASSWORD
+#     - Sign updater artifacts for tauri-plugin-updater. Not a code-signing
+#       certificate; unrelated to Authenticode/SmartScreen (see 7.5 Dev Notes).
+#   WINDOWS_CERTIFICATE (base64-encoded .pfx), WINDOWS_CERTIFICATE_PASSWORD
+#     - Authenticode code-signing certificate for the Windows MSI (AC3). The
+#       windows build job fails before producing an unsigned MSI if these are
+#       missing — there is no silent unsigned fallback.
+#
+# Release publication policy (Story 7.5, resolves the 7.4 draft/updater gap):
+#   The GitHub Release is created as a draft while builds run, then published
+#   (draft -> false) by the finalize-release job ONLY after every platform's
+#   signature check, size check (NFR12) and the release-wide asset check pass.
+#   A failed verification leaves the release as a draft — nothing is
+#   auto-published from a broken build.
+
 on:
   push:
     tags:
@@ -13,7 +29,6 @@ jobs:
     name: Create GitHub Release
     runs-on: ubuntu-latest
     outputs:
-      # Mapeamos el ID real que devuelve la acción
       release-id: ${{ steps.create-release.outputs.id }}
     steps:
       - uses: actions/checkout@v4
@@ -36,10 +51,13 @@ jobs:
         include:
           - platform: windows-latest
             args: '--target x86_64-pc-windows-msvc'
+            bundle-glob: 'apps/desktop/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msi/*.msi'
           - platform: macos-latest
             args: '--target universal-apple-darwin'
+            bundle-glob: 'apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg'
           - platform: ubuntu-22.04
             args: ''
+            bundle-glob: 'apps/desktop/src-tauri/target/release/bundle/appimage/*.AppImage'
 
     runs-on: ${{ matrix.platform }}
     steps:
@@ -53,16 +71,151 @@ jobs:
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Verify Windows signing secrets are present
+        if: matrix.platform == 'windows-latest'
+        shell: bash
+        run: |
+          if [ -z "${{ secrets.WINDOWS_CERTIFICATE }}" ] || [ -z "${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}" ]; then
+            echo "::error::WINDOWS_CERTIFICATE / WINDOWS_CERTIFICATE_PASSWORD secrets are not set. Refusing to build an unsigned MSI (AC3)."
+            exit 1
+          fi
+
+      - name: Import Windows code signing certificate
+        id: import-cert
+        if: matrix.platform == 'windows-latest'
+        shell: pwsh
+        run: |
+          $certBytes = [Convert]::FromBase64String("${{ secrets.WINDOWS_CERTIFICATE }}")
+          $certPath = Join-Path $env:RUNNER_TEMP "vellum-signing.pfx"
+          [IO.File]::WriteAllBytes($certPath, $certBytes)
+          $securePassword = ConvertTo-SecureString -String "${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}" -Force -AsPlainText
+          $cert = Import-PfxCertificate -FilePath $certPath -CertStoreLocation Cert:\CurrentUser\My -Password $securePassword
+          Remove-Item $certPath -Force
+          "thumbprint=$($cert.Thumbprint)" >> $env:GITHUB_OUTPUT
+
+      - name: Compute build args
+        id: build-args
+        shell: bash
+        run: |
+          ARGS="${{ matrix.args }}"
+          if [ "${{ matrix.platform }}" = "windows-latest" ]; then
+            CONFIG_JSON=$(printf '{"bundle":{"windows":{"certificateThumbprint":"%s","digestAlgorithm":"sha256","timestampUrl":"http://timestamp.digicert.com"}}}' "${{ steps.import-cert.outputs.thumbprint }}")
+            ARGS="$ARGS --config $CONFIG_JSON"
+          fi
+          echo "args=$ARGS" >> "$GITHUB_OUTPUT"
+
       - name: Build and upload release
+        id: tauri-build
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-          # Windows code signing diferido a la versión 1.0
-          # WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
-          # WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
         with:
           releaseId: ${{ needs.create-release.outputs.release-id }}
-          args: ${{ matrix.args }}
+          args: ${{ steps.build-args.outputs.args }}
           projectPath: apps/desktop
+
+      - name: Verify Authenticode signature (Windows, AC3)
+        if: matrix.platform == 'windows-latest'
+        shell: pwsh
+        run: |
+          $msi = Get-ChildItem -Path "apps/desktop/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msi" -Filter *.msi -Recurse | Select-Object -First 1
+          if (-not $msi) {
+            Write-Error "No .msi artifact found to verify."
+            exit 1
+          }
+          $sig = Get-AuthenticodeSignature -FilePath $msi.FullName
+          $subject = $sig.SignerCertificate.Subject
+          Write-Host "Signature status: $($sig.Status) - Subject: $subject"
+          if ($sig.Status -ne 'Valid' -or [string]::IsNullOrWhiteSpace($subject)) {
+            Write-Error "MSI Authenticode signature is missing or invalid (status: $($sig.Status))."
+            exit 1
+          }
+          # SmartScreen "unknown publisher" reputation additionally depends on install-base
+          # telemetry that only a real, clean-machine install can confirm — see Task 4 evidence.
+
+      - name: Add visible install guide inside the DMG (AC4, macOS)
+        if: matrix.platform == 'macos-latest'
+        shell: bash
+        run: |
+          set -euo pipefail
+          DMG=$(ls apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg | head -n1)
+          WORK=$(mktemp -d)
+          MOUNT_DIR=$(mktemp -d)
+          hdiutil convert "$DMG" -format UDRW -o "$WORK/rw"
+          hdiutil attach "$WORK/rw.dmg" -mountpoint "$MOUNT_DIR" -nobrowse -noautoopen
+          cp "apps/desktop/src-tauri/macos/Leeme-Install-ReadMe.txt" "$MOUNT_DIR/Leeme - Install ReadMe.txt"
+          hdiutil detach "$MOUNT_DIR"
+          hdiutil convert "$WORK/rw.dmg" -format UDZO -o "$WORK/final"
+          mv "$WORK/final.dmg" "$DMG"
+          rm -rf "$WORK" "$MOUNT_DIR"
+
+      - name: Re-upload updated DMG to the release (AC4)
+        if: matrix.platform == 'macos-latest'
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          DMG=$(ls apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg | head -n1)
+          gh release upload "${{ github.ref_name }}" "$DMG" --clobber -R "${{ github.repository }}"
+
+      - name: Enforce installer size limit (NFR12)
+        shell: bash
+        run: |
+          set -euo pipefail
+          MAX_BYTES=$((20 * 1024 * 1024))
+          FILE=$(ls ${{ matrix.bundle-glob }} 2>/dev/null | head -n1 || true)
+          if [ -z "$FILE" ]; then
+            echo "::error::No installer artifact matched ${{ matrix.bundle-glob }}"
+            exit 1
+          fi
+          SIZE=$(wc -c < "$FILE" | tr -d ' ')
+          NAME=$(basename "$FILE")
+          echo "Installer: $NAME — $SIZE bytes"
+          if [ "$SIZE" -gt "$MAX_BYTES" ]; then
+            echo "::error::$NAME is $SIZE bytes, exceeds the $MAX_BYTES byte limit (NFR12)."
+            exit 1
+          fi
+
+      - name: Remove uploaded asset if verification failed
+        if: failure() && steps.tauri-build.outcome == 'success'
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          FILE=$(ls ${{ matrix.bundle-glob }} 2>/dev/null | head -n1 || true)
+          [ -z "$FILE" ] && exit 0
+          NAME=$(basename "$FILE")
+          ASSET_ID=$(gh api "repos/${{ github.repository }}/releases/${{ needs.create-release.outputs.release-id }}/assets" --jq ".[] | select(.name == \"$NAME\") | .id" || true)
+          if [ -n "$ASSET_ID" ]; then
+            echo "Removing failed-verification asset $NAME (asset id $ASSET_ID) from the draft release."
+            gh api -X DELETE "repos/${{ github.repository }}/releases/assets/$ASSET_ID" || true
+          fi
+
+  finalize-release:
+    name: Verify release assets and publish
+    needs: [create-release, build-release]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify required release assets are present
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          ASSETS=$(gh api "repos/${{ github.repository }}/releases/${{ needs.create-release.outputs.release-id }}/assets" --jq '.[].name')
+          echo "Release assets:"
+          echo "$ASSETS"
+          for ext in msi dmg AppImage; do
+            if ! echo "$ASSETS" | grep -qi "\\.${ext}$"; then
+              echo "::error::Missing required .$ext asset on the release — refusing to publish."
+              exit 1
+            fi
+          done
+
+      - name: Publish release (required for the updater's latest.json endpoint)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api -X PATCH "repos/${{ github.repository }}/releases/${{ needs.create-release.outputs.release-id }}" -f draft=false
