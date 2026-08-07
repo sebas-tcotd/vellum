@@ -11,6 +11,10 @@ vi.mock('@vellum/renderer-webgl', () => ({
   ],
 }));
 
+vi.mock('react-i18next', () => ({
+  useTranslation: () => ({ t: (key: string) => key }),
+}));
+
 const mockCtx = {
   clearRect: vi.fn(),
   fillRect: vi.fn(),
@@ -74,9 +78,7 @@ describe('Minimap', () => {
       />,
     );
 
-    expect(
-      screen.getByRole('img', { name: 'Minimap de navegación' }),
-    ).toBeDefined();
+    expect(screen.getByRole('img', { name: 'a11y.minimap' })).toBeDefined();
   });
 
   it('llama getInitialViewportBounds en el montaje', () => {
@@ -149,7 +151,7 @@ describe('Minimap', () => {
       />,
     );
 
-    const canvas = screen.getByRole('img', { name: 'Minimap de navegación' });
+    const canvas = screen.getByRole('img', { name: 'a11y.minimap' });
 
     Object.defineProperty(canvas, 'getBoundingClientRect', {
       value: () => ({ left: 0, top: 0, width: 160, height: 160 }),
@@ -183,7 +185,7 @@ describe('Minimap', () => {
       />,
     );
 
-    const canvas = screen.getByRole('img', { name: 'Minimap de navegación' });
+    const canvas = screen.getByRole('img', { name: 'a11y.minimap' });
     Object.defineProperty(canvas, 'getBoundingClientRect', {
       value: () => ({ left: 0, top: 0, width: 160, height: 160 }),
     });

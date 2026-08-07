@@ -178,6 +178,7 @@
   },
   "a11y": {
     "mapCanvas": "City map canvas",
+    "minimap": "Navigation minimap",
     "mapCanvasCity": "{{cityName}} city map",
     "loadingProgress": "Loading progress",
     "exportProgress": "Export progress",

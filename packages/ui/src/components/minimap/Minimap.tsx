@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { CityData } from '@vellum/core';
 import { csToGeoArray } from '@vellum/renderer-webgl';
 import type { ViewportBounds } from '@vellum/renderer-webgl';
@@ -36,6 +37,7 @@ export function Minimap({
   getInitialViewportBounds,
   navigateTo,
 }: MinimapProps) {
+  const { t } = useTranslation();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const viewportRef = useRef<ViewportBounds | null>(null);
   const isDraggingRef = useRef(false);
@@ -227,7 +229,7 @@ export function Minimap({
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
         style={{ display: 'block', cursor: 'crosshair', touchAction: 'none' }}
-        aria-label="Minimap de navegación"
+        aria-label={t('a11y.minimap')}
         role="img"
       />
     </div>
