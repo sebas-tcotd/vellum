@@ -15,6 +15,8 @@ mod ipc_contract;
 
 use export::session::{sweep_stale_temp_files, ExportSessionManager};
 use std::sync::Arc;
+#[cfg(not(target_os = "macos"))]
+use tauri::menu::SubmenuBuilder;
 use tauri::menu::{MenuItemBuilder, MenuItemKind};
 use tauri::{Emitter, Manager};
 
@@ -62,12 +64,20 @@ pub fn run() {
             let preferences_item = MenuItemBuilder::with_id("preferences", "Preferences...")
                 .accelerator("CmdOrCtrl+,")
                 .build(app)?;
-            if let Some(MenuItemKind::Submenu(app_submenu)) =
-                menu.items()?.into_iter().find(|item| {
-                    matches!(item, MenuItemKind::Submenu(_))
-                })
+            #[cfg(target_os = "macos")]
+            if let Some(MenuItemKind::Submenu(app_submenu)) = menu
+                .items()?
+                .into_iter()
+                .find(|item| matches!(item, MenuItemKind::Submenu(_)))
             {
                 app_submenu.insert(&preferences_item, 1)?;
+            }
+            #[cfg(not(target_os = "macos"))]
+            {
+                let preferences_menu = SubmenuBuilder::new(app, "Vellum")
+                    .item(&preferences_item)
+                    .build()?;
+                menu.prepend(&preferences_menu)?;
             }
             app.set_menu(menu)?;
 

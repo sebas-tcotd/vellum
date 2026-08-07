@@ -417,6 +417,22 @@ describe('App — PreferencesPanel (Story 7.3)', () => {
     expect(screen.getByText('preferences.title')).toBeInTheDocument();
   });
 
+  it('registra y limpia el listener de preferencias', async () => {
+    await act(async () => {
+      render(<App />);
+    });
+
+    await waitFor(() => {
+      expect(mockListen).toHaveBeenCalledWith(
+        'vellum://open-preferences',
+        expect.any(Function),
+      );
+    });
+
+    cleanup();
+    expect(mockUnlisten).toHaveBeenCalled();
+  });
+
   it('permite abrir preferencias sin cityData cargado', async () => {
     await act(async () => {
       render(<App />);
