@@ -47,6 +47,18 @@ The longer-term direction is a Vellum-native exporter and a richer, versioned fo
 
 PNG and SVG export are planned for the release milestone and are not represented as available functionality until implemented and verified.
 
+## Installing a release build
+
+Download the installer for your platform from the [latest GitHub Release](https://github.com/sebas-tcotd/vellum/releases/latest):
+
+- **Windows** — run the `.msi`. It offers an opt-in checkbox to open `.cslmap` files with Vellum by default (unchecked unless you enable it), and the installer is signed so Windows should not warn about an unknown publisher.
+- **macOS** — open the `.dmg` and drag Vellum into `Applications`. **v1 is not notarized by Apple**, so after moving the app you must clear the quarantine flag once, from a terminal:
+  ```bash
+  xattr -cr /Applications/Vellum.app
+  ```
+  Without this step, macOS Gatekeeper will refuse to open the app. This is a manual, honest limitation of the v1 release, not a substitute for notarization.
+- **Linux** — run the `.AppImage` directly (`chmod +x` it first if needed).
+
 ## Try the development build
 
 You do not need Cities: Skylines 1 or your own save to try the development build. The repository includes real `.cslmap` fixtures:

@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Opt-in .cslmap file association for the Windows MSI (Story 7.5, AC1).
+
+  This is a WiX fragment merged into Tauri's generated installer via
+  `bundle.windows.wix.fragmentPaths` in tauri.conf.json. It intentionally does
+  NOT use Tauri's `bundle.fileAssociations` config: that field registers the
+  association unconditionally on every install, which fails the "opt-in,
+  unchecked by default" requirement. Instead this fragment adds one custom
+  dialog with a checkbox between InstallDirDlg and VerifyReadyDlg, and only
+  writes the HKCR association keys when the checkbox is checked.
+
+  It never touches HKCU\...\FileExts\.cslmap\UserChoice, so it cannot
+  override an association the user later changes via Windows Settings.
+-->
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Fragment>
+    <!-- Secure so the value survives the elevation boundary into the deferred custom action / registry write. -->
+    <Property Id="ASSOCIATE_CSLMAP" Value="0" Secure="yes" />
+
+    <!-- Not installed by default (Level 0); the dialog flips it to Level 1 only when the box is checked. -->
+    <Feature Id="CslmapAssociationFeature" Title="Asociación de archivos .cslmap" Level="0" AllowAdvertise="no" Absent="allow">
+      <Condition Level="1">ASSOCIATE_CSLMAP = "1"</Condition>
+      <ComponentRef Id="CslmapAssociationComponent" />
+    </Feature>
+
+    <DirectoryRef Id="INSTALLDIR">
+      <Component Id="CslmapAssociationComponent" Guid="8f2c9c9e-7a3d-4c7b-9c1e-2a5b9d0e6b41">
+        <!-- Guard key: lets WiX detect/repair/uninstall this component's registration independent of the Feature condition re-evaluating. -->
+        <RegistryKey Root="HKLM" Key="Software\Vellum\FileAssociation">
+          <RegistryValue Name="CslmapAssociated" Type="integer" Value="1" KeyPath="yes" />
+        </RegistryKey>
+
+        <RegistryKey Root="HKCR" Key=".cslmap">
+          <RegistryValue Type="string" Value="Vellum.cslmap" />
+        </RegistryKey>
+        <RegistryKey Root="HKCR" Key=".cslmap\OpenWithProgids">
+          <RegistryValue Name="Vellum.cslmap" Type="string" Value="" />
+        </RegistryKey>
+        <RegistryKey Root="HKCR" Key="Vellum.cslmap">
+          <RegistryValue Type="string" Value="Vellum City Map" />
+        </RegistryKey>
+        <RegistryKey Root="HKCR" Key="Vellum.cslmap\DefaultIcon">
+          <RegistryValue Type="string" Value="[INSTALLDIR]vellum.exe,0" />
+        </RegistryKey>
+        <RegistryKey Root="HKCR" Key="Vellum.cslmap\shell\open\command">
+          <RegistryValue Type="string" Value="&quot;[INSTALLDIR]vellum.exe&quot; &quot;%1&quot;" />
+        </RegistryKey>
+      </Component>
+    </DirectoryRef>
+
+    <!-- Custom dialog: single checkbox, inserted between InstallDirDlg and VerifyReadyDlg. -->
+    <UI>
+      <Dialog Id="CslmapAssocDlg" Width="370" Height="270" Title="Asociación de archivos">
+        <Control Id="Title" Type="Text" X="15" Y="6" Width="300" Height="15" Transparent="yes" NoPrefix="yes" Text="Asociación de archivos" />
+        <Control Id="Description" Type="Text" X="15" Y="20" Width="340" Height="30" Transparent="yes" NoPrefix="yes" Text="Elige si Vellum debe abrir los archivos .cslmap por defecto." />
+        <Control Id="BannerLine" Type="Line" X="0" Y="44" Width="370" Height="0" />
+
+        <Control Id="AssociateCheckBox" Type="CheckBox" X="20" Y="60" Width="330" Height="30" Property="ASSOCIATE_CSLMAP" CheckBoxValue="1" Text="¿Abrir archivos .cslmap con Vellum por defecto? (puedes cambiar esto más tarde)" />
+
+        <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+        <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Text="!(loc.WixUIBack)">
+          <Publish Event="NewDialog" Value="InstallDirDlg">1</Publish>
+        </Control>
+        <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="!(loc.WixUINext)">
+          <Publish Event="NewDialog" Value="VerifyReadyDlg">1</Publish>
+        </Control>
+        <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="!(loc.WixUICancel)">
+          <Publish Event="SpawnDialog" Value="CancelDlg">1</Publish>
+        </Control>
+      </Dialog>
+
+      <!-- Override the default InstallDirDlg -> VerifyReadyDlg jump to route through our dialog. -->
+      <Publish Dialog="InstallDirDlg" Control="Next" Event="NewDialog" Value="CslmapAssocDlg" Order="3">1</Publish>
+      <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="CslmapAssocDlg" Order="3">NOT Installed</Publish>
+    </UI>
+  </Fragment>
+</Wix>
