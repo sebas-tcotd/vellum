@@ -23,6 +23,7 @@ export interface PersistedPreferences {
 const STORE_PATH = 'preferences.json';
 
 let storePromise: Promise<Store | null> | null = null;
+let writeQueue: Promise<void> = Promise.resolve();
 
 /**
  * Lazily loads (and memoizes) the on-disk preferences store.
@@ -120,12 +121,16 @@ export async function persistPreference<K extends keyof PersistedPreferences>(
   key: K,
   value: PersistedPreferences[K],
 ): Promise<void> {
-  try {
-    const store = await getStore();
-    if (store === null) return;
-    await store.set(key, value);
-    await store.save();
-  } catch (error) {
-    console.warn(`preferences-store: failed to persist ${key}`, error);
-  }
+  const write = async (): Promise<void> => {
+    try {
+      const store = await getStore();
+      if (store === null) return;
+      await store.set(key, value);
+      await store.save();
+    } catch (error) {
+      console.warn(`preferences-store: failed to persist ${key}`, error);
+    }
+  };
+  writeQueue = writeQueue.then(write, write);
+  await writeQueue;
 }

@@ -247,13 +247,18 @@ export function App({
   });
 
   useEffect(() => {
-    Promise.all([initI18n(), loadPersistedPreferences()]).then(
-      ([detectedLang, prefs]) => {
+    Promise.all([initI18n(), loadPersistedPreferences()])
+      .then(([detectedLang, prefs]) => {
         syncActiveLanguage(detectedLang);
         hydratePreferences(prefs);
         setI18nReady(true);
-      },
-    );
+      })
+      .catch((error: unknown) => {
+        console.warn('App: failed to initialize preferences or i18n', error);
+        syncActiveLanguage('en');
+        hydratePreferences({});
+        setI18nReady(true);
+      });
   }, [syncActiveLanguage, hydratePreferences]);
 
   const handleDlcDismiss = useCallback(() => {

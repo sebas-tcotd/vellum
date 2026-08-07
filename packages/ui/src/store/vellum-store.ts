@@ -258,7 +258,13 @@ export const useVellumStore = create<VellumStore>((set, get) => ({
     set({ activeTheme: theme });
   },
 
-  setAvailableThemes: (themes) => set({ availableThemes: themes }),
+  setAvailableThemes: (themes) =>
+    set((state) => ({
+      availableThemes: themes,
+      activeTheme: themes.some((theme) => theme.id === state.activeTheme)
+        ? state.activeTheme
+        : (themes[0]?.id ?? 'day'),
+    })),
 
   setTransitDimmingEnabled: (enabled) =>
     set({ transitDimmingEnabled: enabled }),
