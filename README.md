@@ -9,6 +9,7 @@ Your city took hundreds of hours to build. Vellum gives it a map worth keeping.
 </p>
 
 [![PR & Main Validation](https://github.com/sebas-tcotd/vellum/actions/workflows/pr-validation.yml/badge.svg)](https://github.com/sebas-tcotd/vellum/actions/workflows/pr-validation.yml)
+&nbsp;[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 &nbsp;·&nbsp;[Español](docs/README.es.md)
 
 > Vellum is approaching its first public release. Export, packaging and distribution work are still in progress.
@@ -208,13 +209,13 @@ The Playwright suite is configured under [`apps/desktop/tests/e2e`](apps/desktop
 
 ## Contributing
 
-Vellum is currently a single-maintainer project. If you want to propose a change, open an issue first so the direction can be discussed before work is started. Contributions will become easier to coordinate as the public release process settles.
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) for setup, testing and the PR flow. Please open an issue first for anything beyond a small fix so the direction can be discussed before work starts.
 
 CI validates formatting, TypeScript, architecture boundaries, Vitest, Rust formatting, Clippy and Rust tests across the supported build matrix.
 
 ## License
 
-The repository does not yet include a `LICENSE` file. Until one is added, assume the project is not available for reuse or redistribution without permission.
+[MIT](LICENSE)
 
 ## Acknowledgements
 
