@@ -6,6 +6,7 @@ import type {
   LayerVisibility,
   ThemeMetadata,
   TransitMode,
+  UpdatePayload,
   VellumError,
 } from '@vellum/core';
 import { DEFAULT_LAYER_OPTIONS, LAYER_NAMES } from '@vellum/core';
@@ -88,6 +89,10 @@ interface VellumStore {
 
   /** The currently active application language code. */
   activeLanguage: 'en' | 'es';
+
+  /** Info for the newest available release, from `vellum://update-available`.
+   * `null` until the event fires or after the user dismisses the toast (AC1). */
+  updateInfo: UpdatePayload | null;
 
   // Actions
   /** Transitions the loading state machine and optionally sets an error payload. */
@@ -190,6 +195,10 @@ interface VellumStore {
    * already resolved). Use exclusively from `App.tsx`'s startup effect.
    */
   hydratePreferences: (prefs: Partial<PersistedPreferences>) => void;
+
+  /** Sets (or clears, with `null`) the pending update notification. No persistence
+   * — this is a session event, not a preference. */
+  setUpdateInfo: (info: UpdatePayload | null) => void;
 }
 
 /**
@@ -224,6 +233,7 @@ export const useVellumStore = create<VellumStore>((set, get) => ({
   themeWarnings: [],
   autoUpdateEnabled: false,
   activeLanguage: 'en',
+  updateInfo: null,
   dlcWarnings: [],
   hasPartialData: false,
 
@@ -413,4 +423,6 @@ export const useVellumStore = create<VellumStore>((set, get) => ({
       activeLayers: prefs.activeLayers ?? state.activeLayers,
       autoUpdateEnabled: prefs.autoUpdateEnabled ?? state.autoUpdateEnabled,
     })),
+
+  setUpdateInfo: (info) => set({ updateInfo: info }),
 }));

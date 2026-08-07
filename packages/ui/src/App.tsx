@@ -8,6 +8,7 @@ import { ErrorToast } from './components/overlays/ErrorToast';
 import { PartialParseDialog } from './components/overlays/PartialParseDialog';
 import { DlcWarningToast } from './components/overlays/DlcWarningToast';
 import { ThemeWarningToast } from './components/overlays/ThemeWarningToast';
+import { UpdateToast } from './components/overlays/UpdateToast';
 import { FloatingLayerPanel } from './components/panels/FloatingLayerPanel';
 import { ExportDialog } from './components/panels/ExportDialog';
 import { PreferencesPanel } from './components/panels/PreferencesPanel';
@@ -39,8 +40,11 @@ import type {
   SvgExportPort,
   SvgExportRequest,
   SvgExportSnapshot,
+  UpdatePayload,
 } from '@vellum/core';
-import { IPC_EVENTS } from '@vellum/core';
+import { IPC_COMMANDS, IPC_EVENTS } from '@vellum/core';
+import { invoke } from '@tauri-apps/api/core';
+import { openUrl } from '@tauri-apps/plugin-opener';
 import { useVellumStore } from './store/vellum-store';
 
 const noop = async (): Promise<void> => {};
@@ -151,6 +155,8 @@ export function App({
   const setExpandedPanelLayer = useVellumStore((s) => s.setExpandedPanelLayer);
   const themeWarnings = useVellumStore((s) => s.themeWarnings);
   const setThemeWarnings = useVellumStore((s) => s.setThemeWarnings);
+  const updateInfo = useVellumStore((s) => s.updateInfo);
+  const setUpdateInfo = useVellumStore((s) => s.setUpdateInfo);
 
   // Load all .vellumstyle themes once at startup (populates the store + returns full styles).
   const themes = useThemes();
@@ -251,6 +257,28 @@ export function App({
   });
 
   useTauriEvent(IPC_EVENTS.OPEN_PREFERENCES, () => setIsPreferencesOpen(true));
+  const [updateListenerSettled, setUpdateListenerSettled] = useState(false);
+  useTauriEvent(
+    IPC_EVENTS.UPDATE_AVAILABLE,
+    (payload: UpdatePayload) => setUpdateInfo(payload),
+    { onSettled: () => setUpdateListenerSettled(true) },
+  );
+
+  // Only check for a notification that arrived before the listener attached
+  // once the subscription attempt above has settled (success or failure) —
+  // checking earlier would race the listener and could still lose an event
+  // that fires in between (backend always writes the pending slot before
+  // emitting, so this ordering is race-free regardless of which side wins).
+  useEffect(() => {
+    if (!updateListenerSettled) return;
+    void invoke<UpdatePayload | null>(IPC_COMMANDS.GET_PENDING_UPDATE)
+      .then((payload) => {
+        if (payload !== null) setUpdateInfo(payload);
+      })
+      .catch((error: unknown) => {
+        console.warn('App: failed to load pending update notification', error);
+      });
+  }, [updateListenerSettled, setUpdateInfo]);
 
   useEffect(() => {
     Promise.all([initI18n(), loadPersistedPreferences()])
@@ -297,6 +325,9 @@ export function App({
     cityData !== null &&
     loadingState === 'idle' &&
     (dlcWarnings.length > 0 || hasPartialData);
+
+  const showUpdateToast =
+    updateInfo !== null && loadingState === 'idle' && !isExporting;
 
   return (
     <Suspense fallback={null}>
@@ -350,6 +381,17 @@ export function App({
           <ThemeWarningToast
             warnings={themeWarnings}
             onDismiss={handleThemeWarningsDismiss}
+          />
+        )}
+        {showUpdateToast && updateInfo !== null && (
+          <UpdateToast
+            version={updateInfo.version}
+            onViewChangelog={() => {
+              openUrl(updateInfo.url).catch((error: unknown) => {
+                console.warn('App: failed to open release notes URL', error);
+              });
+            }}
+            onDismiss={() => setUpdateInfo(null)}
           />
         )}
         {cityData !== null && loadingState !== 'loading' && (

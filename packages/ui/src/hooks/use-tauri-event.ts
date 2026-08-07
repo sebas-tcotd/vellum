@@ -4,6 +4,13 @@ import { listen } from '@tauri-apps/api/event';
 interface UseTauriEventOptions {
   /** If listen() hasn't resolved after this many ms, sets listenError = true. */
   timeoutMs?: number;
+  /**
+   * Called exactly once listen() settles — successfully or not. Lets a caller
+   * sequence follow-up work (e.g. checking for an event that fired before the
+   * listener finished attaching) after the subscription is guaranteed to be
+   * live, instead of racing it.
+   */
+  onSettled?: () => void;
 }
 
 /**
@@ -13,7 +20,8 @@ interface UseTauriEventOptions {
  * @param event - Tauri event name (e.g. `IPC_EVENTS.PROGRESS`)
  * @param handler - Called with the event payload on each emission.
  *   Stable reference not required — the hook tracks the latest value internally.
- * @param options - Optional `timeoutMs` to surface listen() failures.
+ * @param options - Optional `timeoutMs` to surface listen() failures, and `onSettled`
+ *   to sequence follow-up work after the subscription attempt completes.
  * @returns `listenError` — true if listen() rejected or timed out.
  */
 export function useTauriEvent<T>(
@@ -23,9 +31,11 @@ export function useTauriEvent<T>(
 ): { listenError: boolean } {
   const [listenError, setListenError] = useState(false);
 
-  // Always-fresh ref so we never need to re-subscribe when handler identity changes
+  // Always-fresh refs so we never need to re-subscribe when handler/onSettled identity changes
   const handlerRef = useRef(handler);
   handlerRef.current = handler;
+  const onSettledRef = useRef(options?.onSettled);
+  onSettledRef.current = options?.onSettled;
 
   useEffect(() => {
     let cancelled = false;
@@ -56,6 +66,9 @@ export function useTauriEvent<T>(
           err,
         );
         if (!cancelled) setListenError(true);
+      })
+      .finally(() => {
+        if (!cancelled) onSettledRef.current?.();
       });
 
     return () => {
