@@ -27,6 +27,8 @@ export { DlcWarningToast } from './components/overlays/DlcWarningToast';
 export type { DlcWarningToastProps } from './components/overlays/DlcWarningToast';
 export { ThemeWarningToast } from './components/overlays/ThemeWarningToast';
 export type { ThemeWarningToastProps } from './components/overlays/ThemeWarningToast';
+export { UpdateToast } from './components/overlays/UpdateToast';
+export type { UpdateToastProps } from './components/overlays/UpdateToast';
 export { useThemes } from './hooks/use-themes';
 export { cn } from './lib/utils';
 export { useVellumStore } from './store/vellum-store';

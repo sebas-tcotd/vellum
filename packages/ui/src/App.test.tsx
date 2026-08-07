@@ -202,6 +202,7 @@ function resetStore() {
     loadRequestId: 0,
     dlcWarnings: [],
     hasPartialData: false,
+    updateInfo: null,
   });
 }
 
@@ -447,6 +448,46 @@ describe('App — PreferencesPanel (Story 7.3)', () => {
     });
 
     expect(screen.getByText('preferences.title')).toBeInTheDocument();
+  });
+});
+
+describe('App — UpdateToast (Story 7.4)', () => {
+  it('AC2: no muestra el toast mientras loadingState=loading, aparece al volver a idle', async () => {
+    await act(async () => {
+      render(<App />);
+    });
+
+    act(() => {
+      useVellumStore.getState().setLoadingState('loading');
+    });
+
+    await act(async () => {
+      tauriEventHandlers.get('vellum://update-available')?.({
+        payload: { version: '1.2.0', url: 'https://example.com/v1.2.0' },
+      });
+    });
+
+    expect(screen.queryByText('updates.available')).toBeNull();
+
+    act(() => {
+      useVellumStore.getState().setLoadingState('idle');
+    });
+
+    expect(screen.getByText('updates.available')).toBeInTheDocument();
+  });
+
+  it('AC1: aparece de inmediato cuando el evento llega con loadingState=idle', async () => {
+    await act(async () => {
+      render(<App />);
+    });
+
+    await act(async () => {
+      tauriEventHandlers.get('vellum://update-available')?.({
+        payload: { version: '1.2.0', url: 'https://example.com/v1.2.0' },
+      });
+    });
+
+    expect(screen.getByText('updates.available')).toBeInTheDocument();
   });
 });
 

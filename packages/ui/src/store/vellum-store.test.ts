@@ -87,3 +87,34 @@ describe('vellum-store — persistencia de preferencias (Story 7.2)', () => {
     expect(persistPreferenceMock).not.toHaveBeenCalled();
   });
 });
+
+describe('vellum-store — setUpdateInfo (Story 7.4)', () => {
+  beforeEach(() => {
+    persistPreferenceMock.mockReset();
+  });
+
+  afterEach(() => {
+    useVellumStore.setState({ updateInfo: null });
+  });
+
+  it('setUpdateInfo guarda el payload sin persistirlo (es un evento de sesión, no una preferencia)', () => {
+    useVellumStore
+      .getState()
+      .setUpdateInfo({ version: '1.2.0', url: 'https://example.com/v1.2.0' });
+
+    expect(useVellumStore.getState().updateInfo).toEqual({
+      version: '1.2.0',
+      url: 'https://example.com/v1.2.0',
+    });
+    expect(persistPreferenceMock).not.toHaveBeenCalled();
+  });
+
+  it('setUpdateInfo(null) limpia el payload', () => {
+    useVellumStore
+      .getState()
+      .setUpdateInfo({ version: '1.2.0', url: 'https://example.com/v1.2.0' });
+    useVellumStore.getState().setUpdateInfo(null);
+
+    expect(useVellumStore.getState().updateInfo).toBeNull();
+  });
+});

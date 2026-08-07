@@ -8,6 +8,7 @@ import { ErrorToast } from './components/overlays/ErrorToast';
 import { PartialParseDialog } from './components/overlays/PartialParseDialog';
 import { DlcWarningToast } from './components/overlays/DlcWarningToast';
 import { ThemeWarningToast } from './components/overlays/ThemeWarningToast';
+import { UpdateToast } from './components/overlays/UpdateToast';
 import { FloatingLayerPanel } from './components/panels/FloatingLayerPanel';
 import { ExportDialog } from './components/panels/ExportDialog';
 import { PreferencesPanel } from './components/panels/PreferencesPanel';
@@ -39,8 +40,10 @@ import type {
   SvgExportPort,
   SvgExportRequest,
   SvgExportSnapshot,
+  UpdatePayload,
 } from '@vellum/core';
 import { IPC_EVENTS } from '@vellum/core';
+import { openUrl } from '@tauri-apps/plugin-opener';
 import { useVellumStore } from './store/vellum-store';
 
 const noop = async (): Promise<void> => {};
@@ -151,6 +154,8 @@ export function App({
   const setExpandedPanelLayer = useVellumStore((s) => s.setExpandedPanelLayer);
   const themeWarnings = useVellumStore((s) => s.themeWarnings);
   const setThemeWarnings = useVellumStore((s) => s.setThemeWarnings);
+  const updateInfo = useVellumStore((s) => s.updateInfo);
+  const setUpdateInfo = useVellumStore((s) => s.setUpdateInfo);
 
   // Load all .vellumstyle themes once at startup (populates the store + returns full styles).
   const themes = useThemes();
@@ -251,6 +256,9 @@ export function App({
   });
 
   useTauriEvent(IPC_EVENTS.OPEN_PREFERENCES, () => setIsPreferencesOpen(true));
+  useTauriEvent(IPC_EVENTS.UPDATE_AVAILABLE, (payload: UpdatePayload) =>
+    setUpdateInfo(payload),
+  );
 
   useEffect(() => {
     Promise.all([initI18n(), loadPersistedPreferences()])
@@ -297,6 +305,9 @@ export function App({
     cityData !== null &&
     loadingState === 'idle' &&
     (dlcWarnings.length > 0 || hasPartialData);
+
+  const showUpdateToast =
+    updateInfo !== null && loadingState === 'idle' && !isExporting;
 
   return (
     <Suspense fallback={null}>
@@ -350,6 +361,15 @@ export function App({
           <ThemeWarningToast
             warnings={themeWarnings}
             onDismiss={handleThemeWarningsDismiss}
+          />
+        )}
+        {showUpdateToast && updateInfo !== null && (
+          <UpdateToast
+            version={updateInfo.version}
+            onViewChangelog={() => {
+              void openUrl(updateInfo.url);
+            }}
+            onDismiss={() => setUpdateInfo(null)}
           />
         )}
         {cityData !== null && loadingState !== 'loading' && (

@@ -12,6 +12,8 @@ pub mod errors;
 pub mod export;
 /// Internal module containing auxiliary IPC payloads not intended for public re-export.
 mod ipc_contract;
+/// Background update checker — Story 7.4.
+pub mod updater;
 
 use export::session::{sweep_stale_temp_files, ExportSessionManager};
 use std::sync::Arc;
@@ -40,6 +42,7 @@ pub fn run() {
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_store::Builder::new().build())
+        .plugin(tauri_plugin_opener::init())
         .manage(Arc::new(ExportSessionManager::new()))
         .invoke_handler(tauri::generate_handler![
             commands::parse_cslmap,
@@ -86,6 +89,16 @@ pub fn run() {
             app.on_menu_event(move |app_handle, event| {
                 if event.id().0.as_str() == "preferences" {
                     let _ = app_handle.emit("vellum://open-preferences", ());
+                }
+            });
+
+            #[cfg(desktop)]
+            app.handle().plugin(tauri_plugin_updater::Builder::new().build())?;
+
+            tauri::async_runtime::spawn({
+                let app_handle = app.handle().clone();
+                async move {
+                    updater::check_for_updates(&app_handle).await;
                 }
             });
 
