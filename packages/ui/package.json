@@ -27,6 +27,7 @@
     "@radix-ui/react-switch": "^1.2.6",
     "@radix-ui/react-separator": "^1.1.8",
     "@tauri-apps/api": "^2.10.1",
+    "@tauri-apps/plugin-store": "^2.4.0",
     "@vellum/core": "workspace:*",
     "@vellum/renderer-canvas": "workspace:*",
     "@vellum/renderer-webgl": "workspace:*",

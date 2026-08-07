@@ -13,6 +13,7 @@ import { ExportDialog } from './components/panels/ExportDialog';
 import { IconLegend } from './components/panels/IconLegend';
 import { ExportStatusOverlay } from './components/overlays/ExportStatusOverlay';
 import { initI18n } from './i18n/i18n-setup';
+import { loadPersistedPreferences } from './store/preferences-store';
 import { useKeyboardShortcuts } from './hooks/use-keyboard-shortcuts';
 import { useThemes } from './hooks/use-themes';
 import { useExportWorkflow } from './hooks/use-export-workflow';
@@ -130,6 +131,7 @@ export function App({
   >(null);
   const iconLegendToggleRef = useRef<(() => void) | null>(null);
   const syncActiveLanguage = useVellumStore((s) => s.syncActiveLanguage);
+  const hydratePreferences = useVellumStore((s) => s.hydratePreferences);
   const cityData = useVellumStore((s) => s.cityData);
   const activeLayers = useVellumStore((s) => s.activeLayers);
   const activeTheme = useVellumStore((s) => s.activeTheme);
@@ -245,11 +247,14 @@ export function App({
   });
 
   useEffect(() => {
-    initI18n().then((detectedLang) => {
-      syncActiveLanguage(detectedLang);
-      setI18nReady(true);
-    });
-  }, [syncActiveLanguage]);
+    Promise.all([initI18n(), loadPersistedPreferences()]).then(
+      ([detectedLang, prefs]) => {
+        syncActiveLanguage(detectedLang);
+        hydratePreferences(prefs);
+        setI18nReady(true);
+      },
+    );
+  }, [syncActiveLanguage, hydratePreferences]);
 
   const handleDlcDismiss = useCallback(() => {
     setDlcWarnings([]);

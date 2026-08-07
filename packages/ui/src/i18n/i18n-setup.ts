@@ -1,5 +1,6 @@
 import i18next from 'i18next';
 import { initReactI18next } from 'react-i18next';
+import { loadPersistedPreferences } from '../store/preferences-store';
 
 // Import estático — Vite bundlea en el bundle, sin fetch en runtime (NFR14)
 import en from './locales/en.json';
@@ -45,20 +46,13 @@ export async function initI18n(): Promise<'en' | 'es'> {
  * 1. Previously stored user preference.
  * 2. Operating system locale fallback (`navigator.language`) to satisfy FR40.
  * 3. Default fallback to English (`'en'`).
- * **Future Implementation (Story 7.2):** The current `localStorage` implementation
- * is a temporary polyfill. It will be explicitly replaced by `tauri-plugin-store`
- * to guarantee robust, cross-platform persistence within the native filesystem.
  *
  * @returns A promise resolving to the optimally detected language code (`'en'` or `'es'`).
  */
 export async function detectInitialLanguage(): Promise<'en' | 'es'> {
   // Prioridad 1: preferencia guardada por el usuario
-  try {
-    const stored = localStorage.getItem('preferredLanguage');
-    if (stored === 'en' || stored === 'es') return stored;
-  } catch {
-    // localStorage puede fallar en contextos restrictivos — continuar
-  }
+  const { preferredLanguage } = await loadPersistedPreferences();
+  if (preferredLanguage) return preferredLanguage;
 
   // Prioridad 2: locale del OS via navigator.language (FR40)
   if (navigator.language.startsWith('es')) return 'es';

@@ -12,6 +12,10 @@ import { DEFAULT_LAYER_OPTIONS, LAYER_NAMES } from '@vellum/core';
 import type { ThemeWarning } from '@vellum/theme-engine';
 import { create } from 'zustand';
 import { i18n } from '../i18n/i18n-setup';
+import {
+  persistPreference,
+  type PersistedPreferences,
+} from './preferences-store';
 
 /**
  * Represents the explicit finite state machine for asynchronous operations.
@@ -169,6 +173,23 @@ interface VellumStore {
    * @returns The new load request ID.
    */
   incrementLoadRequestId: () => number;
+
+  /**
+   * Enables or disables the automatic update checker.
+   * @remarks No UI invokes this yet — Story 7.3/7.4 build the settings switch.
+   */
+  setAutoUpdateEnabled: (enabled: boolean) => void;
+
+  /**
+   * Applies persisted preferences loaded from disk at startup.
+   * @remarks
+   * **CRITICAL INVARIANT:** Bypasses `persistPreference()` — same reasoning as
+   * `syncActiveLanguage` bypassing `i18next`/persistence — to avoid a hydrate-then-
+   * re-persist loop. Only sets the keys present in `prefs`; never touches
+   * `preferredLanguage` (owned by `syncActiveLanguage` with the value `initI18n()`
+   * already resolved). Use exclusively from `App.tsx`'s startup effect.
+   */
+  hydratePreferences: (prefs: Partial<PersistedPreferences>) => void;
 }
 
 /**
@@ -186,8 +207,8 @@ const DEFAULT_ACTIVE_LAYERS = Object.fromEntries(
  * **Architectural Rules:**
  * - `CityData` is strictly immutable. Never attempt to mutate its nested properties directly;
  * always replace the entire reference using `setCityData`.
- * - UI preferences (layers, theme, language) are currently ephemeral or rely on `localStorage`.
- * Story 7.2 will introduce `tauri-plugin-store` for robust native persistence.
+ * - UI preferences (layers, theme, language, auto-update) persist to disk via
+ * `tauri-plugin-store` (see `preferences-store.ts`) on every relevant setter.
  */
 export const useVellumStore = create<VellumStore>((set, get) => ({
   cityData: null,
@@ -223,14 +244,19 @@ export const useVellumStore = create<VellumStore>((set, get) => ({
   setHasPartialData: (value) => set({ hasPartialData: value }),
 
   toggleLayer: (layer) =>
-    set((state) => ({
-      activeLayers: {
+    set((state) => {
+      const activeLayers = {
         ...state.activeLayers,
         [layer]: !state.activeLayers[layer],
-      },
-    })),
+      };
+      void persistPreference('activeLayers', activeLayers);
+      return { activeLayers };
+    }),
 
-  setActiveTheme: (theme) => set({ activeTheme: theme }),
+  setActiveTheme: (theme) => {
+    void persistPreference('selectedTheme', theme);
+    set({ activeTheme: theme });
+  },
 
   setAvailableThemes: (themes) => set({ availableThemes: themes }),
 
@@ -351,7 +377,7 @@ export const useVellumStore = create<VellumStore>((set, get) => ({
 
   setLanguage: (lang) => {
     i18n.changeLanguage(lang); // hot-swap inmediato de todos los strings (NFR16)
-    localStorage.setItem('preferredLanguage', lang); // persistencia temporal (Story 7.2 usará tauri-plugin-store)
+    void persistPreference('preferredLanguage', lang);
     set({ activeLanguage: lang });
   },
 
@@ -369,4 +395,16 @@ export const useVellumStore = create<VellumStore>((set, get) => ({
     });
     return next;
   },
+
+  setAutoUpdateEnabled: (enabled) => {
+    set({ autoUpdateEnabled: enabled });
+    void persistPreference('autoUpdateEnabled', enabled);
+  },
+
+  hydratePreferences: (prefs) =>
+    set((state) => ({
+      activeTheme: prefs.selectedTheme ?? state.activeTheme,
+      activeLayers: prefs.activeLayers ?? state.activeLayers,
+      autoUpdateEnabled: prefs.autoUpdateEnabled ?? state.autoUpdateEnabled,
+    })),
 }));
