@@ -2,6 +2,13 @@
 
 All notable changes to Vellum will be documented here.
 
+## [0.2.6](https://github.com/sebas-tcotd/vellum/compare/v0.2.5...v0.2.6) (2026-08-08)
+
+
+### Bug Fixes
+
+* **release:** improve release asset resolution and timeout handling ([9dbb6c5](https://github.com/sebas-tcotd/vellum/commit/9dbb6c57be94b12d76a3e452c6fc0353c701ba08))
+
 ## [0.2.5](https://github.com/sebas-tcotd/vellum/compare/v0.2.4...v0.2.5) (2026-08-08)
 
 
