@@ -337,15 +337,61 @@ jobs:
           EXPECTED_RELEASE_PATH: https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/
         run: |
           set -euo pipefail
+
           for attempt in $(seq 1 36); do
-            if curl --fail --silent --show-error "$MANIFEST_URL" -o /tmp/latest.json && \
-              node -e 'const fs = require("fs"); const expectedVersion = process.env.EXPECTED_VERSION.slice(1); const expectedPath = process.env.EXPECTED_RELEASE_PATH; const m = JSON.parse(fs.readFileSync("/tmp/latest.json", "utf8")); const platforms = Object.values(m.platforms ?? {}); if (m.version !== expectedVersion || platforms.length === 0 || platforms.some((p) => typeof p.url !== "string" || !p.url.startsWith(expectedPath) || typeof p.signature !== "string" || p.signature.length === 0)) process.exit(1);'; then
+            if ! curl --fail --location --silent --show-error \
+              "$MANIFEST_URL" \
+              -o /tmp/latest.json; then
+
+              echo "::warning::Updater manifest download failed (attempt $attempt/36)."
+              sleep 5
+              continue
+            fi
+
+            if [ ! -s /tmp/latest.json ]; then
+              echo "::warning::Updater manifest returned an empty body (attempt $attempt/36)."
+              sleep 5
+              continue
+            fi
+
+            if node -e '
+              const fs = require("fs");
+
+              const expectedVersion =
+                process.env.EXPECTED_VERSION.slice(1);
+
+              const expectedPath =
+                process.env.EXPECTED_RELEASE_PATH;
+
+              const m = JSON.parse(
+                fs.readFileSync("/tmp/latest.json", "utf8")
+              );
+
+              const platforms =
+                Object.values(m.platforms ?? {});
+
+              if (
+                m.version !== expectedVersion ||
+                platforms.length === 0 ||
+                platforms.some(
+                  (p) =>
+                    typeof p.url !== "string" ||
+                    !p.url.startsWith(expectedPath) ||
+                    typeof p.signature !== "string" ||
+                    p.signature.length === 0
+                )
+              ) {
+                process.exit(1);
+              }
+            '; then
               echo "Validated updater manifest on attempt $attempt."
               exit 0
             fi
-            echo "::warning::Updater manifest is not ready or does not reference $EXPECTED_VERSION yet (attempt $attempt/36)."
+
+            echo "::warning::Updater manifest downloaded but failed semantic validation for $EXPECTED_VERSION (attempt $attempt/36)."
             sleep 5
           done
+
           echo "::error::Updater manifest was not valid for $EXPECTED_VERSION after 180 seconds."
           exit 1
 
