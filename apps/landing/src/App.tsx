@@ -4,22 +4,31 @@ import {
   DownloadSimple,
   Export,
   GithubLogo,
+  HeartStraight,
   MapTrifold,
   Train,
 } from '@phosphor-icons/react';
+import { useEffect, useState } from 'react';
 import { Reveal } from './components/Reveal';
+import { getInitialTheme, ThemeSelector } from './components/ThemeSelector';
 
 const releaseUrl = 'https://github.com/sebas-tcotd/vellum/releases/latest';
 const repositoryUrl = 'https://github.com/sebas-tcotd/vellum';
 const licenseUrl = `${repositoryUrl}/blob/main/LICENSE`;
 const documentationUrl = `${repositoryUrl}/tree/main/docs`;
-const theme =
-  new URLSearchParams(window.location.search).get('theme') === 'dark'
-    ? 'dark'
-    : 'paper';
+
+type Theme = 'paper' | 'dark';
 
 /** Marketing page for the Vellum desktop map viewer. */
 export function App() {
+  const [theme, setTheme] = useState<Theme>(getInitialTheme);
+
+  useEffect(() => {
+    document
+      .querySelector('meta[name="theme-color"]')
+      ?.setAttribute('content', theme === 'dark' ? '#26221e' : '#f7f6f1');
+  }, [theme]);
+
   return (
     <div className="site-shell" data-theme={theme}>
       <a className="skip-link" href="#main-content">
@@ -28,9 +37,12 @@ export function App() {
 
       <header className="site-header page-width">
         <a className="brand" href="#top" aria-label="Vellum home">
-          <span className="brand-mark" aria-hidden="true">
-            V
-          </span>
+          <img
+            className="brand-isotype"
+            src="./assets/vellum-isotype-rounded.svg"
+            alt=""
+            aria-hidden="true"
+          />
           <span className="brand-name">Vellum</span>
         </a>
 
@@ -74,7 +86,7 @@ export function App() {
           <Reveal className="hero-visual" delay={0.08}>
             <figure className="map-figure map-figure-hero">
               <img
-                src="/assets/vellum-map-placeholder-hero.webp"
+                src="./assets/vellum-map-placeholder-hero.webp"
                 alt="Placeholder cartographic map showing terrain, water, roads, and transit layers"
               />
               <figcaption>
@@ -117,7 +129,7 @@ export function App() {
             <Reveal className="capability-visual" delay={0.06}>
               <figure className="map-figure map-figure-detail">
                 <img
-                  src="/assets/vellum-map-detail-placeholder.webp"
+                  src="./assets/vellum-map-detail-placeholder.webp"
                   alt="Placeholder map detail showing terrain contours, districts, and street hierarchy"
                 />
                 <figcaption>
@@ -235,7 +247,7 @@ export function App() {
             <Reveal className="gallery-main" delay={0.06}>
               <figure className="map-figure map-figure-transit">
                 <img
-                  src="/assets/vellum-transit-placeholder.webp"
+                  src="./assets/vellum-transit-placeholder.webp"
                   alt="Placeholder transit map showing a layered network and station nodes"
                 />
                 <figcaption>
@@ -246,9 +258,12 @@ export function App() {
             </Reveal>
 
             <Reveal className="gallery-note" delay={0.16}>
-              <div className="gallery-note-mark" aria-hidden="true">
-                V
-              </div>
+              <img
+                className="gallery-note-isotype"
+                src="./assets/vellum-isotype-rounded.svg"
+                alt=""
+                aria-hidden="true"
+              />
               <p>
                 Open source under the MIT License. Built for people who care how
                 their cities are seen.
@@ -281,24 +296,45 @@ export function App() {
         </section>
       </main>
 
-      <footer className="site-footer page-width">
-        <a className="brand" href="#top" aria-label="Vellum home">
-          <span className="brand-mark" aria-hidden="true">
-            V
-          </span>
-          <span className="brand-name">Vellum</span>
-        </a>
+      <footer className="site-footer">
+        <div className="site-footer-inner page-width">
+          <div className="footer-main">
+            <a className="brand" href="#top" aria-label="Vellum home">
+              <img
+                className="brand-isotype"
+                src="./assets/vellum-isotype-rounded.svg"
+                alt=""
+                aria-hidden="true"
+              />
+              <span className="brand-name">Vellum</span>
+            </a>
 
-        <p>Maps for cities worth remembering.</p>
+            <p>Maps for cities worth remembering.</p>
 
-        <nav className="footer-nav" aria-label="Footer navigation">
-          <a href={repositoryUrl}>
-            <GithubLogo size={16} weight="regular" aria-hidden="true" />
-            GitHub
-          </a>
-          <a href={licenseUrl}>MIT License</a>
-          <a href={documentationUrl}>Documentation</a>
-        </nav>
+            <nav className="footer-nav" aria-label="Footer navigation">
+              <a href={repositoryUrl}>
+                <GithubLogo size={16} weight="regular" aria-hidden="true" />
+                GitHub
+              </a>
+              <a href={licenseUrl}>MIT License</a>
+              <a href={documentationUrl}>Documentation</a>
+            </nav>
+          </div>
+
+          <div className="footer-meta">
+            <p className="footer-credit">
+              Made with{' '}
+              <HeartStraight
+                className="footer-heart"
+                size={16}
+                weight="fill"
+                aria-hidden="true"
+              />{' '}
+              by Sebastian Vargas
+            </p>
+            <ThemeSelector onThemeChange={setTheme} />
+          </div>
+        </div>
       </footer>
     </div>
   );
