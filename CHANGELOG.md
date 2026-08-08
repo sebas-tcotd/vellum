@@ -2,6 +2,13 @@
 
 All notable changes to Vellum will be documented here.
 
+## [0.2.8](https://github.com/sebas-tcotd/vellum/compare/v0.2.7...v0.2.8) (2026-08-08)
+
+
+### Bug Fixes
+
+* **ci:** improve latest.json validation and handling ([00db106](https://github.com/sebas-tcotd/vellum/commit/00db1066cd786bc894a30d8ded35e825332da7c7))
+
 ## [0.2.7](https://github.com/sebas-tcotd/vellum/compare/v0.2.6...v0.2.7) (2026-08-08)
 
 
