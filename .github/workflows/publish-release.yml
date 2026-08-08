@@ -281,11 +281,24 @@ jobs:
       - name: Verify synchronized version files
         run: node scripts/verify-release-config.mjs
 
-      - name: Publish release (required for the updater's latest.json endpoint)
+      - name: Associate and publish release (required for updater endpoint)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh api -X PATCH "repos/${{ github.repository }}/releases/${{ needs.resolve-release.outputs.release-id }}" -f draft=false
+          set -euo pipefail
+          RELEASE_API="repos/${{ github.repository }}/releases/${{ needs.resolve-release.outputs.release-id }}"
+          RELEASE_TAG=$(gh api "$RELEASE_API" --jq '.tag_name')
+          if [ "$RELEASE_TAG" != "$GITHUB_REF_NAME" ]; then
+            echo "Associating draft release tag $RELEASE_TAG with triggering tag $GITHUB_REF_NAME."
+          fi
+          PUBLISHED_TAG=$(gh api -X PATCH "$RELEASE_API" \
+            -f tag_name="$GITHUB_REF_NAME" \
+            -f draft=false \
+            --jq '.tag_name')
+          if [ "$PUBLISHED_TAG" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Release was published with unexpected tag $PUBLISHED_TAG (expected $GITHUB_REF_NAME)."
+            exit 1
+          fi
 
       - name: Smoke-check public updater manifest
         id: updater-smoke-check
