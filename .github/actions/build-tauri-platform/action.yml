@@ -1,0 +1,197 @@
+name: 'Build Tauri Platform'
+description: 'Compila (check) o compila+firma+publica (release) el shell Tauri para una plataforma de la matriz'
+
+inputs:
+  mode:
+    description: "'check' (cargo check, sin firma) o 'release' (tauri build, firma, upload)"
+    required: true
+  platform:
+    description: 'Valor de matrix.platform del job llamador (windows-latest | macos-latest | ubuntu-22.04)'
+    required: true
+  args:
+    description: 'Args extra de tauri build para esta plataforma (matrix.args). Solo se usa en mode=release.'
+    required: false
+    default: ''
+  bundle-glob:
+    description: 'Glob del instalador generado (matrix.bundle-glob). Solo se usa en mode=release.'
+    required: false
+    default: ''
+  release-id:
+    description: 'ID del GitHub Release draft. Solo se usa en mode=release.'
+    required: false
+    default: ''
+  tag-name:
+    description: 'Tag del release en curso. Solo se usa en mode=release.'
+    required: false
+    default: ''
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Install frontend dependencies
+      shell: bash
+      run: pnpm install --frozen-lockfile
+
+    - name: Download pre-built frontend
+      uses: actions/download-artifact@v4
+      with:
+        name: frontend-dist
+        path: apps/desktop/dist
+
+    - name: Install macOS universal Rust targets
+      if: inputs.platform == 'macos-latest'
+      shell: bash
+      run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
+
+    # --- mode: check -----------------------------------------------------
+
+    - name: Compile check desktop Rust shell
+      if: inputs.mode == 'check'
+      shell: bash
+      run: cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml
+
+    # --- mode: release -----------------------------------------------------
+    # Secret presence (TAURI_SIGNING_PRIVATE_KEY, WINDOWS_CERTIFICATE) is
+    # verified once in the caller's preflight job, before this action ever
+    # runs, so it is not re-checked per platform here.
+
+    - name: Import Windows code signing certificate
+      id: import-cert
+      if: inputs.mode == 'release' && inputs.platform == 'windows-latest' && vars.ALLOW_UNSIGNED_WINDOWS != 'true'
+      shell: pwsh
+      run: |
+        $certBytes = [Convert]::FromBase64String("${{ secrets.WINDOWS_CERTIFICATE }}")
+        $certPath = Join-Path $env:RUNNER_TEMP "vellum-signing.pfx"
+        [IO.File]::WriteAllBytes($certPath, $certBytes)
+        $securePassword = ConvertTo-SecureString -String "${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}" -Force -AsPlainText
+        $cert = Import-PfxCertificate -FilePath $certPath -CertStoreLocation Cert:\CurrentUser\My -Password $securePassword
+        Remove-Item $certPath -Force
+        "thumbprint=$($cert.Thumbprint)" >> $env:GITHUB_OUTPUT
+
+    - name: Compute build args
+      id: build-args
+      if: inputs.mode == 'release'
+      shell: bash
+      run: |
+        ARGS="${{ inputs.args }}"
+        # beforeBuildCommand is always disabled here: the frontend was already
+        # built once in the caller's build-frontend job and downloaded above.
+        # If this override ever misbehaves in practice, the safe rollback is
+        # to drop the ,"build":{"beforeBuildCommand":""} fragment from both
+        # branches below and let tauri-action rebuild the frontend per platform
+        # again, as it did before this change.
+        if [ "${{ inputs.platform }}" = "windows-latest" ] && [ "${{ vars.ALLOW_UNSIGNED_WINDOWS }}" != "true" ]; then
+          CONFIG_JSON=$(printf '{"bundle":{"windows":{"certificateThumbprint":"%s","digestAlgorithm":"sha256","timestampUrl":"http://timestamp.digicert.com"}},"build":{"beforeBuildCommand":""}}' "${{ steps.import-cert.outputs.thumbprint }}")
+        else
+          CONFIG_JSON='{"build":{"beforeBuildCommand":""}}'
+        fi
+        ARGS="$ARGS --config $CONFIG_JSON"
+        echo "args=$ARGS" >> "$GITHUB_OUTPUT"
+
+    - name: Build and upload release
+      id: tauri-build
+      if: inputs.mode == 'release'
+      uses: tauri-apps/tauri-action@v0
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+      with:
+        releaseId: ${{ inputs.release-id }}
+        # releaseId identifies the draft; tagName makes updater URLs point to
+        # the immutable release tag instead of the moving `latest` alias.
+        tagName: ${{ inputs.tag-name }}
+        args: ${{ steps.build-args.outputs.args }}
+        projectPath: apps/desktop
+
+    - name: Verify Authenticode signature (Windows, AC3)
+      if: inputs.mode == 'release' && inputs.platform == 'windows-latest' && vars.ALLOW_UNSIGNED_WINDOWS != 'true'
+      shell: pwsh
+      run: |
+        $msi = Get-ChildItem -Path "target/x86_64-pc-windows-msvc/release/bundle/msi" -Filter *.msi -Recurse | Select-Object -First 1
+        if (-not $msi) {
+          Write-Error "No .msi artifact found to verify."
+          exit 1
+        }
+        $sig = Get-AuthenticodeSignature -FilePath $msi.FullName
+        $subject = $sig.SignerCertificate.Subject
+        Write-Host "Signature status: $($sig.Status) - Subject: $subject"
+        if ($sig.Status -ne 'Valid' -or [string]::IsNullOrWhiteSpace($subject)) {
+          Write-Error "MSI Authenticode signature is missing or invalid (status: $($sig.Status))."
+          exit 1
+        }
+        # SmartScreen "unknown publisher" reputation additionally depends on install-base
+        # telemetry that only a real, clean-machine install can confirm — see Task 4 evidence.
+
+    - name: Record intentional unsigned Windows MSI
+      if: inputs.mode == 'release' && inputs.platform == 'windows-latest' && vars.ALLOW_UNSIGNED_WINDOWS == 'true'
+      shell: pwsh
+      run: |
+        $msi = Get-ChildItem -Path "target/x86_64-pc-windows-msvc/release/bundle/msi" -Filter *.msi -Recurse | Select-Object -First 1
+        if (-not $msi) {
+          Write-Error "No .msi artifact found for the intentional unsigned Windows release."
+          exit 1
+        }
+        $sig = Get-AuthenticodeSignature -FilePath $msi.FullName
+        Write-Warning "Publishing an intentionally unsigned Windows MSI: $($msi.Name) (status: $($sig.Status))."
+
+    - name: Add visible install guide inside the DMG (AC4, macOS)
+      if: inputs.mode == 'release' && inputs.platform == 'macos-latest'
+      shell: bash
+      run: |
+        set -euo pipefail
+        DMG=$(ls target/universal-apple-darwin/release/bundle/dmg/*.dmg | head -n1)
+        WORK=$(mktemp -d)
+        MOUNT_DIR=$(mktemp -d)
+        hdiutil convert "$DMG" -format UDRW -o "$WORK/rw"
+        hdiutil attach "$WORK/rw.dmg" -mountpoint "$MOUNT_DIR" -nobrowse -noautoopen
+        cp "apps/desktop/src-tauri/macos/Leeme-Install-ReadMe.txt" "$MOUNT_DIR/Leeme - Install ReadMe.txt"
+        hdiutil detach "$MOUNT_DIR"
+        hdiutil convert "$WORK/rw.dmg" -format UDZO -o "$WORK/final"
+        mv "$WORK/final.dmg" "$DMG"
+        rm -rf "$WORK" "$MOUNT_DIR"
+
+    - name: Re-upload updated DMG to the release (AC4)
+      if: inputs.mode == 'release' && inputs.platform == 'macos-latest'
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        set -euo pipefail
+        DMG=$(ls target/universal-apple-darwin/release/bundle/dmg/*.dmg | head -n1)
+        gh release upload "${{ inputs.tag-name }}" "$DMG" --clobber -R "${{ github.repository }}"
+
+    - name: Report installer size target (NFR12)
+      if: inputs.mode == 'release'
+      shell: bash
+      run: |
+        set -euo pipefail
+        MAX_BYTES=$((20 * 1024 * 1024))
+        FILE=$(ls ${{ inputs.bundle-glob }} 2>/dev/null | head -n1 || true)
+        if [ -z "$FILE" ]; then
+          echo "::error::No installer artifact matched ${{ inputs.bundle-glob }}"
+          exit 1
+        fi
+        SIZE=$(wc -c < "$FILE" | tr -d ' ')
+        NAME=$(basename "$FILE")
+        echo "Installer: $NAME — $SIZE bytes"
+        if [ "$SIZE" -gt "$MAX_BYTES" ]; then
+          echo "::warning::$NAME is $SIZE bytes, exceeds the $MAX_BYTES byte target (NFR12). Publishing continues; optimize in a future release."
+        else
+          echo "NFR12 size target passed: $NAME is within $MAX_BYTES bytes."
+        fi
+
+    - name: Remove uploaded asset if verification failed
+      if: inputs.mode == 'release' && failure() && steps.tauri-build.outcome == 'success'
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        FILE=$(ls ${{ inputs.bundle-glob }} 2>/dev/null | head -n1 || true)
+        [ -z "$FILE" ] && exit 0
+        NAME=$(basename "$FILE")
+        ASSET_ID=$(gh api "repos/${{ github.repository }}/releases/${{ inputs.release-id }}/assets" --jq ".[] | select(.name == \"$NAME\") | .id" || true)
+        if [ -n "$ASSET_ID" ]; then
+          echo "Removing failed-verification asset $NAME (asset id $ASSET_ID) from the draft release."
+          gh api -X DELETE "repos/${{ github.repository }}/releases/assets/$ASSET_ID" || true
+        fi

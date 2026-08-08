@@ -10,7 +10,7 @@ name: Publish Release
 #       certificate; unrelated to Authenticode/SmartScreen (see 7.5 Dev Notes).
 #   WINDOWS_CERTIFICATE (base64-encoded .pfx), WINDOWS_CERTIFICATE_PASSWORD
 #     - Authenticode code-signing certificate for the Windows MSI (AC3). The
-#       windows build job fails before producing an unsigned MSI if these are
+#       preflight job fails before any platform runner starts if these are
 #       missing, unless the repository variable ALLOW_UNSIGNED_WINDOWS is
 #       explicitly set to 'true' as a temporary opt-in.
 #   ALLOW_UNSIGNED_WINDOWS (repository variable, not a secret)
@@ -36,8 +36,8 @@ permissions:
   contents: write
 
 jobs:
-  resolve-release:
-    name: Resolve Release Please draft
+  preflight:
+    name: Resolve release draft and verify signing secrets
     runs-on: ubuntu-latest
     outputs:
       release-id: ${{ steps.resolve-release.outputs.release-id }}
@@ -68,9 +68,63 @@ jobs:
           fi
           echo "release-id=$RELEASE_ID" >> "$GITHUB_OUTPUT"
 
+      # Movido acá desde build-release: antes se repetía este chequeo 3 veces
+      # (una por plataforma), cada vez después de instalar todo el toolchain.
+      # Acá corre una sola vez, en segundos, antes de gastar cómputo de matriz.
+      - name: Verify Tauri updater signing secrets are present
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ]; then
+            echo "::error::TAURI_SIGNING_PRIVATE_KEY is required for signed updater artifacts. TAURI_SIGNING_PRIVATE_KEY_PASSWORD may be empty only when the key has no passphrase."
+            exit 1
+          fi
+
+      - name: Verify Windows signing secrets are present
+        if: vars.ALLOW_UNSIGNED_WINDOWS != 'true'
+        shell: bash
+        run: |
+          if [ -z "${{ secrets.WINDOWS_CERTIFICATE }}" ] || [ -z "${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}" ]; then
+            echo "::error::WINDOWS_CERTIFICATE / WINDOWS_CERTIFICATE_PASSWORD secrets are not set. Refusing to build an unsigned MSI (AC3)."
+            exit 1
+          fi
+
+  build-frontend:
+    name: Build frontend (shared)
+    needs: preflight
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Antes, tauri-action reconstruía el frontend una vez por plataforma
+      # (3x) vía beforeBuildCommand. Se construye acá una sola vez y se
+      # descarga en cada job de build-release (ver build-tauri-platform).
+      - name: Build frontend
+        run: pnpm exec turbo build --filter=@vellum/desktop
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: apps/desktop/dist
+          retention-days: 1
+
   build-release:
     name: Build ${{ matrix.platform }}
-    needs: resolve-release
+    needs: [preflight, build-frontend]
     strategy:
       fail-fast: false
       # tauri-action merges the existing latest.json when each platform uploads
@@ -98,167 +152,19 @@ jobs:
         with:
           os: ${{ matrix.platform }}
 
-      - name: Install frontend dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Install macOS universal Rust targets
-        if: matrix.platform == 'macos-latest'
-        shell: bash
-        run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
-
-      - name: Verify Tauri updater signing secrets are present
-        shell: bash
-        env:
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        run: |
-          if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ]; then
-            echo "::error::TAURI_SIGNING_PRIVATE_KEY is required for signed updater artifacts. TAURI_SIGNING_PRIVATE_KEY_PASSWORD may be empty only when the key has no passphrase."
-            exit 1
-          fi
-
-      - name: Verify Windows signing secrets are present
-        if: matrix.platform == 'windows-latest' && vars.ALLOW_UNSIGNED_WINDOWS != 'true'
-        shell: bash
-        run: |
-          if [ -z "${{ secrets.WINDOWS_CERTIFICATE }}" ] || [ -z "${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}" ]; then
-            echo "::error::WINDOWS_CERTIFICATE / WINDOWS_CERTIFICATE_PASSWORD secrets are not set. Refusing to build an unsigned MSI (AC3)."
-            exit 1
-          fi
-
-      - name: Import Windows code signing certificate
-        id: import-cert
-        if: matrix.platform == 'windows-latest' && vars.ALLOW_UNSIGNED_WINDOWS != 'true'
-        shell: pwsh
-        run: |
-          $certBytes = [Convert]::FromBase64String("${{ secrets.WINDOWS_CERTIFICATE }}")
-          $certPath = Join-Path $env:RUNNER_TEMP "vellum-signing.pfx"
-          [IO.File]::WriteAllBytes($certPath, $certBytes)
-          $securePassword = ConvertTo-SecureString -String "${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}" -Force -AsPlainText
-          $cert = Import-PfxCertificate -FilePath $certPath -CertStoreLocation Cert:\CurrentUser\My -Password $securePassword
-          Remove-Item $certPath -Force
-          "thumbprint=$($cert.Thumbprint)" >> $env:GITHUB_OUTPUT
-
-      - name: Compute build args
-        id: build-args
-        shell: bash
-        run: |
-          ARGS="${{ matrix.args }}"
-          if [ "${{ matrix.platform }}" = "windows-latest" ] && [ "${{ vars.ALLOW_UNSIGNED_WINDOWS }}" != "true" ]; then
-            CONFIG_JSON=$(printf '{"bundle":{"windows":{"certificateThumbprint":"%s","digestAlgorithm":"sha256","timestampUrl":"http://timestamp.digicert.com"}}}' "${{ steps.import-cert.outputs.thumbprint }}")
-            ARGS="$ARGS --config $CONFIG_JSON"
-          fi
-          echo "args=$ARGS" >> "$GITHUB_OUTPUT"
-
-      - name: Build and upload release
-        id: tauri-build
-        uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+      - name: Build, sign and upload release artifact
+        uses: ./.github/actions/build-tauri-platform
         with:
-          releaseId: ${{ needs.resolve-release.outputs.release-id }}
-          # releaseId identifies the draft; tagName makes updater URLs point to
-          # the immutable release tag instead of the moving `latest` alias.
-          tagName: ${{ github.ref_name }}
-          args: ${{ steps.build-args.outputs.args }}
-          projectPath: apps/desktop
-
-      - name: Verify Authenticode signature (Windows, AC3)
-        if: matrix.platform == 'windows-latest' && vars.ALLOW_UNSIGNED_WINDOWS != 'true'
-        shell: pwsh
-        run: |
-          $msi = Get-ChildItem -Path "target/x86_64-pc-windows-msvc/release/bundle/msi" -Filter *.msi -Recurse | Select-Object -First 1
-          if (-not $msi) {
-            Write-Error "No .msi artifact found to verify."
-            exit 1
-          }
-          $sig = Get-AuthenticodeSignature -FilePath $msi.FullName
-          $subject = $sig.SignerCertificate.Subject
-          Write-Host "Signature status: $($sig.Status) - Subject: $subject"
-          if ($sig.Status -ne 'Valid' -or [string]::IsNullOrWhiteSpace($subject)) {
-            Write-Error "MSI Authenticode signature is missing or invalid (status: $($sig.Status))."
-            exit 1
-          }
-          # SmartScreen "unknown publisher" reputation additionally depends on install-base
-          # telemetry that only a real, clean-machine install can confirm — see Task 4 evidence.
-
-      - name: Record intentional unsigned Windows MSI
-        if: matrix.platform == 'windows-latest' && vars.ALLOW_UNSIGNED_WINDOWS == 'true'
-        shell: pwsh
-        run: |
-          $msi = Get-ChildItem -Path "target/x86_64-pc-windows-msvc/release/bundle/msi" -Filter *.msi -Recurse | Select-Object -First 1
-          if (-not $msi) {
-            Write-Error "No .msi artifact found for the intentional unsigned Windows release."
-            exit 1
-          }
-          $sig = Get-AuthenticodeSignature -FilePath $msi.FullName
-          Write-Warning "Publishing an intentionally unsigned Windows MSI: $($msi.Name) (status: $($sig.Status))."
-
-      - name: Add visible install guide inside the DMG (AC4, macOS)
-        if: matrix.platform == 'macos-latest'
-        shell: bash
-        run: |
-          set -euo pipefail
-          DMG=$(ls target/universal-apple-darwin/release/bundle/dmg/*.dmg | head -n1)
-          WORK=$(mktemp -d)
-          MOUNT_DIR=$(mktemp -d)
-          hdiutil convert "$DMG" -format UDRW -o "$WORK/rw"
-          hdiutil attach "$WORK/rw.dmg" -mountpoint "$MOUNT_DIR" -nobrowse -noautoopen
-          cp "apps/desktop/src-tauri/macos/Leeme-Install-ReadMe.txt" "$MOUNT_DIR/Leeme - Install ReadMe.txt"
-          hdiutil detach "$MOUNT_DIR"
-          hdiutil convert "$WORK/rw.dmg" -format UDZO -o "$WORK/final"
-          mv "$WORK/final.dmg" "$DMG"
-          rm -rf "$WORK" "$MOUNT_DIR"
-
-      - name: Re-upload updated DMG to the release (AC4)
-        if: matrix.platform == 'macos-latest'
-        shell: bash
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-          DMG=$(ls target/universal-apple-darwin/release/bundle/dmg/*.dmg | head -n1)
-          gh release upload "${{ github.ref_name }}" "$DMG" --clobber -R "${{ github.repository }}"
-
-      - name: Report installer size target (NFR12)
-        shell: bash
-        run: |
-          set -euo pipefail
-          MAX_BYTES=$((20 * 1024 * 1024))
-          FILE=$(ls ${{ matrix.bundle-glob }} 2>/dev/null | head -n1 || true)
-          if [ -z "$FILE" ]; then
-            echo "::error::No installer artifact matched ${{ matrix.bundle-glob }}"
-            exit 1
-          fi
-          SIZE=$(wc -c < "$FILE" | tr -d ' ')
-          NAME=$(basename "$FILE")
-          echo "Installer: $NAME — $SIZE bytes"
-          if [ "$SIZE" -gt "$MAX_BYTES" ]; then
-            echo "::warning::$NAME is $SIZE bytes, exceeds the $MAX_BYTES byte target (NFR12). Publishing continues; optimize in a future release."
-          else
-            echo "NFR12 size target passed: $NAME is within $MAX_BYTES bytes."
-          fi
-
-      - name: Remove uploaded asset if verification failed
-        if: failure() && steps.tauri-build.outcome == 'success'
-        shell: bash
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          FILE=$(ls ${{ matrix.bundle-glob }} 2>/dev/null | head -n1 || true)
-          [ -z "$FILE" ] && exit 0
-          NAME=$(basename "$FILE")
-          ASSET_ID=$(gh api "repos/${{ github.repository }}/releases/${{ needs.resolve-release.outputs.release-id }}/assets" --jq ".[] | select(.name == \"$NAME\") | .id" || true)
-          if [ -n "$ASSET_ID" ]; then
-            echo "Removing failed-verification asset $NAME (asset id $ASSET_ID) from the draft release."
-            gh api -X DELETE "repos/${{ github.repository }}/releases/assets/$ASSET_ID" || true
-          fi
+          mode: release
+          platform: ${{ matrix.platform }}
+          args: ${{ matrix.args }}
+          bundle-glob: ${{ matrix.bundle-glob }}
+          release-id: ${{ needs.preflight.outputs.release-id }}
+          tag-name: ${{ github.ref_name }}
 
   finalize-release:
     name: Verify release assets and publish
-    needs: [resolve-release, build-release]
+    needs: [preflight, build-release]
     runs-on: ubuntu-latest
     steps:
       - name: Verify required release assets are present
@@ -269,7 +175,7 @@ jobs:
           # The release-assets endpoint can lag briefly right after the last
           # matrix job's upload lands, so retry for up to 30s before failing.
           for attempt in $(seq 1 6); do
-            ASSETS=$(gh api "repos/${{ github.repository }}/releases/${{ needs.resolve-release.outputs.release-id }}/assets" --jq '.[].name')
+            ASSETS=$(gh api "repos/${{ github.repository }}/releases/${{ needs.preflight.outputs.release-id }}/assets" --jq '.[].name')
             MISSING=""
             for ext in msi dmg AppImage; do
               if ! echo "$ASSETS" | grep -qi "\\.${ext}$"; then
@@ -300,11 +206,11 @@ jobs:
         run: |
           set -euo pipefail
 
-          RELEASE_API="repos/${{ github.repository }}/releases/${{ needs.resolve-release.outputs.release-id }}"
+          RELEASE_API="repos/${{ github.repository }}/releases/${{ needs.preflight.outputs.release-id }}"
           BASE_URL="https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}"
           BODY=$(gh api "$RELEASE_API" --jq '.body // ""')
           ASSETS=$(gh api \
-            "repos/${{ github.repository }}/releases/${{ needs.resolve-release.outputs.release-id }}/assets" \
+            "repos/${{ github.repository }}/releases/${{ needs.preflight.outputs.release-id }}/assets" \
             --jq '.[].name')
 
           asset_name() {
@@ -456,7 +362,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          RELEASE_API="repos/${{ github.repository }}/releases/${{ needs.resolve-release.outputs.release-id }}"
+          RELEASE_API="repos/${{ github.repository }}/releases/${{ needs.preflight.outputs.release-id }}"
           RELEASE_TAG=$(gh api "$RELEASE_API" --jq '.tag_name')
           if [ "$RELEASE_TAG" != "$GITHUB_REF_NAME" ]; then
             echo "Associating draft release tag $RELEASE_TAG with triggering tag $GITHUB_REF_NAME."
@@ -541,4 +447,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh api -X PATCH "repos/${{ github.repository }}/releases/${{ needs.resolve-release.outputs.release-id }}" -f draft=true >/dev/null
+          gh api -X PATCH "repos/${{ github.repository }}/releases/${{ needs.preflight.outputs.release-id }}" -f draft=true >/dev/null

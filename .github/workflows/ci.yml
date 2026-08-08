@@ -11,7 +11,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  quality-checks:
+  lint-and-test:
     name: Code Quality & Tests
     runs-on: ubuntu-latest
     steps:
@@ -51,9 +51,40 @@ jobs:
       # Para ejecutarlos localmente: `pnpm test:e2e` (requiere tauri-driver instalado y app compilada).
       # Pipeline de release o job manual dedicado cuando se implemente en Story 2.x+.
 
-  compile-check:
+  build-frontend:
+    name: Build frontend (shared)
+    # Sin needs de lint-and-test: arranca en paralelo, igual que compile-matrix.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # A diferencia del `pnpm --filter ... run build:vite` anterior, esto sí
+      # pasa por turbo y se beneficia de su cache — antes se reconstruía el
+      # frontend una vez por cada plataforma de compile-matrix, sin cache.
+      - name: Build frontend
+        run: pnpm exec turbo build --filter=@vellum/desktop
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: apps/desktop/dist
+          retention-days: 1
+
+  compile-matrix:
     name: Compile Check ${{ matrix.platform }}
-    # NO usamos "needs: quality-checks". Queremos que arranque en paralelo para ahorrar tiempo.
+    needs: build-frontend
     strategy:
       fail-fast: false
       matrix:
@@ -70,12 +101,9 @@ jobs:
         with:
           os: ${{ matrix.platform }}
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Build frontend
-        run: pnpm --filter @vellum/desktop run build:vite
-
       # MAGIA: Usamos `check` en lugar de `build`. Un 60% más rápido.
       - name: Compile check desktop Rust shell
-        run: cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml
+        uses: ./.github/actions/build-tauri-platform
+        with:
+          mode: check
+          platform: ${{ matrix.platform }}

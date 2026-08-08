@@ -8,7 +8,7 @@ Your city took hundreds of hours to build. Vellum gives it a map worth keeping.
   <img src="packages/renderer-webgl/src/assets/vellum-logo.svg" alt="Vellum logo" width="160" />
 </p>
 
-[![PR & Main Validation](https://github.com/sebas-tcotd/vellum/actions/workflows/pr-validation.yml/badge.svg)](https://github.com/sebas-tcotd/vellum/actions/workflows/pr-validation.yml)
+[![PR & Main Validation](https://github.com/sebas-tcotd/vellum/actions/workflows/ci.yml/badge.svg)](https://github.com/sebas-tcotd/vellum/actions/workflows/ci.yml)
 &nbsp;[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 &nbsp;·&nbsp;[Español](docs/README.es.md)
 
