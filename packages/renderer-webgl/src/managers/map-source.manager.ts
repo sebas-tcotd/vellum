@@ -47,13 +47,14 @@ export class MapSourceManager {
     addBasemapLandLayer(this.map, cityData, this.colors);
     addTerrainReliefLayers(this.map, cityData, this.colors);
     addBasemapWaterLayers(this.map, cityData, this.colors);
-    addGridLayer(this.map, cityData, this.colors.grid);
     addTerrainContourLayer(this.map, cityData, this.colors);
     addForestsLayer(this.map, cityData, this.colors);
     addBuildingsLayer(this.map, cityData, this.colors);
     await addServiceIconsLayer(this.map);
     addRoadsLayer(this.map, cityData, this.colors);
     addTransitLayers(this.map, cityData);
+    // Sits above every other data layer but below districts/park-areas, per product request.
+    addGridLayer(this.map, cityData, this.colors.grid);
     addDistrictsLayer(this.map, cityData, this.colors);
     addParksLayer(this.map, cityData, this.colors);
     addMapFrameLayer(this.map, this.colors);
