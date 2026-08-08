@@ -293,16 +293,157 @@ jobs:
           echo "::error::Missing required asset(s) after 30 seconds:$MISSING — refusing to publish."
           exit 1
 
-      - name: Annotate temporary unsigned Windows release
-        if: vars.ALLOW_UNSIGNED_WINDOWS == 'true'
+      - name: Add download and installation guide
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ALLOW_UNSIGNED_WINDOWS: ${{ vars.ALLOW_UNSIGNED_WINDOWS }}
         run: |
           set -euo pipefail
+
           RELEASE_API="repos/${{ github.repository }}/releases/${{ needs.resolve-release.outputs.release-id }}"
-          BODY=$(gh api "$RELEASE_API" --jq '.body')
-          BODY=$(printf '%s\n\n%s' "$BODY" '> **Windows notice:** The MSI in this release is intentionally unsigned with Authenticode. Windows may show an unknown-publisher warning. Tauri updater artifacts remain cryptographically signed.')
-          gh api -X PATCH "$RELEASE_API" -f body="$BODY" >/dev/null
+          BASE_URL="https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}"
+          BODY=$(gh api "$RELEASE_API" --jq '.body // ""')
+          ASSETS=$(gh api \
+            "repos/${{ github.repository }}/releases/${{ needs.resolve-release.outputs.release-id }}/assets" \
+            --jq '.[].name')
+
+          asset_name() {
+            local pattern="$1"
+            local name
+            name=$(printf '%s\n' "$ASSETS" | grep -Ei "$pattern" | head -n1 || true)
+            if [ -z "$name" ]; then
+              echo "::error::Required release asset matching $pattern was not found."
+              exit 1
+            fi
+            printf '%s' "$name"
+          }
+
+          MSI=$(asset_name '\.msi$')
+          EXE=$(asset_name '\.exe$')
+          DMG=$(asset_name '\.dmg$')
+          APPIMAGE=$(asset_name '\.AppImage$')
+          DEB=$(asset_name '\.deb$')
+          RPM=$(asset_name '\.rpm$')
+
+          if [ "${ALLOW_UNSIGNED_WINDOWS:-}" = "true" ]; then
+            WINDOWS_NOTE='> [!NOTE]
+          > Vellum is not yet Authenticode-signed on Windows.
+          > Windows may display an **Unknown publisher** warning.
+          > Tauri updater artifacts remain cryptographically signed.'
+          else
+            WINDOWS_NOTE='> [!NOTE]
+          > The Windows installer is Authenticode-signed.
+          > Tauri updater artifacts are cryptographically signed as well.'
+          fi
+
+          GUIDE=$(cat <<'EOF'
+          # Download Vellum
+
+          Choose your operating system below. If you're not sure which file to use,
+          follow the recommended option for your platform.
+
+          ## 🪟 Windows
+
+          ### Download
+
+          **Recommended:** [Windows MSI installer](__BASE_URL__/__MSI__)
+
+          [Alternative EXE installer](__BASE_URL__/__EXE__)
+
+          __WINDOWS_NOTE__
+
+          ### Installation
+
+          1. Download the **MSI installer** above.
+          2. Double-click the downloaded file.
+          3. If Windows displays a security warning, continue to the installer.
+          4. Follow the on-screen steps.
+          5. Open **Vellum** once installation completes.
+
+          If you're unsure which Windows file to use, choose the **MSI**.
+
+          ---
+
+          ## 🍎 macOS
+
+          ### Download
+
+          **Recommended:** [Universal macOS DMG](__BASE_URL__/__DMG__)
+
+          This build works on both **Apple Silicon** and **Intel** Macs.
+
+          ### Installation
+
+          1. Download and open the **DMG**.
+          2. Drag **Vellum** into the **Applications** folder.
+          3. Open Vellum from Applications.
+
+          > [!NOTE]
+          > If macOS prevents Vellum from opening because the developer cannot
+          > be verified, go to **System Settings → Privacy & Security** and allow
+          > Vellum to open.
+
+          ---
+
+          ## 🐧 Linux
+
+          ### Ubuntu / Debian
+
+          **Recommended:** [DEB package](__BASE_URL__/__DEB__)
+
+          #### Installation
+
+          1. Download the **DEB** package.
+          2. Double-click it.
+          3. Open it with your system's software installer.
+          4. Select **Install**.
+
+          Terminal users can also run:
+
+          ```bash
+          sudo apt install ./__DEB__
+          ```
+
+          ### Other distributions
+
+          [AppImage](__BASE_URL__/__APPIMAGE__)
+
+          No traditional installation is required:
+
+          ```bash
+          chmod +x __APPIMAGE__
+          ./__APPIMAGE__
+          ```
+
+          ### Fedora / RHEL
+
+          [RPM package](__BASE_URL__/__RPM__)
+
+          ---
+
+          > [!TIP]
+          > The `.sig` files, `latest.json`, and updater archives listed under
+          > GitHub Assets are primarily used by Vellum's automatic update system.
+          > Most users do not need to download them manually.
+
+          ---
+          EOF
+          )
+
+          GUIDE="${GUIDE//__BASE_URL__/$BASE_URL}"
+          GUIDE="${GUIDE//__MSI__/$MSI}"
+          GUIDE="${GUIDE//__EXE__/$EXE}"
+          GUIDE="${GUIDE//__DMG__/$DMG}"
+          GUIDE="${GUIDE//__APPIMAGE__/$APPIMAGE}"
+          GUIDE="${GUIDE//__DEB__/$DEB}"
+          GUIDE="${GUIDE//__RPM__/$RPM}"
+          GUIDE="${GUIDE//__WINDOWS_NOTE__/$WINDOWS_NOTE}"
+          GUIDE+=$'\n\n'
+          GUIDE+="$BODY"
+
+          gh api -X PATCH "$RELEASE_API" \
+            -f body="$GUIDE" \
+            >/dev/null
 
       - name: Checkout release commit for local verification
         uses: actions/checkout@v4
