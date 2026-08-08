@@ -1,18 +1,29 @@
 name: Publish Release
 
-# Required GitHub Actions secrets (Story 7.5):
+# Required GitHub Actions secrets (Stories 7.5 and release automation):
+#   RELEASE_PLEASE_TOKEN
+#     - PAT or GitHub App token used by Release Please. It must be allowed to
+#       create pull requests, tags and releases, and is required because a
+#       default GITHUB_TOKEN does not reliably trigger the tag workflow.
 #   TAURI_SIGNING_PRIVATE_KEY, TAURI_SIGNING_PRIVATE_KEY_PASSWORD
 #     - Sign updater artifacts for tauri-plugin-updater. Not a code-signing
 #       certificate; unrelated to Authenticode/SmartScreen (see 7.5 Dev Notes).
 #   WINDOWS_CERTIFICATE (base64-encoded .pfx), WINDOWS_CERTIFICATE_PASSWORD
 #     - Authenticode code-signing certificate for the Windows MSI (AC3). The
 #       windows build job fails before producing an unsigned MSI if these are
-#       missing — there is no silent unsigned fallback.
+#       missing, unless the repository variable ALLOW_UNSIGNED_WINDOWS is
+#       explicitly set to 'true' as a temporary opt-in.
+#   ALLOW_UNSIGNED_WINDOWS (repository variable, not a secret)
+#     - Set to 'true' only for a temporary unsigned Windows release. This
+#       bypasses Authenticode import/verification but never bypasses Tauri
+#       updater signing via TAURI_SIGNING_PRIVATE_KEY.
 #
-# Release publication policy (Story 7.5, resolves the 7.4 draft/updater gap):
-#   The GitHub Release is created as a draft while builds run, then published
-#   (draft -> false) by the finalize-release job ONLY after every platform's
-#   signature check, size check (NFR12) and the release-wide asset check pass.
+# Release publication policy:
+#   Release Please creates the GitHub Release as a draft and force-creates its
+#   tag. This workflow resolves that existing draft, builds and uploads all
+#   platform artifacts, then publishes it (draft -> false) ONLY after every
+#   platform's signature check, size check (NFR12), updater manifest check and
+#   release-wide asset check pass.
 #   A failed verification leaves the release as a draft — nothing is
 #   auto-published from a broken build.
 
@@ -25,26 +36,28 @@ permissions:
   contents: write
 
 jobs:
-  create-release:
-    name: Create GitHub Release
+  resolve-release:
+    name: Resolve Release Please draft
     runs-on: ubuntu-latest
     outputs:
-      release-id: ${{ steps.create-release.outputs.id }}
+      release-id: ${{ steps.resolve-release.outputs.release-id }}
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Create Release
-        id: create-release
-        uses: softprops/action-gh-release@v2
-        with:
-          name: Vellum ${{ github.ref_name }}
-          body: 'See the release notes below and the project changelog for details.'
-          draft: true
-          prerelease: false
+      - name: Resolve existing Release by tag
+        id: resolve-release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          RELEASE_ID=$(gh api "repos/${{ github.repository }}/releases/tags/${GITHUB_REF_NAME}" --jq '.id' 2>/dev/null || true)
+          if [ -z "$RELEASE_ID" ]; then
+            echo "::error::No GitHub Release exists for ${GITHUB_REF_NAME}. Release Please must create the draft before this workflow runs."
+            exit 1
+          fi
+          echo "release-id=$RELEASE_ID" >> "$GITHUB_OUTPUT"
 
   build-release:
     name: Build ${{ matrix.platform }}
-    needs: create-release
+    needs: resolve-release
     strategy:
       fail-fast: false
       matrix:
@@ -71,8 +84,19 @@ jobs:
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Verify Tauri updater signing secrets are present
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ]; then
+            echo "::error::TAURI_SIGNING_PRIVATE_KEY is required for signed updater artifacts. TAURI_SIGNING_PRIVATE_KEY_PASSWORD may be empty only when the key has no passphrase."
+            exit 1
+          fi
+
       - name: Verify Windows signing secrets are present
-        if: matrix.platform == 'windows-latest'
+        if: matrix.platform == 'windows-latest' && vars.ALLOW_UNSIGNED_WINDOWS != 'true'
         shell: bash
         run: |
           if [ -z "${{ secrets.WINDOWS_CERTIFICATE }}" ] || [ -z "${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}" ]; then
@@ -82,7 +106,7 @@ jobs:
 
       - name: Import Windows code signing certificate
         id: import-cert
-        if: matrix.platform == 'windows-latest'
+        if: matrix.platform == 'windows-latest' && vars.ALLOW_UNSIGNED_WINDOWS != 'true'
         shell: pwsh
         run: |
           $certBytes = [Convert]::FromBase64String("${{ secrets.WINDOWS_CERTIFICATE }}")
@@ -98,7 +122,7 @@ jobs:
         shell: bash
         run: |
           ARGS="${{ matrix.args }}"
-          if [ "${{ matrix.platform }}" = "windows-latest" ]; then
+          if [ "${{ matrix.platform }}" = "windows-latest" ] && [ "${{ vars.ALLOW_UNSIGNED_WINDOWS }}" != "true" ]; then
             CONFIG_JSON=$(printf '{"bundle":{"windows":{"certificateThumbprint":"%s","digestAlgorithm":"sha256","timestampUrl":"http://timestamp.digicert.com"}}}' "${{ steps.import-cert.outputs.thumbprint }}")
             ARGS="$ARGS --config $CONFIG_JSON"
           fi
@@ -112,12 +136,12 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          releaseId: ${{ needs.create-release.outputs.release-id }}
+          releaseId: ${{ needs.resolve-release.outputs.release-id }}
           args: ${{ steps.build-args.outputs.args }}
           projectPath: apps/desktop
 
       - name: Verify Authenticode signature (Windows, AC3)
-        if: matrix.platform == 'windows-latest'
+        if: matrix.platform == 'windows-latest' && vars.ALLOW_UNSIGNED_WINDOWS != 'true'
         shell: pwsh
         run: |
           $msi = Get-ChildItem -Path "apps/desktop/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msi" -Filter *.msi -Recurse | Select-Object -First 1
@@ -134,6 +158,18 @@ jobs:
           }
           # SmartScreen "unknown publisher" reputation additionally depends on install-base
           # telemetry that only a real, clean-machine install can confirm — see Task 4 evidence.
+
+      - name: Record intentional unsigned Windows MSI
+        if: matrix.platform == 'windows-latest' && vars.ALLOW_UNSIGNED_WINDOWS == 'true'
+        shell: pwsh
+        run: |
+          $msi = Get-ChildItem -Path "apps/desktop/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msi" -Filter *.msi -Recurse | Select-Object -First 1
+          if (-not $msi) {
+            Write-Error "No .msi artifact found for the intentional unsigned Windows release."
+            exit 1
+          }
+          $sig = Get-AuthenticodeSignature -FilePath $msi.FullName
+          Write-Warning "Publishing an intentionally unsigned Windows MSI: $($msi.Name) (status: $($sig.Status))."
 
       - name: Add visible install guide inside the DMG (AC4, macOS)
         if: matrix.platform == 'macos-latest'
@@ -188,7 +224,7 @@ jobs:
           FILE=$(ls ${{ matrix.bundle-glob }} 2>/dev/null | head -n1 || true)
           [ -z "$FILE" ] && exit 0
           NAME=$(basename "$FILE")
-          ASSET_ID=$(gh api "repos/${{ github.repository }}/releases/${{ needs.create-release.outputs.release-id }}/assets" --jq ".[] | select(.name == \"$NAME\") | .id" || true)
+          ASSET_ID=$(gh api "repos/${{ github.repository }}/releases/${{ needs.resolve-release.outputs.release-id }}/assets" --jq ".[] | select(.name == \"$NAME\") | .id" || true)
           if [ -n "$ASSET_ID" ]; then
             echo "Removing failed-verification asset $NAME (asset id $ASSET_ID) from the draft release."
             gh api -X DELETE "repos/${{ github.repository }}/releases/assets/$ASSET_ID" || true
@@ -196,7 +232,7 @@ jobs:
 
   finalize-release:
     name: Verify release assets and publish
-    needs: [create-release, build-release]
+    needs: [resolve-release, build-release]
     runs-on: ubuntu-latest
     steps:
       - name: Verify required release assets are present
@@ -204,7 +240,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          ASSETS=$(gh api "repos/${{ github.repository }}/releases/${{ needs.create-release.outputs.release-id }}/assets" --jq '.[].name')
+          ASSETS=$(gh api "repos/${{ github.repository }}/releases/${{ needs.resolve-release.outputs.release-id }}/assets" --jq '.[].name')
           echo "Release assets:"
           echo "$ASSETS"
           for ext in msi dmg AppImage; do
@@ -214,8 +250,46 @@ jobs:
             fi
           done
 
+          if ! echo "$ASSETS" | grep -qx 'latest.json'; then
+            echo "::error::Missing latest.json updater manifest — refusing to publish."
+            exit 1
+          fi
+
+      - name: Annotate temporary unsigned Windows release
+        if: vars.ALLOW_UNSIGNED_WINDOWS == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          RELEASE_API="repos/${{ github.repository }}/releases/${{ needs.resolve-release.outputs.release-id }}"
+          BODY=$(gh api "$RELEASE_API" --jq '.body')
+          BODY=$(printf '%s\n\n%s' "$BODY" '> **Windows notice:** The MSI in this release is intentionally unsigned with Authenticode. Windows may show an unknown-publisher warning. Tauri updater artifacts remain cryptographically signed.')
+          gh api -X PATCH "$RELEASE_API" -f body="$BODY" >/dev/null
+
+      - name: Checkout release commit for local verification
+        uses: actions/checkout@v4
+
+      - name: Verify synchronized version files
+        run: node scripts/verify-release-config.mjs
+
       - name: Publish release (required for the updater's latest.json endpoint)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh api -X PATCH "repos/${{ github.repository }}/releases/${{ needs.create-release.outputs.release-id }}" -f draft=false
+          gh api -X PATCH "repos/${{ github.repository }}/releases/${{ needs.resolve-release.outputs.release-id }}" -f draft=false
+
+      - name: Smoke-check public updater manifest
+        id: updater-smoke-check
+        env:
+          MANIFEST_URL: https://github.com/${{ github.repository }}/releases/latest/download/latest.json
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --retry 5 --retry-delay 5 "$MANIFEST_URL" -o /tmp/latest.json
+          node -e 'const m = require("/tmp/latest.json"); const platforms = Object.values(m.platforms ?? {}); if (!m.version || platforms.length === 0 || platforms.some((p) => typeof p.url !== "string" || typeof p.signature !== "string" || p.signature.length === 0)) process.exit(1);'
+
+      - name: Revert release to draft if updater smoke check fails
+        if: failure() && steps.updater-smoke-check.outcome == 'failure'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api -X PATCH "repos/${{ github.repository }}/releases/${{ needs.resolve-release.outputs.release-id }}" -f draft=true

@@ -1,0 +1,28 @@
+name: Release Please
+
+# RELEASE_PLEASE_TOKEN must be a PAT or GitHub App token with contents,
+# pull-requests and issues write access. The default GITHUB_TOKEN does not
+# reliably trigger the tag workflow after Release Please creates a tag.
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    name: Create or update release PR
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run Release Please
+        id: release
+        uses: googleapis/release-please-action@v4
+        with:
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json

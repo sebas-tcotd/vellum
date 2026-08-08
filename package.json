@@ -13,6 +13,7 @@
     "rust:fmt": "cargo fmt --all -- --check",
     "rust:lint": "cargo clippy --workspace -- -D warnings",
     "rust:test": "cargo test --workspace",
+    "release:verify": "node scripts/verify-release-config.mjs",
     "prepare": "husky",
     "format": "prettier --write \"**/*.{js,mjs,cjs,ts,tsx,json,md,css,scss,html,yaml,yml}\" --ignore-path .prettierignore",
     "format:check": "prettier --check \"**/*.{js,mjs,cjs,ts,tsx,json,md,css,scss,html,yaml,yml}\" --ignore-path .prettierignore"
