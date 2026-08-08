@@ -115,10 +115,15 @@ export const NON_TRANSIT_OPACITY: Record<
       | 'icon-opacity'
       | 'text-opacity'
       | 'color-relief-opacity'
-      | 'hillshade-exaggeration';
+      | 'hillshade-exaggeration'
+      | 'background-opacity';
     base: unknown;
   }
 > = {
+  // Dimmed like every other non-transit layer: it sits beneath everything else,
+  // so leaving it undimmed would keep the full-brightness theme color dominant
+  // even once terrain/roads/buildings above it faded out.
+  background: { prop: 'background-opacity', base: 1 },
   'terrain-color-relief': { prop: 'color-relief-opacity', base: 1 },
   'terrain-hillshade': {
     prop: 'hillshade-exaggeration',

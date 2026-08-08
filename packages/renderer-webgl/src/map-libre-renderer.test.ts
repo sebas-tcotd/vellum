@@ -8,6 +8,7 @@ import type {
   RenderStyleParams,
   RoadCategoryColors,
 } from '@vellum/core';
+import { TRANSIT_DIM_FACTOR } from './constants/layer.constants';
 import { buildBuildingColorExpression } from './expressions/building-color';
 import { buildParkColorExpression } from './expressions/park-color';
 import { resolveColors } from './style-adapter';
@@ -1021,6 +1022,11 @@ describe('MapLibreRenderer', () => {
         'fill-opacity',
         ['*', 0.85, 0.15],
       );
+      expect(mockMap.setPaintProperty).toHaveBeenCalledWith(
+        'background',
+        'background-opacity',
+        ['*', 1, 0.15],
+      );
     });
 
     it('restores baseline opacity when disabled', async () => {
@@ -1043,6 +1049,11 @@ describe('MapLibreRenderer', () => {
         'buildings-fill',
         'fill-opacity',
         0.85,
+      );
+      expect(mockMap.setPaintProperty).toHaveBeenCalledWith(
+        'background',
+        'background-opacity',
+        1,
       );
     });
 
@@ -1074,6 +1085,37 @@ describe('MapLibreRenderer', () => {
       mockMap.getLayer.mockReturnValue(undefined);
       expect(() => renderer.setTransitDimming(true)).not.toThrow();
       expect(mockMap.setPaintProperty).not.toHaveBeenCalled();
+    });
+
+    it('keeps the hypsometric relief dimmed across a later setLayerOptions call', async () => {
+      const renderer = makeRenderer();
+      await renderer.render(makeCityData(), {
+        activeLayers: ALL_LAYERS_VISIBLE,
+      });
+      mockMap.getLayer.mockReturnValue({ id: 'any' } as unknown as undefined);
+      renderer.setTransitDimming(true);
+      vi.clearAllMocks();
+      mockMap.getLayer.mockReturnValue({ id: 'any' } as unknown as undefined);
+
+      // Toggling any option (here: contour lines) re-runs setOptions, which
+      // must not reset the relief back to full opacity while dimming holds.
+      renderer.setLayerOptions({
+        transit: { visibleModes: [] },
+        buildings: { visibleCategories: [], colorByCategory: false },
+        districts: { showNameOnMap: false, showParkAreas: false },
+        terrain: {
+          showContourLines: false,
+          showColorRelief: true,
+          showHillshade: true,
+        },
+        basemap: { showGrid: false },
+      });
+
+      expect(mockMap.setPaintProperty).toHaveBeenCalledWith(
+        'terrain-color-relief',
+        'color-relief-opacity',
+        TRANSIT_DIM_FACTOR,
+      );
     });
   });
 
@@ -1913,6 +1955,20 @@ describe('MapLibreRenderer', () => {
       const elapsed = performance.now() - start;
 
       expect(elapsed).toBeLessThan(16);
+    });
+
+    it('does not undo setTransitDimming: MapLibreRoot calls setTransitDimming then applyTheme in the same effect', async () => {
+      const renderer = makeRenderer();
+      mockMap.getLayer.mockReturnValue({ id: 'any' } as unknown as undefined);
+
+      renderer.setTransitDimming(true);
+      await renderer.applyTheme(MOCK_STYLE);
+
+      expect(mockMap.setPaintProperty).toHaveBeenCalledWith(
+        'terrain-color-relief',
+        'color-relief-opacity',
+        TRANSIT_DIM_FACTOR,
+      );
     });
   });
 });

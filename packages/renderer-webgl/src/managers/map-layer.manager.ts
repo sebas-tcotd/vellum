@@ -31,6 +31,14 @@ export class MapLayerManager {
   private districtsShowParkAreas = false;
 
   /**
+   * Mirrors the last `setTransitDimming` call, so `setOptions` (fired whenever
+   * any layer option changes, e.g. toggling the hypsometric relief itself)
+   * can keep `terrain-color-relief` dimmed instead of resetting it back to
+   * full opacity.
+   */
+  private transitDimmingEnabled = false;
+
+  /**
    * Elevation domain of the loaded city, needed to rebuild the hypsometric ramp on a
    * theme switch. `null` until a city is rendered.
    */
@@ -115,6 +123,7 @@ export class MapLayerManager {
    * for free, since the paint property was never reset while hidden.
    */
   setTransitDimming(enabled: boolean): void {
+    this.transitDimmingEnabled = enabled;
     for (const [id, { prop, base }] of Object.entries(NON_TRANSIT_OPACITY)) {
       const value = enabled
         ? (['*', base, TRANSIT_DIM_FACTOR] as unknown)
@@ -176,7 +185,7 @@ export class MapLayerManager {
     this.setPaintIfExists(
       'terrain-color-relief',
       'color-relief-opacity',
-      terrain.showColorRelief ? 1 : 0,
+      this.terrainColorReliefOpacity(terrain.showColorRelief),
     );
     this.setPaintIfExists(
       'terrain-hillshade',
@@ -207,6 +216,22 @@ export class MapLayerManager {
       'visibility',
       visible ? 'visible' : 'none',
     );
+  }
+
+  /**
+   * The hypsometric relief's `color-relief-opacity`, honoring both the
+   * terrain switch and the current transit-dimming state.
+   *
+   * @remarks
+   * Shared by `setOptions` and `applyTheme` — both re-assert this paint
+   * property on every call (guarding the user's `showColorRelief` switch
+   * against whatever else each method just changed), and either one
+   * hardcoding `1` instead of consulting `transitDimmingEnabled` would silently
+   * undo `setTransitDimming`'s fade the next time it ran.
+   */
+  private terrainColorReliefOpacity(showColorRelief: boolean): number {
+    if (!showColorRelief) return 0;
+    return this.transitDimmingEnabled ? TRANSIT_DIM_FACTOR : 1;
   }
 
   /**
@@ -356,7 +381,7 @@ export class MapLayerManager {
     this.setPaintIfExists(
       'terrain-color-relief',
       'color-relief-opacity',
-      terrainOpts.showColorRelief ? 1 : 0,
+      this.terrainColorReliefOpacity(terrainOpts.showColorRelief),
     );
     this.setPaintIfExists(
       'terrain-hillshade',
