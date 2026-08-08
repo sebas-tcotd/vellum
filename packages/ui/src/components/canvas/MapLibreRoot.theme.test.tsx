@@ -43,10 +43,11 @@ vi.mock('../overlays/MapTooltip', () => ({ MapTooltip: () => null }));
 
 let mockActiveTheme = 'day';
 let mockTransitDimmingEnabled = false;
+let mockCityData: unknown = null;
 vi.mock('../../store/vellum-store', () => ({
   useVellumStore: (selector: (s: unknown) => unknown) =>
     selector({
-      cityData: null,
+      cityData: mockCityData,
       activeTheme: mockActiveTheme,
       transitDimmingEnabled: mockTransitDimmingEnabled,
       layerOptions: {
@@ -77,6 +78,7 @@ describe('MapLibreRoot — Story 5.1: aplicación de tema (AC #2, #4)', () => {
     applyThemeSpy.mockClear();
     setTransitDimmingSpy.mockClear();
     mockActiveTheme = 'day';
+    mockCityData = null;
     vi.stubGlobal(
       'ResizeObserver',
       function MockResizeObserver(this: {
@@ -139,6 +141,22 @@ describe('MapLibreRoot — Story 5.1: aplicación de tema (AC #2, #4)', () => {
     );
     consoleError.mockRestore();
   });
+
+  it('vuelve a llamar applyTheme cuando cityData cambia, para colorear correctamente las capas recién creadas', async () => {
+    mockActiveTheme = 'transit';
+    const themes = [theme('day', 'Day'), theme('transit', 'Transit')];
+    const { rerender } = render(<MapLibreRoot themes={themes} />);
+    await waitFor(() => expect(applyThemeSpy).toHaveBeenCalledTimes(1));
+
+    // Simula una ciudad cargándose después de que los temas ya resolvieron: si
+    // `applyTheme` no se re-dispara aquí, las capas recién creadas por
+    // `initializeSourcesAndLayers` (base-water, base-land) quedan pintadas con
+    // los colores por defecto en lugar del tema activo.
+    mockCityData = { cityName: 'Test City' };
+    rerender(<MapLibreRoot themes={themes} />);
+
+    await waitFor(() => expect(applyThemeSpy).toHaveBeenCalledTimes(2));
+  });
 });
 
 describe('MapLibreRoot — Story 5.3: dimming automático, opt-in (AC #1, #4)', () => {
@@ -147,6 +165,7 @@ describe('MapLibreRoot — Story 5.3: dimming automático, opt-in (AC #1, #4)', 
     setTransitDimmingSpy.mockClear();
     mockActiveTheme = 'day';
     mockTransitDimmingEnabled = false;
+    mockCityData = null;
     vi.stubGlobal(
       'ResizeObserver',
       function MockResizeObserver(this: {

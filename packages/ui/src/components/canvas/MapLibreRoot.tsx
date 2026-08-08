@@ -149,6 +149,17 @@ export function MapLibreRoot({
 
   // Apply the active theme's RenderStyleParams whenever it (or the loaded set) changes.
   // The renderer is constructed with DEFAULT_RENDER_STYLE_PARAMS as fallback until themes resolve.
+  //
+  // `cityData` is also a dependency, even though it never changes which style is
+  // active: loading a city creates fresh layers (`base-water`, `base-land`, ...)
+  // colored from whatever `MapSourceManager` currently holds, and that source of
+  // truth is only ever updated by a completed `applyTheme()` call. If a city
+  // loads before the (independent, IPC-loaded) `themes` list resolves, those
+  // fresh layers otherwise bake in the `DEFAULT_RENDER_STYLE_PARAMS` fallback
+  // color forever — nothing revisits them once created, so the map looked
+  // themed everywhere except a background/water that never caught up until the
+  // user picked a theme by hand. Re-running this effect after every city load
+  // re-asserts the current theme once it's actually known, closing that gap.
   useEffect(() => {
     let cancelled = false;
     const renderer = rendererRef.current;
@@ -165,7 +176,7 @@ export function MapLibreRoot({
     return () => {
       cancelled = true;
     };
-  }, [activeTheme, themes, transitDimmingEnabled]);
+  }, [activeTheme, themes, transitDimmingEnabled, cityData]);
 
   // Clear the map when loading starts so the old map doesn't linger
   useEffect(() => {
