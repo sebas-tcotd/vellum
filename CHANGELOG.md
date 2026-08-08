@@ -2,6 +2,13 @@
 
 All notable changes to Vellum will be documented here.
 
+## [0.3.0](https://github.com/sebas-tcotd/vellum/compare/v0.2.8...v0.3.0) (2026-08-08)
+
+
+### Features
+
+* **release:** add installation guide to GitHub releases ([8c43165](https://github.com/sebas-tcotd/vellum/commit/8c431655e53d7a6b7ce8427e51e1fd8bfdc6624a))
+
 ## [0.2.8](https://github.com/sebas-tcotd/vellum/compare/v0.2.7...v0.2.8) (2026-08-08)
 
 
