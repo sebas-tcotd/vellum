@@ -2,6 +2,13 @@
 
 All notable changes to Vellum will be documented here.
 
+## [0.2.1](https://github.com/sebas-tcotd/vellum/compare/v0.2.0...v0.2.1) (2026-08-08)
+
+
+### Bug Fixes
+
+* **ci:** repair release artifact publishing ([e7d7ce0](https://github.com/sebas-tcotd/vellum/commit/e7d7ce096b9c138aeb9830605ff94b26417247a4))
+
 ## [0.2.0](https://github.com/sebas-tcotd/vellum/compare/v0.1.0...v0.2.0) (2026-08-08)
 
 
