@@ -2,6 +2,13 @@
 
 All notable changes to Vellum will be documented here.
 
+## [0.2.5](https://github.com/sebas-tcotd/vellum/compare/v0.2.4...v0.2.5) (2026-08-08)
+
+
+### Bug Fixes
+
+* **release:** increase attempts and timeout for updater manifest validation ([62497cf](https://github.com/sebas-tcotd/vellum/commit/62497cff32bda1f038bf3612b60e1ffdae927797))
+
 ## [0.2.4](https://github.com/sebas-tcotd/vellum/compare/v0.2.3...v0.2.4) (2026-08-08)
 
 
