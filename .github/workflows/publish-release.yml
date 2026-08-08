@@ -48,7 +48,10 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          RELEASE_ID=$(gh api "repos/${{ github.repository }}/releases/tags/${GITHUB_REF_NAME}" --jq '.id' 2>/dev/null || true)
+          # Draft releases are not reliably returned by the release-by-tag
+          # endpoint. List releases instead so the Release Please draft is
+          # resolvable before it is published.
+          RELEASE_ID=$(gh api --paginate "repos/${{ github.repository }}/releases?per_page=100" --jq '.[] | select(.tag_name == env.GITHUB_REF_NAME) | .id' | head -n1)
           if [ -z "$RELEASE_ID" ]; then
             echo "::error::No GitHub Release exists for ${GITHUB_REF_NAME}. Release Please must create the draft before this workflow runs."
             exit 1
@@ -64,13 +67,13 @@ jobs:
         include:
           - platform: windows-latest
             args: '--target x86_64-pc-windows-msvc'
-            bundle-glob: 'apps/desktop/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msi/*.msi'
+            bundle-glob: 'target/x86_64-pc-windows-msvc/release/bundle/msi/*.msi'
           - platform: macos-latest
             args: '--target universal-apple-darwin'
-            bundle-glob: 'apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg'
+            bundle-glob: 'target/universal-apple-darwin/release/bundle/dmg/*.dmg'
           - platform: ubuntu-22.04
             args: ''
-            bundle-glob: 'apps/desktop/src-tauri/target/release/bundle/appimage/*.AppImage'
+            bundle-glob: 'target/release/bundle/appimage/*.AppImage'
 
     runs-on: ${{ matrix.platform }}
     steps:
@@ -83,6 +86,11 @@ jobs:
 
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Install macOS universal Rust targets
+        if: matrix.platform == 'macos-latest'
+        shell: bash
+        run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
 
       - name: Verify Tauri updater signing secrets are present
         shell: bash
@@ -144,7 +152,7 @@ jobs:
         if: matrix.platform == 'windows-latest' && vars.ALLOW_UNSIGNED_WINDOWS != 'true'
         shell: pwsh
         run: |
-          $msi = Get-ChildItem -Path "apps/desktop/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msi" -Filter *.msi -Recurse | Select-Object -First 1
+          $msi = Get-ChildItem -Path "target/x86_64-pc-windows-msvc/release/bundle/msi" -Filter *.msi -Recurse | Select-Object -First 1
           if (-not $msi) {
             Write-Error "No .msi artifact found to verify."
             exit 1
@@ -163,7 +171,7 @@ jobs:
         if: matrix.platform == 'windows-latest' && vars.ALLOW_UNSIGNED_WINDOWS == 'true'
         shell: pwsh
         run: |
-          $msi = Get-ChildItem -Path "apps/desktop/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msi" -Filter *.msi -Recurse | Select-Object -First 1
+          $msi = Get-ChildItem -Path "target/x86_64-pc-windows-msvc/release/bundle/msi" -Filter *.msi -Recurse | Select-Object -First 1
           if (-not $msi) {
             Write-Error "No .msi artifact found for the intentional unsigned Windows release."
             exit 1
@@ -176,7 +184,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          DMG=$(ls apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg | head -n1)
+          DMG=$(ls target/universal-apple-darwin/release/bundle/dmg/*.dmg | head -n1)
           WORK=$(mktemp -d)
           MOUNT_DIR=$(mktemp -d)
           hdiutil convert "$DMG" -format UDRW -o "$WORK/rw"
@@ -194,7 +202,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          DMG=$(ls apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg | head -n1)
+          DMG=$(ls target/universal-apple-darwin/release/bundle/dmg/*.dmg | head -n1)
           gh release upload "${{ github.ref_name }}" "$DMG" --clobber -R "${{ github.repository }}"
 
       - name: Enforce installer size limit (NFR12)
