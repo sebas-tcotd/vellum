@@ -2,6 +2,13 @@
 
 All notable changes to Vellum will be documented here.
 
+## [0.2.2](https://github.com/sebas-tcotd/vellum/compare/v0.2.1...v0.2.2) (2026-08-08)
+
+
+### Bug Fixes
+
+* **ci:** make installer size target non-blocking ([e08d9a7](https://github.com/sebas-tcotd/vellum/commit/e08d9a7bfea8f6c24e2c2017ccb6728a39bac1f7))
+
 ## [0.2.1](https://github.com/sebas-tcotd/vellum/compare/v0.2.0...v0.2.1) (2026-08-08)
 
 
