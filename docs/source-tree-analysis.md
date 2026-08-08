@@ -78,9 +78,7 @@ vellum/
 │           ├── store/                  # vellum-store.ts (Zustand) + preferences-store.ts (tauri-plugin-store)
 │           ├── i18n/                   # i18n-setup.ts + locales/{en,es}.json
 │           └── lib/                    # utils.ts (cn), button/dialog/progress/separator/switch.tsx (Radix, estilo shadcn)
-├── docs/                               # Esta documentación
-├── _bmad-output/                       # Artefactos de planificación (symlink a ../vellum-context)
-└── _bmad/                              # Configuración del flujo de trabajo BMad
+└── docs/                               # Esta documentación
 ```
 
 ## Carpetas críticas explicadas
@@ -102,4 +100,4 @@ vellum/
 
 ## Nota sobre `renderer-canvas`
 
-Al momento de este escaneo hay un cambio sin commitear que elimina los últimos wrappers de React (`CanvasRoot.tsx`, `CanvasLayer.tsx`, `hooks/useRenderLoop.ts`) de `packages/ui/src/components/canvas/`. Un grep confirma que ningún archivo fuente de `apps/desktop` o `packages/ui` importa hoy nada de `@vellum/renderer-canvas` — el package queda como referencia testeada, no como dependencia real.
+Los últimos wrappers de React (`CanvasRoot.tsx`, `CanvasLayer.tsx`, `hooks/useRenderLoop.ts`) ya no forman parte de `packages/ui/src/components/canvas/`. `renderer-canvas` queda como referencia testeada y paquete legado; el renderer activo de la aplicación es `renderer-webgl`.

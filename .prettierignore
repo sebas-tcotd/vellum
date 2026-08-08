@@ -13,3 +13,6 @@ _bmad-output/
 apps/desktop/src-tauri/target/
 apps/desktop/src-tauri/gen/schemas/
 target/
+AGENTS.md
+CLAUDE.md
+opencode.json

@@ -153,7 +153,7 @@ describe('export goldens manifest validation', () => {
 
   it('rejects absolute paths and directory traversal', () => {
     const absolute = makeCases();
-    absolute[0].golden = '/Users/someone/goldens/leaked.png';
+    absolute[0].golden = '/tmp/goldens/leaked.png';
     expect(() => validateManifest(makeManifest({ cases: absolute }))).toThrow(
       'must be relative',
     );

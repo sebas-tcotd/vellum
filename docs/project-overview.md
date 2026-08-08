@@ -79,21 +79,6 @@ Ver [Análisis del Árbol de Fuentes](./source-tree-analysis.md) para el detalle
 | [`DESIGN.md`](../DESIGN.md)                                              | Identidad visual de marca                                            |
 | [`README.md`](../README.md) / [`README.es.md`](./README.es.md)           | Punto de entrada público del proyecto                                |
 
-## Artefactos de planificación
-
-Ubicados en `_bmad-output/planning-artifacts/` (symlink a `../vellum-context/_bmad-output`):
-
-| Documento                                                                                   | Descripción                                                               |
-| ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| [product-brief-Vellum.md](../_bmad-output/planning-artifacts/product-brief-Vellum.md)       | Brief del producto                                                        |
-| [prd.md](../_bmad-output/planning-artifacts/prd.md)                                         | Documento de Requisitos del Producto                                      |
-| [architecture.md](../_bmad-output/planning-artifacts/architecture.md)                       | Diseño de arquitectura planificado                                        |
-| [epics.md](../_bmad-output/planning-artifacts/epics.md)                                     | Épicas e historias de usuario                                             |
-| [ux-design-specification.md](../_bmad-output/planning-artifacts/ux-design-specification.md) | Especificación de diseño UX                                               |
-| [project-context.md](../_bmad-output/project-context.md)                                    | Reglas críticas y patrones para agentes de IA — leer antes de implementar |
-
-Estado de sprint detallado (por historia): `_bmad-output/implementation-artifacts/sprint-status.yaml`.
-
 ## Inicio rápido
 
 ```bash

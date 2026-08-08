@@ -45,7 +45,7 @@ Run a single package's tests with `pnpm --filter @vellum/<package> test`.
 
 1. Fork the repo and create a branch off `main`.
 2. Keep the change focused — a bug fix shouldn't carry an unrelated refactor.
-3. Follow the architecture and coding rules in [`CLAUDE.md`](CLAUDE.md): the monorepo's package dependency graph is one-directional and enforced by `pnpm check:architecture`, TypeScript is strict (`any` is not allowed), and Rust production code never uses `unwrap()`/`expect()`.
+3. Follow the architecture and coding rules documented in [`docs/`](docs): the monorepo's package dependency graph is one-directional and enforced by `pnpm check:architecture`, TypeScript is strict (`any` is not allowed), and Rust production code never uses `unwrap()`/`expect()`.
 4. If you touch `packages/core/src/ipc-contract.ts`, update the matching Rust side (`apps/desktop/src-tauri`) in the same commit — they must stay in sync.
 5. Add or update tests for the behavior you changed.
 6. Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `refactor:`, `docs:`, ...) — this is enforced by commitlint on commit.

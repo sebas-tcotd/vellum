@@ -35,7 +35,9 @@ _bmad-output/
 .clinerules
 .mcp.json
 CLAUDE.local.md
-
+AGENTS.md
+CLAUDE.md
+opencode.json
 # Test output folders
 **/test-results/
 
@@ -50,6 +52,3 @@ packages/renderer-webgl/test/export-goldens/**/*.rgba
 # Environment files
 .env
 .env.local
-
-# Exceptions
-!CLAUDE.md

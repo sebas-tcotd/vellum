@@ -29,12 +29,12 @@ Construido con Tauri 2 (Rust) + React 19 + TypeScript, organizado como monorepo 
 
 ### Requisitos
 
-| Herramienta | Versión               | Verificar              |
-| ----------- | --------------------- | ---------------------- |
-| Node.js     | LTS ≥ 18              | `node --version`       |
-| pnpm        | 10.33.0               | `pnpm --version`       |
-| Rust        | stable (edition 2021) | `rustc --version`      |
-| Tauri CLI   | ^2.x                  | `pnpm tauri --version` |
+| Herramienta | Versión                        | Verificar              |
+| ----------- | ------------------------------ | ---------------------- |
+| Node.js     | 20                             | `node --version`       |
+| pnpm        | 10.33.0                        | `pnpm --version`       |
+| Rust        | 1.96.0 (`rust-toolchain.toml`) | `rustc --version`      |
+| Tauri CLI   | 2.x                            | `pnpm tauri --version` |
 
 > Antes de ejecutar `pnpm install` o `pnpm dev`, instala los [prerrequisitos de Tauri 2](https://v2.tauri.app/start/prerequisites/) para tu sistema operativo. Además de Node.js, pnpm y Rust, Tauri requiere dependencias nativas: WebKitGTK y herramientas de compilación en Linux, Xcode Command Line Tools en macOS, y Microsoft C++ Build Tools junto con WebView2 en Windows. Estas dependencias no las instala pnpm.
 
@@ -93,9 +93,7 @@ vellum/
 │   ├── renderer-canvas/        ← Renderizador Canvas 2D (legado — reemplazado por WebGL)
 │   ├── theme-engine/           ← .vellumstyle → RenderStyleParams
 │   └── ui/                     ← Componentes React, store Zustand, i18n
-├── docs/                       ← Documentación
-├── _bmad-output/               ← Artefactos de planificación
-└── _bmad/                      ← Configuración de flujo de trabajo
+└── docs/                       ← Documentación
 ```
 
 ### Grafo de Dependencias

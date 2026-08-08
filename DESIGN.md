@@ -1,6 +1,6 @@
 # Vellum — identidad visual de marca
 
-> Documento de dirección de marca para Vellum. Define cómo debe verse y sentirse la marca sin cambiar los flujos, la jerarquía ni las decisiones de interacción descritas en `_bmad-output/planning-artifacts/ux-design-specification.md`.
+> Documento público de dirección de marca para Vellum. Define cómo debe verse y sentirse la marca sin cambiar los flujos, la jerarquía ni las decisiones de interacción del producto.
 
 **Estado:** dirección aprobada para v1 · **Actualizado:** 2026-07-27 · **Responsable:** Vellum
 
@@ -8,7 +8,7 @@
 
 - **Figma:** [Vellum — nodo Logotipo](https://www.figma.com/design/NA8p6Rt2fkmgrdztzCM8jD/Vellum?node-id=20-3) — fuente visual editable del wordmark y del sistema de marca compartido.
 - **Figma — Brand foundations:** [lámina de identidad](https://www.figma.com/design/NA8p6Rt2fkmgrdztzCM8jD/Vellum?node-id=24-2) — resumen visual de isotipo, motivo, emblema, paleta y reglas de uso.
-- **App icon Liquid Glass:** `/Users/tcotd/Desktop/Vellum.icon` — paquete de Icon Composer con `V_light.svg`, `brujula_light.svg` y especializaciones de apariencia.
+- **App icon Liquid Glass:** fuente maestra privada de Icon Composer con `V_light.svg`, `brujula_light.svg` y especializaciones de apariencia. Sus derivados de distribución sí viven en el repositorio.
 - **Repositorio actual:** `packages/renderer-webgl/src/assets/vellum-logo.svg` y `vellum-logo.ts` — derivados/provisional técnico ya usados por la aplicación; no son la fuente maestra de diseño.
 
 ## 1. Esencia de marca
@@ -138,7 +138,7 @@ No usar emojis como iconos de producto, iconos multicolor de sistema, metáforas
 
 ### App icon y Liquid Glass
 
-`/Users/tcotd/Desktop/Vellum.icon` es una entrega específica para Icon Composer. Su estructura confirma dos capas:
+La entrega de Icon Composer es específica para la plataforma. Su estructura confirma dos capas:
 
 - `V_light.svg`: la V de marca, que debe permanecer como ancla.
 - `brujula_light.svg`: la brújula cartográfica, que funciona como profundidad, contexto y materialidad.

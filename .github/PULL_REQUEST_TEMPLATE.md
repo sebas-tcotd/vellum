@@ -14,6 +14,6 @@
 
 - [ ] `pnpm lint`, `pnpm test` and `pnpm check:architecture` pass locally
 - [ ] `cargo fmt --all -- --check`, `cargo clippy --workspace -- -D warnings` and `cargo test --workspace` pass locally (if Rust code changed)
-- [ ] No cross-package import or architecture rule was violated (see [`CLAUDE.md`](../CLAUDE.md))
+- [ ] No cross-package import or architecture rule was violated (see [`CONTRIBUTING.md`](../CONTRIBUTING.md))
 - [ ] User-facing strings are localized in both `en` and `es` (if applicable)
 - [ ] Docs updated if behavior or setup steps changed (if applicable)

@@ -38,7 +38,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           name: Vellum ${{ github.ref_name }}
-          body: 'See CHANGELOG.md for release notes.'
+          body: 'See the release notes below and the project changelog for details.'
           draft: true
           prerelease: false
 

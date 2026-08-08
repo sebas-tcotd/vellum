@@ -96,7 +96,7 @@ pnpm test:e2e   # requiere tauri-driver instalado y la app compilada; NO corre e
 1. Definir el comando en `packages/core/src/ipc-contract.ts` (`IPC_COMMANDS`) y su tipo de payload/resultado
 2. Implementar el `#[tauri::command]` correspondiente en `apps/desktop/src-tauri/src/commands.rs`, con doc comment `///` + sección `# Errors`
 3. Registrar en `invoke_handler!()` dentro de `lib.rs`
-4. **Ambos lados en el mismo commit** — es una regla dura del proyecto (ver `CLAUDE.md`)
+4. **Ambos lados en el mismo commit** — es una regla dura del proyecto; consulta la documentación del contrato IPC en [`integration-architecture.md`](integration-architecture.md)
 
 ## Agregar un package nuevo al monorepo
 

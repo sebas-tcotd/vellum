@@ -199,7 +199,6 @@ The Playwright suite is configured under [`apps/desktop/tests/e2e`](apps/desktop
 
 ## Repository guide
 
-- [`CLAUDE.md`](CLAUDE.md) — project rules, architecture constraints and domain invariants
 - [`docs/`](docs) — technical documentation and design references
 - [`packages/core`](packages/core) — domain types and IPC contract
 - [`packages/parser-cslmap`](packages/parser-cslmap) — `.cslmap` parsing adapter

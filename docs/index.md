@@ -1,6 +1,6 @@
 # Vellum — Índice de Documentación del Proyecto
 
-> Generado: 2026-08-07 | Escaneo: Deep (lectura de código en los 7 packages) | Reemplaza el índice de 2026-04-04, que describía el proyecto en estado scaffolding ("App devuelve `<div />`", packages "Placeholder")
+Documentación técnica mantenida para usuarios avanzados y contribuidores.
 
 ---
 
@@ -60,53 +60,34 @@
 
 ---
 
-## Documentación generada
+## Documentación técnica
 
-| Documento                                                                                                       | Descripción                                                                            |
-| --------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| [Visión General del Proyecto](./project-overview.md)                                                            | Resumen ejecutivo, stack, grafo de dependencias, qué hace la app hoy                   |
-| [Análisis del Árbol de Fuentes](./source-tree-analysis.md)                                                      | Árbol anotado de directorios y archivos, 7 partes                                      |
-| [Arquitectura Desktop](./architecture-desktop.md)                                                               | Arquitectura detallada de `apps/desktop`: comandos IPC, menú nativo, updater, testing  |
-| [Arquitectura de Integración](./integration-architecture.md)                                                    | Cómo se comunican los 7 paquetes, contrato IPC completo, flujo de parseo/render/export |
-| [Guía de Desarrollo](./development-guide.md)                                                                    | Setup, comandos dev/build/lint/test, CI/CD, agregar packages/comandos IPC              |
-| [Inventario de Componentes](./component-inventory-desktop.md)                                                   | Todos los componentes/hooks/store reales de `@vellum/ui`                               |
-| [Schema .vellumstyle (EN)](./vellumstyle-schema.en.md)                                                          | Referencia pública del schema de temas, v1                                             |
-| [Schema .vellumstyle (ES)](./vellumstyle-schema.es.md)                                                          | Referencia pública del schema de temas, v1                                             |
-| [Algoritmo de Renderizado de Tránsito](./transit-rendering-algorithm.md)                                        | Path-based rendering, evolución del algoritmo                                          |
-| [Estrategia de Renderizado de Distritos](./district-rendering.md)                                               | Compatibilidad CSLMap para distritos                                                   |
-| [Estrategia de Renderizado de Bosques](./forest-rendering.md)                                                   | Compatibilidad CSLMap para bosques                                                     |
-| [Research: geometría vectorial de terreno](./research/technical-terrain-vector-geometry-research-2026-06-05.md) | Investigación técnica, 2026-06-05                                                      |
+| Documento                                                                | Descripción                                                                            |
+| ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------- |
+| [Visión General del Proyecto](./project-overview.md)                     | Resumen ejecutivo, stack, grafo de dependencias, qué hace la app hoy                   |
+| [Análisis del Árbol de Fuentes](./source-tree-analysis.md)               | Árbol anotado de directorios y archivos, 7 partes                                      |
+| [Arquitectura Desktop](./architecture-desktop.md)                        | Arquitectura detallada de `apps/desktop`: comandos IPC, menú nativo, updater, testing  |
+| [Arquitectura de Integración](./integration-architecture.md)             | Cómo se comunican los 7 paquetes, contrato IPC completo, flujo de parseo/render/export |
+| [Guía de Desarrollo](./development-guide.md)                             | Setup, comandos dev/build/lint/test, CI/CD, agregar packages/comandos IPC              |
+| [Inventario de Componentes](./component-inventory-desktop.md)            | Todos los componentes/hooks/store reales de `@vellum/ui`                               |
+| [Schema .vellumstyle (EN)](./vellumstyle-schema.en.md)                   | Referencia pública del schema de temas, v1                                             |
+| [Schema .vellumstyle (ES)](./vellumstyle-schema.es.md)                   | Referencia pública del schema de temas, v1                                             |
+| [Algoritmo de Renderizado de Tránsito](./transit-rendering-algorithm.md) | Path-based rendering, evolución del algoritmo                                          |
+| [Estrategia de Renderizado de Distritos](./district-rendering.md)        | Compatibilidad CSLMap para distritos                                                   |
+| [Estrategia de Renderizado de Bosques](./forest-rendering.md)            | Compatibilidad CSLMap para bosques                                                     |
 
 > Las arquitecturas por-package que la versión anterior de este índice marcaba como _(To be generated)_ (`architecture-core.md`, `architecture-parser-cslmap.md`, `architecture-renderer-canvas.md`, `architecture-theme-engine.md`, `architecture-ui.md`) se consolidaron deliberadamente en [Arquitectura de Integración](./integration-architecture.md) y [Inventario de Componentes](./component-inventory-desktop.md) — packages de este tamaño (6-100 archivos) no justifican 5 documentos casi vacíos por separado.
 
 ## Otra documentación en el repo
 
-| Documento                                     | Descripción                                         |
-| --------------------------------------------- | --------------------------------------------------- |
-| [`README.md`](../README.md)                   | Punto de entrada público del proyecto (inglés)      |
-| [README (Español)](./README.es.md)            | Punto de entrada público del proyecto (español)     |
-| [`DESIGN.md`](../DESIGN.md)                   | Identidad visual de marca                           |
-| [`AGENTS.md`](../AGENTS.md)                   | Onboarding compacto para sesiones OpenCode          |
-| [`CLAUDE.md`](../CLAUDE.md)                   | Reglas de arquitectura y dominio para agentes de IA |
-| [`CONTRIBUTING.md`](../CONTRIBUTING.md)       | Flujo de contribución, checklist de PR              |
-| [`SECURITY.md`](../SECURITY.md)               | Política de reporte de vulnerabilidades             |
-| [`CODE_OF_CONDUCT.md`](../CODE_OF_CONDUCT.md) | Código de conducta                                  |
-
-## Artefactos de planificación existentes
-
-Ubicados en `_bmad-output/planning-artifacts/` (symlink a `../vellum-context/_bmad-output`):
-
-| Documento                                                                                                   | Descripción                                                                      |
-| ----------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| [product-brief-Vellum.md](../_bmad-output/planning-artifacts/product-brief-Vellum.md)                       | Brief del producto                                                               |
-| [product-brief-Vellum-distillate.md](../_bmad-output/planning-artifacts/product-brief-Vellum-distillate.md) | Brief condensado                                                                 |
-| [prd.md](../_bmad-output/planning-artifacts/prd.md)                                                         | Documento de Requisitos del Producto                                             |
-| [architecture.md](../_bmad-output/planning-artifacts/architecture.md)                                       | Diseño de arquitectura planificado                                               |
-| [epics.md](../_bmad-output/planning-artifacts/epics.md)                                                     | Épicas e historias de usuario                                                    |
-| [ux-design-specification.md](../_bmad-output/planning-artifacts/ux-design-specification.md)                 | Especificación de diseño UX                                                      |
-| [project-context.md](../_bmad-output/project-context.md)                                                    | Reglas críticas para agentes de IA — leer antes de implementar código no trivial |
-
-Estado de sprint por historia: `_bmad-output/implementation-artifacts/sprint-status.yaml` (épicas 1-7; solo la story 7.5 — empaquetado/distribución — sigue en progreso al momento de este escaneo).
+| Documento                                     | Descripción                                     |
+| --------------------------------------------- | ----------------------------------------------- |
+| [`README.md`](../README.md)                   | Punto de entrada público del proyecto (inglés)  |
+| [README (Español)](./README.es.md)            | Punto de entrada público del proyecto (español) |
+| [`DESIGN.md`](../DESIGN.md)                   | Identidad visual de marca                       |
+| [`CONTRIBUTING.md`](../CONTRIBUTING.md)       | Flujo de contribución, checklist de PR          |
+| [`SECURITY.md`](../SECURITY.md)               | Política de reporte de vulnerabilidades         |
+| [`CODE_OF_CONDUCT.md`](../CODE_OF_CONDUCT.md) | Código de conducta                              |
 
 ---
 
