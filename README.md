@@ -12,7 +12,7 @@ Your city took hundreds of hours to build. Vellum gives it a map worth keeping.
 &nbsp;[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 &nbsp;·&nbsp;[Español](docs/README.es.md)
 
-> Vellum is approaching its first public release. Export, packaging and distribution work are still in progress.
+> Vellum is approaching its first public release. Packaging and distribution work are still in progress.
 
 ## What is Vellum?
 
@@ -40,13 +40,12 @@ The longer-term direction is a Vellum-native exporter and a richer, versioned fo
 - Pan and zoom a full city with GPU-accelerated MapLibre rendering
 - Inspect transit lines and stops through contextual map interactions
 - Use a minimap to stay oriented on large cities
-- Toggle clean mode with `Tab` to view the map without interface chrome
+- Toggle clean mode with `H` to view the map without interface chrome
 - Switch between built-in visual themes
+- Export the current view as PNG (1x–4x) or an editable SVG
 - Load damaged files and unrecognized DLC assets through controlled fallbacks where possible
 - Use the interface in English or Spanish
 - Navigate core controls with keyboard-friendly interactions
-
-PNG and SVG export are planned for the release milestone and are not represented as available functionality until implemented and verified.
 
 ## Installing a release build
 
@@ -81,6 +80,7 @@ Useful controls:
 | Action                      | Shortcut                            |
 | --------------------------- | ----------------------------------- |
 | Open a `.cslmap` file       | `Ctrl/Cmd+O`                        |
+| Open the export dialog      | `Ctrl/Cmd+E`                        |
 | Fit map to screen           | `Ctrl/Cmd+0` or `Ctrl/Cmd+9`        |
 | Zoom in                     | `Ctrl/Cmd++` or `Ctrl/Cmd+=`        |
 | Zoom out                    | `Ctrl/Cmd+-`                        |
@@ -168,8 +168,9 @@ The deeper implementation notes live in [`docs/`](docs), including the [transit 
 | Cartographic rendering                                    | Complete                |
 | Exploration UI and MapLibre migration                     | Complete                |
 | Theme system and built-in themes                          | Complete                |
-| PNG/SVG export                                            | Next release milestone  |
-| Preferences, language switching, updates and distribution | Final release milestone |
+| PNG/SVG export                                            | Complete                |
+| i18n, preferences and update checks                       | Complete                |
+| Packaging and distribution (installers, file association) | Final release milestone |
 
 The future Vellum-native export format is intentionally separate from the v1 viewer milestone. The first release can be useful while the project continues toward a richer in-game exporter and data model.
 

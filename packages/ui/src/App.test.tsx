@@ -129,10 +129,6 @@ vi.mock('./store/preferences-store', () => ({
   loadPersistedPreferences: vi.fn().mockResolvedValue({}),
 }));
 
-vi.mock('./components/canvas/CanvasRoot', () => ({
-  CanvasRoot: () => <div data-testid="canvas-root" />,
-}));
-
 vi.mock('./components/canvas/MapLibreRoot', () => ({
   MapLibreRoot: ({
     previewCaptureRef,

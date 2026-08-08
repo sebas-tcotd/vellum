@@ -2,7 +2,7 @@
 export * from './coordinate-transform';
 export * from './geojson';
 export {
-  CapabilityProbe,
+  decideTiledCapability,
   probeCapabilities,
   type CapabilityProbeOptions,
 } from './capability-probe';

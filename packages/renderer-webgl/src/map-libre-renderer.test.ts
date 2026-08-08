@@ -302,9 +302,15 @@ describe('MapLibreRenderer', () => {
     });
     const renderer = makeRenderer();
     await renderer.render(makeCityData(), { activeLayers: ALL_LAYERS_VISIBLE });
+    const snapshot = renderer.createExportSnapshot(baseSnapshotRequest);
+    if (!snapshot) throw new Error('expected a snapshot');
 
     await expect(
-      renderer.capturePng({ scale: 1, area: 'full-map', background: 'white' }),
+      MapLibreRenderer.captureSnapshotPng(
+        snapshot,
+        { scale: 1, area: 'full-map', background: 'white' },
+        new AbortController().signal,
+      ),
     ).resolves.toEqual(new Uint8Array([137, 80, 78, 71]));
 
     expect(maplibregl.Map).toHaveBeenNthCalledWith(
@@ -325,32 +331,27 @@ describe('MapLibreRenderer', () => {
   it('rechaza exportaciones que exceden el límite de memoria antes de crear una superficie temporal', async () => {
     mockMap.getCanvas.mockReturnValue({
       style: { cursor: '' },
-      clientWidth: 10_000,
-      clientHeight: 10_000,
-      width: 10_000,
-      height: 10_000,
+      clientWidth: 5_000,
+      clientHeight: 5_000,
+      width: 5_000,
+      height: 5_000,
     } as never);
     const renderer = makeRenderer();
     await renderer.render(makeCityData(), { activeLayers: ALL_LAYERS_VISIBLE });
+    const snapshot = renderer.createExportSnapshot({
+      ...baseSnapshotRequest,
+      format: 'png-4x',
+    });
+    if (!snapshot) throw new Error('expected a snapshot');
 
     await expect(
-      renderer.capturePng({
-        scale: 4,
-        area: 'full-map',
-        background: 'transparent',
-      }),
+      MapLibreRenderer.captureSnapshotPng(
+        snapshot,
+        { scale: 4, area: 'full-map', background: 'transparent' },
+        new AbortController().signal,
+      ),
     ).rejects.toThrow('safe limit');
     expect(maplibregl.Map).toHaveBeenCalledTimes(1);
-  });
-
-  it('rechaza la captura PNG si no existe una ciudad cargada', async () => {
-    await expect(
-      makeRenderer().capturePng({
-        scale: 1,
-        area: 'viewport',
-        background: 'white',
-      }),
-    ).rejects.toThrow('No map is available');
   });
 
   it('captures an isolated export snapshot from the renderer state', async () => {

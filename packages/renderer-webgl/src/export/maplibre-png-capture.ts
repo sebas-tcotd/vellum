@@ -12,17 +12,6 @@ import type { PngExportOptions } from './export-types';
 export const EXPORT_CAPTURE_TIMEOUT_MS = 8_000;
 const MAX_EXPORT_PIXELS = 64_000_000;
 
-interface PngCaptureInput {
-  cityData: CityData;
-  activeLayers: RenderParams['activeLayers'];
-  style: RenderStyleParams;
-  layerOptions: LayerOptions;
-  transitDimming: boolean;
-  sourceWidth: number;
-  sourceHeight: number;
-  sourceCamera: ExportCamera;
-}
-
 interface PngExportRenderer {
   render(cityData: CityData, params: RenderParams): Promise<void>;
   setTransitDimming(enabled: boolean): void;
@@ -39,36 +28,6 @@ type PngExportRendererFactory = (
   container: HTMLDivElement,
   style: RenderStyleParams,
 ) => PngExportRenderer;
-
-/** Captures the current renderer state on an isolated MapLibre surface. */
-export async function capturePng(
-  input: PngCaptureInput,
-  options: PngExportOptions,
-  createRenderer: PngExportRendererFactory,
-): Promise<Uint8Array> {
-  const width = input.sourceWidth * options.scale;
-  const height = input.sourceHeight * options.scale;
-  validateExportDimensions(width, height);
-
-  const container = createHiddenContainer(width, height);
-  const exportRenderer = createRenderer(container, input.style);
-  try {
-    await exportRenderer.render(input.cityData, {
-      activeLayers: input.activeLayers,
-    });
-    exportRenderer.setTransitDimming(input.transitDimming);
-    exportRenderer.setLayerOptions(input.layerOptions);
-    if (options.area === 'viewport') {
-      exportRenderer.setCamera({ ...input.sourceCamera, pitch: 0 });
-    }
-    exportRenderer.applyExportBackground(options.background);
-    await exportRenderer.waitForIdle();
-    return await exportRenderer.captureCanvasBytes();
-  } finally {
-    exportRenderer.dispose();
-    container.remove();
-  }
-}
 
 /** Captures an immutable export snapshot on an isolated MapLibre surface. */
 export async function captureSnapshotPng(

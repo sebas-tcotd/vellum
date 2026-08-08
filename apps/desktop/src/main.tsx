@@ -13,8 +13,8 @@ import {
 } from '@vellum/ui';
 import {
   buildCartographicScene,
-  CapabilityProbe,
   LegacyRasterExporter,
+  probeCapabilities,
   TiledRasterExporter,
 } from '@vellum/renderer-webgl';
 // CSS global importado aquí (entry point de Vite) para que los @font-face con
@@ -110,8 +110,7 @@ const benchmarkSnapshotCaptureRef = React.createRef<
 // artifacts — so the gate is approved by default. `EXPORT_FORCE_LEGACY_KEY`
 // remains the operational rollback, still readable at export time without
 // rebuilding the UI.
-void new CapabilityProbe()
-  .measure()
+void probeCapabilities()
   .then((capability) => {
     measuredCapability = capability;
     rasterExporter.setTiledRoute({
@@ -138,7 +137,7 @@ void new CapabilityProbe()
  * afterwards.
  *
  * @remarks
- * The tiled gate is approved unconditionally (see the `CapabilityProbe`
+ * The tiled gate is approved unconditionally (see the `probeCapabilities`
  * comment above), so forcing `'tiled'` only needs to lift the legacy kill
  * switch — there is no gate flag left to set.
  */

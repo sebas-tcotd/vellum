@@ -205,30 +205,15 @@ export async function probeCapabilities(
   }
 }
 
-/** Stateless capability probe facade used by the composition root. */
-export class CapabilityProbe {
-  private readonly options: CapabilityProbeOptions;
-
-  /** Creates a probe with optional injectable surface and memory readers. */
-  constructor(options: CapabilityProbeOptions = {}) {
-    this.options = options;
-  }
-
-  /** Measures a disposable WebGL surface. */
-  measure(): Promise<CapabilityReport> {
-    return probeCapabilities(this.options);
-  }
-
-  /** Evaluates a measured report against a real deterministic tile plan. */
-  decide(
-    report: CapabilityReport,
-    snapshot: ExportSnapshot,
-    enabled = true,
-  ): TiledCapabilityDecision {
-    if (!enabled) return { eligible: false, reason: 'flag' };
-    const plan = planTiles(snapshot, report);
-    return 'rejected' in plan
-      ? { eligible: false, reason: plan.reason }
-      : evaluateTiledCapability(report, plan);
-  }
+/** Evaluates a measured report against a real deterministic tile plan. */
+export function decideTiledCapability(
+  report: CapabilityReport,
+  snapshot: ExportSnapshot,
+  enabled = true,
+): TiledCapabilityDecision {
+  if (!enabled) return { eligible: false, reason: 'flag' };
+  const plan = planTiles(snapshot, report);
+  return 'rejected' in plan
+    ? { eligible: false, reason: plan.reason }
+    : evaluateTiledCapability(report, plan);
 }

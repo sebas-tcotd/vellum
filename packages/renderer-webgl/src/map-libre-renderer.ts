@@ -42,7 +42,6 @@ import {
 } from './capture/map-render-capture';
 import {
   captureExportSnapshotPng as captureExportSnapshotPngImpl,
-  capturePng as capturePngImpl,
   captureSnapshotPng as captureSnapshotPngImpl,
   EXPORT_CAPTURE_TIMEOUT_MS,
 } from './export/maplibre-png-capture';
@@ -50,7 +49,6 @@ import type { PngExportOptions } from './export/export-types';
 import {
   buildExportSnapshot,
   buildSvgExportSnapshot,
-  getCurrentCamera,
 } from './export/export-snapshot-builder';
 import {
   subscribeHover as subscribeHoverImpl,
@@ -228,40 +226,6 @@ export class MapLibreRenderer implements IRenderer {
       this.pendingPreviewCaptures.delete(capture.cancel),
     );
     return capture.promise;
-  }
-
-  /**
-   * Renders a temporary, isolated MapLibre surface and returns its PNG bytes.
-   *
-   * The interactive renderer is never resized or reconfigured, preserving its
-   * camera and WebGL performance settings. Exports are intentionally limited
-   * to 64 million pixels to avoid exhausting GPU or process memory.
-   */
-  async capturePng(options: PngExportOptions): Promise<Uint8Array> {
-    if (!this.cityData || !this.activeLayers) {
-      throw new Error('No map is available for export');
-    }
-    const sourceCanvas = this.map.getCanvas();
-    const baseWidth = sourceCanvas.clientWidth || sourceCanvas.width;
-    const baseHeight = sourceCanvas.clientHeight || sourceCanvas.height;
-    return capturePngImpl(
-      {
-        cityData: this.cityData,
-        activeLayers: this.activeLayers,
-        style: this.style,
-        layerOptions: this.layerOptions,
-        transitDimming: this.transitDimming,
-        sourceWidth: baseWidth,
-        sourceHeight: baseHeight,
-        sourceCamera: getCurrentCamera(this.map),
-      },
-      options,
-      (container, exportStyle) =>
-        new MapLibreRenderer(container, exportStyle, {
-          preserveDrawingBuffer: true,
-          releasesDemProtocol: false,
-        }),
-    );
   }
 
   /** Captures all export inputs without exposing the MapLibre instance. */

@@ -20,7 +20,8 @@ Construido con Tauri 2 (Rust) + React 19 + TypeScript, organizado como monorepo 
 - **Explorador de tránsito** — inspecciona rutas de bus, metro, tren, tranvía y otros modos
 - **Tooltips en el mapa** — al pasar el cursor sobre una parada de tránsito, muestra las líneas que la sirven
 - **Minimapa** — orientación rápida con una vista general en la esquina
-- **Atajos de teclado** — `Ctrl/Cmd+O` abre un archivo, `Ctrl/Cmd+0` o `Ctrl/Cmd+9` ajustan el mapa a pantalla, `1-7` alternan capas, `H` activa el modo limpio, `Ctrl/Cmd+B` alterna el modo navegación, `L` muestra la leyenda, `Shift+←/→` rota el mapa y `R` restablece el norte
+- **Exportación PNG/SVG** — `Ctrl/Cmd+E` abre el diálogo de exportación; PNG en 1x–4x o SVG editable
+- **Atajos de teclado** — `Ctrl/Cmd+O` abre un archivo, `Ctrl/Cmd+E` exporta la vista actual, `Ctrl/Cmd+0` o `Ctrl/Cmd+9` ajustan el mapa a pantalla, `1-7` alternan capas, `H` activa el modo limpio, `Ctrl/Cmd+B` alterna el modo navegación, `L` muestra la leyenda, `Shift+←/→` rota el mapa y `R` restablece el norte
 - **Opciones avanzadas** — `Shift+1`–`Shift+7` abre las opciones de una capa cuando están disponibles
 - **Modo limpio** — `H` oculta toda la interfaz para una vista sin distracciones
 - **Dos idiomas** — interfaz en inglés y español
@@ -68,7 +69,8 @@ pnpm dev              # abre la ventana nativa
 | 4     | Exploración e interfaz      | ✅ Completado  |
 | 5     | Sistema de temas            | ✅ Completado  |
 | 6     | Exportación PNG/SVG         | ✅ Completado  |
-| 7     | i18n, preferencias, updates | 🔜 En progreso |
+| 7     | i18n, preferencias, updates | ✅ Completado  |
+| 7.5   | Empaquetado y distribución  | 🔜 En progreso |
 
 ---
 
@@ -89,7 +91,7 @@ vellum/
 │   ├── parser-cslmap/          ← Adaptador Rust + TS: XML .cslmap → CityData
 │   ├── renderer-webgl/         ← Renderizador MapLibre GL JS (activo)
 │   ├── renderer-canvas/        ← Renderizador Canvas 2D (legado — reemplazado por WebGL)
-│   ├── theme-engine/           ← .vellumstyle → RenderStyleParams (en progreso)
+│   ├── theme-engine/           ← .vellumstyle → RenderStyleParams
 │   └── ui/                     ← Componentes React, store Zustand, i18n
 ├── docs/                       ← Documentación
 ├── _bmad-output/               ← Artefactos de planificación
@@ -145,21 +147,21 @@ Archivo .cslmap (disco)
 
 ### Stack Tecnológico
 
-| Capa                | Tecnología                              |
-| ------------------- | --------------------------------------- |
-| Shell de escritorio | Tauri 2 + Rust                          |
-| UI                  | React 19 + TypeScript                   |
-| Renderizado         | MapLibre GL JS (WebGL)                  |
-| Build / Dev server  | Vite 7                                  |
-| Orquestador         | Turborepo                               |
-| Gestor de paquetes  | pnpm 10.33.0                            |
-| Parser XML          | quick-xml 0.36 (Rust)                   |
-| Estado              | Zustand 5                               |
-| i18n                | react-i18next + i18next                 |
-| Estilos             | Tailwind CSS 4 + shadcn/ui (Radix)      |
-| Tests (TS)          | Vitest                                  |
-| Tests (Rust)        | cargo test                              |
-| Tests (E2E)         | Playwright (configurado, sin tests aún) |
+| Capa                | Tecnología                           |
+| ------------------- | ------------------------------------ |
+| Shell de escritorio | Tauri 2 + Rust                       |
+| UI                  | React 19 + TypeScript                |
+| Renderizado         | MapLibre GL JS (WebGL)               |
+| Build / Dev server  | Vite 7                               |
+| Orquestador         | Turborepo                            |
+| Gestor de paquetes  | pnpm 10.33.0                         |
+| Parser XML          | quick-xml 0.36 (Rust)                |
+| Estado              | Zustand 5                            |
+| i18n                | react-i18next + i18next              |
+| Estilos             | Tailwind CSS 4 + shadcn/ui (Radix)   |
+| Tests (TS)          | Vitest                               |
+| Tests (Rust)        | cargo test                           |
+| Tests (E2E)         | Playwright (flujo smoke configurado) |
 
 ### Comandos
 
@@ -199,9 +201,9 @@ find . -name "tsconfig.tsbuildinfo" -delete && pnpm build
 
 ### Tests
 
-- **Vitest** configurado en raíz vía `vitest.workspace.ts` — ~20 archivos de test en todos los paquetes
+- **Vitest** configurado en raíz vía `vitest.workspace.ts` — 80+ archivos de test en todos los paquetes
 - **Tests Rust** vía `cargo test --workspace` — tests unitarios del parser con fixtures `.cslmap` reales
-- **E2E** Playwright configurado en `apps/desktop` sin tests escritos aún
+- **E2E** Playwright configurado en `apps/desktop/tests/e2e` con el flujo smoke crítico (drag&drop → render → export)
 - Los archivos `.cslmap` de prueba reales están en `packages/parser-cslmap/fixtures/`
 
 ### CI/CD

@@ -1,14 +1,6 @@
 export { useTranslation } from 'react-i18next';
-export { CanvasRoot } from './components/canvas/CanvasRoot';
-export type {
-  CanvasRootProps,
-  ViewportState,
-  MapEntity,
-} from './components/canvas/CanvasRoot';
 export { MapLibreRoot } from './components/canvas/MapLibreRoot';
 export type { MapLibreRootProps } from './components/canvas/MapLibreRoot';
-export { CanvasLayer } from './components/canvas/CanvasLayer';
-export type { CanvasLayerProps } from './components/canvas/CanvasLayer';
 export { App } from './App';
 export type { ExportCancelHandlerRef } from './App';
 export { EmptyState } from './components/empty-state';

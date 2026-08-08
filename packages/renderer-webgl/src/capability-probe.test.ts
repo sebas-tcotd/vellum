@@ -1,6 +1,6 @@
 import type { CapabilityReport, ExportSnapshot } from '@vellum/core';
 import { describe, expect, it } from 'vitest';
-import { CapabilityProbe } from './capability-probe';
+import { decideTiledCapability } from './capability-probe';
 
 const report: CapabilityReport = {
   contextType: 'webgl2',
@@ -22,21 +22,20 @@ function snapshot(): ExportSnapshot {
   } as unknown as ExportSnapshot;
 }
 
-describe('CapabilityProbe.decide', () => {
+describe('decideTiledCapability', () => {
   it('accepts a large output when a real tile plan fits the GPU', () => {
-    expect(new CapabilityProbe().decide(report, snapshot())).toEqual({
+    expect(decideTiledCapability(report, snapshot())).toEqual({
       eligible: true,
     });
   });
 
   it('preserves the feature-flag shortcut and propagates planner rejection', () => {
-    const probe = new CapabilityProbe();
-    expect(probe.decide(report, snapshot(), false)).toEqual({
+    expect(decideTiledCapability(report, snapshot(), false)).toEqual({
       eligible: false,
       reason: 'flag',
     });
     expect(
-      probe.decide(
+      decideTiledCapability(
         {
           ...report,
           maxCanvasSize: 100,
