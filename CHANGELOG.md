@@ -2,6 +2,13 @@
 
 All notable changes to Vellum will be documented here.
 
+## [0.2.7](https://github.com/sebas-tcotd/vellum/compare/v0.2.6...v0.2.7) (2026-08-08)
+
+
+### Bug Fixes
+
+* **release:** adjust release asset handling ([25f7f30](https://github.com/sebas-tcotd/vellum/commit/25f7f30b9ccf1a820432425bfea111493631c7fb))
+
 ## [0.2.6](https://github.com/sebas-tcotd/vellum/compare/v0.2.5...v0.2.6) (2026-08-08)
 
 
