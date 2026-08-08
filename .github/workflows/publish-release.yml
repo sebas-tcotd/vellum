@@ -50,10 +50,20 @@ jobs:
           set -euo pipefail
           # Draft releases are not reliably returned by the release-by-tag
           # endpoint. List releases instead so the Release Please draft is
-          # resolvable before it is published.
-          RELEASE_ID=$(gh api --paginate "repos/${{ github.repository }}/releases?per_page=100" --jq '.[] | select(.tag_name == env.GITHUB_REF_NAME) | .id' | head -n1)
+          # resolvable before it is published. The list-releases endpoint can
+          # also lag briefly right after the tag push, so retry for up to 60s.
+          RELEASE_ID=""
+          for attempt in $(seq 1 12); do
+            RELEASE_ID=$(gh api --paginate "repos/${{ github.repository }}/releases?per_page=100" --jq '.[] | select(.tag_name == env.GITHUB_REF_NAME) | .id' | head -n1)
+            if [ -n "$RELEASE_ID" ]; then
+              echo "Resolved release id $RELEASE_ID on attempt $attempt."
+              break
+            fi
+            echo "::warning::No GitHub Release found for ${GITHUB_REF_NAME} yet (attempt $attempt/12)."
+            sleep 5
+          done
           if [ -z "$RELEASE_ID" ]; then
-            echo "::error::No GitHub Release exists for ${GITHUB_REF_NAME}. Release Please must create the draft before this workflow runs."
+            echo "::error::No GitHub Release exists for ${GITHUB_REF_NAME} after 60 seconds. Release Please must create the draft before this workflow runs."
             exit 1
           fi
           echo "release-id=$RELEASE_ID" >> "$GITHUB_OUTPUT"
@@ -249,20 +259,32 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          ASSETS=$(gh api "repos/${{ github.repository }}/releases/${{ needs.resolve-release.outputs.release-id }}/assets" --jq '.[].name')
+          # The release-assets endpoint can lag briefly right after the last
+          # matrix job's upload lands, so retry for up to 30s before failing.
+          for attempt in $(seq 1 6); do
+            ASSETS=$(gh api "repos/${{ github.repository }}/releases/${{ needs.resolve-release.outputs.release-id }}/assets" --jq '.[].name')
+            MISSING=""
+            for ext in msi dmg AppImage; do
+              if ! echo "$ASSETS" | grep -qi "\\.${ext}$"; then
+                MISSING="$MISSING .$ext"
+              fi
+            done
+            if ! echo "$ASSETS" | grep -qx 'latest.json'; then
+              MISSING="$MISSING latest.json"
+            fi
+            if [ -z "$MISSING" ]; then
+              echo "Release assets:"
+              echo "$ASSETS"
+              echo "All required assets present on attempt $attempt."
+              exit 0
+            fi
+            echo "::warning::Missing assets (attempt $attempt/6):$MISSING"
+            sleep 5
+          done
           echo "Release assets:"
           echo "$ASSETS"
-          for ext in msi dmg AppImage; do
-            if ! echo "$ASSETS" | grep -qi "\\.${ext}$"; then
-              echo "::error::Missing required .$ext asset on the release — refusing to publish."
-              exit 1
-            fi
-          done
-
-          if ! echo "$ASSETS" | grep -qx 'latest.json'; then
-            echo "::error::Missing latest.json updater manifest — refusing to publish."
-            exit 1
-          fi
+          echo "::error::Missing required asset(s) after 30 seconds:$MISSING — refusing to publish."
+          exit 1
 
       - name: Annotate temporary unsigned Windows release
         if: vars.ALLOW_UNSIGNED_WINDOWS == 'true'
