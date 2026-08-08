@@ -2,6 +2,13 @@
 
 All notable changes to Vellum will be documented here.
 
+## [0.2.4](https://github.com/sebas-tcotd/vellum/compare/v0.2.3...v0.2.4) (2026-08-08)
+
+
+### Bug Fixes
+
+* **ci:** harden updater manifest publication checks ([5509d89](https://github.com/sebas-tcotd/vellum/commit/5509d899b5c81fd8f3e519295f9299d22fe6444a))
+
 ## [0.2.3](https://github.com/sebas-tcotd/vellum/compare/v0.2.2...v0.2.3) (2026-08-08)
 
 
