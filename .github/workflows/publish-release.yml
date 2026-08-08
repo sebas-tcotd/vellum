@@ -22,8 +22,8 @@ name: Publish Release
 #   Release Please creates the GitHub Release as a draft and force-creates its
 #   tag. This workflow resolves that existing draft, builds and uploads all
 #   platform artifacts, then publishes it (draft -> false) ONLY after every
-#   platform's signature check, size check (NFR12), updater manifest check and
-#   release-wide asset check pass.
+#   platform's signature check, updater manifest check and release-wide asset
+#   check pass. NFR12 is reported as a non-blocking size target.
 #   A failed verification leaves the release as a draft — nothing is
 #   auto-published from a broken build.
 
@@ -304,14 +304,25 @@ jobs:
         id: updater-smoke-check
         env:
           MANIFEST_URL: https://github.com/${{ github.repository }}/releases/latest/download/latest.json
+          EXPECTED_VERSION: ${{ github.ref_name }}
+          EXPECTED_RELEASE_PATH: https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/
         run: |
           set -euo pipefail
-          curl --fail --silent --show-error --retry 5 --retry-delay 5 "$MANIFEST_URL" -o /tmp/latest.json
-          node -e 'const m = require("/tmp/latest.json"); const platforms = Object.values(m.platforms ?? {}); if (!m.version || platforms.length === 0 || platforms.some((p) => typeof p.url !== "string" || typeof p.signature !== "string" || p.signature.length === 0)) process.exit(1);'
+          for attempt in $(seq 1 18); do
+            if curl --fail --silent --show-error "$MANIFEST_URL" -o /tmp/latest.json && \
+              node -e 'const fs = require("fs"); const expectedVersion = process.env.EXPECTED_VERSION.slice(1); const expectedPath = process.env.EXPECTED_RELEASE_PATH; const m = JSON.parse(fs.readFileSync("/tmp/latest.json", "utf8")); const platforms = Object.values(m.platforms ?? {}); if (m.version !== expectedVersion || platforms.length === 0 || platforms.some((p) => typeof p.url !== "string" || !p.url.startsWith(expectedPath) || typeof p.signature !== "string" || p.signature.length === 0)) process.exit(1);'; then
+              echo "Validated updater manifest on attempt $attempt."
+              exit 0
+            fi
+            echo "::warning::Updater manifest is not ready or does not reference $EXPECTED_VERSION yet (attempt $attempt/18)."
+            sleep 5
+          done
+          echo "::error::Updater manifest was not valid for $EXPECTED_VERSION after 90 seconds."
+          exit 1
 
-      - name: Revert release to draft if updater smoke check fails
-        if: failure() && steps.updater-smoke-check.outcome == 'failure'
+      - name: Revert release to draft if finalization fails
+        if: failure()
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh api -X PATCH "repos/${{ github.repository }}/releases/${{ needs.resolve-release.outputs.release-id }}" -f draft=true
+          gh api -X PATCH "repos/${{ github.repository }}/releases/${{ needs.resolve-release.outputs.release-id }}" -f draft=true >/dev/null
