@@ -73,6 +73,10 @@ jobs:
     needs: resolve-release
     strategy:
       fail-fast: false
+      # tauri-action merges the existing latest.json when each platform uploads
+      # its updater artifacts. Serializing the matrix prevents concurrent
+      # read/delete/upload races on that single release asset.
+      max-parallel: 1
       matrix:
         include:
           - platform: windows-latest
@@ -155,6 +159,9 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           releaseId: ${{ needs.resolve-release.outputs.release-id }}
+          # releaseId identifies the draft; tagName makes updater URLs point to
+          # the immutable release tag instead of the moving `latest` alias.
+          tagName: ${{ github.ref_name }}
           args: ${{ steps.build-args.outputs.args }}
           projectPath: apps/desktop
 
