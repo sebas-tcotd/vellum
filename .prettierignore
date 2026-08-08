@@ -12,6 +12,7 @@ _bmad-output/
 .gemini/
 apps/desktop/src-tauri/target/
 apps/desktop/src-tauri/gen/schemas/
+apps/desktop/src-tauri/tauri.conf.json
 target/
 AGENTS.md
 CLAUDE.md
