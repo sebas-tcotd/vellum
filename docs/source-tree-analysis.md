@@ -1,121 +1,105 @@
 # Vellum — Análisis del Árbol de Fuentes
 
-> Generado: 2026-04-04 | Escaneo: Rápido
+> Generado: 2026-08-07 | Escaneo: Deep | Reemplaza la versión de 2026-04-04 (proyecto en estado scaffolding)
 
 ---
 
-## Árbol Completo Anotado
+## Árbol completo anotado
 
 ```
-c:\Proyectos\Vellum/                          ← Raíz del monorepo
-│
-├── package.json                              ← Manifest raíz (scripts: dev, build, test, lint)
-├── pnpm-workspace.yaml                       ← Define workspaces: packages/* y apps/*
-├── pnpm-lock.yaml                            ← Lockfile de dependencias
-├── turbo.json                                ← Configuración de tareas Turborepo
-├── tsconfig.json                             ← TypeScript base con path aliases
-│
+vellum/
 ├── apps/
-│   └── desktop/                             ← [PARTE: desktop] App Tauri principal
-│       ├── package.json                     ← Deps: React, Tauri API, todos los @vellum/*
-│       ├── vite.config.ts                   ← Config Vite (puerto 1420, plugin React)
-│       ├── tsconfig.json                    ← TS config para el frontend
-│       ├── tsconfig.node.json               ← TS config para scripts Node (vite.config)
-│       ├── index.html                       ← HTML entry point del frontend
-│       ├── public/                          ← Assets estáticos públicos
-│       │   ├── tauri.svg
-│       │   └── vite.svg
-│       ├── src/
-│       │   └── main.tsx                     ← [ENTRY POINT] Monta <App /> de @vellum/ui
-│       └── src-tauri/                       ← [RUST/TAURI] Shell nativo
-│           ├── Cargo.toml                   ← Manifest Rust: tauri v2, serde, serde_json
-│           ├── Cargo.lock                   ← Lockfile Rust
-│           ├── build.rs                     ← Build script (tauri-build)
-│           ├── tauri.conf.json              ← Config Tauri: ventana 1200×800, bundling
-│           ├── capabilities/
-│           │   └── default.json            ← Permisos Tauri: core:default
-│           ├── icons/                       ← Iconos de la app (PNG, ICO, ICNS)
-│           ├── gen/                         ← Schemas generados por Tauri CLI
-│           └── src/
-│               ├── main.rs                  ← [ENTRY POINT RUST] Llama a vellum_lib::run()
-│               └── lib.rs                   ← Bootstrap Tauri (Builder::default, sin comandos IPC aún)
-│
+│   └── desktop/                        # Composition Root — Tauri 2 + Vite/React
+│       ├── src/                        # Frontend TS: entry point, hooks Tauri-specific
+│       │   ├── main.tsx                # Ensambla @vellum/ui::App con adapters Tauri (parse, export, updater)
+│       │   ├── hooks/
+│       │   │   ├── use-parse-cslmap.ts # Carga .cslmap vía IPC + file dialog
+│       │   │   └── use-export-png.ts   # Adapter: bytes PNG del renderer → comando export_png
+│       │   ├── export/                 # Selección legacy vs. tiled export, benchmark runner
+│       │   └── window-close-cancel.ts  # Espera cancelación de export antes de cerrar la ventana
+│       ├── src-tauri/                  # Backend Rust: comandos IPC, plugins, menú nativo
+│       │   ├── src/
+│       │   │   ├── main.rs             # Llama a vellum_lib::run()
+│       │   │   ├── lib.rs              # Builder Tauri, plugins, menú nativo, updater en background
+│       │   │   ├── commands.rs         # #[tauri::command]: parse_cslmap, export_png, begin/append/finish/cancel_export, load_themes, open_export_folder
+│       │   │   ├── updater.rs          # get_pending_update; check_for_updates en background
+│       │   │   ├── city_data.rs        # Modelo de dominio (espejo Rust de @vellum/core)
+│       │   │   ├── errors.rs           # VellumError (Rust)
+│       │   │   ├── ipc_contract.rs     # Payloads IPC internos (incl. UpdatePayload)
+│       │   │   └── export/             # session.rs (ExportSessionManager), framing.rs, svg_writer.rs, tile_composer.rs
+│       │   └── resources/themes/       # 5 temas built-in (.vellumstyle): day, grayscale, classic, transit, grayscale-water
+│       └── tests/e2e/smoke.spec.ts     # Playwright — smoke test mínimo (título + body visible)
 ├── packages/
-│   ├── core/                               ← [PARTE: core] Base del dominio
-│   │   ├── package.json                    ← Sin dependencias internas
-│   │   ├── tsconfig.json
+│   ├── core/                           # @vellum/core — capa de dominio pura, cero dependencias internas
 │   │   └── src/
-│   │       └── index.ts                    ← Barrel export (placeholder)
-│   │
-│   ├── parser-cslmap/                      ← [PARTE: parser-cslmap] Parser del formato CSLMap
-│   │   ├── package.json                    ← Dep: @vellum/core
-│   │   ├── tsconfig.json
+│   │       ├── types/                  # city-data, cartographic-scene, layer, renderer (IRenderer), theme, color-tokens, export-pipeline, export-presentation
+│   │       ├── ipc-contract.ts         # IPC_COMMANDS, IPC_EVENTS, VellumError — fuente de verdad del contrato
+│   │       ├── testing/city-data-factory.ts  # Barrel de test independiente (@vellum/core/testing)
+│   │       └── index.ts                # Barrel público (nota: IRenderer/RenderParams NO se re-exportan aquí)
+│   ├── parser-cslmap/                  # Adapter: XML .cslmap → CityData (crate Rust propio + adapter TS/napi)
+│   │   ├── src/
+│   │   │   ├── parser.rs + parser/{builder,events,utils,types}.rs   # Loop de eventos streaming
+│   │   │   ├── parser/handlers/{roads,buildings,transit,districts,parks}.rs
+│   │   │   ├── parser/terrain/{grid,vectorizer,texture}.rs          # CSV → isolines/contornos, DEM PNG
+│   │   │   ├── dlc_fallback.rs         # Fallback por ItemClass desconocido (clasificación por ancho)
+│   │   │   └── city_data.rs, types.rs  # Espejo Rust del modelo de dominio
+│   │   └── fixtures/                   # minimal-valid, with-transit(-paths-debug), corrupted, unknown-dlc-assets (chicas) + 5 ciudades reales 11-24MB
+│   ├── renderer-webgl/                 # @vellum/renderer-webgl — ACTIVO, implementa IRenderer, ~100 archivos fuente
 │   │   └── src/
-│   │       └── index.ts                    ← Barrel export (placeholder)
-│   │
-│   ├── renderer-canvas/                    ← [PARTE: renderer-canvas] Renderizador Canvas
-│   │   ├── package.json                    ← Deps: @vellum/core, @vellum/theme-engine
-│   │   ├── tsconfig.json
+│   │       ├── geojson/                # CityData → GeoJSON puro (sin import de MapLibre), builders/ config/ types/ utils/
+│   │       ├── layers/                 # Un archivo de config de capa MapLibre por capa (terrain, roads, transit, buildings, forests, districts, grid, map-frame, service-icons, watermark, background, basemap)
+│   │       ├── managers/               # map-layer / map-navigation / map-source (mutación de capas/fuentes/cámara)
+│   │       ├── transit/                # Geometría, ordering y line-graph específicos de tránsito
+│   │       ├── export/                 # Pipeline PNG (tiled + legacy) y SVG — ver architecture-desktop.md
+│   │       ├── capability-probe.ts     # Mide límites WebGL/memoria/encoder → decide ruta de export
+│   │       ├── interactions/           # Hover/click/tooltip
+│   │       └── assets/maki-icons/      # Iconografía de servicios
+│   ├── renderer-canvas/                # @vellum/renderer-canvas — LEGACY, sin uso real fuera de su propio package
 │   │   └── src/
-│   │       └── index.ts                    ← Barrel export (placeholder)
-│   │
-│   ├── theme-engine/                       ← [PARTE: theme-engine] Motor de temas
-│   │   ├── package.json                    ← Dep: @vellum/core
-│   │   ├── tsconfig.json
+│   │       ├── layers/                 # terrain/water/roads/transit/buildings/forests/districts-layer.ts
+│   │       ├── worker/renderer-worker.ts  # OffscreenCanvas por capa, dispatch de mensajes tipados
+│   │       └── geometry/{PresenceGrid,WaterContour}.ts
+│   ├── theme-engine/                   # @vellum/theme-engine — .vellumstyle → RenderStyleParams
 │   │   └── src/
-│   │       └── index.ts                    ← Barrel export (placeholder)
-│   │
-│   └── ui/                                ← [PARTE: ui] Componentes React
-│       ├── package.json                   ← Deps: @vellum/core, renderer-canvas, theme-engine, React 19
-│       ├── tsconfig.json
+│   │       ├── default-style.ts        # DEFAULT_RENDER_STYLE_PARAMS
+│   │       ├── loader.ts               # loadThemes()
+│   │       ├── schema-migration.ts     # migrateTheme() — único lugar que castea a VellumStyle
+│   │       └── validators/{color,theme}.ts
+│   └── ui/                             # @vellum/ui — única capa con React, ~41 archivos fuente
 │       └── src/
-│           ├── index.ts                   ← Barrel: exporta { App }
-│           └── App.tsx                    ← Componente raíz (placeholder — ver Story 2.1)
-│
-├── docs/                                  ← [KNOWLEDGE] Documentación del proyecto (este directorio)
-│   ├── index.md
-│   ├── project-overview.md
-│   ├── source-tree-analysis.md
-│   └── project-scan-report.json
-│
-└── _bmad-output/                          ← Artefactos de planificación BMad
-    └── planning-artifacts/
-        ├── prd.md
-        ├── architecture.md
-        ├── epics.md
-        └── ...
+│           ├── App.tsx                 # Ensambla MapLibreRoot + EmptyState/ProgressBar + overlays + panels
+│           ├── components/
+│           │   ├── canvas/MapLibreRoot.tsx        # Monta el renderer WebGL activo
+│           │   ├── empty-state/                   # DropZone, ContextualHint, GridBackground, Version
+│           │   ├── minimap/Minimap.tsx
+│           │   ├── overlays/           # ProgressBar, ErrorToast, PartialParseDialog, DlcWarningToast, ThemeWarningToast, UpdateToast, MapTooltip, ExportStatusOverlay
+│           │   └── panels/             # FloatingLayerPanel, LayerToggleRow, AdvancedOptionsPanel, IconLegend, ExportDialog, PreferencesPanel
+│           ├── hooks/                  # use-keyboard-shortcuts, use-tauri-event, use-themes, use-export-workflow, use-progress-events
+│           ├── store/                  # vellum-store.ts (Zustand) + preferences-store.ts (tauri-plugin-store)
+│           ├── i18n/                   # i18n-setup.ts + locales/{en,es}.json
+│           └── lib/                    # utils.ts (cn), button/dialog/progress/separator/switch.tsx (Radix, estilo shadcn)
+├── docs/                               # Esta documentación
+├── _bmad-output/                       # Artefactos de planificación (symlink a ../vellum-context)
+└── _bmad/                              # Configuración del flujo de trabajo BMad
 ```
 
----
+## Carpetas críticas explicadas
 
-## Directorios Críticos por Parte
+| Carpeta                                  | Por qué importa                                                                                                                     |
+| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/core/src/ipc-contract.ts`      | Única fuente de verdad del contrato IPC — cualquier cambio requiere sincronía Rust+TS en el mismo commit                            |
+| `packages/renderer-webgl/src/geojson/`   | Traduce `CityData` a GeoJSON sin depender de MapLibre — reutilizado también por el pipeline SVG vía `cartographic-scene-builder.ts` |
+| `packages/renderer-webgl/src/export/`    | Dos rutas de export (tiled vs. legacy) decididas en runtime por `capability-probe.ts`                                               |
+| `apps/desktop/src-tauri/src/commands.rs` | Todos los comandos Tauri expuestos a la UI — 9 en `IPC_COMMANDS`                                                                    |
+| `packages/ui/src/store/vellum-store.ts`  | Único store Zustand — estado de carga, capas, temas, idioma, preferencias, updates                                                  |
+| `packages/parser-cslmap/fixtures/`       | Fixtures reales (11-24MB) usados para validar bugs de rendering que fixtures sintéticos no detectan                                 |
 
-| Directorio                             | Parte           | Propósito                                 |
-| -------------------------------------- | --------------- | ----------------------------------------- |
-| `apps/desktop/src/`                    | desktop         | Punto de entrada React                    |
-| `apps/desktop/src-tauri/src/`          | desktop         | Shell Rust nativo                         |
-| `apps/desktop/src-tauri/capabilities/` | desktop         | Permisos de seguridad Tauri               |
-| `packages/core/src/`                   | core            | Tipos y lógica base (implementar primero) |
-| `packages/parser-cslmap/src/`          | parser-cslmap   | Parsing de documentos CSLMap              |
-| `packages/renderer-canvas/src/`        | renderer-canvas | Renderizado visual en Canvas              |
-| `packages/theme-engine/src/`           | theme-engine    | Gestión de temas y tokens de diseño       |
-| `packages/ui/src/`                     | ui              | Componentes React y pantallas             |
+## Puntos de entrada
 
----
+- Frontend: [`apps/desktop/src/main.tsx`](../apps/desktop/src/main.tsx)
+- Rust: [`apps/desktop/src-tauri/src/main.rs`](../apps/desktop/src-tauri/src/main.rs) → `lib.rs::run()`
+- App React: [`packages/ui/src/App.tsx`](../packages/ui/src/App.tsx)
 
-## Puntos de Entrada
+## Nota sobre `renderer-canvas`
 
-| Tipo            | Archivo                              | Descripción                      |
-| --------------- | ------------------------------------ | -------------------------------- |
-| Frontend (Vite) | `apps/desktop/src/main.tsx`          | Monta `<App />` en el DOM        |
-| UI Component    | `packages/ui/src/App.tsx`            | Componente raíz de la aplicación |
-| Tauri (Rust)    | `apps/desktop/src-tauri/src/main.rs` | Inicia el proceso nativo         |
-| Tauri Library   | `apps/desktop/src-tauri/src/lib.rs`  | Configura el builder de Tauri    |
-
----
-
-## Estado del Código
-
-> ⚠️ **Scaffolding en curso** — Todos los paquetes (`core`, `parser-cslmap`, `renderer-canvas`, `theme-engine`) contienen únicamente barrel exports vacíos. El componente `App.tsx` en `packages/ui` devuelve `<div />` con un comentario: _"Story 2.1 implementará el empty state real"_.
-
-La arquitectura y las interfaces están definidas por los documentos de planificación en `_bmad-output/planning-artifacts/`, pero aún no se han trasladado al código.
+Al momento de este escaneo hay un cambio sin commitear que elimina los últimos wrappers de React (`CanvasRoot.tsx`, `CanvasLayer.tsx`, `hooks/useRenderLoop.ts`) de `packages/ui/src/components/canvas/`. Un grep confirma que ningún archivo fuente de `apps/desktop` o `packages/ui` importa hoy nada de `@vellum/renderer-canvas` — el package queda como referencia testeada, no como dependencia real.

@@ -1,155 +1,104 @@
 # Vellum Desktop — Documento de Arquitectura
 
-> Generado: 2026-04-04 | Escaneo: Rápido | Parte: `desktop`
+> Generado: 2026-08-07 | Escaneo: Deep | Parte: `desktop` | Reemplaza la versión de 2026-04-04 (proyecto en estado scaffolding)
 
 ---
 
-## Resumen Ejecutivo
+## Resumen ejecutivo
 
-`apps/desktop` es la aplicación de escritorio principal de Vellum. Es un shell Tauri 2 (Rust) que embebe un frontend React 19 construido con Vite 7. La app integra todos los paquetes del monorepo y constituye el único punto de distribución final hacia el usuario.
+`apps/desktop` es el **Composition Root** del monorepo: el único paquete que ensambla `@vellum/ui`, `@vellum/renderer-webgl`, `@vellum/theme-engine`, `@vellum/parser-cslmap` y `@vellum/core` en una aplicación nativa Tauri 2. No contiene lógica de dominio propia — su rol es adaptar el mundo Tauri (comandos IPC, plugins nativos, menú de sistema, updater) a los puertos que `@vellum/ui` espera.
 
-**Estado actual:** Scaffolding completo — la infraestructura está lista pero la lógica de dominio y la interfaz de usuario son placeholders pendientes de implementación.
-
----
-
-## Stack Tecnológico
-
-| Capa                 | Tecnología           | Versión                 |
-| -------------------- | -------------------- | ----------------------- |
-| Shell nativo         | Rust + Tauri         | Edition 2021 / Tauri ^2 |
-| Build nativo         | tauri-build          | ^2                      |
-| Serialización        | serde + serde_json   | ^1                      |
-| Frontend framework   | React                | ^19.1.0                 |
-| Frontend build       | Vite                 | ^7.0.4                  |
-| Transpilador         | TypeScript           | ~5.8.3                  |
-| Plugin React/Vite    | @vitejs/plugin-react | ^4.6.0                  |
-| API Tauri (frontend) | @tauri-apps/api      | ^2                      |
-
----
-
-## Patrón Arquitectónico
-
-**Shell/Renderer + Modular Libraries**
+## Estructura
 
 ```
-┌─────────────────────────────────────────┐
-│           Proceso Tauri (Rust)          │  ← Shell nativo
-│  ┌───────────────────────────────────┐  │
-│  │    WebView (Vite/React frontend)  │  │  ← Renderer
-│  │                                   │  │
-│  │  main.tsx                         │  │
-│  │    └── <App /> (@vellum/ui)        │  │
-│  │          ├── @vellum/renderer-canvas│  │
-│  │          ├── @vellum/theme-engine  │  │
-│  │          ├── @vellum/core          │  │
-│  │          └── @vellum/parser-cslmap │  │
-│  └──────────────── IPC ───────────────┘  │
-│           (invoke / events)              │
-└─────────────────────────────────────────┘
+apps/desktop/
+├── src/                    # Frontend TS — adapters Tauri-specific
+│   ├── main.tsx             # Entry point: ensambla App con hooks/adapters concretos
+│   ├── hooks/
+│   │   ├── use-parse-cslmap.ts  # invoke('parse_cslmap') + file dialog + progreso
+│   │   └── use-export-png.ts    # invoke('export_png') con bytes crudos (sin base64)
+│   ├── export/               # Selección legacy vs. tiled, ExportCoordinator, benchmark runner
+│   └── window-close-cancel.ts   # Espera cancelación de export antes de win.destroy()
+└── src-tauri/               # Backend Rust
+    ├── src/
+    │   ├── main.rs           # trivial, llama a vellum_lib::run()
+    │   ├── lib.rs             # Builder Tauri: plugins, menú nativo, updater en background, cleanup de sesiones
+    │   ├── commands.rs        # Todos los #[tauri::command]
+    │   ├── updater.rs         # check_for_updates (background) + get_pending_update
+    │   ├── city_data.rs, errors.rs, ipc_contract.rs   # Espejo Rust del dominio/IPC
+    │   └── export/            # session.rs, framing.rs, svg_writer.rs, tile_composer.rs
+    └── resources/themes/      # 5 .vellumstyle built-in
 ```
 
----
+## Entry points
 
-## Componentes
+- **Frontend**: `src/main.tsx` — renderiza `<AppMetaProvider version><AppShell/></AppMetaProvider>` dentro de `React.StrictMode`. `AppShell` recibe como props los adapters concretos: `useParseCslmap`, `useExportPng`, `ExportCoordinator` (decide ruta legacy vs. tiled vía `probeCapabilities()`), `SvgExporter` (Web Worker dedicado + `TauriSvgExportSink`), y en dev expone `window.__vellumRasterBenchmark`.
+- **Rust**: `main.rs` → `vellum_lib::run()` en `lib.rs`.
 
-### Frontend (React/TypeScript)
+## Comandos Tauri (`#[tauri::command]`)
 
-| Archivo          | Descripción                                                        |
-| ---------------- | ------------------------------------------------------------------ |
-| `src/main.tsx`   | Punto de entrada: monta `<App />` de `@vellum/ui` en `#root`       |
-| `vite.config.ts` | Config Vite: puerto 1420, plugin React, integración HMR para Tauri |
-| `index.html`     | HTML shell con `<div id="root">`                                   |
+| Comando                                                                    | Archivo       | Propósito                                                                                |
+| -------------------------------------------------------------------------- | ------------- | ---------------------------------------------------------------------------------------- |
+| `parse_cslmap`                                                             | `commands.rs` | Parsea `.cslmap` en blocking thread, retorna `CityData`                                  |
+| `load_themes`                                                              | `commands.rs` | Lee los `.vellumstyle` built-in de `resources/themes/`                                   |
+| `export_png`                                                               | `commands.rs` | Persiste bytes PNG ya renderizados a disco                                               |
+| `open_export_folder`                                                       | `commands.rs` | Revela el archivo exportado en el explorador del OS                                      |
+| `begin_export` / `append_export_chunk` / `finish_export` / `cancel_export` | `commands.rs` | Ciclo de vida completo de una sesión de export tiled transaccional                       |
+| `get_pending_update`                                                       | `updater.rs`  | Retorna (y limpia) un payload de update que llegó antes de que la UI montara su listener |
 
-### Backend (Rust/Tauri)
+## Plugins Tauri registrados
 
-| Archivo                     | Descripción                                                                    |
-| --------------------------- | ------------------------------------------------------------------------------ |
-| `src-tauri/src/main.rs`     | Punto de entrada Rust — invoca `vellum_lib::run()`                             |
-| `src-tauri/src/lib.rs`      | Bootstrap Tauri: `Builder::default().run()` — sin comandos IPC registrados aún |
-| `src-tauri/tauri.conf.json` | Configuración de la app: ventana, bundling, CSP, iconos                        |
-| `src-tauri/Cargo.toml`      | Dependencias Rust: tauri, serde, serde_json                                    |
-| `src-tauri/build.rs`        | Build script requerido por tauri-build                                         |
+`tauri-plugin-dialog`, `tauri-plugin-store` (preferencias), `tauri-plugin-opener`, `tauri-plugin-updater` (solo desktop, agregado en `.setup()`).
 
-### Configuración
+## Setup de la aplicación (`lib.rs::run()`)
 
-| Archivo                               | Descripción                                                     |
-| ------------------------------------- | --------------------------------------------------------------- |
-| `src-tauri/capabilities/default.json` | Permisos: `core:default` para la ventana `main`                 |
-| `src-tauri/tauri.conf.json`           | Ventana 1200×800 (mín. 900×600), CSP: null (dev), bundling: all |
+1. Construye `tauri::Builder`, registra los 4 plugins de arriba
+2. `.manage(Arc<ExportSessionManager>)` — estado compartido para sesiones de export
+3. Registra todos los comandos vía `invoke_handler!()`
+4. `.setup()`:
+   - Construye el menú nativo (ver abajo)
+   - Barre archivos `.part` de export huérfanos en Downloads (limpieza de sesiones interrumpidas)
+   - Spawnea `updater::check_for_updates` en background
+5. `.on_window_event` / `RunEvent` — invoca `ExportSessionManager::cleanup_all()` al cerrar
 
----
+## Menú nativo
 
-## Configuración de la Ventana Principal
+Parte de `tauri::menu::Menu::default()` (conserva Edit/Window/submenús estándar del OS) y agrega un item **"Preferences…"** (`CmdOrCtrl+,`) — en el submenú de la app en macOS, o en un submenú "Vellum" prepended en otras plataformas. El evento de menú `"preferences"` emite `vellum://open-preferences`, que `@vellum/ui` escucha para abrir `PreferencesPanel`.
 
-```json
-{
-  "title": "Vellum",
-  "width": 1200,
-  "height": 800,
-  "minWidth": 900,
-  "minHeight": 600
-}
+## Preferencias
+
+`tauri-plugin-store` persiste `preferences.json`. La escritura vive del lado de `@vellum/ui` (`store/preferences-store.ts`, con cola serializada); `apps/desktop` solo lo lee en `updater.rs` para el flag `autoUpdateEnabled` (default `false`).
+
+## Verificación de actualizaciones
+
+`updater::check_for_updates` corre en background al iniciar, usando `tauri-plugin-updater` contra GitHub Releases. Si hay una versión nueva:
+
+- Guarda el payload en un `OnceLock<Mutex<Option<UpdatePayload>>>` a nivel de proceso
+- Emite `vellum://update-available` (versión + URL de release notes)
+- Si `autoUpdateEnabled` es `true`, descarga, instala y reinicia sin intervención del usuario
+
+`get_pending_update` cubre el caso donde el evento llega antes de que el frontend termine de montar su listener.
+
+## Comandos de desarrollo
+
+```bash
+pnpm dev          # tauri dev
+pnpm dev:vite      # solo Vite (puerto 1420, HMR 1421)
+pnpm build         # tauri build
+pnpm build:vite    # tsc -b && vite build
+pnpm test          # vitest run (14 archivos en src/hooks y src/export/**)
+pnpm test:e2e      # playwright test
 ```
 
----
+## Testing
 
-## Proceso de Build
+| Tipo           | Cantidad                           | Notas                                                                                                                                                           |
+| -------------- | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Vitest (TS)    | 14 archivos                        | `src/hooks/**`, `src/export/**`                                                                                                                                 |
+| `#[test]` Rust | 94 tests                           | Concentrados en `export/session.rs` (42) y `export/tile_composer.rs` (15) — el módulo más complejo del backend                                                  |
+| Playwright E2E | 1 spec (`tests/e2e/smoke.spec.ts`) | Conecta al dev server, valida título de página y que `body` sea visible. Predatea la UI de drag&drop/render/export — no cubre el flujo crítico completo todavía |
 
-```
-pnpm build:vite
-  └── tsc --noEmit (verificación de tipos)
-  └── vite build → apps/desktop/dist/
+## Notas de arquitectura
 
-pnpm build (tauri build)
-  └── pnpm build:vite (beforeBuildCommand)
-  └── cargo build --release (Rust)
-  └── Empaquetado nativo (MSI/NSIS en Windows, DMG en macOS, AppImage en Linux)
-```
-
----
-
-## Proceso de Desarrollo
-
-```
-pnpm dev (tauri dev)
-  └── pnpm dev:vite (beforeDevCommand)
-      └── vite serve → http://localhost:1420
-  └── cargo run (Rust, conecta al devUrl)
-```
-
-HMR (Hot Module Replacement) configurado con soporte para `TAURI_DEV_HOST` (desarrollo remoto/móvil).
-
----
-
-## Seguridad
-
-| Aspecto                      | Configuración actual                                                                             |
-| ---------------------------- | ------------------------------------------------------------------------------------------------ |
-| CSP                          | `null` (sin restricciones — solo aceptable en desarrollo; **debe configurarse para producción**) |
-| Permisos Tauri               | `core:default` únicamente                                                                        |
-| Comandos IPC                 | Ninguno registrado aún                                                                           |
-| Acceso a sistema de archivos | No concedido                                                                                     |
-
----
-
-## Dependencias Internas (workspace)
-
-| Paquete                   | Rol                            |
-| ------------------------- | ------------------------------ |
-| `@vellum/ui`              | Componentes React — todo el UI |
-| `@vellum/core`            | Tipos y utilidades base        |
-| `@vellum/parser-cslmap`   | Parsing de documentos          |
-| `@vellum/renderer-canvas` | Renderizado visual             |
-| `@vellum/theme-engine`    | Sistema de temas               |
-
----
-
-## Próximos Pasos de Implementación
-
-1. Implementar el empty state en `@vellum/ui` (Story 2.1)
-2. Definir tipos en `@vellum/core`
-3. Implementar parsing en `@vellum/parser-cslmap`
-4. Implementar motor de temas en `@vellum/theme-engine`
-5. Implementar renderizador en `@vellum/renderer-canvas`
-6. Registrar comandos IPC en `lib.rs` cuando se requiera acceso nativo
-7. Configurar CSP para producción en `tauri.conf.json`
+- Ningún archivo de `apps/desktop` contiene lógica de dominio — parsing, clasificación de vías, reconstrucción de tránsito, etc. viven todos en `packages/*`. Esto es intencional: `apps/desktop` debe poder reemplazar cualquier adapter (parser, renderer, export sink) sin tocar el resto.
+- El pipeline de export es, con diferencia, la parte más pesada en tests Rust (57 de 94 tests) — refleja que la exportación tiled con streaming binario y composición incremental es la lógica más delicada del backend.

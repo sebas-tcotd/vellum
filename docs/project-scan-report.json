@@ -1,84 +1,97 @@
 {
   "workflow_version": "1.2.0",
   "timestamps": {
-    "started": "2026-04-04T00:00:00Z",
-    "last_updated": "2026-04-04T00:30:00Z"
+    "started": "2026-08-07T20:37:00Z",
+    "last_updated": "2026-08-08T01:46:00Z",
+    "completed": "2026-08-08T01:46:00Z"
   },
-  "mode": "initial_scan",
-  "scan_level": "quick",
-  "project_root": "c:\\Proyectos\\Vellum",
-  "project_knowledge": "c:\\Proyectos\\Vellum/docs",
+  "mode": "full_rescan",
+  "scan_level": "deep",
+  "project_root": "/Users/tcotd/seb-lab/vellum",
+  "project_knowledge": "/Users/tcotd/seb-lab/vellum/docs",
   "completed_steps": [
     {
       "step": "step_1",
       "status": "completed",
-      "timestamp": "2026-04-04T00:05:00Z",
-      "summary": "Clasificado como monorepo con 6 partes: desktop (desktop), core/parser-cslmap/renderer-canvas/theme-engine/ui (library)"
+      "timestamp": "2026-08-07T20:40:00Z",
+      "summary": "Reclasificado como monorepo con 7 partes: desktop (Tauri, composition root) + core, parser-cslmap, renderer-webgl, renderer-canvas, theme-engine, ui (libraries). Se agregó renderer-webgl, ausente en el escaneo original de 2026-04-04."
     },
     {
       "step": "step_2",
       "status": "completed",
-      "timestamp": "2026-04-04T00:08:00Z",
-      "summary": "0 docs en código fuente. 7 artefactos de planificación en _bmad-output/planning-artifacts/"
+      "timestamp": "2026-08-07T20:42:00Z",
+      "summary": "Inventario de docs existentes: README.md/README.es.md (recién sincronizados), CONTRIBUTING.md, SECURITY.md, CODE_OF_CONDUCT.md, DESIGN.md, AGENTS.md, CLAUDE.md, y 5 docs técnicos vigentes en docs/ (transit/district/forest rendering, vellumstyle schema en/es)."
     },
     {
       "step": "step_3",
       "status": "completed",
-      "timestamp": "2026-04-04T00:12:00Z",
-      "summary": "Tech stack: TypeScript 5.8.3 + Rust (Tauri 2) + React 19 + Vite 7 + pnpm 10.33.0 + Turborepo"
+      "timestamp": "2026-08-07T20:44:00Z",
+      "summary": "Stack confirmado vía package.json/Cargo.toml: TypeScript ~5.8.3, React ^19.1.0, Tauri ^2.x, Rust edition 2021 (1.96.0), pnpm 10.33.0 exacto, MapLibre GL JS ^5.24.0, Vitest ^4.1.2, Playwright ^1.59.1."
     },
     {
       "step": "step_4",
       "status": "completed",
-      "timestamp": "2026-04-04T00:15:00Z",
-      "summary": "Quick scan: desktop=state_management+ui_components+deployment_config; libraries=minimal. Sin API, sin DB, sin CI/CD, sin i18n"
+      "timestamp": "2026-08-08T01:20:00Z",
+      "summary": "Deep-scan completo de los 7 packages vía 4 sub-agentes en paralelo (apps/desktop; core+parser-cslmap+theme-engine; renderer-webgl+renderer-canvas; ui). Confirmado: export PNG/SVG completamente implementado (no stub), 9 comandos IPC, 94 tests Rust + ~110 Vitest + 1 spec Playwright, renderer-canvas sin uso real en el árbol de imports."
     },
     {
       "step": "step_5",
       "status": "completed",
-      "timestamp": "2026-04-04T00:18:00Z",
-      "summary": "Árbol de fuentes documentado con anotaciones para 6 partes"
+      "timestamp": "2026-08-08T01:25:00Z",
+      "summary": "source-tree-analysis.md regenerado con árbol completo de las 7 partes"
     },
     {
       "step": "step_6",
       "status": "completed",
-      "timestamp": "2026-04-04T00:20:00Z",
-      "summary": "Dev setup y comandos documentados. Sin CI/CD, sin deployment config más allá de Tauri bundling"
+      "timestamp": "2026-08-08T01:30:00Z",
+      "summary": "development-guide.md regenerado, complementa (no duplica) CONTRIBUTING.md"
     },
     {
       "step": "step_7",
       "status": "completed",
-      "timestamp": "2026-04-04T00:22:00Z",
-      "summary": "12 integration points workspace + 1 Tauri IPC (scaffolded)"
+      "timestamp": "2026-08-08T01:35:00Z",
+      "summary": "integration-architecture.md regenerado con grafo de dependencias, contrato IPC completo (9 comandos, 4 eventos) y los 3 flujos de datos principales (parseo, render, export)"
     },
     {
       "step": "step_8",
       "status": "completed",
-      "timestamp": "2026-04-04T00:25:00Z",
-      "summary": "architecture-desktop.md generado. Arquitecturas de packages library marcadas como To be generated"
+      "timestamp": "2026-08-08T01:38:00Z",
+      "summary": "architecture-desktop.md regenerado: comandos Tauri, menú nativo, updater, preferencias, testing"
     },
     {
       "step": "step_9",
       "status": "completed",
-      "timestamp": "2026-04-04T00:28:00Z",
-      "summary": "6 archivos generados: project-overview, source-tree-analysis, integration-architecture, development-guide, component-inventory-desktop, architecture-desktop"
+      "timestamp": "2026-08-08T01:42:00Z",
+      "summary": "project-overview.md y component-inventory-desktop.md regenerados"
     },
     {
       "step": "step_10",
       "status": "completed",
-      "timestamp": "2026-04-04T00:30:00Z",
-      "summary": "index.md generado con 5 items marcados como To be generated (architectures de packages library)"
+      "timestamp": "2026-08-08T01:44:00Z",
+      "summary": "index.md regenerado, sin marcadores (To be generated) pendientes — se documentó la decisión de consolidar las 5 arquitecturas por-package (antes stub) en integration-architecture.md y component-inventory-desktop.md en vez de crear 5 archivos casi vacíos"
+    },
+    {
+      "step": "step_11",
+      "status": "completed",
+      "timestamp": "2026-08-08T01:45:00Z",
+      "summary": "Validación: los 7 documentos formateados con prettier, sin marcadores (To be generated)/(TBD)/(TODO) restantes, enlaces cruzados verificados"
+    },
+    {
+      "step": "step_12",
+      "status": "completed",
+      "timestamp": "2026-08-08T01:46:00Z",
+      "summary": "Workflow completo. Estado anterior (2026-04-04, quick scan, scaffolding) archivado en docs/.archive/"
     }
   ],
-  "current_step": "step_11",
+  "current_step": "completed",
   "findings": {
-    "project_classification": "monorepo, 6 partes, TypeScript+Rust",
-    "technology_stack": "TypeScript 5.8.3 + Rust + React 19 + Vite 7 + Tauri 2 + pnpm + Turborepo",
-    "apis": "0 endpoints (no implementado)",
-    "data_models": "0 tablas (no implementado)",
-    "components": "1 componente (App placeholder)",
-    "ci_cd": "no detectado",
-    "state_management": "no detectado"
+    "project_classification": "monorepo, 7 partes, TypeScript+Rust, producción (7 épicas core completas)",
+    "technology_stack": "TypeScript ~5.8.3 + Rust (Tauri 2) + React 19 + Vite 7 + pnpm 10.33.0 + Turborepo + MapLibre GL JS",
+    "apis": "9 comandos IPC Tauri, 4 eventos",
+    "data_models": "CityData (LandArray/WaterArray separados por invariante de dominio) espejado 1:1 Rust/TS",
+    "components": "~41 archivos fuente en @vellum/ui, 34 archivos de test",
+    "ci_cd": "pr-validation.yml (build/test/lint) + publish-release.yml (tag v* → instaladores multiplataforma)",
+    "state_management": "Zustand (vellum-store.ts) + tauri-plugin-store para preferencias persistidas"
   },
   "project_types": [
     {
@@ -97,9 +110,14 @@
       "display_name": "Package: parser-cslmap"
     },
     {
+      "part_id": "renderer-webgl",
+      "project_type_id": "library",
+      "display_name": "Package: renderer-webgl (activo)"
+    },
+    {
       "part_id": "renderer-canvas",
       "project_type_id": "library",
-      "display_name": "Package: renderer-canvas"
+      "display_name": "Package: renderer-canvas (legacy)"
     },
     {
       "part_id": "theme-engine",
@@ -122,5 +140,5 @@
     "component-inventory-desktop.md",
     "index.md"
   ],
-  "resume_instructions": "Workflow completado. 5 documentos de arquitectura de packages marcados como To be generated en index.md"
+  "resume_instructions": "Workflow completado. Todos los documentos regenerados con deep scan, sin marcadores pendientes."
 }

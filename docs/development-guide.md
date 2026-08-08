@@ -1,168 +1,116 @@
 # Vellum — Guía de Desarrollo
 
-> Generado: 2026-04-04 | Escaneo: Rápido
+> Generado: 2026-08-07 | Escaneo: Deep | Reemplaza la versión de 2026-04-04 (proyecto en estado scaffolding)
+
+Para el flujo de PR, convenciones de commits y checklist de contribución, ver [`CONTRIBUTING.md`](../CONTRIBUTING.md) — este documento cubre el detalle técnico de setup y comandos que `CONTRIBUTING.md` resume brevemente.
 
 ---
 
 ## Prerrequisitos
 
-| Herramienta | Versión requerida     | Verificar con          |
-| ----------- | --------------------- | ---------------------- |
-| Node.js     | LTS (≥18 recomendado) | `node --version`       |
-| pnpm        | 10.33.0               | `pnpm --version`       |
-| Rust        | stable (Edition 2021) | `rustc --version`      |
-| Tauri CLI   | ^2.x (vía pnpm)       | `pnpm tauri --version` |
+| Herramienta | Versión                                  | Verificar              |
+| ----------- | ---------------------------------------- | ---------------------- |
+| Node.js     | 20                                       | `node --version`       |
+| pnpm        | `10.33.0` (pinneado en `packageManager`) | `pnpm --version`       |
+| Rust        | `1.96.0` (`rust-toolchain.toml`)         | `rustc --version`      |
+| Tauri CLI   | `2.x`                                    | `pnpm tauri --version` |
 
-> **Nota:** Tauri 2 requiere dependencias del sistema operativo para compilar el shell nativo. Consultar la documentación oficial de Tauri para Windows/macOS/Linux.
+Instalar los [prerrequisitos de Tauri 2](https://v2.tauri.app/start/prerequisites/) antes de `pnpm install`: WebKitGTK + build tools en Linux, Xcode Command Line Tools en macOS, Microsoft C++ Build Tools + WebView2 en Windows. pnpm no instala estas dependencias nativas.
 
----
-
-## Instalación
+## Setup
 
 ```bash
-# Clonar el repositorio
-git clone <repo-url>
-cd Vellum
-
-# Instalar todas las dependencias del monorepo
-pnpm install
+git clone https://github.com/sebas-tcotd/vellum.git
+cd vellum
+pnpm install              # o `pnpm approve-builds` primero si el postinstall de esbuild está bloqueado
 ```
 
-pnpm instalará automáticamente las dependencias de todos los workspaces (`apps/*` y `packages/*`) y creará los symlinks necesarios entre paquetes internos.
+No hace falta tener Cities: Skylines ni una ciudad propia — fixtures `.cslmap` reales están en [`packages/parser-cslmap/fixtures`](../packages/parser-cslmap/fixtures) (5 ciudades reales de 11-24MB + 5 fixtures chicos para casos borde: corrupto, DLC desconocido, etc.).
 
----
-
-## Desarrollo Local
-
-### Iniciar la app de escritorio (modo dev)
+## Modo desarrollo
 
 ```bash
-# Desde la raíz del monorepo
-pnpm dev
-# equivalente a: turbo dev
+pnpm dev                          # Vite + Tauri, abre la ventana nativa (puerto Vite 1420, HMR 1421)
+cd apps/desktop && pnpm dev:vite  # solo frontend, sin proceso Tauri
 ```
 
-Esto ejecuta en orden:
-
-1. Construye los paquetes dependientes (`core`, `parser-cslmap`, `renderer-canvas`, `theme-engine`, `ui`)
-2. Inicia el servidor de desarrollo Vite en `http://localhost:1420`
-3. Lanza el proceso Tauri con hot-reload del frontend
-
-### Solo el servidor Vite (sin Tauri)
+## Build
 
 ```bash
-cd apps/desktop
-pnpm dev:vite
+pnpm build                 # todos los packages, orden topológico vía Turborepo
 ```
 
----
+Orden topológico: `core` → `theme-engine` / `parser-cslmap` → `renderer-canvas` / `renderer-webgl` → `ui` → `desktop`.
 
-## Compilación
-
-### Build completo del monorepo
+### Limpiar artefactos de build obsoletos
 
 ```bash
-pnpm build
-# equivalente a: turbo build
+rm -rf .turbo apps/desktop/dist packages/*/dist
+find . -name "tsconfig.tsbuildinfo" -delete && pnpm build
 ```
 
-Turborepo construye en orden topológico: `core` → `theme-engine` + `parser-cslmap` → `renderer-canvas` → `ui` → `desktop`.
-
-### Build solo frontend (sin empaquetar Tauri)
+## Lint y arquitectura
 
 ```bash
-cd apps/desktop
-pnpm build:vite   # tsc + vite build → genera apps/desktop/dist/
+pnpm lint                  # tsc --noEmit en todos los packages
+pnpm check:architecture    # regla ESLint no-restricted-imports — enforcea el grafo de dependencias unidireccional
+pnpm format                # prettier --write
+pnpm format:check          # prettier --check (usado en CI)
 ```
 
-### Build completo de la app de escritorio
+## Tests
 
 ```bash
-cd apps/desktop
-pnpm build        # tauri build (incluye compilación Rust + empaquetado)
+pnpm test                          # todos los packages vía Turborepo (Vitest)
+pnpm --filter @vellum/<pkg> test   # un package específico
+pnpm --filter @vellum/ui test -- MapLibreRoot.test.tsx   # un archivo específico
+
+cargo fmt --all -- --check
+cargo clippy --workspace -- -D warnings
+cargo test --workspace
 ```
 
----
+**Volumen actual de tests** (escaneo 2026-08-07):
 
-## TypeScript
+| Área                                                  | Cantidad                                                                                               |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Vitest (`*.test.ts`/`*.test.tsx`, todos los packages) | ~110 archivos                                                                                          |
+| `#[test]` Rust (`apps/desktop/src-tauri`)             | 94 tests                                                                                               |
+| Playwright E2E (`apps/desktop/tests/e2e`)             | 1 spec (`smoke.spec.ts`) — solo valida que la app carga; no cubre aún drag&drop/render/export completo |
 
 ```bash
-# Verificar tipos en todo el monorepo
-pnpm lint
-# equivalente a: turbo lint (ejecuta tsc --noEmit en cada paquete)
-
-# Build con verificación de tipos
-pnpm build
+pnpm test:e2e   # requiere tauri-driver instalado y la app compilada; NO corre en CI (ver pr-validation.yml)
 ```
 
-Los path aliases del `tsconfig.json` raíz permiten que el IDE resuelva `@vellum/*` directamente desde los fuentes:
+**Al agregar un campo a `RendererTokens`/`tokens.ts`**: rompe el typecheck de todos los `MOCK_TOKENS` en tests existentes — no hay factory helper todavía, hay que actualizar cada uno manualmente en el mismo PR.
 
-```json
-"paths": {
-  "@vellum/core":             ["./packages/core/src/index.ts"],
-  "@vellum/ui":               ["./packages/ui/src/index.ts"],
-  "@vellum/renderer-canvas":  ["./packages/renderer-canvas/src/index.ts"],
-  "@vellum/theme-engine":     ["./packages/theme-engine/src/index.ts"],
-  "@vellum/parser-cslmap":    ["./packages/parser-cslmap/src/index.ts"]
-}
-```
+## CI/CD
 
----
+| Workflow                                                          | Trigger          | Qué valida                                                                                                 |
+| ----------------------------------------------------------------- | ---------------- | ---------------------------------------------------------------------------------------------------------- |
+| [`pr-validation.yml`](../.github/workflows/pr-validation.yml)     | Push/PR a `main` | Build, Vitest, Rust tests, lint TS + Clippy, formato. Playwright **no** corre acá (requiere tauri-driver). |
+| [`publish-release.yml`](../.github/workflows/publish-release.yml) | Tag `v*`         | Build multiplataforma (Windows `.msi` firmado, macOS `.dmg`, Linux `.AppImage`) + publicación de release   |
 
-## Testing
+## Comandos IPC — agregar uno nuevo
 
-> ⚠️ **No configurado** — El monorepo tiene la tarea `test` en Turborepo (`turbo test`) pero no existe framework de testing aún. Los paquetes no tienen archivos de prueba.
+1. Definir el comando en `packages/core/src/ipc-contract.ts` (`IPC_COMMANDS`) y su tipo de payload/resultado
+2. Implementar el `#[tauri::command]` correspondiente en `apps/desktop/src-tauri/src/commands.rs`, con doc comment `///` + sección `# Errors`
+3. Registrar en `invoke_handler!()` dentro de `lib.rs`
+4. **Ambos lados en el mismo commit** — es una regla dura del proyecto (ver `CLAUDE.md`)
 
-```bash
-# Cuando se configure:
-pnpm test
-```
+## Agregar un package nuevo al monorepo
 
----
+1. `packages/<nombre>/package.json` (`"name": "@vellum/<nombre>"`)
+2. `packages/<nombre>/tsconfig.json` con `"composite": true`
+3. `packages/<nombre>/src/index.ts` (barrel export)
+4. Path alias en el `tsconfig.json` raíz: `"@vellum/<nombre>": ["./packages/<nombre>/src/index.ts"]`
+5. `pnpm install` desde la raíz
 
-## Agregar un Nuevo Paquete
+Para que el package sea importable desde otro (IDE + lint funcionando):
 
-1. Crear directorio en `packages/<nombre>/`
-2. Crear `package.json` con `"name": "@vellum/<nombre>"` y `"main": "./src/index.ts"`
-3. Crear `tsconfig.json` (copiar de paquete existente)
-4. Crear `src/index.ts`
-5. Agregar el path alias en `tsconfig.json` raíz
-6. Ejecutar `pnpm install` desde la raíz
+6. `"@vellum/<nombre>": "workspace:*"` en `dependencies` del consumidor
+7. `{ "path": "../<nombre>" }` en `references` del `tsconfig.json` del consumidor
+8. `pnpm --filter @vellum/<nombre> build`
+9. Verificar con `pnpm lint`
 
----
-
-## Agregar Comandos IPC a Tauri
-
-Los comandos IPC permiten al frontend React invocar funciones Rust:
-
-```rust
-// En apps/desktop/src-tauri/src/lib.rs
-#[tauri::command]
-fn mi_comando(arg: String) -> String {
-    format!("Respuesta: {}", arg)
-}
-
-pub fn run() {
-    tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![mi_comando])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
-}
-```
-
-```typescript
-// En el frontend
-import { invoke } from '@tauri-apps/api/core';
-const respuesta = await invoke<string>('mi_comando', { arg: 'hola' });
-```
-
----
-
-## Estructura de Scripts del Monorepo
-
-| Script       | Comando real  | Descripción                          |
-| ------------ | ------------- | ------------------------------------ |
-| `pnpm dev`   | `turbo dev`   | Inicia app desktop en modo dev       |
-| `pnpm build` | `turbo build` | Compila todo el monorepo             |
-| `pnpm test`  | `turbo test`  | Ejecuta pruebas (no configurado aún) |
-| `pnpm lint`  | `turbo lint`  | Verifica tipos TypeScript            |
+> Ambos pasos 4 y 7 son necesarios — `@vellum/renderer-webgl` funcionó en `desktop` pero no en `ui` durante un tiempo porque solo tenía la referencia en un lado; `pnpm build` pasaba igual porque `desktop` sí la tenía, pero el IDE y `tsc --noEmit` en `ui` no resolvían el módulo.

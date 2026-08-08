@@ -1,94 +1,106 @@
 # Vellum — Visión General del Proyecto
 
-> Generado: 2026-04-04 | Escaneo: Rápido (basado en patrones)
+> Generado: 2026-08-07 | Escaneo: Deep | Reemplaza la versión de 2026-04-04 (proyecto en estado scaffolding)
 
 ---
 
-## Resumen Ejecutivo
+## Resumen ejecutivo
 
-**Vellum** es una aplicación de escritorio multiplataforma en etapa inicial de desarrollo. El proyecto utiliza una arquitectura de **monorepo** organizada con pnpm workspaces y Turborepo, donde la lógica de dominio está separada en paquetes TypeScript independientes que alimentan una capa de presentación construida con React 19 y empaquetada para escritorio con Tauri 2 (Rust).
+Vellum es una app de escritorio nativa (Tauri 2 + React 19 + TypeScript + Rust) que abre archivos `.cslmap` exportados de Cities: Skylines 1 y los renderiza como mapas interactivos acelerados por GPU (MapLibre GL JS), en vez de dejarlos atrapados en el juego o reducidos a screenshots.
 
-El estado actual del código es de **scaffolding** — la estructura del proyecto, las dependencias y la arquitectura modular están completamente definidas, pero las implementaciones internas de los paquetes son placeholders pendientes de desarrollo (referencia: "Story 2.1").
+El proyecto está cerca de su primer release público. Las 7 épicas core (fundación, carga/parser, renderizado cartográfico, exploración/UI, temas, export PNG/SVG, i18n+preferencias+updates) están completas; solo queda en progreso el empaquetado y distribución final (asociación de extensión de archivo, instaladores firmados/notarizados).
 
----
+## Clasificación
 
-## Stack Tecnológico
+- **Tipo**: Monorepo (pnpm workspaces + Turborepo)
+- **Arquitectura**: Desktop app — Tauri 2 (Rust) + React 19 + 6 packages TypeScript modulares en Clean Architecture con dependencias unidireccionales
+- **Lenguaje principal**: TypeScript ~5.8.3 + Rust (Edition 2021)
+- **Estado**: Producción — funcionalidad completa, en fase de hardening/distribución previo al release v1
 
-| Categoría                | Tecnología | Versión      | Justificación                               |
-| ------------------------ | ---------- | ------------ | ------------------------------------------- |
-| Lenguaje Frontend        | TypeScript | ~5.8.3       | Tipado estricto en todo el monorepo         |
-| Lenguaje Backend (Tauri) | Rust       | Edition 2021 | Shell nativo de la aplicación de escritorio |
-| Framework UI             | React      | ^19.1.0      | Renderizado de interfaz en la capa desktop  |
-| Build de Frontend        | Vite       | ^7.0.4       | Bundler y servidor de desarrollo            |
-| Framework Desktop        | Tauri      | ^2.x         | Empaquetado nativo multiplataforma          |
-| Orquestador de Build     | Turborepo  | latest       | Gestión de tareas y caché en monorepo       |
-| Gestor de Paquetes       | pnpm       | 10.33.0      | Workspaces y resolución de dependencias     |
-| CSS/Estilos              | —          | —            | No detectado (por definir)                  |
-| Testing                  | —          | —            | No detectado (por configurar)               |
-| CI/CD                    | —          | —            | No detectado (por configurar)               |
+## Stack tecnológico
 
----
+| Categoría            | Tecnología                                 | Versión                                           |
+| -------------------- | ------------------------------------------ | ------------------------------------------------- |
+| Lenguaje             | TypeScript                                 | ~5.8.3                                            |
+| Framework UI         | React                                      | ^19.1.0                                           |
+| Build frontend       | Vite                                       | ^7.0.4                                            |
+| Shell nativo         | Tauri                                      | ^2.x                                              |
+| Lenguaje nativo      | Rust                                       | Edition 2021 (`1.96.0` via `rust-toolchain.toml`) |
+| Gestor de paquetes   | pnpm                                       | `10.33.0` (exacta, pinneada)                      |
+| Orquestador de build | Turborepo                                  | latest                                            |
+| Renderer activo      | MapLibre GL JS                             | ^5.24.0                                           |
+| Estilos              | Tailwind CSS v4 + Radix UI (patrón shadcn) | —                                                 |
+| Tests TS             | Vitest                                     | ^4.1.2                                            |
+| Tests E2E            | Playwright                                 | ^1.59.1 (1 smoke test)                            |
+| i18n                 | react-i18next + i18next                    | en/es                                             |
+| Estado               | Zustand                                    | ^5.0.12                                           |
+| Preferencias         | tauri-plugin-store                         | `preferences.json`                                |
+| Parser XML (Rust)    | quick-xml                                  | 0.36 (pinneado, no subir a 0.38)                  |
 
-## Clasificación de Arquitectura
+## Estructura del repositorio (7 partes)
 
-| Propiedad             | Valor                              |
-| --------------------- | ---------------------------------- |
-| Tipo de repositorio   | Monorepo (pnpm workspaces)         |
-| Patrón arquitectónico | Modular / Capas separadas          |
-| Tipo de app destino   | Aplicación de escritorio (desktop) |
-| Número de partes      | 6 (1 app + 5 packages)             |
+| Parte                      | Tipo               | Rol                                                                    |
+| -------------------------- | ------------------ | ---------------------------------------------------------------------- |
+| `apps/desktop`             | Desktop (Tauri)    | Composition root — único lugar que ensambla todo                       |
+| `packages/core`            | Library TS         | Tipos de dominio + contrato IPC. Cero dependencias internas            |
+| `packages/parser-cslmap`   | Library Rust+TS    | Adapter: XML `.cslmap` → `CityData`, crate Rust propio                 |
+| `packages/renderer-webgl`  | Library TS         | **Activo.** `CityData` → GeoJSON → capas MapLibre GL JS                |
+| `packages/renderer-canvas` | Library TS         | Legacy — Canvas 2D vía Web Worker, sin uso real hoy                    |
+| `packages/theme-engine`    | Library TS         | `.vellumstyle` → `RenderStyleParams`, validación + migración de schema |
+| `packages/ui`              | Library TS + React | Única capa con React — componentes, store Zustand, i18n                |
 
----
+Ver [Análisis del Árbol de Fuentes](./source-tree-analysis.md) para el detalle archivo por archivo y [Arquitectura de Integración](./integration-architecture.md) para cómo se comunican.
 
-## Estructura del Repositorio
+## Qué hace la app hoy
 
+- Abrir `.cslmap` por drag&drop o `Ctrl/Cmd+O`
+- Renderizar 7 capas independientes: terreno, agua, calles, tránsito, edificios, bosques, distritos
+- Pan/zoom acelerado por GPU, minimapa, modo limpio, rotación
+- Exportar la vista actual como PNG (1x-4x, con ruta tiled para mapas grandes) o SVG editable
+- Cambiar entre 5 temas visuales built-in
+- Cargar archivos dañados o con DLC/mods desconocidos vía fallback controlado, sin crashear
+- Interfaz completa en inglés y español, con selector persistente
+- Chequeo de actualizaciones en background con notificación no intrusiva
+
+## Documentación relacionada
+
+| Documento                                                                | Descripción                                                          |
+| ------------------------------------------------------------------------ | -------------------------------------------------------------------- |
+| [Análisis del Árbol de Fuentes](./source-tree-analysis.md)               | Árbol anotado de directorios y archivos                              |
+| [Arquitectura Desktop](./architecture-desktop.md)                        | Arquitectura detallada de `apps/desktop`                             |
+| [Arquitectura de Integración](./integration-architecture.md)             | Cómo se comunican los 7 paquetes del monorepo, contrato IPC completo |
+| [Guía de Desarrollo](./development-guide.md)                             | Setup, comandos dev/build/lint/test, CI/CD                           |
+| [Inventario de Componentes](./component-inventory-desktop.md)            | Componentes UI reales de `@vellum/ui`                                |
+| [Schema .vellumstyle (EN)](./vellumstyle-schema.en.md)                   | Referencia pública del schema de temas, v1                           |
+| [Schema .vellumstyle (ES)](./vellumstyle-schema.es.md)                   | Referencia pública del schema de temas, v1                           |
+| [Algoritmo de renderizado de tránsito](./transit-rendering-algorithm.md) | Path-based rendering, evolución del algoritmo                        |
+| [Estrategia de renderizado de distritos](./district-rendering.md)        | —                                                                    |
+| [Estrategia de renderizado de bosques](./forest-rendering.md)            | —                                                                    |
+| [`DESIGN.md`](../DESIGN.md)                                              | Identidad visual de marca                                            |
+| [`README.md`](../README.md) / [`README.es.md`](./README.es.md)           | Punto de entrada público del proyecto                                |
+
+## Artefactos de planificación
+
+Ubicados en `_bmad-output/planning-artifacts/` (symlink a `../vellum-context/_bmad-output`):
+
+| Documento                                                                                   | Descripción                                                               |
+| ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| [product-brief-Vellum.md](../_bmad-output/planning-artifacts/product-brief-Vellum.md)       | Brief del producto                                                        |
+| [prd.md](../_bmad-output/planning-artifacts/prd.md)                                         | Documento de Requisitos del Producto                                      |
+| [architecture.md](../_bmad-output/planning-artifacts/architecture.md)                       | Diseño de arquitectura planificado                                        |
+| [epics.md](../_bmad-output/planning-artifacts/epics.md)                                     | Épicas e historias de usuario                                             |
+| [ux-design-specification.md](../_bmad-output/planning-artifacts/ux-design-specification.md) | Especificación de diseño UX                                               |
+| [project-context.md](../_bmad-output/project-context.md)                                    | Reglas críticas y patrones para agentes de IA — leer antes de implementar |
+
+Estado de sprint detallado (por historia): `_bmad-output/implementation-artifacts/sprint-status.yaml`.
+
+## Inicio rápido
+
+```bash
+git clone https://github.com/sebas-tcotd/vellum.git
+cd vellum
+pnpm install
+pnpm dev
 ```
-vellum-monorepo/
-├── apps/
-│   └── desktop/          ← Aplicación principal (Tauri + React)
-└── packages/
-    ├── core/             ← Tipos y lógica base del dominio
-    ├── parser-cslmap/    ← Parser del formato CSLMap
-    ├── renderer-canvas/  ← Renderizador sobre Canvas
-    ├── theme-engine/     ← Motor de temas y estilos
-    └── ui/               ← Componentes React (capa de presentación)
-```
 
----
-
-## Grafo de Dependencias Internas
-
-```
-desktop ──────────────────────────────────────┐
-         ├── @vellum/ui                        │
-         │     ├── @vellum/core                │
-         │     ├── @vellum/renderer-canvas     │
-         │     │     ├── @vellum/core          │
-         │     │     └── @vellum/theme-engine  │
-         │     │           └── @vellum/core    │
-         │     └── @vellum/theme-engine        │
-         ├── @vellum/core                      │
-         ├── @vellum/parser-cslmap             │
-         │     └── @vellum/core                │
-         ├── @vellum/renderer-canvas           │
-         └── @vellum/theme-engine              │
-                                               ┘
-```
-
-`@vellum/core` es la dependencia base de todos los demás paquetes.
-
----
-
-## Artefactos de Planificación Existentes
-
-Los siguientes documentos de planificación fueron generados previamente y se encuentran en `_bmad-output/planning-artifacts/`:
-
-| Documento                                                                                                                           | Descripción                               |
-| ----------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
-| [product-brief-Vellum.md](../_bmad-output/planning-artifacts/product-brief-Vellum.md)                                               | Brief del producto                        |
-| [product-brief-Vellum-distillate.md](../_bmad-output/planning-artifacts/product-brief-Vellum-distillate.md)                         | Versión condensada del brief              |
-| [prd.md](../_bmad-output/planning-artifacts/prd.md)                                                                                 | Documento de Requisitos del Producto      |
-| [architecture.md](../_bmad-output/planning-artifacts/architecture.md)                                                               | Diseño de arquitectura                    |
-| [epics.md](../_bmad-output/planning-artifacts/epics.md)                                                                             | Épicas e historias de usuario             |
-| [ux-design-specification.md](../_bmad-output/planning-artifacts/ux-design-specification.md)                                         | Especificación de diseño UX               |
-| [implementation-readiness-report-2026-03-30b.md](../_bmad-output/planning-artifacts/implementation-readiness-report-2026-03-30b.md) | Último reporte de readiness (30 Mar 2026) |
+Ver [Guía de Desarrollo](./development-guide.md) para prerrequisitos completos y comandos.
