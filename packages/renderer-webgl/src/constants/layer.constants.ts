@@ -9,6 +9,21 @@ import { ELEVATION_UNITS_PER_METER } from '../sources/dem-protocol';
 const HILLSHADE_EXAGGERATION_M = 0.35;
 
 /**
+ * Baseline `circle-opacity` expression for `forests-circles`, shared with the layer's
+ * own paint definition in `layers/layer-forests.ts` so the two never drift apart.
+ * Kept low so dense forest doesn't read as a solid block at low zoom.
+ */
+export const FORESTS_CIRCLE_OPACITY_EXPRESSION = [
+  'interpolate',
+  ['linear'],
+  ['get', 'density'],
+  0,
+  0.08,
+  1,
+  0.25,
+] as const;
+
+/**
  * Exaggeration actually handed to MapLibre.
  *
  * @remarks
@@ -132,15 +147,7 @@ export const NON_TRANSIT_OPACITY: Record<
   'service-icons': { prop: 'icon-opacity', base: 1 },
   'forests-circles': {
     prop: 'circle-opacity',
-    base: [
-      'interpolate',
-      ['linear'],
-      ['get', 'density'],
-      0,
-      0.3,
-      1,
-      0.7,
-    ] as unknown,
+    base: FORESTS_CIRCLE_OPACITY_EXPRESSION,
   },
   'districts-points': { prop: 'circle-opacity', base: 1 },
   'districts-labels': { prop: 'text-opacity', base: 1 },

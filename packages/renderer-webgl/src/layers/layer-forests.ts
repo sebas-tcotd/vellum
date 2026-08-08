@@ -7,6 +7,7 @@
 
 import type { CityData } from '@vellum/core';
 import type maplibregl from 'maplibre-gl';
+import { FORESTS_CIRCLE_OPACITY_EXPRESSION } from '../constants/layer.constants';
 import { buildForestsGeoJson } from '../geojson';
 import { addLayerIfAbsent, addSourceIfAbsent } from '../helpers';
 import type { ResolvedColors } from '../style-adapter';
@@ -37,15 +38,8 @@ export function addForestsLayer(
         1,
         4,
       ] as unknown as maplibregl.ExpressionSpecification,
-      'circle-opacity': [
-        'interpolate',
-        ['linear'],
-        ['get', 'density'],
-        0,
-        0.3,
-        1,
-        0.7,
-      ] as unknown as maplibregl.ExpressionSpecification,
+      'circle-opacity':
+        FORESTS_CIRCLE_OPACITY_EXPRESSION as unknown as maplibregl.ExpressionSpecification,
       'circle-opacity-transition': { duration: 300 },
     },
   });
