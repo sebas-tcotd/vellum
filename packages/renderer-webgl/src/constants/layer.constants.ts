@@ -79,6 +79,29 @@ export const LAYER_ID_MAP: Record<LayerName, string[]> = {
   ],
 };
 
+/**
+ * Deepest zoom at which the three heaviest GeoJSON sources are sliced into tiles.
+ *
+ * @remarks
+ * `buildings` (43k polygons on a large city), `forests` (54.5k points) and
+ * `roads` (10.3k lines) are together about two thirds of the tile-slicing cost —
+ * around 33 MB of the ~40 MB a city hands to the workers. MapLibre defaults a
+ * GeoJSON source's `maxzoom` to 18, so it keeps cutting fresh tiles all the way
+ * in, and every pan at detail zoom pays for it. Capping the source makes MapLibre
+ * overzoom the deepest sliced level instead: past this zoom, panning re-uses
+ * tiles rather than cutting new ones.
+ *
+ * Measured on `san-rico` at z16.5, tile events per pan burst: ~550 uncapped,
+ * ~120 capped here. Below this zoom nothing changes — z13 is still sliced z13.
+ *
+ * 14 puts geojson-vt's simplification tolerance at roughly 1.8 m in world terms.
+ * Building footprints are rectangles with no interior vertices to drop, and road
+ * centrelines absorb it, so the overzoomed geometry reads the same at z18 —
+ * confirmed by eye before this was adopted. Raise it if a future layer on one of
+ * these sources needs finer geometry at detail zoom.
+ */
+export const HEAVY_SOURCE_MAX_ZOOM = 14;
+
 /** Layer ID for the Vellum watermark logo shown when all data layers are disabled. */
 export const WATERMARK_LAYER_ID = 'vellum-watermark';
 
