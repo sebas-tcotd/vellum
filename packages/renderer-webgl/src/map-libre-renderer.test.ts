@@ -18,6 +18,10 @@ import { resolveColors } from './style-adapter';
 
 const mockMap = vi.hoisted(() => ({
   isStyleLoaded: vi.fn(() => true),
+  // Second gate in `whenStyleReady`: false here keeps `once('load')` the only
+  // path once `isStyleLoaded` is stubbed false.
+  loaded: vi.fn(() => false),
+  resize: vi.fn(),
   addSource: vi.fn(),
   getSource: vi.fn(() => undefined),
   removeSource: vi.fn(),
@@ -268,6 +272,32 @@ describe('MapLibreRenderer', () => {
     const renderer = makeRenderer();
     await renderer.render(makeCityData(), { activeLayers: ALL_LAYERS_VISIBLE });
     expect(mockMap.fitBounds).toHaveBeenCalledOnce();
+  });
+
+  // Regression: layer registration order is z-order, so a single unguarded throw
+  // used to drop every later layer *and* skip the camera fit — the map opened
+  // zoomed all the way out with no roads, no frame and no console output.
+  it('keeps registering later layers and still fits the camera when one layer step throws', async () => {
+    mockMap.addLayer.mockImplementation((layer: { id: string }) => {
+      if (layer.id === 'roads-fill') throw new Error('boom');
+    });
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => {});
+
+    const renderer = makeRenderer();
+    await renderer.render(makeCityData(), { activeLayers: ALL_LAYERS_VISIBLE });
+
+    const addedIds = mockMap.addLayer.mock.calls.map(
+      (call) => (call[0] as { id: string }).id,
+    );
+    // `map-frame` is registered five steps after roads: reaching it proves the
+    // stack was not truncated at the failure.
+    expect(addedIds).toContain('map-frame');
+    expect(mockMap.fitBounds).toHaveBeenCalledOnce();
+    expect(consoleError).toHaveBeenCalled();
+
+    consoleError.mockRestore();
   });
 
   it('never sets a background-pattern, which would silently discard background-color', async () => {

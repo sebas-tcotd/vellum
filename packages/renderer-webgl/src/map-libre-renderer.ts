@@ -149,17 +149,39 @@ export class MapLibreRenderer implements IRenderer {
     this.activeLayers = params.activeLayers;
 
     const executeRender = async (): Promise<void> => {
-      await this.sourceManager.initializeSourcesAndLayers(cityData);
+      const failedSteps =
+        await this.sourceManager.initializeSourcesAndLayers(cityData);
+      if (failedSteps.length > 0) {
+        console.error(
+          `[MapLibreRenderer] ${failedSteps.length} layer step(s) failed: ${failedSteps.join(', ')}`,
+        );
+      }
       this.layerManager.setTerrainDem(cityData.terrainDem);
       this.applyInitialState(params);
+      // Re-measure before fitting: MapLibre sizes its transform from an async
+      // ResizeObserver tick, and fitBounds against a stale transform is what
+      // produced the "opens zoomed all the way out" first load.
+      this.map.resize();
       this.navigationManager.fitAndConstrain(cityData);
     };
 
-    if (this.map.isStyleLoaded()) return executeRender();
-    return new Promise((resolve, reject) => {
-      this.map.once('load', () => {
-        void executeRender().then(resolve, reject);
-      });
+    return this.whenStyleReady().then(executeRender);
+  }
+
+  /**
+   * Resolves once the style can accept sources and layers.
+   *
+   * @remarks
+   * `once('load')` alone is a trap: `load` fires exactly once, while
+   * `isStyleLoaded()` also returns `false` transiently *after* it while pending
+   * sources settle. A second city loaded inside such a window used to register a
+   * listener that could never fire, leaving a promise pending forever and a blank
+   * map. `map.loaded()` distinguishes "not loaded yet" from "busy right now".
+   */
+  private whenStyleReady(): Promise<void> {
+    if (this.map.isStyleLoaded() || this.map.loaded()) return Promise.resolve();
+    return new Promise((resolve) => {
+      this.map.once('load', () => resolve());
     });
   }
 

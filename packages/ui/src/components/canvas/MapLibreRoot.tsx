@@ -29,7 +29,7 @@ export interface MapLibreRootProps {
   loadFile?: ((filePath: string) => Promise<void>) | undefined;
   /** Current layer visibility from the Zustand store — propagated to `map.setLayoutProperty`. */
   activeLayers?: LayerVisibility;
-  /** Ref populated with a `fitToScreen()` callback. App.tsx calls it after a new map loads. */
+  /** Ref populated with a `fitToScreen()` callback. Consumed by the Cmd+0 shortcut. */
   fitToScreenRef?: React.RefObject<(() => void) | null>;
   /** Ref populated with a `zoomIn()` callback. */
   zoomInRef?: React.RefObject<(() => void) | null>;
@@ -134,17 +134,23 @@ export function MapLibreRoot({
   // Re-render when cityData changes
   useEffect(() => {
     if (!cityData || !rendererRef.current) return;
-    void rendererRef.current.render(cityData, {
-      activeLayers: activeLayers ?? {
-        terrain: true,
-        basemap: true,
-        roads: true,
-        transit: true,
-        buildings: true,
-        forests: true,
-        districts: true,
-      },
-    });
+    rendererRef.current
+      .render(cityData, {
+        activeLayers: activeLayers ?? {
+          terrain: true,
+          basemap: true,
+          roads: true,
+          transit: true,
+          buildings: true,
+          forests: true,
+          districts: true,
+        },
+      })
+      // A rejection here truncates the layer stack and skips the camera fit, so it
+      // must never be swallowed: `void render(...)` hid exactly that failure mode.
+      .catch((err: unknown) => {
+        console.error('[MapLibreRoot] render failed:', err);
+      });
   }, [cityData]); // activeLayers intentionally excluded — layer visibility is set separately
 
   // Apply the active theme's RenderStyleParams whenever it (or the loaded set) changes.
