@@ -357,12 +357,16 @@ describe('buildCartographicScene', () => {
     const bands = layerEntities(build(city), 'terrain').filter((entity) =>
       entity.id.includes('-band-'),
     );
-    // Midpoints 25 and 75 over a 0–100 domain: halfway low→mid and halfway
+    // Midpoints 25 and 75 over a 1–100 domain: halfway low→mid and halfway
     // mid→high, straight from RenderStyleParams.terrain — a theme change moves
     // both. Sorted low to high even though the city listed them high first.
+    // The domain starts at 1, not the DEM's `elevMin` of 0: the ramp floors at
+    // `DEM_RAMP_FLOOR` so the transparent out-of-map sentinel one unit below it
+    // stays encodable. Over this synthetic 100-unit domain that shift moves the
+    // last hex digit; over a real city's ~40 000 units it is invisible.
     expect(bands.map((entity) => entity.fill!.color)).toEqual([
       '#d1d0a7',
-      '#ded6be',
+      '#ddd5bd',
     ]);
   });
 
@@ -407,10 +411,12 @@ describe('buildCartographicScene', () => {
       entity.id.includes('-contour-'),
     );
     // low / mid / high straight from RenderStyleParams.terrain — a theme
-    // change moves these, which is the whole point.
+    // change moves these, which is the whole point. The middle one lands one
+    // hex step off `terrain.mid` because the ramp floors at `DEM_RAMP_FLOOR`,
+    // putting this synthetic domain's midpoint at 50.5 rather than 50.
     expect(contours.map((entity) => entity.stroke!.color)).toEqual([
       '#d9e6c3',
-      '#c9b98a',
+      '#c9b98b',
       '#f2f2f2',
     ]);
   });

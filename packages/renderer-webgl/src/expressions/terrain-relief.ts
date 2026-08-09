@@ -20,7 +20,7 @@
 
 import type { TerrainDem } from '@vellum/core';
 import type maplibregl from 'maplibre-gl';
-import { DEM_PAD_OFFSET } from '../sources/dem-protocol';
+import { demPadElevation, demRampFloor } from '../sources/dem-protocol';
 import type { ResolvedColors } from '../style-adapter';
 import { adjustLightness, mixColorTokens } from './color-mix';
 
@@ -63,8 +63,10 @@ export function buildColorReliefRamp(
     ['elevation'],
     // Everything at or below the out-of-map sentinel is transparent, so the relief stops
     // exactly at the world extent instead of bleeding over the app background when the
-    // user zooms out. No real cell sits between this stop and `min`.
-    min - DEM_PAD_OFFSET,
+    // user zooms out. No real cell sits between this stop and `min`. Both this stop and
+    // the padding colour come from the same helpers so they cannot disagree — see
+    // `demRampFloor`.
+    demPadElevation(dem.elevMin),
     'rgba(0, 0, 0, 0)',
     min,
     terrain.low,
@@ -131,7 +133,9 @@ function reliefDomain(dem: TerrainDem): {
   mid: number;
   max: number;
 } {
-  const min = dem.elevMin;
+  // Floored so the transparent out-of-map sentinel one unit below always stays inside
+  // the encodable (unsigned) range — see `demRampFloor`.
+  const min = demRampFloor(dem.elevMin);
   const max = Math.max(dem.elevMax, min + MIN_DOMAIN_RAW);
   return { min, mid: (min + max) / 2, max };
 }

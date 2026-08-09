@@ -6,6 +6,7 @@ import {
   resolveElevationColor,
 } from './terrain-relief';
 import { adjustLightness, mixColorTokens } from './color-mix';
+import { demPadElevation, demRampFloor } from '../sources/dem-protocol';
 
 const TERRAIN = {
   low: '#000000',
@@ -120,6 +121,44 @@ describe('resolveElevationColor', () => {
     const warm = { low: '#004400', mid: '#cc9900', high: '#ffffff' };
     expect(resolveElevationColor(warm, DEM, 1000)).toBe('#004400');
     expect(resolveElevationColor(warm, DEM, 2000)).toBe('#cc9900');
+  });
+});
+
+describe('buildColorReliefRamp out-of-map sentinel', () => {
+  // Regression: the padding colour and the ramp's transparent stop are computed
+  // in two different modules. They used to derive it independently as
+  // `elevMin - DEM_PAD_OFFSET`; `packElevation` clamps at zero, so for a city
+  // with `elevMin === 0` the padding encoded elevation 0 — the ramp's
+  // `terrain.low` stop — and the terrain colour flooded the whole viewport
+  // outside the map extent. Every fixture in the repo has `elevMin > 0`, which
+  // is why this only showed on real cities (san-rico, springvalley,
+  // atlantic-keys all report 0).
+  const rampSentinel = (dem: TerrainDem): number =>
+    (buildColorReliefRamp(TERRAIN, dem) as unknown[])[3] as number;
+
+  it('keeps the sentinel encodable when the city bottoms out at zero', () => {
+    const dem: TerrainDem = { dataUri: '', elevMin: 0, elevMax: 48983 };
+    expect(rampSentinel(dem)).toBe(demPadElevation(0));
+    expect(demPadElevation(0)).toBeGreaterThanOrEqual(0);
+  });
+
+  it('puts the sentinel strictly below the low anchor for any city', () => {
+    for (const elevMin of [0, 1, 415, 9392, 23482]) {
+      const dem: TerrainDem = {
+        dataUri: '',
+        elevMin,
+        elevMax: elevMin + 30000,
+      };
+      const ramp = buildColorReliefRamp(TERRAIN, dem) as unknown[];
+      expect(ramp[3] as number).toBeLessThan(ramp[5] as number);
+      expect(ramp[3]).toBe(demPadElevation(elevMin));
+      expect(ramp[5]).toBe(demRampFloor(elevMin));
+    }
+  });
+
+  it('leaves cities with headroom exactly where they were', () => {
+    const dem: TerrainDem = { dataUri: '', elevMin: 9392, elevMax: 40517 };
+    expect(rampSentinel(dem)).toBe(9391);
   });
 });
 
