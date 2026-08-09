@@ -8,7 +8,10 @@ import type {
   RenderStyleParams,
   RoadCategoryColors,
 } from '@vellum/core';
-import { TRANSIT_DIM_FACTOR } from './constants/layer.constants';
+import {
+  HEAVY_SOURCE_MAX_ZOOM,
+  TRANSIT_DIM_FACTOR,
+} from './constants/layer.constants';
 import { buildBuildingColorExpression } from './expressions/building-color';
 import { buildParkColorExpression } from './expressions/park-color';
 import { resolveColors } from './style-adapter';
@@ -76,6 +79,9 @@ vi.mock('maplibre-gl', () => ({
     // The DEM tile protocol registers itself on the module default export.
     addProtocol: vi.fn(),
     removeProtocol: vi.fn(),
+    // Read at module scope to raise the default worker count off MapLibre's 1.
+    setWorkerCount: vi.fn(),
+    getWorkerCount: vi.fn(() => 4),
   },
 }));
 
@@ -266,6 +272,41 @@ describe('MapLibreRenderer', () => {
     expect(layerIds).toContain('buildings-outline');
     expect(layerIds).toContain('forests-circles');
     expect(layerIds).toContain('districts-points');
+  });
+
+  // Regression: MapLibre sets `workerCount` to 1 on anything it does not
+  // recognise as Safari, and Tauri's WKWebView fails that check — so every
+  // GeoJSON source was sliced through a single worker.
+  it('raises the worker pool above MapLibre default of one, before the map exists', async () => {
+    const maplibregl = (await import('maplibre-gl')).default;
+    makeRenderer();
+
+    expect(maplibregl.setWorkerCount).toHaveBeenCalledOnce();
+    const [count] = (maplibregl.setWorkerCount as Mock).mock.calls[0] as [
+      number,
+    ];
+    expect(count).toBeGreaterThan(1);
+    // The pool is built on first acquire, which is inside the Map constructor.
+    expect(
+      (maplibregl.setWorkerCount as Mock).mock.invocationCallOrder[0],
+    ).toBeLessThan((maplibregl.Map as Mock).mock.invocationCallOrder[0]!);
+  });
+
+  // Regression: a GeoJSON source defaults to `maxzoom` 18, so MapLibre keeps
+  // slicing fresh tiles at every detail zoom. These three carry ~2/3 of the
+  // slicing cost; capping them lets panning re-use overzoomed tiles instead.
+  it('caps the heaviest GeoJSON sources so detail-zoom panning stops re-slicing', async () => {
+    const renderer = makeRenderer();
+    await renderer.render(makeCityData(), { activeLayers: ALL_LAYERS_VISIBLE });
+
+    const byId = new Map(
+      (mockMap.addSource as Mock).mock.calls.map(
+        (call) => [call[0] as string, call[1] as { maxzoom?: number }] as const,
+      ),
+    );
+    for (const id of ['buildings', 'roads', 'forests']) {
+      expect(byId.get(id)?.maxzoom).toBe(HEAVY_SOURCE_MAX_ZOOM);
+    }
   });
 
   it('calls map.fitBounds after render', async () => {

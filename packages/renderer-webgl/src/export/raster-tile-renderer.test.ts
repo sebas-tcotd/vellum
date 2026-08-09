@@ -134,6 +134,9 @@ vi.mock('maplibre-gl', () => ({
     }),
     addProtocol: vi.fn(),
     removeProtocol: vi.fn(),
+    // Read at module scope to raise the default worker count off MapLibre's 1.
+    setWorkerCount: vi.fn(),
+    getWorkerCount: vi.fn(() => 4),
   },
 }));
 
