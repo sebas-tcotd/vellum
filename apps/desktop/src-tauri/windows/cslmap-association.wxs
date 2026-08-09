@@ -12,11 +12,32 @@
 
   It never touches HKCU\...\FileExts\.cslmap\UserChoice, so it cannot
   override an association the user later changes via Windows Settings.
+
+  On upgrade, a prior opt-in is detected via the guard registry key and the
+  checkbox defaults to checked instead of silently dropping the association
+  (see EXISTING_CSLMAP_ASSOCIATION below).
+
+  Opening a .cslmap this way passes the path as `%1`; the Rust side reads it
+  from argv at startup (`apps/desktop/src-tauri/src/startup.rs`) and the
+  frontend loads it via `get_startup_file_path` (`apps/desktop/src/main.tsx`).
 -->
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
   <Fragment>
     <!-- Secure so the value survives the elevation boundary into the deferred custom action / registry write. -->
     <Property Id="ASSOCIATE_CSLMAP" Value="0" Secure="yes" />
+
+    <!--
+      Preserve the association across an upgrade (7.5 review finding #3): read
+      the guard key this fragment's own Component writes (below) from a prior
+      install. AppSearch runs early in both UI and execute sequences, before
+      RemoveExistingProducts tears down the old product, so the old registry
+      value is still readable here. If found, default the checkbox to checked
+      instead of leaving a previously-opted-in user silently un-associated.
+    -->
+    <Property Id="EXISTING_CSLMAP_ASSOCIATION" Secure="yes">
+      <RegistrySearch Id="CslmapAssociationSearch" Root="HKLM" Key="Software\Vellum\FileAssociation" Name="CslmapAssociated" Type="raw" />
+    </Property>
+    <SetProperty Id="ASSOCIATE_CSLMAP" Value="1" After="AppSearch">EXISTING_CSLMAP_ASSOCIATION</SetProperty>
 
     <!-- Not installed by default (Level 0); the dialog flips it to Level 1 only when the box is checked. -->
     <Feature Id="CslmapAssociationFeature" Title="Asociación de archivos .cslmap" Level="0" AllowAdvertise="no" Absent="allow">
@@ -70,9 +91,17 @@
         </Control>
       </Dialog>
 
-      <!-- Override the default InstallDirDlg -> VerifyReadyDlg jump to route through our dialog. -->
-      <Publish Dialog="InstallDirDlg" Control="Next" Event="NewDialog" Value="CslmapAssocDlg" Order="3">1</Publish>
-      <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="CslmapAssocDlg" Order="3">NOT Installed</Publish>
+      <!--
+        Override the default InstallDirDlg -> VerifyReadyDlg jump to route
+        through our dialog (7.5 review finding #2). WiX evaluates same-control
+        Publish rows in ascending Order and the last one whose condition is
+        true wins; WixUI_InstallDir's own built-in transition can otherwise
+        run after ours and silently skip this dialog. Order="10" is set well
+        above any built-in ordering (typically 1-4) so ours always wins,
+        rather than guessing the exact built-in value.
+      -->
+      <Publish Dialog="InstallDirDlg" Control="Next" Event="NewDialog" Value="CslmapAssocDlg" Order="10">1</Publish>
+      <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="CslmapAssocDlg" Order="10">NOT Installed</Publish>
     </UI>
   </Fragment>
 </Wix>

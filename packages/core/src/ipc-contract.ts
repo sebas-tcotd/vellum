@@ -8,6 +8,8 @@
  */
 export const IPC_COMMANDS = {
   GET_PENDING_UPDATE: 'get_pending_update',
+  /** Returns (and clears) the `.cslmap` path the app was launched with via the OS file association, if any. */
+  GET_STARTUP_FILE_PATH: 'get_startup_file_path',
   PARSE_CSLMAP: 'parse_cslmap',
   EXPORT_PNG: 'export_png',
   OPEN_EXPORT_FOLDER: 'open_export_folder',
