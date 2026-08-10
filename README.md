@@ -24,6 +24,8 @@
 > **For players:** open a `.cslmap` export and explore your city as a real interactive map.
 > **For contributors:** help build the open-source cartographic toolkit that Cities: Skylines has been missing.
 
+![Vellum Readme Hero](./docs/assets/readme/hero-map-costa-tijuca.webp)
+
 ## Why Vellum?
 
 Cities: Skylines lets you build entire worlds. Vellum gives those worlds a second life outside the game: a native desktop experience for exploring terrain, roads, transit, buildings, forests and districts as coherent, layered maps.
@@ -88,6 +90,12 @@ Before `pnpm install` or `pnpm dev`, install the [Tauri 2 prerequisites](https:/
 - Export the current view as PNG (1×–4×) or editable SVG.
 - Load damaged files and unknown-DLC assets through controlled fallbacks where possible.
 
+![Layer stack Vellum](./docs/assets/readme/layer-stack-pepper-lake.webp)
+
+Layers reveal the city; transit turns its infrastructure into a readable network.
+
+![Detailed transit network rendered by Vellum](./docs/assets/readme/transit-network-pepper-lake.webp)
+
 ## The engineering story
 
 Vellum began with a Canvas 2D renderer. As maps grew, CPU-rendered overscan hit a performance ceiling. A focused spike proved that MapLibre GL JS and WebGL could deliver the target experience, so the active renderer moved there while the legacy Canvas implementation remained as a tested reference.
@@ -133,6 +141,26 @@ graph TD
 | Vellum-native in-game exporter                | Future direction      |
 
 The future exporter would remove the dependency on `.cslmap`, unlock richer data from the Cities: Skylines modding API and support the next generation of Vellum features. It is not required for the first useful viewer release.
+
+<!--
+VISUAL: Optional theme comparison — one cartographic scene, three visual languages.
+PURPOSE: Support the claim that Vellum treats visual quality as part of the product and that
+themes are a real presentation tool, not a color-picker demo.
+COMPOSITION:
+- Reuse the exact same city, camera, visible layers and crop for three side-by-side panels.
+- Use `spring-valley.cslmap` in `Day`, `Transit Dim` and `Transit`. This makes the comparison
+  about changing the map's visual focus, not merely swapping arbitrary color palettes.
+- Do not include all five themes: three is enough to show range without turning the README
+  into a theme gallery.
+- Use a regional-to-city-wide view with a strong river/coastline and visible urban structure.
+  Avoid a featureless suburb where the palette differences disappear.
+- Use clean mode and add small external labels beneath each panel. Do not add decorative
+  frames, fake browser chrome or color swatches detached from the map.
+FORMAT: 3:1 or 16:9 WebP, ideally 1800×600 for a strip or 1800×1000 for a three-panel card.
+SUGGESTED PATH: `docs/assets/readme/theme-comparison-spring-valley.webp`
+PLACEMENT: Optional; place after the project-status paragraph and before `## Repository map`.
+Skip it if the hero and layer composition already establish the visual identity strongly.
+-->
 
 ## Repository map
 
