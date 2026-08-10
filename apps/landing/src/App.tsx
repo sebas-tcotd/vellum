@@ -8,6 +8,7 @@ import {
   Train,
 } from '@phosphor-icons/react';
 import { LayerShowcase } from './components/LayerShowcase';
+import { ImageLightbox } from './components/ImageLightbox';
 import { Reveal } from './components/Reveal';
 import { ThemeSelector } from './components/ThemeSelector';
 import { ThemeComparison } from './components/ThemeComparison';
@@ -64,7 +65,12 @@ function MapFigure({
   return (
     <figure className={`map-figure ${className}`}>
       <div className="map-frame">
-        <img className={imageClassName} src={imageSrc} alt={alt} />
+        <ImageLightbox
+          src={imageSrc}
+          alt={alt}
+          imageClassName={imageClassName}
+          label={`${city}, ${detail}`}
+        />
       </div>
       <figcaption>
         <span>

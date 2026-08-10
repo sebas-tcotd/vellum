@@ -1,5 +1,6 @@
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { useState } from 'react';
+import { ImageLightbox } from './ImageLightbox';
 
 type TransitView = 'transit' | 'dim';
 
@@ -30,9 +31,10 @@ export function ThemeComparison() {
     <>
       <div className="theme-comparison">
         <div className="theme-panel">
-          <img
+          <ImageLightbox
             src="./assets/pepper-lake-theme-day.webp"
             alt="Pepper Lake map in Vellum Day theme"
+            label="Pepper Lake, Day theme"
           />
           <div className="theme-label">
             <span>Day</span>
@@ -41,10 +43,8 @@ export function ThemeComparison() {
         </div>
         <div className="theme-panel theme-panel-transit">
           <AnimatePresence mode="wait" initial={false}>
-            <motion.img
+            <motion.div
               key={transitView}
-              src={activeTransitView.src}
-              alt={activeTransitView.alt}
               initial={reduceMotion ? false : { opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -52,7 +52,13 @@ export function ThemeComparison() {
                 duration: reduceMotion ? 0 : 0.32,
                 ease: 'easeOut',
               }}
-            />
+            >
+              <ImageLightbox
+                src={activeTransitView.src}
+                alt={activeTransitView.alt}
+                label={`Pepper Lake, ${activeTransitView.label} theme`}
+              />
+            </motion.div>
           </AnimatePresence>
           <div className="theme-label">
             <span>{activeTransitView.label}</span>

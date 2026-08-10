@@ -8,6 +8,7 @@ import {
 } from '@phosphor-icons/react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { useRef, useState } from 'react';
+import { ImageLightbox } from './ImageLightbox';
 
 const layerSteps = [
   {
@@ -90,16 +91,21 @@ export function LayerShowcase() {
         tabIndex={0}
       >
         <AnimatePresence mode="wait" initial={false}>
-          <motion.img
+          <motion.div
             key={activeLayer.id}
-            className="layer-showcase-image"
-            src={activeLayer.src}
-            alt={activeLayer.alt}
+            className="layer-showcase-image-wrap"
             initial={reduceMotion ? false : { opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: reduceMotion ? 0 : 0.38, ease: 'easeOut' }}
-          />
+          >
+            <ImageLightbox
+              src={activeLayer.src}
+              alt={activeLayer.alt}
+              imageClassName="layer-showcase-image"
+              label={`Pepper Lake, ${activeLayer.label}`}
+            />
+          </motion.div>
         </AnimatePresence>
         <div className="layer-showcase-caption">
           <span>Pepper Lake</span>
