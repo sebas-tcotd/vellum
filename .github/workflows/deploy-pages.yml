@@ -6,8 +6,11 @@ on:
     paths:
       - 'apps/landing/**'
       - '.github/workflows/deploy-pages.yml'
+      - 'package.json'
       - 'pnpm-lock.yaml'
       - 'pnpm-workspace.yaml'
+      - 'tsconfig.json'
+      - 'turbo.json'
   workflow_dispatch:
 
 permissions:
@@ -23,6 +26,8 @@ jobs:
   build:
     name: Build landing
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -44,6 +49,9 @@ jobs:
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
 
+      - name: Validate landing types
+        run: pnpm --filter @vellum/landing lint
+
       - name: Build landing
         run: pnpm --filter @vellum/landing build
 
@@ -56,6 +64,12 @@ jobs:
     name: Deploy to GitHub Pages
     needs: build
     runs-on: ubuntu-latest
+    outputs:
+      page_url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -63,3 +77,38 @@ jobs:
       - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v4
+
+  smoke-test:
+    name: Verify deployed landing
+    needs: deploy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check deployed HTML and assets
+        env:
+          PAGE_URL: ${{ needs.deploy.outputs.page_url }}
+        run: |
+          set -euo pipefail
+
+          test -n "$PAGE_URL"
+
+          html_file="$(mktemp)"
+          trap 'rm -f "$html_file"' EXIT
+
+          curl --fail --silent --show-error --location \
+            --retry 5 --retry-delay 5 --retry-all-errors \
+            "$PAGE_URL" --output "$html_file"
+
+          grep -q '<title>Vellum' "$html_file"
+
+          asset_paths="$(grep -oE '(src|href)="\./assets/[^"]+"' "$html_file" \
+            | sed -E 's/^[^\"]+"([^\"]+)".*$/\1/' \
+            | sort -u)"
+          test -n "$asset_paths"
+
+          while IFS= read -r asset_path; do
+            curl --fail --silent --show-error --location \
+              --retry 5 --retry-delay 5 --retry-all-errors \
+              "${PAGE_URL%/}/${asset_path#./}" --output /dev/null
+          done <<< "$asset_paths"
