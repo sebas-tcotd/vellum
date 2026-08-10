@@ -10,6 +10,7 @@ import {
 import { LayerShowcase } from './components/LayerShowcase';
 import { Reveal } from './components/Reveal';
 import { ThemeSelector } from './components/ThemeSelector';
+import { ThemeComparison } from './components/ThemeComparison';
 
 const releaseUrl = 'https://github.com/sebas-tcotd/vellum/releases/latest';
 const repositoryUrl = 'https://github.com/sebas-tcotd/vellum';
@@ -308,27 +309,8 @@ export function App() {
             </p>
           </Reveal>
 
-          <Reveal className="theme-comparison" delay={0.08}>
-            <div className="theme-panel">
-              <img
-                src="./assets/pepper-lake-theme-day.webp"
-                alt="Pepper Lake map in Vellum Day theme"
-              />
-              <div className="theme-label">
-                <span>Day</span>
-                <small>Full map reading</small>
-              </div>
-            </div>
-            <div className="theme-panel theme-panel-dark">
-              <img
-                src="./assets/pepper-lake-theme-transit-dim.webp"
-                alt="Pepper Lake map in Vellum Transit theme with the network emphasized"
-              />
-              <div className="theme-label">
-                <span>Transit</span>
-                <small>Network brought forward</small>
-              </div>
-            </div>
+          <Reveal delay={0.08}>
+            <ThemeComparison />
           </Reveal>
 
           <Reveal className="theme-future" delay={0.12}>
