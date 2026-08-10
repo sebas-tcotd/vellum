@@ -3,6 +3,7 @@ import {
   ArrowUpRight,
   Export,
   GithubLogo,
+  Heart,
   MapTrifold,
   Palette,
   Train,
@@ -12,6 +13,7 @@ import { ImageLightbox } from './components/ImageLightbox';
 import { Reveal } from './components/Reveal';
 import { ThemeSelector } from './components/ThemeSelector';
 import { ThemeComparison } from './components/ThemeComparison';
+import { TransitComparison } from './components/TransitComparison';
 
 const releaseUrl = 'https://github.com/sebas-tcotd/vellum/releases/latest';
 const repositoryUrl = 'https://github.com/sebas-tcotd/vellum';
@@ -290,14 +292,7 @@ export function App() {
           </div>
 
           <Reveal className="transit-visual" delay={0.12}>
-            <MapFigure
-              imageSrc="./assets/spring-valley-transit-theme.webp"
-              imageClassName="transit-image"
-              alt="Spring Valley map with a colorful transit network brought forward in Vellum"
-              city="Spring Valley"
-              detail="Transit theme · lines and stops"
-              workshopUrl={workshop.springValley}
-            />
+            <TransitComparison />
           </Reveal>
         </section>
 
@@ -453,6 +448,10 @@ export function App() {
               <a href="#top">Back to top</a>
             </nav>
           </div>
+          <p className="footer-credit">
+            made with <Heart size={12} weight="fill" aria-hidden="true" /> by
+            Sebastian Vargas
+          </p>
         </div>
       </footer>
     </div>
