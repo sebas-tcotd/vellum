@@ -18,6 +18,7 @@ import {
   buildContourColorRamp,
 } from '../expressions/terrain-relief';
 import type { ResolvedColors } from '../style-adapter';
+import { resolveAirshipColor } from '../expressions/transit-color';
 
 /**
  * Manages the visibility, styling, and dynamic filtering of MapLibre layers.
@@ -368,6 +369,11 @@ export class MapLayerManager {
       fillExpr,
     );
     this.setPaintIfExists('roads-ferry', 'line-color', c.ferry);
+    this.setPaintIfExists(
+      'roads-blimp',
+      'line-color',
+      resolveAirshipColor(c.ferry),
+    );
 
     // Re-apply terrain sub-element visibility — setTransitDimming() above resets
     // their opacities/exaggeration to defaults, which would override the user's

@@ -14,10 +14,16 @@ import {
   makeBuilding,
   makeCityData,
   makeRoadSegment,
+  makeTransitLine,
 } from '@vellum/core/testing';
 import type { CityData } from '@vellum/core';
 import { buildCartographicScene } from './cartographic-scene-builder';
 import { csToGeoArray } from '../coordinate-transform';
+import {
+  AIRSHIP_LINE_DASHARRAY,
+  AIRSHIP_LINE_OPACITY,
+  resolveAirshipColor,
+} from '../expressions/transit-color';
 
 const STYLE = {
   mapBackground: '#ffffff',
@@ -163,6 +169,30 @@ function roadCity(itemClass: string, id = 'seg-1'): CityData {
   });
 }
 
+function transitCity(mode: 'Bus' | 'Blimp'): CityData {
+  return makeCityData({
+    roadNodes: [
+      { id: 'n1', position: { x: -1000, y: 50, z: 0 } },
+      { id: 'n2', position: { x: 1000, y: 50, z: 0 } },
+    ],
+    roadSegments: [
+      makeRoadSegment({
+        id: 'seg-transit',
+        startNodeId: 'n1',
+        endNodeId: 'n2',
+        itemClass: mode === 'Blimp' ? 'Blimp Path' : 'Basic Road',
+      }),
+    ],
+    transitLines: [
+      makeTransitLine({
+        id: `line-${mode.toLowerCase()}`,
+        mode,
+        route: [{ segmentIds: ['seg-transit'] }],
+      }),
+    ],
+  });
+}
+
 describe('buildCartographicScene', () => {
   it('emits every layer, always in the documented z-order', () => {
     const scene = build(makeCityData());
@@ -191,6 +221,27 @@ describe('buildCartographicScene', () => {
     expect(
       layerEntities(build(roadCity('Small Road')), 'roads').length,
     ).toBeGreaterThan(0);
+  });
+
+  it('renders airship ways as a low-opacity dashed cloud-tinted stroke', () => {
+    const roads = layerEntities(build(transitCity('Blimp')), 'roads');
+    expect(roads).toHaveLength(1);
+    expect(roads[0]!.stroke).toMatchObject({
+      color: resolveAirshipColor('#4080c0'),
+      opacity: AIRSHIP_LINE_OPACITY,
+      dashPx: AIRSHIP_LINE_DASHARRAY,
+    });
+  });
+
+  it('keeps airship transit routes with their original line colour', () => {
+    const transit = layerEntities(build(transitCity('Blimp')), 'transit');
+    expect(transit).toHaveLength(1);
+    expect(transit[0]!.stroke).toMatchObject({
+      color: '#FF6600',
+      widthPx: expect.any(Number),
+    });
+    expect(transit[0]!.stroke).not.toHaveProperty('opacity');
+    expect(transit[0]!.stroke).not.toHaveProperty('dashPx');
   });
 
   it.each([

@@ -48,10 +48,11 @@ export const ITEM_CLASS_TIER: Readonly<Record<string, RoadTier>> = {
  * @remarks
  * The Rust parser already drops `Bus Line` and the landscaping tools from
  * `road_segments` (see `parser/tests.rs`), so on a normally-parsed city these
- * entries never match. They are listed anyway because this set is now the
- * single filter point for *both* the interactive map and the SVG export: a
- * partial parse, or a future parser change, must not be able to turn a virtual
- * transit connector or a canal wall into a drawn road on either route.
+ * entries never match. Airship paths remain in `road_segments` deliberately:
+ * transit route reconstruction needs their geometry. They are listed here so
+ * they do not get a second, ordinary-road rendering underneath the dedicated
+ * dashed Dirigible layer. This set is the single filter point for both the
+ * interactive map and the SVG export.
  */
 export const EXCLUDED_ROAD_CLASSES = new Set([
   'Electricity Wire',

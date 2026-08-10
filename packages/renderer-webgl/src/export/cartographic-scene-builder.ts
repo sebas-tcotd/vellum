@@ -60,6 +60,11 @@ import {
   STATION_STROKE_MIN_PX,
   TRANSIT_LINE_MIN_PX,
 } from '../layers/layer-transit';
+import {
+  AIRSHIP_LINE_DASHARRAY,
+  AIRSHIP_LINE_OPACITY,
+  resolveAirshipColor,
+} from '../expressions/transit-color';
 import { TRANSIT_DIM_FACTOR } from '../constants/layer.constants';
 import { buildSceneAnnotations } from './scene-annotations';
 import { resolveColors, type ResolvedColors } from '../style-adapter';
@@ -386,6 +391,25 @@ function buildRoadEntities(context: LayerContext): SceneEntity[] {
     );
     const cap = capEnds ? ('round' as const) : ('butt' as const);
     const geometry = { kind: 'path', points } as const;
+    const isAirshipPath =
+      feature.properties.itemClass === 'Blimp Path' ||
+      feature.properties.itemClass === 'Blimp Line';
+
+    if (isAirshipPath) {
+      fills.push({
+        id: `${ID_PREFIX.roads}-${id}`,
+        geometry,
+        stroke: {
+          color: resolveAirshipColor(colors.ferry),
+          widthPx,
+          opacity: AIRSHIP_LINE_OPACITY,
+          lineCap: 'butt',
+          lineJoin: 'round',
+          dashPx: AIRSHIP_LINE_DASHARRAY,
+        },
+      });
+      continue;
+    }
 
     // Casing under fill, exactly as the interactive layers stack them —
     // emitted as two independent paths so either can be restyled on its own.
