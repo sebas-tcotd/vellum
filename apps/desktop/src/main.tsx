@@ -1,10 +1,12 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import { invoke } from '@tauri-apps/api/core';
 import type {
   CapabilityReport,
   ExportRequest,
   ExportSnapshot,
 } from '@vellum/core';
+import { IPC_COMMANDS } from '@vellum/core';
 import {
   App,
   AppMetaProvider,
@@ -277,6 +279,22 @@ function AppShell() {
     exportCancelHandlerRef,
   );
   const { openExportFolder } = useExportPng();
+
+  // A `.cslmap` opened via the Windows file association (double-click) arrives
+  // as a command-line argument, captured by Rust before this component mounts
+  // (see `startup::capture_startup_file_path` in lib.rs). Claim it once, on
+  // first mount — the Rust side clears its pending slot on read, so a second
+  // call here (e.g. Vite HMR) would just find nothing (Story 7.5 AC1).
+  React.useEffect(() => {
+    invoke<string | null>(IPC_COMMANDS.GET_STARTUP_FILE_PATH)
+      .then((path) => {
+        if (path) void loadFile(path);
+      })
+      .catch((err) =>
+        console.warn('[AppShell] get_startup_file_path failed:', err),
+      );
+  }, [loadFile]);
+
   return (
     <App
       loadFile={loadFile}

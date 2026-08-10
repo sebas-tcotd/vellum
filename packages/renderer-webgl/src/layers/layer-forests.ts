@@ -7,6 +7,10 @@
 
 import type { CityData } from '@vellum/core';
 import type maplibregl from 'maplibre-gl';
+import {
+  FORESTS_CIRCLE_OPACITY_EXPRESSION,
+  HEAVY_SOURCE_MAX_ZOOM,
+} from '../constants/layer.constants';
 import { buildForestsGeoJson } from '../geojson';
 import { addLayerIfAbsent, addSourceIfAbsent } from '../helpers';
 import type { ResolvedColors } from '../style-adapter';
@@ -20,6 +24,8 @@ export function addForestsLayer(
   addSourceIfAbsent(map, 'forests', {
     type: 'geojson',
     data: buildForestsGeoJson(cityData),
+    // Capped so detail-zoom panning re-uses tiles instead of slicing new ones.
+    maxzoom: HEAVY_SOURCE_MAX_ZOOM,
   });
 
   addLayerIfAbsent(map, {
@@ -37,15 +43,8 @@ export function addForestsLayer(
         1,
         4,
       ] as unknown as maplibregl.ExpressionSpecification,
-      'circle-opacity': [
-        'interpolate',
-        ['linear'],
-        ['get', 'density'],
-        0,
-        0.3,
-        1,
-        0.7,
-      ] as unknown as maplibregl.ExpressionSpecification,
+      'circle-opacity':
+        FORESTS_CIRCLE_OPACITY_EXPRESSION as unknown as maplibregl.ExpressionSpecification,
       'circle-opacity-transition': { duration: 300 },
     },
   });

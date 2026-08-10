@@ -1,0 +1,195 @@
+{
+  "meta": {
+    "title": "Vellum | Maps for cities worth remembering",
+    "description": "Vellum turns Cities: Skylines 1 .cslmap exports into layered maps you can explore, theme, and export as PNG or editable SVG.",
+    "ogDescription": "Open a Cities: Skylines 1 .cslmap export and read your city in layers."
+  },
+  "common": {
+    "homeLabel": "Vellum home",
+    "skipToContent": "Skip to content",
+    "workshop": "Steam Workshop",
+    "viewFullSize": "View {{label}} full size",
+    "closeImage": "Close image",
+    "download": "Download Vellum",
+    "backToTop": "Back to top"
+  },
+  "header": {
+    "primaryNavigation": "Primary navigation",
+    "nav": {
+      "cities": "Cities",
+      "layers": "Layers",
+      "themes": "Themes",
+      "workflow": "Workflow",
+      "openSource": "Open source"
+    },
+    "languageLabel": "Language",
+    "english": "English",
+    "spanish": "Spanish"
+  },
+  "pageTheme": {
+    "label": "Page theme",
+    "light": "Light",
+    "dark": "Dark",
+    "auto": "Auto"
+  },
+  "hero": {
+    "eyebrow": "A cartographic viewer for Cities: Skylines 1",
+    "title": "A map for the city you built.",
+    "ledeBefore": "Open a",
+    "ledeAfter": "export and read your city in layers.",
+    "explore": "Explore the map",
+    "imageAlt": "Spring Valley map in Vellum Day theme, showing a broad city between rivers and coast",
+    "imageDetail": "Day theme · Vellum map view"
+  },
+  "promise": {
+    "kicker": "A record of the place",
+    "title": "Your city should be readable outside the game.",
+    "body": "Vellum turns a Cities: Skylines export into a map you can inspect, share, and preserve."
+  },
+  "cities": {
+    "kicker": "Real maps from real cities",
+    "title": "The shape of a city is already a story.",
+    "body": "These are Cities: Skylines maps opened in Vellum, with their original Workshop sources kept in view."
+  },
+  "gallery": {
+    "islandHopping": {
+      "city": "Island Hopping",
+      "detail": "Day theme · a city spread across water",
+      "alt": "Island Hopping map with a dense connected city distributed across islands"
+    },
+    "westdale": {
+      "city": "웨스트데일",
+      "detail": "Atlantic Keys · Day theme",
+      "alt": "Westdale map showing a dense coastal city and surrounding water"
+    },
+    "sanRico": {
+      "city": "San Rico",
+      "detail": "Day theme · islands, bridges, and transit corridors",
+      "alt": "San Rico map showing islands, bridges, roads, and a central city"
+    },
+    "costaTijuca": {
+      "city": "Costa Tijuca",
+      "detail": "Day theme · roads meeting a broad coastline",
+      "alt": "Costa Tijuca map showing a large coastal city with water and road hierarchy"
+    }
+  },
+  "layers": {
+    "kicker": "A map, layer by layer",
+    "title": "See the city become legible.",
+    "body": "Start with terrain and base map, then bring roads, buildings, forests, districts, and transit into the reading.",
+    "progressive": "Progressive layers",
+    "ariaLabel": "Pepper Lake map layers",
+    "source": "Pepper Lake · Day theme ·",
+    "items": {
+      "terrainBaseMap": {
+        "label": "Terrain and base map",
+        "detail": "Land shape and water establish the first reading.",
+        "alt": "Pepper Lake terrain and base map layers in Vellum"
+      },
+      "roads": {
+        "label": "Roads",
+        "detail": "Street hierarchy gives the city its structure.",
+        "alt": "Pepper Lake roads layer in Vellum"
+      },
+      "buildings": {
+        "label": "Buildings",
+        "detail": "The built shape settles into the network.",
+        "alt": "Pepper Lake buildings layer in Vellum"
+      },
+      "forests": {
+        "label": "Forests",
+        "detail": "Green structure fills the spaces between districts.",
+        "alt": "Pepper Lake forests layer in Vellum"
+      },
+      "districts": {
+        "label": "Districts",
+        "detail": "Boundaries make the city easier to read at a glance.",
+        "alt": "Pepper Lake districts layer in Vellum"
+      },
+      "transit": {
+        "label": "Transit",
+        "detail": "Lines and stops bring movement to the finished map.",
+        "alt": "Pepper Lake transit layer in Vellum"
+      }
+    }
+  },
+  "transit": {
+    "kicker": "Transit, brought forward",
+    "title": "Follow the network.",
+    "body": "Inspect lines and stops over the city they serve, then use the minimap to stay oriented as you move through the view.",
+    "note": "When transit is the story, the map can make it the subject.",
+    "viewLabel": "Transit view",
+    "ariaLabel": "Transit map theme",
+    "imageLabel": "Spring Valley, {{view}} theme",
+    "imageDetail": "{{view}} theme · lines and stops",
+    "views": {
+      "transit": {
+        "label": "Transit",
+        "detail": "Network brought forward",
+        "alt": "Spring Valley map in Vellum Transit theme with the network emphasized"
+      },
+      "dim": {
+        "label": "Transit dim",
+        "detail": "Dimmed map, brighter network",
+        "alt": "Spring Valley map in Vellum Transit dim theme with the network emphasized"
+      }
+    }
+  },
+  "themes": {
+    "kicker": "Built-in points of view",
+    "title": "A map can have a point of view.",
+    "body": "Choose the theme that matches the way you want to remember the city, from a quiet overview to a transit-first reading.",
+    "dayLabel": "Day",
+    "dayDetail": "Full map reading",
+    "dayAlt": "Pepper Lake map in Vellum Day theme",
+    "dayImageLabel": "Pepper Lake, Day theme",
+    "modeLabel": "Transit view",
+    "ariaLabel": "Transit map theme",
+    "transitImageLabel": "Pepper Lake, {{view}} theme",
+    "transit": {
+      "label": "Transit",
+      "detail": "Network brought forward",
+      "alt": "Pepper Lake map in Vellum Transit theme with the network emphasized"
+    },
+    "dim": {
+      "label": "Transit dim",
+      "detail": "Dimmed map, brighter network",
+      "alt": "Pepper Lake map in Vellum Transit dim theme with the network emphasized"
+    },
+    "futureKicker": "Next in the atlas",
+    "futureTitle": "Create a visual language of your own.",
+    "futureBody": "A custom .vellumstyle format is planned. Its schema is still being formalized for community-made themes."
+  },
+  "workflow": {
+    "kicker": "A simple path in",
+    "title": "From export to artifact.",
+    "body": "Vellum sits after the game and before the work you want to keep.",
+    "getTitle": "Get a .cslmap",
+    "getBodyBefore": "Export your city with",
+    "getBodyAfter": ", the community exporter.",
+    "openTitle": "Open and explore",
+    "openBody": "Pan, zoom, inspect transit, control the layers, and keep your bearings with the minimap.",
+    "exportTitle": "Export the result",
+    "exportBody": "Save a PNG for sharing or an editable SVG for the next pass.",
+    "cslMapView": "CSL Map View"
+  },
+  "openSource": {
+    "kicker": "Made in the open",
+    "title": "Open by design.",
+    "body": "Vellum is open source under the MIT License. Read the code, follow the documentation, and see how the map is made.",
+    "repository": "Explore the repository",
+    "documentation": "Read the documentation"
+  },
+  "download": {
+    "kicker": "Start with the city you already have",
+    "title": "Bring your city into view.",
+    "body": "Download Vellum from GitHub Releases and open your first .cslmap export."
+  },
+  "footer": {
+    "navigation": "Footer navigation",
+    "tagline": "Maps for cities worth remembering.",
+    "mit": "MIT License",
+    "credit": "made with",
+    "by": "by"
+  }
+}

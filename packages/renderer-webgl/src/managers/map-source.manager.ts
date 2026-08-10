@@ -37,29 +37,72 @@ export class MapSourceManager {
     this.colors = newColors;
   }
 
-  /** Adds every base source and its initial layers (grid, terrain, roads, transit, etc.) for a freshly loaded city. */
-  async initializeSourcesAndLayers(cityData: CityData): Promise<void> {
+  /**
+   * Adds every base source and its initial layers (grid, terrain, roads, transit, etc.)
+   * for a freshly loaded city.
+   *
+   * @remarks
+   * Every step is fault-isolated. Insertion order is the z-order, so an unguarded throw
+   * used to drop every *later* layer as well — and, because the caller awaits this method
+   * before fitting the camera, it also left the viewport at MapLibre's default world view.
+   * A broken layer now costs only itself.
+   *
+   * @returns The names of the steps that failed, in execution order. Empty on a clean render.
+   */
+  async initializeSourcesAndLayers(cityData: CityData): Promise<string[]> {
+    const failed: string[] = [];
+    const step = async (
+      name: string,
+      run: () => void | Promise<void>,
+    ): Promise<void> => {
+      try {
+        await run();
+      } catch (err) {
+        failed.push(name);
+        console.error(`[MapSourceManager] layer step "${name}" failed:`, err);
+      }
+    };
+
     // Must precede addTerrainReliefLayers: the raster-dem source starts requesting tiles
     // the moment it is registered, and the protocol has to be able to answer them.
-    await registerDemProtocol(cityData.terrainDem);
-    // Insertion order is the z-order, and the relief must sit between the two basemap
-    // passes: over the flat land fill, under the water surface that masks the sea.
-    addBasemapLandLayer(this.map, cityData, this.colors);
-    addTerrainReliefLayers(this.map, cityData, this.colors);
-    addBasemapWaterLayers(this.map, cityData, this.colors);
-    addGridLayer(this.map, cityData, this.colors.grid);
-    addTerrainContourLayer(this.map, cityData, this.colors);
-    addForestsLayer(this.map, cityData, this.colors);
-    addBuildingsLayer(this.map, cityData, this.colors);
-    await addServiceIconsLayer(this.map);
-    addRoadsLayer(this.map, cityData, this.colors);
-    addTransitLayers(this.map, cityData);
-    addDistrictsLayer(this.map, cityData, this.colors);
-    addParksLayer(this.map, cityData, this.colors);
-    addMapFrameLayer(this.map, this.colors);
+    await step('dem-protocol', () => registerDemProtocol(cityData.terrainDem));
+    // The relief must sit between the two basemap passes: over the flat land fill,
+    // under the water surface that masks the sea.
+    await step('basemap-land', () =>
+      addBasemapLandLayer(this.map, cityData, this.colors),
+    );
+    await step('terrain-relief', () =>
+      addTerrainReliefLayers(this.map, cityData, this.colors),
+    );
+    await step('basemap-water', () =>
+      addBasemapWaterLayers(this.map, cityData, this.colors),
+    );
+    await step('terrain-contour', () =>
+      addTerrainContourLayer(this.map, cityData, this.colors),
+    );
+    await step('forests', () =>
+      addForestsLayer(this.map, cityData, this.colors),
+    );
+    await step('buildings', () =>
+      addBuildingsLayer(this.map, cityData, this.colors),
+    );
+    await step('service-icons', () => addServiceIconsLayer(this.map));
+    await step('roads', () => addRoadsLayer(this.map, cityData, this.colors));
+    await step('transit', () => addTransitLayers(this.map, cityData));
+    // Sits above every other data layer but below districts/park-areas, per product request.
+    await step('grid', () =>
+      addGridLayer(this.map, cityData, this.colors.grid),
+    );
+    await step('districts', () =>
+      addDistrictsLayer(this.map, cityData, this.colors),
+    );
+    await step('parks', () => addParksLayer(this.map, cityData, this.colors));
+    await step('map-frame', () => addMapFrameLayer(this.map, this.colors));
     addWatermarkLayer(this.map).catch(() => {
       /* Image loading may fail in non-browser environments (tests) */
     });
+
+    return failed;
   }
 
   /**

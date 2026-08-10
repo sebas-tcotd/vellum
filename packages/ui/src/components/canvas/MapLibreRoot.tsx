@@ -29,7 +29,7 @@ export interface MapLibreRootProps {
   loadFile?: ((filePath: string) => Promise<void>) | undefined;
   /** Current layer visibility from the Zustand store — propagated to `map.setLayoutProperty`. */
   activeLayers?: LayerVisibility;
-  /** Ref populated with a `fitToScreen()` callback. App.tsx calls it after a new map loads. */
+  /** Ref populated with a `fitToScreen()` callback. Consumed by the Cmd+0 shortcut. */
   fitToScreenRef?: React.RefObject<(() => void) | null>;
   /** Ref populated with a `zoomIn()` callback. */
   zoomInRef?: React.RefObject<(() => void) | null>;
@@ -134,21 +134,38 @@ export function MapLibreRoot({
   // Re-render when cityData changes
   useEffect(() => {
     if (!cityData || !rendererRef.current) return;
-    void rendererRef.current.render(cityData, {
-      activeLayers: activeLayers ?? {
-        terrain: true,
-        basemap: true,
-        roads: true,
-        transit: true,
-        buildings: true,
-        forests: true,
-        districts: true,
-      },
-    });
+    rendererRef.current
+      .render(cityData, {
+        activeLayers: activeLayers ?? {
+          terrain: true,
+          basemap: true,
+          roads: true,
+          transit: true,
+          buildings: true,
+          forests: true,
+          districts: true,
+        },
+      })
+      // A rejection here truncates the layer stack and skips the camera fit, so it
+      // must never be swallowed: `void render(...)` hid exactly that failure mode.
+      .catch((err: unknown) => {
+        console.error('[MapLibreRoot] render failed:', err);
+      });
   }, [cityData]); // activeLayers intentionally excluded — layer visibility is set separately
 
   // Apply the active theme's RenderStyleParams whenever it (or the loaded set) changes.
   // The renderer is constructed with DEFAULT_RENDER_STYLE_PARAMS as fallback until themes resolve.
+  //
+  // `cityData` is also a dependency, even though it never changes which style is
+  // active: loading a city creates fresh layers (`base-water`, `base-land`, ...)
+  // colored from whatever `MapSourceManager` currently holds, and that source of
+  // truth is only ever updated by a completed `applyTheme()` call. If a city
+  // loads before the (independent, IPC-loaded) `themes` list resolves, those
+  // fresh layers otherwise bake in the `DEFAULT_RENDER_STYLE_PARAMS` fallback
+  // color forever — nothing revisits them once created, so the map looked
+  // themed everywhere except a background/water that never caught up until the
+  // user picked a theme by hand. Re-running this effect after every city load
+  // re-asserts the current theme once it's actually known, closing that gap.
   useEffect(() => {
     let cancelled = false;
     const renderer = rendererRef.current;
@@ -165,7 +182,7 @@ export function MapLibreRoot({
     return () => {
       cancelled = true;
     };
-  }, [activeTheme, themes, transitDimmingEnabled]);
+  }, [activeTheme, themes, transitDimmingEnabled, cityData]);
 
   // Clear the map when loading starts so the old map doesn't linger
   useEffect(() => {

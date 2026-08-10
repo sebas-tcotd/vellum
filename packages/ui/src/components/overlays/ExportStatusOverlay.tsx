@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ParseKeys } from 'i18next';
 import type { ExportProgress, ExportResult, VellumError } from '@vellum/core';
@@ -7,6 +8,9 @@ import {
   SVG_UNSUPPORTED_AREA_REASON,
   SVG_UNSUPPORTED_CAMERA_REASON,
 } from '../../hooks/use-export-workflow';
+
+/** How long the warnings toast stays visible before it self-dismisses. */
+const WARNINGS_TOAST_DURATION_MS = 3000;
 
 export interface ExportStatusOverlayProps {
   isExporting: boolean;
@@ -48,10 +52,24 @@ export function ExportStatusOverlay({
 }: ExportStatusOverlayProps) {
   const { t } = useTranslation();
 
+  const [resultDismissed, setResultDismissed] = useState(false);
+  useEffect(() => setResultDismissed(false), [exportResult]);
+
   // Warnings belong to the outcome, not to the progress: while the export is
   // still running nothing has been dropped yet, and showing them early would
   // leave a notice on screen for the whole operation.
-  const showWarnings = exportWarnings.length > 0 && !isExporting;
+  const [warningsElapsed, setWarningsElapsed] = useState(false);
+  useEffect(() => {
+    setWarningsElapsed(false);
+    if (exportWarnings.length === 0 || isExporting) return undefined;
+    const timeoutId = window.setTimeout(
+      () => setWarningsElapsed(true),
+      WARNINGS_TOAST_DURATION_MS,
+    );
+    return () => window.clearTimeout(timeoutId);
+  }, [exportWarnings, isExporting]);
+  const showWarnings =
+    exportWarnings.length > 0 && !isExporting && !warningsElapsed;
 
   const exportProgressText =
     exportPhase === 'cancelling'
@@ -90,7 +108,7 @@ export function ExportStatusOverlay({
           </button>
         </div>
       )}
-      {exportResult && (
+      {exportResult && !resultDismissed && (
         <div role="status" className={cn(TOAST_CLASSNAME)}>
           {t('export.successToast', {
             fileName: exportResult.filePath.split(/[/\\]/).at(-1),
@@ -101,6 +119,14 @@ export function ExportStatusOverlay({
             onClick={() => void onOpenExportFolder?.(exportResult.folderPath)}
           >
             {t('export.openFolder')}
+          </button>
+          <button
+            type="button"
+            aria-label={t('export.dismissToast')}
+            className="ml-3"
+            onClick={() => setResultDismissed(true)}
+          >
+            ✕
           </button>
         </div>
       )}

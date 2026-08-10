@@ -1,6 +1,6 @@
 import type { ExportResult, VellumError } from '@vellum/core';
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen } from '../../test-utils';
+import { act, fireEvent, render, screen } from '../../test-utils';
 import { ExportStatusOverlay } from './ExportStatusOverlay';
 
 vi.mock('react-i18next', () => ({
@@ -104,5 +104,44 @@ describe('ExportStatusOverlay — advertencias de exportación parcial', () => {
     expect(
       screen.queryByText('exportWarnings.svgUnsupportedPresentation'),
     ).toBeNull();
+  });
+});
+
+describe('ExportStatusOverlay — desaparición de toasts', () => {
+  it('el toast de advertencias se autodescarta a los 3 segundos', () => {
+    vi.useFakeTimers();
+    try {
+      render(
+        <ExportStatusOverlay
+          {...IDLE}
+          exportResult={RESULT}
+          exportWarnings={['exportWarnings.svgUnsupportedPresentation']}
+        />,
+      );
+
+      expect(
+        screen.getByText('exportWarnings.svgUnsupportedPresentation'),
+      ).toBeInTheDocument();
+
+      act(() => {
+        vi.advanceTimersByTime(3000);
+      });
+
+      expect(
+        screen.queryByText('exportWarnings.svgUnsupportedPresentation'),
+      ).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('el toast de éxito se puede cerrar con su botón', () => {
+    render(<ExportStatusOverlay {...IDLE} exportResult={RESULT} />);
+
+    expect(screen.getByText('export.successToast')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText('export.dismissToast'));
+
+    expect(screen.queryByText('export.successToast')).toBeNull();
   });
 });

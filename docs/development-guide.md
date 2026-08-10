@@ -79,7 +79,7 @@ cargo test --workspace
 | Playwright E2E (`apps/desktop/tests/e2e`)             | 1 spec (`smoke.spec.ts`) — solo valida que la app carga; no cubre aún drag&drop/render/export completo |
 
 ```bash
-pnpm test:e2e   # requiere tauri-driver instalado y la app compilada; NO corre en CI (ver pr-validation.yml)
+pnpm test:e2e   # requiere tauri-driver instalado y la app compilada; NO corre en CI (ver ci.yml)
 ```
 
 **Al agregar un campo a `RendererTokens`/`tokens.ts`**: rompe el typecheck de todos los `MOCK_TOKENS` en tests existentes — no hay factory helper todavía, hay que actualizar cada uno manualmente en el mismo PR.
@@ -88,7 +88,7 @@ pnpm test:e2e   # requiere tauri-driver instalado y la app compilada; NO corre e
 
 | Workflow                                                          | Trigger          | Qué valida                                                                                                 |
 | ----------------------------------------------------------------- | ---------------- | ---------------------------------------------------------------------------------------------------------- |
-| [`pr-validation.yml`](../.github/workflows/pr-validation.yml)     | Push/PR a `main` | Build, Vitest, Rust tests, lint TS + Clippy, formato. Playwright **no** corre acá (requiere tauri-driver). |
+| [`ci.yml`](../.github/workflows/ci.yml)                           | Push/PR a `main` | Build, Vitest, Rust tests, lint TS + Clippy, formato. Playwright **no** corre acá (requiere tauri-driver). |
 | [`publish-release.yml`](../.github/workflows/publish-release.yml) | Tag `v*`         | Build multiplataforma (Windows `.msi` firmado, macOS `.dmg`, Linux `.AppImage`) + publicación de release   |
 
 ## Comandos IPC — agregar uno nuevo

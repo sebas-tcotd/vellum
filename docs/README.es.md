@@ -4,7 +4,7 @@
 
 Construido con Tauri 2 (Rust) + React 19 + TypeScript, organizado como monorepo con pnpm + Turborepo.
 
-[![PR & Main Validation](https://github.com/sebas-tcotd/vellum/actions/workflows/pr-validation.yml/badge.svg)](https://github.com/sebas-tcotd/vellum/actions/workflows/pr-validation.yml)
+[![PR & Main Validation](https://github.com/sebas-tcotd/vellum/actions/workflows/ci.yml/badge.svg)](https://github.com/sebas-tcotd/vellum/actions/workflows/ci.yml)
 &nbsp;[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](../LICENSE)
 &nbsp;·&nbsp;[English](../README.md)
 
@@ -208,7 +208,7 @@ find . -name "tsconfig.tsbuildinfo" -delete && pnpm build
 
 | Workflow                                                        | Trigger          | Propósito                                      |
 | --------------------------------------------------------------- | ---------------- | ---------------------------------------------- |
-| [pr-validation.yml](../.github/workflows/pr-validation.yml)     | Push/PR a `main` | Build, test (Rust + TS), lint (TS + Clippy)    |
+| [ci.yml](../.github/workflows/ci.yml)                           | Push/PR a `main` | Build, test (Rust + TS), lint (TS + Clippy)    |
 | [publish-release.yml](../.github/workflows/publish-release.yml) | Tag `v*`         | Build multiplataforma + publicación de release |
 
 ### Documentación

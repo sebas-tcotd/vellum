@@ -79,6 +79,37 @@ export type {
 const PREVIEW_CAPTURE_TIMEOUT_MS = 1_500;
 
 /**
+ * Upper bound on MapLibre's worker pool.
+ *
+ * @remarks
+ * A GeoJSON source is pinned to a single worker for its lifetime, so the
+ * parallelism is *across* sources, not within one. Three sources carry most of
+ * the weight (buildings, roads, forests), which is why raising this past a
+ * handful buys nothing while still costing a worker's memory each.
+ */
+const MAX_WORKERS = 4;
+
+/**
+ * Raises MapLibre's worker pool off its default of one.
+ *
+ * @remarks
+ * MapLibre sets `workerCount` to 1 on every environment it does not recognise
+ * as Safari (where it uses `min(cores, 3)`). Tauri's WKWebView fails that
+ * user-agent check, so Vellum was slicing all fourteen GeoJSON sources — about
+ * 40 MB for a large city — through a single worker. Measured on san-rico: the
+ * tiling phase of a load went from 4599 ms to 2577 ms, and detail-zoom panning
+ * stopped queueing behind itself.
+ *
+ * Must run before the first `maplibregl.Map` is constructed, since the pool is
+ * created on first acquire and never resized; calling it again afterwards is a
+ * harmless no-op.
+ */
+function raiseWorkerCount(): void {
+  const cores = navigator.hardwareConcurrency || 1;
+  maplibregl.setWorkerCount(Math.max(Math.min(cores - 1, MAX_WORKERS), 1));
+}
+
+/**
  * GPU-accelerated renderer that converts `CityData` to MapLibre GL JS sources
  * and layers. Implements the `IRenderer` port defined in `@vellum/core`.
  */
@@ -120,6 +151,9 @@ export class MapLibreRenderer implements IRenderer {
     this.releasesDemProtocol = releasesDemProtocol;
     const initialColors = resolveColors(style);
 
+    // Before the Map, which is what creates the worker pool.
+    raiseWorkerCount();
+
     this.map = new maplibregl.Map({
       container,
       dragRotate: false,
@@ -149,17 +183,39 @@ export class MapLibreRenderer implements IRenderer {
     this.activeLayers = params.activeLayers;
 
     const executeRender = async (): Promise<void> => {
-      await this.sourceManager.initializeSourcesAndLayers(cityData);
+      const failedSteps =
+        await this.sourceManager.initializeSourcesAndLayers(cityData);
+      if (failedSteps.length > 0) {
+        console.error(
+          `[MapLibreRenderer] ${failedSteps.length} layer step(s) failed: ${failedSteps.join(', ')}`,
+        );
+      }
       this.layerManager.setTerrainDem(cityData.terrainDem);
       this.applyInitialState(params);
+      // Re-measure before fitting: MapLibre sizes its transform from an async
+      // ResizeObserver tick, and fitBounds against a stale transform is what
+      // produced the "opens zoomed all the way out" first load.
+      this.map.resize();
       this.navigationManager.fitAndConstrain(cityData);
     };
 
-    if (this.map.isStyleLoaded()) return executeRender();
-    return new Promise((resolve, reject) => {
-      this.map.once('load', () => {
-        void executeRender().then(resolve, reject);
-      });
+    return this.whenStyleReady().then(executeRender);
+  }
+
+  /**
+   * Resolves once the style can accept sources and layers.
+   *
+   * @remarks
+   * `once('load')` alone is a trap: `load` fires exactly once, while
+   * `isStyleLoaded()` also returns `false` transiently *after* it while pending
+   * sources settle. A second city loaded inside such a window used to register a
+   * listener that could never fire, leaving a promise pending forever and a blank
+   * map. `map.loaded()` distinguishes "not loaded yet" from "busy right now".
+   */
+  private whenStyleReady(): Promise<void> {
+    if (this.map.isStyleLoaded() || this.map.loaded()) return Promise.resolve();
+    return new Promise((resolve) => {
+      this.map.once('load', () => resolve());
     });
   }
 

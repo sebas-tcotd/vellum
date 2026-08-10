@@ -13,6 +13,15 @@ import type { BuildingZoning } from '../types';
  * Mirrors the `'unknown' → civic.services` fallback documented on
  * `BUILDING_SERVICE_TYPE_CATEGORY` — that lookup excludes `'unknown'` from its
  * keys, so it's special-cased here instead of widening the lookup's type.
+ *
+ * The same fallback also catches values the lookup has never heard of. The Rust
+ * parser passes the `.cslmap` `subsrv` attribute straight through as a string
+ * (`handlers/buildings.rs`), so `BuildingServiceType` is a closed union over an
+ * open set: every DLC and every mod can add a variant. Before this fallback
+ * existed, one such value (`PublicTransportMonorail`, present in real cities but
+ * in no fixture) made this function throw, which took down `addBuildingsLayer`
+ * and — registration order being z-order — every layer after it, including the
+ * roads, the map frame, and the camera fit.
  */
 export function resolveBuildingZoning(
   serviceType: BuildingServiceType,
@@ -20,7 +29,7 @@ export function resolveBuildingZoning(
   const path =
     serviceType === 'unknown'
       ? 'civic.services'
-      : BUILDING_SERVICE_TYPE_CATEGORY[serviceType];
+      : (BUILDING_SERVICE_TYPE_CATEGORY[serviceType] ?? 'civic.services');
   const [group, leaf] = path.split('.');
   const category = group as BuildingServiceCategory;
 

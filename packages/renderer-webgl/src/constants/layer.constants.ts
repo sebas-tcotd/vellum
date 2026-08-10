@@ -9,6 +9,21 @@ import { ELEVATION_UNITS_PER_METER } from '../sources/dem-protocol';
 const HILLSHADE_EXAGGERATION_M = 0.35;
 
 /**
+ * Baseline `circle-opacity` expression for `forests-circles`, shared with the layer's
+ * own paint definition in `layers/layer-forests.ts` so the two never drift apart.
+ * Kept low so dense forest doesn't read as a solid block at low zoom.
+ */
+export const FORESTS_CIRCLE_OPACITY_EXPRESSION = [
+  'interpolate',
+  ['linear'],
+  ['get', 'density'],
+  0,
+  0.08,
+  1,
+  0.25,
+] as const;
+
+/**
  * Exaggeration actually handed to MapLibre.
  *
  * @remarks
@@ -64,6 +79,29 @@ export const LAYER_ID_MAP: Record<LayerName, string[]> = {
   ],
 };
 
+/**
+ * Deepest zoom at which the three heaviest GeoJSON sources are sliced into tiles.
+ *
+ * @remarks
+ * `buildings` (43k polygons on a large city), `forests` (54.5k points) and
+ * `roads` (10.3k lines) are together about two thirds of the tile-slicing cost —
+ * around 33 MB of the ~40 MB a city hands to the workers. MapLibre defaults a
+ * GeoJSON source's `maxzoom` to 18, so it keeps cutting fresh tiles all the way
+ * in, and every pan at detail zoom pays for it. Capping the source makes MapLibre
+ * overzoom the deepest sliced level instead: past this zoom, panning re-uses
+ * tiles rather than cutting new ones.
+ *
+ * Measured on `san-rico` at z16.5, tile events per pan burst: ~550 uncapped,
+ * ~120 capped here. Below this zoom nothing changes — z13 is still sliced z13.
+ *
+ * 14 puts geojson-vt's simplification tolerance at roughly 1.8 m in world terms.
+ * Building footprints are rectangles with no interior vertices to drop, and road
+ * centrelines absorb it, so the overzoomed geometry reads the same at z18 —
+ * confirmed by eye before this was adopted. Raise it if a future layer on one of
+ * these sources needs finer geometry at detail zoom.
+ */
+export const HEAVY_SOURCE_MAX_ZOOM = 14;
+
 /** Layer ID for the Vellum watermark logo shown when all data layers are disabled. */
 export const WATERMARK_LAYER_ID = 'vellum-watermark';
 
@@ -100,10 +138,15 @@ export const NON_TRANSIT_OPACITY: Record<
       | 'icon-opacity'
       | 'text-opacity'
       | 'color-relief-opacity'
-      | 'hillshade-exaggeration';
+      | 'hillshade-exaggeration'
+      | 'background-opacity';
     base: unknown;
   }
 > = {
+  // Dimmed like every other non-transit layer: it sits beneath everything else,
+  // so leaving it undimmed would keep the full-brightness theme color dominant
+  // even once terrain/roads/buildings above it faded out.
+  background: { prop: 'background-opacity', base: 1 },
   'terrain-color-relief': { prop: 'color-relief-opacity', base: 1 },
   'terrain-hillshade': {
     prop: 'hillshade-exaggeration',
@@ -132,15 +175,7 @@ export const NON_TRANSIT_OPACITY: Record<
   'service-icons': { prop: 'icon-opacity', base: 1 },
   'forests-circles': {
     prop: 'circle-opacity',
-    base: [
-      'interpolate',
-      ['linear'],
-      ['get', 'density'],
-      0,
-      0.3,
-      1,
-      0.7,
-    ] as unknown,
+    base: FORESTS_CIRCLE_OPACITY_EXPRESSION,
   },
   'districts-points': { prop: 'circle-opacity', base: 1 },
   'districts-labels': { prop: 'text-opacity', base: 1 },

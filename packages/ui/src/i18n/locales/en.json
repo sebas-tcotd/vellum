@@ -140,6 +140,7 @@
     "background_transparent": "Transparent",
     "successToast": "Exported as {{fileName}}",
     "openFolder": "Open folder",
+    "dismissToast": "Dismiss",
     "cancelledToast": "Export cancelled",
     "failedToast": "Export failed. Try again.",
     "cancelling": "Cancelling…",

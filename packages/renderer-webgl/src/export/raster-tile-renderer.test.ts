@@ -87,6 +87,7 @@ const MOCK_STYLE: RenderStyleParams = {
 
 const mockMap = vi.hoisted(() => ({
   isStyleLoaded: vi.fn(() => true),
+  loaded: vi.fn(() => false),
   addSource: vi.fn(),
   getSource: vi.fn(() => undefined),
   removeSource: vi.fn(),
@@ -133,6 +134,9 @@ vi.mock('maplibre-gl', () => ({
     }),
     addProtocol: vi.fn(),
     removeProtocol: vi.fn(),
+    // Read at module scope to raise the default worker count off MapLibre's 1.
+    setWorkerCount: vi.fn(),
+    getWorkerCount: vi.fn(() => 4),
   },
 }));
 
@@ -255,6 +259,9 @@ describe('RasterTileRenderer', () => {
     const renderer = new RasterTileRenderer(MOCK_STYLE);
     const signal = new AbortController().signal;
     await renderer.configure(makeSnapshot(), signal);
+    // configure() renders, and render() resizes before fitting the camera. This
+    // assertion is about the per-tile resize, so only count from here on.
+    mockMap.resize.mockClear();
 
     await renderer.captureTile(
       makeTile({ renderRect: { x: 0, y: 0, width: 640, height: 480 } }),

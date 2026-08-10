@@ -1,0 +1,195 @@
+{
+  "meta": {
+    "title": "Vellum | Mapas para ciudades que vale la pena recordar",
+    "description": "Vellum transforma exportaciones .cslmap de Cities: Skylines 1 en mapas por capas que puedes explorar, tematizar y exportar como PNG o SVG editable.",
+    "ogDescription": "Abre una exportación .cslmap de Cities: Skylines 1 y lee tu ciudad por capas."
+  },
+  "common": {
+    "homeLabel": "Inicio de Vellum",
+    "skipToContent": "Saltar al contenido",
+    "workshop": "Steam Workshop",
+    "viewFullSize": "Ver {{label}} a tamaño completo",
+    "closeImage": "Cerrar imagen",
+    "download": "Descargar Vellum",
+    "backToTop": "Volver arriba"
+  },
+  "header": {
+    "primaryNavigation": "Navegación principal",
+    "nav": {
+      "cities": "Ciudades",
+      "layers": "Capas",
+      "themes": "Temas",
+      "workflow": "Flujo",
+      "openSource": "Código abierto"
+    },
+    "languageLabel": "Idioma",
+    "english": "Inglés",
+    "spanish": "Español"
+  },
+  "pageTheme": {
+    "label": "Tema de la página",
+    "light": "Claro",
+    "dark": "Oscuro",
+    "auto": "Auto"
+  },
+  "hero": {
+    "eyebrow": "Un visor cartográfico para Cities: Skylines 1",
+    "title": "Un mapa para la ciudad que construiste.",
+    "ledeBefore": "Abre una exportación",
+    "ledeAfter": "y lee tu ciudad por capas.",
+    "explore": "Explorar el mapa",
+    "imageAlt": "Mapa de Spring Valley en el tema Day de Vellum, con una ciudad amplia entre ríos y costa",
+    "imageDetail": "Tema Day · Vista de mapa de Vellum"
+  },
+  "promise": {
+    "kicker": "Un registro del lugar",
+    "title": "Tu ciudad debería poder leerse fuera del juego.",
+    "body": "Vellum convierte una exportación de Cities: Skylines en un mapa que puedes inspeccionar, compartir y conservar."
+  },
+  "cities": {
+    "kicker": "Mapas reales de ciudades reales",
+    "title": "La forma de una ciudad ya es una historia.",
+    "body": "Estos son mapas de Cities: Skylines abiertos en Vellum, con sus fuentes originales de Workshop a la vista."
+  },
+  "gallery": {
+    "islandHopping": {
+      "city": "Island Hopping",
+      "detail": "Tema Day · una ciudad extendida sobre el agua",
+      "alt": "Mapa de Island Hopping con una ciudad densa y conectada distribuida entre islas"
+    },
+    "westdale": {
+      "city": "웨스트데일",
+      "detail": "Atlantic Keys · tema Day",
+      "alt": "Mapa de Westdale con una ciudad costera densa y agua alrededor"
+    },
+    "sanRico": {
+      "city": "San Rico",
+      "detail": "Tema Day · islas, puentes y corredores de transporte",
+      "alt": "Mapa de San Rico con islas, puentes, carreteras y una ciudad central"
+    },
+    "costaTijuca": {
+      "city": "Costa Tijuca",
+      "detail": "Tema Day · carreteras frente a una costa amplia",
+      "alt": "Mapa de Costa Tijuca con una ciudad costera grande, agua y jerarquía vial"
+    }
+  },
+  "layers": {
+    "kicker": "Un mapa, capa por capa",
+    "title": "Mira cómo la ciudad se vuelve legible.",
+    "body": "Empieza con el terreno y el mapa base, y luego incorpora carreteras, edificios, bosques, distritos y transporte.",
+    "progressive": "Capas progresivas",
+    "ariaLabel": "Capas del mapa de Pepper Lake",
+    "source": "Pepper Lake · tema Day ·",
+    "items": {
+      "terrainBaseMap": {
+        "label": "Terreno y mapa base",
+        "detail": "La forma del terreno y el agua establecen la primera lectura.",
+        "alt": "Capas de terreno y mapa base de Pepper Lake en Vellum"
+      },
+      "roads": {
+        "label": "Carreteras",
+        "detail": "La jerarquía vial le da estructura a la ciudad.",
+        "alt": "Capa de carreteras de Pepper Lake en Vellum"
+      },
+      "buildings": {
+        "label": "Edificios",
+        "detail": "La forma construida se integra a la red.",
+        "alt": "Capa de edificios de Pepper Lake en Vellum"
+      },
+      "forests": {
+        "label": "Bosques",
+        "detail": "La estructura verde llena los espacios entre distritos.",
+        "alt": "Capa de bosques de Pepper Lake en Vellum"
+      },
+      "districts": {
+        "label": "Distritos",
+        "detail": "Los límites hacen que la ciudad sea más fácil de leer de un vistazo.",
+        "alt": "Capa de distritos de Pepper Lake en Vellum"
+      },
+      "transit": {
+        "label": "Transporte",
+        "detail": "Las líneas y paradas aportan movimiento al mapa terminado.",
+        "alt": "Capa de transporte de Pepper Lake en Vellum"
+      }
+    }
+  },
+  "transit": {
+    "kicker": "El transporte pasa al frente",
+    "title": "Sigue la red.",
+    "body": "Inspecciona líneas y paradas sobre la ciudad a la que sirven, y usa el minimapa para mantenerte orientado mientras recorres la vista.",
+    "note": "Cuando el transporte es la historia, el mapa puede convertirlo en el tema.",
+    "viewLabel": "Vista de transporte",
+    "ariaLabel": "Tema del mapa de transporte",
+    "imageLabel": "Spring Valley, tema {{view}}",
+    "imageDetail": "Tema {{view}} · líneas y paradas",
+    "views": {
+      "transit": {
+        "label": "Transporte",
+        "detail": "La red pasa al frente",
+        "alt": "Mapa de Spring Valley en el tema Transit de Vellum con la red enfatizada"
+      },
+      "dim": {
+        "label": "Transporte tenue",
+        "detail": "Mapa tenue, red más brillante",
+        "alt": "Mapa de Spring Valley en el tema Transit dim de Vellum con la red enfatizada"
+      }
+    }
+  },
+  "themes": {
+    "kicker": "Puntos de vista incluidos",
+    "title": "Un mapa puede tener un punto de vista.",
+    "body": "Elige el tema que coincida con la forma en que quieres recordar la ciudad, desde una vista general tranquila hasta una lectura centrada en el transporte.",
+    "dayLabel": "Day",
+    "dayDetail": "Lectura completa del mapa",
+    "dayAlt": "Mapa de Pepper Lake en el tema Day de Vellum",
+    "dayImageLabel": "Pepper Lake, tema Day",
+    "modeLabel": "Vista de transporte",
+    "ariaLabel": "Tema del mapa de transporte",
+    "transitImageLabel": "Pepper Lake, tema {{view}}",
+    "transit": {
+      "label": "Transit",
+      "detail": "La red pasa al frente",
+      "alt": "Mapa de Pepper Lake en el tema Transit de Vellum con la red enfatizada"
+    },
+    "dim": {
+      "label": "Transit dim",
+      "detail": "Mapa tenue, red más brillante",
+      "alt": "Mapa de Pepper Lake en el tema Transit dim de Vellum con la red enfatizada"
+    },
+    "futureKicker": "Lo próximo en el atlas",
+    "futureTitle": "Crea un lenguaje visual propio.",
+    "futureBody": "Está previsto un formato .vellumstyle personalizado. Su esquema todavía se está formalizando para los temas creados por la comunidad."
+  },
+  "workflow": {
+    "kicker": "Un camino sencillo para empezar",
+    "title": "De exportación a pieza.",
+    "body": "Vellum se sitúa después del juego y antes del trabajo que quieres conservar.",
+    "getTitle": "Obtén un .cslmap",
+    "getBodyBefore": "Exporta tu ciudad con",
+    "getBodyAfter": ", el exportador de la comunidad.",
+    "openTitle": "Abre y explora",
+    "openBody": "Desplázate, acerca la vista, inspecciona el transporte, controla las capas y mantén la orientación con el minimapa.",
+    "exportTitle": "Exporta el resultado",
+    "exportBody": "Guarda un PNG para compartir o un SVG editable para la siguiente iteración.",
+    "cslMapView": "CSL Map View"
+  },
+  "openSource": {
+    "kicker": "Hecho de forma abierta",
+    "title": "Abierto por diseño.",
+    "body": "Vellum es código abierto bajo la licencia MIT. Lee el código, consulta la documentación y descubre cómo se construye el mapa.",
+    "repository": "Explorar el repositorio",
+    "documentation": "Leer la documentación"
+  },
+  "download": {
+    "kicker": "Empieza con la ciudad que ya tienes",
+    "title": "Trae tu ciudad a la vista.",
+    "body": "Descarga Vellum desde GitHub Releases y abre tu primera exportación .cslmap."
+  },
+  "footer": {
+    "navigation": "Navegación del pie de página",
+    "tagline": "Mapas para ciudades que vale la pena recordar.",
+    "mit": "Licencia MIT",
+    "credit": "hecho con",
+    "by": "por"
+  }
+}

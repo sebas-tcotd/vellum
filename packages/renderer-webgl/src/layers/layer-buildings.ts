@@ -7,6 +7,7 @@
 
 import type { CityData } from '@vellum/core';
 import type maplibregl from 'maplibre-gl';
+import { HEAVY_SOURCE_MAX_ZOOM } from '../constants/layer.constants';
 import { buildBuildingsGeoJson } from '../geojson';
 import { addLayerIfAbsent, addSourceIfAbsent } from '../helpers';
 import type { ResolvedColors } from '../style-adapter';
@@ -20,6 +21,8 @@ export function addBuildingsLayer(
   addSourceIfAbsent(map, 'buildings', {
     type: 'geojson',
     data: buildBuildingsGeoJson(cityData),
+    // Capped so detail-zoom panning re-uses tiles instead of slicing new ones.
+    maxzoom: HEAVY_SOURCE_MAX_ZOOM,
   });
 
   addLayerIfAbsent(map, {

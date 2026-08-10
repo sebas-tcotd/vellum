@@ -8,6 +8,10 @@ import type {
   RenderStyleParams,
   RoadCategoryColors,
 } from '@vellum/core';
+import {
+  HEAVY_SOURCE_MAX_ZOOM,
+  TRANSIT_DIM_FACTOR,
+} from './constants/layer.constants';
 import { buildBuildingColorExpression } from './expressions/building-color';
 import { buildParkColorExpression } from './expressions/park-color';
 import { resolveColors } from './style-adapter';
@@ -17,6 +21,10 @@ import { resolveColors } from './style-adapter';
 
 const mockMap = vi.hoisted(() => ({
   isStyleLoaded: vi.fn(() => true),
+  // Second gate in `whenStyleReady`: false here keeps `once('load')` the only
+  // path once `isStyleLoaded` is stubbed false.
+  loaded: vi.fn(() => false),
+  resize: vi.fn(),
   addSource: vi.fn(),
   getSource: vi.fn(() => undefined),
   removeSource: vi.fn(),
@@ -71,6 +79,9 @@ vi.mock('maplibre-gl', () => ({
     // The DEM tile protocol registers itself on the module default export.
     addProtocol: vi.fn(),
     removeProtocol: vi.fn(),
+    // Read at module scope to raise the default worker count off MapLibre's 1.
+    setWorkerCount: vi.fn(),
+    getWorkerCount: vi.fn(() => 4),
   },
 }));
 
@@ -263,10 +274,71 @@ describe('MapLibreRenderer', () => {
     expect(layerIds).toContain('districts-points');
   });
 
+  // Regression: MapLibre sets `workerCount` to 1 on anything it does not
+  // recognise as Safari, and Tauri's WKWebView fails that check — so every
+  // GeoJSON source was sliced through a single worker.
+  it('raises the worker pool above MapLibre default of one, before the map exists', async () => {
+    const maplibregl = (await import('maplibre-gl')).default;
+    makeRenderer();
+
+    expect(maplibregl.setWorkerCount).toHaveBeenCalledOnce();
+    const [count] = (maplibregl.setWorkerCount as Mock).mock.calls[0] as [
+      number,
+    ];
+    expect(count).toBeGreaterThan(1);
+    // The pool is built on first acquire, which is inside the Map constructor.
+    expect(
+      (maplibregl.setWorkerCount as Mock).mock.invocationCallOrder[0],
+    ).toBeLessThan((maplibregl.Map as Mock).mock.invocationCallOrder[0]!);
+  });
+
+  // Regression: a GeoJSON source defaults to `maxzoom` 18, so MapLibre keeps
+  // slicing fresh tiles at every detail zoom. These three carry ~2/3 of the
+  // slicing cost; capping them lets panning re-use overzoomed tiles instead.
+  it('caps the heaviest GeoJSON sources so detail-zoom panning stops re-slicing', async () => {
+    const renderer = makeRenderer();
+    await renderer.render(makeCityData(), { activeLayers: ALL_LAYERS_VISIBLE });
+
+    const byId = new Map(
+      (mockMap.addSource as Mock).mock.calls.map(
+        (call) => [call[0] as string, call[1] as { maxzoom?: number }] as const,
+      ),
+    );
+    for (const id of ['buildings', 'roads', 'forests']) {
+      expect(byId.get(id)?.maxzoom).toBe(HEAVY_SOURCE_MAX_ZOOM);
+    }
+  });
+
   it('calls map.fitBounds after render', async () => {
     const renderer = makeRenderer();
     await renderer.render(makeCityData(), { activeLayers: ALL_LAYERS_VISIBLE });
     expect(mockMap.fitBounds).toHaveBeenCalledOnce();
+  });
+
+  // Regression: layer registration order is z-order, so a single unguarded throw
+  // used to drop every later layer *and* skip the camera fit — the map opened
+  // zoomed all the way out with no roads, no frame and no console output.
+  it('keeps registering later layers and still fits the camera when one layer step throws', async () => {
+    mockMap.addLayer.mockImplementation((layer: { id: string }) => {
+      if (layer.id === 'roads-fill') throw new Error('boom');
+    });
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => {});
+
+    const renderer = makeRenderer();
+    await renderer.render(makeCityData(), { activeLayers: ALL_LAYERS_VISIBLE });
+
+    const addedIds = mockMap.addLayer.mock.calls.map(
+      (call) => (call[0] as { id: string }).id,
+    );
+    // `map-frame` is registered five steps after roads: reaching it proves the
+    // stack was not truncated at the failure.
+    expect(addedIds).toContain('map-frame');
+    expect(mockMap.fitBounds).toHaveBeenCalledOnce();
+    expect(consoleError).toHaveBeenCalled();
+
+    consoleError.mockRestore();
   });
 
   it('never sets a background-pattern, which would silently discard background-color', async () => {
@@ -1021,6 +1093,11 @@ describe('MapLibreRenderer', () => {
         'fill-opacity',
         ['*', 0.85, 0.15],
       );
+      expect(mockMap.setPaintProperty).toHaveBeenCalledWith(
+        'background',
+        'background-opacity',
+        ['*', 1, 0.15],
+      );
     });
 
     it('restores baseline opacity when disabled', async () => {
@@ -1043,6 +1120,11 @@ describe('MapLibreRenderer', () => {
         'buildings-fill',
         'fill-opacity',
         0.85,
+      );
+      expect(mockMap.setPaintProperty).toHaveBeenCalledWith(
+        'background',
+        'background-opacity',
+        1,
       );
     });
 
@@ -1074,6 +1156,37 @@ describe('MapLibreRenderer', () => {
       mockMap.getLayer.mockReturnValue(undefined);
       expect(() => renderer.setTransitDimming(true)).not.toThrow();
       expect(mockMap.setPaintProperty).not.toHaveBeenCalled();
+    });
+
+    it('keeps the hypsometric relief dimmed across a later setLayerOptions call', async () => {
+      const renderer = makeRenderer();
+      await renderer.render(makeCityData(), {
+        activeLayers: ALL_LAYERS_VISIBLE,
+      });
+      mockMap.getLayer.mockReturnValue({ id: 'any' } as unknown as undefined);
+      renderer.setTransitDimming(true);
+      vi.clearAllMocks();
+      mockMap.getLayer.mockReturnValue({ id: 'any' } as unknown as undefined);
+
+      // Toggling any option (here: contour lines) re-runs setOptions, which
+      // must not reset the relief back to full opacity while dimming holds.
+      renderer.setLayerOptions({
+        transit: { visibleModes: [] },
+        buildings: { visibleCategories: [], colorByCategory: false },
+        districts: { showNameOnMap: false, showParkAreas: false },
+        terrain: {
+          showContourLines: false,
+          showColorRelief: true,
+          showHillshade: true,
+        },
+        basemap: { showGrid: false },
+      });
+
+      expect(mockMap.setPaintProperty).toHaveBeenCalledWith(
+        'terrain-color-relief',
+        'color-relief-opacity',
+        TRANSIT_DIM_FACTOR,
+      );
     });
   });
 
@@ -1913,6 +2026,20 @@ describe('MapLibreRenderer', () => {
       const elapsed = performance.now() - start;
 
       expect(elapsed).toBeLessThan(16);
+    });
+
+    it('does not undo setTransitDimming: MapLibreRoot calls setTransitDimming then applyTheme in the same effect', async () => {
+      const renderer = makeRenderer();
+      mockMap.getLayer.mockReturnValue({ id: 'any' } as unknown as undefined);
+
+      renderer.setTransitDimming(true);
+      await renderer.applyTheme(MOCK_STYLE);
+
+      expect(mockMap.setPaintProperty).toHaveBeenCalledWith(
+        'terrain-color-relief',
+        'color-relief-opacity',
+        TRANSIT_DIM_FACTOR,
+      );
     });
   });
 });

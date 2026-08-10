@@ -12,6 +12,9 @@ pub mod errors;
 pub mod export;
 /// Internal module containing auxiliary IPC payloads not intended for public re-export.
 mod ipc_contract;
+/// Captures a `.cslmap` path passed on the command line (Windows file
+/// association double-click, Story 7.5 AC1).
+pub mod startup;
 /// Background update checker — Story 7.4. Desktop-only, same as the `tauri-plugin-updater`
 /// dependency it wraps (there is no updater on mobile).
 #[cfg(desktop)]
@@ -57,6 +60,7 @@ pub fn run() {
             commands::cancel_export,
             #[cfg(desktop)]
             updater::get_pending_update,
+            startup::get_startup_file_path,
         ])
         .setup(|app| {
             // Startup sweep: a crashed previous run may have left a `.part` temp
@@ -65,6 +69,11 @@ pub fn run() {
             if let Ok(downloads_dir) = app.path().download_dir() {
                 sweep_stale_temp_files(&downloads_dir);
             }
+
+            // A `.cslmap` opened via the Windows file association arrives as a
+            // command-line argument, before any window/listener exists — stash
+            // it for the frontend to claim once it's ready (Story 7.5 AC1).
+            startup::capture_startup_file_path();
 
             // Menu::default() preserves the platform-standard submenus (Edit,
             // Window, and on macOS the app submenu) — building from scratch
