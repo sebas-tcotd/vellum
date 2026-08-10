@@ -12,7 +12,7 @@ Your city took hundreds of hours to build. Vellum gives it a map worth keeping.
 &nbsp;[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 &nbsp;·&nbsp;[Español](docs/README.es.md)
 
-> Vellum is approaching its first public release. Packaging and distribution work are still in progress.
+> Release automation builds platform installers and signed updater artifacts for Windows, macOS and Linux.
 
 ## What is Vellum?
 
@@ -42,6 +42,7 @@ The longer-term direction is a Vellum-native exporter and a richer, versioned fo
 - Use a minimap to stay oriented on large cities
 - Toggle clean mode with `H` to view the map without interface chrome
 - Switch between built-in visual themes
+- Choose English or Spanish and configure automatic updates from Preferences
 - Export the current view as PNG (1x–4x) or an editable SVG
 - Load damaged files and unrecognized DLC assets through controlled fallbacks where possible
 - Use the interface in English or Spanish
@@ -61,7 +62,7 @@ Download the installer for your platform from the [latest GitHub Release](https:
 
 ## Try the development build
 
-You do not need Cities: Skylines 1 or your own save to try the development build. The repository includes real `.cslmap` fixtures:
+You do not need Cities: Skylines 1 or your own save to try the development build. The repository includes real `.cslmap` fixtures, including maps for partial-load and unknown-DLC fallback paths:
 
 ```bash
 git clone https://github.com/sebas-tcotd/vellum.git
@@ -74,6 +75,8 @@ Then drop one of these files onto the app window:
 
 - [`altavento.cslmap`](packages/parser-cslmap/fixtures/altavento.cslmap)
 - [`aurelia-del-delta.cslmap`](packages/parser-cslmap/fixtures/aurelia-del-delta.cslmap)
+
+For parser and fallback work, the fixture directory also contains `corrupted.cslmap` and `unknown-dlc-assets.cslmap`.
 
 Useful controls:
 
@@ -161,16 +164,16 @@ The deeper implementation notes live in [`docs/`](docs), including the [transit 
 
 ## Project status and roadmap
 
-| Area                                                      | Status                  |
-| --------------------------------------------------------- | ----------------------- |
-| Project foundation, monorepo and IPC contract             | Complete                |
-| File loading and Rust parser                              | Complete                |
-| Cartographic rendering                                    | Complete                |
-| Exploration UI and MapLibre migration                     | Complete                |
-| Theme system and built-in themes                          | Complete                |
-| PNG/SVG export                                            | Complete                |
-| i18n, preferences and update checks                       | Complete                |
-| Packaging and distribution (installers, file association) | Final release milestone |
+| Area                                                                         | Status                |
+| ---------------------------------------------------------------------------- | --------------------- |
+| Project foundation, monorepo and IPC contract                                | Complete              |
+| File loading and Rust parser                                                 | Complete              |
+| Cartographic rendering                                                       | Complete              |
+| Exploration UI and MapLibre migration                                        | Complete              |
+| Theme system and built-in themes                                             | Complete              |
+| PNG/SVG export                                                               | Complete              |
+| i18n, preferences and update checks                                          | Complete              |
+| Packaging and distribution (installers, file association, updater artifacts) | Configured for v0.4.0 |
 
 The future Vellum-native export format is intentionally separate from the v1 viewer milestone. The first release can be useful while the project continues toward a richer in-game exporter and data model.
 
@@ -182,11 +185,15 @@ pnpm build
 pnpm lint
 pnpm check:architecture
 pnpm test
+pnpm test:e2e
 pnpm format:check
 pnpm rust:fmt
 pnpm rust:lint
 pnpm rust:test
+pnpm release:verify
 ```
+
+`pnpm test:e2e` requires a built desktop app, `tauri-driver` and a compatible display environment. It is available for local validation but is not part of the default CI job yet. `pnpm release:verify` checks the Tauri release and updater configuration without publishing anything.
 
 Run a focused package test with:
 
@@ -200,11 +207,14 @@ The Playwright suite is configured under [`apps/desktop/tests/e2e`](apps/desktop
 ## Repository guide
 
 - [`docs/`](docs) — technical documentation and design references
+- [`apps/desktop`](apps/desktop) — Tauri shell, native commands and desktop entry point
 - [`packages/core`](packages/core) — domain types and IPC contract
 - [`packages/parser-cslmap`](packages/parser-cslmap) — `.cslmap` parsing adapter
 - [`packages/renderer-webgl`](packages/renderer-webgl) — active MapLibre renderer
+- [`packages/renderer-canvas`](packages/renderer-canvas) — legacy Canvas 2D renderer kept as a tested reference
 - [`packages/theme-engine`](packages/theme-engine) — theme loading, validation and style parameters
 - [`packages/ui`](packages/ui) — React components and interaction layer
+- [`CHANGELOG.md`](CHANGELOG.md) — released changes and version history
 - Planning and implementation artifacts are maintained separately from the public runtime documentation.
 
 ## Contributing
