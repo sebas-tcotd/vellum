@@ -1,68 +1,57 @@
 # Vellum
 
-**A modern, cross-platform map viewer for Cities: Skylines 1.**
-
-Your city took hundreds of hours to build. Vellum gives it a map worth keeping.
-
 <p align="center">
-  <img src="packages/renderer-webgl/src/assets/vellum-logo.svg" alt="Vellum logo" width="160" />
+  <img src="packages/renderer-webgl/src/assets/vellum-logo.svg" alt="Vellum logo" width="148" />
 </p>
 
-[![PR & Main Validation](https://github.com/sebas-tcotd/vellum/actions/workflows/ci.yml/badge.svg)](https://github.com/sebas-tcotd/vellum/actions/workflows/ci.yml)
-&nbsp;[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-&nbsp;·&nbsp;[Español](docs/es/index.md)
+<p align="center">
+  <strong>Turn your Cities: Skylines city into a map worth keeping.</strong><br />
+  A modern, cross-platform viewer for exploring, understanding and sharing your city.
+</p>
 
-> Release automation builds platform installers and signed updater artifacts for Windows, macOS and Linux.
+<p align="center">
+  <a href="https://github.com/sebas-tcotd/vellum/releases/latest">Download the latest release</a>
+  · <a href="docs/es/index.md">Leer en español</a>
+  · <a href="CONTRIBUTING.md">Contribute</a>
+</p>
 
-## What is Vellum?
+<p align="center">
+  <a href="https://github.com/sebas-tcotd/vellum/actions/workflows/ci.yml"><img src="https://github.com/sebas-tcotd/vellum/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-2f6f73.svg" alt="MIT license" /></a>
+  <a href="https://github.com/sebas-tcotd/vellum/releases/latest"><img src="https://img.shields.io/github/v/release/sebas-tcotd/vellum?label=latest%20release" alt="Latest release" /></a>
+</p>
 
-Cities: Skylines lets you build entire worlds. Vellum is a native desktop app for exploring those worlds as coherent, interactive maps instead of leaving them inside the game or reducing them to screenshots.
+> **For players:** open a `.cslmap` export and explore your city as a real interactive map.
+> **For contributors:** help build the open-source cartographic toolkit that Cities: Skylines has been missing.
 
-Vellum renders terrain, basemap (including water), roads, transit, buildings, forests and districts as independent map layers. It is designed around a simple belief: visual quality is part of the product, not decoration applied at the end.
+## Why Vellum?
 
-The project is built for Windows, macOS and Linux with Tauri 2, Rust, React, TypeScript and MapLibre GL JS.
+Cities: Skylines lets you build entire worlds. Vellum gives those worlds a second life outside the game: a native desktop experience for exploring terrain, roads, transit, buildings, forests and districts as coherent, layered maps.
 
-## The honest v1 workflow
+The core idea is simple: **the visual quality of a city is part of the product, not decoration applied at the end.**
 
-For its first version, Vellum uses the community's existing export path:
+Vellum runs on Windows, macOS and Linux using Tauri 2, Rust, React, TypeScript and MapLibre GL JS.
 
-1. Install [CSL Map View](https://steamcommunity.com/sharedfiles/filedetails/?id=845665815) in Cities: Skylines 1.
-2. Use CSL Map View to export your city as a `.cslmap` file, then open that file in Vellum.
+## Start here
 
-**CSL Map View is the exporter; Vellum is the modern viewer.** Vellum does not yet read a live city directly from the game. This two-tool workflow is intentional for v1: it lets Vellum provide a better exploration experience while preserving compatibility with the format the community already uses.
+### Download and open a city
 
-The longer-term direction is a Vellum-native exporter and a richer, versioned format produced through the Cities: Skylines modding API. That would remove the dependency on `.cslmap`, unlock data the legacy format cannot contain and support the next generation of Vellum features. It is a future direction, not a v1 requirement.
+Download the installer for your platform from the [latest GitHub Release](https://github.com/sebas-tcotd/vellum/releases/latest), then open a `.cslmap` file exported from [CSL Map View](https://steamcommunity.com/sharedfiles/filedetails/?id=845665815).
 
-## What you can do today
+For the current v1 workflow, **CSL Map View is the exporter; Vellum is the modern viewer.** Vellum does not yet read a live city directly from the game. This deliberate two-tool path preserves compatibility with the format the community already uses while Vellum focuses on a better exploration experience.
 
-- Open `.cslmap` files with drag and drop or `Ctrl+O` / `Cmd+O`
-- Explore seven independent layers: terrain, basemap (including water), roads, transit, buildings, forests and districts
-- Pan and zoom a full city with GPU-accelerated MapLibre rendering
-- Inspect transit lines and stops through contextual map interactions
-- Use a minimap to stay oriented on large cities
-- Toggle clean mode with `H` to view the map without interface chrome
-- Switch between built-in visual themes
-- Choose English or Spanish and configure automatic updates from Preferences
-- Export the current view as PNG (1x–4x) or an editable SVG
-- Load damaged files and unrecognized DLC assets through controlled fallbacks where possible
-- Use the interface in English or Spanish
-- Navigate core controls with keyboard-friendly interactions
+<details>
+<summary>Platform notes</summary>
 
-## Installing a release build
+- **Windows:** run the `.msi`. File association is opt-in during installation. Releases are configured for Authenticode signing; an explicitly unsigned build may show an unknown-publisher warning.
+- **macOS:** open the `.dmg` and move Vellum to `Applications`. v1 is not notarized by Apple, so clear quarantine once with `xattr -cr /Applications/Vellum.app` if Gatekeeper blocks it.
+- **Linux:** make the `.AppImage` executable and run it.
 
-Download the installer for your platform from the [latest GitHub Release](https://github.com/sebas-tcotd/vellum/releases/latest):
+</details>
 
-- **Windows** — run the `.msi`. It offers an opt-in checkbox to open `.cslmap` files with Vellum by default (unchecked unless you enable it). Releases are configured to require Authenticode signing; if a release explicitly allows an unsigned Windows build, Windows may show an unknown-publisher warning.
-- **macOS** — open the `.dmg` and drag Vellum into `Applications`. **v1 is not notarized by Apple**, so after moving the app you must clear the quarantine flag once, from a terminal:
-  ```bash
-  xattr -cr /Applications/Vellum.app
-  ```
-  Without this step, macOS Gatekeeper will refuse to open the app. This is a manual, honest limitation of the v1 release, not a substitute for notarization.
-- **Linux** — run the `.AppImage` directly (`chmod +x` it first if needed).
+### Try it from source
 
-## Try the development build
-
-You do not need Cities: Skylines 1 or your own save to try the development build. The repository includes real `.cslmap` fixtures, including maps for partial-load and unknown-DLC fallback paths:
+You do not need Cities: Skylines 1 or your own save to try the development build. The repository includes real city fixtures.
 
 ```bash
 git clone https://github.com/sebas-tcotd/vellum.git
@@ -71,68 +60,48 @@ pnpm install
 pnpm dev
 ```
 
-Then drop one of these files onto the app window:
+Drop [`altavento.cslmap`](packages/parser-cslmap/fixtures/altavento.cslmap) or [`aurelia-del-delta.cslmap`](packages/parser-cslmap/fixtures/aurelia-del-delta.cslmap) onto the app window.
 
-- [`altavento.cslmap`](packages/parser-cslmap/fixtures/altavento.cslmap)
-- [`aurelia-del-delta.cslmap`](packages/parser-cslmap/fixtures/aurelia-del-delta.cslmap)
-
-For parser and fallback work, the fixture directory also contains `corrupted.cslmap` and `unknown-dlc-assets.cslmap`.
-
-Useful controls:
-
-| Action                      | Shortcut                            |
-| --------------------------- | ----------------------------------- |
-| Open a `.cslmap` file       | `Ctrl/Cmd+O`                        |
-| Open the export dialog      | `Ctrl/Cmd+E`                        |
-| Fit map to screen           | `Ctrl/Cmd+0` or `Ctrl/Cmd+9`        |
-| Zoom in                     | `Ctrl/Cmd++` or `Ctrl/Cmd+=`        |
-| Zoom out                    | `Ctrl/Cmd+-`                        |
-| Toggle map layers           | `1`–`7`                             |
-| Open advanced layer options | `Shift+1`–`Shift+7` where available |
-| Toggle clean mode           | `H`                                 |
-| Toggle navigation mode      | `Ctrl/Cmd+B`                        |
-| Toggle icon legend          | `L`                                 |
-| Rotate map                  | `Shift+←` / `Shift+→`               |
-| Reset map north             | `R`                                 |
-
-### Requirements
+<details>
+<summary>Development requirements</summary>
 
 | Tool      | Version                             |
 | --------- | ----------------------------------- |
 | Node.js   | 20                                  |
 | pnpm      | `10.33.0`                           |
 | Rust      | `1.96.0` from `rust-toolchain.toml` |
-| Tauri CLI | `2.x`                               |
+| Tauri CLI | 2.x                                 |
 
-Before running `pnpm install` or `pnpm dev`, install the [Tauri 2 prerequisites](https://v2.tauri.app/start/prerequisites/) for your operating system. In addition to Node.js, pnpm and Rust, Tauri requires native system dependencies: WebKitGTK and build tools on Linux, Xcode Command Line Tools on macOS, and Microsoft C++ Build Tools plus WebView2 on Windows. These dependencies are not installed by pnpm.
+Before `pnpm install` or `pnpm dev`, install the [Tauri 2 prerequisites](https://v2.tauri.app/start/prerequisites/) for your operating system.
 
-## Why Vellum exists
+</details>
 
-CSL Map View opened an important door: it showed the Cities: Skylines community that a city could be seen as a map. Vellum is not meant to erase that history. It is an attempt to carry the idea forward with a modern, cross-platform experience and a stronger cartographic focus.
+## What you can do today
 
-The problem is not that players cannot build beautiful cities. It is that the work they put into those cities is difficult to understand, document and share outside the game. Vellum treats a `.cslmap` export as more than a data dump:
+- Open `.cslmap` files with drag and drop or `Ctrl/Cmd+O`.
+- Explore seven independent layers: terrain, basemap and water, roads, transit, buildings, forests and districts.
+- Pan and zoom a full city with GPU-accelerated MapLibre rendering.
+- Inspect transit lines and stops through contextual map interactions.
+- Stay oriented with the minimap and keyboard-friendly navigation.
+- Toggle clean mode with `H` and switch between built-in visual themes.
+- Use the interface in English or Spanish.
+- Export the current view as PNG (1×–4×) or editable SVG.
+- Load damaged files and unknown-DLC assets through controlled fallbacks where possible.
 
-- roads are classified from their `ItemClass`, not guessed from names;
-- transit is reconstructed from the game's route data and rendered as a readable network;
-- terrain, water and elevation are represented as parts of a map rather than a flat screenshot;
-- the domain model is separated from the renderer so the format can evolve without rewriting the map experience.
+## The engineering story
 
-## Engineering story
+Vellum began with a Canvas 2D renderer. As maps grew, CPU-rendered overscan hit a performance ceiling. A focused spike proved that MapLibre GL JS and WebGL could deliver the target experience, so the active renderer moved there while the legacy Canvas implementation remained as a tested reference.
 
-Vellum started with a Canvas 2D renderer. As the map grew, CPU-rendered overscan and pan performance reached a hard ceiling. The project pivoted to MapLibre GL JS and WebGL after a focused spike proved that the target experience was achievable.
-
-That pivot was possible because the project had already separated the domain model from rendering. Every renderer implements the same `IRenderer` port. The active `MapLibreRoot` still uses MapLibre-specific APIs for layer subscriptions, camera controls and snapshot capture, so the UI boundary is not fully renderer-agnostic yet. The legacy Canvas renderer remains in the repository as a tested reference; the active desktop application uses the MapLibre renderer.
+That pivot was possible because the domain model was separated from rendering from the start. The package graph is intentionally one-directional, and `pnpm check:architecture` enforces it.
 
 ```mermaid
 flowchart LR
   A[".cslmap export"] --> B["Rust parser"]
   B --> C["Immutable CityData"]
-  C --> D["MapLibreRenderer"]
+  C --> D["MapLibre renderer"]
   D --> E["React UI in Tauri"]
   T["Theme engine"] --> D
 ```
-
-The package graph is intentionally one-directional:
 
 ```mermaid
 graph TD
@@ -149,35 +118,36 @@ graph TD
   themes --> core
 ```
 
-`pnpm check:architecture` enforces these boundaries. `@vellum/core` remains the dependency-free domain and IPC layer; `apps/desktop` is the only composition root.
+`@vellum/core` is the dependency-free domain and IPC layer. `apps/desktop` is the only composition root. The active `MapLibreRoot` still uses MapLibre-specific APIs at the UI boundary, so renderer interchangeability is a deliberate architectural direction rather than a claim that every edge is already abstracted.
 
-## Technical details worth knowing
+## Project status
 
-- Map coordinates cover approximately ±8640 units on the X/Z axes.
-- `LandArray` and `WaterArray` remain separate domain structures.
-- `icls="Bus Line"` segments are virtual transit connectors and are never rendered as roads.
-- Road width follows `fixed + scaled × zoomFactor`, with both components preserved in the style contract.
-- Terrain and water use different rendering paths and elevation semantics.
-- Real city fixtures are used during development; visual rendering bugs are not validated only against toy data.
+| Area                                          | Status                |
+| --------------------------------------------- | --------------------- |
+| File loading, Rust parser and domain model    | Complete              |
+| Cartographic rendering and MapLibre migration | Complete              |
+| Exploration UI, layers and themes             | Complete              |
+| PNG/SVG export                                | Complete              |
+| i18n, preferences and update checks           | Complete              |
+| Packaging and distribution                    | Configured for v0.4.0 |
+| Vellum-native in-game exporter                | Future direction      |
 
-The deeper implementation notes live in [`docs/`](docs), including the [transit rendering algorithm](docs/en/transit-rendering-algorithm.md), architecture references and the [`.vellumstyle` schema](docs/en/vellumstyle-schema.md).
+The future exporter would remove the dependency on `.cslmap`, unlock richer data from the Cities: Skylines modding API and support the next generation of Vellum features. It is not required for the first useful viewer release.
 
-## Project status and roadmap
+## Repository map
 
-| Area                                                                         | Status                |
-| ---------------------------------------------------------------------------- | --------------------- |
-| Project foundation, monorepo and IPC contract                                | Complete              |
-| File loading and Rust parser                                                 | Complete              |
-| Cartographic rendering                                                       | Complete              |
-| Exploration UI and MapLibre migration                                        | Complete              |
-| Theme system and built-in themes                                             | Complete              |
-| PNG/SVG export                                                               | Complete              |
-| i18n, preferences and update checks                                          | Complete              |
-| Packaging and distribution (installers, file association, updater artifacts) | Configured for v0.4.0 |
+| Path                                                   | Purpose                                           |
+| ------------------------------------------------------ | ------------------------------------------------- |
+| [`apps/desktop`](apps/desktop)                         | Tauri shell, native commands and composition root |
+| [`packages/core`](packages/core)                       | Domain types and IPC contract                     |
+| [`packages/parser-cslmap`](packages/parser-cslmap)     | `.cslmap` parsing adapter                         |
+| [`packages/renderer-webgl`](packages/renderer-webgl)   | Active MapLibre renderer                          |
+| [`packages/renderer-canvas`](packages/renderer-canvas) | Tested legacy Canvas reference                    |
+| [`packages/theme-engine`](packages/theme-engine)       | Theme loading, validation and style parameters    |
+| [`packages/ui`](packages/ui)                           | React components and interaction layer            |
+| [`docs`](docs)                                         | Technical documentation and design references     |
 
-The future Vellum-native export format is intentionally separate from the v1 viewer milestone. The first release can be useful while the project continues toward a richer in-game exporter and data model.
-
-## Development commands
+## Useful commands
 
 ```bash
 pnpm dev
@@ -193,8 +163,6 @@ pnpm rust:test
 pnpm release:verify
 ```
 
-`pnpm test:e2e` requires a built desktop app, `tauri-driver` and a compatible display environment. It is available for local validation but is not part of the default CI job yet. `pnpm release:verify` checks the Tauri release and updater configuration without publishing anything.
-
 Run a focused package test with:
 
 ```bash
@@ -202,33 +170,20 @@ pnpm --filter @vellum/renderer-webgl test
 pnpm --filter @vellum/ui test -- MapLibreRoot.test.tsx
 ```
 
-The Playwright suite is configured under [`apps/desktop/tests/e2e`](apps/desktop/tests/e2e), but it is not part of the default CI pipeline yet.
+## Join the project
 
-## Repository guide
+Vellum is early enough for thoughtful contributions to shape the product: rendering quality, parser resilience, export workflows, themes, documentation and community tooling are all meaningful surfaces.
 
-- [`docs/`](docs) — technical documentation and design references
-- [`apps/desktop`](apps/desktop) — Tauri shell, native commands and desktop entry point
-- [`packages/core`](packages/core) — domain types and IPC contract
-- [`packages/parser-cslmap`](packages/parser-cslmap) — `.cslmap` parsing adapter
-- [`packages/renderer-webgl`](packages/renderer-webgl) — active MapLibre renderer
-- [`packages/renderer-canvas`](packages/renderer-canvas) — legacy Canvas 2D renderer kept as a tested reference
-- [`packages/theme-engine`](packages/theme-engine) — theme loading, validation and style parameters
-- [`packages/ui`](packages/ui) — React components and interaction layer
-- [`CHANGELOG.md`](CHANGELOG.md) — released changes and version history
-- Planning and implementation artifacts are maintained separately from the public runtime documentation.
+Please read [`CONTRIBUTING.md`](CONTRIBUTING.md) before opening a pull request. For security issues, use [`SECURITY.md`](SECURITY.md); for community expectations, see [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md).
 
-## Contributing
-
-See [`CONTRIBUTING.md`](CONTRIBUTING.md) for setup, testing and the PR flow. Please open an issue first for anything beyond a small fix so the direction can be discussed before work starts.
-
-CI validates formatting, TypeScript, architecture boundaries, Vitest, Rust formatting, Clippy and Rust tests across the supported build matrix.
+If you are unsure where to begin, open an issue and describe the city workflow or problem you want to improve. A good issue is already a contribution.
 
 ## License
 
-[MIT](LICENSE)
+Vellum is released under the [MIT License](LICENSE).
 
 ## Acknowledgements
 
 Built around the Cities: Skylines `.cslmap` export format and powered by [Tauri](https://tauri.app/), [Rust](https://www.rust-lang.org/), [React](https://react.dev/), [MapLibre GL JS](https://maplibre.org/) and [Turborepo](https://turborepo.com/).
 
-The project is maintained by Sebastian Vargas and developed with a strong emphasis on understanding before building, coherent systems and reducing friction without hiding complexity.
+Maintained by Sebastian Vargas with an emphasis on understanding before building, coherent systems and reducing friction without hiding complexity.

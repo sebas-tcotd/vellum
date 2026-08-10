@@ -1,111 +1,292 @@
-# Algoritmo de renderizado de tránsito: path-based rendering
+# Pipeline de renderizado de tránsito
 
-Este documento explica la idea detrás del renderizado path-based de las líneas de transporte público en Vellum. Los datos se describen como segmentos, pero dibujar cada segmento de forma independiente puede producir saltos, huecos y cambios de lado en una misma ruta. Por eso la ruta se reconstruye como un camino continuo antes de aplicar el offset visual.
+Este documento describe el pipeline que usa el renderer activo de Vellum para
+dibujar líneas de transporte público desde un archivo `.cslmap`.
 
-## En simples palabras: la analogía de la cinta
+> **Estado actual (2026-08-10).** La implementación activa es MapLibre/WebGL.
+> Este documento ya no describe el antiguo enfoque Canvas basado en
+> `beginPath`/`stroke` ni las bandas concéntricas del renderer legacy.
 
-Imagínate que quieres representar una línea de autobús en un mapa.
+## En simples palabras: ordenar un haz de líneas
 
-- **El problema previo (Segmentado):** Es como si un pintor pintara trozos de calle sueltos. Pinta una "baldosa", limpia el pincel, y luego pinta la siguiente. Como no sabe qué hizo en la baldosa anterior, a veces cambia la línea de lado de la calle o deja huecos en las uniones. Esto causa "saltos" visuales y que las líneas parezcan desconectadas.
-- **La solución (Path-Based):** Tratamos cada línea de autobús como una única **"Cinta Larga"**. Primero pegamos todos los trozos de la ruta de principio a fin, nos aseguramos de que todos miren en la misma dirección (el sentido de la marcha) y luego pintamos la cinta completa de un solo trazo. Esto garantiza que la línea sea fluida, no tenga huecos y mantenga siempre su carril.
+Cuando varias líneas comparten una calle, no basta con dibujarlas todas encima.
+Hay que decidir cuál ocupa cada posición transversal, mantener esa decisión al
+atravesar una junta y conectar cada línea con su continuación correcta.
 
-## Modelo técnico
+Vellum resuelve el problema en tres etapas puras:
 
-El algoritmo de Path-Based Rendering resuelve tres problemas críticos de la cartografía digital de transportes:
+```mermaid
+flowchart LR
+  A["CityData: rutas y segmentos"] --> B["Line graph: corredores y bundles"]
+  B --> C["Ordering: orden por corredor"]
+  C --> D["Render geometry: trims, Bézier y estaciones"]
+  D --> E["GeoJSON: líneas, conectores y estaciones"]
+  E --> F["MapLibre: line-offset y capas GPU"]
+```
 
-### Consistencia direccional
+La idea clave es separar dos problemas que antes estaban mezclados: el algoritmo
+decide el orden; MapLibre aplica el desplazamiento visual en pantalla.
 
-En los archivos de datos (CSLMap), las carreteras tienen una dirección interna basada en cómo se construyeron en el juego. Si un segmento va de A a B y el siguiente de C a B, la "derecha" cambia de repente.
-El algoritmo ahora **normaliza** esto: al recorrer la ruta, detecta si el inicio del segmento coincide con el final del anterior. Si no coincide, invierte el orden de los puntos del segmento para que toda la ruta tenga una dirección vectorial continua.
+## Punto de entrada
 
-### Continuidad en nodos
+`packages/renderer-webgl/src/geojson/builders/transit.builder.ts` orquesta el
+pipeline mediante `buildTransitRenderData(cityData)`:
 
-Al usar un único trazo (`beginPath` ... `stroke`) para toda la ruta en lugar de uno por segmento, el motor de renderizado (Canvas 2D) aplica automáticamente las reglas de unión de líneas (`lineJoin: 'round'`). Esto elimina los huecos y traslapes en las intersecciones.
+1. `buildTransitLineGraph` construye la representación topológica.
+2. `computeLineOrder` optimiza el orden de los bundles.
+3. `buildRenderGeometry` calcula corredores recortados, conectores y estaciones.
+4. El builder convierte la geometría de mundo `{ x, z }` a GeoJSON mediante
+   `csToGeoArray` —con la orientación sur-arriba configurada para CS1— y emite cuatro
+   `FeatureCollection`:
+   - `lines`: centerlines de corredores, con `offsetIdx`;
+   - `connectors`: conexiones Bézier ya desplazadas;
+   - `stations`: cápsulas de paradas;
+   - `stationDots`: puntos de respaldo para zoom general.
 
-### Estabilidad de carriles
+El renderer convierte las coordenadas de mundo a GeoJSON únicamente al final.
+El cálculo topológico y geométrico no depende de MapLibre.
 
-El sistema calcula un "carril" para cada línea basado en cuántas otras líneas comparten la vía.
+## 1. Construcción del line graph
 
-- **Cantidades Impares (1, 3, 5...):** Una línea ocupa el centro exacto (offset 0), y las demás se distribuyen simétricamente.
-- **Cantidades Pares (2, 4, 6...):** No hay línea central; las líneas se sitúan a izquierda y derecha de un eje imaginario en el centro de la calle.
+La implementación sigue la estructura conceptual del paper de Bast, Brosi y
+Storandt, pero aprovecha una ventaja de `.cslmap`: cada ruta referencia los
+segmentos de carretera por ID exacto. No hace falta reconstruir corredores a
+partir de trazas geográficas ruidosas.
 
-### Casos de borde
+### 1.1 Segmentos y conjuntos de líneas
 
-- **Cambio de volumen:** Cuando una ruta pasa de una calle con 5 líneas a una con 2, el algoritmo puede implementar una "rampa" o transición suave para que el cambio de carril no sea un salto brusco.
-- **Intersecciones complejas:** Al tratar la ruta como un todo, se puede promediar la dirección en las esquinas para que el desplazamiento lateral (offset) no cause picos extraños.
+`buildBaseGraph` recorre `TransitLine.route[].segmentIds` y crea, para cada
+segmento de carretera, el conjunto de líneas que lo atraviesan. Los segmentos
+referenciados por una ruta pero ausentes del modelo de carreteras se omiten.
 
-## Pseudocódigo
+### 1.2 Bundles: líneas que siempre viajan juntas
+
+`collapseBundles` aplica el Lema 4.1: líneas con exactamente la misma membresía
+de segmentos se agrupan en un **bundle**.
+
+Esto es especialmente importante para pares como `L3-CW` y `L3-CCW` de CS1.
+Aunque sean dos líneas distintas, si atraviesan exactamente los mismos segmentos
+no deben competir por dos corredores visuales independientes.
+
+- El bundle conserva sus `lineIds`.
+- Su `weight` es el número de líneas que contiene.
+- Los cruces entre bundles cuentan como `weight(A) × weight(B)` cruces físicos.
+
+### 1.3 Contracción de corredores
+
+`contractCorridors` aplica la reducción equivalente al Lema 4.2: contrae cadenas
+de nodos de grado 2 cuyos dos segmentos tienen el mismo conjunto de líneas.
+El resultado es un corredor máximo, no una decisión distinta por cada segmento
+de carretera.
+
+Los anillos puros se conservan como self-loops del line graph. La relación
+`segmentToCorridor` permite volver desde cada segmento original a su corredor.
+
+### 1.4 Nodos, adyacencia y componentes
+
+Los nodos del line graph guardan sus corredores incidentes ordenados por azimut
+en sentido antihorario. Ese orden angular es necesario para puntuar cruces entre
+segmentos distintos.
+
+Las componentes se forman únicamente con aristas que contienen dos o más
+bundles. Un corredor de un solo bundle no impone ninguna decisión de orden y se
+puede cortar del problema de optimización.
+
+### 1.5 Continuaciones derivadas de la ruta
+
+La pertenencia de líneas a un corredor no basta para saber cómo continúa una
+línea en un nodo complejo. Una línea puede visitar tres o más corredores en una
+rotonda o volver a pasar por el mismo nodo.
+
+`computeTransitions` recorre la secuencia real de segmentos de cada ruta y
+registra cada transición corredor → corredor. Tanto el scorer como la geometría
+consumen ese índice compartido. Para rutas cerradas, también se registra la
+transición de cierre cuando los nodos extremos reales coinciden.
+
+Esta decisión elimina una clase concreta de huecos: una línea que toca tres
+corredores ya no se descarta solo porque su conjunto de líneas sea ambiguo.
+
+## 2. Optimización del orden
+
+`computeLineOrder` calcula un orden de bundles para cada corredor y luego lo
+expande a líneas individuales para el render.
+
+### Objetivo MLNCM-S
+
+El scorer implementa el objetivo de minimización de cruces de nodos del paper,
+con penalización de separaciones:
+
+| Evento                                                 |  Peso implementado |
+| ------------------------------------------------------ | -----------------: |
+| Cruce entre líneas que continúan por el mismo corredor | `4 × degree(node)` |
+| Cruce entre líneas que toman corredores distintos      | `1 × degree(node)` |
+| Separación de un par que era adyacente                 | `3 × degree(node)` |
+
+Los cruces se multiplican por los pesos de los bundles implicados. Las
+separaciones cuentan una vez por el par de bundles adyacentes.
+
+El scorer es la función objetivo que consultan todos los optimizadores. Por eso
+la búsqueda no necesita propagar manualmente espejos u orientaciones: esa
+normalización vive en `seenFrom` y en la geometría del line graph.
+
+### Estrategia de búsqueda
+
+- **Componentes pequeñas:** enumeración exhaustiva cuando
+  `∏ factorial(bundleCount) ≤ 1000`. El mejor orden de ese espacio queda
+  garantizado.
+- **Componentes grandes:** orden inicial determinista por prioridad de modo e ID,
+  seguido de greedy dirigido por score y hill climbing.
+- **Desempate:** Metro, Train, Monorail, Tram, Trolleybus, CableCar, Ferry,
+  Blimp, Bus y Unknown; dentro del mismo modo se usa el ID.
+- **Expansión:** después de ordenar bundles, sus líneas se expanden conservando
+  la prioridad de modo e ID.
+
+Vellum no incorpora el ILP de LOOM ni una dependencia WASM. La arquitectura deja
+el scorer como interfaz estable, por lo que un solver distinto podría sustituir
+la búsqueda sin modificar el line graph ni el renderer.
+
+## 3. Geometría de render
+
+`buildRenderGeometry` transforma el orden topológico en geometría de mundo.
+
+### 3.1 Corredores recortados
+
+Cada corredor conserva una sola centerline y la lista de líneas ordenadas.
+Antes de emitirla se recorta cerca de sus nodos:
+
+- `SLOT_M = 4.5 m` por posición transversal;
+- ancho de línea: `3 m`;
+- separación entre líneas: `1.5 m`;
+- padding de nodo: `2 m`;
+- el recorte usa el bundle incidente más ancho;
+- el recorte queda limitado al `40 %` de la longitud del corredor.
+
+El recorte deja libre el área donde entran las conexiones internas.
+
+### 3.2 Offsets con `line-offset`
+
+Una línea ubicada en la posición `p` de un corredor con `n` líneas recibe:
 
 ```text
-PARA CADA Línea de Tránsito (L):
-    1. Inicializar lista Puntos_Ruta con la posición de la primera parada.
-    2. Nodo_Actual = ID del primer nodo de la ruta.
-
-    3. PARA CADA Segmento_ID en la ruta de L:
-        - Obtener datos del Segmento (S).
-        - worldPoints = [S.Posicion_Inicio, ...S.Curvatura, S.Posicion_Fin]
-
-        - SI S.ID_Inicio != Nodo_Actual:
-            - Invertir worldPoints (Normalización)
-            - Nodo_Actual = S.ID_Inicio
-        - SINO:
-            - Nodo_Actual = S.ID_Fin
-
-        - Añadir worldPoints a Puntos_Ruta (evitando duplicar el punto de unión).
-
-    4. Calcular Offset_Global para L basado en su índice entre sus compañeros de vía.
-
-    5. Dibujar_Ruta_Completa(Puntos_Ruta, Offset_Global):
-        - Iniciar Path de Canvas.
-        - PARA CADA Punto en Puntos_Ruta:
-            - Calcular vector perpendicular a la dirección del movimiento.
-            - Desplazar Punto por (Perpendicular * Offset_Global).
-            - SI es el primero: MoveTo, SINO: LineTo.
-        - Aplicar Color y Stroke.
+offsetIdx = p − (n − 1) / 2
 ```
 
-## Nota de implementación
+El índice se emite como propiedad GeoJSON. `layer-transit.ts` lo convierte en un
+offset de píxeles usando la conversión geográfica de MapLibre, de modo que un
+índice equivale siempre a `SLOT_M` metros de mundo. Así los extremos de las
+líneas desplazadas por la GPU coinciden con los puertos de las Bézier calculadas
+en mundo.
 
-```typescript
-/**
- * Ejemplo simplificado de cómo se genera una ruta con offset continuo.
- */
-function renderPathBasedLine(
-  ctx: CanvasRenderingContext2D,
-  points: { x: number; y: number }[],
-  offsetAmount: number,
-  color: string,
-) {
-  if (points.length < 2) return;
+El ancho de línea usa escala geográfica exponencial en zoom de detalle y un suelo
+de `2.2 px` en vista general. Los offsets pueden fundirse visualmente en un solo
+trazo a zoom bajo; es una degradación esperada de una geometría geográfica, no
+una segunda decisión de orden.
 
-  ctx.beginPath();
-  ctx.strokeStyle = color;
-  ctx.lineWidth = 2;
-  ctx.lineJoin = 'round';
-  ctx.lineCap = 'round';
+### 3.3 Conexiones internas
 
-  for (let i = 0; i < points.length; i++) {
-    const curr = points[i];
+Por cada transición de ruta se calcula una Bézier cúbica entre los puertos de la
+línea en los dos corredores:
 
-    // Calculamos la dirección para el offset
-    // Usamos el siguiente punto, o el anterior si es el último
-    const next = points[i + 1] || curr;
-    const prev = points[i - 1] || curr;
+- factor de brazo: `0.4 × distancia entre puertos`;
+- ocho muestras por curva;
+- geometría precalculada en espacio de mundo;
+- capa `transit-connector` debajo de `transit-line`;
+- los conectores ya están desplazados y por eso llevan `offsetIdx = 0`.
 
-    const dx = next.x - prev.x;
-    const dy = next.y - prev.y;
-    const len = Math.sqrt(dx * dx + dy * dy);
+El resultado funciona también cuando una ruta pasa por tres o más corredores en
+el mismo nodo, porque la transición viene de la trayectoria real y no de una
+inferencia por conjunto de líneas.
 
-    const perpX = -dy / len;
-    const perpY = dx / len;
+### 3.4 Estaciones y paradas
 
-    const tx = curr.x + perpX * offsetAmount;
-    const ty = curr.y + perpY * offsetAmount;
+CS1 coloca las paradas a mitad de corredor, no necesariamente en un nodo del
+line graph. Vellum adapta el paso de estaciones del paper así:
 
-    if (i === 0) ctx.moveTo(tx, ty);
-    else ctx.lineTo(tx, ty);
-  }
+1. elimina repeticiones del mismo stop dentro de una ruta circular;
+2. agrupa stops a una distancia de hasta `48 m`;
+3. proyecta el grupo sobre los corredores que realmente sirven esas líneas;
+4. crea una cápsula redondeada por corredor;
+5. dimensiona la cápsula solo para las líneas que paran allí.
 
-  ctx.stroke();
-}
+La cápsula es perpendicular al corredor, blanca y con borde casi negro. Si las
+líneas que paran no son contiguas en el orden del corredor, cubre desde el slot
+mínimo al máximo; puede abarcar una línea intermedia que solo pasa, una limitación
+conocida y explícita.
+
+Para que las paradas sigan siendo visibles e interactivas a zoom de ciudad,
+existe una segunda representación:
+
+- `transit-stops`: cápsula geométrica para zoom de detalle;
+- `transit-stops-outline`: borde escalado por zoom;
+- `transit-stops-dot`: punto con radio mínimo de `3.4 px` para zoom general;
+- cross-fade entre `z15.5` y `z16.5`.
+
+El hover consulta tanto la cápsula como el punto. Ambas representaciones llevan
+las mismas líneas en sus propiedades, de modo que el tooltip coincide con lo que
+el usuario ve.
+
+## 4. Capas MapLibre y export
+
+El grupo de tránsito se registra en este orden:
+
+```text
+transit-connector
+transit-line
+transit-stops
+transit-stops-outline
+transit-stops-dot
 ```
+
+La misma salida `buildTransitRenderData` se reutiliza en el pipeline de export
+cartográfico. La lógica de clasificación, orden, conectores y estaciones no se
+duplica para PNG/SVG.
+
+## 5. Relación con LOOM y desviaciones justificadas
+
+| Parte del paper                        | Estado en Vellum                                                                                |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Construcción geométrica del line graph | Sustituida por agrupación exacta por IDs de `.cslmap`; la fuente ya conoce línea → segmento.    |
+| Lema 4.1, bundles                      | Implementado.                                                                                   |
+| Lema 4.2, contracción de corredores    | Implementado.                                                                                   |
+| Pruning/cutting de aristas terminales  | No necesario para el dominio actual: las líneas CS1 se modelan como bucles cerrados.            |
+| MLNCM-S y pesos                        | Implementado mediante scorer puro.                                                              |
+| ILP                                    | Sustituido por exhaustivo acotado, greedy y hill climbing; no se traduce el código GPL de LOOM. |
+| Node fronts                            | Adaptados a trims estáticos por corredor, con tope del 40 %.                                    |
+| Inner connections                      | Implementadas como Bézier cúbicas muestreadas en mundo.                                         |
+| Estaciones                             | Adaptadas de nodos del grafo a paradas de mitad de corredor.                                    |
+| Octilinear (`octi`)                    | Fuera de alcance; no forma parte del renderer actual.                                           |
+
+La implementación es una reimplementación basada en las fórmulas del paper,
+no una integración del binario LOOM ni una traducción del código C++ GPL-3.0.
+
+## 6. Renderer Canvas legacy
+
+`@vellum/renderer-canvas` conserva una implementación independiente de bandas
+concéntricas sin este ordering. No es el renderer montado por la aplicación
+actual: `MapLibreRoot` usa `@vellum/renderer-webgl`.
+
+Si Canvas volviera a ser relevante, la solución arquitectónica sería mover los
+módulos puros `line-graph`, `ordering` y `render-geometry` a `@vellum/core` para
+que ambos renderers compartieran una única fuente de verdad. No se hace ahora
+porque ampliaría el alcance hacia un renderer legacy no montado.
+
+## 7. Validación y límites conocidos
+
+La implementación tiene cobertura en:
+
+- `packages/renderer-webgl/src/transit/line-graph.test.ts`;
+- `packages/renderer-webgl/src/transit/ordering.test.ts`;
+- `packages/renderer-webgl/src/transit/render-geometry.test.ts`;
+- `packages/renderer-webgl/src/geojson.test.ts` para la salida GeoJSON.
+
+Los casos de regresión incluyen el cruce por doble espejo, determinismo bajo
+permutación de entrada, bundles CW/CCW, nodos complejos, rutas cerradas,
+estaciones que cubren solo un subconjunto de líneas y el cross-fade de paradas.
+
+La validación visual con fixtures reales —incluidos `aurelia-del-delta.cslmap` y
+`pepper-lake.cslmap`— fue necesaria para detectar huecos en rotondas, geometría
+de estaciones y visibilidad a zoom bajo. Los tests sintéticos no sustituyen esa
+revisión visual.
+
+Quedan fuera de este pipeline: routing octilinear, límites geográficos de
+distritos y sincronización del renderer Canvas legacy.
