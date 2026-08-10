@@ -2,6 +2,14 @@
 
 All notable changes to Vellum will be documented here.
 
+## [0.4.1](https://github.com/sebas-tcotd/vellum/compare/v0.4.0...v0.4.1) (2026-08-10)
+
+
+### Bug Fixes
+
+* correction of blimp route style ([1f95a5c](https://github.com/sebas-tcotd/vellum/commit/1f95a5c99f9a43a85ea151e78683686bda90188e))
+* **parser:** add Airplane as alternative for Blimp ([7e117eb](https://github.com/sebas-tcotd/vellum/commit/7e117ebe46e7bb75f073547aeb33174252422874))
+
 ## [0.4.0](https://github.com/sebas-tcotd/vellum/compare/v0.3.0...v0.4.0) (2026-08-10)
 
 
