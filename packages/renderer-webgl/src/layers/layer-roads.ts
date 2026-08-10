@@ -24,6 +24,11 @@ import { HEAVY_SOURCE_MAX_ZOOM } from '../constants/layer.constants';
 import { buildRoadsGeoJson } from '../geojson';
 import { addLayerIfAbsent, addSourceIfAbsent } from '../helpers';
 import type { ResolvedColors } from '../style-adapter';
+import {
+  AIRSHIP_LINE_DASHARRAY,
+  AIRSHIP_LINE_OPACITY,
+  resolveAirshipColor,
+} from '../expressions/transit-color';
 
 /** Adds roads source and both casing + fill layers. */
 export function addRoadsLayer(
@@ -63,6 +68,10 @@ export function addRoadsLayer(
       ],
     ],
   ] as unknown as maplibregl.ExpressionSpecification;
+  const notAirship = [
+    '!',
+    ['in', ['get', 'itemClass'], ['literal', ['Blimp Path', 'Blimp Line']]],
+  ] as unknown as maplibregl.ExpressionSpecification;
 
   // Tunnels render *below* at-grade roads (added first): solid casing avoids
   // the dash-alignment gap bug, dashed fill + reduced opacity signal depth.
@@ -79,6 +88,7 @@ export function addRoadsLayer(
       ],
       notFerry,
       notRailway,
+      notAirship,
     ],
     layout: { 'line-cap': 'round', 'line-join': 'round' },
     paint: {
@@ -102,6 +112,7 @@ export function addRoadsLayer(
       ],
       notFerry,
       notRailway,
+      notAirship,
     ],
     layout: { 'line-cap': 'round', 'line-join': 'round' },
     paint: {
@@ -125,6 +136,7 @@ export function addRoadsLayer(
       ['!=', ['get', 'isElevated'], true],
       notFerry,
       notRailway,
+      notAirship,
     ],
     layout: { 'line-cap': 'round', 'line-join': 'round' },
     paint: {
@@ -147,6 +159,7 @@ export function addRoadsLayer(
       ['!=', ['get', 'isElevated'], true],
       notFerry,
       notRailway,
+      notAirship,
     ],
     layout: { 'line-cap': 'round', 'line-join': 'round' },
     paint: {
@@ -185,6 +198,7 @@ export function addRoadsLayer(
       ],
       notFerry,
       notRailway,
+      notAirship,
     ],
     // Blurred and drawn under everything, so it keeps a round cap: it costs
     // nothing visually and softens the joint where elevated branches fork.
@@ -213,6 +227,7 @@ export function addRoadsLayer(
       ],
       notFerry,
       notRailway,
+      notAirship,
     ],
     layout: { 'line-cap': elevatedLineCap, 'line-join': 'round' },
     paint: {
@@ -240,6 +255,7 @@ export function addRoadsLayer(
       ],
       notFerry,
       notRailway,
+      notAirship,
     ],
     layout: { 'line-cap': elevatedLineCap, 'line-join': 'round' },
     paint: {
@@ -272,6 +288,25 @@ export function addRoadsLayer(
         4,
       ] as unknown as maplibregl.ExpressionSpecification,
       'line-dasharray': [3, 1],
+    },
+  });
+
+  addLayerIfAbsent(map, {
+    id: 'roads-blimp',
+    type: 'line',
+    source: 'roads',
+    filter: [
+      'in',
+      ['get', 'itemClass'],
+      ['literal', ['Blimp Path', 'Blimp Line']],
+    ],
+    layout: { 'line-cap': 'butt', 'line-join': 'round' },
+    paint: {
+      'line-color': resolveAirshipColor(colors.ferry),
+      'line-width': ROAD_WIDTH_EXPR,
+      'line-dasharray': [...AIRSHIP_LINE_DASHARRAY],
+      'line-opacity': AIRSHIP_LINE_OPACITY,
+      'line-opacity-transition': { duration: 300 },
     },
   });
 

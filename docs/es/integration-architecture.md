@@ -1,6 +1,4 @@
-# Vellum — Arquitectura de Integración (Monorepo)
-
-> Generado: 2026-08-07 | Escaneo: Deep | Reemplaza la versión de 2026-04-04 (proyecto en estado scaffolding)
+# Vellum — Arquitectura de integración
 
 ---
 
@@ -36,7 +34,7 @@ graph TD
 
 `@vellum/core` tiene cero dependencias internas — es la capa de entidades pura. `apps/desktop` es el único Composition Root y puede importar cualquier package.
 
-> **Nota sobre `renderer-canvas`**: sigue declarado como dependencia de `ui` y `desktop` en sus `package.json`, pero un grep de imports reales confirma que ningún archivo fuente (fuera del propio package) lo usa hoy — la última referencia (los componentes React `CanvasRoot`/`CanvasLayer`) está siendo eliminada en un cambio sin commitear al momento de este escaneo. El grafo de arriba refleja lo declarado en `package.json`, no necesariamente lo importado en runtime.
+> **Nota sobre `renderer-canvas`**: sigue declarado en el grafo de paquetes como implementación legacy, pero la aplicación actual instancia el renderer MapLibre. Los wrappers React Canvas anteriores ya no forman parte del árbol activo de componentes.
 
 ## Cómo se comunican las partes
 
@@ -65,11 +63,11 @@ RenderStyleParams (theme-engine) ─┘         │
                                   packages/ui/src/components/canvas/MapLibreRoot.tsx (React)
 ```
 
-`IRenderer` (`packages/core/src/types/renderer.ts`) es el puerto: `render`, `updateViewport`, `resize`, `applyTheme`, `dispose`. `@vellum/ui` depende del puerto, nunca de una implementación concreta — cambiar de renderer es, en teoría, un import en `App.tsx`. En la práctica hoy solo hay un renderer activo (`renderer-webgl`); `renderer-canvas` implementa el mismo puerto pero no está instanciado en ningún lado.
+`IRenderer` (`packages/core/src/types/renderer.ts`) es el puerto previsto: `render`, `updateViewport`, `resize`, `applyTheme`, `dispose`. `renderer-webgl` lo implementa y `renderer-canvas` queda como implementación legacy. El `MapLibreRoot` actual todavía instancia `MapLibreRenderer` directamente porque también usa capacidades específicas de MapLibre, como suscripciones de capas, controles de cámara y captura de snapshots. Es decir, el puerto documenta el límite arquitectónico deseado, pero el adapter activo de la UI todavía no es completamente agnóstico al renderer.
 
 ### 3. Export (PNG/SVG) — el flujo más complejo del sistema
 
-El export tiene **dos IPC distintas** según el volumen de datos:
+El export raster tiene **dos rutas** según el volumen de datos:
 
 **Export PNG de un solo tile** (mapas chicos, ruta legacy):
 
@@ -96,6 +94,11 @@ invoke('finish_export') → composición incremental en Rust (tile_composer.rs) 
 
 **Export SVG**: reutiliza los mismos builders de `geojson/` vía `cartographic-scene-builder.ts` para producir un `CartographicScene` (tipo de `@vellum/core`, agnóstico de renderer) que luego se serializa a SVG editable — así la lógica de clasificación/exclusión (roads, filtros de edificios) no se duplica entre el pipeline PNG y el SVG.
 
+La ruta tiled se habilita después de que el capability probe del frontend tiene éxito.
+Si el probe falla o la ruta tiled falla durante la ejecución, `ExportCoordinator`
+vuelve a la ruta PNG legacy. La preferencia `vellum.export.forceLegacy` funciona como
+kill switch explícito para diagnóstico.
+
 Comandos IPC involucrados: `export_png`, `begin_export`, `append_export_chunk`, `finish_export`, `cancel_export`, `open_export_folder`.
 
 ### 4. Temas
@@ -119,7 +122,7 @@ RenderStyleParams → MapLibreRenderer.applyTheme(style)
 
 `packages/core/src/ipc-contract.ts` es la constitución del proyecto.
 
-**`IPC_COMMANDS`** (9): `PARSE_CSLMAP`, `LOAD_THEMES`, `EXPORT_PNG`, `OPEN_EXPORT_FOLDER`, `BEGIN_EXPORT`, `APPEND_EXPORT_CHUNK`, `FINISH_EXPORT`, `CANCEL_EXPORT`, `GET_PENDING_UPDATE`
+**`IPC_COMMANDS`** (10): `GET_PENDING_UPDATE`, `GET_STARTUP_FILE_PATH`, `PARSE_CSLMAP`, `EXPORT_PNG`, `OPEN_EXPORT_FOLDER`, `LOAD_THEMES`, `BEGIN_EXPORT`, `APPEND_EXPORT_CHUNK`, `FINISH_EXPORT`, `CANCEL_EXPORT`
 
 **`IPC_EVENTS`** (4): `PROGRESS` (`vellum://progress`), `PARSE_WARNINGS`, `UPDATE_AVAILABLE`, `OPEN_PREFERENCES`
 

@@ -489,6 +489,23 @@ fn ship_transit_mode_maps_to_ferry() {
     );
 }
 
+// Cities: Skylines exports airship lines as type="Airplane"; they must still
+// be exposed as TransitMode::Blimp so the Dirigible visibility filter applies.
+#[test]
+fn airplane_transit_mode_maps_to_blimp() {
+    use crate::city_data::TransitMode;
+    let xml = b"<CSLExportXML version=\"4.1\"><Transports><Trans id=\"1\" name=\"Dirigible 1\" type=\"Airplane\"></Trans></Transports></CSLExportXML>";
+    let result = parse_cslmap_bytes(xml);
+    assert!(result.is_ok(), "expected Ok: {result:?}");
+    let city = result.expect("ok");
+    assert_eq!(city.transit_lines.len(), 1);
+    assert!(
+        matches!(city.transit_lines[0].mode, TransitMode::Blimp),
+        "Airplane type must map to TransitMode::Blimp, got {:?}",
+        city.transit_lines[0].mode
+    );
+}
+
 // Ship Line connectors emit <Sg>0</Sg> for open-water legs; must be filtered
 #[test]
 fn sg_zero_filtered_from_path_segs() {

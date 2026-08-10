@@ -1236,25 +1236,36 @@ h3 {
     display: grid;
     grid-template-columns: 1fr auto;
     min-height: 68px;
+    min-width: 0;
     row-gap: 17px;
     padding-block: 14px;
   }
 
   .header-actions {
+    min-width: 0;
     justify-content: flex-end;
+    gap: 8px;
   }
 
   .site-nav {
     grid-column: 1 / -1;
     grid-row: 2;
+    min-width: 0;
+    width: 100%;
     justify-content: flex-start;
     gap: 20px;
     overflow-x: auto;
     padding-bottom: 2px;
+    scrollbar-width: none;
   }
 
-  .site-nav a:nth-child(5) {
-    display: inline;
+  .site-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .site-nav a:nth-child(5),
+  .site-header .header-actions .button {
+    display: none;
   }
 
   .site-header .button {

@@ -35,9 +35,17 @@ SVG <image>
 
 This approach is extremely efficient but produces a visibly rasterized result when zooming or inspecting the output closely.
 
+## Current Vellum implementation
+
+The active MapLibre renderer currently represents each forest cell as a GeoJSON
+point. A circle layer uses the cell's normalized density to drive its radius and
+opacity. This is simpler than the texture pipeline described below and is the
+behavior implemented today; smoothing and Gaussian blur remain a possible future
+visual improvement.
+
 ---
 
-# Desired Visual Result
+## Desired visual result
 
 The goal is not to render individual trees.
 
@@ -67,7 +75,7 @@ transparent
 
 ---
 
-# Recommended Approach
+## Recommended approach
 
 ## Option A (Recommended)
 
@@ -99,7 +107,7 @@ Canvas Overlay
 
 ---
 
-# Suggested Rendering Steps
+## Suggested rendering steps
 
 ## Step 1
 
@@ -217,7 +225,7 @@ Labels
 
 ---
 
-# Alternative Approach (Future Enhancement)
+## Alternative approach: Marching Squares
 
 ## Marching Squares
 
@@ -250,9 +258,10 @@ Because the target aesthetic resembles the in-game resource view, this approach 
 
 ---
 
-# Final Recommendation
+## Final recommendation
 
-Implement forests as a smoothed density overlay:
+If a future pass aims to match the original resource overlay more closely, it can
+implement forests as a smoothed density overlay:
 
 ```text
 Forest Grid
@@ -266,7 +275,8 @@ Green Density Coloring
 Canvas Layer
 ```
 
-Do not render individual trees.
+The current point-based layer and the proposed texture overlay both share the same
+important constraint: do not render individual trees.
 
 Do not generate forest polygons initially.
 

@@ -13,7 +13,7 @@ pub fn parse_transit_mode(s: &str) -> crate::city_data::TransitMode {
         "CableCar" => TransitMode::CableCar,
         "Monorail" => TransitMode::Monorail,
         "Ferry" | "Ship" => TransitMode::Ferry,
-        "Blimp" => TransitMode::Blimp,
+        "Blimp" | "Airplane" => TransitMode::Blimp,
         "Trolleybus" => TransitMode::Trolleybus,
         _ => TransitMode::Unknown,
     }

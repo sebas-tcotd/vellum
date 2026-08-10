@@ -1,8 +1,6 @@
-# Vellum — Guía de Desarrollo
+# Vellum — Guía de desarrollo
 
-> Generado: 2026-08-07 | Escaneo: Deep | Reemplaza la versión de 2026-04-04 (proyecto en estado scaffolding)
-
-Para el flujo de PR, convenciones de commits y checklist de contribución, ver [`CONTRIBUTING.md`](../CONTRIBUTING.md) — este documento cubre el detalle técnico de setup y comandos que `CONTRIBUTING.md` resume brevemente.
+Para el flujo de PR, convenciones de commits y checklist de contribución, ver [`CONTRIBUTING.md`](../../CONTRIBUTING.md) — este documento cubre el detalle técnico de setup y comandos que `CONTRIBUTING.md` resume brevemente.
 
 ---
 
@@ -25,7 +23,9 @@ cd vellum
 pnpm install              # o `pnpm approve-builds` primero si el postinstall de esbuild está bloqueado
 ```
 
-No hace falta tener Cities: Skylines ni una ciudad propia — fixtures `.cslmap` reales están en [`packages/parser-cslmap/fixtures`](../packages/parser-cslmap/fixtures) (5 ciudades reales de 11-24MB + 5 fixtures chicos para casos borde: corrupto, DLC desconocido, etc.).
+No hace falta tener Cities: Skylines ni una ciudad propia — hay ciudades reales y
+fixtures para casos borde en [`packages/parser-cslmap/fixtures`](../../packages/parser-cslmap/fixtures),
+incluidos archivos corruptos y assets DLC desconocidos.
 
 ## Modo desarrollo
 
@@ -52,7 +52,7 @@ find . -name "tsconfig.tsbuildinfo" -delete && pnpm build
 ## Lint y arquitectura
 
 ```bash
-pnpm lint                  # tsc --noEmit en todos los packages
+pnpm lint                  # lint TypeScript + regla de arquitectura
 pnpm check:architecture    # regla ESLint no-restricted-imports — enforcea el grafo de dependencias unidireccional
 pnpm format                # prettier --write
 pnpm format:check          # prettier --check (usado en CI)
@@ -70,13 +70,10 @@ cargo clippy --workspace -- -D warnings
 cargo test --workspace
 ```
 
-**Volumen actual de tests** (escaneo 2026-08-07):
-
-| Área                                                  | Cantidad                                                                                               |
-| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| Vitest (`*.test.ts`/`*.test.tsx`, todos los packages) | ~110 archivos                                                                                          |
-| `#[test]` Rust (`apps/desktop/src-tauri`)             | 94 tests                                                                                               |
-| Playwright E2E (`apps/desktop/tests/e2e`)             | 1 spec (`smoke.spec.ts`) — solo valida que la app carga; no cubre aún drag&drop/render/export completo |
+Las suites Vitest cubren los packages TypeScript; los tests Rust cubren parser y
+export nativo; y Playwright mantiene un smoke test bajo `apps/desktop/tests/e2e`.
+El smoke test valida que la app arranca, pero todavía no cubre drag&drop → render →
+export completo.
 
 ```bash
 pnpm test:e2e   # requiere tauri-driver instalado y la app compilada; NO corre en CI (ver ci.yml)
@@ -86,10 +83,13 @@ pnpm test:e2e   # requiere tauri-driver instalado y la app compilada; NO corre e
 
 ## CI/CD
 
-| Workflow                                                          | Trigger          | Qué valida                                                                                                 |
-| ----------------------------------------------------------------- | ---------------- | ---------------------------------------------------------------------------------------------------------- |
-| [`ci.yml`](../.github/workflows/ci.yml)                           | Push/PR a `main` | Build, Vitest, Rust tests, lint TS + Clippy, formato. Playwright **no** corre acá (requiere tauri-driver). |
-| [`publish-release.yml`](../.github/workflows/publish-release.yml) | Tag `v*`         | Build multiplataforma (Windows `.msi` firmado, macOS `.dmg`, Linux `.AppImage`) + publicación de release   |
+| Workflow                                                             | Trigger                      | Qué valida                                                                                                 |
+| -------------------------------------------------------------------- | ---------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| [`ci.yml`](../../.github/workflows/ci.yml)                           | Push/PR a `main`             | Build, Vitest, Rust tests, lint TS + Clippy, formato. Playwright **no** corre acá (requiere tauri-driver). |
+| [`landing-ci.yml`](../../.github/workflows/landing-ci.yml)           | PR de landing o manual       | Lint y build de `@vellum/landing`.                                                                         |
+| [`deploy-pages.yml`](../../.github/workflows/deploy-pages.yml)       | Cambios de landing en `main` | Build, deploy a GitHub Pages y smoke check de HTML/assets.                                                 |
+| [`release-please.yml`](../../.github/workflows/release-please.yml)   | Push a `main`                | Crea o actualiza el PR de Release Please para preparar versiones.                                          |
+| [`publish-release.yml`](../../.github/workflows/publish-release.yml) | Tag `v*`                     | Build multiplataforma (Windows `.msi` firmado, macOS `.dmg`, Linux `.AppImage`) + publicación de release   |
 
 ## Comandos IPC — agregar uno nuevo
 

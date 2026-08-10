@@ -1,6 +1,4 @@
-# Vellum Desktop — Documento de Arquitectura
-
-> Generado: 2026-08-07 | Escaneo: Deep | Parte: `desktop` | Reemplaza la versión de 2026-04-04 (proyecto en estado scaffolding)
+# Vellum Desktop — Arquitectura de escritorio
 
 ---
 
@@ -24,6 +22,7 @@ apps/desktop/
     │   ├── main.rs           # trivial, llama a vellum_lib::run()
     │   ├── lib.rs             # Builder Tauri: plugins, menú nativo, updater en background, cleanup de sesiones
     │   ├── commands.rs        # Todos los #[tauri::command]
+    │   ├── startup.rs         # Captura un path .cslmap entregado por el OS
     │   ├── updater.rs         # check_for_updates (background) + get_pending_update
     │   ├── city_data.rs, errors.rs, ipc_contract.rs   # Espejo Rust del dominio/IPC
     │   └── export/            # session.rs, framing.rs, svg_writer.rs, tile_composer.rs
@@ -40,6 +39,7 @@ apps/desktop/
 | Comando                                                                    | Archivo       | Propósito                                                                                |
 | -------------------------------------------------------------------------- | ------------- | ---------------------------------------------------------------------------------------- |
 | `parse_cslmap`                                                             | `commands.rs` | Parsea `.cslmap` en blocking thread, retorna `CityData`                                  |
+| `get_startup_file_path`                                                    | `startup.rs`  | Retorna y limpia un path `.cslmap` recibido por asociación de archivos del OS            |
 | `load_themes`                                                              | `commands.rs` | Lee los `.vellumstyle` built-in de `resources/themes/`                                   |
 | `export_png`                                                               | `commands.rs` | Persiste bytes PNG ya renderizados a disco                                               |
 | `open_export_folder`                                                       | `commands.rs` | Revela el archivo exportado en el explorador del OS                                      |
@@ -79,6 +79,11 @@ Parte de `tauri::menu::Menu::default()` (conserva Edit/Window/submenús estánda
 
 `get_pending_update` cubre el caso donde el evento llega antes de que el frontend termine de montar su listener.
 
+En Windows, la asociación de archivos puede abrir Vellum con un path `.cslmap`. El
+módulo `startup` conserva ese path hasta el primer montaje del frontend; `main.tsx`
+invoca `get_startup_file_path` y lo envía por el mismo flujo de parseo que usa el
+diálogo de apertura.
+
 ## Comandos de desarrollo
 
 ```bash
@@ -86,19 +91,21 @@ pnpm dev          # tauri dev
 pnpm dev:vite      # solo Vite (puerto 1420, HMR 1421)
 pnpm build         # tauri build
 pnpm build:vite    # tsc -b && vite build
-pnpm test          # vitest run (14 archivos en src/hooks y src/export/**)
+pnpm test          # todos los tests TypeScript vía Turborepo/Vitest
 pnpm test:e2e      # playwright test
 ```
 
 ## Testing
 
-| Tipo           | Cantidad                           | Notas                                                                                                                                                           |
-| -------------- | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Vitest (TS)    | 14 archivos                        | `src/hooks/**`, `src/export/**`                                                                                                                                 |
-| `#[test]` Rust | 94 tests                           | Concentrados en `export/session.rs` (42) y `export/tile_composer.rs` (15) — el módulo más complejo del backend                                                  |
-| Playwright E2E | 1 spec (`tests/e2e/smoke.spec.ts`) | Conecta al dev server, valida título de página y que `body` sea visible. Predatea la UI de drag&drop/render/export — no cubre el flujo crítico completo todavía |
+| Tipo           | Cobertura                                                                                                               |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Vitest (TS)    | Tests unitarios de adapters Tauri, hooks y coordinación del export.                                                     |
+| `#[test]` Rust | Parser, sesiones de export, framing y composición tiled.                                                                |
+| Playwright E2E | `tests/e2e/smoke.spec.ts`: smoke test de arranque y visibilidad; todavía no cubre drag&drop → render → export completo. |
 
 ## Notas de arquitectura
 
 - Ningún archivo de `apps/desktop` contiene lógica de dominio — parsing, clasificación de vías, reconstrucción de tránsito, etc. viven todos en `packages/*`. Esto es intencional: `apps/desktop` debe poder reemplazar cualquier adapter (parser, renderer, export sink) sin tocar el resto.
-- El pipeline de export es, con diferencia, la parte más pesada en tests Rust (57 de 94 tests) — refleja que la exportación tiled con streaming binario y composición incremental es la lógica más delicada del backend.
+- El pipeline de export concentra una parte importante de la cobertura Rust porque la
+  exportación tiled con streaming binario y composición incremental es la lógica más
+  delicada del backend.

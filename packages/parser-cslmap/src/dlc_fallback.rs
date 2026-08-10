@@ -71,6 +71,8 @@ pub fn is_known_item_class(item_class: &str) -> bool {
             | "Pedestrian Bridge"
             // Invisible / virtual paths
             | "Airplane Path"
+            | "Blimp Path"
+            | "Blimp Line"
             | "Ship Path"
             // Beautification (buildings, not roads — filtered at render time)
             | "Beautification Item"
@@ -105,6 +107,7 @@ mod tests {
         assert!(is_known_item_class("Basic Road"));
         assert!(is_known_item_class("Highway"));
         assert!(is_known_item_class("Bus Line"));
+        assert!(is_known_item_class("Blimp Path"));
     }
 
     #[test]

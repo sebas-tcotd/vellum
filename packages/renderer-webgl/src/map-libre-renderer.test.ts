@@ -14,6 +14,7 @@ import {
 } from './constants/layer.constants';
 import { buildBuildingColorExpression } from './expressions/building-color';
 import { buildParkColorExpression } from './expressions/park-color';
+import { resolveAirshipColor } from './expressions/transit-color';
 import { resolveColors } from './style-adapter';
 
 // ─── Mock maplibre-gl ─────────────────────────────────────────────────────────
@@ -2014,6 +2015,11 @@ describe('MapLibreRenderer', () => {
         'roads-railway-underground-fill',
         'line-color',
         expect.any(Array),
+      );
+      expect(mockMap.setPaintProperty).toHaveBeenCalledWith(
+        'roads-blimp',
+        'line-color',
+        resolveAirshipColor(MOCK_STYLE.roads.ferry.fill),
       );
     });
 

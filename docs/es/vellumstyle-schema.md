@@ -21,7 +21,7 @@ dos mecanismos que trabajan juntos:
   tiene su propia ruta de migración hacia el shape actual, así que un archivo antiguo se
   actualiza en memoria en vez de ser rechazado.
 - **Los campos desconocidos se ignoran, no se rechazan** (ver
-  [Extension points](#extension-points)). Esto significa que una versión futura de Vellum
+  [Puntos de extensión](#puntos-de-extensión)). Esto significa que una versión futura de Vellum
   puede añadir campos opcionales nuevos al schema sin romper archivos escritos antes de que
   esos campos existieran, y un archivo escrito para un schema más nuevo que termine
   cargándose en una versión más antigua de Vellum también carga — la versión antigua
@@ -63,20 +63,29 @@ el archivo** — ver [Comportamiento de validación](#comportamiento-de-validaci
 
 ## Campos de `RenderStyleParams`
 
-| Campo               | Tipo                  | Descripción                                                                                                                                                                                            |
-| ------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `mapBackground`     | `ColorToken`          | Color de fondo detrás del terreno (visible fuera de los límites del mapa).                                                                                                                             |
-| `terrain.base`      | `ColorToken`          | Color de elevación base/plana.                                                                                                                                                                         |
-| `terrain.low`       | `ColorToken`          | Color de elevación baja.                                                                                                                                                                               |
-| `terrain.mid`       | `ColorToken`          | Color de elevación media.                                                                                                                                                                              |
-| `terrain.high`      | `ColorToken`          | Color de elevación alta.                                                                                                                                                                               |
-| `water`             | `ColorToken`          | Color de los cuerpos de agua (mar y agua interior).                                                                                                                                                    |
-| `forests`           | `ColorToken`          | Color de los marcadores de densidad de bosque/vegetación.                                                                                                                                              |
-| `transitBackground` | `ColorToken`          | Reservado para la función de dimming del tema Transit. Todos los temas built-in lo definen; hoy no hay ningún comportamiento visual independiente ligado a este campo más allá de ser un color válido. |
-| `roads`             | `RoadColorParams`     | Colores de la red vial, agrupados por jerarquía — ver abajo.                                                                                                                                           |
-| `buildings`         | `BuildingColorParams` | Colores de edificios, agrupados por categoría de zoning — ver abajo.                                                                                                                                   |
-| `districts.fill`    | `ColorToken`          | Color de relleno del marcador de distrito.                                                                                                                                                             |
-| `districts.label`   | `ColorToken`          | Color del texto de la etiqueta del distrito.                                                                                                                                                           |
+| Campo               | Tipo                  | Descripción                                                                                                                |
+| ------------------- | --------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `mapBackground`     | `ColorToken`          | Color de fondo detrás del terreno (visible fuera de los límites del mapa).                                                 |
+| `mapFrame`          | `ColorToken`          | Color del marco decorativo alrededor de la extensión del mundo.                                                            |
+| `terrain.base`      | `ColorToken`          | Color de elevación base/plana.                                                                                             |
+| `terrain.low`       | `ColorToken`          | Color de elevación baja.                                                                                                   |
+| `terrain.mid`       | `ColorToken`          | Color de elevación media.                                                                                                  |
+| `terrain.high`      | `ColorToken`          | Color de elevación alta.                                                                                                   |
+| `contourLine`       | `ColorToken`          | Color de las líneas de contorno del terreno.                                                                               |
+| `water`             | `ColorToken`          | Color de los cuerpos de agua (mar y agua interior).                                                                        |
+| `forests`           | `ColorToken`          | Color de los marcadores de densidad de bosque/vegetación.                                                                  |
+| `transitBackground` | `ColorToken`          | Fondo usado en exports oscuros y reservado para presentaciones centradas en tránsito. Todos los temas built-in lo definen. |
+| `roads`             | `RoadColorParams`     | Colores de la red vial, agrupados por jerarquía — ver abajo.                                                               |
+| `buildings`         | `BuildingColorParams` | Colores de edificios, agrupados por categoría de zoning — ver abajo.                                                       |
+| `districts.fill`    | `ColorToken`          | Color de relleno del marcador de distrito.                                                                                 |
+| `districts.label`   | `ColorToken`          | Color del texto de la etiqueta del distrito.                                                                               |
+| `grid`              | `GridStyle`           | Estilo de la grilla de proyección 9×9 opcional.                                                                            |
+| `parkAreas`         | `ParkAreaColors`      | Colores opcionales de marcadores de áreas de parque DLC; los valores omitidos usan defaults built-in.                      |
+
+`grid` contiene `color`, `opacity`, `width` y `dasharray`. `parkAreas` contiene los
+colores opcionales `generic`, `university`, `tradeSchool`, `industry` y `forestry`.
+A diferencia de las siete capas visibles para el usuario, estos campos estilizan
+subelementos controlados por las opciones avanzadas de basemap y distritos.
 
 ### `roads` (`RoadColorParams`)
 
@@ -132,7 +141,7 @@ advertencia nombra el path exacto del problema, por ejemplo:
 Los temas válidos en el mismo directorio siguen cargando normalmente — un archivo roto
 nunca bloquea a los demás.
 
-## Extension points
+## Puntos de extensión
 
 Cualquier campo presente en un archivo `.vellumstyle` que no forme parte del schema de
 arriba — al nivel superior o anidado dentro de un grupo existente — se **ignora
@@ -146,81 +155,32 @@ campo no reconocido, sin sintaxis adicional.
 
 ## Ejemplo completo
 
-El tema built-in **Day**, reproducido literalmente
-(`apps/desktop/src-tauri/resources/themes/day.vellumstyle`):
+El ejemplo canónico completo es el tema built-in **Day** en
+[`apps/desktop/src-tauri/resources/themes/day.vellumstyle`](../../apps/desktop/src-tauri/resources/themes/day.vellumstyle).
+Se mantiene como archivo fuente en vez de duplicarse aquí, para que la referencia no
+se desvíe del tema que realmente incluye la app. El siguiente fragmento ilustrativo
+destaca campos fáciles de omitir y no es un archivo de tema válido por sí solo:
 
-```json
+```jsonc
 {
   "schemaVersion": 1,
-  "name": "Day",
-  "mapBackground": "#f2efe9",
-  "terrain": {
-    "base": "#f2efe9",
-    "low": "#9fd17a",
-    "mid": "#e4dfc9",
-    "high": "#c9ad7f"
+  "name": "My theme",
+  "mapFrame": "#e5dcc8",
+  "contourLine": "#aa9e86",
+  "grid": {
+    "color": "#7d705f",
+    "opacity": 0.18,
+    "width": 1,
+    "dasharray": [4, 4],
   },
-  "water": "#aad3df",
-  "forests": "#cdebb0",
-  "transitBackground": "#1a1a2e",
-  "roads": {
-    "highway": {
-      "generic": { "fill": "#4a4a4a", "casing": "#2e2e2e" }
-    },
-    "largeArterial": {
-      "generic": { "fill": "#6b6b6b", "casing": "#4a4a4a" }
-    },
-    "mediumArterial": {
-      "generic": { "fill": "#8c8c8c", "casing": "#6b6b6b" }
-    },
-    "local": {
-      "generic": { "fill": "#b0afaa", "casing": "#8c8c8c" },
-      "gravel": { "fill": "#c9c2b0", "casing": "#a69c88" }
-    },
-    "pedestrian": {
-      "path": { "fill": "#a08770", "casing": "#7a6754" },
-      "way": { "fill": "#b09d88", "casing": "#8b7d6b" },
-      "street": { "fill": "#a08770", "casing": "#7a6754" }
-    },
-    "rail": {
-      "train": { "fill": "#ececec", "casing": "#4a4a4a" },
-      "metro": { "fill": "#ececec", "casing": "#e4572e" }
-    },
-    "ferry": { "fill": "#4a90a4", "casing": "#4a90a4" }
+  "parkAreas": {
+    "generic": "#aeb58f",
+    "university": "#c5b58c",
+    "tradeSchool": "#b99480",
+    "industry": "#9b8b9f",
+    "forestry": "#8f9c7f",
   },
-  "buildings": {
-    "residential": {
-      "low": { "fill": "#d9cba3", "stroke": "#b8a47d" },
-      "high": { "fill": "#c9b48a", "stroke": "#a38f68" },
-      "selfSufficient": { "fill": "#c3d9a8", "stroke": "#9db885" }
-    },
-    "commercial": {
-      "low": { "fill": "#e8b4a0", "stroke": "#c98f7a" },
-      "high": { "fill": "#de9c86", "stroke": "#ba7a65" },
-      "leisure": { "fill": "#e8c4e0", "stroke": "#c29ab8" },
-      "tourism": { "fill": "#e8d4a0", "stroke": "#c2ad78" },
-      "organic": { "fill": "#b8d4a8", "stroke": "#94ad82" }
-    },
-    "office": {
-      "generic": { "fill": "#a8c4d9", "stroke": "#7fa0b8" },
-      "tech": { "fill": "#8fb8d9", "stroke": "#6b93b8" },
-      "financial": { "fill": "#7a9cc2", "stroke": "#5c7da3" }
-    },
-    "industry": {
-      "generic": { "fill": "#d9c97a", "stroke": "#b8a85c" },
-      "forestry": { "fill": "#a8c47a", "stroke": "#86a35c" },
-      "ore": { "fill": "#b89478", "stroke": "#96755c" },
-      "oil": { "fill": "#8c8570", "stroke": "#6b6554" },
-      "farming": { "fill": "#c4b87a", "stroke": "#a3985c" }
-    },
-    "civic": {
-      "publicTransport": { "fill": "#c2a8d9", "stroke": "#9c82b8" },
-      "education": { "fill": "#a8d9c4", "stroke": "#82b89c" },
-      "services": { "fill": "#d9a8a8", "stroke": "#b88282" }
-    },
-    "none": { "fill": "#c8bfb5", "stroke": "#a09585" }
-  },
-  "districts": { "fill": "#e8d97a", "label": "#2e2e2e" }
+  // Incluye los demás campos requeridos de RenderStyleParams a partir del tema Day.
 }
 ```
 

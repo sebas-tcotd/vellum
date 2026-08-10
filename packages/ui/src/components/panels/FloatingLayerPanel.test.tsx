@@ -334,25 +334,6 @@ describe('FloatingLayerPanel', () => {
     });
   });
 
-  describe('AC6 — Footer link', () => {
-    it('muestra el link de footer en estado expanded', () => {
-      render(
-        <FloatingLayerPanel cityName="Altavento" fileName="altavento.cslmap" />,
-      );
-      expect(screen.getByText('Cartógrafos de CS1 →')).toBeInTheDocument();
-    });
-
-    it('no muestra el footer en estado collapsed', () => {
-      render(
-        <FloatingLayerPanel cityName="Altavento" fileName="altavento.cslmap" />,
-      );
-      fireEvent.click(
-        screen.getByRole('button', { name: 'a11y.layerPanelCollapse' }),
-      );
-      expect(screen.queryByText('Cartógrafos de CS1 →')).toBeNull();
-    });
-  });
-
   describe('Story 6.1 — apertura de exportación', () => {
     it('llama onOpenExport desde el panel expandido', async () => {
       const user = userEvent.setup();
@@ -588,8 +569,8 @@ describe('FloatingLayerPanel', () => {
       const focusable = container.querySelectorAll<HTMLElement>(
         'button:not([tabindex="-1"]), [role="switch"]:not([tabindex="-1"]), a[href]:not([tabindex="-1"])',
       );
-      // Botón colapsar + 7 switches + link footer = 9 elementos
-      expect(focusable.length).toBeGreaterThanOrEqual(9);
+      // Botón colapsar + 7 switches = 8 elementos
+      expect(focusable.length).toBeGreaterThanOrEqual(8);
     });
 
     it('el botón de expansión es focusable en estado collapsed', () => {
