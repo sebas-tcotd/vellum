@@ -161,6 +161,12 @@ jobs:
           bundle-glob: ${{ matrix.bundle-glob }}
           release-id: ${{ needs.preflight.outputs.release-id }}
           tag-name: ${{ github.ref_name }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          windows-certificate: ${{ secrets.WINDOWS_CERTIFICATE }}
+          windows-certificate-password: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+          tauri-signing-private-key: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          tauri-signing-private-key-password: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          allow-unsigned-windows: ${{ vars.ALLOW_UNSIGNED_WINDOWS }}
 
   finalize-release:
     name: Verify release assets and publish

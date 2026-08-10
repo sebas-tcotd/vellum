@@ -24,6 +24,30 @@ inputs:
     description: 'Tag del release en curso. Solo se usa en mode=release.'
     required: false
     default: ''
+  github-token:
+    description: 'GITHUB_TOKEN del workflow llamador. Solo se usa en mode=release.'
+    required: false
+    default: ''
+  windows-certificate:
+    description: 'Certificado Windows Authenticode en base64. Solo se usa en mode=release.'
+    required: false
+    default: ''
+  windows-certificate-password:
+    description: 'Password del certificado Windows. Solo se usa en mode=release.'
+    required: false
+    default: ''
+  tauri-signing-private-key:
+    description: 'Clave privada de firma del updater Tauri. Solo se usa en mode=release.'
+    required: false
+    default: ''
+  tauri-signing-private-key-password:
+    description: 'Password de la clave privada Tauri. Solo se usa en mode=release.'
+    required: false
+    default: ''
+  allow-unsigned-windows:
+    description: 'Permite release Windows sin Authenticode. Solo se usa en mode=release.'
+    required: false
+    default: ''
 
 runs:
   using: 'composite'
@@ -57,13 +81,16 @@ runs:
 
     - name: Import Windows code signing certificate
       id: import-cert
-      if: inputs.mode == 'release' && inputs.platform == 'windows-latest' && vars.ALLOW_UNSIGNED_WINDOWS != 'true'
+      if: inputs.mode == 'release' && inputs.platform == 'windows-latest' && inputs.allow-unsigned-windows != 'true'
       shell: pwsh
+      env:
+        WINDOWS_CERTIFICATE: ${{ inputs.windows-certificate }}
+        WINDOWS_CERTIFICATE_PASSWORD: ${{ inputs.windows-certificate-password }}
       run: |
-        $certBytes = [Convert]::FromBase64String("${{ secrets.WINDOWS_CERTIFICATE }}")
+        $certBytes = [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE)
         $certPath = Join-Path $env:RUNNER_TEMP "vellum-signing.pfx"
         [IO.File]::WriteAllBytes($certPath, $certBytes)
-        $securePassword = ConvertTo-SecureString -String "${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}" -Force -AsPlainText
+        $securePassword = ConvertTo-SecureString -String $env:WINDOWS_CERTIFICATE_PASSWORD -Force -AsPlainText
         $cert = Import-PfxCertificate -FilePath $certPath -CertStoreLocation Cert:\CurrentUser\My -Password $securePassword
         Remove-Item $certPath -Force
         "thumbprint=$($cert.Thumbprint)" >> $env:GITHUB_OUTPUT
@@ -80,7 +107,7 @@ runs:
         # to drop the ,"build":{"beforeBuildCommand":""} fragment from both
         # branches below and let tauri-action rebuild the frontend per platform
         # again, as it did before this change.
-        if [ "${{ inputs.platform }}" = "windows-latest" ] && [ "${{ vars.ALLOW_UNSIGNED_WINDOWS }}" != "true" ]; then
+        if [ "${{ inputs.platform }}" = "windows-latest" ] && [ "${{ inputs.allow-unsigned-windows }}" != "true" ]; then
           CONFIG_JSON=$(printf '{"bundle":{"windows":{"certificateThumbprint":"%s","digestAlgorithm":"sha256","timestampUrl":"http://timestamp.digicert.com"}},"build":{"beforeBuildCommand":""}}' "${{ steps.import-cert.outputs.thumbprint }}")
         else
           CONFIG_JSON='{"build":{"beforeBuildCommand":""}}'
@@ -93,9 +120,9 @@ runs:
       if: inputs.mode == 'release'
       uses: tauri-apps/tauri-action@v0
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-        TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        TAURI_SIGNING_PRIVATE_KEY: ${{ inputs.tauri-signing-private-key }}
+        TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ inputs.tauri-signing-private-key-password }}
       with:
         releaseId: ${{ inputs.release-id }}
         # releaseId identifies the draft; tagName makes updater URLs point to
@@ -105,7 +132,7 @@ runs:
         projectPath: apps/desktop
 
     - name: Verify Authenticode signature (Windows, AC3)
-      if: inputs.mode == 'release' && inputs.platform == 'windows-latest' && vars.ALLOW_UNSIGNED_WINDOWS != 'true'
+      if: inputs.mode == 'release' && inputs.platform == 'windows-latest' && inputs.allow-unsigned-windows != 'true'
       shell: pwsh
       run: |
         $msi = Get-ChildItem -Path "target/x86_64-pc-windows-msvc/release/bundle/msi" -Filter *.msi -Recurse | Select-Object -First 1
@@ -124,7 +151,7 @@ runs:
         # telemetry that only a real, clean-machine install can confirm — see Task 4 evidence.
 
     - name: Record intentional unsigned Windows MSI
-      if: inputs.mode == 'release' && inputs.platform == 'windows-latest' && vars.ALLOW_UNSIGNED_WINDOWS == 'true'
+      if: inputs.mode == 'release' && inputs.platform == 'windows-latest' && inputs.allow-unsigned-windows == 'true'
       shell: pwsh
       run: |
         $msi = Get-ChildItem -Path "target/x86_64-pc-windows-msvc/release/bundle/msi" -Filter *.msi -Recurse | Select-Object -First 1
@@ -155,7 +182,7 @@ runs:
       if: inputs.mode == 'release' && inputs.platform == 'macos-latest'
       shell: bash
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ inputs.github-token }}
       run: |
         set -euo pipefail
         DMG=$(ls target/universal-apple-darwin/release/bundle/dmg/*.dmg | head -n1)
@@ -185,7 +212,7 @@ runs:
       if: inputs.mode == 'release' && failure() && steps.tauri-build.outcome == 'success'
       shell: bash
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ inputs.github-token }}
       run: |
         FILE=$(ls ${{ inputs.bundle-glob }} 2>/dev/null | head -n1 || true)
         [ -z "$FILE" ] && exit 0
