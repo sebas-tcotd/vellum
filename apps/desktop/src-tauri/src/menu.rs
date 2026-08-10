@@ -20,6 +20,7 @@ const MENU_ID_ROTATE_LEFT: &str = "menu.rotate-left";
 const MENU_ID_ROTATE_RIGHT: &str = "menu.rotate-right";
 const MENU_ID_RESET_BEARING: &str = "menu.reset-bearing";
 const MENU_ID_PREFERENCES: &str = "preferences";
+pub const MENU_ID_EXIT: &str = "menu.exit";
 const MENU_ID_THEMES: &str = "menu.themes";
 const MENU_ID_THEME_PREFIX: &str = "menu.theme.";
 
@@ -63,12 +64,23 @@ fn build_file_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> 
     let open_file = custom_item(app, MENU_ID_OPEN_FILE, "Open Map…", Some("CmdOrCtrl+O"))?;
     let open_export = custom_item(app, MENU_ID_OPEN_EXPORT, "Export Map…", Some("CmdOrCtrl+E"))?;
 
-    SubmenuBuilder::new(app, "File")
+    let mut builder = SubmenuBuilder::new(app, "File")
         .item(&open_file)
         .item(&open_export)
-        .separator()
-        .close_window()
-        .build()
+        .separator();
+
+    #[cfg(target_os = "macos")]
+    {
+        builder = builder.close_window();
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        let exit = custom_item(app, MENU_ID_EXIT, "Exit", Some("CmdOrCtrl+Q"))?;
+        builder = builder.item(&exit);
+    }
+
+    builder.build()
 }
 
 fn build_edit_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> {
@@ -339,14 +351,10 @@ pub fn build_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
 
     #[cfg(not(target_os = "macos"))]
     {
-        let mut app_menu = SubmenuBuilder::new(app, "Vellum")
+        let app_menu = SubmenuBuilder::new(app, "Vellum")
             .about(Some(about_metadata(app)))
             .separator()
             .item(&preferences);
-        #[cfg(not(target_os = "linux"))]
-        {
-            app_menu = app_menu.separator().quit();
-        }
         let app_menu = app_menu.build()?;
         let file = build_file_menu(app)?;
         MenuBuilder::new(app)
@@ -428,6 +436,7 @@ mod tests {
             super::MENU_ID_ROTATE_RIGHT,
             super::MENU_ID_RESET_BEARING,
             super::MENU_ID_PREFERENCES,
+            super::MENU_ID_EXIT,
             super::MENU_ID_THEMES,
             "menu.toggle-transit-dimming",
         ];

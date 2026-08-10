@@ -2,15 +2,20 @@ import { describe, expect, it, vi } from 'vitest';
 import { createCloseRequestedHandler } from './window-close-cancel';
 
 describe('createCloseRequestedHandler', () => {
-  it('lets the window close normally when no export is active', async () => {
+  async function flushScheduledDestroy(): Promise<void> {
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+  }
+
+  it('explicitly destroys the window when no export is active', async () => {
     const preventDefault = vi.fn();
     const destroy = vi.fn().mockResolvedValue(undefined);
     const handler = createCloseRequestedHandler(() => null, destroy, 2_000);
 
     await handler({ preventDefault });
+    await flushScheduledDestroy();
 
-    expect(preventDefault).not.toHaveBeenCalled();
-    expect(destroy).not.toHaveBeenCalled();
+    expect(preventDefault).toHaveBeenCalledOnce();
+    expect(destroy).toHaveBeenCalledOnce();
   });
 
   it('prevents the close, awaits cancellation, then destroys the window', async () => {
@@ -31,6 +36,7 @@ describe('createCloseRequestedHandler', () => {
 
     resolveCancel?.();
     await handled;
+    await flushScheduledDestroy();
 
     expect(cancel).toHaveBeenCalledOnce();
     expect(destroy).toHaveBeenCalledOnce();
@@ -47,6 +53,7 @@ describe('createCloseRequestedHandler', () => {
       const handled = handler({ preventDefault });
       await vi.advanceTimersByTimeAsync(2_000);
       await handled;
+      await vi.runOnlyPendingTimersAsync();
 
       expect(destroy).toHaveBeenCalledOnce();
     } finally {
@@ -61,6 +68,7 @@ describe('createCloseRequestedHandler', () => {
     const handler = createCloseRequestedHandler(() => cancel, destroy, 2_000);
 
     await expect(handler({ preventDefault })).resolves.toBeUndefined();
+    await flushScheduledDestroy();
 
     expect(cancel).toHaveBeenCalledOnce();
     expect(destroy).toHaveBeenCalledOnce();

@@ -79,6 +79,8 @@ pub fn run() {
                 let id = event.id().0.as_str();
                 if id == "preferences" {
                     let _ = app_handle.emit("vellum://open-preferences", ());
+                } else if id == menu::MENU_ID_EXIT {
+                    app_handle.exit(0);
                 } else if id.starts_with("menu.") {
                     let _ = app_handle.emit(menu::MENU_ACTION_EVENT, id);
                 }
@@ -102,6 +104,11 @@ pub fn run() {
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { .. } = event {
                 window.state::<Arc<ExportSessionManager>>().cleanup_all();
+                // Vellum currently owns one application window. Route every
+                // native close request through the same process-level exit
+                // path as File > Exit so X, Cmd+W/Alt+F4, and native Close
+                // cannot leave a hidden or half-closed process behind.
+                window.app_handle().exit(0);
             }
         })
         .build(tauri::generate_context!());

@@ -47,7 +47,6 @@ import {
   RasterBenchmarkRunner,
   type RasterBenchmarkRoute,
 } from './export/raster-benchmark-runner';
-import { createCloseRequestedHandler } from './window-close-cancel';
 
 const win = getCurrentWindow();
 const legacyExporter = new LegacyRasterExporter();
@@ -198,34 +197,10 @@ if (import.meta.env.DEV) {
 
 /**
  * Set by `App` (via `AppShell`) to a bounded, awaitable cancel request while
- * an export is active; `null` otherwise. Lives at module scope, like the
- * title-sync bridge below, so the close-requested listener registered once
- * at load time can reach whatever export is active at close time.
+ * an export is active; `null` otherwise. Lives at module scope so the
+ * composition root and file-loading guard share the same export lifecycle.
  */
 const exportCancelHandlerRef: ExportCancelHandlerRef = { current: null };
-
-/** Bounded wait for the active export to acknowledge cancellation before closing anyway. */
-const CLOSE_CANCEL_TIMEOUT_MS = 2_000;
-
-let unlistenCloseRequested: (() => void) | null = null;
-void win
-  .onCloseRequested(
-    createCloseRequestedHandler(
-      () => exportCancelHandlerRef.current,
-      () => win.destroy(),
-      CLOSE_CANCEL_TIMEOUT_MS,
-    ),
-  )
-  .then((unlisten) => {
-    unlistenCloseRequested = unlisten;
-  });
-
-if (import.meta.hot) {
-  import.meta.hot.dispose(() => {
-    unlistenCloseRequested?.();
-  });
-}
-
 // Bridge: Tauri → browser custom event
 // WebView2 (Windows) no propaga el evento browser 'dragenter' para drags externos
 // del SO (archivos desde el explorador). Escuchamos el evento nativo de Tauri y lo
