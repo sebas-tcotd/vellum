@@ -1,8 +1,6 @@
-# Vellum — Guía de Desarrollo
+# Vellum — Guía de desarrollo
 
-> Generado: 2026-08-07 | Escaneo: Deep | Reemplaza la versión de 2026-04-04 (proyecto en estado scaffolding)
-
-Para el flujo de PR, convenciones de commits y checklist de contribución, ver [`CONTRIBUTING.md`](../CONTRIBUTING.md) — este documento cubre el detalle técnico de setup y comandos que `CONTRIBUTING.md` resume brevemente.
+Para el flujo de PR, convenciones de commits y checklist de contribución, ver [`CONTRIBUTING.md`](../../CONTRIBUTING.md) — este documento cubre el detalle técnico de setup y comandos que `CONTRIBUTING.md` resume brevemente.
 
 ---
 
@@ -25,7 +23,9 @@ cd vellum
 pnpm install              # o `pnpm approve-builds` primero si el postinstall de esbuild está bloqueado
 ```
 
-No hace falta tener Cities: Skylines ni una ciudad propia — fixtures `.cslmap` reales están en [`packages/parser-cslmap/fixtures`](../packages/parser-cslmap/fixtures) (5 ciudades reales de 11-24MB + 5 fixtures chicos para casos borde: corrupto, DLC desconocido, etc.).
+No hace falta tener Cities: Skylines ni una ciudad propia — hay ciudades reales y
+fixtures para casos borde en [`packages/parser-cslmap/fixtures`](../../packages/parser-cslmap/fixtures),
+incluidos archivos corruptos y assets DLC desconocidos.
 
 ## Modo desarrollo
 
@@ -86,10 +86,10 @@ pnpm test:e2e   # requiere tauri-driver instalado y la app compilada; NO corre e
 
 ## CI/CD
 
-| Workflow                                                          | Trigger          | Qué valida                                                                                                 |
-| ----------------------------------------------------------------- | ---------------- | ---------------------------------------------------------------------------------------------------------- |
-| [`ci.yml`](../.github/workflows/ci.yml)                           | Push/PR a `main` | Build, Vitest, Rust tests, lint TS + Clippy, formato. Playwright **no** corre acá (requiere tauri-driver). |
-| [`publish-release.yml`](../.github/workflows/publish-release.yml) | Tag `v*`         | Build multiplataforma (Windows `.msi` firmado, macOS `.dmg`, Linux `.AppImage`) + publicación de release   |
+| Workflow                                                             | Trigger          | Qué valida                                                                                                 |
+| -------------------------------------------------------------------- | ---------------- | ---------------------------------------------------------------------------------------------------------- |
+| [`ci.yml`](../../.github/workflows/ci.yml)                           | Push/PR a `main` | Build, Vitest, Rust tests, lint TS + Clippy, formato. Playwright **no** corre acá (requiere tauri-driver). |
+| [`publish-release.yml`](../../.github/workflows/publish-release.yml) | Tag `v*`         | Build multiplataforma (Windows `.msi` firmado, macOS `.dmg`, Linux `.AppImage`) + publicación de release   |
 
 ## Comandos IPC — agregar uno nuevo
 

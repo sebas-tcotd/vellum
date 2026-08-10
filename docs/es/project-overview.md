@@ -1,6 +1,4 @@
-# Vellum — Visión General del Proyecto
-
-> Generado: 2026-08-07 | Escaneo: Deep | Reemplaza la versión de 2026-04-04 (proyecto en estado scaffolding)
+# Vellum — Visión general del proyecto
 
 ---
 
@@ -8,7 +6,7 @@
 
 Vellum es una app de escritorio nativa (Tauri 2 + React 19 + TypeScript + Rust) que abre archivos `.cslmap` exportados de Cities: Skylines 1 y los renderiza como mapas interactivos acelerados por GPU (MapLibre GL JS), en vez de dejarlos atrapados en el juego o reducidos a screenshots.
 
-El proyecto está cerca de su primer release público. Las 7 épicas core (fundación, carga/parser, renderizado cartográfico, exploración/UI, temas, export PNG/SVG, i18n+preferencias+updates) están completas; solo queda en progreso el empaquetado y distribución final (asociación de extensión de archivo, instaladores firmados/notarizados).
+La versión actual de la aplicación es `v0.4.0`. El flujo principal del visor está implementado: carga de archivos, renderizado cartográfico, controles de capas, temas, exportación PNG/SVG, internacionalización, preferencias y chequeos de actualización en segundo plano. El empaquetado y la automatización de releases construyen los bundles de escritorio y los artefactos del updater; el exportador nativo de Vellum sigue siendo una dirección separada del visor v1.
 
 ## Clasificación
 
@@ -71,13 +69,12 @@ Ver [Análisis del Árbol de Fuentes](./source-tree-analysis.md) para el detalle
 | [Arquitectura de Integración](./integration-architecture.md)             | Cómo se comunican los 7 paquetes del monorepo, contrato IPC completo |
 | [Guía de Desarrollo](./development-guide.md)                             | Setup, comandos dev/build/lint/test, CI/CD                           |
 | [Inventario de Componentes](./component-inventory-desktop.md)            | Componentes UI reales de `@vellum/ui`                                |
-| [Schema .vellumstyle (EN)](./vellumstyle-schema.en.md)                   | Referencia pública del schema de temas, v1                           |
-| [Schema .vellumstyle (ES)](./vellumstyle-schema.es.md)                   | Referencia pública del schema de temas, v1                           |
+| [Schema `.vellumstyle`](./vellumstyle-schema.md)                         | Referencia pública del formato de temas, v1                          |
 | [Algoritmo de renderizado de tránsito](./transit-rendering-algorithm.md) | Path-based rendering, evolución del algoritmo                        |
 | [Estrategia de renderizado de distritos](./district-rendering.md)        | —                                                                    |
 | [Estrategia de renderizado de bosques](./forest-rendering.md)            | —                                                                    |
-| [`DESIGN.md`](../DESIGN.md)                                              | Identidad visual de marca                                            |
-| [`README.md`](../README.md) / [`README.es.md`](./README.es.md)           | Punto de entrada público del proyecto                                |
+| [`DESIGN.md`](../../DESIGN.md)                                           | Identidad visual de marca                                            |
+| [`README.md`](../../README.md)                                           | Punto de entrada público del proyecto                                |
 
 ## Inicio rápido
 
@@ -88,4 +85,4 @@ pnpm install
 pnpm dev
 ```
 
-Ver [Guía de Desarrollo](./development-guide.md) para prerrequisitos completos y comandos.
+Consulta la [Guía de Desarrollo](./development-guide.md) para conocer los prerrequisitos completos y los comandos.

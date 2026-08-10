@@ -132,7 +132,7 @@ advertencia nombra el path exacto del problema, por ejemplo:
 Los temas válidos en el mismo directorio siguen cargando normalmente — un archivo roto
 nunca bloquea a los demás.
 
-## Extension points
+## Puntos de extensión
 
 Cualquier campo presente en un archivo `.vellumstyle` que no forme parte del schema de
 arriba — al nivel superior o anidado dentro de un grupo existente — se **ignora

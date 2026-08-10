@@ -1,6 +1,4 @@
-# Vellum — Análisis del Árbol de Fuentes
-
-> Generado: 2026-08-07 | Escaneo: Deep | Reemplaza la versión de 2026-04-04 (proyecto en estado scaffolding)
+# Vellum — Análisis del árbol de fuentes
 
 ---
 
@@ -94,9 +92,9 @@ vellum/
 
 ## Puntos de entrada
 
-- Frontend: [`apps/desktop/src/main.tsx`](../apps/desktop/src/main.tsx)
-- Rust: [`apps/desktop/src-tauri/src/main.rs`](../apps/desktop/src-tauri/src/main.rs) → `lib.rs::run()`
-- App React: [`packages/ui/src/App.tsx`](../packages/ui/src/App.tsx)
+- Frontend: [`apps/desktop/src/main.tsx`](../../apps/desktop/src/main.tsx)
+- Rust: [`apps/desktop/src-tauri/src/main.rs`](../../apps/desktop/src-tauri/src/main.rs) → `lib.rs::run()`
+- App React: [`packages/ui/src/App.tsx`](../../packages/ui/src/App.tsx)
 
 ## Nota sobre `renderer-canvas`
 

@@ -1,6 +1,4 @@
-# Vellum — Inventario de Componentes UI
-
-> Generado: 2026-08-07 | Escaneo: Deep | Parte: `desktop` + `ui` | Reemplaza la versión de 2026-04-04 (proyecto en estado scaffolding, "App devuelve `<div />`")
+# Vellum — Inventario de componentes UI
 
 ---
 

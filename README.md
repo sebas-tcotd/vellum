@@ -10,7 +10,7 @@ Your city took hundreds of hours to build. Vellum gives it a map worth keeping.
 
 [![PR & Main Validation](https://github.com/sebas-tcotd/vellum/actions/workflows/ci.yml/badge.svg)](https://github.com/sebas-tcotd/vellum/actions/workflows/ci.yml)
 &nbsp;[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-&nbsp;·&nbsp;[Español](docs/README.es.md)
+&nbsp;·&nbsp;[Español](docs/es/index.md)
 
 > Release automation builds platform installers and signed updater artifacts for Windows, macOS and Linux.
 
@@ -160,7 +160,7 @@ graph TD
 - Terrain and water use different rendering paths and elevation semantics.
 - Real city fixtures are used during development; visual rendering bugs are not validated only against toy data.
 
-The deeper implementation notes live in [`docs/`](docs), including the [transit rendering algorithm](docs/transit-rendering-algorithm.md), architecture references and the `.vellumstyle` schema documentation.
+The deeper implementation notes live in [`docs/`](docs), including the [transit rendering algorithm](docs/en/transit-rendering-algorithm.md), architecture references and the [`.vellumstyle` schema](docs/en/vellumstyle-schema.md).
 
 ## Project status and roadmap
 

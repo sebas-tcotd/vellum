@@ -32,7 +32,7 @@ The position appears to represent a label anchor or district centroid.
 
 ---
 
-# What the Original Viewer Actually Renders
+## What the original viewer actually renders
 
 The original JavaScript implementation does not render district areas.
 
@@ -61,9 +61,21 @@ No boundaries are rendered.
 
 No district overlay exists.
 
+## Current Vellum implementation
+
+Vellum preserves the same data constraint but offers two point-based display
+modes through MapLibre:
+
+- a default marker circle at the district position;
+- an optional text label using the district name, with collision handling and a
+  text halo.
+
+Both modes are annotations. Neither one implies that Vellum knows the district's
+true area.
+
 ---
 
-# SVG Rendering Process
+## SVG rendering process
 
 The relevant implementation creates:
 
@@ -90,7 +102,7 @@ displayed directly on the map.
 
 ---
 
-# Stroke + Fill Technique
+## Stroke and fill technique
 
 The original viewer duplicates each text element.
 
@@ -124,7 +136,7 @@ This is purely a text rendering enhancement and does not imply district geometry
 
 ---
 
-# Important Limitation of the CSLMap Format
+## Important limitation of the `.cslmap` format
 
 The limitation is not caused by the viewer.
 
@@ -151,7 +163,7 @@ Therefore no renderer can reconstruct true district boundaries from `.cslmap` da
 
 ---
 
-# Implications for Vellum
+## Implications for Vellum
 
 During the CSLMap compatibility phase, Vellum should replicate the behavior of the original viewer.
 
@@ -177,7 +189,7 @@ This guarantees parity with existing CSLMap viewers.
 
 ---
 
-# What Vellum Should NOT Attempt (For Now)
+## What Vellum should not attempt yet
 
 Avoid:
 
@@ -193,7 +205,7 @@ The objective of the CSLMap phase is faithful rendering, not inference.
 
 ---
 
-# Future Expansion (Cities: Skylines API Phase)
+## Future expansion
 
 Once Vellum transitions from CSLMap exports to direct Cities: Skylines integration, district rendering can be substantially improved.
 
@@ -222,9 +234,10 @@ At that stage Vellum will no longer be constrained by the CSLMap export format.
 
 ---
 
-# Recommended Implementation (Current Phase)
+## Recommended implementation
 
-Render districts exactly as the original viewer:
+Render districts as point annotations, matching the information available in the
+source format:
 
 ```text
 District Name
@@ -250,11 +263,12 @@ Transit
 District Labels
 ```
 
-This achieves complete feature parity with the original CSLMap visualization while remaining faithful to the available data.
+The current app uses a marker by default and can switch to the outlined label
+mode. Both remain faithful to the available data.
 
 ---
 
-# Final Recommendation
+## Final recommendation
 
 Treat districts as annotations, not geographic regions.
 

@@ -1,40 +1,40 @@
-# Algoritmo de Renderizado de Tránsito: Path-Based Rendering
+# Algoritmo de renderizado de tránsito: path-based rendering
 
-Este documento detalla la evolución del algoritmo de renderizado de líneas de transporte público en Vellum, pasando de un modelo basado en segmentos independientes a un modelo basado en rutas continuas (**Path-Based Rendering**).
+Este documento explica la idea detrás del renderizado path-based de las líneas de transporte público en Vellum. Los datos se describen como segmentos, pero dibujar cada segmento de forma independiente puede producir saltos, huecos y cambios de lado en una misma ruta. Por eso la ruta se reconstruye como un camino continuo antes de aplicar el offset visual.
 
-## 1. Explicación Sencilla (La analogía de la "Cinta")
+## En simples palabras: la analogía de la cinta
 
 Imagínate que quieres representar una línea de autobús en un mapa.
 
 - **El problema actual (Segmentado):** Es como si un pintor pintara trozos de calle sueltos. Pinta una "baldosa", limpia el pincel, y luego pinta la siguiente. Como no sabe qué hizo en la baldosa anterior, a veces cambia la línea de lado de la calle o deja huecos en las uniones. Esto causa "saltos" visuales y que las líneas parezcan desconectadas.
 - **La solución (Path-Based):** Tratamos cada línea de autobús como una única **"Cinta Larga"**. Primero pegamos todos los trozos de la ruta de principio a fin, nos aseguramos de que todos miren en la misma dirección (el sentido de la marcha) y luego pintamos la cinta completa de un solo trazo. Esto garantiza que la línea sea fluida, no tenga huecos y mantenga siempre su carril.
 
-## 2. Explicación Técnica Exhaustiva
+## Modelo técnico
 
 El algoritmo de Path-Based Rendering resuelve tres problemas críticos de la cartografía digital de transportes:
 
-### A. Normalización de Dirección (Directional Consistency)
+### Consistencia direccional
 
 En los archivos de datos (CSLMap), las carreteras tienen una dirección interna basada en cómo se construyeron en el juego. Si un segmento va de A a B y el siguiente de C a B, la "derecha" cambia de repente.
 El algoritmo ahora **normaliza** esto: al recorrer la ruta, detecta si el inicio del segmento coincide con el final del anterior. Si no coincide, invierte el orden de los puntos del segmento para que toda la ruta tenga una dirección vectorial continua.
 
-### B. Continuidad en Nodos (Node Continuity)
+### Continuidad en nodos
 
 Al usar un único trazo (`beginPath` ... `stroke`) para toda la ruta en lugar de uno por segmento, el motor de renderizado (Canvas 2D) aplica automáticamente las reglas de unión de líneas (`lineJoin: 'round'`). Esto elimina los huecos y traslapes en las intersecciones.
 
-### C. Estabilidad de Carriles (Lane Stability)
+### Estabilidad de carriles
 
 El sistema calcula un "carril" para cada línea basado en cuántas otras líneas comparten la vía.
 
 - **Cantidades Impares (1, 3, 5...):** Una línea ocupa el centro exacto (offset 0), y las demás se distribuyen simétricamente.
 - **Cantidades Pares (2, 4, 6...):** No hay línea central; las líneas se sitúan a izquierda y derecha de un eje imaginario en el centro de la calle.
 
-### D. Casos de Borde
+### Casos de borde
 
 - **Cambio de volumen:** Cuando una ruta pasa de una calle con 5 líneas a una con 2, el algoritmo puede implementar una "rampa" o transición suave para que el cambio de carril no sea un salto brusco.
 - **Intersecciones complejas:** Al tratar la ruta como un todo, se puede promediar la dirección en las esquinas para que el desplazamiento lateral (offset) no cause picos extraños.
 
-## 3. Pseudocódigo
+## Pseudocódigo
 
 ```text
 PARA CADA Línea de Tránsito (L):
@@ -64,7 +64,7 @@ PARA CADA Línea de Tránsito (L):
         - Aplicar Color y Stroke.
 ```
 
-## 4. Ejemplo de Implementación (TypeScript)
+## Nota de implementación
 
 ```typescript
 /**

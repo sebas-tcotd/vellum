@@ -1,6 +1,4 @@
-# Vellum Desktop — Documento de Arquitectura
-
-> Generado: 2026-08-07 | Escaneo: Deep | Parte: `desktop` | Reemplaza la versión de 2026-04-04 (proyecto en estado scaffolding)
+# Vellum Desktop — Arquitectura de escritorio
 
 ---
 
