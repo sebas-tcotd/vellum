@@ -127,6 +127,7 @@ vi.mock('./i18n/i18n-setup', () => ({
 
 vi.mock('./store/preferences-store', () => ({
   loadPersistedPreferences: vi.fn().mockResolvedValue({}),
+  persistPreference: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock('./components/canvas/MapLibreRoot', () => ({
@@ -458,6 +459,50 @@ describe('App — PreferencesPanel (Story 7.3)', () => {
     });
 
     expect(screen.getByText('preferences.title')).toBeInTheDocument();
+  });
+});
+
+describe('App — native menu actions', () => {
+  it('routea las acciones de capa y opciones avanzadas al store existente', async () => {
+    await act(async () => {
+      render(<App />);
+    });
+
+    const initialRoads = useVellumStore.getState().activeLayers.roads;
+    const initialContours =
+      useVellumStore.getState().layerOptions.terrain.showContourLines;
+    act(() => {
+      useVellumStore.getState().setCityData(mockCityData);
+    });
+
+    await act(async () => {
+      tauriEventHandlers.get('vellum://menu-action')?.({
+        payload: 'menu.toggle-layer.roads',
+      });
+      tauriEventHandlers.get('vellum://menu-action')?.({
+        payload: 'menu.toggle-advanced.terrain.contour-lines',
+      });
+    });
+
+    expect(useVellumStore.getState().activeLayers.roads).toBe(!initialRoads);
+    expect(
+      useVellumStore.getState().layerOptions.terrain.showContourLines,
+    ).toBe(!initialContours);
+  });
+
+  it('ignora acciones que requieren mapa cuando no hay cityData', async () => {
+    await act(async () => {
+      render(<App />);
+    });
+
+    const initialRoads = useVellumStore.getState().activeLayers.roads;
+    await act(async () => {
+      tauriEventHandlers.get('vellum://menu-action')?.({
+        payload: 'menu.toggle-layer.roads',
+      });
+    });
+
+    expect(useVellumStore.getState().activeLayers.roads).toBe(initialRoads);
   });
 });
 

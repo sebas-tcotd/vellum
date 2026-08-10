@@ -1,3 +1,6 @@
+import type { CityData } from './types/city-data';
+import type { LayerName } from './types/layer';
+
 /**
  * Registry of Tauri IPC command names.
  * @remarks
@@ -14,6 +17,7 @@ export const IPC_COMMANDS = {
   EXPORT_PNG: 'export_png',
   OPEN_EXPORT_FOLDER: 'open_export_folder',
   LOAD_THEMES: 'load_themes',
+  UPDATE_THEME_MENU: 'update_theme_menu',
   /**
    * Opens a transactional export session. Invoked as `{ metadata }`.
    *
@@ -58,7 +62,27 @@ export const IPC_EVENTS = {
   UPDATE_AVAILABLE: 'vellum://update-available',
   PARSE_WARNINGS: 'vellum://parse-warnings',
   OPEN_PREFERENCES: 'vellum://open-preferences',
+  MENU_ACTION: 'vellum://menu-action',
 } as const;
+
+/** Stable identifiers emitted by the native Tauri menu for app-owned actions. */
+export type MenuAction =
+  | 'menu.open-file'
+  | 'menu.open-export'
+  | 'menu.fit-to-screen'
+  | 'menu.zoom-in'
+  | 'menu.zoom-out'
+  | 'menu.clean-mode'
+  | 'menu.navigation-mode'
+  | 'menu.icon-legend'
+  | 'menu.rotate-left'
+  | 'menu.rotate-right'
+  | 'menu.reset-bearing'
+  | 'menu.toggle-transit-dimming'
+  | `menu.toggle-layer.${LayerName}`
+  | `menu.open-advanced.${LayerName}`
+  | `menu.toggle-advanced.${string}.${string}`
+  | `menu.theme.${string}`;
 
 /** Payload for the `vellum://parse-warnings` event — emitted when DLC/mod assets are
  * rendered with a generic fallback representation. */
@@ -141,8 +165,6 @@ export interface ExportResult {
   /** The absolute path to the directory containing the asset, useful for "Open Folder" actions. */
   folderPath: string;
 }
-
-import type { CityData } from './types/city-data';
 
 /**
  * The expected return type of the `parse_cslmap` IPC command.
