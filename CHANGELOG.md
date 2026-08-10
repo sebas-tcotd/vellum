@@ -2,6 +2,46 @@
 
 All notable changes to Vellum will be documented here.
 
+## [0.4.0](https://github.com/sebas-tcotd/vellum/compare/v0.3.0...v0.4.0) (2026-08-10)
+
+
+### Features
+
+* add GitHub Actions for Tauri platform build and CI workflow updates ([8c690e0](https://github.com/sebas-tcotd/vellum/commit/8c690e0fe3cb9e438d7b012ee028122b5ca5a093))
+* add Reveal component for viewport animations ([39fcb73](https://github.com/sebas-tcotd/vellum/commit/39fcb7362c1bee97bdecc39f0e76789495a08b3d))
+* **ci:** add landing page validation workflow ([e9bed73](https://github.com/sebas-tcotd/vellum/commit/e9bed7334be04db2bd8038d3fe6f41a87e66c93c))
+* enhance opacity handling for background and terrain layers in MapLayerManager ([20a6dcc](https://github.com/sebas-tcotd/vellum/commit/20a6dcce4ea1bc9cd9a3456ec32ae380c634ec7c))
+* **i18n:** integrate i18next for multilingual support ([3058445](https://github.com/sebas-tcotd/vellum/commit/30584453b9a8cd01b0f30a35529a82f3e7f4bd23))
+* implement auto-dismiss and manual close for export toasts in ExportStatusOverlay ([2ce5a8e](https://github.com/sebas-tcotd/vellum/commit/2ce5a8eeec00203d8f53de0d5e52912334232aa7))
+* implement handling for .cslmap file association on Windows ([ba678d8](https://github.com/sebas-tcotd/vellum/commit/ba678d8384d9a28b3198acc3965d68a85fcdb626))
+* implement theme selector and update theme handling ([55cccad](https://github.com/sebas-tcotd/vellum/commit/55cccad74731b46dd36593cd53208e4b422db260))
+* **landing:** add automatic page theme selector ([78c3409](https://github.com/sebas-tcotd/vellum/commit/78c34098a294eb85cd7c15d8bfc453167edbfe33))
+* **landing:** add full-size image lightboxes ([8b3b820](https://github.com/sebas-tcotd/vellum/commit/8b3b820a183ff56f2f56a3680791d32da3ac0116))
+* **landing:** add transit theme comparison toggle ([59ae2b7](https://github.com/sebas-tcotd/vellum/commit/59ae2b7e2e9fe8b6d113a7d58409bf45976174e7))
+* **landing:** add TransitComparison component and associated assets ([f692989](https://github.com/sebas-tcotd/vellum/commit/f6929899888e5daf6a5f99d2e31bfe2af2f120e5))
+* **landing:** overhaul map-led marketing page ([44be24a](https://github.com/sebas-tcotd/vellum/commit/44be24ae7113e090f50bb78a2a80800a6f4483cd))
+* **landing:** update landing page content and styles for improved clarity and aesthetics ([9908055](https://github.com/sebas-tcotd/vellum/commit/9908055b771558b7e0fcdbc0816964e4398d3f7a))
+* refactor forests layer opacity handling with shared constant expression ([75fb524](https://github.com/sebas-tcotd/vellum/commit/75fb524853f99eb0536566898255a53724b3dbeb))
+* replaced old logo for new one and add copilot instructions ([961422b](https://github.com/sebas-tcotd/vellum/commit/961422befa4c31c9108adebeec6658bb6466e9a6))
+* update day theme colors and adjust grid layer positioning in map source manager ([ec7a620](https://github.com/sebas-tcotd/vellum/commit/ec7a620eff057aa5c87b4fa6c108eb12f91f75ac))
+
+
+### Bug Fixes
+
+* add cityData dependency to useEffect for theme application in MapLibreRoot ([12295da](https://github.com/sebas-tcotd/vellum/commit/12295da1355a019e1e107506cdd78af3ffad089a))
+* **ci:** update frontend build command to use vite for desktop ([00da9e3](https://github.com/sebas-tcotd/vellum/commit/00da9e3a63a12130b44e0d9060c16bf1825500ac))
+* **core:** map the DLC building service types real cities carry ([4d521bb](https://github.com/sebas-tcotd/vellum/commit/4d521bb4940b68d90270bc85bdbe0a02d4955b26))
+* **release:** replace secrets for inputs for Windows signing and release process ([bb45bbd](https://github.com/sebas-tcotd/vellum/commit/bb45bbd48845fb3444f723fe9f401b129c814a00))
+* **renderer-webgl:** fall back on an unknown building service type ([1139afe](https://github.com/sebas-tcotd/vellum/commit/1139afe19a30c22684ff18d39097aceaf9e38fd3))
+* **renderer-webgl:** keep the out-of-map DEM sentinel encodable at elevMin 0 ([90c131c](https://github.com/sebas-tcotd/vellum/commit/90c131c7785ddb40754ac9649a17117f4d0ab72c))
+* **renderer-webgl:** stop a failed layer step from truncating the render ([5f16136](https://github.com/sebas-tcotd/vellum/commit/5f161368cc0408479ffc8ec92b6f8bb213e9a8b5))
+
+
+### Performance Improvements
+
+* **renderer-webgl:** cap the heaviest GeoJSON sources at zoom 14 ([6cb671e](https://github.com/sebas-tcotd/vellum/commit/6cb671e35565314ab218374852978cb434e9b9df))
+* **renderer-webgl:** raise MapLibre's worker pool off its default of one ([22a7e2f](https://github.com/sebas-tcotd/vellum/commit/22a7e2f9ab54eca8b411aaff48ce7e235e261113))
+
 ## [0.3.0](https://github.com/sebas-tcotd/vellum/compare/v0.2.8...v0.3.0) (2026-08-08)
 
 
