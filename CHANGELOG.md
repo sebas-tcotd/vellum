@@ -2,6 +2,18 @@
 
 All notable changes to Vellum will be documented here.
 
+## [0.5.0](https://github.com/sebas-tcotd/vellum/compare/v0.4.1...v0.5.0) (2026-08-10)
+
+
+### Features
+
+* update native menu and theme management in Vellum ([8ad51f1](https://github.com/sebas-tcotd/vellum/commit/8ad51f191b435755ba35815a701257a8dd41a858))
+
+
+### Bug Fixes
+
+* make application exit reliable across platforms ([d607cf2](https://github.com/sebas-tcotd/vellum/commit/d607cf297b0007307497188567c0b0936ab79fab))
+
 ## [0.4.1](https://github.com/sebas-tcotd/vellum/compare/v0.4.0...v0.4.1) (2026-08-10)
 
 
