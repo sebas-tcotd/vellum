@@ -94,6 +94,10 @@ capability-probe.ts
 scene builders so classification and filtering rules are not independently
 reimplemented for the vector path.
 
+The tiled route is enabled after the frontend capability probe succeeds. A failed
+probe or a runtime tiled-export failure falls back to the legacy PNG route; the
+`vellum.export.forceLegacy` preference is an explicit kill switch for diagnostics.
+
 ### 4. Themes
 
 ```text
@@ -120,9 +124,11 @@ download and install an update when the preference is enabled.
 
 `packages/core/src/ipc-contract.ts` is the shared source of truth.
 
-The current command set covers parsing, theme loading, direct PNG export, export
-folder opening, tiled export session lifecycle and pending-update recovery. Events
-cover progress, parse warnings, update availability and opening Preferences.
+The current command set covers startup file association recovery, parsing, theme
+loading, direct PNG export, export folder opening, tiled/SVG export session lifecycle
+and pending-update recovery. Events cover progress, parse warnings, update
+availability and opening Preferences. The authoritative list is
+`IPC_COMMANDS`/`IPC_EVENTS` in `packages/core/src/ipc-contract.ts`.
 
 When this contract changes, update the TypeScript and Rust sides in the same
 commit. That is a compatibility requirement, not merely a convention.

@@ -20,6 +20,7 @@ vellum/
 │       │   │   ├── main.rs              # Calls vellum_lib::run()
 │       │   │   ├── lib.rs               # Tauri builder and application lifecycle
 │       │   │   ├── commands.rs          # Tauri commands exposed to the UI
+│       │   │   ├── startup.rs           # File-association startup path handoff
 │       │   │   ├── updater.rs           # Background update check and recovery
 │       │   │   ├── city_data.rs         # Rust mirror of the domain model
 │       │   │   ├── errors.rs            # Native VellumError definitions
@@ -69,6 +70,7 @@ vellum/
 | `packages/renderer-webgl/src/geojson/`   | Converts domain data to GeoJSON without coupling the builders to MapLibre; the SVG pipeline reuses the same scene logic. |
 | `packages/renderer-webgl/src/export/`    | Contains the legacy and tiled export paths selected by the capability probe.                                             |
 | `apps/desktop/src-tauri/src/commands.rs` | Native command boundary exposed to the frontend.                                                                         |
+| `apps/desktop/src-tauri/src/startup.rs`  | Holds a `.cslmap` path received from the OS until the frontend is ready to parse it.                                     |
 | `packages/ui/src/store/vellum-store.ts`  | Holds loading, layer, theme, language and update state.                                                                  |
 | `packages/parser-cslmap/fixtures/`       | Real files expose rendering bugs that synthetic fixtures often hide.                                                     |
 

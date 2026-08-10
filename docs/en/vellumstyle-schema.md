@@ -61,20 +61,29 @@ that doesn't match either pattern fails validation for the **entire file** — s
 
 ## `RenderStyleParams` fields
 
-| Field               | Type                  | Description                                                                                                                                                                  |
-| ------------------- | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `mapBackground`     | `ColorToken`          | Background color behind the terrain (visible outside the map bounds).                                                                                                        |
-| `terrain.base`      | `ColorToken`          | Base/flat elevation color.                                                                                                                                                   |
-| `terrain.low`       | `ColorToken`          | Low elevation color.                                                                                                                                                         |
-| `terrain.mid`       | `ColorToken`          | Mid elevation color.                                                                                                                                                         |
-| `terrain.high`      | `ColorToken`          | High elevation color.                                                                                                                                                        |
-| `water`             | `ColorToken`          | Color of water bodies (sea and inland water).                                                                                                                                |
-| `forests`           | `ColorToken`          | Color of forest/vegetation density markers.                                                                                                                                  |
-| `transitBackground` | `ColorToken`          | Reserved for the Transit theme's dimming feature. Every built-in theme sets it; there is no independent visual behavior tied to this field today beyond being a valid color. |
-| `roads`             | `RoadColorParams`     | Road network colors, grouped by tier — see below.                                                                                                                            |
-| `buildings`         | `BuildingColorParams` | Building colors, grouped by zoning category — see below.                                                                                                                     |
-| `districts.fill`    | `ColorToken`          | Fill color of the district marker.                                                                                                                                           |
-| `districts.label`   | `ColorToken`          | Text color of the district label.                                                                                                                                            |
+| Field               | Type                  | Description                                                                                                   |
+| ------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `mapBackground`     | `ColorToken`          | Background color behind the terrain (visible outside the map bounds).                                         |
+| `mapFrame`          | `ColorToken`          | Color of the decorative frame around the world extent.                                                        |
+| `terrain.base`      | `ColorToken`          | Base/flat elevation color.                                                                                    |
+| `terrain.low`       | `ColorToken`          | Low elevation color.                                                                                          |
+| `terrain.mid`       | `ColorToken`          | Mid elevation color.                                                                                          |
+| `terrain.high`      | `ColorToken`          | High elevation color.                                                                                         |
+| `contourLine`       | `ColorToken`          | Color of terrain contour lines.                                                                               |
+| `water`             | `ColorToken`          | Color of water bodies (sea and inland water).                                                                 |
+| `forests`           | `ColorToken`          | Color of forest/vegetation density markers.                                                                   |
+| `transitBackground` | `ColorToken`          | Background used for dark exports and reserved for transit-focused presentation. Every built-in theme sets it. |
+| `roads`             | `RoadColorParams`     | Road network colors, grouped by tier — see below.                                                             |
+| `buildings`         | `BuildingColorParams` | Building colors, grouped by zoning category — see below.                                                      |
+| `districts.fill`    | `ColorToken`          | Fill color of the district marker.                                                                            |
+| `districts.label`   | `ColorToken`          | Text color of the district label.                                                                             |
+| `grid`              | `GridStyle`           | Style of the optional 9×9 projection grid overlay.                                                            |
+| `parkAreas`         | `ParkAreaColors`      | Optional colors for DLC park-area markers; omitted values fall back to built-in defaults.                     |
+
+`grid` contains `color`, `opacity`, `width` and `dasharray`. `parkAreas` contains the
+optional marker colors `generic`, `university`, `tradeSchool`, `industry` and `forestry`.
+Unlike the seven user-facing layer toggles, these fields style sub-elements that are
+controlled by the advanced basemap and district options.
 
 ### `roads` (`RoadColorParams`)
 
@@ -142,83 +151,34 @@ files. This is a structural property of how validation walks the schema (only kn
 are checked), not a special case that needs to be requested — it works today, for any
 unrecognized field, without any extra syntax.
 
-## Full example
+## Complete example
 
-The built-in **Day** theme, reproduced verbatim
-(`apps/desktop/src-tauri/resources/themes/day.vellumstyle`):
+The canonical complete example is the built-in **Day** theme in
+[`apps/desktop/src-tauri/resources/themes/day.vellumstyle`](../../apps/desktop/src-tauri/resources/themes/day.vellumstyle).
+It is kept as a source file rather than duplicated here so the reference cannot drift
+from the theme that ships with the app. The following illustrative fragment highlights
+fields that are easy to overlook; it is not a standalone valid theme file:
 
-```json
+```jsonc
 {
   "schemaVersion": 1,
-  "name": "Day",
-  "mapBackground": "#f2efe9",
-  "terrain": {
-    "base": "#f2efe9",
-    "low": "#9fd17a",
-    "mid": "#e4dfc9",
-    "high": "#c9ad7f"
+  "name": "My theme",
+  "mapFrame": "#e5dcc8",
+  "contourLine": "#aa9e86",
+  "grid": {
+    "color": "#7d705f",
+    "opacity": 0.18,
+    "width": 1,
+    "dasharray": [4, 4],
   },
-  "water": "#aad3df",
-  "forests": "#cdebb0",
-  "transitBackground": "#1a1a2e",
-  "roads": {
-    "highway": {
-      "generic": { "fill": "#4a4a4a", "casing": "#2e2e2e" }
-    },
-    "largeArterial": {
-      "generic": { "fill": "#6b6b6b", "casing": "#4a4a4a" }
-    },
-    "mediumArterial": {
-      "generic": { "fill": "#8c8c8c", "casing": "#6b6b6b" }
-    },
-    "local": {
-      "generic": { "fill": "#b0afaa", "casing": "#8c8c8c" },
-      "gravel": { "fill": "#c9c2b0", "casing": "#a69c88" }
-    },
-    "pedestrian": {
-      "path": { "fill": "#a08770", "casing": "#7a6754" },
-      "way": { "fill": "#b09d88", "casing": "#8b7d6b" },
-      "street": { "fill": "#a08770", "casing": "#7a6754" }
-    },
-    "rail": {
-      "train": { "fill": "#ececec", "casing": "#4a4a4a" },
-      "metro": { "fill": "#ececec", "casing": "#e4572e" }
-    },
-    "ferry": { "fill": "#4a90a4", "casing": "#4a90a4" }
+  "parkAreas": {
+    "generic": "#aeb58f",
+    "university": "#c5b58c",
+    "tradeSchool": "#b99480",
+    "industry": "#9b8b9f",
+    "forestry": "#8f9c7f",
   },
-  "buildings": {
-    "residential": {
-      "low": { "fill": "#d9cba3", "stroke": "#b8a47d" },
-      "high": { "fill": "#c9b48a", "stroke": "#a38f68" },
-      "selfSufficient": { "fill": "#c3d9a8", "stroke": "#9db885" }
-    },
-    "commercial": {
-      "low": { "fill": "#e8b4a0", "stroke": "#c98f7a" },
-      "high": { "fill": "#de9c86", "stroke": "#ba7a65" },
-      "leisure": { "fill": "#e8c4e0", "stroke": "#c29ab8" },
-      "tourism": { "fill": "#e8d4a0", "stroke": "#c2ad78" },
-      "organic": { "fill": "#b8d4a8", "stroke": "#94ad82" }
-    },
-    "office": {
-      "generic": { "fill": "#a8c4d9", "stroke": "#7fa0b8" },
-      "tech": { "fill": "#8fb8d9", "stroke": "#6b93b8" },
-      "financial": { "fill": "#7a9cc2", "stroke": "#5c7da3" }
-    },
-    "industry": {
-      "generic": { "fill": "#d9c97a", "stroke": "#b8a85c" },
-      "forestry": { "fill": "#a8c47a", "stroke": "#86a35c" },
-      "ore": { "fill": "#b89478", "stroke": "#96755c" },
-      "oil": { "fill": "#8c8570", "stroke": "#6b6554" },
-      "farming": { "fill": "#c4b87a", "stroke": "#a3985c" }
-    },
-    "civic": {
-      "publicTransport": { "fill": "#c2a8d9", "stroke": "#9c82b8" },
-      "education": { "fill": "#a8d9c4", "stroke": "#82b89c" },
-      "services": { "fill": "#d9a8a8", "stroke": "#b88282" }
-    },
-    "none": { "fill": "#c8bfb5", "stroke": "#a09585" }
-  },
-  "districts": { "fill": "#e8d97a", "label": "#2e2e2e" }
+  // Include the remaining required RenderStyleParams fields from the Day theme.
 }
 ```
 

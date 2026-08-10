@@ -6,7 +6,7 @@ Este documento explica la idea detrás del renderizado path-based de las líneas
 
 Imagínate que quieres representar una línea de autobús en un mapa.
 
-- **El problema actual (Segmentado):** Es como si un pintor pintara trozos de calle sueltos. Pinta una "baldosa", limpia el pincel, y luego pinta la siguiente. Como no sabe qué hizo en la baldosa anterior, a veces cambia la línea de lado de la calle o deja huecos en las uniones. Esto causa "saltos" visuales y que las líneas parezcan desconectadas.
+- **El problema previo (Segmentado):** Es como si un pintor pintara trozos de calle sueltos. Pinta una "baldosa", limpia el pincel, y luego pinta la siguiente. Como no sabe qué hizo en la baldosa anterior, a veces cambia la línea de lado de la calle o deja huecos en las uniones. Esto causa "saltos" visuales y que las líneas parezcan desconectadas.
 - **La solución (Path-Based):** Tratamos cada línea de autobús como una única **"Cinta Larga"**. Primero pegamos todos los trozos de la ruta de principio a fin, nos aseguramos de que todos miren en la misma dirección (el sentido de la marcha) y luego pintamos la cinta completa de un solo trazo. Esto garantiza que la línea sea fluida, no tenga huecos y mantenga siempre su carril.
 
 ## Modelo técnico

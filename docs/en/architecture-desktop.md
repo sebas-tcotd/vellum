@@ -22,6 +22,7 @@ apps/desktop/
     │   ├── main.rs         # calls vellum_lib::run()
     │   ├── lib.rs          # Tauri builder, plugins, menu, updater and cleanup
     │   ├── commands.rs     # native commands exposed to the frontend
+    │   ├── startup.rs      # captures a .cslmap path supplied by the OS
     │   ├── updater.rs      # background check and pending-update recovery
     │   ├── city_data.rs, errors.rs, ipc_contract.rs
     │   └── export/         # sessions, framing, SVG and tile composition
@@ -43,6 +44,7 @@ user-facing API.
 | Command                                                                 | Source        | Purpose                                                                                |
 | ----------------------------------------------------------------------- | ------------- | -------------------------------------------------------------------------------------- |
 | `parse_cslmap`                                                          | `commands.rs` | Parses a `.cslmap` on a blocking thread and returns `CityData`.                        |
+| `get_startup_file_path`                                                 | `startup.rs`  | Returns and clears a `.cslmap` path supplied through the OS file association.          |
 | `load_themes`                                                           | `commands.rs` | Reads built-in `.vellumstyle` files.                                                   |
 | `export_png`                                                            | `commands.rs` | Writes already-rendered PNG bytes to disk.                                             |
 | `open_export_folder`                                                    | `commands.rs` | Reveals an exported file in the operating system's file browser.                       |
@@ -60,6 +62,11 @@ Vellum registers the dialog, store, opener and updater plugins. During
 4. Removes orphaned `.part` export files from interrupted sessions.
 5. Starts the updater check in the background.
 6. Cleans up active export sessions when the window or application closes.
+
+On Windows, the file association can launch Vellum with a `.cslmap` path. The Rust
+startup module stores that path until the first frontend mount; `main.tsx` then calls
+`get_startup_file_path` and routes the file through the same parsing workflow as the
+open-file dialog.
 
 The native menu adds **Preferences…** with `CmdOrCtrl+,`. Its event is forwarded
 as `vellum://open-preferences`, which `@vellum/ui` uses to open the preferences

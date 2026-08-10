@@ -25,7 +25,7 @@ La versión actual de la aplicación es `v0.4.0`. El flujo principal del visor e
 | Shell nativo         | Tauri                                      | ^2.x                                              |
 | Lenguaje nativo      | Rust                                       | Edition 2021 (`1.96.0` via `rust-toolchain.toml`) |
 | Gestor de paquetes   | pnpm                                       | `10.33.0` (exacta, pinneada)                      |
-| Orquestador de build | Turborepo                                  | latest                                            |
+| Orquestador de build | Turborepo                                  | `2.9.3`                                           |
 | Renderer activo      | MapLibre GL JS                             | ^5.24.0                                           |
 | Estilos              | Tailwind CSS v4 + Radix UI (patrón shadcn) | —                                                 |
 | Tests TS             | Vitest                                     | ^4.1.2                                            |
@@ -52,7 +52,7 @@ Ver [Análisis del Árbol de Fuentes](./source-tree-analysis.md) para el detalle
 ## Qué hace la app hoy
 
 - Abrir `.cslmap` por drag&drop o `Ctrl/Cmd+O`
-- Renderizar 7 capas independientes: terreno, agua, calles, tránsito, edificios, bosques, distritos
+- Renderizar 7 capas independientes: terreno, basemap (incluye agua), calles, tránsito, edificios, bosques y distritos
 - Pan/zoom acelerado por GPU, minimapa, modo limpio, rotación
 - Exportar la vista actual como PNG (1x-4x, con ruta tiled para mapas grandes) o SVG editable
 - Cambiar entre 5 temas visuales built-in

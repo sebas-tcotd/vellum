@@ -20,6 +20,7 @@ vellum/
 │       │   │   ├── main.rs             # Llama a vellum_lib::run()
 │       │   │   ├── lib.rs              # Builder Tauri, plugins, menú nativo, updater en background
 │       │   │   ├── commands.rs         # #[tauri::command]: parse_cslmap, export_png, begin/append/finish/cancel_export, load_themes, open_export_folder
+│       │   │   ├── startup.rs          # Handoff del path .cslmap recibido por asociación de archivos
 │       │   │   ├── updater.rs          # get_pending_update; check_for_updates en background
 │       │   │   ├── city_data.rs        # Modelo de dominio (espejo Rust de @vellum/core)
 │       │   │   ├── errors.rs           # VellumError (Rust)
@@ -33,7 +34,7 @@ vellum/
 │   │       ├── types/                  # city-data, cartographic-scene, layer, renderer (IRenderer), theme, color-tokens, export-pipeline, export-presentation
 │   │       ├── ipc-contract.ts         # IPC_COMMANDS, IPC_EVENTS, VellumError — fuente de verdad del contrato
 │   │       ├── testing/city-data-factory.ts  # Barrel de test independiente (@vellum/core/testing)
-│   │       └── index.ts                # Barrel público (nota: IRenderer/RenderParams NO se re-exportan aquí)
+│   │       └── index.ts                # Barrel público; re-exporta tipos, renderer, theme e IPC
 │   ├── parser-cslmap/                  # Adapter: XML .cslmap → CityData (crate Rust propio + adapter TS/napi)
 │   │   ├── src/
 │   │   │   ├── parser.rs + parser/{builder,events,utils,types}.rs   # Loop de eventos streaming
@@ -42,7 +43,7 @@ vellum/
 │   │   │   ├── dlc_fallback.rs         # Fallback por ItemClass desconocido (clasificación por ancho)
 │   │   │   └── city_data.rs, types.rs  # Espejo Rust del modelo de dominio
 │   │   └── fixtures/                   # minimal-valid, with-transit(-paths-debug), corrupted, unknown-dlc-assets (chicas) + 5 ciudades reales 11-24MB
-│   ├── renderer-webgl/                 # @vellum/renderer-webgl — ACTIVO, implementa IRenderer, ~100 archivos fuente
+│   ├── renderer-webgl/                 # @vellum/renderer-webgl — ACTIVO, implementa IRenderer
 │   │   └── src/
 │   │       ├── geojson/                # CityData → GeoJSON puro (sin import de MapLibre), builders/ config/ types/ utils/
 │   │       ├── layers/                 # Un archivo de config de capa MapLibre por capa (terrain, roads, transit, buildings, forests, districts, grid, map-frame, service-icons, watermark, background, basemap)
@@ -86,7 +87,8 @@ vellum/
 | `packages/core/src/ipc-contract.ts`      | Única fuente de verdad del contrato IPC — cualquier cambio requiere sincronía Rust+TS en el mismo commit                            |
 | `packages/renderer-webgl/src/geojson/`   | Traduce `CityData` a GeoJSON sin depender de MapLibre — reutilizado también por el pipeline SVG vía `cartographic-scene-builder.ts` |
 | `packages/renderer-webgl/src/export/`    | Dos rutas de export (tiled vs. legacy) decididas en runtime por `capability-probe.ts`                                               |
-| `apps/desktop/src-tauri/src/commands.rs` | Todos los comandos Tauri expuestos a la UI — 9 en `IPC_COMMANDS`                                                                    |
+| `apps/desktop/src-tauri/src/commands.rs` | Comandos Tauri de parseo, temas y export expuestos a la UI; el inventario canónico está en `IPC_COMMANDS`                           |
+| `apps/desktop/src-tauri/src/startup.rs`  | Conserva el path `.cslmap` entregado por el OS hasta que el frontend puede consumirlo                                               |
 | `packages/ui/src/store/vellum-store.ts`  | Único store Zustand — estado de carga, capas, temas, idioma, preferencias, updates                                                  |
 | `packages/parser-cslmap/fixtures/`       | Fixtures reales (11-24MB) usados para validar bugs de rendering que fixtures sintéticos no detectan                                 |
 

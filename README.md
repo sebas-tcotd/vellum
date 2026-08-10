@@ -18,7 +18,7 @@ Your city took hundreds of hours to build. Vellum gives it a map worth keeping.
 
 Cities: Skylines lets you build entire worlds. Vellum is a native desktop app for exploring those worlds as coherent, interactive maps instead of leaving them inside the game or reducing them to screenshots.
 
-Vellum renders terrain, water, roads, transit, buildings, forests and districts as independent map layers. It is designed around a simple belief: visual quality is part of the product, not decoration applied at the end.
+Vellum renders terrain, basemap (including water), roads, transit, buildings, forests and districts as independent map layers. It is designed around a simple belief: visual quality is part of the product, not decoration applied at the end.
 
 The project is built for Windows, macOS and Linux with Tauri 2, Rust, React, TypeScript and MapLibre GL JS.
 
@@ -36,7 +36,7 @@ The longer-term direction is a Vellum-native exporter and a richer, versioned fo
 ## What you can do today
 
 - Open `.cslmap` files with drag and drop or `Ctrl+O` / `Cmd+O`
-- Explore seven independent layers: terrain, water, roads, transit, buildings, forests and districts
+- Explore seven independent layers: terrain, basemap (including water), roads, transit, buildings, forests and districts
 - Pan and zoom a full city with GPU-accelerated MapLibre rendering
 - Inspect transit lines and stops through contextual map interactions
 - Use a minimap to stay oriented on large cities
@@ -52,7 +52,7 @@ The longer-term direction is a Vellum-native exporter and a richer, versioned fo
 
 Download the installer for your platform from the [latest GitHub Release](https://github.com/sebas-tcotd/vellum/releases/latest):
 
-- **Windows** — run the `.msi`. It offers an opt-in checkbox to open `.cslmap` files with Vellum by default (unchecked unless you enable it), and the installer is signed so Windows should not warn about an unknown publisher.
+- **Windows** — run the `.msi`. It offers an opt-in checkbox to open `.cslmap` files with Vellum by default (unchecked unless you enable it). Releases are configured to require Authenticode signing; if a release explicitly allows an unsigned Windows build, Windows may show an unknown-publisher warning.
 - **macOS** — open the `.dmg` and drag Vellum into `Applications`. **v1 is not notarized by Apple**, so after moving the app you must clear the quarantine flag once, from a terminal:
   ```bash
   xattr -cr /Applications/Vellum.app
@@ -121,7 +121,7 @@ The problem is not that players cannot build beautiful cities. It is that the wo
 
 Vellum started with a Canvas 2D renderer. As the map grew, CPU-rendered overscan and pan performance reached a hard ceiling. The project pivoted to MapLibre GL JS and WebGL after a focused spike proved that the target experience was achievable.
 
-That pivot was possible because the project had already separated the domain model from rendering. Every renderer implements the same `IRenderer` port, while `@vellum/ui` depends on the port rather than a concrete implementation. The legacy Canvas renderer remains in the repository as a tested reference; the active desktop application uses the MapLibre renderer.
+That pivot was possible because the project had already separated the domain model from rendering. Every renderer implements the same `IRenderer` port. The active `MapLibreRoot` still uses MapLibre-specific APIs for layer subscriptions, camera controls and snapshot capture, so the UI boundary is not fully renderer-agnostic yet. The legacy Canvas renderer remains in the repository as a tested reference; the active desktop application uses the MapLibre renderer.
 
 ```mermaid
 flowchart LR

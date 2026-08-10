@@ -67,7 +67,7 @@ RenderStyleParams (theme-engine) ─┘         │
 
 ### 3. Export (PNG/SVG) — el flujo más complejo del sistema
 
-El export tiene **dos IPC distintas** según el volumen de datos:
+El export raster tiene **dos rutas** según el volumen de datos:
 
 **Export PNG de un solo tile** (mapas chicos, ruta legacy):
 
@@ -94,6 +94,11 @@ invoke('finish_export') → composición incremental en Rust (tile_composer.rs) 
 
 **Export SVG**: reutiliza los mismos builders de `geojson/` vía `cartographic-scene-builder.ts` para producir un `CartographicScene` (tipo de `@vellum/core`, agnóstico de renderer) que luego se serializa a SVG editable — así la lógica de clasificación/exclusión (roads, filtros de edificios) no se duplica entre el pipeline PNG y el SVG.
 
+La ruta tiled se habilita después de que el capability probe del frontend tiene éxito.
+Si el probe falla o la ruta tiled falla durante la ejecución, `ExportCoordinator`
+vuelve a la ruta PNG legacy. La preferencia `vellum.export.forceLegacy` funciona como
+kill switch explícito para diagnóstico.
+
 Comandos IPC involucrados: `export_png`, `begin_export`, `append_export_chunk`, `finish_export`, `cancel_export`, `open_export_folder`.
 
 ### 4. Temas
@@ -117,7 +122,7 @@ RenderStyleParams → MapLibreRenderer.applyTheme(style)
 
 `packages/core/src/ipc-contract.ts` es la constitución del proyecto.
 
-**`IPC_COMMANDS`** (9): `PARSE_CSLMAP`, `LOAD_THEMES`, `EXPORT_PNG`, `OPEN_EXPORT_FOLDER`, `BEGIN_EXPORT`, `APPEND_EXPORT_CHUNK`, `FINISH_EXPORT`, `CANCEL_EXPORT`, `GET_PENDING_UPDATE`
+**`IPC_COMMANDS`** (10): `GET_PENDING_UPDATE`, `GET_STARTUP_FILE_PATH`, `PARSE_CSLMAP`, `EXPORT_PNG`, `OPEN_EXPORT_FOLDER`, `LOAD_THEMES`, `BEGIN_EXPORT`, `APPEND_EXPORT_CHUNK`, `FINISH_EXPORT`, `CANCEL_EXPORT`
 
 **`IPC_EVENTS`** (4): `PROGRESS` (`vellum://progress`), `PARSE_WARNINGS`, `UPDATE_AVAILABLE`, `OPEN_PREFERENCES`
 

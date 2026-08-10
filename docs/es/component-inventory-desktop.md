@@ -4,7 +4,8 @@
 
 ## Estado actual
 
-`@vellum/ui` es la única capa con React del monorepo (~41 archivos fuente, 34 archivos de test). Todos los componentes listados abajo están implementados y en uso — no hay placeholders.
+`@vellum/ui` es la única capa con React del monorepo. Todos los componentes listados
+abajo están implementados y en uso — no hay placeholders.
 
 ## Árbol de componentes montado por `App.tsx`
 
@@ -109,4 +110,5 @@ Primitivas estilo shadcn sobre Radix UI: `button.tsx`, `dialog.tsx`, `progress.t
 
 ## Testing
 
-34 archivos de test (`*.test.ts` / `*.test.tsx`) bajo `packages/ui/src`, uno junto a la mayoría de los componentes/hooks/store listados arriba.
+Los tests (`*.test.ts` / `*.test.tsx`) viven bajo `packages/ui/src`, junto a la mayoría
+de los componentes, hooks y stores listados arriba.

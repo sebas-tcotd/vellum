@@ -100,6 +100,9 @@ default CI job yet.
 | Workflow                                                             | Trigger                        | Purpose                                                                                                                                      |
 | -------------------------------------------------------------------- | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | [`ci.yml`](../../.github/workflows/ci.yml)                           | Push or pull request to `main` | Formatting, TypeScript, architecture, Vitest, Rust checks and platform compile checks.                                                       |
+| [`landing-ci.yml`](../../.github/workflows/landing-ci.yml)           | Landing PRs or manual run      | Type-checks/lints and builds `@vellum/landing`.                                                                                              |
+| [`deploy-pages.yml`](../../.github/workflows/deploy-pages.yml)       | Landing changes on `main`      | Builds and deploys the landing page to GitHub Pages, then checks the deployed HTML and assets.                                               |
+| [`release-please.yml`](../../.github/workflows/release-please.yml)   | Push to `main`                 | Creates or updates the Release Please PR used to prepare versioned releases.                                                                 |
 | [`publish-release.yml`](../../.github/workflows/publish-release.yml) | Tag `v*`                       | Builds Windows `.msi`, macOS `.dmg` and Linux `.AppImage` bundles, signs the updater artifacts and publishes the release after verification. |
 
 Use `pnpm release:verify` to check release and updater configuration locally. It

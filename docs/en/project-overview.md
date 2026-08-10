@@ -79,8 +79,8 @@ implementation details.
 ## What the app does today
 
 - Opens `.cslmap` files by drag and drop or `Ctrl/Cmd+O`.
-- Renders terrain, water, roads, transit, buildings, forests and districts as
-  independent map layers.
+- Renders terrain, basemap (including water), roads, transit, buildings, forests
+  and districts as independent map layers.
 - Provides GPU-accelerated pan, zoom, rotation, a minimap and clean mode.
 - Exports the current view as PNG at 1×, 2× or 4× scale, or as editable SVG.
 - Includes five built-in themes and supports additional `.vellumstyle` files.
