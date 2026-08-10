@@ -114,7 +114,7 @@ jobs:
       # (3x) vía beforeBuildCommand. Se construye acá una sola vez y se
       # descarga en cada job de build-release (ver build-tauri-platform).
       - name: Build frontend
-        run: pnpm exec turbo build --filter=@vellum/desktop
+        run: pnpm --filter @vellum/desktop run build:vite
 
       - uses: actions/upload-artifact@v4
         with:
