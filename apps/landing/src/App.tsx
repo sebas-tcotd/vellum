@@ -9,6 +9,7 @@ import {
 } from '@phosphor-icons/react';
 import { LayerShowcase } from './components/LayerShowcase';
 import { Reveal } from './components/Reveal';
+import { ThemeSelector } from './components/ThemeSelector';
 
 const releaseUrl = 'https://github.com/sebas-tcotd/vellum/releases/latest';
 const repositoryUrl = 'https://github.com/sebas-tcotd/vellum';
@@ -145,10 +146,13 @@ export function App() {
           <a href="#open-source">Open source</a>
         </nav>
 
-        <a className="button button-small button-dark" href={releaseUrl}>
-          Download Vellum
-          <ArrowUpRight size={15} weight="bold" aria-hidden="true" />
-        </a>
+        <div className="header-actions">
+          <ThemeSelector />
+          <a className="button button-small button-dark" href={releaseUrl}>
+            Download Vellum
+            <ArrowUpRight size={15} weight="bold" aria-hidden="true" />
+          </a>
+        </div>
       </header>
 
       <main id="main-content">

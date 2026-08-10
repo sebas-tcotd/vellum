@@ -29,6 +29,38 @@
   --font-mono: 'DM Mono', 'SFMono-Regular', Consolas, monospace;
 }
 
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --surface: #29251f;
+  --surface-raised: #342f29;
+  --surface-deep: #403930;
+  --ink: #f1ece3;
+  --muted: #c6baac;
+  --line: #5d5348;
+  --line-strong: #807466;
+  --accent: #8bcac5;
+  --accent-ink: #d2f1ec;
+  --contrast: #171d26;
+  --contrast-ink: #f1ece3;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --surface: #29251f;
+    --surface-raised: #342f29;
+    --surface-deep: #403930;
+    --ink: #f1ece3;
+    --muted: #c6baac;
+    --line: #5d5348;
+    --line-strong: #807466;
+    --accent: #8bcac5;
+    --accent-ink: #d2f1ec;
+    --contrast: #171d26;
+    --contrast-ink: #f1ece3;
+  }
+}
+
 * {
   box-sizing: border-box;
 }
@@ -112,6 +144,13 @@ code {
   align-items: center;
   gap: 28px;
   border-bottom: 1px solid var(--line);
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: 0;
 }
 
 .brand {
@@ -230,6 +269,41 @@ code {
 .button-light:focus-visible {
   background: var(--accent);
   color: var(--accent-ink);
+}
+
+.page-theme-selector {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-raised);
+}
+
+.page-theme-option {
+  display: inline-flex;
+  min-height: 28px;
+  align-items: center;
+  gap: 5px;
+  border: 0;
+  border-radius: 999px;
+  padding: 0 8px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.65rem;
+  transition:
+    background-color 180ms ease,
+    color 180ms ease;
+}
+
+.page-theme-option:hover,
+.page-theme-option:focus-visible,
+.page-theme-option[aria-pressed='true'] {
+  background: var(--surface);
+  color: var(--ink);
 }
 
 .hero {
@@ -913,6 +987,10 @@ h3 {
     padding-block: 14px;
   }
 
+  .header-actions {
+    justify-content: flex-end;
+  }
+
   .site-nav {
     grid-column: 1 / -1;
     grid-row: 2;
@@ -930,6 +1008,21 @@ h3 {
     min-height: 38px;
     padding-inline: 13px;
     font-size: 0.69rem;
+  }
+
+  .page-theme-option {
+    width: 29px;
+    justify-content: center;
+    padding-inline: 0;
+  }
+
+  .page-theme-option-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
   }
 
   .hero {

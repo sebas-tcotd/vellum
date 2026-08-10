@@ -1,70 +1,80 @@
-import { Moon, Sun } from '@phosphor-icons/react';
+import { Desktop, Moon, Sun } from '@phosphor-icons/react';
 import { useEffect, useState } from 'react';
 
-type Theme = 'paper' | 'dark';
+type Theme = 'light' | 'dark' | 'auto';
 
-const themeStorageKey = 'vellum-theme';
+const themeStorageKey = 'vellum-page-theme';
 
-export function getInitialTheme(): Theme {
+function getInitialTheme(): Theme {
+  if (typeof window === 'undefined') return 'auto';
+
   const queryTheme = new URLSearchParams(window.location.search).get('theme');
 
-  if (queryTheme === 'dark' || queryTheme === 'paper') {
+  if (
+    queryTheme === 'light' ||
+    queryTheme === 'dark' ||
+    queryTheme === 'auto'
+  ) {
     return queryTheme;
   }
 
   try {
     const storedTheme = window.localStorage.getItem(themeStorageKey);
-    return storedTheme === 'dark' ? 'dark' : 'paper';
+    return storedTheme === 'light' ||
+      storedTheme === 'dark' ||
+      storedTheme === 'auto'
+      ? storedTheme
+      : 'auto';
   } catch {
-    return 'paper';
+    return 'auto';
   }
 }
 
-interface ThemeSelectorProps {
-  onThemeChange: (theme: Theme) => void;
+function applyTheme(theme: Theme) {
+  if (theme === 'auto') {
+    document.documentElement.removeAttribute('data-theme');
+    return;
+  }
+
+  document.documentElement.dataset.theme = theme;
 }
 
-/** Small accessible theme control for the landing page footer. */
-export function ThemeSelector({ onThemeChange }: ThemeSelectorProps) {
+const themeOptions = [
+  { id: 'light', label: 'Light', icon: Sun },
+  { id: 'dark', label: 'Dark', icon: Moon },
+  { id: 'auto', label: 'Auto', icon: Desktop },
+] as const;
+
+/** Compact accessible page theme control for the landing header. */
+export function ThemeSelector() {
   const [theme, setTheme] = useState<Theme>(getInitialTheme);
 
   useEffect(() => {
-    onThemeChange(theme);
+    applyTheme(theme);
 
     try {
       window.localStorage.setItem(themeStorageKey, theme);
     } catch {
       // Continue without persistence when storage is unavailable.
     }
-  }, [onThemeChange, theme]);
-
-  function chooseTheme(nextTheme: Theme) {
-    setTheme(nextTheme);
-  }
+  }, [theme]);
 
   return (
-    <div className="theme-selector" role="group" aria-label="Color theme">
-      <span className="theme-selector-label">Theme</span>
-      <div className="theme-selector-options">
+    <div className="page-theme-selector" role="group" aria-label="Page theme">
+      {themeOptions.map(({ id, label, icon: Icon }) => (
         <button
-          className="theme-option"
+          aria-label={label}
+          aria-pressed={theme === id}
+          className="page-theme-option"
+          key={id}
+          onClick={() => setTheme(id)}
+          title={label}
           type="button"
-          aria-pressed={theme === 'paper'}
-          onClick={() => chooseTheme('paper')}
         >
-          <Sun size={15} weight="regular" aria-hidden="true" />
-          <span>Light</span>
+          <Icon size={14} weight="regular" aria-hidden="true" />
+          <span className="page-theme-option-label">{label}</span>
         </button>
-        <button
-          className="theme-option"
-          type="button"
-          aria-pressed={theme === 'dark'}
-          onClick={() => chooseTheme('dark')}
-        >
-          <Moon size={15} weight="regular" aria-hidden="true" />
-          <span>Dark</span>
-        </button>
-      </div>
+      ))}
     </div>
   );
 }
