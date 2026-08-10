@@ -281,6 +281,43 @@ code {
   background: var(--surface-raised);
 }
 
+.language-selector {
+  display: inline-flex;
+  align-items: center;
+}
+
+.language-selector select {
+  min-height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0 9px;
+  background: var(--surface-raised);
+  color: var(--muted);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 0.63rem;
+  letter-spacing: 0.05em;
+}
+
+.language-selector select:hover,
+.language-selector select:focus-visible {
+  border-color: var(--accent);
+  color: var(--ink);
+  outline: none;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .page-theme-option {
   display: inline-flex;
   min-height: 28px;
@@ -1239,6 +1276,11 @@ h3 {
     overflow: hidden;
     clip: rect(0 0 0 0);
     white-space: nowrap;
+  }
+
+  .language-selector select {
+    min-height: 32px;
+    padding-inline: 7px;
   }
 
   .hero {

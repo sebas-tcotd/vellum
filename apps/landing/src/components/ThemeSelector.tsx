@@ -1,4 +1,5 @@
 import { Desktop, Moon, Sun } from '@phosphor-icons/react';
+import { useTranslation } from 'react-i18next';
 import { useEffect, useState } from 'react';
 
 type Theme = 'light' | 'dark' | 'auto';
@@ -40,13 +41,14 @@ function applyTheme(theme: Theme) {
 }
 
 const themeOptions = [
-  { id: 'light', label: 'Light', icon: Sun },
-  { id: 'dark', label: 'Dark', icon: Moon },
-  { id: 'auto', label: 'Auto', icon: Desktop },
+  { id: 'light', labelKey: 'pageTheme.light', icon: Sun },
+  { id: 'dark', labelKey: 'pageTheme.dark', icon: Moon },
+  { id: 'auto', labelKey: 'pageTheme.auto', icon: Desktop },
 ] as const;
 
 /** Compact accessible page theme control for the landing header. */
 export function ThemeSelector() {
+  const { t } = useTranslation();
   const [theme, setTheme] = useState<Theme>(getInitialTheme);
 
   useEffect(() => {
@@ -60,21 +62,29 @@ export function ThemeSelector() {
   }, [theme]);
 
   return (
-    <div className="page-theme-selector" role="group" aria-label="Page theme">
-      {themeOptions.map(({ id, label, icon: Icon }) => (
-        <button
-          aria-label={label}
-          aria-pressed={theme === id}
-          className="page-theme-option"
-          key={id}
-          onClick={() => setTheme(id)}
-          title={label}
-          type="button"
-        >
-          <Icon size={14} weight="regular" aria-hidden="true" />
-          <span className="page-theme-option-label">{label}</span>
-        </button>
-      ))}
+    <div
+      className="page-theme-selector"
+      role="group"
+      aria-label={t('pageTheme.label')}
+    >
+      {themeOptions.map(({ id, labelKey, icon: Icon }) => {
+        const label = t(labelKey);
+
+        return (
+          <button
+            aria-label={label}
+            aria-pressed={theme === id}
+            className="page-theme-option"
+            key={id}
+            onClick={() => setTheme(id)}
+            title={label}
+            type="button"
+          >
+            <Icon size={14} weight="regular" aria-hidden="true" />
+            <span className="page-theme-option-label">{label}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }

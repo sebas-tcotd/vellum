@@ -1,4 +1,5 @@
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import { useTranslation } from 'react-i18next';
 import { useState } from 'react';
 import { ImageLightbox } from './ImageLightbox';
 
@@ -6,26 +7,21 @@ type TransitView = 'transit' | 'dim';
 
 const transitViews = {
   transit: {
-    label: 'Transit',
-    detail: 'Network brought forward',
     src: './assets/pepper-lake-theme-transit.webp',
-    alt: 'Pepper Lake map in Vellum Transit theme with the network emphasized',
   },
   dim: {
-    label: 'Transit dim',
-    detail: 'Dimmed map, brighter network',
     src: './assets/pepper-lake-theme-transit-dim.webp',
-    alt: 'Pepper Lake map in Vellum Transit dim theme with the network emphasized',
   },
-} satisfies Record<
-  TransitView,
-  { label: string; detail: string; src: string; alt: string }
->;
+} satisfies Record<TransitView, { src: string }>;
 
 export function ThemeComparison() {
+  const { t } = useTranslation();
   const [transitView, setTransitView] = useState<TransitView>('transit');
   const reduceMotion = useReducedMotion();
   const activeTransitView = transitViews[transitView];
+  const activeLabel = t(`themes.${transitView}.label`);
+  const activeDetail = t(`themes.${transitView}.detail`);
+  const activeAlt = t(`themes.${transitView}.alt`);
 
   return (
     <>
@@ -33,12 +29,12 @@ export function ThemeComparison() {
         <div className="theme-panel">
           <ImageLightbox
             src="./assets/pepper-lake-theme-day.webp"
-            alt="Pepper Lake map in Vellum Day theme"
-            label="Pepper Lake, Day theme"
+            alt={t('themes.dayAlt')}
+            label={t('themes.dayImageLabel')}
           />
           <div className="theme-label">
-            <span>Day</span>
-            <small>Full map reading</small>
+            <span>{t('themes.dayLabel')}</span>
+            <small>{t('themes.dayDetail')}</small>
           </div>
         </div>
         <div className="theme-panel theme-panel-transit">
@@ -55,14 +51,14 @@ export function ThemeComparison() {
             >
               <ImageLightbox
                 src={activeTransitView.src}
-                alt={activeTransitView.alt}
-                label={`Pepper Lake, ${activeTransitView.label} theme`}
+                alt={activeAlt}
+                label={t('themes.transitImageLabel', { view: activeLabel })}
               />
             </motion.div>
           </AnimatePresence>
           <div className="theme-label">
-            <span>{activeTransitView.label}</span>
-            <small>{activeTransitView.detail}</small>
+            <span>{activeLabel}</span>
+            <small>{activeDetail}</small>
           </div>
         </div>
       </div>
@@ -70,9 +66,9 @@ export function ThemeComparison() {
       <div
         className="theme-mode-control"
         role="group"
-        aria-label="Transit map theme"
+        aria-label={t('themes.ariaLabel')}
       >
-        <span className="theme-mode-title">Transit view</span>
+        <span className="theme-mode-title">{t('themes.modeLabel')}</span>
         <div className="theme-mode-options">
           {(Object.keys(transitViews) as TransitView[]).map((view) => (
             <button
@@ -82,7 +78,7 @@ export function ThemeComparison() {
               onClick={() => setTransitView(view)}
               type="button"
             >
-              {transitViews[view].label}
+              {t(`themes.${view}.label`)}
             </button>
           ))}
         </div>

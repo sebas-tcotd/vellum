@@ -1,4 +1,5 @@
 import { X } from '@phosphor-icons/react';
+import { useTranslation } from 'react-i18next';
 import { useId, useRef } from 'react';
 
 interface ImageLightboxProps {
@@ -14,6 +15,7 @@ export function ImageLightbox({
   label,
   src,
 }: ImageLightboxProps) {
+  const { t } = useTranslation();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const titleId = useId();
 
@@ -31,7 +33,7 @@ export function ImageLightbox({
       <button
         className="image-trigger"
         type="button"
-        aria-label={`View ${label} full size`}
+        aria-label={t('common.viewFullSize', { label })}
         onClick={openLightbox}
       >
         <img className={imageClassName} src={src} alt={alt} />
@@ -51,7 +53,7 @@ export function ImageLightbox({
               className="image-lightbox-close"
               type="button"
               onClick={closeLightbox}
-              aria-label="Close image"
+              aria-label={t('common.closeImage')}
             >
               <X size={19} weight="regular" aria-hidden="true" />
             </button>

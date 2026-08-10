@@ -7,56 +7,45 @@ import {
   Tree,
 } from '@phosphor-icons/react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import { useTranslation } from 'react-i18next';
 import { useRef, useState } from 'react';
 import { ImageLightbox } from './ImageLightbox';
 
 const layerSteps = [
   {
     id: 'terrain-base-map',
-    label: 'Terrain and base map',
-    detail: 'Land shape and water establish the first reading.',
+    translationKey: 'terrainBaseMap',
     src: './assets/pepper-lake-layer-01-terrain-water.webp',
-    alt: 'Pepper Lake terrain and base map layers in Vellum',
     icon: 'map',
   },
   {
     id: 'roads',
-    label: 'Roads',
-    detail: 'Street hierarchy gives the city its structure.',
+    translationKey: 'roads',
     src: './assets/pepper-lake-layer-02-roads.webp',
-    alt: 'Pepper Lake roads layer in Vellum',
     icon: 'roads',
   },
   {
     id: 'buildings',
-    label: 'Buildings',
-    detail: 'The built shape settles into the network.',
+    translationKey: 'buildings',
     src: './assets/pepper-lake-layer-03-buildings.webp',
-    alt: 'Pepper Lake buildings layer in Vellum',
     icon: 'buildings',
   },
   {
     id: 'forests',
-    label: 'Forests',
-    detail: 'Green structure fills the spaces between districts.',
+    translationKey: 'forests',
     src: './assets/pepper-lake-layer-04-forests.webp',
-    alt: 'Pepper Lake forests layer in Vellum',
     icon: 'tree',
   },
   {
     id: 'districts',
-    label: 'Districts',
-    detail: 'Boundaries make the city easier to read at a glance.',
+    translationKey: 'districts',
     src: './assets/pepper-lake-layer-05-districts.webp',
-    alt: 'Pepper Lake districts layer in Vellum',
     icon: 'map',
   },
   {
     id: 'transit',
-    label: 'Transit',
-    detail: 'Lines and stops bring movement to the finished map.',
+    translationKey: 'transit',
     src: './assets/pepper-lake-layer-06-transit.webp',
-    alt: 'Pepper Lake transit layer in Vellum',
     icon: 'train',
   },
 ] as const;
@@ -70,10 +59,14 @@ function LayerIcon({ kind }: { kind: (typeof layerSteps)[number]['icon'] }) {
 }
 
 export function LayerShowcase() {
+  const { t } = useTranslation();
   const [activeIndex, setActiveIndex] = useState(0);
   const reduceMotion = useReducedMotion();
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const activeLayer = layerSteps[activeIndex];
+  const activeLabel = t(`layers.items.${activeLayer.translationKey}.label`);
+  const activeDetail = t(`layers.items.${activeLayer.translationKey}.detail`);
+  const activeAlt = t(`layers.items.${activeLayer.translationKey}.alt`);
 
   const selectLayer = (index: number, moveFocus = false) => {
     const nextIndex = (index + layerSteps.length) % layerSteps.length;
@@ -101,27 +94,27 @@ export function LayerShowcase() {
           >
             <ImageLightbox
               src={activeLayer.src}
-              alt={activeLayer.alt}
+              alt={activeAlt}
               imageClassName="layer-showcase-image"
-              label={`Pepper Lake, ${activeLayer.label}`}
+              label={`Pepper Lake, ${activeLabel}`}
             />
           </motion.div>
         </AnimatePresence>
         <div className="layer-showcase-caption">
           <span>Pepper Lake</span>
-          <span>{activeLayer.label}</span>
+          <span>{activeLabel}</span>
         </div>
       </div>
 
       <div className="layer-showcase-controls">
         <div className="layer-showcase-heading">
-          <p className="section-kicker">Progressive layers</p>
-          <p>{activeLayer.detail}</p>
+          <p className="section-kicker">{t('layers.progressive')}</p>
+          <p>{activeDetail}</p>
         </div>
         <div
           className="layer-tabs"
           role="tablist"
-          aria-label="Pepper Lake map layers"
+          aria-label={t('layers.ariaLabel')}
         >
           {layerSteps.map((layer, index) => (
             <button
@@ -159,19 +152,19 @@ export function LayerShowcase() {
               <span className="layer-tab-icon" aria-hidden="true">
                 <LayerIcon kind={layer.icon} />
               </span>
-              <span>{layer.label}</span>
+              <span>{t(`layers.items.${layer.translationKey}.label`)}</span>
               <span className="layer-tab-index">0{index + 1}</span>
             </button>
           ))}
         </div>
         <p className="layer-showcase-source">
-          Pepper Lake · Day theme ·{' '}
+          {t('layers.source')}{' '}
           <a
             href="https://steamcommunity.com/sharedfiles/filedetails/?id=1568162351"
             target="_blank"
             rel="noreferrer"
           >
-            Steam Workshop{' '}
+            {t('common.workshop')}{' '}
             <ArrowUpRight size={12} weight="bold" aria-hidden="true" />
           </a>
         </p>

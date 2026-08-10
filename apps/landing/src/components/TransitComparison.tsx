@@ -1,5 +1,6 @@
 import { ArrowUpRightIcon } from '@phosphor-icons/react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import { useTranslation } from 'react-i18next';
 import { useState } from 'react';
 import { ImageLightbox } from './ImageLightbox';
 
@@ -7,29 +8,23 @@ type TransitView = 'transit' | 'dim';
 
 const transitViews = {
   transit: {
-    label: 'Transit',
-    detail: 'Network brought forward',
     src: './assets/spring-valley-transit-theme.webp',
-    alt: 'Spring Valley map in Vellum Transit theme with the network emphasized',
   },
   dim: {
-    label: 'Transit dim',
-    detail: 'Dimmed map, brighter network',
     src: './assets/spring-valley-transit-theme-dim.webp',
-    alt: 'Spring Valley map in Vellum Transit dim theme with the network emphasized',
   },
-} satisfies Record<
-  TransitView,
-  { label: string; detail: string; src: string; alt: string }
->;
+} satisfies Record<TransitView, { src: string }>;
 
 const workshopUrl =
   'https://steamcommunity.com/sharedfiles/filedetails/?id=1273431737';
 
 export function TransitComparison() {
+  const { t } = useTranslation();
   const [transitView, setTransitView] = useState<TransitView>('transit');
   const reduceMotion = useReducedMotion();
   const activeTransitView = transitViews[transitView];
+  const activeLabel = t(`transit.views.${transitView}.label`);
+  const activeAlt = t(`transit.views.${transitView}.alt`);
 
   return (
     <div className="transit-map-viewer">
@@ -49,9 +44,9 @@ export function TransitComparison() {
             >
               <ImageLightbox
                 src={activeTransitView.src}
-                alt={activeTransitView.alt}
+                alt={activeAlt}
                 imageClassName="transit-image"
-                label={`Spring Valley, ${activeTransitView.label} theme`}
+                label={t('transit.imageLabel', { view: activeLabel })}
               />
             </motion.div>
           </AnimatePresence>
@@ -59,7 +54,7 @@ export function TransitComparison() {
         <figcaption>
           <span>
             <strong>Spring Valley</strong>
-            <small>{activeTransitView.label} theme · lines and stops</small>
+            <small>{t('transit.imageDetail', { view: activeLabel })}</small>
           </span>
           <a
             className="workshop-link"
@@ -67,7 +62,7 @@ export function TransitComparison() {
             target="_blank"
             rel="noreferrer"
           >
-            Steam Workshop
+            {t('common.workshop')}
             <ArrowUpRightIcon size={13} weight="bold" aria-hidden="true" />
           </a>
         </figcaption>
@@ -76,9 +71,9 @@ export function TransitComparison() {
       <div
         className="transit-mode-control"
         role="group"
-        aria-label="Transit map theme"
+        aria-label={t('transit.ariaLabel')}
       >
-        <span className="transit-mode-title">Transit view</span>
+        <span className="transit-mode-title">{t('transit.viewLabel')}</span>
         <div className="transit-mode-options">
           {(Object.keys(transitViews) as TransitView[]).map((view) => (
             <button
@@ -88,7 +83,7 @@ export function TransitComparison() {
               onClick={() => setTransitView(view)}
               type="button"
             >
-              {transitViews[view].label}
+              {t(`transit.views.${view}.label`)}
             </button>
           ))}
         </div>

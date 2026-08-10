@@ -10,10 +10,14 @@ import {
 } from '@phosphor-icons/react';
 import { LayerShowcase } from './components/LayerShowcase';
 import { ImageLightbox } from './components/ImageLightbox';
+import { LanguageSelector } from './components/LanguageSelector';
 import { Reveal } from './components/Reveal';
 import { ThemeSelector } from './components/ThemeSelector';
 import { ThemeComparison } from './components/ThemeComparison';
 import { TransitComparison } from './components/TransitComparison';
+import { useTranslation } from 'react-i18next';
+import { useEffect } from 'react';
+import { fallbackLanguage, i18n } from './i18n';
 
 const releaseUrl = 'https://github.com/sebas-tcotd/vellum/releases/latest';
 const repositoryUrl = 'https://github.com/sebas-tcotd/vellum';
@@ -47,9 +51,11 @@ interface MapFigureProps {
 }
 
 function WorkshopLink({ href }: { href: string }) {
+  const { t } = useTranslation();
+
   return (
     <a className="workshop-link" href={href} target="_blank" rel="noreferrer">
-      Steam Workshop
+      {t('common.workshop')}
       <ArrowUpRight size={13} weight="bold" aria-hidden="true" />
     </a>
   );
@@ -86,8 +92,10 @@ function MapFigure({
 }
 
 function Brand({ footer = false }: { footer?: boolean }) {
+  const { t } = useTranslation();
+
   return (
-    <a className="brand" href="#top" aria-label="Vellum home">
+    <a className="brand" href="#top" aria-label={t('common.homeLabel')}>
       <img
         className="brand-isotype"
         src="./assets/vellum-isotype-rounded.svg"
@@ -103,34 +111,26 @@ function Brand({ footer = false }: { footer?: boolean }) {
 
 const gallery = [
   {
-    city: 'Island Hopping',
-    detail: 'Day theme · a city spread across water',
+    key: 'islandHopping',
     src: './assets/island-hopping-day-gallery.webp',
-    alt: 'Island Hopping map with a dense connected city distributed across islands',
     workshopUrl: workshop.islandHopping,
     className: 'gallery-card-wide',
   },
   {
-    city: '웨스트데일',
-    detail: 'Atlantic Keys · Day theme',
+    key: 'westdale',
     src: './assets/westdale-day-gallery.webp',
-    alt: 'Westdale map showing a dense coastal city and surrounding water',
     workshopUrl: workshop.atlanticKeys,
     className: 'gallery-card-tall',
   },
   {
-    city: 'San Rico',
-    detail: 'Day theme · islands, bridges, and transit corridors',
+    key: 'sanRico',
     src: './assets/san-rico-day-gallery.webp',
-    alt: 'San Rico map showing islands, bridges, roads, and a central city',
     workshopUrl: workshop.sanRico,
     className: '',
   },
   {
-    city: 'Costa Tijuca',
-    detail: 'Day theme · roads meeting a broad coastline',
+    key: 'costaTijuca',
     src: './assets/costa-tijuca-day-gallery.webp',
-    alt: 'Costa Tijuca map showing a large coastal city with water and road hierarchy',
     workshopUrl: workshop.costaTijuca,
     className: '',
   },
@@ -138,27 +138,45 @@ const gallery = [
 
 /** Marketing page for the Vellum desktop map viewer. */
 export function App() {
+  const { t } = useTranslation();
+
+  useEffect(() => {
+    const language = i18n.resolvedLanguage ?? fallbackLanguage;
+    document.documentElement.lang = language;
+    document.title = t('meta.title');
+    document
+      .querySelector('meta[name="description"]')
+      ?.setAttribute('content', t('meta.description'));
+    document
+      .querySelector('meta[property="og:title"]')
+      ?.setAttribute('content', t('meta.title'));
+    document
+      .querySelector('meta[property="og:description"]')
+      ?.setAttribute('content', t('meta.ogDescription'));
+  }, [i18n.language, t]);
+
   return (
     <div className="site-shell">
       <a className="skip-link" href="#main-content">
-        Skip to content
+        {t('common.skipToContent')}
       </a>
 
       <header className="site-header page-width">
         <Brand />
 
-        <nav className="site-nav" aria-label="Primary navigation">
-          <a href="#cities">Cities</a>
-          <a href="#layers">Layers</a>
-          <a href="#themes">Themes</a>
-          <a href="#workflow">Workflow</a>
-          <a href="#open-source">Open source</a>
+        <nav className="site-nav" aria-label={t('header.primaryNavigation')}>
+          <a href="#cities">{t('header.nav.cities')}</a>
+          <a href="#layers">{t('header.nav.layers')}</a>
+          <a href="#themes">{t('header.nav.themes')}</a>
+          <a href="#workflow">{t('header.nav.workflow')}</a>
+          <a href="#open-source">{t('header.nav.openSource')}</a>
         </nav>
 
         <div className="header-actions">
+          <LanguageSelector />
           <ThemeSelector />
           <a className="button button-small button-dark" href={releaseUrl}>
-            Download Vellum
+            {t('common.download')}
             <ArrowUpRight size={15} weight="bold" aria-hidden="true" />
           </a>
         </div>
@@ -171,20 +189,18 @@ export function App() {
           aria-labelledby="hero-title"
         >
           <Reveal className="hero-copy">
-            <p className="eyebrow">
-              A cartographic viewer for Cities: Skylines 1
-            </p>
-            <h1 id="hero-title">A map for the city you built.</h1>
+            <p className="eyebrow">{t('hero.eyebrow')}</p>
+            <h1 id="hero-title">{t('hero.title')}</h1>
             <p className="hero-lede">
-              Open a <code>.cslmap</code> export and read your city in layers.
+              {t('hero.ledeBefore')} <code>.cslmap</code> {t('hero.ledeAfter')}
             </p>
             <div className="hero-actions">
               <a className="button button-dark" href={releaseUrl}>
-                Download Vellum
+                {t('common.download')}
                 <ArrowUpRight size={17} weight="bold" aria-hidden="true" />
               </a>
               <a className="text-link" href="#layers">
-                Explore the map
+                {t('hero.explore')}
                 <ArrowDown size={15} weight="bold" aria-hidden="true" />
               </a>
             </div>
@@ -195,9 +211,9 @@ export function App() {
               className="map-figure-hero"
               imageClassName="map-image-hero"
               imageSrc="./assets/spring-valley-day-hero.webp"
-              alt="Spring Valley map in Vellum Day theme, showing a broad city between rivers and coast"
+              alt={t('hero.imageAlt')}
               city="Spring Valley"
-              detail="Day theme · Vellum map view"
+              detail={t('hero.imageDetail')}
               workshopUrl={workshop.springValley}
             />
           </Reveal>
@@ -206,14 +222,9 @@ export function App() {
         <section className="promise page-width" aria-labelledby="promise-title">
           <div className="section-rule" />
           <Reveal>
-            <p className="section-kicker">A record of the place</p>
-            <h2 id="promise-title">
-              Your city should be readable outside the game.
-            </h2>
-            <p>
-              Vellum turns a Cities: Skylines export into a map you can inspect,
-              share, and preserve.
-            </p>
+            <p className="section-kicker">{t('promise.kicker')}</p>
+            <h2 id="promise-title">{t('promise.title')}</h2>
+            <p>{t('promise.body')}</p>
           </Reveal>
         </section>
 
@@ -223,12 +234,9 @@ export function App() {
           aria-labelledby="cities-title"
         >
           <Reveal className="section-intro">
-            <p className="section-kicker">Real maps from real cities</p>
-            <h2 id="cities-title">The shape of a city is already a story.</h2>
-            <p>
-              These are Cities: Skylines maps opened in Vellum, with their
-              original Workshop sources kept in view.
-            </p>
+            <p className="section-kicker">{t('cities.kicker')}</p>
+            <h2 id="cities-title">{t('cities.title')}</h2>
+            <p>{t('cities.body')}</p>
           </Reveal>
 
           <div className="gallery-grid">
@@ -236,14 +244,14 @@ export function App() {
               <Reveal
                 className={`gallery-card ${map.className}`}
                 delay={index * 0.06}
-                key={map.city}
+                key={map.key}
               >
                 <MapFigure
                   imageSrc={map.src}
                   imageClassName="gallery-image"
-                  alt={map.alt}
-                  city={map.city}
-                  detail={map.detail}
+                  alt={t(`gallery.${map.key}.alt`)}
+                  city={t(`gallery.${map.key}.city`)}
+                  detail={t(`gallery.${map.key}.detail`)}
                   workshopUrl={map.workshopUrl}
                 />
               </Reveal>
@@ -257,12 +265,9 @@ export function App() {
           aria-labelledby="layers-title"
         >
           <Reveal className="section-intro layers-intro">
-            <p className="section-kicker">A map, layer by layer</p>
-            <h2 id="layers-title">See the city become legible.</h2>
-            <p>
-              Start with terrain and base map, then bring roads, buildings,
-              forests, districts, and transit into the reading.
-            </p>
+            <p className="section-kicker">{t('layers.kicker')}</p>
+            <h2 id="layers-title">{t('layers.title')}</h2>
+            <p>{t('layers.body')}</p>
           </Reveal>
 
           <Reveal className="layer-showcase-wrap" delay={0.08}>
@@ -276,18 +281,15 @@ export function App() {
         >
           <div className="transit-copy">
             <Reveal>
-              <p className="section-kicker">Transit, brought forward</p>
-              <h2 id="transit-title">Follow the network.</h2>
-              <p>
-                Inspect lines and stops over the city they serve, then use the
-                minimap to stay oriented as you move through the view.
-              </p>
+              <p className="section-kicker">{t('transit.kicker')}</p>
+              <h2 id="transit-title">{t('transit.title')}</h2>
+              <p>{t('transit.body')}</p>
             </Reveal>
             <Reveal className="transit-note" delay={0.08}>
               <span className="feature-mark" aria-hidden="true">
                 <Train size={21} weight="regular" />
               </span>
-              <p>When transit is the story, the map can make it the subject.</p>
+              <p>{t('transit.note')}</p>
             </Reveal>
           </div>
 
@@ -302,12 +304,9 @@ export function App() {
           aria-labelledby="themes-title"
         >
           <Reveal className="section-intro">
-            <p className="section-kicker">Built-in points of view</p>
-            <h2 id="themes-title">A map can have a point of view.</h2>
-            <p>
-              Choose the theme that matches the way you want to remember the
-              city, from a quiet overview to a transit-first reading.
-            </p>
+            <p className="section-kicker">{t('themes.kicker')}</p>
+            <h2 id="themes-title">{t('themes.title')}</h2>
+            <p>{t('themes.body')}</p>
           </Reveal>
 
           <Reveal delay={0.08}>
@@ -319,12 +318,9 @@ export function App() {
               <Palette size={21} weight="regular" />
             </span>
             <div>
-              <p className="section-kicker">Next in the atlas</p>
-              <h3>Create a visual language of your own.</h3>
-              <p>
-                A custom <code>.vellumstyle</code> format is planned. Its schema
-                is still being formalized for community-made themes.
-              </p>
+              <p className="section-kicker">{t('themes.futureKicker')}</p>
+              <h3>{t('themes.futureTitle')}</h3>
+              <p>{t('themes.futureBody')}</p>
             </div>
           </Reveal>
         </section>
@@ -335,11 +331,9 @@ export function App() {
           aria-labelledby="workflow-title"
         >
           <Reveal className="workflow-heading">
-            <p className="section-kicker">A simple path in</p>
-            <h2 id="workflow-title">From export to artifact.</h2>
-            <p>
-              Vellum sits after the game and before the work you want to keep.
-            </p>
+            <p className="section-kicker">{t('workflow.kicker')}</p>
+            <h2 id="workflow-title">{t('workflow.title')}</h2>
+            <p>{t('workflow.body')}</p>
           </Reveal>
 
           <ol className="workflow-list">
@@ -348,10 +342,11 @@ export function App() {
                 <ArrowUpRight size={20} weight="regular" />
               </span>
               <div>
-                <h3>Get a .cslmap</h3>
+                <h3>{t('workflow.getTitle')}</h3>
                 <p>
-                  Export your city with <a href={cslMapViewUrl}>CSL Map View</a>
-                  , the community exporter.
+                  {t('workflow.getBodyBefore')}{' '}
+                  <a href={cslMapViewUrl}>{t('workflow.cslMapView')}</a>
+                  {t('workflow.getBodyAfter')}
                 </p>
               </div>
             </Reveal>
@@ -360,11 +355,8 @@ export function App() {
                 <MapTrifold size={20} weight="regular" />
               </span>
               <div>
-                <h3>Open and explore</h3>
-                <p>
-                  Pan, zoom, inspect transit, control the layers, and keep your
-                  bearings with the minimap.
-                </p>
+                <h3>{t('workflow.openTitle')}</h3>
+                <p>{t('workflow.openBody')}</p>
               </div>
             </Reveal>
             <Reveal as="li" className="workflow-item" delay={0.16}>
@@ -372,10 +364,8 @@ export function App() {
                 <Export size={20} weight="regular" />
               </span>
               <div>
-                <h3>Export the result</h3>
-                <p>
-                  Save a PNG for sharing or an editable SVG for the next pass.
-                </p>
+                <h3>{t('workflow.exportTitle')}</h3>
+                <p>{t('workflow.exportBody')}</p>
               </div>
             </Reveal>
           </ol>
@@ -387,21 +377,18 @@ export function App() {
           aria-labelledby="open-source-title"
         >
           <Reveal className="open-source-copy">
-            <p className="section-kicker">Made in the open</p>
-            <h2 id="open-source-title">Open by design.</h2>
-            <p>
-              Vellum is open source under the MIT License. Read the code, follow
-              the documentation, and see how the map is made.
-            </p>
+            <p className="section-kicker">{t('openSource.kicker')}</p>
+            <h2 id="open-source-title">{t('openSource.title')}</h2>
+            <p>{t('openSource.body')}</p>
           </Reveal>
           <Reveal className="open-source-links" delay={0.08}>
             <a className="text-link" href={repositoryUrl}>
               <GithubLogo size={17} weight="regular" aria-hidden="true" />
-              Explore the repository
+              {t('openSource.repository')}
               <ArrowUpRight size={15} weight="bold" aria-hidden="true" />
             </a>
             <a className="text-link" href={documentationUrl}>
-              Read the documentation
+              {t('openSource.documentation')}
               <ArrowUpRight size={15} weight="bold" aria-hidden="true" />
             </a>
           </Reveal>
@@ -413,18 +400,13 @@ export function App() {
           aria-labelledby="download-title"
         >
           <Reveal className="download-copy">
-            <p className="section-kicker">
-              Start with the city you already have
-            </p>
-            <h2 id="download-title">Bring your city into view.</h2>
-            <p>
-              Download Vellum from GitHub Releases and open your first .cslmap
-              export.
-            </p>
+            <p className="section-kicker">{t('download.kicker')}</p>
+            <h2 id="download-title">{t('download.title')}</h2>
+            <p>{t('download.body')}</p>
           </Reveal>
           <Reveal delay={0.08}>
             <a className="button button-light" href={releaseUrl}>
-              Download Vellum
+              {t('common.download')}
               <ArrowUpRight size={17} weight="bold" aria-hidden="true" />
             </a>
           </Reveal>
@@ -436,21 +418,22 @@ export function App() {
           <div className="footer-main">
             <div>
               <Brand footer />
-              <p>Maps for cities worth remembering.</p>
+              <p>{t('footer.tagline')}</p>
             </div>
-            <nav className="footer-nav" aria-label="Footer navigation">
+            <nav className="footer-nav" aria-label={t('footer.navigation')}>
               <a href={repositoryUrl}>
                 <GithubLogo size={16} weight="regular" aria-hidden="true" />
                 GitHub
               </a>
-              <a href={licenseUrl}>MIT License</a>
-              <a href={documentationUrl}>Documentation</a>
-              <a href="#top">Back to top</a>
+              <a href={licenseUrl}>{t('footer.mit')}</a>
+              <a href={documentationUrl}>{t('openSource.documentation')}</a>
+              <a href="#top">{t('common.backToTop')}</a>
             </nav>
           </div>
           <p className="footer-credit">
-            made with <Heart size={12} weight="fill" aria-hidden="true" /> by
-            Sebastian Vargas
+            {t('footer.credit')}{' '}
+            <Heart size={12} weight="fill" aria-hidden="true" />{' '}
+            {t('footer.by')} Sebastian Vargas
           </p>
         </div>
       </footer>
