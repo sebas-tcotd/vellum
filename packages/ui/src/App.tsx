@@ -36,18 +36,48 @@ import type {
   ExportRequest,
   ExportSnapshot,
   LayerName,
+  BuildingServiceCategory,
   RasterExportV2,
   SvgExportPort,
   SvgExportRequest,
   SvgExportSnapshot,
   UpdatePayload,
+  MenuAction,
+  TransitMode,
 } from '@vellum/core';
-import { IPC_COMMANDS, IPC_EVENTS } from '@vellum/core';
+import { IPC_COMMANDS, IPC_EVENTS, LAYER_NAMES } from '@vellum/core';
 import { invoke } from '@tauri-apps/api/core';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { useVellumStore } from './store/vellum-store';
 
 const noop = async (): Promise<void> => {};
+
+function isLayerName(value: string): value is LayerName {
+  return LAYER_NAMES.includes(value as LayerName);
+}
+
+function isTransitMode(value: string): value is TransitMode {
+  return (
+    value === 'Bus' ||
+    value === 'Tram' ||
+    value === 'Train' ||
+    value === 'Metro' ||
+    value === 'CableCar' ||
+    value === 'Monorail' ||
+    value === 'Ferry' ||
+    value === 'Blimp' ||
+    value === 'Trolleybus'
+  );
+}
+
+function isBuildingCategory(value: string): value is BuildingServiceCategory {
+  return (
+    value === 'residential' ||
+    value === 'industry' ||
+    value === 'commercial' ||
+    value === 'office'
+  );
+}
 
 /**
  * Ref a composition root reads to request cancellation of any active export —
@@ -151,6 +181,36 @@ export function App({
   const setDlcWarnings = useVellumStore((s) => s.setDlcWarnings);
   const setHasPartialData = useVellumStore((s) => s.setHasPartialData);
   const toggleLayer = useVellumStore((s) => s.toggleLayer);
+  const setActiveTheme = useVellumStore((s) => s.setActiveTheme);
+  const availableThemes = useVellumStore((s) => s.availableThemes);
+  const layerOptions = useVellumStore((s) => s.layerOptions);
+  const transitDimmingEnabled = useVellumStore((s) => s.transitDimmingEnabled);
+  const setTransitDimmingEnabled = useVellumStore(
+    (s) => s.setTransitDimmingEnabled,
+  );
+  const toggleTransitMode = useVellumStore((s) => s.toggleTransitMode);
+  const toggleBuildingCategory = useVellumStore(
+    (s) => s.toggleBuildingCategory,
+  );
+  const setBuildingColorByCategory = useVellumStore(
+    (s) => s.setBuildingColorByCategory,
+  );
+  const setDistrictsShowNameOnMap = useVellumStore(
+    (s) => s.setDistrictsShowNameOnMap,
+  );
+  const setDistrictsShowParkAreas = useVellumStore(
+    (s) => s.setDistrictsShowParkAreas,
+  );
+  const setTerrainShowContourLines = useVellumStore(
+    (s) => s.setTerrainShowContourLines,
+  );
+  const setTerrainShowColorRelief = useVellumStore(
+    (s) => s.setTerrainShowColorRelief,
+  );
+  const setTerrainShowHillshade = useVellumStore(
+    (s) => s.setTerrainShowHillshade,
+  );
+  const setBasemapShowGrid = useVellumStore((s) => s.setBasemapShowGrid);
   const expandedPanelLayer = useVellumStore((s) => s.expandedPanelLayer);
   const setExpandedPanelLayer = useVellumStore((s) => s.setExpandedPanelLayer);
   const themeWarnings = useVellumStore((s) => s.themeWarnings);
@@ -229,6 +289,148 @@ export function App({
     [expandedPanelLayer, setExpandedPanelLayer],
   );
 
+  const handleMenuAction = useCallback(
+    (action: MenuAction) => {
+      if (action === 'menu.open-file') {
+        void openFileDialog();
+        return;
+      }
+      if (action === 'menu.open-export') {
+        if (cityData !== null && loadingState !== 'loading' && !isExporting) {
+          void handleOpenExport();
+        }
+        return;
+      }
+      if (action === 'menu.fit-to-screen') {
+        if (cityData !== null) handleFitToScreen();
+        return;
+      }
+      if (action === 'menu.zoom-in') {
+        if (cityData !== null) handleZoomIn();
+        return;
+      }
+      if (action === 'menu.zoom-out') {
+        if (cityData !== null) handleZoomOut();
+        return;
+      }
+      if (action === 'menu.clean-mode') {
+        if (cityData !== null && loadingState !== 'loading') handleHidePanel();
+        return;
+      }
+      if (action === 'menu.navigation-mode') {
+        if (cityData !== null) handleToggleNavigationMode();
+        return;
+      }
+      if (action === 'menu.icon-legend') {
+        if (cityData !== null) handleToggleIconLegend();
+        return;
+      }
+      if (action === 'menu.rotate-left') {
+        if (cityData !== null) handleRotateBy(-15);
+        return;
+      }
+      if (action === 'menu.rotate-right') {
+        if (cityData !== null) handleRotateBy(15);
+        return;
+      }
+      if (action === 'menu.reset-bearing') {
+        if (cityData !== null) handleResetBearing();
+        return;
+      }
+      if (action === 'menu.toggle-transit-dimming') {
+        setTransitDimmingEnabled(!transitDimmingEnabled);
+        return;
+      }
+
+      const layerPrefix = 'menu.toggle-layer.';
+      if (action.startsWith(layerPrefix)) {
+        const layer = action.slice(layerPrefix.length);
+        if (cityData !== null && isLayerName(layer)) toggleLayer(layer);
+        return;
+      }
+
+      const advancedPrefix = 'menu.open-advanced.';
+      if (action.startsWith(advancedPrefix)) {
+        const layer = action.slice(advancedPrefix.length);
+        if (cityData !== null && isLayerName(layer)) {
+          handleOpenAdvancedOptions(layer);
+        }
+        return;
+      }
+
+      const optionPrefix = 'menu.toggle-advanced.';
+      if (action.startsWith(optionPrefix)) {
+        if (cityData === null) return;
+        const [, , layer, option] = action.split('.');
+        if (layer === 'terrain') {
+          if (option === 'contour-lines') {
+            setTerrainShowContourLines(!layerOptions.terrain.showContourLines);
+          } else if (option === 'color-relief') {
+            setTerrainShowColorRelief(!layerOptions.terrain.showColorRelief);
+          } else if (option === 'hillshade') {
+            setTerrainShowHillshade(!layerOptions.terrain.showHillshade);
+          }
+        } else if (layer === 'basemap' && option === 'grid') {
+          setBasemapShowGrid(!layerOptions.basemap.showGrid);
+        } else if (layer === 'transit' && isTransitMode(option)) {
+          toggleTransitMode(option);
+        } else if (layer === 'buildings') {
+          if (option === 'color-by-category') {
+            setBuildingColorByCategory(!layerOptions.buildings.colorByCategory);
+          } else if (isBuildingCategory(option)) {
+            toggleBuildingCategory(option);
+          }
+        } else if (layer === 'districts') {
+          if (option === 'show-names') {
+            setDistrictsShowNameOnMap(!layerOptions.districts.showNameOnMap);
+          } else if (option === 'show-park-areas') {
+            setDistrictsShowParkAreas(!layerOptions.districts.showParkAreas);
+          }
+        }
+        return;
+      }
+
+      const themePrefix = 'menu.theme.';
+      if (action.startsWith(themePrefix)) {
+        const themeId = action.slice(themePrefix.length);
+        if (availableThemes.some((theme) => theme.id === themeId)) {
+          setActiveTheme(themeId);
+        }
+      }
+    },
+    [
+      availableThemes,
+      cityData,
+      handleFitToScreen,
+      handleHidePanel,
+      handleOpenAdvancedOptions,
+      handleOpenExport,
+      handleResetBearing,
+      handleRotateBy,
+      handleToggleIconLegend,
+      handleToggleNavigationMode,
+      handleZoomIn,
+      handleZoomOut,
+      isExporting,
+      layerOptions,
+      loadingState,
+      openFileDialog,
+      setActiveTheme,
+      setBasemapShowGrid,
+      setBuildingColorByCategory,
+      setDistrictsShowNameOnMap,
+      setDistrictsShowParkAreas,
+      setTerrainShowColorRelief,
+      setTerrainShowContourLines,
+      setTerrainShowHillshade,
+      setTransitDimmingEnabled,
+      transitDimmingEnabled,
+      toggleBuildingCategory,
+      toggleLayer,
+      toggleTransitMode,
+    ],
+  );
+
   useKeyboardShortcuts({
     onOpenFile: openFileDialog,
     // Layer shortcuts 1-7 only active when a map is loaded
@@ -257,6 +459,7 @@ export function App({
   });
 
   useTauriEvent(IPC_EVENTS.OPEN_PREFERENCES, () => setIsPreferencesOpen(true));
+  useTauriEvent(IPC_EVENTS.MENU_ACTION, handleMenuAction);
   const [updateListenerSettled, setUpdateListenerSettled] = useState(false);
   useTauriEvent(
     IPC_EVENTS.UPDATE_AVAILABLE,

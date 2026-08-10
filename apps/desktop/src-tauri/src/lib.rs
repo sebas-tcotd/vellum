@@ -12,6 +12,7 @@ pub mod errors;
 pub mod export;
 /// Internal module containing auxiliary IPC payloads not intended for public re-export.
 mod ipc_contract;
+mod menu;
 /// Captures a `.cslmap` path passed on the command line (Windows file
 /// association double-click, Story 7.5 AC1).
 pub mod startup;
@@ -22,11 +23,6 @@ pub mod updater;
 
 use export::session::{sweep_stale_temp_files, ExportSessionManager};
 use std::sync::Arc;
-use tauri::menu::MenuItemBuilder;
-#[cfg(target_os = "macos")]
-use tauri::menu::MenuItemKind;
-#[cfg(not(target_os = "macos"))]
-use tauri::menu::SubmenuBuilder;
 use tauri::{Emitter, Manager};
 
 /// The main entry point for the Vellum desktop application backend.
@@ -58,6 +54,7 @@ pub fn run() {
             commands::append_export_chunk,
             commands::finish_export,
             commands::cancel_export,
+            menu::update_theme_menu,
             #[cfg(desktop)]
             updater::get_pending_update,
             startup::get_startup_file_path,
@@ -75,33 +72,17 @@ pub fn run() {
             // it for the frontend to claim once it's ready (Story 7.5 AC1).
             startup::capture_startup_file_path();
 
-            // Menu::default() preserves the platform-standard submenus (Edit,
-            // Window, and on macOS the app submenu) — building from scratch
-            // would drop Edit and break copy/paste in text inputs.
-            let menu = tauri::menu::Menu::default(app.handle())?;
-            let preferences_item = MenuItemBuilder::with_id("preferences", "Preferences...")
-                .accelerator("CmdOrCtrl+,")
-                .build(app)?;
-            #[cfg(target_os = "macos")]
-            if let Some(MenuItemKind::Submenu(app_submenu)) = menu
-                .items()?
-                .into_iter()
-                .find(|item| matches!(item, MenuItemKind::Submenu(_)))
-            {
-                app_submenu.insert(&preferences_item, 1)?;
-            }
-            #[cfg(not(target_os = "macos"))]
-            {
-                let preferences_menu = SubmenuBuilder::new(app, "Vellum")
-                    .item(&preferences_item)
-                    .build()?;
-                menu.prepend(&preferences_menu)?;
-            }
+            let menu = menu::build_menu(app.handle())?;
             app.set_menu(menu)?;
 
             app.on_menu_event(move |app_handle, event| {
-                if event.id().0.as_str() == "preferences" {
+                let id = event.id().0.as_str();
+                if id == "preferences" {
                     let _ = app_handle.emit("vellum://open-preferences", ());
+                } else if id == menu::MENU_ID_EXIT {
+                    app_handle.exit(0);
+                } else if id.starts_with("menu.") {
+                    let _ = app_handle.emit(menu::MENU_ACTION_EVENT, id);
                 }
             });
 
@@ -123,6 +104,11 @@ pub fn run() {
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { .. } = event {
                 window.state::<Arc<ExportSessionManager>>().cleanup_all();
+                // Vellum currently owns one application window. Route every
+                // native close request through the same process-level exit
+                // path as File > Exit so X, Cmd+W/Alt+F4, and native Close
+                // cannot leave a hidden or half-closed process behind.
+                window.app_handle().exit(0);
             }
         })
         .build(tauri::generate_context!());

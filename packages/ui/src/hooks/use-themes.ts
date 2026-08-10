@@ -45,9 +45,20 @@ export function useThemes(): LoadedTheme[] {
           if (!Array.isArray(rawFiles)) return;
           const { themes: loaded, warnings } = loadThemes(rawFiles);
           setThemes(loaded);
-          setAvailableThemes(
-            loaded.map(({ id, name, source }) => ({ id, name, source })),
-          );
+          const metadata = loaded.map(({ id, name, source }) => ({
+            id,
+            name,
+            source,
+          }));
+          setAvailableThemes(metadata);
+          void invoke(IPC_COMMANDS.UPDATE_THEME_MENU, {
+            themes: metadata.map(({ id, name }) => ({ id, name })),
+          }).catch((err: unknown) => {
+            console.warn(
+              '[useThemes] Failed to update native theme menu:',
+              err,
+            );
+          });
           setThemeWarnings(warnings);
         })
         .catch((err: unknown) => {
