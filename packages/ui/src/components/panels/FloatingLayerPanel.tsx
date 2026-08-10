@@ -192,8 +192,6 @@ export const FloatingLayerPanel = ({
                 <Separator className="h-px mt-3 mb-2 w-full" />
               </>
             )}
-
-            <PanelFooter />
           </>
         ) : (
           <div className="flex flex-col items-center py-1 gap-1">
@@ -274,7 +272,7 @@ function PanelHeader({
       <div className="font-wordmark leading-tight">
         <h1 className="text-lg font-medium opacity-90">{cityName}</h1>
         <h2
-          className="text-xs font-mono opacity-70 truncate max-w-[140px]"
+          className="text-xs font-mono opacity-70 truncate max-w-35"
           title={fileName}
         >
           {fileName}
@@ -393,7 +391,7 @@ function AdvancedOptionsFloatingPanel({
     <div
       role="region"
       aria-label={t('a11y.advancedOptions', { layer: layerName })}
-      className="backdrop-blur-lg rounded-lg bg-background/72 border border-panel-border text-accent-foreground shadow-lg px-3 py-2 min-w-52 w-fit max-w-[26rem] overflow-x-auto"
+      className="backdrop-blur-lg rounded-lg bg-background/72 border border-panel-border text-accent-foreground shadow-lg px-3 py-2 min-w-52 w-fit max-w-104 overflow-x-auto"
     >
       <div className="flex items-center justify-between">
         <h2 className="font-wordmark text-sm font-medium opacity-90 truncate">
@@ -497,17 +495,6 @@ function PanelThemeSelector() {
         </div>
       )}
     </>
-  );
-}
-
-function PanelFooter() {
-  return (
-    <a
-      href="#"
-      className="font-ui text-xs opacity-70 hover:opacity-100 transition-opacity"
-    >
-      Cartógrafos de CS1 →
-    </a>
   );
 }
 
