@@ -4,8 +4,10 @@ import {
   Export,
   GithubLogo,
   MapTrifold,
+  Palette,
   Train,
 } from '@phosphor-icons/react';
+import { LayerShowcase } from './components/LayerShowcase';
 import { Reveal } from './components/Reveal';
 
 const releaseUrl = 'https://github.com/sebas-tcotd/vellum/releases/latest';
@@ -15,36 +17,114 @@ const documentationUrl = `${repositoryUrl}/tree/main/docs`;
 const cslMapViewUrl =
   'https://steamcommunity.com/sharedfiles/filedetails/?id=845665815';
 
-interface PlaceholderFigureProps {
+const workshop = {
+  islandHopping:
+    'https://steamcommunity.com/sharedfiles/filedetails/?id=2475283323',
+  pepperLake:
+    'https://steamcommunity.com/sharedfiles/filedetails/?id=1568162351',
+  sanRico: 'https://steamcommunity.com/sharedfiles/filedetails/?id=3000569752',
+  springValley:
+    'https://steamcommunity.com/sharedfiles/filedetails/?id=1273431737',
+  atlanticKeys:
+    'https://steamcommunity.com/sharedfiles/filedetails/?id=3543847424',
+  costaTijuca:
+    'https://steamcommunity.com/sharedfiles/filedetails/?id=3346079784',
+};
+
+interface MapFigureProps {
   alt: string;
   className?: string;
   imageClassName?: string;
   imageSrc: string;
-  title: string;
+  city: string;
   detail: string;
+  workshopUrl: string;
 }
 
-function PlaceholderFigure({
+function WorkshopLink({ href }: { href: string }) {
+  return (
+    <a className="workshop-link" href={href} target="_blank" rel="noreferrer">
+      Steam Workshop
+      <ArrowUpRight size={13} weight="bold" aria-hidden="true" />
+    </a>
+  );
+}
+
+function MapFigure({
   alt,
   className = '',
   imageClassName = '',
   imageSrc,
-  title,
+  city,
   detail,
-}: PlaceholderFigureProps) {
+  workshopUrl,
+}: MapFigureProps) {
   return (
     <figure className={`map-figure ${className}`}>
-      <div className="placeholder-frame">
+      <div className="map-frame">
         <img className={imageClassName} src={imageSrc} alt={alt} />
-        <span className="placeholder-stamp">Placeholder visual</span>
       </div>
       <figcaption>
-        <span>{title}</span>
-        <span>{detail}</span>
+        <span>
+          <strong>{city}</strong>
+          <small>{detail}</small>
+        </span>
+        <WorkshopLink href={workshopUrl} />
       </figcaption>
     </figure>
   );
 }
+
+function Brand({ footer = false }: { footer?: boolean }) {
+  return (
+    <a className="brand" href="#top" aria-label="Vellum home">
+      <img
+        className="brand-isotype"
+        src="./assets/vellum-isotype-rounded.svg"
+        alt=""
+        aria-hidden="true"
+      />
+      <span className={footer ? 'brand-name brand-name-footer' : 'brand-name'}>
+        Vellum
+      </span>
+    </a>
+  );
+}
+
+const gallery = [
+  {
+    city: 'Island Hopping',
+    detail: 'Day theme · a city spread across water',
+    src: './assets/island-hopping-day-gallery.webp',
+    alt: 'Island Hopping map with a dense connected city distributed across islands',
+    workshopUrl: workshop.islandHopping,
+    className: 'gallery-card-wide',
+  },
+  {
+    city: '웨스트데일',
+    detail: 'Atlantic Keys · Day theme',
+    src: './assets/westdale-day-gallery.webp',
+    alt: 'Westdale map showing a dense coastal city and surrounding water',
+    workshopUrl: workshop.atlanticKeys,
+    className: 'gallery-card-tall',
+  },
+  {
+    city: 'San Rico',
+    detail: 'Day theme · islands, bridges, and transit corridors',
+    src: './assets/san-rico-day-gallery.webp',
+    alt: 'San Rico map showing islands, bridges, roads, and a central city',
+    workshopUrl: workshop.sanRico,
+    className: '',
+  },
+  {
+    city: 'Costa Tijuca',
+    detail: 'Day theme · roads meeting a broad coastline',
+    src: './assets/costa-tijuca-day-gallery.webp',
+    alt: 'Costa Tijuca map showing a large coastal city with water and road hierarchy',
+    workshopUrl: workshop.costaTijuca,
+    className: '',
+  },
+];
 
 /** Marketing page for the Vellum desktop map viewer. */
 export function App() {
@@ -55,21 +135,14 @@ export function App() {
       </a>
 
       <header className="site-header page-width">
-        <a className="brand" href="#top" aria-label="Vellum home">
-          <img
-            className="brand-isotype"
-            src="./assets/vellum-isotype-rounded.svg"
-            alt=""
-            aria-hidden="true"
-          />
-          <span className="brand-name">Vellum</span>
-        </a>
+        <Brand />
 
         <nav className="site-nav" aria-label="Primary navigation">
-          <a href="#map">The map</a>
-          <a href="#workflow">The workflow</a>
+          <a href="#cities">Cities</a>
+          <a href="#layers">Layers</a>
+          <a href="#themes">Themes</a>
+          <a href="#workflow">Workflow</a>
           <a href="#open-source">Open source</a>
-          <a href={repositoryUrl}>GitHub</a>
         </nav>
 
         <a className="button button-small button-dark" href={releaseUrl}>
@@ -85,32 +158,34 @@ export function App() {
           aria-labelledby="hero-title"
         >
           <Reveal className="hero-copy">
-            <p className="eyebrow">Desktop map viewer for Cities: Skylines 1</p>
+            <p className="eyebrow">
+              A cartographic viewer for Cities: Skylines 1
+            </p>
             <h1 id="hero-title">A map for the city you built.</h1>
             <p className="hero-lede">
-              Open a <code>.cslmap</code> export, explore your city in layers,
-              and keep the map in PNG or SVG.
+              Open a <code>.cslmap</code> export and read your city in layers.
             </p>
             <div className="hero-actions">
               <a className="button button-dark" href={releaseUrl}>
                 Download Vellum
                 <ArrowUpRight size={17} weight="bold" aria-hidden="true" />
               </a>
-              <a className="text-link" href="#workflow">
-                See the workflow
+              <a className="text-link" href="#layers">
+                Explore the map
                 <ArrowDown size={15} weight="bold" aria-hidden="true" />
               </a>
             </div>
           </Reveal>
 
           <Reveal className="hero-visual" delay={0.08}>
-            <PlaceholderFigure
+            <MapFigure
               className="map-figure-hero"
               imageClassName="map-image-hero"
-              imageSrc="./assets/vellum-map-placeholder-hero.webp"
-              alt="Placeholder for a Vellum map export showing terrain, water, roads, and transit layers"
-              title="Real Vellum map export needed"
-              detail="Hero map visual"
+              imageSrc="./assets/spring-valley-day-hero.webp"
+              alt="Spring Valley map in Vellum Day theme, showing a broad city between rivers and coast"
+              city="Spring Valley"
+              detail="Day theme · Vellum map view"
+              workshopUrl={workshop.springValley}
             />
           </Reveal>
         </section>
@@ -118,6 +193,7 @@ export function App() {
         <section className="promise page-width" aria-labelledby="promise-title">
           <div className="section-rule" />
           <Reveal>
+            <p className="section-kicker">A record of the place</p>
             <h2 id="promise-title">
               Your city should be readable outside the game.
             </h2>
@@ -129,109 +205,140 @@ export function App() {
         </section>
 
         <section
-          className="layers page-width"
-          id="map"
-          aria-labelledby="layers-title"
+          className="cities page-width"
+          id="cities"
+          aria-labelledby="cities-title"
         >
           <Reveal className="section-intro">
-            <h2 id="layers-title">See the city in layers.</h2>
+            <p className="section-kicker">Real maps from real cities</p>
+            <h2 id="cities-title">The shape of a city is already a story.</h2>
             <p>
-              Terrain, water, streets, transit, buildings, forests, and
-              districts stay legible as one composition.
+              These are Cities: Skylines maps opened in Vellum, with their
+              original Workshop sources kept in view.
             </p>
           </Reveal>
 
-          <div className="layers-layout">
-            <Reveal className="layers-visual" delay={0.06}>
-              <PlaceholderFigure
-                imageSrc="./assets/vellum-map-detail-placeholder.webp"
-                alt="Placeholder for a detailed Vellum map export showing terrain, districts, and street hierarchy"
-                title="Real map detail needed"
-                detail="Layers and street hierarchy"
-              />
-            </Reveal>
-
-            <ul className="layer-grid" aria-label="Vellum map layers">
-              <Reveal as="li" className="layer-item" delay={0.08}>
-                <span className="layer-mark" aria-hidden="true">
-                  <MapTrifold size={19} weight="regular" />
-                </span>
-                <div>
-                  <h3>Terrain and water</h3>
-                  <p>Elevation, land, and water form the map base.</p>
-                </div>
+          <div className="gallery-grid">
+            {gallery.map((map, index) => (
+              <Reveal
+                className={`gallery-card ${map.className}`}
+                delay={index * 0.06}
+                key={map.city}
+              >
+                <MapFigure
+                  imageSrc={map.src}
+                  imageClassName="gallery-image"
+                  alt={map.alt}
+                  city={map.city}
+                  detail={map.detail}
+                  workshopUrl={map.workshopUrl}
+                />
               </Reveal>
-              <Reveal as="li" className="layer-item" delay={0.12}>
-                <span className="layer-mark" aria-hidden="true">
-                  <MapTrifold size={19} weight="regular" />
-                </span>
-                <div>
-                  <h3>Roads</h3>
-                  <p>Street hierarchy remains visible across the city.</p>
-                </div>
-              </Reveal>
-              <Reveal as="li" className="layer-item" delay={0.16}>
-                <span className="layer-mark" aria-hidden="true">
-                  <Train size={19} weight="regular" />
-                </span>
-                <div>
-                  <h3>Transit</h3>
-                  <p>Inspect lines and stops over the network they serve.</p>
-                </div>
-              </Reveal>
-              <Reveal as="li" className="layer-item" delay={0.2}>
-                <span className="layer-mark" aria-hidden="true">
-                  <MapTrifold size={19} weight="regular" />
-                </span>
-                <div>
-                  <h3>Buildings</h3>
-                  <p>Keep the built shape of the city in view.</p>
-                </div>
-              </Reveal>
-              <Reveal as="li" className="layer-item" delay={0.24}>
-                <span className="layer-mark" aria-hidden="true">
-                  <MapTrifold size={19} weight="regular" />
-                </span>
-                <div>
-                  <h3>Forests</h3>
-                  <p>Read the green structure between roads and districts.</p>
-                </div>
-              </Reveal>
-              <Reveal as="li" className="layer-item" delay={0.28}>
-                <span className="layer-mark" aria-hidden="true">
-                  <MapTrifold size={19} weight="regular" />
-                </span>
-                <div>
-                  <h3>Districts</h3>
-                  <p>Use district markers to orient yourself at a glance.</p>
-                </div>
-              </Reveal>
-            </ul>
+            ))}
           </div>
         </section>
 
         <section
-          className="exploration page-width"
-          aria-labelledby="exploration-title"
+          className="layers page-width"
+          id="layers"
+          aria-labelledby="layers-title"
         >
-          <div className="exploration-copy">
+          <Reveal className="section-intro layers-intro">
+            <p className="section-kicker">A map, layer by layer</p>
+            <h2 id="layers-title">See the city become legible.</h2>
+            <p>
+              Start with terrain and base map, then bring roads, buildings,
+              forests, districts, and transit into the reading.
+            </p>
+          </Reveal>
+
+          <Reveal className="layer-showcase-wrap" delay={0.08}>
+            <LayerShowcase />
+          </Reveal>
+        </section>
+
+        <section
+          className="transit-section page-width"
+          aria-labelledby="transit-title"
+        >
+          <div className="transit-copy">
             <Reveal>
-              <h2 id="exploration-title">Follow the network.</h2>
+              <p className="section-kicker">Transit, brought forward</p>
+              <h2 id="transit-title">Follow the network.</h2>
               <p>
-                Pan and zoom across the full city, control the layers, inspect
-                transit, and use the minimap to stay oriented.
+                Inspect lines and stops over the city they serve, then use the
+                minimap to stay oriented as you move through the view.
               </p>
+            </Reveal>
+            <Reveal className="transit-note" delay={0.08}>
+              <span className="feature-mark" aria-hidden="true">
+                <Train size={21} weight="regular" />
+              </span>
+              <p>When transit is the story, the map can make it the subject.</p>
             </Reveal>
           </div>
 
-          <Reveal className="exploration-note" delay={0.08}>
-            <div className="exploration-icon" aria-hidden="true">
-              <Train size={25} weight="regular" />
-            </div>
+          <Reveal className="transit-visual" delay={0.12}>
+            <MapFigure
+              imageSrc="./assets/spring-valley-transit-theme.webp"
+              imageClassName="transit-image"
+              alt="Spring Valley map with a colorful transit network brought forward in Vellum"
+              city="Spring Valley"
+              detail="Transit theme · lines and stops"
+              workshopUrl={workshop.springValley}
+            />
+          </Reveal>
+        </section>
+
+        <section
+          className="themes page-width"
+          id="themes"
+          aria-labelledby="themes-title"
+        >
+          <Reveal className="section-intro">
+            <p className="section-kicker">Built-in points of view</p>
+            <h2 id="themes-title">A map can have a point of view.</h2>
             <p>
-              Transit remains part of the map, not a separate report. Bring the
-              network forward when it is the story.
+              Choose the theme that matches the way you want to remember the
+              city, from a quiet overview to a transit-first reading.
             </p>
+          </Reveal>
+
+          <Reveal className="theme-comparison" delay={0.08}>
+            <div className="theme-panel">
+              <img
+                src="./assets/pepper-lake-theme-day.webp"
+                alt="Pepper Lake map in Vellum Day theme"
+              />
+              <div className="theme-label">
+                <span>Day</span>
+                <small>Full map reading</small>
+              </div>
+            </div>
+            <div className="theme-panel theme-panel-dark">
+              <img
+                src="./assets/pepper-lake-theme-transit-dim.webp"
+                alt="Pepper Lake map in Vellum Transit theme with the network emphasized"
+              />
+              <div className="theme-label">
+                <span>Transit</span>
+                <small>Network brought forward</small>
+              </div>
+            </div>
+          </Reveal>
+
+          <Reveal className="theme-future" delay={0.12}>
+            <span className="feature-mark" aria-hidden="true">
+              <Palette size={21} weight="regular" />
+            </span>
+            <div>
+              <p className="section-kicker">Next in the atlas</p>
+              <h3>Create a visual language of your own.</h3>
+              <p>
+                A custom <code>.vellumstyle</code> format is planned. Its schema
+                is still being formalized for community-made themes.
+              </p>
+            </div>
           </Reveal>
         </section>
 
@@ -241,10 +348,10 @@ export function App() {
           aria-labelledby="workflow-title"
         >
           <Reveal className="workflow-heading">
+            <p className="section-kicker">A simple path in</p>
             <h2 id="workflow-title">From export to artifact.</h2>
             <p>
-              Vellum uses the community&apos;s established export path for its
-              first release.
+              Vellum sits after the game and before the work you want to keep.
             </p>
           </Reveal>
 
@@ -257,7 +364,7 @@ export function App() {
                 <h3>Get a .cslmap</h3>
                 <p>
                   Export your city with <a href={cslMapViewUrl}>CSL Map View</a>
-                  , the current community exporter.
+                  , the community exporter.
                 </p>
               </div>
             </Reveal>
@@ -268,8 +375,8 @@ export function App() {
               <div>
                 <h3>Open and explore</h3>
                 <p>
-                  Drop the file into Vellum, then pan, zoom, inspect, and
-                  control the layers.
+                  Pan, zoom, inspect transit, control the layers, and keep your
+                  bearings with the minimap.
                 </p>
               </div>
             </Reveal>
@@ -288,46 +395,12 @@ export function App() {
         </section>
 
         <section
-          className="evidence page-width"
-          aria-labelledby="evidence-title"
-        >
-          <Reveal className="section-intro">
-            <h2 id="evidence-title">The map is the product.</h2>
-            <p>
-              The interface stays quiet so the shape of the city can come
-              forward.
-            </p>
-          </Reveal>
-
-          <div className="evidence-layout">
-            <Reveal className="evidence-visual" delay={0.06}>
-              <PlaceholderFigure
-                className="map-figure-evidence"
-                imageClassName="map-image-evidence"
-                imageSrc="./assets/vellum-transit-placeholder.webp"
-                alt="Placeholder for a Vellum transit map export showing a layered network"
-                title="Real transit export needed"
-                detail="Transit-focused map visual"
-              />
-            </Reveal>
-
-            <Reveal className="evidence-note" delay={0.14}>
-              <p className="evidence-mark">PNG / SVG</p>
-              <h3>Keep the view you made.</h3>
-              <p>
-                Export the current map as a PNG or an editable SVG for sharing,
-                editing, or keeping.
-              </p>
-            </Reveal>
-          </div>
-        </section>
-
-        <section
           className="open-source page-width"
           id="open-source"
           aria-labelledby="open-source-title"
         >
           <Reveal className="open-source-copy">
+            <p className="section-kicker">Made in the open</p>
             <h2 id="open-source-title">Open by design.</h2>
             <p>
               Vellum is open source under the MIT License. Read the code, follow
@@ -353,6 +426,9 @@ export function App() {
           aria-labelledby="download-title"
         >
           <Reveal className="download-copy">
+            <p className="section-kicker">
+              Start with the city you already have
+            </p>
             <h2 id="download-title">Bring your city into view.</h2>
             <p>
               Download Vellum from GitHub Releases and open your first .cslmap
@@ -371,16 +447,10 @@ export function App() {
       <footer className="site-footer">
         <div className="site-footer-inner page-width">
           <div className="footer-main">
-            <a className="brand" href="#top" aria-label="Vellum home">
-              <img
-                className="brand-isotype"
-                src="./assets/vellum-isotype-rounded.svg"
-                alt=""
-                aria-hidden="true"
-              />
-              <span className="brand-name">Vellum</span>
-            </a>
-            <p>Maps for cities worth remembering.</p>
+            <div>
+              <Brand footer />
+              <p>Maps for cities worth remembering.</p>
+            </div>
             <nav className="footer-nav" aria-label="Footer navigation">
               <a href={repositoryUrl}>
                 <GithubLogo size={16} weight="regular" aria-hidden="true" />
@@ -388,6 +458,7 @@ export function App() {
               </a>
               <a href={licenseUrl}>MIT License</a>
               <a href={documentationUrl}>Documentation</a>
+              <a href="#top">Back to top</a>
             </nav>
           </div>
         </div>
