@@ -427,6 +427,29 @@ h3 {
   margin-top: 34px;
 }
 
+.hero-status {
+  max-width: 410px;
+  margin: 24px 0 0;
+  border-left: 2px solid var(--accent);
+  padding-left: 14px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.6;
+}
+
+.hero-status strong {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.hero-status a {
+  color: var(--ink);
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+  text-underline-offset: 3px;
+}
+
 .text-link {
   display: inline-flex;
   align-items: center;

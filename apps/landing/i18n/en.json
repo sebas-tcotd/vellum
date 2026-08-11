@@ -38,6 +38,9 @@
     "ledeBefore": "Open a",
     "ledeAfter": "export and read your city in layers.",
     "explore": "Explore the map",
+    "statusLabel": "Early public build.",
+    "statusBody": "Vellum is usable but still evolving; bugs or unexpected behaviour may occur. Native CS1 integration remains a future direction.",
+    "statusLink": "Report issues on GitHub",
     "imageAlt": "Spring Valley map in Vellum Day theme, showing a broad city between rivers and coast",
     "imageDetail": "Day theme · Vellum map view"
   },

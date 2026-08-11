@@ -15,11 +15,11 @@ renderer and the desktop shell.
 
 ## Current status
 
-The current application version is `v0.4.0`. The core viewer workflow is
+The current application version is `v0.5.0`. The core viewer workflow is
 implemented: file loading, cartographic rendering, layer controls, themes,
 PNG/SVG export, internationalization, preferences and background update checks.
-Packaging and release automation build the desktop bundles and updater artifacts;
-the future Vellum-native exporter remains a separate direction from the v1 viewer.
+The v0.5.0 release includes the desktop bundles and updater artifacts; the future
+Vellum-native exporter remains a separate direction from the v1 viewer.
 
 ## Technology stack
 

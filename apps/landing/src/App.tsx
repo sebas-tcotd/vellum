@@ -204,6 +204,10 @@ export function App() {
                 <ArrowDown size={15} weight="bold" aria-hidden="true" />
               </a>
             </div>
+            <p className="hero-status">
+              <strong>{t('hero.statusLabel')}</strong> {t('hero.statusBody')}{' '}
+              <a href={`${repositoryUrl}/issues`}>{t('hero.statusLink')}</a>
+            </p>
           </Reveal>
 
           <Reveal className="hero-visual" delay={0.08}>
