@@ -6,14 +6,14 @@
 
 Vellum es una app de escritorio nativa (Tauri 2 + React 19 + TypeScript + Rust) que abre archivos `.cslmap` exportados de Cities: Skylines 1 y los renderiza como mapas interactivos acelerados por GPU (MapLibre GL JS), en vez de dejarlos atrapados en el juego o reducidos a screenshots.
 
-La versión actual de la aplicación es `v0.4.0`. El flujo principal del visor está implementado: carga de archivos, renderizado cartográfico, controles de capas, temas, exportación PNG/SVG, internacionalización, preferencias y chequeos de actualización en segundo plano. El empaquetado y la automatización de releases construyen los bundles de escritorio y los artefactos del updater; el exportador nativo de Vellum sigue siendo una dirección separada del visor v1.
+La versión actual de la aplicación es `v0.5.0`. El flujo principal del visor está implementado: carga de archivos, renderizado cartográfico, controles de capas, temas, exportación PNG/SVG, internacionalización, preferencias y chequeos de actualización en segundo plano. El release v0.5.0 incluye los bundles de escritorio y los artefactos del updater; el exportador nativo de Vellum sigue siendo una dirección separada del visor v1.
 
 ## Clasificación
 
 - **Tipo**: Monorepo (pnpm workspaces + Turborepo)
 - **Arquitectura**: Desktop app — Tauri 2 (Rust) + React 19 + 6 packages TypeScript modulares en Clean Architecture con dependencias unidireccionales
 - **Lenguaje principal**: TypeScript ~5.8.3 + Rust (Edition 2021)
-- **Estado**: Producción — funcionalidad completa, en fase de hardening/distribución previo al release v1
+- **Estado**: Release v0.5.0 — visor funcional y distribuible; el exportador nativo de Vellum sigue siendo una dirección futura
 
 ## Stack tecnológico
 

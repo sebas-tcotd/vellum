@@ -130,15 +130,15 @@ graph TD
 
 ## Project status
 
-| Area                                          | Status                |
-| --------------------------------------------- | --------------------- |
-| File loading, Rust parser and domain model    | Complete              |
-| Cartographic rendering and MapLibre migration | Complete              |
-| Exploration UI, layers and themes             | Complete              |
-| PNG/SVG export                                | Complete              |
-| i18n, preferences and update checks           | Complete              |
-| Packaging and distribution                    | Configured for v0.4.0 |
-| Vellum-native in-game exporter                | Future direction      |
+| Area                                          | Status              |
+| --------------------------------------------- | ------------------- |
+| File loading, Rust parser and domain model    | Complete            |
+| Cartographic rendering and MapLibre migration | Complete            |
+| Exploration UI, layers and themes             | Complete            |
+| PNG/SVG export                                | Complete            |
+| i18n, preferences and update checks           | Complete            |
+| Packaging and distribution                    | Available in v0.5.0 |
+| Vellum-native in-game exporter                | Future direction    |
 
 The future exporter would remove the dependency on `.cslmap`, unlock richer data from the Cities: Skylines modding API and support the next generation of Vellum features. It is not required for the first useful viewer release.
 

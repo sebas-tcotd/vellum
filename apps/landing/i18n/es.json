@@ -38,6 +38,9 @@
     "ledeBefore": "Abre una exportación",
     "ledeAfter": "y lee tu ciudad por capas.",
     "explore": "Explorar el mapa",
+    "statusLabel": "Versión pública temprana.",
+    "statusBody": "Vellum ya puede utilizarse, pero sigue evolucionando; pueden aparecer bugs o comportamientos inesperados. La integración nativa con CS1 queda como dirección futura.",
+    "statusLink": "Reportar incidencias en GitHub",
     "imageAlt": "Mapa de Spring Valley en el tema Day de Vellum, con una ciudad amplia entre ríos y costa",
     "imageDetail": "Tema Day · Vista de mapa de Vellum"
   },
