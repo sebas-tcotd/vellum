@@ -11,6 +11,7 @@ import {
 
 /** How long the warnings toast stays visible before it self-dismisses. */
 const WARNINGS_TOAST_DURATION_MS = 3000;
+const EMPTY_EXPORT_WARNINGS: readonly ParseKeys[] = [];
 
 export interface ExportStatusOverlayProps {
   isExporting: boolean;
@@ -46,7 +47,7 @@ export function ExportStatusOverlay({
   exportResult,
   exportCancelled,
   exportError,
-  exportWarnings = [],
+  exportWarnings = EMPTY_EXPORT_WARNINGS,
   onCancelExport,
   onOpenExportFolder,
 }: ExportStatusOverlayProps) {
