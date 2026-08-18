@@ -136,6 +136,62 @@ const gallery = [
   },
 ];
 
+function SiteHeader() {
+  const { t } = useTranslation();
+
+  return (
+    <header className="site-header page-width">
+      <Brand />
+      <nav className="site-nav" aria-label={t('header.primaryNavigation')}>
+        <a href="#cities">{t('header.nav.cities')}</a>
+        <a href="#layers">{t('header.nav.layers')}</a>
+        <a href="#themes">{t('header.nav.themes')}</a>
+        <a href="#workflow">{t('header.nav.workflow')}</a>
+        <a href="#open-source">{t('header.nav.openSource')}</a>
+      </nav>
+      <div className="header-actions">
+        <LanguageSelector />
+        <ThemeSelector />
+        <a className="button button-small button-dark" href={releaseUrl}>
+          {t('common.download')}
+          <ArrowUpRight size={15} weight="bold" aria-hidden="true" />
+        </a>
+      </div>
+    </header>
+  );
+}
+
+function SiteFooter() {
+  const { t } = useTranslation();
+
+  return (
+    <footer className="site-footer">
+      <div className="site-footer-inner page-width">
+        <div className="footer-main">
+          <div>
+            <Brand footer />
+            <p>{t('footer.tagline')}</p>
+          </div>
+          <nav className="footer-nav" aria-label={t('footer.navigation')}>
+            <a href={repositoryUrl}>
+              <GithubLogo size={16} weight="regular" aria-hidden="true" />
+              GitHub
+            </a>
+            <a href={licenseUrl}>{t('footer.mit')}</a>
+            <a href={documentationUrl}>{t('openSource.documentation')}</a>
+            <a href="#top">{t('common.backToTop')}</a>
+          </nav>
+        </div>
+        <p className="footer-credit">
+          {t('footer.credit')}{' '}
+          <Heart size={12} weight="fill" aria-hidden="true" /> {t('footer.by')}{' '}
+          Sebastian Vargas
+        </p>
+      </div>
+    </footer>
+  );
+}
+
 /** Marketing page for the Vellum desktop map viewer. */
 export function App() {
   const { t } = useTranslation();
@@ -161,26 +217,7 @@ export function App() {
         {t('common.skipToContent')}
       </a>
 
-      <header className="site-header page-width">
-        <Brand />
-
-        <nav className="site-nav" aria-label={t('header.primaryNavigation')}>
-          <a href="#cities">{t('header.nav.cities')}</a>
-          <a href="#layers">{t('header.nav.layers')}</a>
-          <a href="#themes">{t('header.nav.themes')}</a>
-          <a href="#workflow">{t('header.nav.workflow')}</a>
-          <a href="#open-source">{t('header.nav.openSource')}</a>
-        </nav>
-
-        <div className="header-actions">
-          <LanguageSelector />
-          <ThemeSelector />
-          <a className="button button-small button-dark" href={releaseUrl}>
-            {t('common.download')}
-            <ArrowUpRight size={15} weight="bold" aria-hidden="true" />
-          </a>
-        </div>
-      </header>
+      <SiteHeader />
 
       <main id="main-content">
         <section
@@ -417,30 +454,7 @@ export function App() {
         </section>
       </main>
 
-      <footer className="site-footer">
-        <div className="site-footer-inner page-width">
-          <div className="footer-main">
-            <div>
-              <Brand footer />
-              <p>{t('footer.tagline')}</p>
-            </div>
-            <nav className="footer-nav" aria-label={t('footer.navigation')}>
-              <a href={repositoryUrl}>
-                <GithubLogo size={16} weight="regular" aria-hidden="true" />
-                GitHub
-              </a>
-              <a href={licenseUrl}>{t('footer.mit')}</a>
-              <a href={documentationUrl}>{t('openSource.documentation')}</a>
-              <a href="#top">{t('common.backToTop')}</a>
-            </nav>
-          </div>
-          <p className="footer-credit">
-            {t('footer.credit')}{' '}
-            <Heart size={12} weight="fill" aria-hidden="true" />{' '}
-            {t('footer.by')} Sebastian Vargas
-          </p>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }
