@@ -2,6 +2,13 @@
 
 All notable changes to Vellum will be documented here.
 
+## [0.5.1](https://github.com/sebas-tcotd/vellum/compare/v0.5.0...v0.5.1) (2026-08-18)
+
+
+### Bug Fixes
+
+* **ui:** stabilize export warning defaults ([6f70828](https://github.com/sebas-tcotd/vellum/commit/6f70828edba57e4167c2b41c584f37f91149287f))
+
 ## [0.5.0](https://github.com/sebas-tcotd/vellum/compare/v0.4.1...v0.5.0) (2026-08-10)
 
 
