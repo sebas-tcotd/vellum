@@ -1,26 +1,14 @@
 // packages/ui/src/App.tsx
 import type { ServiceIconLegendState } from '@vellum/renderer-webgl';
-import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
-import { MapLibreRoot } from './components/canvas/MapLibreRoot';
-import { EmptyState } from './components/empty-state/EmptyState';
-import { ProgressBar } from './components/overlays/ProgressBar';
-import { ErrorToast } from './components/overlays/ErrorToast';
-import { PartialParseDialog } from './components/overlays/PartialParseDialog';
-import { DlcWarningToast } from './components/overlays/DlcWarningToast';
-import { ThemeWarningToast } from './components/overlays/ThemeWarningToast';
-import { UpdateToast } from './components/overlays/UpdateToast';
-import { FloatingLayerPanel } from './components/panels/FloatingLayerPanel';
-import { ExportDialog } from './components/panels/ExportDialog';
-import { PreferencesPanel } from './components/panels/PreferencesPanel';
-import { IconLegend } from './components/panels/IconLegend';
-import { ExportStatusOverlay } from './components/overlays/ExportStatusOverlay';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { AppSurface } from './components/AppSurface';
 import { initI18n } from './i18n/i18n-setup';
 import { loadPersistedPreferences } from './store/preferences-store';
 import { useKeyboardShortcuts } from './hooks/use-keyboard-shortcuts';
 import { useTauriEvent } from './hooks/use-tauri-event';
 import { useThemes } from './hooks/use-themes';
 import { useExportWorkflow } from './hooks/use-export-workflow';
-import { cn } from './lib/utils';
+import { useMenuAction } from './hooks/use-menu-action';
 
 /**
  * Global type augmentation for i18next.
@@ -36,48 +24,17 @@ import type {
   ExportRequest,
   ExportSnapshot,
   LayerName,
-  BuildingServiceCategory,
   RasterExportV2,
   SvgExportPort,
   SvgExportRequest,
   SvgExportSnapshot,
   UpdatePayload,
-  MenuAction,
-  TransitMode,
 } from '@vellum/core';
-import { IPC_COMMANDS, IPC_EVENTS, LAYER_NAMES } from '@vellum/core';
+import { IPC_COMMANDS, IPC_EVENTS } from '@vellum/core';
 import { invoke } from '@tauri-apps/api/core';
-import { openUrl } from '@tauri-apps/plugin-opener';
 import { useVellumStore } from './store/vellum-store';
 
 const noop = async (): Promise<void> => {};
-
-function isLayerName(value: string): value is LayerName {
-  return LAYER_NAMES.includes(value as LayerName);
-}
-
-function isTransitMode(value: string): value is TransitMode {
-  return (
-    value === 'Bus' ||
-    value === 'Tram' ||
-    value === 'Train' ||
-    value === 'Metro' ||
-    value === 'CableCar' ||
-    value === 'Monorail' ||
-    value === 'Ferry' ||
-    value === 'Blimp' ||
-    value === 'Trolleybus'
-  );
-}
-
-function isBuildingCategory(value: string): value is BuildingServiceCategory {
-  return (
-    value === 'residential' ||
-    value === 'industry' ||
-    value === 'commercial' ||
-    value === 'office'
-  );
-}
 
 /**
  * Ref a composition root reads to request cancellation of any active export —
@@ -171,71 +128,19 @@ export function App({
   const syncActiveLanguage = useVellumStore((s) => s.syncActiveLanguage);
   const hydratePreferences = useVellumStore((s) => s.hydratePreferences);
   const cityData = useVellumStore((s) => s.cityData);
-  const activeLayers = useVellumStore((s) => s.activeLayers);
-  const activeTheme = useVellumStore((s) => s.activeTheme);
   const loadingState = useVellumStore((s) => s.loadingState);
-  const loadingError = useVellumStore((s) => s.loadingError);
-  const dlcWarnings = useVellumStore((s) => s.dlcWarnings);
-  const hasPartialData = useVellumStore((s) => s.hasPartialData);
-  const setLoadingState = useVellumStore((s) => s.setLoadingState);
   const setDlcWarnings = useVellumStore((s) => s.setDlcWarnings);
   const setHasPartialData = useVellumStore((s) => s.setHasPartialData);
   const toggleLayer = useVellumStore((s) => s.toggleLayer);
-  const setActiveTheme = useVellumStore((s) => s.setActiveTheme);
-  const availableThemes = useVellumStore((s) => s.availableThemes);
-  const layerOptions = useVellumStore((s) => s.layerOptions);
-  const transitDimmingEnabled = useVellumStore((s) => s.transitDimmingEnabled);
-  const setTransitDimmingEnabled = useVellumStore(
-    (s) => s.setTransitDimmingEnabled,
-  );
-  const toggleTransitMode = useVellumStore((s) => s.toggleTransitMode);
-  const toggleBuildingCategory = useVellumStore(
-    (s) => s.toggleBuildingCategory,
-  );
-  const setBuildingColorByCategory = useVellumStore(
-    (s) => s.setBuildingColorByCategory,
-  );
-  const setDistrictsShowNameOnMap = useVellumStore(
-    (s) => s.setDistrictsShowNameOnMap,
-  );
-  const setDistrictsShowParkAreas = useVellumStore(
-    (s) => s.setDistrictsShowParkAreas,
-  );
-  const setTerrainShowContourLines = useVellumStore(
-    (s) => s.setTerrainShowContourLines,
-  );
-  const setTerrainShowColorRelief = useVellumStore(
-    (s) => s.setTerrainShowColorRelief,
-  );
-  const setTerrainShowHillshade = useVellumStore(
-    (s) => s.setTerrainShowHillshade,
-  );
-  const setBasemapShowGrid = useVellumStore((s) => s.setBasemapShowGrid);
   const expandedPanelLayer = useVellumStore((s) => s.expandedPanelLayer);
   const setExpandedPanelLayer = useVellumStore((s) => s.setExpandedPanelLayer);
-  const themeWarnings = useVellumStore((s) => s.themeWarnings);
   const setThemeWarnings = useVellumStore((s) => s.setThemeWarnings);
-  const updateInfo = useVellumStore((s) => s.updateInfo);
   const setUpdateInfo = useVellumStore((s) => s.setUpdateInfo);
 
   // Load all .vellumstyle themes once at startup (populates the store + returns full styles).
   const themes = useThemes();
 
-  const {
-    isExporting,
-    isExportDialogOpen,
-    setIsExportDialogOpen,
-    exportPreview,
-    exportPhase,
-    exportProgress,
-    exportResult,
-    exportCancelled,
-    exportError,
-    exportWarnings,
-    handleCancelExport,
-    handleOpenExport,
-    handleExport,
-  } = useExportWorkflow({
+  const exportWorkflow = useExportWorkflow({
     cityData,
     loadingState,
     rasterExporter,
@@ -246,6 +151,7 @@ export function App({
     svgSnapshotCaptureRef,
     isExportingProp,
   });
+  const { isExporting, isExportDialogOpen, handleOpenExport } = exportWorkflow;
 
   useEffect(() => {
     document.title =
@@ -289,147 +195,20 @@ export function App({
     [expandedPanelLayer, setExpandedPanelLayer],
   );
 
-  const handleMenuAction = useCallback(
-    (action: MenuAction) => {
-      if (action === 'menu.open-file') {
-        void openFileDialog();
-        return;
-      }
-      if (action === 'menu.open-export') {
-        if (cityData !== null && loadingState !== 'loading' && !isExporting) {
-          void handleOpenExport();
-        }
-        return;
-      }
-      if (action === 'menu.fit-to-screen') {
-        if (cityData !== null) handleFitToScreen();
-        return;
-      }
-      if (action === 'menu.zoom-in') {
-        if (cityData !== null) handleZoomIn();
-        return;
-      }
-      if (action === 'menu.zoom-out') {
-        if (cityData !== null) handleZoomOut();
-        return;
-      }
-      if (action === 'menu.clean-mode') {
-        if (cityData !== null && loadingState !== 'loading') handleHidePanel();
-        return;
-      }
-      if (action === 'menu.navigation-mode') {
-        if (cityData !== null) handleToggleNavigationMode();
-        return;
-      }
-      if (action === 'menu.icon-legend') {
-        if (cityData !== null) handleToggleIconLegend();
-        return;
-      }
-      if (action === 'menu.rotate-left') {
-        if (cityData !== null) handleRotateBy(-15);
-        return;
-      }
-      if (action === 'menu.rotate-right') {
-        if (cityData !== null) handleRotateBy(15);
-        return;
-      }
-      if (action === 'menu.reset-bearing') {
-        if (cityData !== null) handleResetBearing();
-        return;
-      }
-      if (action === 'menu.toggle-transit-dimming') {
-        setTransitDimmingEnabled(!transitDimmingEnabled);
-        return;
-      }
-
-      const layerPrefix = 'menu.toggle-layer.';
-      if (action.startsWith(layerPrefix)) {
-        const layer = action.slice(layerPrefix.length);
-        if (cityData !== null && isLayerName(layer)) toggleLayer(layer);
-        return;
-      }
-
-      const advancedPrefix = 'menu.open-advanced.';
-      if (action.startsWith(advancedPrefix)) {
-        const layer = action.slice(advancedPrefix.length);
-        if (cityData !== null && isLayerName(layer)) {
-          handleOpenAdvancedOptions(layer);
-        }
-        return;
-      }
-
-      const optionPrefix = 'menu.toggle-advanced.';
-      if (action.startsWith(optionPrefix)) {
-        if (cityData === null) return;
-        const [, , layer, option] = action.split('.');
-        if (layer === 'terrain') {
-          if (option === 'contour-lines') {
-            setTerrainShowContourLines(!layerOptions.terrain.showContourLines);
-          } else if (option === 'color-relief') {
-            setTerrainShowColorRelief(!layerOptions.terrain.showColorRelief);
-          } else if (option === 'hillshade') {
-            setTerrainShowHillshade(!layerOptions.terrain.showHillshade);
-          }
-        } else if (layer === 'basemap' && option === 'grid') {
-          setBasemapShowGrid(!layerOptions.basemap.showGrid);
-        } else if (layer === 'transit' && isTransitMode(option)) {
-          toggleTransitMode(option);
-        } else if (layer === 'buildings') {
-          if (option === 'color-by-category') {
-            setBuildingColorByCategory(!layerOptions.buildings.colorByCategory);
-          } else if (isBuildingCategory(option)) {
-            toggleBuildingCategory(option);
-          }
-        } else if (layer === 'districts') {
-          if (option === 'show-names') {
-            setDistrictsShowNameOnMap(!layerOptions.districts.showNameOnMap);
-          } else if (option === 'show-park-areas') {
-            setDistrictsShowParkAreas(!layerOptions.districts.showParkAreas);
-          }
-        }
-        return;
-      }
-
-      const themePrefix = 'menu.theme.';
-      if (action.startsWith(themePrefix)) {
-        const themeId = action.slice(themePrefix.length);
-        if (availableThemes.some((theme) => theme.id === themeId)) {
-          setActiveTheme(themeId);
-        }
-      }
-    },
-    [
-      availableThemes,
-      cityData,
-      handleFitToScreen,
-      handleHidePanel,
-      handleOpenAdvancedOptions,
-      handleOpenExport,
-      handleResetBearing,
-      handleRotateBy,
-      handleToggleIconLegend,
-      handleToggleNavigationMode,
-      handleZoomIn,
-      handleZoomOut,
-      isExporting,
-      layerOptions,
-      loadingState,
-      openFileDialog,
-      setActiveTheme,
-      setBasemapShowGrid,
-      setBuildingColorByCategory,
-      setDistrictsShowNameOnMap,
-      setDistrictsShowParkAreas,
-      setTerrainShowColorRelief,
-      setTerrainShowContourLines,
-      setTerrainShowHillshade,
-      setTransitDimmingEnabled,
-      transitDimmingEnabled,
-      toggleBuildingCategory,
-      toggleLayer,
-      toggleTransitMode,
-    ],
-  );
+  const handleMenuAction = useMenuAction({
+    openFileDialog,
+    handleOpenExport,
+    handleFitToScreen,
+    handleZoomIn,
+    handleZoomOut,
+    handleHidePanel,
+    handleToggleNavigationMode,
+    handleToggleIconLegend,
+    handleRotateBy,
+    handleResetBearing,
+    handleOpenAdvancedOptions,
+    isExporting,
+  });
 
   useKeyboardShortcuts({
     onOpenFile: openFileDialog,
@@ -512,169 +291,33 @@ export function App({
   // Evitar flash en idioma incorrecto — no renderizar hasta que i18n esté listo
   if (!i18nReady) return null;
 
-  // Show EmptyState when there's no city to display — covers both idle (no file loaded)
-  // and error (parse failed) states. Never show during active loading.
-  const showEmptyState = cityData === null && loadingState !== 'loading';
-
-  const showPartialParseDialog =
-    loadingState === 'error' && loadingError?.type === 'PartialParse';
-
-  const showErrorToast =
-    loadingState === 'error' &&
-    loadingError != null &&
-    loadingError.type !== 'PartialParse';
-
-  const showDlcWarningToast =
-    cityData !== null &&
-    loadingState === 'idle' &&
-    (dlcWarnings.length > 0 || hasPartialData);
-
-  const showUpdateToast =
-    updateInfo !== null && loadingState === 'idle' && !isExporting;
-
   return (
-    <Suspense fallback={null}>
-      <div style={{ width: '100vw', height: '100vh', position: 'relative' }}>
-        <div
-          data-testid="canvas-wrapper"
-          className={cn(
-            'absolute inset-0 transition-opacity duration-500',
-            cityData ? 'opacity-100' : 'opacity-0 pointer-events-none',
-          )}
-        >
-          <MapLibreRoot
-            loadFile={loadFile}
-            activeLayers={activeLayers}
-            fitToScreenRef={fitToScreenRef}
-            zoomInRef={zoomInRef}
-            zoomOutRef={zoomOutRef}
-            toggleNavigationModeRef={toggleNavigationModeRef}
-            rotateByRef={rotateByRef}
-            resetBearingRef={resetBearingRef}
-            isCleanMode={isCleanMode}
-            themes={themes}
-            subscribeServiceIconLegendRef={subscribeServiceIconLegendRef}
-            previewCaptureRef={previewCaptureRef}
-            snapshotCaptureRef={snapshotCaptureRef}
-            svgSnapshotCaptureRef={svgSnapshotCaptureRef}
-          />
-        </div>
-        {showEmptyState && <EmptyState />}
-        {loadingState === 'loading' && <ProgressBar />}
-        {showPartialParseDialog && loadingError?.type === 'PartialParse' && (
-          <PartialParseDialog
-            error={loadingError}
-            onPartialRender={loadFilePartial}
-            onCancel={() => setLoadingState('idle')}
-          />
-        )}
-        {showErrorToast && loadingError != null && (
-          <ErrorToast
-            error={loadingError}
-            onDismiss={() => setLoadingState('idle')}
-          />
-        )}
-        {showDlcWarningToast && (
-          <DlcWarningToast
-            isPartialData={hasPartialData}
-            onDismiss={handleDlcDismiss}
-          />
-        )}
-        {themeWarnings.length > 0 && (
-          <ThemeWarningToast
-            warnings={themeWarnings}
-            onDismiss={handleThemeWarningsDismiss}
-          />
-        )}
-        {showUpdateToast && updateInfo !== null && (
-          <UpdateToast
-            version={updateInfo.version}
-            onViewChangelog={() => {
-              openUrl(updateInfo.url).catch((error: unknown) => {
-                console.warn('App: failed to open release notes URL', error);
-              });
-            }}
-            onDismiss={() => setUpdateInfo(null)}
-          />
-        )}
-        {cityData !== null && loadingState !== 'loading' && (
-          <div
-            className={
-              isCleanMode ? 'invisible pointer-events-none' : undefined
-            }
-          >
-            <FloatingLayerPanel
-              cityName={cityData.cityName}
-              fileName={cityData.fileName}
-              onOpenExport={handleOpenExport}
-              exportDisabled={isExporting}
-            />
-            <IconLegend
-              subscribeRef={subscribeServiceIconLegendRef}
-              toggleRef={iconLegendToggleRef}
-            />
-          </div>
-        )}
-        {cityData !== null && (
-          <ExportDialog
-            open={isExportDialogOpen}
-            cityName={cityData.cityName}
-            fileName={cityData.fileName}
-            generatedAt={cityData.generatedAt}
-            defaultBackground={
-              activeTheme === 'night' || activeTheme === 'transit'
-                ? 'dark'
-                : 'white'
-            }
-            preview={exportPreview}
-            fullMapBounds={cityData.bounds}
-            availability={{
-              districts: cityData.districts.length > 0,
-              parks: cityData.parkAreas.length > 0,
-              roads: cityData.roadSegments.length > 0,
-              transit: cityData.transitLines.length > 0,
-              elevation: cityData.contourLines?.length > 0,
-            }}
-            counts={{
-              roads: cityData.roadSegments.length,
-              buildings: cityData.buildings.length,
-              districts: cityData.districts.length,
-              parks: cityData.parkAreas.length,
-              transitLines: cityData.transitLines.length,
-              transitStops: cityData.transitLines.reduce(
-                (total, line) => total + line.stops.length,
-                0,
-              ),
-            }}
-            visibleLayerNames={Object.entries(activeLayers)
-              .filter(([, visible]) => visible)
-              .map(([layer]) => layer as LayerName)}
-            transitLabels={cityData.transitLines.map((line) => ({
-              id: line.id,
-              mode: line.mode,
-              name: line.name,
-            }))}
-            isExporting={isExporting}
-            onOpenChange={setIsExportDialogOpen}
-            onExport={handleExport}
-          />
-        )}
-        <PreferencesPanel
-          open={isPreferencesOpen}
-          onOpenChange={setIsPreferencesOpen}
-        />
-        <ExportStatusOverlay
-          isExporting={isExporting}
-          exportPhase={exportPhase}
-          exportProgress={exportProgress}
-          exportResult={exportResult}
-          exportCancelled={exportCancelled}
-          exportError={exportError}
-          exportWarnings={exportWarnings}
-          onCancelExport={handleCancelExport}
-          onOpenExportFolder={onOpenExportFolder}
-        />
-      </div>
-    </Suspense>
+    <AppSurface
+      mapProps={{
+        loadFile,
+        fitToScreenRef,
+        zoomInRef,
+        zoomOutRef,
+        toggleNavigationModeRef,
+        rotateByRef,
+        resetBearingRef,
+        isCleanMode,
+        themes,
+        subscribeServiceIconLegendRef,
+        previewCaptureRef,
+        snapshotCaptureRef,
+        svgSnapshotCaptureRef,
+      }}
+      subscribeServiceIconLegendRef={subscribeServiceIconLegendRef}
+      iconLegendToggleRef={iconLegendToggleRef}
+      exportWorkflow={exportWorkflow}
+      isCleanMode={isCleanMode}
+      isPreferencesOpen={isPreferencesOpen}
+      setIsPreferencesOpen={setIsPreferencesOpen}
+      loadFilePartial={loadFilePartial}
+      {...(onOpenExportFolder ? { onOpenExportFolder } : {})}
+      onDlcDismiss={handleDlcDismiss}
+      onThemeWarningsDismiss={handleThemeWarningsDismiss}
+    />
   );
 }
