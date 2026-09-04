@@ -21,6 +21,7 @@ import {
   type LucideIcon,
   X,
 } from 'lucide-react';
+import type { CSSProperties } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useVellumStore } from '../../store/vellum-store';
@@ -48,6 +49,22 @@ function useIsShortViewport(threshold: number): boolean {
 
   return isShort;
 }
+
+/**
+ * Radius/blur/shadow shared by both floating panels in this file, resolved
+ * from the `--shell-*` custom properties in `globals.css` (Story 1.1).
+ *
+ * @remarks
+ * Left as `var()` references — never resolved in JS — so the Fluent 2 /
+ * Liquid Glass / neutral profile switch lives entirely in CSS, scoped by
+ * `data-platform` (set by `PlatformProvider`). Neither panel branches per
+ * platform; only the token values behind these three properties change.
+ */
+const SHELL_PANEL_STYLE: CSSProperties = {
+  borderRadius: 'var(--shell-radius-lg)',
+  backdropFilter: 'blur(var(--shell-blur))',
+  boxShadow: 'var(--shell-shadow-panel)',
+};
 
 /** Visual state of the floating panel. */
 export type PanelState = 'expanded' | 'collapsed';
@@ -147,11 +164,10 @@ export const FloatingLayerPanel = ({
         aria-expanded={panelState === 'expanded'}
         aria-label={t('a11y.layerPanel')}
         role="region"
+        style={SHELL_PANEL_STYLE}
         className={cn(
-          'backdrop-blur-lg rounded-lg',
           'bg-background/72 border border-panel-border text-accent-foreground overflow-hidden',
           'px-3 py-2',
-          'shadow-lg',
           '[transition:width_var(--transition-panel)]',
           panelState === 'expanded' ? 'w-52' : 'w-12',
         )}
@@ -391,7 +407,8 @@ function AdvancedOptionsFloatingPanel({
     <div
       role="region"
       aria-label={t('a11y.advancedOptions', { layer: layerName })}
-      className="backdrop-blur-lg rounded-lg bg-background/72 border border-panel-border text-accent-foreground shadow-lg px-3 py-2 min-w-52 w-fit max-w-104 overflow-x-auto"
+      style={SHELL_PANEL_STYLE}
+      className="bg-background/72 border border-panel-border text-accent-foreground px-3 py-2 min-w-52 w-fit max-w-104 overflow-x-auto"
     >
       <div className="flex items-center justify-between">
         <h2 className="font-wordmark text-sm font-medium opacity-90 truncate">

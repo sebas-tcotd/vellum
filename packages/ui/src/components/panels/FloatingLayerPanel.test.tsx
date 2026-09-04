@@ -1,7 +1,20 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import {
+  describe,
+  it,
+  expect,
+  vi,
+  beforeEach,
+  afterEach,
+  beforeAll,
+  afterAll,
+} from 'vitest';
+import fs from 'node:fs';
+import path from 'node:path';
 import userEvent from '@testing-library/user-event';
 import { render, screen, fireEvent } from '../../test-utils';
 import { FloatingLayerPanel } from './FloatingLayerPanel';
+import { PlatformProvider } from '../../context/PlatformContext';
+import type { Platform } from '../../context/PlatformContext';
 import type { LayerName, LayerVisibility, ThemeMetadata } from '@vellum/core';
 
 vi.mock('react-i18next', () => ({
@@ -121,13 +134,14 @@ describe('FloatingLayerPanel', () => {
       expect(panel.className).toContain('-translate-y-1/2');
     });
 
-    it('tiene clase rounded-lg y backdrop-blur', () => {
+    it('resuelve radio, blur y sombra desde los tokens --shell-* (Story 1.1)', () => {
       const { container } = render(
         <FloatingLayerPanel cityName="Altavento" fileName="altavento.cslmap" />,
       );
       const panel = container.firstChild!.firstChild as HTMLElement;
-      expect(panel.className).toContain('rounded-lg');
-      expect(panel.className).toContain('backdrop-blur');
+      expect(panel.style.borderRadius).toBe('var(--shell-radius-lg)');
+      expect(panel.style.backdropFilter).toBe('blur(var(--shell-blur))');
+      expect(panel.style.boxShadow).toBe('var(--shell-shadow-panel)');
     });
   });
 
@@ -618,6 +632,150 @@ describe('FloatingLayerPanel', () => {
       layerButtons.forEach((btn) => {
         expect(btn).not.toHaveAttribute('tabindex', '-1');
       });
+    });
+  });
+
+  describe('Story 1.1 — perfil de plataforma aplicado a los tokens --shell-*', () => {
+    const PLATFORMS: readonly Platform[] = [
+      'windows',
+      'macos',
+      'linux',
+      'unknown',
+    ];
+
+    // Los tests de este package no cargan globals.css (solo apps/desktop lo
+    // importa como entry point de Vite — ver el comentario al inicio de
+    // globals.css). Inyectamos el archivo real aquí para que jsdom pueda
+    // resolver las custom properties `--shell-*` que `PlatformProvider` activa
+    // vía `data-platform`, sin duplicar sus valores en el test.
+    let styleTag: HTMLStyleElement;
+
+    beforeAll(() => {
+      const css = fs.readFileSync(
+        path.resolve(__dirname, '../../globals.css'),
+        'utf-8',
+      );
+      styleTag = document.createElement('style');
+      styleTag.textContent = css;
+      document.head.appendChild(styleTag);
+    });
+
+    afterAll(() => {
+      styleTag.remove();
+    });
+
+    afterEach(() => {
+      delete document.documentElement.dataset.platform;
+    });
+
+    it.each(PLATFORMS)(
+      'PlatformProvider("%s") setea data-platform en <html> al montar el shell',
+      (platform) => {
+        render(
+          <PlatformProvider platform={platform}>
+            <FloatingLayerPanel
+              cityName="Altavento"
+              fileName="altavento.cslmap"
+            />
+          </PlatformProvider>,
+        );
+        expect(document.documentElement.dataset.platform).toBe(platform);
+      },
+    );
+
+    it('el panel resuelve radio/blur/sombra desde los mismos tokens --shell-* bajo cualquier perfil (sin ramificar JSX por SO)', () => {
+      PLATFORMS.forEach((platform) => {
+        const { container, unmount } = render(
+          <PlatformProvider platform={platform}>
+            <FloatingLayerPanel
+              cityName="Altavento"
+              fileName="altavento.cslmap"
+            />
+          </PlatformProvider>,
+        );
+        const panel = container.firstChild!.firstChild as HTMLElement;
+        expect(panel.style.borderRadius).toBe('var(--shell-radius-lg)');
+        expect(panel.style.backdropFilter).toBe('blur(var(--shell-blur))');
+        expect(panel.style.boxShadow).toBe('var(--shell-shadow-panel)');
+        unmount();
+      });
+    });
+
+    it('al menos un token --shell-* cambia de valor entre los 4 perfiles de plataforma', () => {
+      // NOTA (limitación conocida de jsdom, no del CSS de producción): jsdom no
+      // resuelve var() en propiedades CSS estándar (issue abierto desde 2017,
+      // https://github.com/jsdom/jsdom/issues/1895), así que no puede leerse un
+      // border-radius/box-shadow ya resuelto sobre el nodo del panel — siempre
+      // devuelve el string sin resolver. Lo que sí resuelve correctamente es el
+      // valor de la custom property en el nodo exacto que PlatformProvider
+      // anota con data-platform (<html>), que es la misma fuente que
+      // consume el var(--shell-radius-lg) inline del panel arriba. Combinado
+      // con el test anterior (el panel referencia exactamente ese token), esto
+      // demuestra el cambio observable de estilo end-to-end que exige la AC;
+      // la verificación visual final en un WebView real se hace manualmente
+      // (ver 'Verification' del spec).
+      const radiusByPlatform = new Map<Platform, string>();
+      PLATFORMS.forEach((platform) => {
+        const { unmount } = render(
+          <PlatformProvider platform={platform}>
+            <FloatingLayerPanel
+              cityName="Altavento"
+              fileName="altavento.cslmap"
+            />
+          </PlatformProvider>,
+        );
+        const value = getComputedStyle(document.documentElement)
+          .getPropertyValue('--shell-radius-lg')
+          .trim();
+        radiusByPlatform.set(platform, value);
+        unmount();
+      });
+
+      expect(radiusByPlatform.get('windows')).not.toBe(
+        radiusByPlatform.get('macos'),
+      );
+      expect(radiusByPlatform.get('windows')).not.toBe(
+        radiusByPlatform.get('linux'),
+      );
+      expect(radiusByPlatform.get('macos')).not.toBe(
+        radiusByPlatform.get('linux'),
+      );
+      // linux y unknown comparten el perfil neutral Vellum por diseño.
+      expect(radiusByPlatform.get('linux')).toBe(
+        radiusByPlatform.get('unknown'),
+      );
+    });
+
+    it('AdvancedOptionsFloatingPanel también resuelve radio/blur/sombra desde los tokens --shell-* (no solo el panel principal)', () => {
+      const { rerender } = render(
+        <PlatformProvider platform="macos">
+          <FloatingLayerPanel
+            cityName="Altavento"
+            fileName="altavento.cslmap"
+          />
+        </PlatformProvider>,
+      );
+      fireEvent.click(
+        screen.getAllByRole('button', {
+          name: 'a11y.advancedOptionsToggle',
+        })[0],
+      );
+      rerender(
+        <PlatformProvider platform="macos">
+          <FloatingLayerPanel
+            cityName="Altavento"
+            fileName="altavento.cslmap"
+          />
+        </PlatformProvider>,
+      );
+      const advancedPanel = screen.getByRole('region', {
+        name: 'a11y.advancedOptions',
+      });
+      expect(advancedPanel.style.borderRadius).toBe('var(--shell-radius-lg)');
+      expect(advancedPanel.style.backdropFilter).toBe(
+        'blur(var(--shell-blur))',
+      );
+      expect(advancedPanel.style.boxShadow).toBe('var(--shell-shadow-panel)');
     });
   });
 });

@@ -5,6 +5,8 @@ export { App } from './App';
 export type { ExportCancelHandlerRef } from './App';
 export { EmptyState } from './components/empty-state';
 export { AppMetaProvider } from './context/AppMetaContext';
+export { PlatformProvider, usePlatform } from './context/PlatformContext';
+export type { Platform } from './context/PlatformContext';
 export { initI18n } from './i18n/i18n-setup';
 export { Button, buttonVariants } from './lib/button';
 export type { ButtonProps } from './lib/button';

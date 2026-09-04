@@ -10,6 +10,7 @@ import { IPC_COMMANDS } from '@vellum/core';
 import {
   App,
   AppMetaProvider,
+  PlatformProvider,
   useVellumStore,
   type ExportCancelHandlerRef,
 } from '@vellum/ui';
@@ -27,7 +28,9 @@ import '@vellum/ui/globals.css';
 // Without this, the map renders without base UI styles (attribution, controls).
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { platform } from '@tauri-apps/plugin-os';
 import { version } from '../package.json';
+import { detectPlatform } from './detect-platform';
 import { useParseCslmap } from './hooks/use-parse-cslmap';
 import { useExportPng } from './hooks/use-export-png';
 import {
@@ -49,6 +52,14 @@ import {
 } from './export/raster-benchmark-runner';
 
 const win = getCurrentWindow();
+// Single, composition-root-only OS detection point for the whole app (story
+// 1.1). `platform()` from `@tauri-apps/plugin-os` resolves synchronously, so
+// there's no async gap that could flash the neutral default profile before
+// the real one applies — same guarantee `version` already gets from
+// `AppMetaProvider`. `detectPlatform` is a pure, injected-dependency wrapper
+// (mirrors `window-close-cancel.ts`) so any unsupported platform string or a
+// throwing plugin call falls back to `'unknown'` without ever blocking boot.
+const detectedPlatform = detectPlatform(() => platform());
 const legacyExporter = new LegacyRasterExporter();
 const legacySink = new LegacyExportSink();
 const rasterExporter = new ExportCoordinator(legacyExporter, legacySink);
@@ -287,7 +298,9 @@ function AppShell() {
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
     <AppMetaProvider version={version}>
-      <AppShell />
+      <PlatformProvider platform={detectedPlatform}>
+        <AppShell />
+      </PlatformProvider>
     </AppMetaProvider>
   </React.StrictMode>,
 );

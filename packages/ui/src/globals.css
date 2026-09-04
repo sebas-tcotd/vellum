@@ -168,6 +168,47 @@
   --transition-theme: 300ms ease;
 }
 
+/* ─── Shell tokens — perfil de plataforma (Story 1.1) ────────────────────────
+   Vocabulario de shell (chrome/paneles/popovers/controles), en bloques
+   separados de los tokens shadcn/mapa de arriba. Activado por `data-platform`,
+   seteado en <html> por `PlatformProvider`
+   (packages/ui/src/context/PlatformContext.tsx) — nunca en apps/desktop
+   directamente. Estos tokens NO deben usarse jamás en terrain/roads/water/
+   transit/labels/themes del pipeline cartográfico (theme-engine /
+   RenderStyleParams) — son exclusivos del chrome de la app.
+   Los valores exactos de Fluent 2 / Liquid Glass son aproximaciones
+   razonables (no prescritas por planning); Story 1.2 cubre chrome nativo real
+   (Mica/Acrylic, traffic lights, titlebar) — esto es solo CSS de paneles.
+   Solo se declaran los tokens que ya tienen un consumidor real
+   (`FloatingLayerPanel.tsx`) — agregar tipografía/estados-de-interacción/motion
+   aquí cuando exista un componente que los lea (ver Review Triage Log,
+   review pass 2: 7 tokens sin consumidor fueron retirados por dead-code). */
+:root,
+[data-platform='linux'],
+[data-platform='unknown'] {
+  /* Perfil neutral Vellum — default, Linux, y detección fallida/desconocida
+     comparten el mismo perfil (nunca deben bloquear ni degradar el arranque). */
+  --shell-radius-lg: 12px;
+  --shell-blur: 16px;
+  --shell-shadow-panel: 0 4px 24px rgba(0, 0, 0, 0.12);
+}
+
+[data-platform='windows'] {
+  /* Fluent 2 — radios cerrados, elevación nítida. */
+  --shell-radius-lg: 8px;
+  --shell-blur: 8px;
+  --shell-shadow-panel: 0 2px 8px rgba(0, 0, 0, 0.22);
+}
+
+[data-platform='macos'] {
+  /* Liquid Glass — radios abiertos, superficie translúcida con blur
+     pronunciado, sombra difusa. Solo chrome/paneles — nunca ventana nativa
+     (Story 1.2). */
+  --shell-radius-lg: 16px;
+  --shell-blur: 24px;
+  --shell-shadow-panel: 0 8px 32px rgba(0, 0, 0, 0.18);
+}
+
 /* ─── Animaciones ─────────────────────────────────────────────────────────── */
 @keyframes vellum-hint-fadein {
   from {
