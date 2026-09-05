@@ -278,3 +278,57 @@ describe('export', () => {
     expect(screen.queryByText('export.exportButton')).toBeNull();
   });
 });
+
+describe('width model', () => {
+  it('offers a keyboard-operable resize handle within the documented bounds', () => {
+    render(<Harness />);
+    const handle = screen.getByTestId('sidebar-resize-handle');
+
+    expect(handle).toHaveAttribute('role', 'separator');
+    expect(handle).toHaveAttribute('tabindex', '0');
+    expect(handle).toHaveAttribute('aria-valuemin', '240');
+    expect(handle).toHaveAttribute('aria-valuemax', '320');
+    expect(handle).toHaveAttribute('aria-valuenow', '272');
+
+    fireEvent.keyDown(handle, { key: 'End' });
+    expect(screen.getByTestId('sidebar-resize-handle')).toHaveAttribute(
+      'aria-valuenow',
+      '320',
+    );
+
+    fireEvent.keyDown(screen.getByTestId('sidebar-resize-handle'), {
+      key: 'Home',
+    });
+    expect(screen.getByTestId('sidebar-resize-handle')).toHaveAttribute(
+      'aria-valuenow',
+      '240',
+    );
+  });
+
+  it('clamps a resize past the bounds instead of accepting it', () => {
+    render(<Harness />);
+    const handle = screen.getByTestId('sidebar-resize-handle');
+
+    for (let i = 0; i < 20; i += 1) {
+      fireEvent.keyDown(screen.getByTestId('sidebar-resize-handle'), {
+        key: 'ArrowRight',
+      });
+    }
+    expect(screen.getByTestId('sidebar-resize-handle')).toHaveAttribute(
+      'aria-valuenow',
+      '320',
+    );
+    expect(handle).toBeInTheDocument();
+  });
+
+  it('hides the handle on the compact rail, which has no width to adjust', () => {
+    render(
+      <Harness
+        initial={{
+          sidebar: { width: 272, collapsed: true, view: { kind: 'overview' } },
+        }}
+      />,
+    );
+    expect(screen.queryByTestId('sidebar-resize-handle')).toBeNull();
+  });
+});

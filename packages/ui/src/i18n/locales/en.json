@@ -221,7 +221,8 @@
     "mapStyle": "Map style",
     "layers": "Layers",
     "collapse": "Collapse sidebar",
-    "expand": "Expand sidebar"
+    "expand": "Expand sidebar",
+    "resize": "Resize sidebar"
   },
   "documentContext": {
     "sourceFile": "Source file"

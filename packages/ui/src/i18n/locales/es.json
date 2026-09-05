@@ -221,7 +221,8 @@
     "mapStyle": "Estilo de mapa",
     "layers": "Capas",
     "collapse": "Contraer barra lateral",
-    "expand": "Expandir barra lateral"
+    "expand": "Expandir barra lateral",
+    "resize": "Redimensionar barra lateral"
   },
   "documentContext": {
     "sourceFile": "Archivo de origen"

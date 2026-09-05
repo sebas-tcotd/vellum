@@ -16,10 +16,16 @@ delega la composición visual a `AppSurface` (dentro de un `Suspense`):
 App
 └── AppSurface
     ├── DesktopShell
-    │   ├── ShellSidebar → FloatingLayerPanel
-    │   └── MapSurface → MapLibreRoot (siempre montado)
+    │   ├── DocumentCommandStrip     — mapa cargado, oculto bajo 1280 px
+    │   └── desktop-shell__body
+    │       ├── MapAppearanceSidebar — overview | un detalle de capa | riel compacto
+    │       └── MapViewport
+    │           ├── MapLibreRoot (siempre montado)
+    │           ├── CameraControlGroup
+    │           ├── Minimap
+    │           ├── IconLegend       — bajo demanda, abajo-izquierda
+    │           └── MapTooltip
     ├── EmptyState / progreso / recuperación / toasts
-    ├── IconLegend          — ocultable en modo limpio
     ├── ExportDialog        — si hay ciudad cargada
     ├── PreferencesPanel
     └── ExportStatusOverlay
@@ -27,18 +33,26 @@ App
 
 Hooks wireados en `App.tsx`: `useKeyboardShortcuts`, `useTauriEvent` (preferences-open, update-available), `useThemes`, `useExportWorkflow`, más el store global `useVellumStore`.
 
-## Dirección UX planificada
+## Costuras del shell
 
-> **Planificado; los nombres de esta sección aún no son nombres de archivos.** La
-> [espina de arquitectura incremental](../../vellum-context/_bmad-output/planning-artifacts/architecture/architecture-vellum-2026-09-05/ARCHITECTURE-SPINE.md)
-> reemplazará gradualmente la semántica, no los contratos, de esta composición.
+Dos módulos sostienen la estructura del shell de escritorio y conviene leerlos
+antes de tocar cualquier superficie:
 
-`MapAppearanceSidebar` sucederá a `ShellSidebar` y `FloatingLayerPanel`: overview
-para tema/capas y un único detalle de capa que reutiliza `AdvancedOptionsPanel`.
-`MapViewport` sucederá a la responsabilidad visual de `MapSurface` mediante slots
-para minimapa, controles de cámara, leyenda, tarjeta contextual y estado. Los
-handlers de `App`, `useVellumStore`, menú nativo y atajos continúan siendo las
-rutas de acción compartidas durante toda la migración.
+| Módulo                   | Responsabilidad                                                                                                                                                 |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `shell/shell-session.ts` | Reducer local de la sesión efímera: ancho, colapso y contexto overview/detalle del sidebar, Clean view, el único slot modal y la restauración de foco.          |
+| `shell/commands.ts`      | Registro de comandos que comparten todas las superficies. Cada comando define su propia disponibilidad, así que menú nativo, atajo y botón no pueden discrepar. |
+
+`MapAppearanceSidebar` sucedió a `ShellSidebar` y `FloatingLayerPanel`, y
+`MapViewport` asumió la composición de overlays que tenía `MapSurface`.
+`useVellumStore` sigue siendo el único dueño del estado cartográfico; el menú
+nativo y los atajos siguen siendo rutas de primera clase, ahora expresadas como
+comandos.
+
+La tarjeta de entidad fijable **no** está implementada. El renderer no expone
+una selección de entidades navegable por teclado, y la espina de arquitectura
+prohíbe publicar una tarjeta interactiva sin ella. La inspección por hover no
+cambió.
 
 ## Componentes por módulo
 
@@ -63,9 +77,9 @@ rutas de acción compartidas durante toda la migración.
 
 ### `components/minimap/`
 
-| Componente    | Propósito                                                                                                      |
-| ------------- | -------------------------------------------------------------------------------------------------------------- |
-| `Minimap.tsx` | Vista general con los límites del viewport, click-to-pan, se suscribe a cambios de viewport del mapa principal |
+| Componente    | Propósito                                                                                                                               |
+| ------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `Minimap.tsx` | Vista general con los límites del viewport, click/arrastre para recentrar y equivalencia de teclado (flechas desplazan, Enter recentra) |
 
 ### `components/overlays/`
 
@@ -82,24 +96,42 @@ rutas de acción compartidas durante toda la migración.
 
 ### `components/panels/`
 
-| Componente                 | Propósito                                                                                                        |
-| -------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `FloatingLayerPanel.tsx`   | Panel flotante principal de control de visibilidad de capas, con íconos por capa                                 |
-| `LayerToggleRow.tsx`       | Una fila de toggle dentro de `FloatingLayerPanel`                                                                |
-| `AdvancedOptionsPanel.tsx` | Filtros avanzados por capa (modos de tránsito, categorías RICO de edificios, opciones de terreno/basemap)        |
-| `IconLegend.tsx`           | Leyenda de íconos de servicios, colapsable/expandible (máquina de estados announced/collapsed/expanded)          |
-| `ExportDialog.tsx`         | Diálogo de configuración de export — fondo, selección de capas, disponibilidad de contenido, leyenda de tránsito |
-| `PreferencesPanel.tsx`     | Diálogo de idioma + toggle de auto-update                                                                        |
+| Componente                 | Propósito                                                                                                                           |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `AdvancedOptionsPanel.tsx` | Filtros avanzados por capa (modos de tránsito, zonas RICO de edificios, opciones de terreno/basemap); lo hospeda `LayerDetailPanel` |
+| `IconLegend.tsx`           | Leyenda de símbolos del mapa, bajo demanda; la coloca el gestor de colisiones del viewport                                          |
+| `ExportDialog.tsx`         | Diálogo de configuración de export — fondo, selección de capas, disponibilidad de contenido, leyenda de tránsito                    |
+| `PreferencesPanel.tsx`     | Diálogo de idioma + toggle de auto-update                                                                                           |
+
+### `components/sidebar/`
+
+| Componente                  | Propósito                                                                                   |
+| --------------------------- | ------------------------------------------------------------------------------------------- |
+| `MapAppearanceSidebar.tsx`  | Workspace de apariencia acoplado; dueño de los estados overview/detalle/compacto y del foco |
+| `DocumentContextHeader.tsx` | Identidad de la ciudad, disclosure del archivo de origen y control de colapso               |
+| `MapAppearanceOverview.tsx` | Estilo de mapa y las siete filas de capas                                                   |
+| `MapStyleSection.tsx`       | Elección de estilo y la opción de atenuado exclusiva de Tránsito                            |
+| `LayerVisibilityRow.tsx`    | Una capa: switch de visibilidad y disclosure de configuración, independientes entre sí      |
+| `LayerDetailPanel.tsx`      | La configuración de una capa, reemplazando el cuerpo del sidebar                            |
+
+### `components/viewport/`
+
+| Componente               | Propósito                                                                                        |
+| ------------------------ | ------------------------------------------------------------------------------------------------ |
+| `MapViewport.tsx`        | Dueño del layout de overlays y del único espacio de coordenadas; hospeda `MapLibreRoot`          |
+| `CameraControlGroup.tsx` | Zoom, ajustar y —solo con el mapa rotado— restablecer el norte, siempre vía comandos compartidos |
+| `overlay-collision.tsx`  | Registra rects medidos de cada overlay y desplaza a los de menor prioridad fuera del camino      |
 
 ## Hooks (`hooks/`)
 
-| Hook                        | Propósito                                                                                                                 |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `use-keyboard-shortcuts.ts` | Ata todos los atajos globales (abrir archivo, capas 1-7, zoom, fit, modo navegación, rotar, export, modo limpio, leyenda) |
-| `use-tauri-event.ts`        | Helper genérico de suscripción a eventos del backend Tauri, con `onSettled`                                               |
-| `use-themes.ts`             | Carga todos los `.vellumstyle` una vez al arrancar, puebla el store                                                       |
-| `use-export-workflow.ts`    | Orquesta el ciclo de vida completo de export (preview, progreso, cancelación, timeout, warnings/errores)                  |
-| `use-progress-events.ts`    | Se suscribe a eventos IPC de progreso de carga                                                                            |
+| Hook                        | Propósito                                                                                                                                                         |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `use-keyboard-shortcuts.ts` | Solo keymap: abrir archivo, capas 1-7, zoom, fit, límites, rotar, export, Clean view, leyenda y Escape. Cada tecla invoca un comando; la disponibilidad vive allí |
+| `use-menu-action.ts`        | Traduce las acciones del menú nativo a esos mismos comandos                                                                                                       |
+| `use-tauri-event.ts`        | Helper genérico de suscripción a eventos del backend Tauri, con `onSettled`                                                                                       |
+| `use-themes.ts`             | Carga todos los `.vellumstyle` una vez al arrancar, puebla el store                                                                                               |
+| `use-export-workflow.ts`    | Orquesta el ciclo de vida completo de export (preview, progreso, cancelación, timeout, warnings/errores)                                                          |
+| `use-progress-events.ts`    | Se suscribe a eventos IPC de progreso de carga                                                                                                                    |
 
 ## Estado global (`store/vellum-store.ts`, Zustand)
 

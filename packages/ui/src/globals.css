@@ -609,6 +609,23 @@
   opacity: 0.4;
 }
 
+/* Trailing-edge resize affordance. Wide enough to grab, quiet until touched. */
+.shell-resize-handle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 6px;
+  cursor: col-resize;
+  background: transparent;
+}
+
+.shell-resize-handle:hover,
+.shell-resize-handle:focus-visible {
+  background: var(--shell-focus);
+  opacity: 0.5;
+}
+
 /* ─── Map overlays ───────────────────────────────────────────────────────── */
 .shell-camera-group {
   display: flex;

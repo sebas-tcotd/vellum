@@ -17,10 +17,16 @@ feedback, controls and export flow.
 App
 └── AppSurface
     ├── DesktopShell
-    │   ├── ShellSidebar → FloatingLayerPanel
-    │   └── MapSurface → MapLibreRoot (always mounted)
+    │   ├── DocumentCommandStrip     — loaded map, hidden below 1280 px
+    │   └── desktop-shell__body
+    │       ├── MapAppearanceSidebar — overview | one layer detail | compact rail
+    │       └── MapViewport
+    │           ├── MapLibreRoot (always mounted)
+    │           ├── CameraControlGroup
+    │           ├── Minimap
+    │           ├── IconLegend       — on demand, lower left
+    │           └── MapTooltip
     ├── EmptyState / progress / recovery / toasts
-    ├── IconLegend           — hidden in clean mode
     ├── ExportDialog         — when a city is loaded
     ├── PreferencesPanel
     └── ExportStatusOverlay
@@ -30,18 +36,24 @@ App
 workflow and the global Zustand store. The components receive callbacks and data;
 native side effects stay in the desktop adapters or dedicated hooks.
 
-## Planned UX direction
+## Shell seams
 
-> **Planned; the names in this section are not file names yet.** The
-> [incremental architecture spine](../../vellum-context/_bmad-output/planning-artifacts/architecture/architecture-vellum-2026-09-05/ARCHITECTURE-SPINE.md)
-> evolves this composition's semantics, not its existing contracts.
+Two modules carry the desktop shell's structure and are worth reading before
+changing any surface:
 
-`MapAppearanceSidebar` will succeed `ShellSidebar` and `FloatingLayerPanel`: an
-overview for style and layers plus one layer detail that reuses
-`AdvancedOptionsPanel`. `MapViewport` will take on `MapSurface`'s visual
-responsibility through slots for the minimap, camera controls, legend,
-contextual card and status. `App` handlers, `useVellumStore`, the native menu and
-keyboard shortcuts remain the shared action routes throughout the migration.
+| Module                   | Responsibility                                                                                                                                          |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `shell/shell-session.ts` | Local reducer for the ephemeral session: sidebar width, collapse and overview/detail context, Clean view, the single modal slot, and focus restoration. |
+| `shell/commands.ts`      | Command registry every invocation surface shares. Each command owns its availability, so the native menu, a shortcut and a button cannot disagree.      |
+
+`MapAppearanceSidebar` succeeded `ShellSidebar` and `FloatingLayerPanel`, and
+`MapViewport` took over overlay composition from `MapSurface`. `useVellumStore`
+remains the sole owner of cartographic state; the native menu and keyboard
+shortcuts remain first-class routes, now expressed as commands.
+
+The pinnable entity card is **not** implemented. The renderer exposes no
+keyboard-navigable entity selection, and the architecture spine forbids shipping
+an interactive card without one. Hover inspection is unchanged.
 
 ## Components by module
 
@@ -67,9 +79,9 @@ The Canvas renderer itself remains as a legacy package, not as an active UI path
 
 ### `components/minimap/`
 
-| Component     | Purpose                                                  |
-| ------------- | -------------------------------------------------------- |
-| `Minimap.tsx` | Overview with viewport bounds and click-to-pan behavior. |
+| Component     | Purpose                                                                                                    |
+| ------------- | ---------------------------------------------------------------------------------------------------------- |
+| `Minimap.tsx` | Overview with viewport bounds, click/drag panning, and keyboard equivalence (arrows pan, Enter recentres). |
 
 ### `components/overlays/`
 
@@ -86,24 +98,42 @@ The Canvas renderer itself remains as a legacy package, not as an active UI path
 
 ### `components/panels/`
 
-| Component                  | Purpose                                                           |
-| -------------------------- | ----------------------------------------------------------------- |
-| `FloatingLayerPanel.tsx`   | Main layer-visibility panel.                                      |
-| `LayerToggleRow.tsx`       | One layer row within that panel.                                  |
-| `AdvancedOptionsPanel.tsx` | Per-layer filters and display options.                            |
-| `IconLegend.tsx`           | Collapsible legend for service icons.                             |
-| `ExportDialog.tsx`         | Export format, area, background and cartographic-element choices. |
-| `PreferencesPanel.tsx`     | Language selector and automatic-update toggle.                    |
+| Component                  | Purpose                                                                   |
+| -------------------------- | ------------------------------------------------------------------------- |
+| `AdvancedOptionsPanel.tsx` | Per-layer filters and display options, hosted by `LayerDetailPanel`.      |
+| `IconLegend.tsx`           | On-demand map-symbols legend; placed by the viewport's collision manager. |
+| `ExportDialog.tsx`         | Export format, area, background and cartographic-element choices.         |
+| `PreferencesPanel.tsx`     | Language selector and automatic-update toggle.                            |
+
+### `components/sidebar/`
+
+| Component                   | Purpose                                                                         |
+| --------------------------- | ------------------------------------------------------------------------------- |
+| `MapAppearanceSidebar.tsx`  | Docked appearance workspace; owns the overview/detail/compact states and focus. |
+| `DocumentContextHeader.tsx` | City identity, source-file disclosure and the collapse control.                 |
+| `MapAppearanceOverview.tsx` | Map style plus the seven layer rows.                                            |
+| `MapStyleSection.tsx`       | Style choice and the Transit-only dimming option.                               |
+| `LayerVisibilityRow.tsx`    | One layer: an independent visibility switch and configuration disclosure.       |
+| `LayerDetailPanel.tsx`      | One layer's configuration, replacing the sidebar body.                          |
+
+### `components/viewport/`
+
+| Component                | Purpose                                                                                |
+| ------------------------ | -------------------------------------------------------------------------------------- |
+| `MapViewport.tsx`        | Owns overlay layout and the single overlay coordinate space; hosts `MapLibreRoot`.     |
+| `CameraControlGroup.tsx` | Zoom, fit and — only while rotated — reset north, all through shared commands.         |
+| `overlay-collision.tsx`  | Registers measured overlay rects and displaces lower-priority overlays out of the way. |
 
 ## Hooks
 
-| Hook                        | Responsibility                                                                                |
-| --------------------------- | --------------------------------------------------------------------------------------------- |
-| `use-keyboard-shortcuts.ts` | Global file, layer, zoom, fit, navigation, rotation, export, clean-mode and legend shortcuts. |
-| `use-tauri-event.ts`        | Typed subscription helper for native events.                                                  |
-| `use-themes.ts`             | Loads `.vellumstyle` themes once at startup.                                                  |
-| `use-export-workflow.ts`    | Coordinates preview, progress, cancellation, timeouts and user-facing errors.                 |
-| `use-progress-events.ts`    | Subscribes to parse progress events.                                                          |
+| Hook                        | Responsibility                                                                                                                                      |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `use-keyboard-shortcuts.ts` | Keymap only: file, layer, zoom, fit, bounds, rotation, export, Clean view, legend and Escape. Each key invokes a command; availability lives there. |
+| `use-menu-action.ts`        | Translates native menu actions into the same commands.                                                                                              |
+| `use-tauri-event.ts`        | Typed subscription helper for native events.                                                                                                        |
+| `use-themes.ts`             | Loads `.vellumstyle` themes once at startup.                                                                                                        |
+| `use-export-workflow.ts`    | Coordinates preview, progress, cancellation, timeouts and user-facing errors.                                                                       |
+| `use-progress-events.ts`    | Subscribes to parse progress events.                                                                                                                |
 
 ## Global state
 

@@ -9,6 +9,7 @@ import { LayerDetailPanel } from './LayerDetailPanel';
 import { MapAppearanceOverview } from './MapAppearanceOverview';
 import { useVellumStore } from '../../store/vellum-store';
 import { Switch } from '../../lib/switch';
+import { SidebarResizeHandle } from './SidebarResizeHandle';
 
 export interface MapAppearanceSidebarProps {
   cityName: string;
@@ -118,6 +119,14 @@ export function MapAppearanceSidebar({
           />
         )}
       </div>
+      {!collapsed && (
+        <SidebarResizeHandle
+          width={width}
+          onResize={(next) =>
+            dispatch({ type: 'sidebar/setWidth', width: next })
+          }
+        />
+      )}
     </aside>
   );
 }

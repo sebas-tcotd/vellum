@@ -110,20 +110,35 @@ pnpm test:e2e      # playwright test
   exportación tiled con streaming binario y composición incremental es la lógica más
   delicada del backend.
 
-## Dirección UX incremental planificada
+## Shell de escritorio map-first
 
-> **Planificado; no describe componentes ya migrados.** La espina de arquitectura
-> [Vellum Desktop UX Incremental](../../vellum-context/_bmad-output/planning-artifacts/architecture/architecture-vellum-2026-09-05/ARCHITECTURE-SPINE.md)
-> define la evolución map-first del shell.
+La evolución del shell que define la espina
+[Vellum Desktop UX Incremental](../../vellum-context/_bmad-output/planning-artifacts/architecture/architecture-vellum-2026-09-05/ARCHITECTURE-SPINE.md)
+está implementada. El cambio se quedó dentro de `@vellum/ui`: `apps/desktop`
+sigue siendo el composition root, no recibió comandos Tauri nuevos, y los
+contratos de parseo, mapa, exportación, menú nativo y preferencias no cambiaron.
 
-El cambio se limita inicialmente a `@vellum/ui`: `apps/desktop` conserva su papel
-de composition root y sus comandos Tauri. La migración añade superficies nuevas
-alrededor de los handlers, el store y los refs existentes; no cambia el contrato
-de parseo, mapa, exportación, menú nativo ni preferencias.
+Cómo quedó el shell:
 
-Las fases son: baseline de paridad; costuras semánticas de shell; sidebar de
-apariencia y ruta de documento para export; slots de overlays y controles de
-cámara; tokens adaptativos; y endurecimiento accesible con retirada de
-adaptadores. Una fase sólo puede retirar una superficie heredada cuando menú,
-atajo y ruta visual aplicable conservan el mismo efecto y están cubiertos por
-pruebas.
+- **`ShellSession`** posee la sesión efímera — ancho, colapso y contexto
+  overview/detalle del sidebar, Clean view, un único slot modal, restauración de
+  foco. Es un reducer local, no un segundo store global. `useVellumStore` sigue
+  siendo el único dueño del estado cartográfico.
+- **`DesktopCommandAdapter`** es la ruta única de toda acción con más de una
+  superficie de invocación. Menú nativo, atajos y botones del shell emiten el
+  mismo comando y leen la misma disponibilidad.
+- **`MapAppearanceSidebar`** reemplazó a `ShellSidebar` y `FloatingLayerPanel`.
+  Visibilidad y disclosure de configuración son controles separados; la
+  exportación dejó de ser asunto de apariencia y vive en la ruta de documento.
+- **`MapViewport`** posee la composición de overlays en un solo espacio de
+  coordenadas, con un gestor de colisiones que trabaja sobre rects medidos.
+  `MapLibreRoot` conserva renderizado, cámara y suscripciones, y publica solo un
+  puerto estrecho para los overlays que necesitan orientarse o navegar.
+- **Abrir un mapa es transaccional.** Una carga ya no descarta el documento
+  actual; un reemplazo cancelado o fallido deja intactos el mapa, la cámara y el
+  foco anteriores.
+
+Dos cosas faltan a propósito. La tarjeta de entidad fijable no se publica: el
+renderer no expone selección de entidades navegable por teclado y la espina
+prohíbe una tarjeta interactiva sin ella — el hover no cambió. El ancho del
+sidebar es solo de sesión; persistirlo entre aperturas sigue diferido.

@@ -111,19 +111,35 @@ should not require rewriting the domain or UI layers. The export pipeline is the
 most stateful native area because large maps are streamed through a transactional
 Rust session instead of being held as one giant buffer.
 
-## Planned incremental UX direction
+## Map-first desktop shell
 
-> **Planned; this section does not describe components that have already
-> migrated.** The [Vellum Desktop UX Incremental architecture spine](../../vellum-context/_bmad-output/planning-artifacts/architecture/architecture-vellum-2026-09-05/ARCHITECTURE-SPINE.md)
-> defines the map-first shell evolution.
+The shell evolution defined by the
+[Vellum Desktop UX Incremental architecture spine](../../vellum-context/_bmad-output/planning-artifacts/architecture/architecture-vellum-2026-09-05/ARCHITECTURE-SPINE.md)
+is implemented. The change stayed inside `@vellum/ui`: `apps/desktop` is still
+the composition root, gained no new Tauri commands, and the parse, map, export,
+native-menu and preferences contracts are unchanged.
 
-The initial change is limited to `@vellum/ui`: `apps/desktop` remains the
-composition root and retains its Tauri commands. The migration adds new surfaces
-around the existing handlers, store and renderer refs; it does not change the
-parse, map, export, native-menu or preferences contracts.
+What the shell now looks like:
 
-The phases are: parity baseline; semantic shell seams; appearance sidebar and a
-document route for export; overlay slots and camera controls; adaptive tokens;
-then accessible hardening and adapter removal. A phase may remove a legacy
-surface only when the applicable menu, shortcut and visual route have the same
-effect and test coverage.
+- **`ShellSession`** owns the ephemeral session — sidebar width, collapse and
+  overview/detail context, Clean view, one modal slot, focus restoration. It is
+  a local reducer, not a second global store. `useVellumStore` remains the only
+  owner of cartographic state.
+- **`DesktopCommandAdapter`** is the single route for every action with more
+  than one invocation surface. The native menu, keyboard shortcuts and the
+  shell's own buttons emit the same command and read the same availability.
+- **`MapAppearanceSidebar`** replaced `ShellSidebar` and `FloatingLayerPanel`.
+  Layer visibility and configuration disclosure are separate controls; export
+  is no longer an appearance concern and lives on the document route.
+- **`MapViewport`** owns overlay composition in one coordinate space, with an
+  overlay collision manager working from measured rectangles. `MapLibreRoot`
+  still owns rendering, camera and subscriptions, and publishes only a narrow
+  port for the overlays that need to orient or navigate.
+- **Opening a map is transactional.** A load no longer clears the current
+  document; a cancelled or failed replacement leaves the previous map, camera
+  and focus intact.
+
+Two things are deliberately absent. The pinnable entity card is not shipped:
+the renderer exposes no keyboard-navigable entity selection, and the spine
+forbids an interactive card without one — hover inspection is unchanged.
+Sidebar width is session-only; persisting it across launches remains deferred.
