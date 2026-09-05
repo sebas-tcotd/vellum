@@ -1519,3 +1519,108 @@ describe('App — exportación parcial y advertencias (Story 6.4)', () => {
     });
   });
 });
+
+describe('App — shell state machine and command parity', () => {
+  const shortcuts = () => vi.mocked(useKeyboardShortcuts).mock.lastCall?.[0];
+
+  it('resolves one transient state per Escape, deepest first', async () => {
+    useVellumStore.getState().setCityData(mockCityData);
+    await act(async () => {
+      render(<App />);
+    });
+
+    // Open a layer detail the way the Layers menu does.
+    act(() => shortcuts()?.onOpenAdvancedOptions?.('transit'));
+    expect(screen.getByTestId('layer-detail-back')).toBeInTheDocument();
+
+    // Then enter Clean view on top of it.
+    act(() => shortcuts()?.onHidePanel?.());
+    expect(screen.getByTestId('shell-sidebar')).toHaveAttribute('hidden');
+
+    // First Escape leaves the layer detail; Clean view survives it.
+    act(() => shortcuts()?.onEscape?.());
+    expect(screen.getByTestId('shell-sidebar')).toHaveAttribute('hidden');
+
+    // Second Escape leaves Clean view, and the sidebar comes back on overview.
+    act(() => shortcuts()?.onEscape?.());
+    const sidebar = screen.getByTestId('shell-sidebar');
+    expect(sidebar).not.toHaveAttribute('hidden');
+    expect(screen.queryByTestId('layer-detail-back')).toBeNull();
+  });
+
+  it('never exits the app when there is nothing left to close', async () => {
+    useVellumStore.getState().setCityData(mockCityData);
+    await act(async () => {
+      render(<App />);
+    });
+
+    act(() => shortcuts()?.onEscape?.());
+    expect(screen.getByTestId('shell-sidebar')).toBeInTheDocument();
+    expect(screen.getByTestId('map-surface')).toBeInTheDocument();
+  });
+
+  it('refuses to enter Clean view while a recoverable-parse dialog is open', async () => {
+    useVellumStore.getState().setCityData(mockCityData);
+    await act(async () => {
+      render(<App />);
+    });
+
+    act(() => {
+      useVellumStore
+        .getState()
+        .setLoadingState('error', { type: 'PartialParse', warnings: ['x'] });
+    });
+    expect(screen.getByTestId('partial-parse-dialog')).toBeInTheDocument();
+
+    act(() => shortcuts()?.onHidePanel?.());
+    // The blocking surface owns the screen; Clean view cannot start under it.
+    expect(screen.getByTestId('shell-sidebar')).not.toHaveAttribute('hidden');
+  });
+
+  it('opens the same export dialog from the document strip and the shortcut', async () => {
+    useVellumStore.getState().setCityData(mockCityData);
+    await act(async () => {
+      render(<App rasterExporter={mockRasterExporter} />);
+    });
+
+    const stripExport = screen
+      .getByTestId('document-command-strip')
+      .querySelector('[data-focus-id="document-export"]');
+    expect(stripExport).not.toBeNull();
+
+    await act(async () => {
+      fireEvent.click(stripExport as HTMLElement);
+    });
+    const fromStrip = screen.getAllByRole('button', {
+      name: 'export.exportButton',
+    }).length;
+    // The dialog is open: its own Export button joins the strip's.
+    expect(fromStrip).toBeGreaterThan(1);
+  });
+
+  it('keeps export off the appearance sidebar', async () => {
+    useVellumStore.getState().setCityData(mockCityData);
+    await act(async () => {
+      render(<App rasterExporter={mockRasterExporter} />);
+    });
+
+    const sidebar = screen.getByTestId('shell-sidebar');
+    expect(sidebar.textContent).not.toMatch(/export/i);
+    // It lives on the document route instead.
+    expect(
+      screen
+        .getByTestId('document-command-strip')
+        .querySelector('[data-focus-id="document-export"]'),
+    ).not.toBeNull();
+  });
+
+  it('shows no sidebar, camera controls or minimap before a map exists', async () => {
+    await act(async () => {
+      render(<App />);
+    });
+
+    expect(screen.queryByTestId('shell-sidebar')).toBeNull();
+    expect(screen.queryByTestId('camera-control-group')).toBeNull();
+    expect(screen.queryByTestId('document-command-strip')).toBeNull();
+  });
+});

@@ -45,7 +45,7 @@ export interface CommandPayloads {
 }
 
 /** Why a command is currently unavailable — surfaced as a disabled reason. */
-export type UnavailableReason = 'no-map' | 'loading' | 'exporting';
+export type UnavailableReason = 'no-map' | 'loading' | 'exporting' | 'modal';
 
 export interface Command<Id extends CommandId> {
   id: Id;
@@ -91,6 +91,8 @@ export interface CommandDeps {
   hasMap: boolean;
   isLoading: boolean;
   isExporting: boolean;
+  /** Whether a blocking surface currently owns the screen. */
+  hasBlockingModal: boolean;
 }
 
 /**
@@ -118,6 +120,7 @@ export function useDesktopCommands(deps: CommandDeps): CommandRegistry {
     hasMap,
     isLoading,
     isExporting,
+    hasBlockingModal,
   } = deps;
 
   return useMemo<CommandRegistry>(() => {
@@ -142,7 +145,10 @@ export function useDesktopCommands(deps: CommandDeps): CommandRegistry {
     });
 
     const mapReason = noMap;
-    const cleanViewReason = noMap ?? (isLoading ? 'loading' : null);
+    // Clean view cannot start under a blocking surface (AD-7); the session
+    // refuses it too, this just lets a surface show why.
+    const cleanViewReason =
+      noMap ?? (isLoading ? 'loading' : hasBlockingModal ? 'modal' : null);
     const exportReason =
       noMap ?? (isLoading ? 'loading' : isExporting ? 'exporting' : null);
 
@@ -189,6 +195,7 @@ export function useDesktopCommands(deps: CommandDeps): CommandRegistry {
   }, [
     availableThemeIds,
     fitToScreen,
+    hasBlockingModal,
     hasMap,
     isExporting,
     isLoading,

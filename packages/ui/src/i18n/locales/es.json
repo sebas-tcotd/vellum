@@ -196,7 +196,8 @@
     "configureLayer": "Configurar {{layer}}",
     "cameraControls": "Controles de cámara del mapa",
     "mapStatus": "Estado del mapa",
-    "mapViewport": "Mapa"
+    "mapViewport": "Mapa",
+    "minimapHelp": "Las flechas desplazan el mapa. Enter lo recentra en la ciudad."
   },
   "transitModes": {
     "Bus": "Autobús",

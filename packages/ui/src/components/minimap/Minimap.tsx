@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useOverlaySlot } from '../viewport/overlay-collision';
 import { useTranslation } from 'react-i18next';
 import type { CityData } from '@vellum/core';
 import { csToGeoArray } from '@vellum/renderer-webgl';
 import type { ViewportBounds } from '@vellum/renderer-webgl';
 
 const CANVAS_SIZE = 160;
+
+/** How far one arrow-key press pans, as a fraction of the city's extent. */
+const PAN_STEP_FRACTION = 0.1;
 
 /** Props for the Minimap component. */
 export interface MinimapProps {
@@ -39,6 +43,8 @@ export function Minimap({
 }: MinimapProps) {
   const { t } = useTranslation();
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  // The minimap owns the lower-right corner; everything else stacks around it.
+  const slot = useOverlaySlot('minimap', 'bottom-right');
   const viewportRef = useRef<ViewportBounds | null>(null);
   const isDraggingRef = useRef(false);
   /** Holds the pre-rendered static city image; rebuilt only when `cityData` changes. */
@@ -215,23 +221,79 @@ export function Minimap({
     [],
   );
 
+  // ── Keyboard navigation ───────────────────────────────────────────────────
+  // The keyboard equivalent of click-and-drag recentring: arrows pan the map
+  // by a fixed fraction of the city, Enter returns to its centre.
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLCanvasElement>) => {
+      const stepLng = (neLng - swLng) * PAN_STEP_FRACTION;
+      const stepLat = (neLat - swLat) * PAN_STEP_FRACTION;
+      const current = viewportRef.current;
+      const centerLng = current
+        ? (current.westLng + current.eastLng) / 2
+        : (swLng + neLng) / 2;
+      const centerLat = current
+        ? (current.northLat + current.southLat) / 2
+        : (swLat + neLat) / 2;
+
+      const move = (dLng: number, dLat: number) => {
+        e.preventDefault();
+        navigateTo(centerLng + dLng, centerLat + dLat);
+      };
+
+      switch (e.key) {
+        case 'ArrowLeft':
+          return move(-stepLng, 0);
+        case 'ArrowRight':
+          return move(stepLng, 0);
+        case 'ArrowUp':
+          return move(0, stepLat);
+        case 'ArrowDown':
+          return move(0, -stepLat);
+        case 'Enter':
+          e.preventDefault();
+          return navigateTo((swLng + neLng) / 2, (swLat + neLat) / 2);
+        default:
+          return;
+      }
+    },
+    [navigateTo, neLat, neLng, swLat, swLng],
+  );
+
+  const helpId = 'vellum-minimap-help';
+
   return (
     <div
-      className="absolute bottom-4 right-4 rounded-md overflow-hidden border border-white/20 shadow-lg z-40 bg-[#f2efe9]"
-      style={{ width: CANVAS_SIZE, height: CANVAS_SIZE, touchAction: 'none' }}
+      ref={slot.ref}
+      className="rounded-md overflow-hidden border border-white/20 shadow-lg bg-[#f2efe9]"
+      style={{
+        ...slot.style,
+        width: CANVAS_SIZE,
+        height: CANVAS_SIZE,
+        touchAction: 'none',
+      }}
     >
+      {/* Keyboard operation is equivalent to the pointer route — arrows pan by
+          a fixed step, Enter recentres — so this is described as an
+          interactive navigation region rather than as an image. */}
       <canvas
         ref={canvasRef}
         width={CANVAS_SIZE}
         height={CANVAS_SIZE}
+        tabIndex={0}
+        onKeyDown={handleKeyDown}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
         style={{ display: 'block', cursor: 'crosshair', touchAction: 'none' }}
         aria-label={t('a11y.minimap')}
-        role="img"
+        aria-describedby={helpId}
+        role="application"
       />
+      <p id={helpId} hidden>
+        {t('a11y.minimapHelp')}
+      </p>
     </div>
   );
 }

@@ -10,6 +10,23 @@ import type { ViewportBounds } from '../types/renderer.types';
  * Strict mode: hard pan/zoom bounds. Soft mode: allows overpanning with
  * snap-back and underzooming down to 25% of fit-to-screen zoom.
  */
+/**
+ * Whether the user has asked for reduced motion.
+ *
+ * @remarks
+ * Read at call time rather than cached: the preference can change while the
+ * app is open, and a camera command is infrequent enough that one media query
+ * costs nothing. Falls back to "motion is fine" wherever `matchMedia` is
+ * unavailable, such as a test environment.
+ */
+function prefersReducedMotion(): boolean {
+  return (
+    typeof window !== 'undefined' &&
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  );
+}
+
 export class MapNavigationManager {
   private navigationMode: 'strict' | 'soft' = 'soft';
   private fitToScreenZoom = 0;
@@ -121,12 +138,14 @@ export class MapNavigationManager {
    */
   rotateBy(deltaDegrees: number): void {
     const current = this.map.getBearing();
-    this.map.rotateTo(current + deltaDegrees, { duration: 200 });
+    this.map.rotateTo(current + deltaDegrees, {
+      duration: prefersReducedMotion() ? 0 : 200,
+    });
   }
 
   /** Resets the map bearing to 0° (north up) with an animated transition. */
   resetBearing(): void {
-    this.map.rotateTo(0, { duration: 300 });
+    this.map.rotateTo(0, { duration: prefersReducedMotion() ? 0 : 300 });
   }
 
   /** Returns the current bearing in degrees (0 = north up). */
@@ -194,7 +213,11 @@ export class MapNavigationManager {
           [swLng, swLat],
           [neLng, neLat],
         ],
-        { padding: 20, animate: true, duration: 300 },
+        {
+          padding: 20,
+          animate: !prefersReducedMotion(),
+          duration: prefersReducedMotion() ? 0 : 300,
+        },
       );
       this.map.once('moveend', () => {
         this.isSnappingBack = false;

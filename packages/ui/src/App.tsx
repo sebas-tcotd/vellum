@@ -10,7 +10,7 @@ import { useThemes } from './hooks/use-themes';
 import { useExportWorkflow } from './hooks/use-export-workflow';
 import { useMenuAction } from './hooks/use-menu-action';
 import { useDesktopCommands } from './shell/commands';
-import { useShellSession } from './shell/shell-session';
+import { useShellSession, type ActiveModal } from './shell/shell-session';
 
 /**
  * Global type augmentation for i18next.
@@ -138,6 +138,7 @@ export function App({
   const hydratePreferences = useVellumStore((s) => s.hydratePreferences);
   const cityData = useVellumStore((s) => s.cityData);
   const loadingState = useVellumStore((s) => s.loadingState);
+  const loadingError = useVellumStore((s) => s.loadingError);
   const activeLayers = useVellumStore((s) => s.activeLayers);
   const setDlcWarnings = useVellumStore((s) => s.setDlcWarnings);
   const setHasPartialData = useVellumStore((s) => s.setHasPartialData);
@@ -215,6 +216,27 @@ export function App({
     [shellDispatch],
   );
 
+  // Keep the session's single modal slot in step with the dialogs that are
+  // actually open (AD-7). Exclusivity is what lets Clean view refuse to start
+  // under a blocking surface and lets Escape leave dialogs to their own focus
+  // trap instead of racing them.
+  const blockingModal: ActiveModal =
+    loadingState === 'error' && loadingError?.type === 'PartialParse'
+      ? 'partialParse'
+      : isExportDialogOpen
+        ? 'export'
+        : isPreferencesOpen
+          ? 'preferences'
+          : null;
+
+  useEffect(() => {
+    if (blockingModal === null) {
+      shellDispatch({ type: 'modal/close' });
+      return;
+    }
+    shellDispatch({ type: 'modal/open', modal: blockingModal });
+  }, [blockingModal, shellDispatch]);
+
   const availableThemes = useVellumStore((s) => s.availableThemes);
   const setActiveTheme = useVellumStore((s) => s.setActiveTheme);
   const transitDimmingEnabled = useVellumStore((s) => s.transitDimmingEnabled);
@@ -250,6 +272,7 @@ export function App({
     hasMap: cityData !== null,
     isLoading: loadingState === 'loading',
     isExporting,
+    hasBlockingModal: blockingModal !== null,
   });
 
   const handleMenuAction = useMenuAction({ commands });
