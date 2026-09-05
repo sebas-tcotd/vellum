@@ -4,13 +4,6 @@ import { DesktopShell } from './DesktopShell';
 import { MapSurface } from './MapSurface';
 import { ShellSidebar } from './ShellSidebar';
 
-const mockStartDragging = vi.hoisted(() =>
-  vi.fn().mockResolvedValue(undefined),
-);
-vi.mock('@tauri-apps/api/window', () => ({
-  getCurrentWindow: () => ({ startDragging: mockStartDragging }),
-}));
-
 vi.mock('../panels/FloatingLayerPanel', () => ({
   FloatingLayerPanel: ({
     onStateChange,
@@ -109,22 +102,16 @@ describe('shell adaptativo inline', () => {
 
   it('mantiene una región de drag nativa sin reemplazar los controles de ventana', () => {
     const { container } = renderShell();
-    expect(
-      container.querySelector('[data-tauri-drag-region]'),
-    ).toBeInTheDocument();
-  });
-
-  it('solicita el drag nativo en Tauri al pulsar el titlebar', async () => {
-    const { container } = renderShell();
-    (window as Window & { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__ =
-      {};
-
-    fireEvent.mouseDown(container.querySelector('[data-tauri-drag-region]'), {
-      button: 0,
-    });
-
-    expect(mockStartDragging).toHaveBeenCalledTimes(1);
-    delete (window as Window & { __TAURI_INTERNALS__?: unknown })
-      .__TAURI_INTERNALS__;
+    const dragRegion = container.querySelector('[data-tauri-drag-region]');
+    expect(dragRegion).toBeInTheDocument();
+    // No debe tener un valor "false" (que Tauri interpreta como "no es
+    // drag region") ni un onMouseDown propio: el script `drag.js` que Tauri
+    // inyecta ya escucha `mousedown` en `document` y llama a
+    // `start_dragging` por su cuenta en cuanto ve este atributo. Un segundo
+    // `startDragging()` manual sobre el mismo click invoca el comando dos
+    // veces casi al mismo tiempo — la ventana deja de seguir al cursor a
+    // mitad del drag nativo (bug real de Story 8.2, ver DesktopShell.tsx).
+    expect(dragRegion).not.toHaveAttribute('data-tauri-drag-region', 'false');
+    expect((dragRegion as HTMLElement | null)?.onmousedown).toBeNull();
   });
 });

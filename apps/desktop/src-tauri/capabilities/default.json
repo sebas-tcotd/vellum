@@ -7,6 +7,7 @@
     "core:default",
     "dialog:default",
     "core:window:allow-set-title",
+    "core:window:allow-start-dragging",
     "store:default",
     "opener:default",
     "os:allow-platform"
