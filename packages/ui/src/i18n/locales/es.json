@@ -195,7 +195,8 @@
     "mapAppearance": "Apariencia del mapa",
     "configureLayer": "Configurar {{layer}}",
     "cameraControls": "Controles de cámara del mapa",
-    "mapStatus": "Estado del mapa"
+    "mapStatus": "Estado del mapa",
+    "mapViewport": "Mapa"
   },
   "transitModes": {
     "Bus": "Autobús",

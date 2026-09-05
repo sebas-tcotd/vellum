@@ -369,7 +369,6 @@ export function App({
         toggleNavigationModeRef,
         rotateByRef,
         resetBearingRef,
-        isCleanMode,
         themes,
         subscribeServiceIconLegendRef,
         previewCaptureRef,

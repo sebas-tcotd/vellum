@@ -8,7 +8,7 @@ import { openUrl } from '@tauri-apps/plugin-opener';
 import type { LayerName } from '@vellum/core';
 import type { ServiceIconLegendState } from '@vellum/renderer-webgl';
 import type { MapLibreRootProps } from './canvas/MapLibreRoot';
-import { MapLibreRoot } from './canvas/MapLibreRoot';
+import { MapViewport } from './viewport/MapViewport';
 import { EmptyState } from './empty-state/EmptyState';
 import { ProgressBar } from './overlays/ProgressBar';
 import { ErrorToast } from './overlays/ErrorToast';
@@ -19,13 +19,11 @@ import { UpdateToast } from './overlays/UpdateToast';
 import { ExportStatusOverlay } from './overlays/ExportStatusOverlay';
 import { ExportDialog } from './panels/ExportDialog';
 import { PreferencesPanel } from './panels/PreferencesPanel';
-import { IconLegend } from './panels/IconLegend';
-import { DesktopShell, DocumentCommandStrip, MapSurface } from './shell';
+import { DesktopShell, DocumentCommandStrip } from './shell';
 import { MapAppearanceSidebar } from './sidebar/MapAppearanceSidebar';
 import type { CommandRegistry } from '../shell/commands';
 import type { ShellSession } from '../shell/shell-session';
 import type { useExportWorkflow } from '../hooks/use-export-workflow';
-import { cn } from '../lib/utils';
 // Relativo a propósito: el alias `@/` del composition root apunta a
 // `packages/ui/src`, así que un `@/store/...` compilado a dist carga un SEGUNDO
 // módulo del store — el resto del paquete quedaría suscrito a otra instancia.
@@ -116,17 +114,13 @@ export function AppSurface({
                 shell={shell}
               />
             )}
-            <MapSurface>
-              <div
-                data-testid="canvas-wrapper"
-                className={cn(
-                  'absolute inset-0 transition-opacity duration-500',
-                  cityData ? 'opacity-100' : 'opacity-0 pointer-events-none',
-                )}
-              >
-                <MapLibreRoot {...mapProps} />
-              </div>
-            </MapSurface>
+            <MapViewport
+              mapProps={mapProps}
+              commands={commands}
+              isCleanView={isCleanMode}
+              subscribeServiceIconLegendRef={subscribeServiceIconLegendRef}
+              iconLegendToggleRef={iconLegendToggleRef}
+            />
           </div>
         </DesktopShell>
         {showEmptyState && <EmptyState />}
@@ -166,18 +160,6 @@ export function AppSurface({
             }}
             onDismiss={() => setUpdateInfo(null)}
           />
-        )}
-        {cityData !== null && loadingState !== 'loading' && (
-          <div
-            className={
-              isCleanMode ? 'invisible pointer-events-none' : undefined
-            }
-          >
-            <IconLegend
-              subscribeRef={subscribeServiceIconLegendRef}
-              toggleRef={iconLegendToggleRef}
-            />
-          </div>
         )}
         {cityData !== null && (
           <ExportDialog

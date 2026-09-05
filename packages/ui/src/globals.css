@@ -609,6 +609,69 @@
   opacity: 0.4;
 }
 
+/* ─── Map overlays ───────────────────────────────────────────────────────── */
+.shell-camera-group {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  color: var(--shell-text-primary);
+  background: var(--shell-surface-floating);
+  border: 1px solid var(--shell-separator);
+  /* One continuous silhouette for the cluster, per the shape contract. */
+  border-radius: var(--shell-radius-panel);
+  box-shadow: var(--shell-shadow-floating);
+  backdrop-filter: blur(var(--shell-blur));
+}
+
+.shell-camera-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  color: inherit;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.shell-camera-button + .shell-camera-button {
+  border-top: 1px solid var(--shell-separator);
+}
+
+.shell-camera-button:hover:not(:disabled) {
+  background: var(--shell-surface-popover);
+}
+
+.shell-camera-button:disabled {
+  cursor: default;
+  opacity: 0.35;
+}
+
+@media (forced-colors: active) {
+  .shell-camera-group {
+    background: Canvas;
+    border-color: ButtonBorder;
+    box-shadow: none;
+    backdrop-filter: none;
+  }
+
+  .shell-camera-button {
+    color: ButtonText;
+  }
+
+  .shell-camera-button:disabled {
+    color: GrayText;
+    opacity: 1;
+  }
+
+  .shell-style-pill.is-selected {
+    color: HighlightText;
+    background: Highlight;
+    border-color: Highlight;
+  }
+}
+
 /* One focus treatment for the whole shell, keyboard-only, legible on every
    surface including the map. */
 .desktop-shell :focus-visible {

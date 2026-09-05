@@ -195,7 +195,8 @@
     "mapAppearance": "Map appearance",
     "configureLayer": "Configure {{layer}}",
     "cameraControls": "Map camera controls",
-    "mapStatus": "Map status"
+    "mapStatus": "Map status",
+    "mapViewport": "Map"
   },
   "transitModes": {
     "Bus": "Bus",
