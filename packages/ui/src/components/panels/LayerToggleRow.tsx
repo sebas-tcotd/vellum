@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChevronDown } from 'lucide-react';
-import { Switch } from '@/lib/switch';
-import { cn } from '@/lib/utils';
+import { Switch } from '../../lib/switch';
+import { cn } from '../../lib/utils';
 import type { LayerName } from '@vellum/core';
 
 /** Props for a single layer toggle row inside the FloatingLayerPanel. */

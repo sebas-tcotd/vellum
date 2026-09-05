@@ -123,15 +123,14 @@ describe('FloatingLayerPanel', () => {
   });
 
   describe('AC1 — Posición y estilos', () => {
-    it('tiene clases de posición fixed, left-4, top-1/2, -translate-y-1/2 sin panel avanzado abierto', () => {
+    it('ocupa el drawer inline sin posicionamiento fixed sobre el mapa', () => {
       const { container } = render(
         <FloatingLayerPanel cityName="Altavento" fileName="altavento.cslmap" />,
       );
       const panel = container.firstChild as HTMLElement;
-      expect(panel.className).toContain('fixed');
-      expect(panel.className).toContain('left-4');
-      expect(panel.className).toContain('top-1/2');
-      expect(panel.className).toContain('-translate-y-1/2');
+      expect(panel.className).toContain('w-full');
+      expect(panel.className).toContain('h-full');
+      expect(panel.className).not.toContain('fixed');
     });
 
     it('resuelve radio, blur y sombra desde los tokens --shell-* (Story 1.1)', () => {
@@ -142,77 +141,6 @@ describe('FloatingLayerPanel', () => {
       expect(panel.style.borderRadius).toBe('var(--shell-radius-lg)');
       expect(panel.style.backdropFilter).toBe('blur(var(--shell-blur))');
       expect(panel.style.boxShadow).toBe('var(--shell-shadow-panel)');
-    });
-  });
-
-  describe('Posición dinámica del stack al abrir el panel avanzado', () => {
-    const setViewportHeight = (height: number) => {
-      Object.defineProperty(window, 'innerHeight', {
-        value: height,
-        configurable: true,
-        writable: true,
-      });
-    };
-
-    afterEach(() => {
-      setViewportHeight(768);
-    });
-
-    it('ancla arriba (top-4) al abrir el panel avanzado en una ventana corta', () => {
-      setViewportHeight(700);
-      const { container, rerender } = render(
-        <FloatingLayerPanel cityName="Altavento" fileName="altavento.cslmap" />,
-      );
-      fireEvent.click(
-        screen.getAllByRole('button', {
-          name: 'a11y.advancedOptionsToggle',
-        })[0],
-      );
-      rerender(
-        <FloatingLayerPanel cityName="Altavento" fileName="altavento.cslmap" />,
-      );
-      const wrapper = container.firstChild as HTMLElement;
-      expect(wrapper.className).toContain('top-4');
-      expect(wrapper.className).not.toContain('top-1/2');
-    });
-
-    it('permanece centrado al abrir el panel avanzado en una ventana alta (pantalla completa)', () => {
-      setViewportHeight(1200);
-      const { container, rerender } = render(
-        <FloatingLayerPanel cityName="Altavento" fileName="altavento.cslmap" />,
-      );
-      fireEvent.click(
-        screen.getAllByRole('button', {
-          name: 'a11y.advancedOptionsToggle',
-        })[0],
-      );
-      rerender(
-        <FloatingLayerPanel cityName="Altavento" fileName="altavento.cslmap" />,
-      );
-      const wrapper = container.firstChild as HTMLElement;
-      expect(wrapper.className).toContain('top-1/2');
-      expect(wrapper.className).not.toContain('top-4');
-    });
-
-    it('vuelve a centrarse al cerrar el panel avanzado, incluso en ventana corta', () => {
-      setViewportHeight(700);
-      const { container, rerender } = render(
-        <FloatingLayerPanel cityName="Altavento" fileName="altavento.cslmap" />,
-      );
-      const toggleBtn = screen.getAllByRole('button', {
-        name: 'a11y.advancedOptionsToggle',
-      })[0];
-      fireEvent.click(toggleBtn);
-      rerender(
-        <FloatingLayerPanel cityName="Altavento" fileName="altavento.cslmap" />,
-      );
-      fireEvent.click(toggleBtn);
-      rerender(
-        <FloatingLayerPanel cityName="Altavento" fileName="altavento.cslmap" />,
-      );
-      const wrapper = container.firstChild as HTMLElement;
-      expect(wrapper.className).toContain('top-1/2');
-      expect(wrapper.className).not.toContain('top-4');
     });
   });
 
@@ -283,7 +211,7 @@ describe('FloatingLayerPanel', () => {
       expect(panel.getAttribute('data-state')).toBe('collapsed');
     });
 
-    it('panel tiene clase w-12 en estado collapsed', () => {
+    it('el contenido conserva w-full y delega el ancho al shell al colapsar', () => {
       const { container } = render(
         <FloatingLayerPanel cityName="Altavento" fileName="altavento.cslmap" />,
       );
@@ -291,7 +219,7 @@ describe('FloatingLayerPanel', () => {
       fireEvent.click(
         screen.getByRole('button', { name: 'a11y.layerPanelCollapse' }),
       );
-      expect(panel.className).toContain('w-12');
+      expect(panel.className).toContain('w-full');
     });
 
     it('oculta el wordmark al colapsar', () => {
@@ -744,6 +672,43 @@ describe('FloatingLayerPanel', () => {
       expect(radiusByPlatform.get('linux')).toBe(
         radiusByPlatform.get('unknown'),
       );
+    });
+
+    it('usa un alias semántico de fuente de sistema sin alterar tokens cartográficos', () => {
+      const shellFonts = new Map<Platform, string>();
+      const terrainColors = new Set<string>();
+
+      PLATFORMS.forEach((platform) => {
+        const { unmount } = render(
+          <PlatformProvider platform={platform}>
+            <FloatingLayerPanel
+              cityName="Altavento"
+              fileName="altavento.cslmap"
+            />
+          </PlatformProvider>,
+        );
+        const rootStyle = getComputedStyle(document.documentElement);
+        shellFonts.set(
+          platform,
+          rootStyle.getPropertyValue('--font-shell').trim(),
+        );
+        terrainColors.add(rootStyle.getPropertyValue('--color-terrain').trim());
+        unmount();
+      });
+
+      expect(shellFonts.get('windows')).toContain('Segoe UI');
+      expect(shellFonts.get('macos')).toContain('-apple-system');
+      expect(shellFonts.get('linux')).toBe(shellFonts.get('unknown'));
+      expect(terrainColors).toEqual(new Set(['#f7f6f1']));
+    });
+
+    it('incluye fallbacks explícitos para movimiento reducido y colores forzados', () => {
+      expect(styleTag.textContent).toContain(
+        '@media (prefers-reduced-motion: reduce)',
+      );
+      expect(styleTag.textContent).toContain('@media (forced-colors: active)');
+      expect(styleTag.textContent).toContain('--shell-layout-duration: 0ms');
+      expect(styleTag.textContent).toContain('background: Canvas');
     });
 
     it('AdvancedOptionsFloatingPanel también resuelve radio/blur/sombra desde los tokens --shell-* (no solo el panel principal)', () => {

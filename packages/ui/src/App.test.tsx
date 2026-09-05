@@ -132,6 +132,7 @@ vi.mock('./store/preferences-store', () => ({
 
 vi.mock('./components/canvas/MapLibreRoot', () => ({
   MapLibreRoot: ({
+    activeLayers,
     previewCaptureRef,
     snapshotCaptureRef,
     svgSnapshotCaptureRef,
@@ -152,6 +153,7 @@ vi.mock('./components/canvas/MapLibreRoot', () => ({
         ) => SvgExportSnapshot | null)
       | null
     >;
+    activeLayers?: import('@vellum/core').LayerVisibility;
   }) => {
     if (previewCaptureRef) {
       previewCaptureRef.current = mockPreviewCapture;
@@ -162,7 +164,12 @@ vi.mock('./components/canvas/MapLibreRoot', () => ({
     if (svgSnapshotCaptureRef) {
       svgSnapshotCaptureRef.current = () => mockSvgSnapshot;
     }
-    return <div data-testid="maplibre-root" />;
+    return (
+      <div
+        data-testid="maplibre-root"
+        data-roads-visible={String(activeLayers?.roads ?? '')}
+      />
+    );
   },
 }));
 
@@ -319,6 +326,51 @@ describe('App — renderizado condicional', () => {
 
     const canvasWrapper = screen.getByTestId('canvas-wrapper');
     expect(canvasWrapper.className).toContain('opacity-100');
+  });
+
+  it('integra sidebar y mapa como superficies hermanas y Clean Mode libera el drawer', async () => {
+    useVellumStore.getState().setCityData(mockCityData);
+    await act(async () => {
+      render(<App />);
+    });
+
+    const shell = screen.getByTestId('desktop-shell');
+    const sidebar = screen.getByTestId('shell-sidebar');
+    const mapSurface = screen.getByTestId('map-surface');
+    expect(shell.children).toContain(sidebar);
+    expect(shell.children).toContain(mapSurface);
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'a11y.layerPanelCollapse' }),
+    );
+    expect(sidebar).toHaveAttribute('data-state', 'collapsed');
+
+    const shortcutOptions = vi
+      .mocked(useKeyboardShortcuts)
+      .mock.calls.at(-1)?.[0];
+    act(() => shortcutOptions?.onHidePanel?.());
+    expect(sidebar).toHaveAttribute('hidden');
+
+    act(() => shortcutOptions?.onHidePanel?.());
+    expect(sidebar).not.toHaveAttribute('hidden');
+    expect(sidebar).toHaveAttribute('data-state', 'collapsed');
+  });
+
+  it('propaga activeLayers al renderer para que los toggles afecten el mapa', async () => {
+    useVellumStore.getState().setCityData(mockCityData);
+    await act(async () => {
+      render(<App />);
+    });
+
+    const map = screen.getByTestId('maplibre-root');
+    const initialRoads = useVellumStore.getState().activeLayers.roads;
+    expect(map).toHaveAttribute('data-roads-visible', String(initialRoads));
+
+    act(() => {
+      useVellumStore.getState().toggleLayer('roads');
+    });
+
+    expect(map).toHaveAttribute('data-roads-visible', String(!initialRoads));
   });
 });
 

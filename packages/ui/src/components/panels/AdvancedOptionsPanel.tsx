@@ -1,5 +1,5 @@
-import { Separator } from '@/lib/separator';
-import { Switch } from '@/lib/switch';
+import { Separator } from '../../lib/separator';
+import { Switch } from '../../lib/switch';
 import type {
   BuildingServiceCategory,
   LayerName,
@@ -79,7 +79,7 @@ export interface AdvancedOptionsPanelProps {
 /**
  * Content of the advanced-options floating panel (see `FloatingLayerPanel.tsx`
  * for the panel chrome). Renders terrain sub-element toggles, the transit-mode
- * filter, the buildings RICO filter + "color by category" toggle, or the
+ * filter, the buildings' RICO filter + "color by category" toggle, or the
  * district label toggle, depending on `layer`.
  */
 export function AdvancedOptionsPanel({

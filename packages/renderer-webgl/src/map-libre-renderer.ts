@@ -224,6 +224,11 @@ export class MapLibreRenderer implements IRenderer {
     for (const layer of LAYER_NAMES) {
       this.layerManager.setVisibility(layer, params.activeLayers[layer]);
     }
+    // Re-assert the watermark after a fresh layer stack is created. The shell
+    // can have hidden it while all layers were disabled before a second city
+    // load; source initialization replaces the layer and would otherwise
+    // restore its default visibility.
+    this.layerManager.setWatermarkVisibility(this.watermarkVisible);
     this.layerManager.setTransitDimming(this.transitDimming);
     this.layerManager.setOptions(this.layerOptions);
   }
@@ -546,9 +551,12 @@ export class MapLibreRenderer implements IRenderer {
     // No-op — MapLibre manages its own viewport natively.
   }
 
-  /** No-op: MapLibre responds to `ResizeObserver` internally. */
+  /**
+   * Sincroniza el canvas interactivo con el tamaño CSS actual del contenedor.
+   * No modifica cámara, bounds ni restricciones de navegación.
+   */
   resize(_width: number, _height: number): void {
-    // MapLibre listens to container resize via ResizeObserver automatically.
+    this.map.resize();
   }
 
   // ─── Events ──────────────────────────────────────────────────────────────

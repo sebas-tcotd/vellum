@@ -179,10 +179,9 @@
    Los valores exactos de Fluent 2 / Liquid Glass son aproximaciones
    razonables (no prescritas por planning); Story 1.2 cubre chrome nativo real
    (Mica/Acrylic, traffic lights, titlebar) — esto es solo CSS de paneles.
-   Solo se declaran los tokens que ya tienen un consumidor real
-   (`FloatingLayerPanel.tsx`) — agregar tipografía/estados-de-interacción/motion
-   aquí cuando exista un componente que los lea (ver Review Triage Log,
-   review pass 2: 7 tokens sin consumidor fueron retirados por dead-code). */
+   Solo se declaran tokens con consumidor real: `FloatingLayerPanel` usa los
+   tres tokens de panel y el shell inline usa fuente, superficie, métricas y
+   motion. */
 :root,
 [data-platform='linux'],
 [data-platform='unknown'] {
@@ -191,6 +190,13 @@
   --shell-radius-lg: 12px;
   --shell-blur: 16px;
   --shell-shadow-panel: 0 4px 24px rgba(0, 0, 0, 0.12);
+  --font-shell: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --shell-surface: rgba(247, 246, 241, 0.94);
+  --shell-border: rgba(44, 40, 37, 0.12);
+  --shell-sidebar-expanded-width: 250px;
+  --shell-sidebar-collapsed-width: 64px;
+  --shell-titlebar-inset: 0px;
+  --shell-layout-duration: 180ms;
 }
 
 [data-platform='windows'] {
@@ -198,6 +204,9 @@
   --shell-radius-lg: 8px;
   --shell-blur: 8px;
   --shell-shadow-panel: 0 2px 8px rgba(0, 0, 0, 0.22);
+  --font-shell: 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
+  --shell-surface: rgba(243, 243, 243, 0.82);
+  --shell-border: rgba(0, 0, 0, 0.14);
 }
 
 [data-platform='macos'] {
@@ -207,6 +216,103 @@
   --shell-radius-lg: 16px;
   --shell-blur: 24px;
   --shell-shadow-panel: 0 8px 32px rgba(0, 0, 0, 0.18);
+  --font-shell: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+  --shell-surface: rgba(247, 246, 241, 0.68);
+  --shell-border: rgba(0, 0, 0, 0.1);
+  --shell-titlebar-inset: 38px;
+}
+
+/* ─── Shell adaptativo inline (Story 8.2) ─────────────────────────────────── */
+.desktop-shell {
+  position: relative;
+  display: flex;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  overflow: hidden;
+  background: transparent;
+  font-family: var(--font-shell);
+}
+
+.shell-sidebar {
+  position: relative;
+  z-index: 20;
+  flex: 0 0 var(--shell-sidebar-expanded-width);
+  width: var(--shell-sidebar-expanded-width);
+  min-width: 0;
+  height: 100%;
+  padding-top: var(--shell-titlebar-inset);
+  overflow: hidden;
+  color: var(--color-text);
+  background: var(--shell-surface);
+  border-right: 1px solid var(--shell-border);
+  box-shadow: var(--shell-shadow-panel);
+  backdrop-filter: blur(var(--shell-blur));
+  transition:
+    width var(--shell-layout-duration) ease,
+    flex-basis var(--shell-layout-duration) ease;
+}
+
+.shell-sidebar[data-state='collapsed'] {
+  flex-basis: var(--shell-sidebar-collapsed-width);
+  width: var(--shell-sidebar-collapsed-width);
+}
+
+.shell-sidebar[hidden] {
+  display: none;
+}
+
+.map-surface {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
+  overflow: hidden;
+  isolation: isolate;
+  background: var(--color-terrain);
+  forced-color-adjust: none;
+}
+
+.shell-titlebar-drag-region {
+  display: none;
+}
+
+[data-platform='macos'] .shell-titlebar-drag-region {
+  position: fixed;
+  /* Stay above the map but below modal/popover layers (z-50+) so an open
+     dialog keeps ownership of the titlebar hit area. */
+  z-index: 40;
+  top: 0;
+  right: 0;
+  left: 0;
+  display: block;
+  height: var(--shell-titlebar-inset);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --transition-panel: 0ms;
+    --transition-theme: 0ms;
+    --shell-layout-duration: 0ms;
+  }
+
+  .desktop-shell *,
+  .desktop-shell *::before,
+  .desktop-shell *::after {
+    animation-duration: 0ms !important;
+    transition-duration: 0ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@media (forced-colors: active) {
+  .shell-sidebar {
+    color: CanvasText;
+    background: Canvas;
+    border-color: CanvasText;
+    box-shadow: none;
+    backdrop-filter: none;
+  }
 }
 
 /* ─── Animaciones ─────────────────────────────────────────────────────────── */
@@ -247,4 +353,11 @@ body {
   min-width: 900px; /* NFR: tamaño mínimo de ventana — enforceado también en tauri.conf.json */
   min-height: 600px;
   overflow: hidden; /* la app es canvas-first — sin scrollbars en el body */
+}
+
+/* Transparent native materials are opt-in. Linux/unknown windows retain an
+   opaque Vellum backdrop even when no compositor effect is available. */
+[data-platform='macos'] body,
+[data-platform='windows'] body {
+  background-color: transparent;
 }

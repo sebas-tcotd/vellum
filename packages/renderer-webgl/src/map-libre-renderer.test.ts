@@ -1280,9 +1280,12 @@ describe('MapLibreRenderer', () => {
     expect(() => renderer.updateViewport(2, 100, 200)).not.toThrow();
   });
 
-  it('resize() is a no-op and does not throw', () => {
+  it('resize() sincroniza el canvas sin modificar la cámara', () => {
     const renderer = makeRenderer();
-    expect(() => renderer.resize(800, 600)).not.toThrow();
+    renderer.resize(800, 600);
+    expect(mockMap.resize).toHaveBeenCalledOnce();
+    expect(mockMap.fitBounds).not.toHaveBeenCalled();
+    expect(mockMap.flyTo).not.toHaveBeenCalled();
   });
 
   describe('subscribeViewport', () => {

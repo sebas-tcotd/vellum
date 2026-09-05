@@ -129,6 +129,7 @@ export function App({
   const hydratePreferences = useVellumStore((s) => s.hydratePreferences);
   const cityData = useVellumStore((s) => s.cityData);
   const loadingState = useVellumStore((s) => s.loadingState);
+  const activeLayers = useVellumStore((s) => s.activeLayers);
   const setDlcWarnings = useVellumStore((s) => s.setDlcWarnings);
   const setHasPartialData = useVellumStore((s) => s.setHasPartialData);
   const toggleLayer = useVellumStore((s) => s.toggleLayer);
@@ -295,6 +296,7 @@ export function App({
     <AppSurface
       mapProps={{
         loadFile,
+        activeLayers,
         fitToScreenRef,
         zoomInRef,
         zoomOutRef,

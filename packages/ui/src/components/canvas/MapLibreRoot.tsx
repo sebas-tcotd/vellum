@@ -104,6 +104,10 @@ export function MapLibreRoot({
     width: 0,
     height: 0,
   });
+  const [containerDimensions, setContainerDimensions] = useState({
+    width: 0,
+    height: 0,
+  });
 
   const [tooltipInfo, setTooltipInfo] = useState<TooltipInfo | null>(null);
 
@@ -150,7 +154,8 @@ export function MapLibreRoot({
   // Re-render when cityData changes
   useEffect(() => {
     if (!cityData || !rendererRef.current) return;
-    rendererRef.current
+    const renderer = rendererRef.current;
+    renderer
       .render(cityData, {
         activeLayers: activeLayers ?? {
           terrain: true,
@@ -161,6 +166,22 @@ export function MapLibreRoot({
           forests: true,
           districts: true,
         },
+      })
+      .then(() => {
+        // A toggle can arrive while the async style/source setup is pending.
+        // The visibility effect above cannot reach layers that do not exist yet,
+        // so re-apply the latest store snapshot once the initial render settles.
+        if (rendererRef.current !== renderer) return;
+        const latestLayers = useVellumStore.getState().activeLayers;
+        for (const [layer, visible] of Object.entries(latestLayers) as [
+          keyof LayerVisibility,
+          boolean,
+        ][]) {
+          renderer.setLayerVisibility(layer, visible);
+        }
+        renderer.setWatermarkVisibility(
+          (Object.values(latestLayers) as boolean[]).every((v) => !v),
+        );
       })
       // A rejection here truncates the layer stack and skips the camera fit, so it
       // must never be swallowed: `void render(...)` hid exactly that failure mode.
@@ -262,10 +283,12 @@ export function MapLibreRoot({
     const observer = new ResizeObserver((entries) => {
       const entry = entries[0];
       if (entry) {
-        containerDimRef.current = {
-          width: entry.contentRect.width,
-          height: entry.contentRect.height,
-        };
+        const { width, height } = entry.contentRect;
+        containerDimRef.current = { width, height };
+        setContainerDimensions({ width, height });
+        if (width > 0 && height > 0) {
+          rendererRef.current?.resize(width, height);
+        }
       }
     });
     observer.observe(el);
@@ -341,10 +364,10 @@ export function MapLibreRoot({
       )}
       <MapTooltip
         info={
-          containerDimRef.current.width > 0 && !isCleanMode ? tooltipInfo : null
+          containerDimensions.width > 0 && !isCleanMode ? tooltipInfo : null
         }
-        containerWidth={containerDimRef.current.width}
-        containerHeight={containerDimRef.current.height}
+        containerWidth={containerDimensions.width}
+        containerHeight={containerDimensions.height}
       />
     </div>
   );

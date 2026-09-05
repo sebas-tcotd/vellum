@@ -1,8 +1,8 @@
 import {
-  Suspense,
   type Dispatch,
   type RefObject,
   type SetStateAction,
+  Suspense,
 } from 'react';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import type { LayerName } from '@vellum/core';
@@ -17,12 +17,15 @@ import { DlcWarningToast } from './overlays/DlcWarningToast';
 import { ThemeWarningToast } from './overlays/ThemeWarningToast';
 import { UpdateToast } from './overlays/UpdateToast';
 import { ExportStatusOverlay } from './overlays/ExportStatusOverlay';
-import { FloatingLayerPanel } from './panels/FloatingLayerPanel';
 import { ExportDialog } from './panels/ExportDialog';
 import { PreferencesPanel } from './panels/PreferencesPanel';
 import { IconLegend } from './panels/IconLegend';
+import { DesktopShell, MapSurface, ShellSidebar } from './shell';
 import type { useExportWorkflow } from '../hooks/use-export-workflow';
 import { cn } from '../lib/utils';
+// Relativo a propósito: el alias `@/` del composition root apunta a
+// `packages/ui/src`, así que un `@/store/...` compilado a dist carga un SEGUNDO
+// módulo del store — el resto del paquete quedaría suscrito a otra instancia.
 import { useVellumStore } from '../store/vellum-store';
 
 interface AppSurfaceProps {
@@ -86,15 +89,28 @@ export function AppSurface({
   return (
     <Suspense fallback={null}>
       <div style={{ width: '100vw', height: '100vh', position: 'relative' }}>
-        <div
-          data-testid="canvas-wrapper"
-          className={cn(
-            'absolute inset-0 transition-opacity duration-500',
-            cityData ? 'opacity-100' : 'opacity-0 pointer-events-none',
+        <DesktopShell>
+          {cityData !== null && loadingState !== 'loading' && (
+            <ShellSidebar
+              cityName={cityData.cityName}
+              fileName={cityData.fileName}
+              onOpenExport={exportWorkflow.handleOpenExport}
+              exportDisabled={exportWorkflow.isExporting}
+              isCleanMode={isCleanMode}
+            />
           )}
-        >
-          <MapLibreRoot {...mapProps} />
-        </div>
+          <MapSurface>
+            <div
+              data-testid="canvas-wrapper"
+              className={cn(
+                'absolute inset-0 transition-opacity duration-500',
+                cityData ? 'opacity-100' : 'opacity-0 pointer-events-none',
+              )}
+            >
+              <MapLibreRoot {...mapProps} />
+            </div>
+          </MapSurface>
+        </DesktopShell>
         {showEmptyState && <EmptyState />}
         {loadingState === 'loading' && <ProgressBar />}
         {showPartialParseDialog && loadingError?.type === 'PartialParse' && (
@@ -139,12 +155,6 @@ export function AppSurface({
               isCleanMode ? 'invisible pointer-events-none' : undefined
             }
           >
-            <FloatingLayerPanel
-              cityName={cityData.cityName}
-              fileName={cityData.fileName}
-              onOpenExport={exportWorkflow.handleOpenExport}
-              exportDisabled={exportWorkflow.isExporting}
-            />
             <IconLegend
               subscribeRef={subscribeServiceIconLegendRef}
               toggleRef={iconLegendToggleRef}

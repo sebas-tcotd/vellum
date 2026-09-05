@@ -6,8 +6,8 @@ import {
 import { MapPinned } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { cn } from '@/lib/utils';
-import { Separator } from '@/lib/separator';
+import { cn } from '../../lib/utils';
+import { Separator } from '../../lib/separator';
 
 /** Milliseconds an `announced` button waits, with no interaction, before collapsing to icon-only. */
 const ANNOUNCE_DURATION_MS = 2000;
@@ -126,7 +126,7 @@ export function IconLegend({ subscribeRef, toggleRef }: IconLegendProps) {
   const isAnnounced = state === 'announced';
 
   return (
-    <div className="fixed top-4 right-4 flex flex-col items-end gap-2 z-50">
+    <div className="fixed top-4 right-4 z-[70] flex flex-col items-end gap-2">
       <button
         ref={buttonRef}
         type="button"

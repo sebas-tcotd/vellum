@@ -1,6 +1,6 @@
-import { Separator } from '@/lib/separator';
-import { Switch } from '@/lib/switch';
-import { cn } from '@/lib/utils';
+import { Separator } from '../../lib/separator';
+import { Switch } from '../../lib/switch';
+import { cn } from '../../lib/utils';
 import type { LayerName } from '@vellum/core';
 import {
   LAYERS_WITH_ADVANCED_OPTIONS,
@@ -22,33 +22,11 @@ import {
   X,
 } from 'lucide-react';
 import type { CSSProperties } from 'react';
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useVellumStore } from '../../store/vellum-store';
 import { AdvancedOptionsPanel } from './AdvancedOptionsPanel';
 import { LayerToggleRow } from './LayerToggleRow';
-
-/**
- * Below this window height, the panel stack anchors to the top-left instead
- * of centering vertically — otherwise a tall advanced-options panel eats
- * margin on both the top and bottom edges at once. Chosen with headroom over
- * the tallest realistic stack (main panel + the 2-column transit grid,
- * ~600px), so it only kicks in for genuinely cramped windows.
- */
-const SHORT_VIEWPORT_THRESHOLD_PX = 900;
-
-/** Tracks whether `window.innerHeight` is below `threshold`, updating on resize. */
-function useIsShortViewport(threshold: number): boolean {
-  const [isShort, setIsShort] = useState(() => window.innerHeight < threshold);
-
-  useEffect(() => {
-    const handleResize = () => setIsShort(window.innerHeight < threshold);
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, [threshold]);
-
-  return isShort;
-}
 
 /**
  * Radius/blur/shadow shared by both floating panels in this file, resolved
@@ -101,6 +79,8 @@ export interface FloatingLayerPanelProps {
   onOpenExport?: () => void;
   /** Disables export while a future export operation is active. */
   exportDisabled?: boolean;
+  /** Reports width-state changes to the inline shell that owns the drawer. */
+  onStateChange?: (state: PanelState) => void;
 }
 
 /**
@@ -117,13 +97,12 @@ export const FloatingLayerPanel = ({
   fileName,
   onOpenExport,
   exportDisabled = false,
+  onStateChange,
 }: FloatingLayerPanelProps) => {
   const { t } = useTranslation();
   const [panelState, setPanelState] = useState<PanelState>('expanded');
   const expandedLayer = useVellumStore((s) => s.expandedPanelLayer);
   const setExpandedLayer = useVellumStore((s) => s.setExpandedPanelLayer);
-  const isShortViewport = useIsShortViewport(SHORT_VIEWPORT_THRESHOLD_PX);
-  const anchorTop = expandedLayer !== null && isShortViewport;
   const panelRef = useRef<HTMLDivElement>(null);
   const collapseButtonRef = useRef<HTMLButtonElement>(null);
   const activeLayers = useVellumStore((s) => s.activeLayers);
@@ -135,12 +114,14 @@ export const FloatingLayerPanel = ({
 
   const handleCollapse = () => {
     setPanelState('collapsed');
+    onStateChange?.('collapsed');
     setExpandedLayer(null);
     requestAnimationFrame(() => collapseButtonRef.current?.focus());
   };
 
   const handleExpand = () => {
     setPanelState('expanded');
+    onStateChange?.('expanded');
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         const firstSwitch =
@@ -151,13 +132,7 @@ export const FloatingLayerPanel = ({
   };
 
   return (
-    <div
-      className={cn(
-        'fixed left-4 flex flex-col gap-2 z-50',
-        'transition-[top,transform] duration-300 ease-in-out',
-        anchorTop ? 'top-4' : 'top-1/2 -translate-y-1/2',
-      )}
-    >
+    <div className="flex h-full min-h-0 w-full flex-col gap-2 overflow-y-auto p-2">
       <div
         ref={panelRef}
         data-state={panelState}
@@ -168,8 +143,7 @@ export const FloatingLayerPanel = ({
         className={cn(
           'bg-background/72 border border-panel-border text-accent-foreground overflow-hidden',
           'px-3 py-2',
-          '[transition:width_var(--transition-panel)]',
-          panelState === 'expanded' ? 'w-52' : 'w-12',
+          'w-full [transition:width_var(--transition-panel)]',
         )}
       >
         {panelState === 'expanded' ? (
@@ -212,6 +186,7 @@ export const FloatingLayerPanel = ({
         ) : (
           <div className="flex flex-col items-center py-1 gap-1">
             <button
+              type="button"
               ref={collapseButtonRef}
               onClick={handleExpand}
               aria-label={t('a11y.layerPanelExpand')}
@@ -408,7 +383,7 @@ function AdvancedOptionsFloatingPanel({
       role="region"
       aria-label={t('a11y.advancedOptions', { layer: layerName })}
       style={SHELL_PANEL_STYLE}
-      className="bg-background/72 border border-panel-border text-accent-foreground px-3 py-2 min-w-52 w-fit max-w-104 overflow-x-auto"
+      className="bg-background/72 border border-panel-border text-accent-foreground min-w-0 w-full max-w-full overflow-x-auto px-3 py-2"
     >
       <div className="flex items-center justify-between">
         <h2 className="font-wordmark text-sm font-medium opacity-90 truncate">
