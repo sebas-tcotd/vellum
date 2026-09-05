@@ -109,3 +109,21 @@ pnpm test:e2e      # playwright test
 - El pipeline de export concentra una parte importante de la cobertura Rust porque la
   exportación tiled con streaming binario y composición incremental es la lógica más
   delicada del backend.
+
+## Dirección UX incremental planificada
+
+> **Planificado; no describe componentes ya migrados.** La espina de arquitectura
+> [Vellum Desktop UX Incremental](../../vellum-context/_bmad-output/planning-artifacts/architecture/architecture-vellum-2026-09-05/ARCHITECTURE-SPINE.md)
+> define la evolución map-first del shell.
+
+El cambio se limita inicialmente a `@vellum/ui`: `apps/desktop` conserva su papel
+de composition root y sus comandos Tauri. La migración añade superficies nuevas
+alrededor de los handlers, el store y los refs existentes; no cambia el contrato
+de parseo, mapa, exportación, menú nativo ni preferencias.
+
+Las fases son: baseline de paridad; costuras semánticas de shell; sidebar de
+apariencia y ruta de documento para export; slots de overlays y controles de
+cámara; tokens adaptativos; y endurecimiento accesible con retirada de
+adaptadores. Una fase sólo puede retirar una superficie heredada cuando menú,
+atajo y ruta visual aplicable conservan el mismo efecto y están cubiertos por
+pruebas.

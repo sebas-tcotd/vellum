@@ -7,6 +7,7 @@ import type {
 } from '@vellum/core';
 import { LAYER_NAMES } from '@vellum/core';
 import { useVellumStore } from '../store/vellum-store';
+import type { CommandRegistry } from '../shell/commands';
 
 function isLayerName(value: string): value is LayerName {
   return LAYER_NAMES.includes(value as LayerName);
@@ -36,50 +37,25 @@ function isBuildingCategory(value: string): value is BuildingServiceCategory {
 }
 
 interface UseMenuActionOptions {
-  openFileDialog: () => Promise<void>;
-  handleOpenExport: () => void | Promise<void>;
-  handleFitToScreen: () => void;
-  handleZoomIn: () => void;
-  handleZoomOut: () => void;
-  handleHidePanel: () => void;
-  handleToggleNavigationMode: () => void;
-  handleToggleIconLegend: () => void;
-  handleRotateBy: (delta: number) => void;
-  handleResetBearing: () => void;
-  handleOpenAdvancedOptions: (layer: LayerName) => void;
-  isExporting: boolean;
+  commands: CommandRegistry;
 }
 
 /**
- * Translates native menu actions into store updates and renderer commands.
- * Keeping this adapter separate leaves the application component focused on composition.
+ * Translates native menu actions into commands.
+ *
+ * @remarks
+ * This adapter no longer decides *whether* an action applies — every menu
+ * entry that also has a shortcut or a visual route goes through the shared
+ * command registry, which owns availability (AD-3). Only the per-layer
+ * advanced options resolve here, straight onto their store setters: they have
+ * a single implementation shared with the layer detail panel, so there is no
+ * second route to drift from.
  */
 export function useMenuAction({
-  openFileDialog,
-  handleOpenExport,
-  handleFitToScreen,
-  handleZoomIn,
-  handleZoomOut,
-  handleHidePanel,
-  handleToggleNavigationMode,
-  handleToggleIconLegend,
-  handleRotateBy,
-  handleResetBearing,
-  handleOpenAdvancedOptions,
-  isExporting,
+  commands,
 }: UseMenuActionOptions): (action: MenuAction) => void {
   const cityData = useVellumStore((state) => state.cityData);
-  const loadingState = useVellumStore((state) => state.loadingState);
-  const availableThemes = useVellumStore((state) => state.availableThemes);
   const layerOptions = useVellumStore((state) => state.layerOptions);
-  const transitDimmingEnabled = useVellumStore(
-    (state) => state.transitDimmingEnabled,
-  );
-  const toggleLayer = useVellumStore((state) => state.toggleLayer);
-  const setActiveTheme = useVellumStore((state) => state.setActiveTheme);
-  const setTransitDimmingEnabled = useVellumStore(
-    (state) => state.setTransitDimmingEnabled,
-  );
   const toggleTransitMode = useVellumStore((state) => state.toggleTransitMode);
   const toggleBuildingCategory = useVellumStore(
     (state) => state.toggleBuildingCategory,
@@ -108,70 +84,58 @@ export function useMenuAction({
 
   return useCallback(
     (action: MenuAction) => {
-      if (action === 'menu.open-file') {
-        void openFileDialog();
-        return;
-      }
-      if (action === 'menu.open-export') {
-        if (cityData !== null && loadingState !== 'loading' && !isExporting) {
-          void handleOpenExport();
-        }
-        return;
-      }
-      if (action === 'menu.fit-to-screen') {
-        if (cityData !== null) handleFitToScreen();
-        return;
-      }
-      if (action === 'menu.zoom-in') {
-        if (cityData !== null) handleZoomIn();
-        return;
-      }
-      if (action === 'menu.zoom-out') {
-        if (cityData !== null) handleZoomOut();
-        return;
-      }
-      if (action === 'menu.clean-mode') {
-        if (cityData !== null && loadingState !== 'loading') handleHidePanel();
-        return;
-      }
-      if (action === 'menu.navigation-mode') {
-        if (cityData !== null) handleToggleNavigationMode();
-        return;
-      }
-      if (action === 'menu.icon-legend') {
-        if (cityData !== null) handleToggleIconLegend();
-        return;
-      }
-      if (action === 'menu.rotate-left') {
-        if (cityData !== null) handleRotateBy(-15);
-        return;
-      }
-      if (action === 'menu.rotate-right') {
-        if (cityData !== null) handleRotateBy(15);
-        return;
-      }
-      if (action === 'menu.reset-bearing') {
-        if (cityData !== null) handleResetBearing();
-        return;
-      }
-      if (action === 'menu.toggle-transit-dimming') {
-        setTransitDimmingEnabled(!transitDimmingEnabled);
-        return;
+      switch (action) {
+        case 'menu.open-file':
+          commands['document.open'].execute();
+          return;
+        case 'menu.open-export':
+          commands['document.export'].execute();
+          return;
+        case 'menu.fit-to-screen':
+          commands['view.fitCity'].execute();
+          return;
+        case 'menu.zoom-in':
+          commands['view.zoomIn'].execute();
+          return;
+        case 'menu.zoom-out':
+          commands['view.zoomOut'].execute();
+          return;
+        case 'menu.clean-mode':
+          commands['view.cleanView'].execute();
+          return;
+        case 'menu.navigation-mode':
+          commands['view.mapBounds'].execute();
+          return;
+        case 'menu.icon-legend':
+          commands['view.mapSymbols'].execute();
+          return;
+        case 'menu.rotate-left':
+          commands['view.rotate'].execute(-15);
+          return;
+        case 'menu.rotate-right':
+          commands['view.rotate'].execute(15);
+          return;
+        case 'menu.reset-bearing':
+          commands['view.resetNorth'].execute();
+          return;
+        case 'menu.toggle-transit-dimming':
+          commands['style.transitDimming'].execute();
+          return;
+        default:
+          break;
       }
 
       const layerPrefix = 'menu.toggle-layer.';
       if (action.startsWith(layerPrefix)) {
         const layer = action.slice(layerPrefix.length);
-        if (cityData !== null && isLayerName(layer)) toggleLayer(layer);
+        if (isLayerName(layer)) commands['layer.toggle'].execute(layer);
         return;
       }
 
       const advancedPrefix = 'menu.open-advanced.';
       if (action.startsWith(advancedPrefix)) {
         const layer = action.slice(advancedPrefix.length);
-        if (cityData !== null && isLayerName(layer)) {
-          handleOpenAdvancedOptions(layer);
-        }
+        if (isLayerName(layer)) commands['layer.detail'].execute(layer);
         return;
       }
 
@@ -209,30 +173,13 @@ export function useMenuAction({
 
       const themePrefix = 'menu.theme.';
       if (action.startsWith(themePrefix)) {
-        const themeId = action.slice(themePrefix.length);
-        if (availableThemes.some((theme) => theme.id === themeId)) {
-          setActiveTheme(themeId);
-        }
+        commands['style.set'].execute(action.slice(themePrefix.length));
       }
     },
     [
-      availableThemes,
+      commands,
       cityData,
-      handleFitToScreen,
-      handleHidePanel,
-      handleOpenAdvancedOptions,
-      handleOpenExport,
-      handleResetBearing,
-      handleRotateBy,
-      handleToggleIconLegend,
-      handleToggleNavigationMode,
-      handleZoomIn,
-      handleZoomOut,
-      isExporting,
       layerOptions,
-      loadingState,
-      openFileDialog,
-      setActiveTheme,
       setBasemapShowGrid,
       setBuildingColorByCategory,
       setDistrictsShowNameOnMap,
@@ -240,10 +187,7 @@ export function useMenuAction({
       setTerrainShowColorRelief,
       setTerrainShowContourLines,
       setTerrainShowHillshade,
-      setTransitDimmingEnabled,
-      transitDimmingEnabled,
       toggleBuildingCategory,
-      toggleLayer,
       toggleTransitMode,
     ],
   );

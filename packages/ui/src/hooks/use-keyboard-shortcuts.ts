@@ -38,6 +38,15 @@ interface UseKeyboardShortcutsOptions {
   /** Called when the user presses Shift+1..7 to open a layer's advanced options panel. */
   onOpenAdvancedOptions?: (layer: LayerName) => void;
   /**
+   * Called on Escape so the shell can resolve the topmost transient state.
+   *
+   * @remarks
+   * The single Escape route for the shell (AD-7). Dialogs trap and consume
+   * Escape themselves, so the composition root only supplies this while no
+   * blocking surface is open — there are no competing global listeners.
+   */
+  onEscape?: () => void;
+  /**
    * When false, the shortcut handler does nothing without removing the listener.
    * @default true
    */
@@ -57,6 +66,7 @@ export function useKeyboardShortcuts({
   onRotateBy,
   onResetBearing,
   onOpenAdvancedOptions,
+  onEscape,
   enabled = true,
 }: UseKeyboardShortcutsOptions) {
   useEffect(() => {
@@ -64,6 +74,14 @@ export function useKeyboardShortcuts({
       if (!enabled) return;
       if (isEditableTarget(e.target)) return;
       const isModKey = e.ctrlKey || e.metaKey;
+
+      if (e.key === 'Escape' && !isModKey && !e.altKey) {
+        if (onEscape) {
+          e.preventDefault();
+          onEscape();
+        }
+        return;
+      }
 
       if (isModKey && !e.shiftKey && !e.altKey && e.key === 'o') {
         e.preventDefault();
@@ -212,6 +230,7 @@ export function useKeyboardShortcuts({
     onRotateBy,
     onResetBearing,
     onOpenAdvancedOptions,
+    onEscape,
     enabled,
   ]);
 }

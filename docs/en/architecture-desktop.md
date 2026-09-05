@@ -110,3 +110,20 @@ not in `apps/desktop`. This boundary is deliberate: replacing a native adapter
 should not require rewriting the domain or UI layers. The export pipeline is the
 most stateful native area because large maps are streamed through a transactional
 Rust session instead of being held as one giant buffer.
+
+## Planned incremental UX direction
+
+> **Planned; this section does not describe components that have already
+> migrated.** The [Vellum Desktop UX Incremental architecture spine](../../vellum-context/_bmad-output/planning-artifacts/architecture/architecture-vellum-2026-09-05/ARCHITECTURE-SPINE.md)
+> defines the map-first shell evolution.
+
+The initial change is limited to `@vellum/ui`: `apps/desktop` remains the
+composition root and retains its Tauri commands. The migration adds new surfaces
+around the existing handlers, store and renderer refs; it does not change the
+parse, map, export, native-menu or preferences contracts.
+
+The phases are: parity baseline; semantic shell seams; appearance sidebar and a
+document route for export; overlay slots and camera controls; adaptive tokens;
+then accessible hardening and adapter removal. A phase may remove a legacy
+surface only when the applicable menu, shortcut and visual route have the same
+effect and test coverage.

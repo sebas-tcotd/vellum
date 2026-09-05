@@ -1,6 +1,6 @@
 // packages/ui/src/App.tsx
 import type { ServiceIconLegendState } from '@vellum/renderer-webgl';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppSurface } from './components/AppSurface';
 import { initI18n } from './i18n/i18n-setup';
 import { loadPersistedPreferences } from './store/preferences-store';
@@ -9,6 +9,8 @@ import { useTauriEvent } from './hooks/use-tauri-event';
 import { useThemes } from './hooks/use-themes';
 import { useExportWorkflow } from './hooks/use-export-workflow';
 import { useMenuAction } from './hooks/use-menu-action';
+import { useDesktopCommands } from './shell/commands';
+import { useShellSession } from './shell/shell-session';
 
 /**
  * Global type augmentation for i18next.
@@ -102,8 +104,15 @@ export function App({
   svgExporter,
 }: AppProps) {
   const [i18nReady, setI18nReady] = useState(false);
-  const [isCleanMode, setIsCleanMode] = useState(false);
   const [isPreferencesOpen, setIsPreferencesOpen] = useState(false);
+  // Ephemeral desktop-shell session (AD-10): sidebar context, Clean view,
+  // modal exclusivity and focus restoration. Cartographic state stays in the
+  // store; nothing here is duplicated from it.
+  const shell = useShellSession(
+    typeof window === 'undefined' ? 1440 : window.innerWidth,
+  );
+  const shellDispatch = shell.dispatch;
+  const isCleanMode = shell.state.cleanView;
   const fitToScreenRef = useRef<(() => void) | null>(null);
   const zoomInRef = useRef<(() => void) | null>(null);
   const zoomOutRef = useRef<(() => void) | null>(null);
@@ -161,10 +170,10 @@ export function App({
         : 'Vellum';
   }, [cityData]);
 
-  // Reset clean mode when a new map is loaded so the chrome is always visible on first render
+  // Reset clean view when a new map is loaded so the chrome is always visible on first render
   useEffect(() => {
-    if (cityData !== null) setIsCleanMode(false);
-  }, [cityData]);
+    if (cityData !== null) shellDispatch({ type: 'cleanView/exit' });
+  }, [cityData, shellDispatch]);
 
   const handleFitToScreen = useCallback(
     () => fitToScreenRef.current?.(),
@@ -172,7 +181,10 @@ export function App({
   );
   const handleZoomIn = useCallback(() => zoomInRef.current?.(), [zoomInRef]);
   const handleZoomOut = useCallback(() => zoomOutRef.current?.(), [zoomOutRef]);
-  const handleHidePanel = useCallback(() => setIsCleanMode((v) => !v), []);
+  const handleHidePanel = useCallback(
+    () => shellDispatch({ type: 'cleanView/toggle' }),
+    [shellDispatch],
+  );
   const handleToggleNavigationMode = useCallback(
     () => toggleNavigationModeRef.current?.(),
     [toggleNavigationModeRef],
@@ -196,44 +208,91 @@ export function App({
     [expandedPanelLayer, setExpandedPanelLayer],
   );
 
-  const handleMenuAction = useMenuAction({
+  const availableThemes = useVellumStore((s) => s.availableThemes);
+  const setActiveTheme = useVellumStore((s) => s.setActiveTheme);
+  const transitDimmingEnabled = useVellumStore((s) => s.transitDimmingEnabled);
+  const setTransitDimmingEnabled = useVellumStore(
+    (s) => s.setTransitDimmingEnabled,
+  );
+  const availableThemeIds = useMemo(
+    () => availableThemes.map((theme) => theme.id),
+    [availableThemes],
+  );
+
+  // The one adapter every desktop surface goes through (AD-3). The native
+  // menu, the keyboard shortcuts and the shell's own buttons all invoke these
+  // commands, so an action cannot mean different things depending on where it
+  // was triggered.
+  const commands = useDesktopCommands({
     openFileDialog,
-    handleOpenExport,
-    handleFitToScreen,
-    handleZoomIn,
-    handleZoomOut,
-    handleHidePanel,
-    handleToggleNavigationMode,
-    handleToggleIconLegend,
-    handleRotateBy,
-    handleResetBearing,
-    handleOpenAdvancedOptions,
+    openExport: handleOpenExport,
+    fitToScreen: handleFitToScreen,
+    zoomIn: handleZoomIn,
+    zoomOut: handleZoomOut,
+    resetBearing: handleResetBearing,
+    rotateBy: handleRotateBy,
+    toggleIconLegend: handleToggleIconLegend,
+    toggleNavigationMode: handleToggleNavigationMode,
+    toggleLayer,
+    setActiveTheme,
+    setTransitDimmingEnabled,
+    transitDimmingEnabled,
+    availableThemeIds,
+    toggleCleanView: handleHidePanel,
+    toggleLayerDetail: handleOpenAdvancedOptions,
+    hasMap: cityData !== null,
+    isLoading: loadingState === 'loading',
     isExporting,
   });
 
+  const handleMenuAction = useMenuAction({ commands });
+
+  // Shortcuts are a keymap, not a second policy: each one invokes the same
+  // command the menu does, and the command's own `canExecute` decides whether
+  // anything happens. A shortcut is only omitted when its command is
+  // unavailable, which is what kept the key inert before this migration too.
+  const handleEscape = useCallback(
+    () => shellDispatch({ type: 'escape' }),
+    [shellDispatch],
+  );
+
   useKeyboardShortcuts({
-    onOpenFile: openFileDialog,
-    // Layer shortcuts 1-7 only active when a map is loaded
-    ...(cityData !== null ? { onToggleLayer: toggleLayer } : {}),
-    onFitToScreen: handleFitToScreen,
-    ...(cityData !== null ? { onZoomIn: handleZoomIn } : {}),
-    ...(cityData !== null ? { onZoomOut: handleZoomOut } : {}),
-    ...(cityData !== null && loadingState !== 'loading'
-      ? { onHidePanel: handleHidePanel }
+    onOpenFile: commands['document.open'].execute,
+    ...(commands['layer.toggle'].canExecute
+      ? { onToggleLayer: commands['layer.toggle'].execute }
       : {}),
-    ...(cityData !== null
-      ? { onToggleNavigationMode: handleToggleNavigationMode }
+    onFitToScreen: commands['view.fitCity'].execute,
+    ...(commands['view.zoomIn'].canExecute
+      ? { onZoomIn: commands['view.zoomIn'].execute }
       : {}),
-    ...(cityData !== null
-      ? { onToggleIconLegend: handleToggleIconLegend }
+    ...(commands['view.zoomOut'].canExecute
+      ? { onZoomOut: commands['view.zoomOut'].execute }
       : {}),
-    ...(cityData !== null ? { onRotateBy: handleRotateBy } : {}),
-    ...(cityData !== null ? { onResetBearing: handleResetBearing } : {}),
-    ...(cityData !== null
-      ? { onOpenAdvancedOptions: handleOpenAdvancedOptions }
+    ...(commands['view.cleanView'].canExecute
+      ? { onHidePanel: commands['view.cleanView'].execute }
       : {}),
-    ...(cityData !== null && loadingState !== 'loading' && !isExporting
-      ? { onOpenExport: handleOpenExport }
+    ...(commands['view.mapBounds'].canExecute
+      ? { onToggleNavigationMode: commands['view.mapBounds'].execute }
+      : {}),
+    ...(commands['view.mapSymbols'].canExecute
+      ? { onToggleIconLegend: commands['view.mapSymbols'].execute }
+      : {}),
+    ...(commands['view.rotate'].canExecute
+      ? { onRotateBy: commands['view.rotate'].execute }
+      : {}),
+    ...(commands['view.resetNorth'].canExecute
+      ? { onResetBearing: commands['view.resetNorth'].execute }
+      : {}),
+    ...(commands['layer.detail'].canExecute
+      ? { onOpenAdvancedOptions: commands['layer.detail'].execute }
+      : {}),
+    ...(commands['document.export'].canExecute
+      ? { onOpenExport: commands['document.export'].execute }
+      : {}),
+    // Escape is only offered while no dialog owns focus — dialogs trap and
+    // consume it themselves, so the ladder never has two listeners racing.
+    ...(!isExportDialogOpen && !isPreferencesOpen
+      ? { onEscape: handleEscape }
       : {}),
     enabled: loadingState !== 'loading' && !isExportDialogOpen,
   });

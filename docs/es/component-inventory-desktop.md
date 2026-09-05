@@ -7,29 +7,38 @@
 `@vellum/ui` es la única capa con React del monorepo. Todos los componentes listados
 abajo están implementados y en uso — no hay placeholders.
 
-## Árbol de componentes montado por `App.tsx`
+## Árbol de componentes actual
 
-`App` bloquea el render hasta que `initI18n()` y las preferencias hidratan, luego renderiza (dentro de un `Suspense`):
+`App` bloquea el render hasta que `initI18n()` y las preferencias hidratan; luego
+delega la composición visual a `AppSurface` (dentro de un `Suspense`):
 
 ```
 App
-├── MapLibreRoot          — siempre montado (canvas), opacidad reducida sin ciudad cargada
-├── EmptyState             — si idle/error y sin datos
-├── ProgressBar            — si loading
-├── PartialParseDialog     — si hay error recuperable con datos parciales
-├── ErrorToast             — si hay error no recuperable
-├── DlcWarningToast
-├── ThemeWarningToast
-├── UpdateToast
-├── (chrome, ocultable en modo limpio)
-│   ├── FloatingLayerPanel
-│   └── IconLegend
-├── ExportDialog           — si hay ciudad cargada
-├── PreferencesPanel        — siempre montado
-└── ExportStatusOverlay     — siempre montado
+└── AppSurface
+    ├── DesktopShell
+    │   ├── ShellSidebar → FloatingLayerPanel
+    │   └── MapSurface → MapLibreRoot (siempre montado)
+    ├── EmptyState / progreso / recuperación / toasts
+    ├── IconLegend          — ocultable en modo limpio
+    ├── ExportDialog        — si hay ciudad cargada
+    ├── PreferencesPanel
+    └── ExportStatusOverlay
 ```
 
 Hooks wireados en `App.tsx`: `useKeyboardShortcuts`, `useTauriEvent` (preferences-open, update-available), `useThemes`, `useExportWorkflow`, más el store global `useVellumStore`.
+
+## Dirección UX planificada
+
+> **Planificado; los nombres de esta sección aún no son nombres de archivos.** La
+> [espina de arquitectura incremental](../../vellum-context/_bmad-output/planning-artifacts/architecture/architecture-vellum-2026-09-05/ARCHITECTURE-SPINE.md)
+> reemplazará gradualmente la semántica, no los contratos, de esta composición.
+
+`MapAppearanceSidebar` sucederá a `ShellSidebar` y `FloatingLayerPanel`: overview
+para tema/capas y un único detalle de capa que reutiliza `AdvancedOptionsPanel`.
+`MapViewport` sucederá a la responsabilidad visual de `MapSurface` mediante slots
+para minimapa, controles de cámara, leyenda, tarjeta contextual y estado. Los
+handlers de `App`, `useVellumStore`, menú nativo y atajos continúan siendo las
+rutas de acción compartidas durante toda la migración.
 
 ## Componentes por módulo
 

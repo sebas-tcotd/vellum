@@ -11,29 +11,37 @@ The UI layer is implemented rather than scaffolded. `App` waits for i18n and
 preferences to hydrate, then composes the map, empty state, loading/error
 feedback, controls and export flow.
 
-## Component tree mounted by `App.tsx`
+## Current component tree
 
 ```text
 App
-├── MapLibreRoot           — active WebGL map, always mounted
-├── EmptyState             — when no city is loaded
-├── ProgressBar            — while a file is loading
-├── PartialParseDialog     — when recoverable data errors have partial data
-├── ErrorToast             — for non-recoverable loading errors
-├── DlcWarningToast
-├── ThemeWarningToast
-├── UpdateToast
-├── chrome (hidden in clean mode)
-│   ├── FloatingLayerPanel
-│   └── IconLegend
-├── ExportDialog            — when a city is loaded
-├── PreferencesPanel        — mounted for native menu and UI access
-└── ExportStatusOverlay     — progress, cancellation and terminal status
+└── AppSurface
+    ├── DesktopShell
+    │   ├── ShellSidebar → FloatingLayerPanel
+    │   └── MapSurface → MapLibreRoot (always mounted)
+    ├── EmptyState / progress / recovery / toasts
+    ├── IconLegend           — hidden in clean mode
+    ├── ExportDialog         — when a city is loaded
+    ├── PreferencesPanel
+    └── ExportStatusOverlay
 ```
 
 `App` wires the keyboard-shortcut hook, Tauri events, theme loading, export
 workflow and the global Zustand store. The components receive callbacks and data;
 native side effects stay in the desktop adapters or dedicated hooks.
+
+## Planned UX direction
+
+> **Planned; the names in this section are not file names yet.** The
+> [incremental architecture spine](../../vellum-context/_bmad-output/planning-artifacts/architecture/architecture-vellum-2026-09-05/ARCHITECTURE-SPINE.md)
+> evolves this composition's semantics, not its existing contracts.
+
+`MapAppearanceSidebar` will succeed `ShellSidebar` and `FloatingLayerPanel`: an
+overview for style and layers plus one layer detail that reuses
+`AdvancedOptionsPanel`. `MapViewport` will take on `MapSurface`'s visual
+responsibility through slots for the minimap, camera controls, legend,
+contextual card and status. `App` handlers, `useVellumStore`, the native menu and
+keyboard shortcuts remain the shared action routes throughout the migration.
 
 ## Components by module
 

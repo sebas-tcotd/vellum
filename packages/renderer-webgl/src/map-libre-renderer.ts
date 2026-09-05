@@ -524,6 +524,18 @@ export class MapLibreRenderer implements IRenderer {
   }
 
   /**
+   * Current map bearing in degrees (0 = north up).
+   *
+   * @remarks
+   * Read-only accessor so shell chrome can offer "Reset north" only when the
+   * map is actually rotated. The camera itself stays owned by the renderer
+   * (AD-5) — callers observe the value, they never set it from here.
+   */
+  getBearing(): number {
+    return this.navigationManager.getBearing();
+  }
+
+  /**
    * Pans the map to the given geographic coordinate without animation.
    *
    * @param lng - Longitude.
