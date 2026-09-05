@@ -17,13 +17,10 @@ export { ThemeWarningToast } from './components/overlays/ThemeWarningToast';
 export type { ThemeWarningToastProps } from './components/overlays/ThemeWarningToast';
 export { UpdateToast } from './components/overlays/UpdateToast';
 export type { UpdateToastProps } from './components/overlays/UpdateToast';
-export { FloatingLayerPanel } from './components/panels/FloatingLayerPanel';
-export type {
-  FloatingLayerPanelProps,
-  PanelState,
-} from './components/panels/FloatingLayerPanel';
-export { LayerToggleRow } from './components/panels/LayerToggleRow';
-export type { LayerToggleRowProps } from './components/panels/LayerToggleRow';
+export { MapAppearanceSidebar } from './components/sidebar/MapAppearanceSidebar';
+export type { MapAppearanceSidebarProps } from './components/sidebar/MapAppearanceSidebar';
+export { LayerVisibilityRow } from './components/sidebar/LayerVisibilityRow';
+export type { LayerVisibilityRowProps } from './components/sidebar/LayerVisibilityRow';
 export { AppMetaProvider } from './context/AppMetaContext';
 export { PlatformProvider, usePlatform } from './context/PlatformContext';
 export type { Platform } from './context/PlatformContext';

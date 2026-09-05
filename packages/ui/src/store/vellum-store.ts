@@ -77,9 +77,6 @@ interface VellumStore {
   /** Metadata for every theme loaded at startup — drives the selector pills. */
   availableThemes: ThemeMetadata[];
 
-  /** The layer whose advanced-options sub-panel is currently open, or null if closed. */
-  expandedPanelLayer: LayerName | null;
-
   /** Warnings for `.vellumstyle` files that were skipped as invalid (AC #5).
    * Non-empty triggers the ThemeWarningToast. */
   themeWarnings: ThemeWarning[];
@@ -150,9 +147,6 @@ interface VellumStore {
   /** Shows or hides the 9×9 projection grid on the basemap layer. */
   setBasemapShowGrid: (enabled: boolean) => void;
 
-  /** Opens or closes the advanced-options sub-panel for a layer. Pass null to close. */
-  setExpandedPanelLayer: (layer: LayerName | null) => void;
-
   /** Replaces the theme-loading warnings. Pass [] to clear. */
   setThemeWarnings: (warnings: ThemeWarning[]) => void;
 
@@ -174,7 +168,16 @@ interface VellumStore {
   syncActiveLanguage: (lang: 'en' | 'es') => void;
 
   /**
-   * Increments the load request ID and resets loading state.
+   * Opens a load transaction: bumps the request id and enters `'loading'`.
+   *
+   * @remarks
+   * **Deliberately non-destructive (AD-13).** Starting a load does not clear
+   * `cityData`. Replacing an open map is a two-phase operation — the current
+   * document, its rendered camera and the shell's focus all survive the
+   * preparation phase, and only a successful parse commits the replacement via
+   * `setCityData`. A cancelled or failed load therefore leaves the previous
+   * city exactly as it was; with no previous city, `cityData` is already
+   * `null` and the app returns to the no-map state on its own.
    * @returns The new load request ID.
    */
   incrementLoadRequestId: () => number;
@@ -229,7 +232,6 @@ export const useVellumStore = create<VellumStore>((set, get) => ({
   transitDimmingEnabled: false,
   layerOptions: DEFAULT_LAYER_OPTIONS,
   availableThemes: [],
-  expandedPanelLayer: null,
   themeWarnings: [],
   autoUpdateEnabled: false,
   activeLanguage: 'en',
@@ -387,8 +389,6 @@ export const useVellumStore = create<VellumStore>((set, get) => ({
       },
     })),
 
-  setExpandedPanelLayer: (layer) => set({ expandedPanelLayer: layer }),
-
   setThemeWarnings: (warnings) => set({ themeWarnings: warnings }),
 
   setLanguage: (lang) => {
@@ -403,7 +403,6 @@ export const useVellumStore = create<VellumStore>((set, get) => ({
     const next = get().loadRequestId + 1;
     set({
       loadRequestId: next,
-      cityData: null,
       loadingState: 'loading', // atomic: jump directly to loading, no idle flash
       loadingError: null,
       dlcWarnings: [],

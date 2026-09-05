@@ -74,7 +74,7 @@ describe('execution', () => {
   it('opening a layer detail never touches that layer visibility', () => {
     const { commands, deps: d } = build();
     commands['layer.detail'].execute('transit');
-    expect(d.toggleLayerDetail).toHaveBeenCalledWith('transit');
+    expect(d.toggleLayerDetail).toHaveBeenCalledWith('transit', undefined);
     expect(d.toggleLayer).not.toHaveBeenCalled();
   });
 
@@ -97,5 +97,20 @@ describe('execution', () => {
     const { commands, deps: d } = build();
     commands['view.rotate'].execute(-15);
     expect(d.rotateBy).toHaveBeenCalledWith(-15);
+  });
+
+  it('carries the focus origin when a visual surface supplies one', () => {
+    const { commands, deps: d } = build();
+    commands['layer.detail'].execute('transit', 'layer-disclosure-transit');
+    expect(d.toggleLayerDetail).toHaveBeenCalledWith(
+      'transit',
+      'layer-disclosure-transit',
+    );
+  });
+
+  it('leaves the focus origin undefined for menu and shortcut routes', () => {
+    const { commands, deps: d } = build();
+    commands['view.cleanView'].execute();
+    expect(d.toggleCleanView).toHaveBeenCalledWith(undefined);
   });
 });

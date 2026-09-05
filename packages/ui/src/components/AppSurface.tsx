@@ -20,7 +20,10 @@ import { ExportStatusOverlay } from './overlays/ExportStatusOverlay';
 import { ExportDialog } from './panels/ExportDialog';
 import { PreferencesPanel } from './panels/PreferencesPanel';
 import { IconLegend } from './panels/IconLegend';
-import { DesktopShell, MapSurface, ShellSidebar } from './shell';
+import { DesktopShell, DocumentCommandStrip, MapSurface } from './shell';
+import { MapAppearanceSidebar } from './sidebar/MapAppearanceSidebar';
+import type { CommandRegistry } from '../shell/commands';
+import type { ShellSession } from '../shell/shell-session';
 import type { useExportWorkflow } from '../hooks/use-export-workflow';
 import { cn } from '../lib/utils';
 // Relativo a propósito: el alias `@/` del composition root apunta a
@@ -35,6 +38,8 @@ interface AppSurfaceProps {
   >;
   iconLegendToggleRef: RefObject<(() => void) | null>;
   exportWorkflow: ReturnType<typeof useExportWorkflow>;
+  commands: CommandRegistry;
+  shell: ShellSession;
   isCleanMode: boolean;
   isPreferencesOpen: boolean;
   setIsPreferencesOpen: Dispatch<SetStateAction<boolean>>;
@@ -50,6 +55,8 @@ export function AppSurface({
   subscribeServiceIconLegendRef,
   iconLegendToggleRef,
   exportWorkflow,
+  commands,
+  shell,
   isCleanMode,
   isPreferencesOpen,
   setIsPreferencesOpen,
@@ -71,6 +78,10 @@ export function AppSurface({
   const setUpdateInfo = useVellumStore((state) => state.setUpdateInfo);
 
   const showEmptyState = cityData === null && loadingState !== 'loading';
+  // Document chrome is the lowest-priority shell region: it disappears in
+  // Clean view and on narrow desktops (handled in CSS), where the native menu
+  // and the shortcuts still carry Open and Export.
+  const showDocumentChrome = cityData !== null && !isCleanMode;
   const showPartialParseDialog =
     loadingState === 'error' && loadingError?.type === 'PartialParse';
   const showErrorToast =
@@ -89,27 +100,34 @@ export function AppSurface({
   return (
     <Suspense fallback={null}>
       <div style={{ width: '100vw', height: '100vh', position: 'relative' }}>
-        <DesktopShell>
-          {cityData !== null && loadingState !== 'loading' && (
-            <ShellSidebar
+        <DesktopShell hasDocumentStrip={showDocumentChrome}>
+          {showDocumentChrome && cityData !== null && (
+            <DocumentCommandStrip
               cityName={cityData.cityName}
-              fileName={cityData.fileName}
-              onOpenExport={exportWorkflow.handleOpenExport}
-              exportDisabled={exportWorkflow.isExporting}
-              isCleanMode={isCleanMode}
+              commands={commands}
             />
           )}
-          <MapSurface>
-            <div
-              data-testid="canvas-wrapper"
-              className={cn(
-                'absolute inset-0 transition-opacity duration-500',
-                cityData ? 'opacity-100' : 'opacity-0 pointer-events-none',
-              )}
-            >
-              <MapLibreRoot {...mapProps} />
-            </div>
-          </MapSurface>
+          <div className="desktop-shell__body">
+            {cityData !== null && (
+              <MapAppearanceSidebar
+                cityName={cityData.cityName}
+                fileName={cityData.fileName}
+                commands={commands}
+                shell={shell}
+              />
+            )}
+            <MapSurface>
+              <div
+                data-testid="canvas-wrapper"
+                className={cn(
+                  'absolute inset-0 transition-opacity duration-500',
+                  cityData ? 'opacity-100' : 'opacity-0 pointer-events-none',
+                )}
+              >
+                <MapLibreRoot {...mapProps} />
+              </div>
+            </MapSurface>
+          </div>
         </DesktopShell>
         {showEmptyState && <EmptyState />}
         {loadingState === 'loading' && <ProgressBar />}

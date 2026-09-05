@@ -142,8 +142,6 @@ export function App({
   const setDlcWarnings = useVellumStore((s) => s.setDlcWarnings);
   const setHasPartialData = useVellumStore((s) => s.setHasPartialData);
   const toggleLayer = useVellumStore((s) => s.toggleLayer);
-  const expandedPanelLayer = useVellumStore((s) => s.expandedPanelLayer);
-  const setExpandedPanelLayer = useVellumStore((s) => s.setExpandedPanelLayer);
   const setThemeWarnings = useVellumStore((s) => s.setThemeWarnings);
   const setUpdateInfo = useVellumStore((s) => s.setUpdateInfo);
 
@@ -182,7 +180,11 @@ export function App({
   const handleZoomIn = useCallback(() => zoomInRef.current?.(), [zoomInRef]);
   const handleZoomOut = useCallback(() => zoomOutRef.current?.(), [zoomOutRef]);
   const handleHidePanel = useCallback(
-    () => shellDispatch({ type: 'cleanView/toggle' }),
+    (invoker?: string) =>
+      shellDispatch({
+        type: 'cleanView/toggle',
+        ...(invoker !== undefined ? { invoker } : {}),
+      }),
     [shellDispatch],
   );
   const handleToggleNavigationMode = useCallback(
@@ -201,11 +203,16 @@ export function App({
     () => resetBearingRef.current?.(),
     [resetBearingRef],
   );
+  // Which layer's detail is open is shell session state, not cartographic
+  // state — the choices it edits live in the store, the context does not.
   const handleOpenAdvancedOptions = useCallback(
-    (layer: LayerName) => {
-      setExpandedPanelLayer(expandedPanelLayer === layer ? null : layer);
-    },
-    [expandedPanelLayer, setExpandedPanelLayer],
+    (layer: LayerName, invoker?: string) =>
+      shellDispatch({
+        type: 'sidebar/toggleDetail',
+        layerId: layer,
+        ...(invoker !== undefined ? { invoker } : {}),
+      }),
+    [shellDispatch],
   );
 
   const availableThemes = useVellumStore((s) => s.availableThemes);
@@ -372,6 +379,8 @@ export function App({
       subscribeServiceIconLegendRef={subscribeServiceIconLegendRef}
       iconLegendToggleRef={iconLegendToggleRef}
       exportWorkflow={exportWorkflow}
+      commands={commands}
+      shell={shell}
       isCleanMode={isCleanMode}
       isPreferencesOpen={isPreferencesOpen}
       setIsPreferencesOpen={setIsPreferencesOpen}

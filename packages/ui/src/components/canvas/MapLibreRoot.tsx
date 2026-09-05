@@ -155,6 +155,11 @@ export function MapLibreRoot({
   useEffect(() => {
     if (!cityData || !rendererRef.current) return;
     const renderer = rendererRef.current;
+    // Commit point of the load transaction: the outgoing city's sources and
+    // layers are torn down only now that a replacement has actually parsed.
+    // The layer ids are fixed, so re-adding them over a live style would fail
+    // every step and strand the old geometry.
+    renderer.clear();
     renderer
       .render(cityData, {
         activeLayers: activeLayers ?? {
@@ -221,19 +226,14 @@ export function MapLibreRoot({
     };
   }, [activeTheme, themes, transitDimmingEnabled, cityData]);
 
-  // Clear the map when loading starts so the old map doesn't linger
+  // Drop any hover context while a load is in flight — the pointer is over
+  // geometry that may be about to be replaced. The rendered map itself stays:
+  // under AD-13 a load is a transaction, and the previous city must survive a
+  // parse that never commits. Teardown happens at commit instead, in the
+  // render effect above.
   useEffect(() => {
-    if (loadingState !== 'loading' || !rendererRef.current) return;
-
+    if (loadingState !== 'loading') return;
     setTooltipInfo(null);
-
-    // Keep the old map visible during the CSS opacity transition (500ms) so the
-    // fade-out looks smooth, then clean up the map data once the transition completes
-    const timer = setTimeout(() => {
-      rendererRef.current?.clear();
-    }, 500);
-
-    return () => clearTimeout(timer);
   }, [loadingState]);
 
   // Sync layer visibility whenever activeLayers changes

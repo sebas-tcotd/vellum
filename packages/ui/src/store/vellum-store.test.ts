@@ -118,3 +118,52 @@ describe('vellum-store — setUpdateInfo (Story 7.4)', () => {
     expect(useVellumStore.getState().updateInfo).toBeNull();
   });
 });
+
+describe('load transactions (AD-13)', () => {
+  it('keeps the open document while a replacement is being parsed', () => {
+    const city = { cityName: 'Altavento', fileName: 'a.cslmap' } as never;
+    useVellumStore.getState().setCityData(city);
+
+    useVellumStore.getState().incrementLoadRequestId();
+
+    expect(useVellumStore.getState().loadingState).toBe('loading');
+    // The previous city is still the one on screen: nothing has replaced it yet.
+    expect(useVellumStore.getState().cityData).toBe(city);
+  });
+
+  it('restores the previous document when the replacement fails', () => {
+    const city = { cityName: 'Altavento', fileName: 'a.cslmap' } as never;
+    useVellumStore.getState().setCityData(city);
+
+    useVellumStore.getState().incrementLoadRequestId();
+    useVellumStore
+      .getState()
+      .setLoadingState('error', { type: 'InvalidFile', reason: 'corrupt' });
+
+    expect(useVellumStore.getState().cityData).toBe(city);
+  });
+
+  it('returns to the no-map state when there was nothing to preserve', () => {
+    useVellumStore.setState({ cityData: null });
+
+    useVellumStore.getState().incrementLoadRequestId();
+    useVellumStore
+      .getState()
+      .setLoadingState('error', { type: 'InvalidFile', reason: 'corrupt' });
+
+    expect(useVellumStore.getState().cityData).toBeNull();
+  });
+
+  it('commits the replacement only once the new city parses', () => {
+    const previous = { cityName: 'Altavento', fileName: 'a.cslmap' } as never;
+    const next = { cityName: 'Rivermouth', fileName: 'b.cslmap' } as never;
+    useVellumStore.getState().setCityData(previous);
+
+    useVellumStore.getState().incrementLoadRequestId();
+    expect(useVellumStore.getState().cityData).toBe(previous);
+
+    useVellumStore.getState().setCityData(next);
+    expect(useVellumStore.getState().cityData).toBe(next);
+    expect(useVellumStore.getState().loadingState).toBe('idle');
+  });
+});

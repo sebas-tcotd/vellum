@@ -337,12 +337,18 @@ describe('App — renderizado condicional', () => {
     const shell = screen.getByTestId('desktop-shell');
     const sidebar = screen.getByTestId('shell-sidebar');
     const mapSurface = screen.getByTestId('map-surface');
-    expect(shell.children).toContain(sidebar);
-    expect(shell.children).toContain(mapSurface);
-
-    fireEvent.click(
-      screen.getByRole('button', { name: 'a11y.layerPanelCollapse' }),
+    // Sidebar and map are siblings in the shell's layout row; the document
+    // command strip is the row above them, not a third column.
+    const body = sidebar.parentElement;
+    expect(body).not.toBeNull();
+    expect(body?.className).toContain('desktop-shell__body');
+    expect(body?.children).toContain(mapSurface);
+    expect(shell.children).toContain(body);
+    expect(shell.children).toContain(
+      screen.getByTestId('document-command-strip'),
     );
+
+    fireEvent.click(screen.getByRole('button', { name: 'sidebar.collapse' }));
     expect(sidebar).toHaveAttribute('data-state', 'collapsed');
 
     const shortcutOptions = vi

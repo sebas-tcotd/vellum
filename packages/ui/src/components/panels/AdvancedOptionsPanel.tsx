@@ -129,6 +129,11 @@ export function AdvancedOptionsPanel({
           onCheckedChange={onToggleColorByCategory}
         />
         <Separator className="h-px my-1 w-full" />
+        {/* The community term stays, grouped under a label that also explains
+            it to someone meeting RICO for the first time. */}
+        <h3 className="shell-section__subheading">
+          {t('layerOptionsPanel.buildingZones')}
+        </h3>
         {RICO_CATEGORIES.map((category) => (
           <OptionRow
             key={category}

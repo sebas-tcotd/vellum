@@ -58,19 +58,20 @@
     "monuments": "Monuments"
   },
   "iconLegend": {
-    "buttonLabel": "View legend",
-    "title": "Icon legend",
+    "buttonLabel": "Map symbols",
+    "title": "Map symbols",
     "empty": "No service icons visible in this view"
   },
   "layerOptionsPanel": {
-    "close": "Close advanced options",
-    "colorByCategory": "Color by category",
+    "close": "Close layer options",
+    "colorByCategory": "Colour buildings by zone",
     "showDistrictNamesOnMap": "Show name on map",
     "showParkAreas": "Show park areas",
     "showContourLines": "Contour lines",
     "showColorRelief": "Color relief",
     "showHillshade": "Hillshade",
-    "showGrid": "Show projection grid"
+    "showGrid": "Projection grid",
+    "buildingZones": "Building zones (RICO)"
   },
   "export": {
     "title": "Export Map",
@@ -183,14 +184,18 @@
     "mapCanvasCity": "{{cityName}} city map",
     "loadingProgress": "Loading progress",
     "exportProgress": "Export progress",
-    "layerPanel": "Layer controls panel",
+    "layerPanel": "Map appearance",
     "layerPanelCollapse": "Collapse panel",
     "layerPanelExpand": "Expand panel",
     "themeSelector": "Theme selector",
     "advancedOptions": "{{layer}} advanced options",
     "advancedOptionsToggle": "Toggle {{layer}} advanced options",
-    "iconLegendToggle": "Toggle icon legend",
-    "iconLegend": "Icon legend"
+    "iconLegendToggle": "Toggle map symbols",
+    "iconLegend": "Map symbols",
+    "mapAppearance": "Map appearance",
+    "configureLayer": "Configure {{layer}}",
+    "cameraControls": "Map camera controls",
+    "mapStatus": "Map status"
   },
   "transitModes": {
     "Bus": "Bus",
@@ -208,5 +213,24 @@
     "svgDegenerateGeometry": "{{count}} element(s) could not be drawn due to invalid geometry and were left out of the SVG.",
     "svgEmptyLayer": "{{count}} visible layer(s) came out empty in the SVG.",
     "svgUnsupportedPresentation": "Some presentation options you selected were not applied to this SVG."
+  },
+  "sidebar": {
+    "mapAppearance": "Map appearance",
+    "mapStyle": "Map style",
+    "layers": "Layers",
+    "collapse": "Collapse sidebar",
+    "expand": "Expand sidebar"
+  },
+  "documentContext": {
+    "sourceFile": "Source file"
+  },
+  "document": {
+    "openMap": "Open map"
+  },
+  "camera": {
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "fitCity": "Fit city",
+    "resetNorth": "Reset north"
   }
 }

@@ -53,7 +53,16 @@ export interface Command<Id extends CommandId> {
   canExecute: boolean;
   /** Set when `canExecute` is false, so a surface can explain the disabled state. */
   unavailableReason?: UnavailableReason;
-  execute: (payload: CommandPayloads[Id]) => void;
+  /**
+   * Runs the command.
+   *
+   * @param payload - The command's payload, if it takes one.
+   * @param invoker - `data-focus-id` of the control that triggered it, so a
+   * transient state it opens knows where to hand focus back. Menu and shortcut
+   * routes leave it undefined, which is what makes them fall back to a
+   * heading instead of a control that was never touched.
+   */
+  execute: (payload: CommandPayloads[Id], invoker?: string) => void;
 }
 
 export type CommandRegistry = { [Id in CommandId]: Command<Id> };
@@ -75,9 +84,9 @@ export interface CommandDeps {
   transitDimmingEnabled: boolean;
   availableThemeIds: readonly string[];
   /** Toggles Clean view. Owned by `ShellSession`, injected so this stays view-free. */
-  toggleCleanView: () => void;
+  toggleCleanView: (invoker?: string) => void;
   /** Opens (or closes, if already open) one layer's detail context. */
-  toggleLayerDetail: (layer: LayerName) => void;
+  toggleLayerDetail: (layer: LayerName, invoker?: string) => void;
   /** Ambient state the availability rules read. */
   hasMap: boolean;
   isLoading: boolean;
@@ -119,16 +128,16 @@ export function useDesktopCommands(deps: CommandDeps): CommandRegistry {
     const make = <Id extends CommandId>(
       id: Id,
       reason: UnavailableReason | null,
-      execute: (payload: CommandPayloads[Id]) => void,
+      execute: (payload: CommandPayloads[Id], invoker?: string) => void,
     ): Command<Id> => ({
       id,
       canExecute: reason === null,
       ...(reason !== null ? { unavailableReason: reason } : {}),
       // A disabled command is inert from every surface, including the native
       // menu, which cannot always grey its own items in time.
-      execute: (payload) => {
+      execute: (payload, invoker) => {
         if (reason !== null) return;
-        execute(payload);
+        execute(payload, invoker);
       },
     });
 
@@ -157,7 +166,7 @@ export function useDesktopCommands(deps: CommandDeps): CommandRegistry {
       'view.cleanView': make(
         'view.cleanView',
         cleanViewReason,
-        toggleCleanView,
+        (_payload, invoker) => toggleCleanView(invoker),
       ),
       'view.mapSymbols': make('view.mapSymbols', mapReason, toggleIconLegend),
       'view.mapBounds': make('view.mapBounds', mapReason, toggleNavigationMode),
@@ -165,8 +174,8 @@ export function useDesktopCommands(deps: CommandDeps): CommandRegistry {
         toggleLayer(layer),
       ),
       // Opening a layer's detail never changes that layer's visibility (AD-11).
-      'layer.detail': make('layer.detail', mapReason, (layer) =>
-        toggleLayerDetail(layer),
+      'layer.detail': make('layer.detail', mapReason, (layer, invoker) =>
+        toggleLayerDetail(layer, invoker),
       ),
       // Style choices persist independently of a loaded document, and the
       // Themes menu has always been reachable with no map. Keep it that way.

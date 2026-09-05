@@ -29,6 +29,7 @@ vi.mock('@vellum/renderer-webgl', () => ({
   MapLibreRenderer: function MapLibreRenderer() {
     return {
       dispose: vi.fn(),
+      clear: vi.fn(),
       render: vi.fn().mockResolvedValue(undefined),
       subscribeViewport: vi.fn().mockReturnValue(() => {}),
       subscribeHover: vi.fn().mockReturnValue(() => {}),
