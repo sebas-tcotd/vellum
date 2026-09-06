@@ -3,6 +3,7 @@ import {
   type RefObject,
   type SetStateAction,
   Suspense,
+  useState,
 } from 'react';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import type { LayerName } from '@vellum/core';
@@ -22,7 +23,7 @@ import { PreferencesPanel } from './panels/PreferencesPanel';
 import { DesktopShell } from './shell';
 import { MapAppearanceSidebar } from './sidebar/MapAppearanceSidebar';
 import type { CommandRegistry } from '../shell/commands';
-import { SIDEBAR_WIDTH, type ShellSession } from '../shell/shell-session';
+import type { ShellSession } from '../shell/shell-session';
 import type { useExportWorkflow } from '../hooks/use-export-workflow';
 // Relativo a propósito: el alias `@/` del composition root apunta a
 // `packages/ui/src`, así que un `@/store/...` compilado a dist carga un SEGUNDO
@@ -76,16 +77,10 @@ export function AppSurface({
   const setUpdateInfo = useVellumStore((state) => state.setUpdateInfo);
 
   const showEmptyState = cityData === null && loadingState !== 'loading';
-  // How much of the map the sidebar currently covers, so the renderer frames
-  // the city in the part of the canvas the user can actually see.
-  const sidebarVisible = cityData !== null && !isCleanMode;
-  const mapInset = {
-    left: sidebarVisible
-      ? shell.state.sidebar.collapsed
-        ? SIDEBAR_WIDTH.rail
-        : shell.state.sidebar.width
-      : 0,
-  };
+  // How much of the map the sidebar covers, measured from the rendered element
+  // so platform insets are included without this having to know about them.
+  const [sidebarWidth, setSidebarWidth] = useState(0);
+  const mapInset = { left: cityData === null ? 0 : sidebarWidth };
   const showPartialParseDialog =
     loadingState === 'error' && loadingError?.type === 'PartialParse';
   const showErrorToast =
@@ -112,6 +107,7 @@ export function AppSurface({
                 fileName={cityData.fileName}
                 commands={commands}
                 shell={shell}
+                onOccupiedWidthChange={setSidebarWidth}
               />
             )}
             <MapViewport

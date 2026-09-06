@@ -16,6 +16,13 @@ export interface MapAppearanceSidebarProps {
   fileName: string;
   commands: CommandRegistry;
   shell: ShellSession;
+  /**
+   * Reports how much of the map's leading edge the sidebar covers, measured
+   * rather than derived from its width: platform profiles inset it by
+   * different amounts, and the map has to be framed around what is actually
+   * there.
+   */
+  onOccupiedWidthChange?: (width: number) => void;
 }
 
 /**
@@ -32,6 +39,7 @@ export function MapAppearanceSidebar({
   fileName,
   commands,
   shell,
+  onOccupiedWidthChange,
 }: MapAppearanceSidebarProps) {
   const { t } = useTranslation();
   const { state, dispatch } = shell;
@@ -39,6 +47,19 @@ export function MapAppearanceSidebar({
   const sidebarRef = useRef<HTMLElement>(null);
   const focusBeforeCleanViewRef = useRef<HTMLElement | null>(null);
   const isCleanView = state.cleanView;
+
+  useEffect(() => {
+    const sidebar = sidebarRef.current;
+    if (!sidebar || !onOccupiedWidthChange) return;
+    const report = () =>
+      onOccupiedWidthChange(
+        isCleanView ? 0 : sidebar.offsetLeft + sidebar.offsetWidth,
+      );
+    report();
+    const observer = new ResizeObserver(report);
+    observer.observe(sidebar);
+    return () => observer.disconnect();
+  }, [onOccupiedWidthChange, isCleanView, collapsed, width]);
 
   // Clean view hides this subtree. Focus cannot be left inside a hidden tree,
   // so it is parked here and handed back on return — the behaviour the shell

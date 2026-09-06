@@ -54,9 +54,22 @@ describe('platform adaptation', () => {
       '--shell-radius-interactive',
       '--shell-radius-panel',
       '--shell-surface-selected',
+      '--shell-sidebar-inset',
+      '--shell-sidebar-radius',
     ]) {
       expect(css).toContain(role);
     }
+  });
+
+  it('expresses the macOS floating sidebar purely as token values', () => {
+    const css = readFileSync(join(SRC, 'globals.css'), 'utf-8');
+    // The inset and radius exist as tokens with a neutral zero default, so the
+    // platform that floats its sidebars gets that treatment and the ones that
+    // do not keep a flush panel — from the same markup.
+    expect(css).toMatch(/--shell-sidebar-inset:\s*0px/);
+    expect(css).toMatch(/--shell-sidebar-inset:\s*10px/);
+    expect(css).toContain('var(--shell-sidebar-inset)');
+    expect(css).toContain('var(--shell-sidebar-radius)');
   });
 
   it('keeps a solid fallback and forced-colours mapping for the shell', () => {

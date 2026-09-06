@@ -135,7 +135,13 @@ Cómo quedó el shell:
   `MapLibreRoot` conserva renderizado, cámara y suscripciones, y publica solo un
   puerto estrecho para los overlays que necesitan orientarse o navegar.
 - **El sidebar flota sobre un mapa a sangre completa**, translúcido, para que el
-  paneo siga siendo legible por debajo. No hay banda de chrome sobre el mapa:
+  paneo siga siendo legible por debajo — el tratamiento que la propia HIG de
+  Apple describe para sidebars en la capa Liquid Glass. En macOS además va
+  separado de los bordes de la ventana y redondeado, con el mapa continuando a
+  su alrededor; las plataformas sin un efecto de compositor confiable lo
+  mantienen al ras y opaco, con el mismo marcado y solo distintos valores de
+  token. El área que cubre se mide del elemento renderizado, así esos insets de
+  plataforma se contemplan sin que ningún componente sepa en cuál está. No hay banda de chrome sobre el mapa:
   Abrir y Exportar son un grupo flotante en su esquina superior derecha. El
   viewport le indica al renderer cuánto lienzo cubre el sidebar, así el encuadre
   de la ciudad nunca deja parte de ella debajo.

@@ -217,6 +217,10 @@
   --shell-control-size: 28px;
   --shell-overlay-inset: 12px;
   --shell-overlay-gap: 8px;
+  /* Distance the sidebar keeps from the window edges. Zero means it sits
+     flush against them, which is the neutral and Fluent treatment. */
+  --shell-sidebar-inset: 0px;
+  --shell-sidebar-radius: 0px;
 }
 
 [data-platform='windows'] {
@@ -249,6 +253,11 @@
   --shell-surface-popover: rgba(247, 246, 241, 0.94);
   --shell-radius-interactive: 8px;
   --shell-row-height: 34px;
+  /* Liquid Glass: the sidebar floats in its own layer, inset from the window
+     edges with the map continuing around it, the way the platform's own
+     sidebars separate themselves from content. */
+  --shell-sidebar-inset: 10px;
+  --shell-sidebar-radius: 12px;
 }
 
 /* ─── Shell adaptativo inline (Story 8.2) ─────────────────────────────────── */
@@ -278,24 +287,33 @@
 /* ─── Map appearance sidebar ─────────────────────────────────────────────── */
 .shell-sidebar {
   position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
+  top: var(--shell-sidebar-inset);
+  bottom: var(--shell-sidebar-inset);
+  left: var(--shell-sidebar-inset);
   display: flex;
   z-index: 20;
   flex-direction: column;
   width: var(--shell-sidebar-expanded-width);
   min-width: 0;
   /* Reserves the platform titlebar so the header never sits under the window
-     controls. */
-  padding-top: var(--shell-titlebar-inset);
+     controls. The panel's own inset already covers part of that distance. */
+  padding-top: max(
+    0px,
+    calc(var(--shell-titlebar-inset) - var(--shell-sidebar-inset))
+  );
   overflow: hidden;
   color: var(--shell-text-primary);
   background: var(--shell-surface-sidebar);
   border-right: 1px solid var(--shell-separator);
+  border-radius: var(--shell-sidebar-radius);
   box-shadow: var(--shell-shadow-panel);
   backdrop-filter: blur(var(--shell-blur));
   transition: width var(--shell-layout-duration) ease;
+}
+
+/* Once inset, it is a panel on every side rather than a wall on one. */
+[data-platform='macos'] .shell-sidebar {
+  border: 1px solid var(--shell-separator);
 }
 
 .shell-sidebar[data-state='collapsed'] {
@@ -573,6 +591,8 @@
   right: 0;
   bottom: 0;
   width: 6px;
+  border-top-right-radius: var(--shell-sidebar-radius);
+  border-bottom-right-radius: var(--shell-sidebar-radius);
   cursor: col-resize;
   background: transparent;
 }
@@ -712,7 +732,8 @@
 }
 
 @media (forced-colors: active) {
-  .shell-sidebar {
+  .shell-sidebar,
+  [data-platform='macos'] .shell-sidebar {
     color: CanvasText;
     background: Canvas;
     border-color: CanvasText;

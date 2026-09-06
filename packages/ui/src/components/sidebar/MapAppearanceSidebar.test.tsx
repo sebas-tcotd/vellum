@@ -65,7 +65,13 @@ function makeCommands(
   return registry;
 }
 
-function Harness({ initial }: { initial?: Partial<ShellSessionState> }) {
+function Harness({
+  initial,
+  onOccupiedWidthChange,
+}: {
+  initial?: Partial<ShellSessionState>;
+  onOccupiedWidthChange?: (width: number) => void;
+}) {
   const [state, dispatch] = useReducer(shellSessionReducer, {
     ...initialShellSession(1440),
     ...initial,
@@ -76,6 +82,7 @@ function Harness({ initial }: { initial?: Partial<ShellSessionState> }) {
       fileName="altavento.cslmap"
       commands={makeCommands(dispatch)}
       shell={{ state, dispatch }}
+      {...(onOccupiedWidthChange ? { onOccupiedWidthChange } : {})}
     />
   );
 }
@@ -330,5 +337,44 @@ describe('width model', () => {
       />,
     );
     expect(screen.queryByTestId('sidebar-resize-handle')).toBeNull();
+  });
+});
+
+describe('occupied width', () => {
+  /** jsdom lays nothing out, so the sidebar's box is declared here instead. */
+  function stubBox(left: number, width: number) {
+    Object.defineProperty(HTMLElement.prototype, 'offsetLeft', {
+      configurable: true,
+      get() {
+        return this.dataset?.testid === 'shell-sidebar' ? left : 0;
+      },
+    });
+    Object.defineProperty(HTMLElement.prototype, 'offsetWidth', {
+      configurable: true,
+      get() {
+        return this.dataset?.testid === 'shell-sidebar' ? width : 0;
+      },
+    });
+  }
+
+  it('reports its own inset, not just its width', () => {
+    // A platform that floats the sidebar offsets it from the window edge; the
+    // map has to be framed around the whole thing, margin included.
+    stubBox(10, 272);
+    const onOccupiedWidthChange = vi.fn();
+    render(<Harness onOccupiedWidthChange={onOccupiedWidthChange} />);
+    expect(onOccupiedWidthChange).toHaveBeenCalledWith(282);
+  });
+
+  it('reports nothing covered once Clean view hides it', () => {
+    stubBox(10, 272);
+    const onOccupiedWidthChange = vi.fn();
+    render(
+      <Harness
+        initial={{ cleanView: true }}
+        onOccupiedWidthChange={onOccupiedWidthChange}
+      />,
+    );
+    expect(onOccupiedWidthChange).toHaveBeenCalledWith(0);
   });
 });

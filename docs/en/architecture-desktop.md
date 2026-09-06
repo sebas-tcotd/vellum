@@ -136,7 +136,13 @@ What the shell now looks like:
   still owns rendering, camera and subscriptions, and publishes only a narrow
   port for the overlays that need to orient or navigate.
 - **The sidebar floats over a full-bleed map**, translucent, so panning stays
-  legible beneath it. There is no chrome band above the map: Open and Export
+  legible beneath it — the treatment Apple's own HIG describes for sidebars in
+  the Liquid Glass layer. On macOS it is additionally inset from the window
+  edges and rounded, with the map continuing around it; platforms without a
+  reliable compositor effect keep it flush and opaque, from the same markup and
+  only different token values. The area it covers is measured from the rendered
+  element, so those platform insets are accounted for without any component
+  knowing which platform it is on. There is no chrome band above the map: Open and Export
   are a floating group in its upper-right corner. The viewport tells the
   renderer how much of the canvas the sidebar covers, so framing the city never
   puts part of it underneath.
