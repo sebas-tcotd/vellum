@@ -14,6 +14,7 @@ import { useVellumStore } from '../../store/vellum-store';
 import { cn } from '../../lib/utils';
 import { CameraControlGroup } from './CameraControlGroup';
 import { DocumentCommandGroup } from './DocumentCommandGroup';
+import { MapTools } from './MapTools';
 import { OverlayCollisionProvider } from './overlay-collision';
 
 export interface MapViewportProps {
@@ -146,16 +147,20 @@ export function MapViewport({
         {children}
         {showOverlays && (
           <>
-            <DocumentCommandGroup commands={commands} />
-            <CameraControlGroup commands={commands} bearing={bearing} />
-            {/* The minimap keeps the lower-right corner; the camera group
-                stacks above it rather than merging with it. */}
-            <Minimap
-              cityData={cityData}
-              subscribeViewport={subscribeViewport}
-              getInitialViewportBounds={getInitialViewportBounds}
-              navigateTo={navigateTo}
-            />
+            <MapTools>
+              <div className="map-tools__document">
+                <DocumentCommandGroup commands={commands} />
+              </div>
+              <div className="map-tools__navigation">
+                <CameraControlGroup commands={commands} bearing={bearing} />
+                <Minimap
+                  cityData={cityData}
+                  subscribeViewport={subscribeViewport}
+                  getInitialViewportBounds={getInitialViewportBounds}
+                  navigateTo={navigateTo}
+                />
+              </div>
+            </MapTools>
             <IconLegend
               subscribeRef={subscribeServiceIconLegendRef}
               toggleRef={iconLegendToggleRef}

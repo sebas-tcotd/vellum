@@ -1,7 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { Compass, Maximize, Minus, Plus } from 'lucide-react';
 import type { CommandRegistry } from '../../shell/commands';
-import { useOverlaySlot } from './overlay-collision';
 
 export interface CameraControlGroupProps {
   commands: CommandRegistry;
@@ -16,8 +15,8 @@ export interface CameraControlGroupProps {
  * Manipulating the viewpoint is a spatial act, so it belongs on the map rather
  * than in the sidebar. Every button delegates to the shared command — there is
  * no camera logic here — so the View menu, the shortcuts and these controls
- * are one action each (AD-3). It stacks *above* the minimap and never merges
- * with it: the minimap is a separate navigational tool that owns its corner.
+ * are one action each (AD-3). It sits above the minimap in the shared map
+ * tools column while remaining its own control group.
  *
  * Precise rotation stays on the View menu and `Shift+Arrow`; only the reset is
  * frequent enough to earn a place here, and only while it means something.
@@ -27,8 +26,6 @@ export function CameraControlGroup({
   bearing,
 }: CameraControlGroupProps) {
   const { t } = useTranslation();
-  const { ref, style } = useOverlaySlot('camera', 'bottom-right');
-
   const buttons = [
     { command: commands['view.zoomIn'], label: t('camera.zoomIn'), Icon: Plus },
     {
@@ -45,8 +42,6 @@ export function CameraControlGroup({
 
   return (
     <div
-      ref={ref}
-      style={style}
       className="shell-camera-group"
       data-testid="camera-control-group"
       role="group"

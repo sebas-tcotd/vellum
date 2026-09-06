@@ -1,7 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { Download, FolderOpen } from 'lucide-react';
 import type { CommandRegistry } from '../../shell/commands';
-import { useOverlaySlot } from './overlay-collision';
 
 export interface DocumentCommandGroupProps {
   commands: CommandRegistry;
@@ -28,8 +27,6 @@ export function DocumentCommandGroup({ commands }: DocumentCommandGroupProps) {
   const openMap = commands['document.open'];
   const exportMap = commands['document.export'];
 
-  const { ref, style } = useOverlaySlot('documentCommands', 'top-right');
-
   const buttons = [
     {
       command: openMap,
@@ -47,8 +44,6 @@ export function DocumentCommandGroup({ commands }: DocumentCommandGroupProps) {
 
   return (
     <div
-      ref={ref}
-      style={style}
       className="shell-floating-group shell-document-commands"
       data-testid="document-command-group"
       role="group"

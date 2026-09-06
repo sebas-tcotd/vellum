@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
-import { useOverlaySlot } from '../viewport/overlay-collision';
 import { useTranslation } from 'react-i18next';
 import type { CityData } from '@vellum/core';
 import { csToGeoArray } from '@vellum/renderer-webgl';
@@ -44,7 +43,6 @@ export function Minimap({
   const { t } = useTranslation();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   // The minimap owns the lower-right corner; everything else stacks around it.
-  const slot = useOverlaySlot('minimap', 'bottom-right');
   const viewportRef = useRef<ViewportBounds | null>(null);
   const isDraggingRef = useRef(false);
   /** Holds the pre-rendered static city image; rebuilt only when `cityData` changes. */
@@ -264,10 +262,8 @@ export function Minimap({
 
   return (
     <div
-      ref={slot.ref}
       className="rounded-md overflow-hidden border border-white/20 shadow-lg bg-[#f2efe9]"
       style={{
-        ...slot.style,
         width: CANVAS_SIZE,
         height: CANVAS_SIZE,
         touchAction: 'none',

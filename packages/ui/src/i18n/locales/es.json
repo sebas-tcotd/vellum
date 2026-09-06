@@ -3,7 +3,6 @@
     "title": "Vellum",
     "dropHint": "Arrastra tu archivo .cslmap aquí",
     "orOpenWith": "o presiona",
-    "openShortcut": "Ctrl+O",
     "firstUseHint": "Exporta tu ciudad con CSL Map View · El exportador nativo de Vellum viene en v2 →"
   },
   "loading": {
@@ -198,7 +197,8 @@
     "mapStatus": "Estado del mapa",
     "mapViewport": "Mapa",
     "minimapHelp": "Las flechas desplazan el mapa. Enter lo recentra en la ciudad.",
-    "documentCommands": "Comandos de documento"
+    "documentCommands": "Comandos de documento",
+    "mapTools": "Herramientas del mapa"
   },
   "transitModes": {
     "Bus": "Autobús",

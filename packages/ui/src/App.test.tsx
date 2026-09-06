@@ -351,6 +351,12 @@ describe('App — renderizado condicional', () => {
         .getByTestId('map-surface')
         .contains(screen.getByTestId('document-command-group')),
     ).toBe(true);
+    expect(screen.getByTestId('map-tools')).toContainElement(
+      screen.getByTestId('document-command-group'),
+    );
+    expect(screen.getByTestId('map-tools')).toContainElement(
+      screen.getByTestId('camera-control-group'),
+    );
 
     fireEvent.click(screen.getByRole('button', { name: 'sidebar.collapse' }));
     expect(sidebar).toHaveAttribute('data-state', 'collapsed');
