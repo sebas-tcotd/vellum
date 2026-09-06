@@ -6,7 +6,8 @@ import {
   useState,
 } from 'react';
 import { openUrl } from '@tauri-apps/plugin-opener';
-import type { LayerName } from '@vellum/core';
+import { invoke } from '@tauri-apps/api/core';
+import { IPC_COMMANDS, type LayerName } from '@vellum/core';
 import type { ServiceIconLegendState } from '@vellum/renderer-webgl';
 import type { MapLibreRootProps } from './canvas/MapLibreRoot';
 import { MapViewport } from './viewport/MapViewport';
@@ -82,6 +83,7 @@ export function AppSurface({
   const themeWarnings = useVellumStore((state) => state.themeWarnings);
   const updateInfo = useVellumStore((state) => state.updateInfo);
   const setUpdateInfo = useVellumStore((state) => state.setUpdateInfo);
+  const autoUpdateEnabled = useVellumStore((state) => state.autoUpdateEnabled);
 
   const showEmptyState = cityData === null && loadingState !== 'loading';
   // How much of the map the sidebar covers, measured from the rendered element
@@ -162,6 +164,12 @@ export function AppSurface({
                 console.warn('App: failed to open release notes URL', error);
               });
             }}
+            // The preference no longer decides silently at startup — it just
+            // decides whether the toast offers to install. Toggling it takes
+            // effect on the toast already on screen.
+            {...(autoUpdateEnabled
+              ? { onInstall: () => invoke<void>(IPC_COMMANDS.INSTALL_UPDATE) }
+              : {})}
             onDismiss={() => setUpdateInfo(null)}
           />
         )}

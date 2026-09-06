@@ -3,6 +3,7 @@ import type { LayerName } from '@vellum/core';
 import { LAYERS_WITH_ADVANCED_OPTIONS, LAYER_NAMES } from '@vellum/core';
 import { useVellumStore } from '../../store/vellum-store';
 import type { CommandRegistry } from '../../shell/commands';
+import { Separator } from '../../lib/separator';
 import { LAYER_ICONS } from './layer-presentation';
 import { LayerVisibilityRow } from './LayerVisibilityRow';
 import { MapStyleSection } from './MapStyleSection';
@@ -28,6 +29,7 @@ export function MapAppearanceOverview({
   return (
     <>
       <MapStyleSection commands={commands} />
+      <Separator className="h-px my-1 w-full" />
       <section className="shell-section" aria-labelledby="shell-layers-heading">
         <h2 className="shell-section__heading" id="shell-layers-heading">
           {t('sidebar.layers')}

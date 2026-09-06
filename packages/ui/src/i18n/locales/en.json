@@ -162,7 +162,10 @@
   },
   "updates": {
     "available": "Vellum {{version}} available.",
-    "viewChangelog": "View changelog"
+    "viewChangelog": "View changelog",
+    "install": "Install and restart",
+    "installing": "Installing…",
+    "installFailed": "Install failed. Download it manually."
   },
   "about": {
     "tagline": "A visual editor for your city maps",

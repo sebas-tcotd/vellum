@@ -11,6 +11,15 @@ import type { LayerName } from './types/layer';
  */
 export const IPC_COMMANDS = {
   GET_PENDING_UPDATE: 'get_pending_update',
+  /**
+   * Downloads and installs the pending update, then restarts the app.
+   *
+   * @remarks
+   * Always an explicit user action — the backend never installs on its own, so
+   * an update cannot discard an open map. Rejects with a message when the
+   * install fails (e.g. a declined Windows UAC prompt).
+   */
+  INSTALL_UPDATE: 'install_update',
   /** Returns (and clears) the `.cslmap` path the app was launched with via the OS file association, if any. */
   GET_STARTUP_FILE_PATH: 'get_startup_file_path',
   PARSE_CSLMAP: 'parse_cslmap',

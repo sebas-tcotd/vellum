@@ -41,15 +41,16 @@ user-facing API.
 
 ## Tauri commands
 
-| Command                                                                 | Source        | Purpose                                                                                |
-| ----------------------------------------------------------------------- | ------------- | -------------------------------------------------------------------------------------- |
-| `parse_cslmap`                                                          | `commands.rs` | Parses a `.cslmap` on a blocking thread and returns `CityData`.                        |
-| `get_startup_file_path`                                                 | `startup.rs`  | Returns and clears a `.cslmap` path supplied through the OS file association.          |
-| `load_themes`                                                           | `commands.rs` | Reads built-in `.vellumstyle` files.                                                   |
-| `export_png`                                                            | `commands.rs` | Writes already-rendered PNG bytes to disk.                                             |
-| `open_export_folder`                                                    | `commands.rs` | Reveals an exported file in the operating system's file browser.                       |
-| `begin_export`, `append_export_chunk`, `finish_export`, `cancel_export` | `commands.rs` | Manage a transactional tiled-export session.                                           |
-| `get_pending_update`                                                    | `updater.rs`  | Returns and clears an update notification that arrived before the UI listener mounted. |
+| Command                                                                 | Source        | Purpose                                                                                    |
+| ----------------------------------------------------------------------- | ------------- | ------------------------------------------------------------------------------------------ |
+| `parse_cslmap`                                                          | `commands.rs` | Parses a `.cslmap` on a blocking thread and returns `CityData`.                            |
+| `get_startup_file_path`                                                 | `startup.rs`  | Returns and clears a `.cslmap` path supplied through the OS file association.              |
+| `load_themes`                                                           | `commands.rs` | Reads built-in `.vellumstyle` files.                                                       |
+| `export_png`                                                            | `commands.rs` | Writes already-rendered PNG bytes to disk.                                                 |
+| `open_export_folder`                                                    | `commands.rs` | Reveals an exported file in the operating system's file browser.                           |
+| `begin_export`, `append_export_chunk`, `finish_export`, `cancel_export` | `commands.rs` | Manage a transactional tiled-export session.                                               |
+| `get_pending_update`                                                    | `updater.rs`  | Returns and clears an update notification that arrived before the UI listener mounted.     |
+| `install_update`                                                        | `updater.rs`  | Downloads and installs the pending update, then restarts — only ever on an explicit click. |
 
 ## Registered plugins and startup
 
@@ -74,15 +75,19 @@ panel.
 
 ## Preferences and updates
 
-`tauri-plugin-store` persists `preferences.json`. The UI owns preference writes;
-the desktop backend reads `autoUpdateEnabled` when the updater runs. The default is
-`false`.
+`tauri-plugin-store` persists `preferences.json`. The UI owns preference writes and
+is also the only reader of `autoUpdateEnabled` (default `false`): it decides whether
+the update toast offers an install button, so toggling it takes effect immediately
+rather than on the next launch.
 
 At startup, `updater::check_for_updates` checks GitHub Releases in the background.
 When it finds a newer version, it stores a pending payload and emits
-`vellum://update-available`. If automatic updates are enabled, it downloads,
-installs and restarts the app. `get_pending_update` covers the race where the
-event arrives before the frontend has mounted its listener.
+`vellum://update-available`. It never installs anything — downloading and restarting
+is always an explicit click on the toast, via the `install_update` command, so an
+update cannot discard an open map. A failure (e.g. a declined Windows UAC prompt)
+comes back as a message on the toast instead of failing silently.
+`get_pending_update` covers the race where the event arrives before the frontend has
+mounted its listener.
 
 ## Development commands
 

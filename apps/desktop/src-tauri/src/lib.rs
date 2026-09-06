@@ -61,6 +61,8 @@ pub fn run() {
             menu::toggle_native_menu,
             #[cfg(desktop)]
             updater::get_pending_update,
+            #[cfg(desktop)]
+            updater::install_update,
             startup::get_startup_file_path,
         ])
         .setup(|app| {

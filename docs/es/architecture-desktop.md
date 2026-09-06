@@ -69,7 +69,7 @@ También agrega un item **"Preferences…"** (`CmdOrCtrl+,`) — en el submenú 
 
 ## Preferencias
 
-`tauri-plugin-store` persiste `preferences.json`. La escritura vive del lado de `@vellum/ui` (`store/preferences-store.ts`, con cola serializada); `apps/desktop` solo lo lee en `updater.rs` para el flag `autoUpdateEnabled` (default `false`).
+`tauri-plugin-store` persiste `preferences.json`. La escritura vive del lado de `@vellum/ui` (`store/preferences-store.ts`, con cola serializada). El flag `autoUpdateEnabled` (default `false`) lo lee únicamente el frontend: decide si el toast de actualización ofrece el botón de instalar, así que cambiarlo surte efecto de inmediato, sin reiniciar.
 
 ## Verificación de actualizaciones
 
@@ -77,7 +77,11 @@ También agrega un item **"Preferences…"** (`CmdOrCtrl+,`) — en el submenú 
 
 - Guarda el payload en un `OnceLock<Mutex<Option<UpdatePayload>>>` a nivel de proceso
 - Emite `vellum://update-available` (versión + URL de release notes)
-- Si `autoUpdateEnabled` es `true`, descarga, instala y reinicia sin intervención del usuario
+
+El check nunca instala nada. La descarga y el reinicio son siempre un clic explícito
+en el toast, vía el comando `install_update`, para que una actualización no pueda
+tirar abajo un mapa abierto. Un fallo (por ejemplo un UAC rechazado en el MSI de
+Windows) vuelve como mensaje al toast en vez de morir en silencio.
 
 `get_pending_update` cubre el caso donde el evento llega antes de que el frontend termine de montar su listener.
 
