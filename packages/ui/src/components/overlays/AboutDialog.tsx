@@ -32,7 +32,7 @@ export function AboutDialog({
       <DialogContent
         aria-modal="true"
         aria-labelledby={titleId}
-        className="max-w-120 overflow-hidden rounded-(--shell-radius-panel) border-(--shell-border) bg-(--shell-surface-popover) p-0 text-(--shell-text-primary) shadow-(--shell-shadow-floating) backdrop-blur-(--shell-blur)"
+        className="max-w-120 overflow-hidden rounded-(--shell-radius-popover) border-(--shell-border) bg-(--shell-surface-popover) p-0 text-(--shell-text-primary) shadow-(--shell-shadow-popover) backdrop-blur-(--shell-blur)"
       >
         <div className="relative overflow-hidden border-b border-black/10 bg-(--color-bg) px-7 pb-7 pt-8">
           <div className="pointer-events-none absolute inset-0 opacity-40 bg-[linear-gradient(105deg,transparent_0%,transparent_49%,rgba(74,64,53,0.07)_49%,rgba(74,64,53,0.07)_50%,transparent_50%),linear-gradient(25deg,transparent_0%,transparent_68%,rgba(109,184,183,0.12)_68%,rgba(109,184,183,0.12)_69%,transparent_69%)]" />

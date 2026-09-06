@@ -179,18 +179,33 @@
    Los valores exactos de Fluent 2 / Liquid Glass son aproximaciones
    razonables (no prescritas por planning); Story 1.2 cubre chrome nativo real
    (Mica/Acrylic, traffic lights, titlebar) — esto es solo CSS de paneles.
-   Solo se declaran tokens con consumidor real: `FloatingLayerPanel` usa los
-   tres tokens de panel y el shell inline usa fuente, superficie, métricas y
-   motion. */
+   Los componentes consumen roles semánticos; los perfiles de plataforma
+   resuelven esos roles mediante materiales físicos distintos. */
 :root,
 [data-platform='linux'],
 [data-platform='unknown'] {
   /* Perfil neutral Vellum — default, Linux, y detección fallida/desconocida
      comparten el mismo perfil (nunca deben bloquear ni degradar el arranque). */
-  --shell-radius-lg: 12px;
-  --shell-blur: 16px;
+  /* Neutral fallback: solid, legible chrome with restrained translucency. */
+  --shell-radius-control: 6px;
+  --shell-radius-panel: 12px;
+  --shell-radius-overlay: 12px;
+  --shell-radius-popover: 12px;
+  --shell-radius-lg: var(--shell-radius-panel);
+  --shell-material-alpha: 0.94;
+  --shell-backdrop-blur: 16px;
+  --shell-blur: var(--shell-backdrop-blur);
+  --shell-backdrop-saturate: 100%;
+  --shell-backdrop-brightness: 1;
+  --shell-noise-opacity: 0;
+  --shell-inner-highlight: none;
+  --shell-overlay-dimming: 0.45;
+  --shell-sidebar-backdrop-filter: none;
+  --shell-floating-backdrop-filter: blur(var(--shell-backdrop-blur));
+  --shell-popover-backdrop-filter: blur(var(--shell-backdrop-blur));
   --shell-shadow-panel: 0 4px 24px rgba(0, 0, 0, 0.12);
   --font-shell: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --shell-solid-surface: #f7f6f1;
   --shell-surface: rgba(247, 246, 241, 0.94);
   --shell-border: rgba(44, 40, 37, 0.12);
   --shell-sidebar-expanded-width: 272px;
@@ -211,9 +226,13 @@
   --shell-layer-icon: var(--shell-text-muted);
   --shell-separator: var(--shell-border);
   --shell-focus: var(--color-ring);
-  --shell-radius-interactive: 6px;
-  --shell-radius-panel: var(--shell-radius-lg);
+  --shell-radius-interactive: var(--shell-radius-control);
   --shell-shadow-floating: var(--shell-shadow-panel);
+  --shell-shadow-popover: var(--shell-shadow-panel);
+  --shell-panel-padding: 6px;
+  --shell-radius-inner: calc(
+    var(--shell-radius-panel) - var(--shell-panel-padding)
+  );
   --shell-row-height: 32px;
   --shell-control-size: 28px;
   --shell-overlay-inset: 12px;
@@ -225,41 +244,80 @@
 }
 
 [data-platform='windows'] {
-  /* Fluent 2 — radios cerrados, elevación nítida. */
-  --shell-radius-lg: 8px;
-  --shell-blur: 8px;
-  --shell-shadow-panel: 0 2px 8px rgba(0, 0, 0, 0.22);
+  /* Fluent: Mica/LayerFill persists; Acrylic is reserved for transient UI. */
+  --shell-radius-control: 4px;
+  --shell-radius-panel: 8px;
+  --shell-radius-overlay: 8px;
+  --shell-radius-popover: 12px;
+  --shell-radius-lg: var(--shell-radius-panel);
+  --shell-material-alpha: 0.72;
+  --shell-backdrop-blur: 30px;
+  --shell-blur: var(--shell-backdrop-blur);
+  --shell-backdrop-saturate: 125%;
+  --shell-backdrop-brightness: 1;
+  --shell-noise-opacity: 0.025;
+  --shell-inner-highlight: none;
+  --shell-overlay-dimming: 0.55;
+  --shell-sidebar-backdrop-filter: none;
+  --shell-floating-backdrop-filter: blur(var(--shell-backdrop-blur))
+    saturate(var(--shell-backdrop-saturate));
+  --shell-popover-backdrop-filter: blur(var(--shell-backdrop-blur))
+    saturate(var(--shell-backdrop-saturate));
+  --shell-shadow-panel:
+    0 0 8px rgba(0, 0, 0, 0.2), 0 14px 28px rgba(0, 0, 0, 0.24);
   --font-shell: 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
+  --shell-solid-surface: #f3f3f3;
   --shell-surface: rgba(243, 243, 243, 0.82);
-  --shell-border: rgba(0, 0, 0, 0.14);
+  --shell-border: rgba(0, 0, 0, 0.05);
+  --shell-stroke-light: rgba(0, 0, 0, 0.05);
+  --shell-stroke-dark: rgba(255, 255, 255, 0.1);
   --shell-surface-floating: rgba(249, 249, 249, 0.96);
   --shell-surface-popover: rgba(249, 249, 249, 0.99);
-  --shell-radius-interactive: 4px;
   /* Fluent runs tighter than the neutral profile. Same rows, less air. */
   --shell-row-height: 30px;
 }
 
 [data-platform='macos'] {
-  /* Liquid Glass — radios abiertos, superficie translúcida con blur
-     pronunciado, sombra difusa. Solo chrome/paneles — nunca ventana nativa
-     (Story 1.2). */
-  --shell-radius-lg: 16px;
-  --shell-blur: 24px;
-  --shell-shadow-panel: 0 8px 32px rgba(0, 0, 0, 0.18);
+  /* Liquid Glass approximation: optical, adaptive and platform-scoped. */
+  --shell-radius-control: 10px;
+  --shell-radius-panel: 16px;
+  --shell-radius-overlay: 16px;
+  --shell-radius-popover: 18px;
+  --shell-radius-capsule: 999px;
+  --shell-radius-lg: var(--shell-radius-panel);
+  --shell-material-alpha: 0.16;
+  --shell-backdrop-blur: 32px;
+  --shell-blur: var(--shell-backdrop-blur);
+  --shell-backdrop-saturate: 155%;
+  --shell-backdrop-brightness: 1.04;
+  --shell-noise-opacity: 0;
+  --shell-inner-highlight:
+    inset 0 1px 0 rgba(255, 255, 255, 0.38),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.08);
+  --shell-overlay-dimming: 0.35;
+  --shell-sidebar-backdrop-filter: blur(var(--shell-backdrop-blur))
+    saturate(var(--shell-backdrop-saturate))
+    brightness(var(--shell-backdrop-brightness));
+  --shell-floating-backdrop-filter: var(--shell-sidebar-backdrop-filter);
+  --shell-popover-backdrop-filter: var(--shell-sidebar-backdrop-filter);
+  --shell-shadow-panel:
+    0 8px 30px rgba(0, 0, 0, 0.14), 0 2px 8px rgba(0, 0, 0, 0.08),
+    var(--shell-inner-highlight);
   --font-shell: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
-  --shell-surface: rgba(247, 246, 241, 0.68);
-  --shell-border: rgba(0, 0, 0, 0.1);
+  --shell-solid-surface: #f7f6f1;
+  --shell-surface: rgba(255, 255, 255, 0.16);
+  --shell-border: rgba(255, 255, 255, 0.28);
+  --shell-stroke-light: rgba(255, 255, 255, 0.28);
   --shell-titlebar-inset: 44px;
-  --shell-surface-floating: rgba(247, 246, 241, 0.82);
-  --shell-surface-popover: rgba(247, 246, 241, 0.94);
-  --shell-radius-interactive: 8px;
+  --shell-surface-floating: rgba(255, 255, 255, 0.16);
+  --shell-surface-popover: rgba(255, 255, 255, 0.2);
   --shell-row-height: 34px;
   /* Liquid Glass: the sidebar floats in its own layer, inset from the window
      edges with the map continuing around it, the way the platform's own
      sidebars separate themselves from content. */
   --shell-sidebar-collapsed-width: 5.5rem;
   --shell-sidebar-inset: 10px;
-  --shell-sidebar-radius: 12px;
+  --shell-sidebar-radius: var(--shell-radius-panel);
   --shell-corner-shape: squircle;
 }
 
@@ -310,7 +368,7 @@
   border-right: 1px solid var(--shell-separator);
   border-radius: var(--shell-sidebar-radius);
   box-shadow: var(--shell-shadow-panel);
-  backdrop-filter: blur(var(--shell-blur));
+  backdrop-filter: var(--shell-sidebar-backdrop-filter);
   transition: width var(--shell-layout-duration) ease;
   corner-shape: var(--shell-corner-shape, round);
 }
@@ -681,10 +739,65 @@
   background: var(--shell-surface-floating);
   border: 1px solid var(--shell-separator);
   /* One continuous silhouette for the cluster, per the shape contract. */
-  border-radius: var(--shell-radius-panel);
+  border-radius: var(--shell-radius-overlay);
   box-shadow: var(--shell-shadow-floating);
-  backdrop-filter: blur(var(--shell-blur));
+  backdrop-filter: var(--shell-floating-backdrop-filter);
   corner-shape: var(--shell-corner-shape, round);
+}
+
+/* A barely visible material grain keeps Windows Acrylic from reading as a
+   generic transparent gradient. It is disabled for Liquid Glass, where the
+   optical edge and backdrop response carry the material language. */
+.shell-sidebar::before,
+.shell-floating-group::before,
+.shell-camera-group::before {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  content: '';
+  border-radius: inherit;
+  opacity: var(--shell-noise-opacity);
+  background-image: radial-gradient(
+    rgba(0, 0, 0, 0.55) 0.5px,
+    transparent 0.5px
+  );
+  background-size: 3px 3px;
+}
+
+.shell-sidebar,
+.shell-floating-group,
+.shell-camera-group {
+  isolation: isolate;
+}
+
+.shell-floating-group,
+.shell-camera-group {
+  position: relative;
+}
+
+.shell-dialog-overlay {
+  background: rgb(0 0 0 / var(--shell-overlay-dimming));
+}
+
+.shell-dialog-content {
+  color: var(--shell-text-primary);
+  background: var(--shell-surface-popover);
+  border-color: var(--shell-border);
+  border-radius: var(--shell-radius-popover);
+  box-shadow: var(--shell-shadow-popover);
+  backdrop-filter: var(--shell-popover-backdrop-filter);
+  corner-shape: var(--shell-corner-shape, round);
+}
+
+/* CSS remains usable when the WebView does not support backdrop filtering. */
+@supports not ((backdrop-filter: blur(1px))) {
+  .shell-sidebar,
+  .shell-floating-group,
+  .shell-camera-group,
+  .shell-dialog-content {
+    background: var(--shell-solid-surface);
+  }
 }
 
 /* Clears the platform titlebar, which owns the drag region above it. */
