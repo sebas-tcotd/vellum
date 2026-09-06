@@ -63,7 +63,9 @@ apps/desktop/
 
 ## Menú nativo
 
-Parte de `tauri::menu::Menu::default()` (conserva Edit/Window/submenús estándar del OS) y agrega un item **"Preferences…"** (`CmdOrCtrl+,`) — en el submenú de la app en macOS, o en un submenú "Vellum" prepended en otras plataformas. El evento de menú `"preferences"` emite `vellum://open-preferences`, que `@vellum/ui` escucha para abrir `PreferencesPanel`.
+El menú nativo conserva las convenciones estándar de `Edit` y `Window`, y organiza las acciones propias en cuatro espacios: `File` para abrir/exportar mapas, `View` para cámara, overlays, layout e interacción, `Layers` para visibilidad y detalle cartográfico, y `Appearance` para temas y énfasis visual. Las opciones de layout (`Sidebar`, `Clean View`), overlays (`Map Symbols`) e interacción (`Navigation Mode`) viven como submenús de `View` para separar el chrome de la ventana y los overlays de la cámara del mapa.
+
+También agrega un item **"Preferences…"** (`CmdOrCtrl+,`) — en el submenú de la app en macOS, o en un submenú "Vellum" prepended en otras plataformas. El evento de menú `"preferences"` emite `vellum://open-preferences`, que `@vellum/ui` escucha para abrir `PreferencesPanel`.
 
 ## Preferencias
 

@@ -1,7 +1,8 @@
 use serde::Deserialize;
 use std::sync::Mutex;
 use tauri::menu::{
-    Menu, MenuBuilder, MenuItem, MenuItemBuilder, MenuItemKind, Submenu, SubmenuBuilder,
+    CheckMenuItem, CheckMenuItemBuilder, Menu, MenuBuilder, MenuItem, MenuItemBuilder,
+    MenuItemKind, Submenu, SubmenuBuilder,
 };
 
 use tauri::{AppHandle, Manager, Runtime, State};
@@ -91,6 +92,20 @@ fn custom_item<R: Runtime, M: Manager<R>>(
     builder.build(manager)
 }
 
+fn checked_item<R: Runtime, M: Manager<R>>(
+    manager: &M,
+    id: &str,
+    text: &str,
+    checked: bool,
+    accelerator: Option<&str>,
+) -> tauri::Result<CheckMenuItem<R>> {
+    let mut builder = CheckMenuItemBuilder::with_id(id, text).checked(checked);
+    if let Some(accelerator) = accelerator {
+        builder = builder.accelerator(accelerator);
+    }
+    builder.build(manager)
+}
+
 fn build_file_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> {
     let open_file = custom_item(app, MENU_ID_OPEN_FILE, "Open Map…", Some("CmdOrCtrl+O"))?;
     let open_export = custom_item(app, MENU_ID_OPEN_EXPORT, "Export Map…", Some("CmdOrCtrl+E"))?;
@@ -168,169 +183,162 @@ fn build_view_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> 
     )?;
     let reset_bearing = custom_item(app, MENU_ID_RESET_BEARING, "Reset North", Some("KeyR"))?;
 
+    let layout = SubmenuBuilder::new(app, "Layout")
+        .item(&toggle_sidebar)
+        .item(&clean_mode)
+        .build()?;
+    let interaction = SubmenuBuilder::new(app, "Interaction")
+        .item(&navigation_mode)
+        .build()?;
+    let overlays = SubmenuBuilder::new(app, "Overlays")
+        .item(&icon_legend)
+        .build()?;
+
     SubmenuBuilder::new(app, "View")
         .item(&fit_to_screen)
         .item(&zoom_in)
         .item(&zoom_out)
         .separator()
-        .item(&toggle_sidebar)
-        .item(&clean_mode)
-        .item(&navigation_mode)
-        .item(&icon_legend)
-        .separator()
         .item(&rotate_left)
         .item(&rotate_right)
         .item(&reset_bearing)
+        .separator()
+        .item(&overlays)
+        .item(&layout)
+        .item(&interaction)
         .separator()
         .fullscreen()
         .build()
 }
 
-fn build_advanced_menu<R: Runtime>(
+fn build_layer_menu<R: Runtime>(
     app: &AppHandle<R>,
     layer: &str,
     label: &str,
     shortcut: Option<&str>,
-    options: &[(&str, &str)],
+    options: &[(&str, &str, bool)],
 ) -> tauri::Result<Submenu<R>> {
-    let advanced_id = format!("menu.advanced.{layer}");
-    let advanced = custom_item(
+    let visible = checked_item(
         app,
-        &format!("menu.open-advanced.{layer}"),
-        "Advanced Options",
-        shortcut.map(|_| match layer {
-            "terrain" => "Shift+Digit1",
-            "basemap" => "Shift+Digit2",
-            "transit" => "Shift+Digit4",
-            "buildings" => "Shift+Digit5",
-            "districts" => "Shift+Digit7",
-            _ => "",
-        }),
+        &format!("menu.toggle-layer.{layer}"),
+        &format!("Show {label}"),
+        true,
+        shortcut,
     )?;
-
-    let mut builder = SubmenuBuilder::with_id(app, advanced_id, label).item(&advanced);
     if !options.is_empty() {
-        builder = builder.separator();
-    }
-    let mut items = Vec::with_capacity(options.len());
-    for (id, text) in options {
-        let item = custom_item(
+        let open_sidebar = custom_item(
             app,
-            &format!("menu.toggle-advanced.{layer}.{id}"),
-            text,
+            &format!("menu.open-advanced.{layer}"),
+            "Open in Sidebar…",
             None,
         )?;
-        items.push(item);
+        let mut builder = SubmenuBuilder::new(app, label)
+            .item(&visible)
+            .item(&open_sidebar)
+            .separator();
+
+        let mut items = Vec::with_capacity(options.len());
+        for (id, text, checked) in options {
+            let item = checked_item(
+                app,
+                &format!("menu.toggle-advanced.{layer}.{id}"),
+                text,
+                *checked,
+                None,
+            )?;
+            items.push(item);
+        }
+        for item in &items {
+            builder = builder.item(item);
+        }
+        return builder.build();
     }
-    for item in &items {
-        builder = builder.item(item);
-    }
-    builder.build()
+
+    SubmenuBuilder::new(app, label).item(&visible).build()
 }
 
 fn build_layers_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> {
-    let layers = [
-        ("terrain", "Terrain", "Digit1"),
-        ("basemap", "Basemap", "Digit2"),
-        ("roads", "Roads", "Digit3"),
-        ("transit", "Transit", "Digit4"),
-        ("buildings", "Buildings", "Digit5"),
-        ("forests", "Forests", "Digit6"),
-        ("districts", "Districts", "Digit7"),
-    ];
-    let mut layer_items = Vec::with_capacity(layers.len());
-    for (layer, label, accelerator) in layers {
-        layer_items.push(custom_item(
-            app,
-            &format!("menu.toggle-layer.{layer}"),
-            label,
-            Some(accelerator),
-        )?);
-    }
-
-    let terrain = build_advanced_menu(
+    let terrain = build_layer_menu(
         app,
         "terrain",
         "Terrain Options",
         Some("Shift+1"),
         &[
-            ("contour-lines", "Show Contour Lines"),
-            ("color-relief", "Show Color Relief"),
-            ("hillshade", "Show Hillshade"),
+            ("contour-lines", "Show Contour Lines", true),
+            ("color-relief", "Show Color Relief", true),
+            ("hillshade", "Show Hillshade", true),
         ],
     )?;
-    let basemap = build_advanced_menu(
+    let basemap = build_layer_menu(
         app,
         "basemap",
         "Basemap Options",
         Some("Shift+2"),
-        &[("grid", "Show Projection Grid")],
+        &[("grid", "Show Projection Grid", false)],
     )?;
-    let transit = build_advanced_menu(
+    let transit = build_layer_menu(
         app,
         "transit",
         "Transit Options",
         Some("Shift+4"),
         &[
-            ("Bus", "Bus"),
-            ("Tram", "Tram"),
-            ("Train", "Train"),
-            ("Metro", "Metro"),
-            ("CableCar", "Cable Car"),
-            ("Monorail", "Monorail"),
-            ("Ferry", "Ferry"),
-            ("Blimp", "Blimp"),
-            ("Trolleybus", "Trolleybus"),
+            ("Bus", "Bus", true),
+            ("Tram", "Tram", true),
+            ("Train", "Train", true),
+            ("Metro", "Metro", true),
+            ("CableCar", "Cable Car", true),
+            ("Monorail", "Monorail", true),
+            ("Ferry", "Ferry", true),
+            ("Blimp", "Blimp", true),
+            ("Trolleybus", "Trolleybus", true),
         ],
     )?;
-    let buildings = build_advanced_menu(
+    let buildings = build_layer_menu(
         app,
         "buildings",
         "Building Options",
         Some("Shift+5"),
         &[
-            ("color-by-category", "Color by Category"),
-            ("residential", "Residential"),
-            ("industry", "Industry"),
-            ("commercial", "Commercial"),
-            ("office", "Office"),
+            ("color-by-category", "Color by Category", false),
+            ("residential", "Residential", true),
+            ("industry", "Industry", true),
+            ("commercial", "Commercial", true),
+            ("office", "Office", true),
         ],
     )?;
-    let districts = build_advanced_menu(
+    let districts = build_layer_menu(
         app,
         "districts",
         "District Options",
         Some("Shift+7"),
         &[
-            ("show-names", "Show District Names"),
-            ("show-park-areas", "Show Park Areas"),
+            ("show-names", "Show District Names", false),
+            ("show-park-areas", "Show Park Areas", false),
         ],
     )?;
 
+    let roads = build_layer_menu(app, "roads", "Roads", Some("Digit3"), &[])?;
+    let forests = build_layer_menu(app, "forests", "Forests", Some("Digit6"), &[])?;
+
     SubmenuBuilder::new(app, "Layers")
-        .item(&layer_items[0])
         .item(&terrain)
-        .item(&layer_items[1])
         .item(&basemap)
-        .item(&layer_items[2])
-        .item(&layer_items[3])
+        .item(&roads)
         .item(&transit)
-        .item(&layer_items[4])
         .item(&buildings)
-        .item(&layer_items[5])
-        .item(&layer_items[6])
+        .item(&forests)
         .item(&districts)
         .build()
 }
 
-fn build_themes_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> {
+fn build_appearance_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> {
     let dim_non_transit = custom_item(
         app,
         "menu.toggle-transit-dimming",
         "Dim Non-Transit Layers",
         None,
     )?;
-    SubmenuBuilder::with_id(app, MENU_ID_THEMES, "Themes")
+    SubmenuBuilder::with_id(app, MENU_ID_THEMES, "Appearance")
         .item(&dim_non_transit)
         .build()
 }
@@ -359,7 +367,7 @@ pub fn build_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
     let preferences = build_preferences_item(app)?;
     let about = custom_item(app, MENU_ID_ABOUT, "About Vellum", None)?;
     let layers = build_layers_menu(app)?;
-    let themes = build_themes_menu(app)?;
+    let appearance = build_appearance_menu(app)?;
     let window = build_window_menu(app)?;
     let edit = build_edit_menu(app)?;
     let view = build_view_menu(app)?;
@@ -380,16 +388,14 @@ pub fn build_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
             .quit()
             .build()?;
         let file = build_file_menu(app)?;
-        let help = SubmenuBuilder::new(app, "Help").build()?;
         MenuBuilder::new(app)
             .item(&app_menu)
             .item(&file)
             .item(&edit)
             .item(&view)
             .item(&layers)
-            .item(&themes)
+            .item(&appearance)
             .item(&window)
-            .item(&help)
             .build()
     }
 
@@ -407,14 +413,13 @@ pub fn build_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
             .item(&edit)
             .item(&view)
             .item(&layers)
-            .item(&themes)
+            .item(&appearance)
             .item(&window)
-            .item(&SubmenuBuilder::new(app, "Help").build()?)
             .build()
     }
 }
 
-/// Replaces the contents of the dynamic Themes submenu after `useThemes` resolves.
+/// Replaces the contents of the dynamic Appearance submenu after `useThemes` resolves.
 #[tauri::command]
 #[allow(clippy::needless_pass_by_value)]
 pub fn update_theme_menu(app_handle: AppHandle, themes: Vec<ThemeMenuItem>) -> Result<(), String> {
