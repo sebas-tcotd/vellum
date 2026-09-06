@@ -126,14 +126,14 @@ The Canvas renderer itself remains as a legacy package, not as an active UI path
 
 ## Hooks
 
-| Hook                        | Responsibility                                                                                                                                      |
-| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `use-keyboard-shortcuts.ts` | Keymap only: file, layer, zoom, fit, bounds, rotation, export, Clean view, legend and Escape. Each key invokes a command; availability lives there. |
-| `use-menu-action.ts`        | Translates native menu actions into the same commands.                                                                                              |
-| `use-tauri-event.ts`        | Typed subscription helper for native events.                                                                                                        |
-| `use-themes.ts`             | Loads `.vellumstyle` themes once at startup.                                                                                                        |
-| `use-export-workflow.ts`    | Coordinates preview, progress, cancellation, timeouts and user-facing errors.                                                                       |
-| `use-progress-events.ts`    | Subscribes to parse progress events.                                                                                                                |
+| Hook                        | Responsibility                                                                                                                                                                                                             |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `use-keyboard-shortcuts.ts` | Keymap only: file, layer, zoom, fit, bounds, rotation, export, Clean view, map symbols and Escape. Each key invokes a command; availability lives there. The sidebar's own accelerator is carried by the native menu item. |
+| `use-menu-action.ts`        | Translates native menu actions into the same commands.                                                                                                                                                                     |
+| `use-tauri-event.ts`        | Typed subscription helper for native events.                                                                                                                                                                               |
+| `use-themes.ts`             | Loads `.vellumstyle` themes once at startup.                                                                                                                                                                               |
+| `use-export-workflow.ts`    | Coordinates preview, progress, cancellation, timeouts and user-facing errors.                                                                                                                                              |
+| `use-progress-events.ts`    | Subscribes to parse progress events.                                                                                                                                                                                       |
 
 ## Global state
 

@@ -103,6 +103,9 @@ export function useMenuAction({
         case 'menu.clean-mode':
           commands['view.cleanView'].execute();
           return;
+        case 'menu.toggle-sidebar':
+          commands['view.sidebar'].execute();
+          return;
         case 'menu.navigation-mode':
           commands['view.mapBounds'].execute();
           return;

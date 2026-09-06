@@ -141,7 +141,11 @@ Cómo quedó el shell:
   su alrededor; las plataformas sin un efecto de compositor confiable lo
   mantienen al ras y opaco, con el mismo marcado y solo distintos valores de
   token. El área que cubre se mide del elemento renderizado, así esos insets de
-  plataforma se contemplan sin que ningún componente sepa en cuál está. No hay banda de chrome sobre el mapa:
+  plataforma se contemplan sin que ningún componente sepa en cuál está. Además
+  se aparta solo cuando la ventana se vuelve demasiado angosta y vuelve cuando
+  hay espacio otra vez —nunca reabriendo uno que el usuario cerró a propósito—,
+  y mostrarlo u ocultarlo es un comando con ruta en el menú Ver, no solo un
+  botón sobre el propio sidebar. No hay banda de chrome sobre el mapa:
   Abrir y Exportar son un grupo flotante en su esquina superior derecha. El
   viewport le indica al renderer cuánto lienzo cubre el sidebar, así el encuadre
   de la ciudad nunca deja parte de ella debajo.

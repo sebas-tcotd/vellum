@@ -248,7 +248,7 @@
   --font-shell: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
   --shell-surface: rgba(247, 246, 241, 0.68);
   --shell-border: rgba(0, 0, 0, 0.1);
-  --shell-titlebar-inset: 38px;
+  --shell-titlebar-inset: 44px;
   --shell-surface-floating: rgba(247, 246, 241, 0.82);
   --shell-surface-popover: rgba(247, 246, 241, 0.94);
   --shell-radius-interactive: 8px;

@@ -19,6 +19,7 @@ export type CommandId =
   | 'view.resetNorth'
   | 'view.rotate'
   | 'view.cleanView'
+  | 'view.sidebar'
   | 'view.mapSymbols'
   | 'view.mapBounds'
   | 'layer.toggle'
@@ -36,6 +37,7 @@ export interface CommandPayloads {
   'view.resetNorth': void;
   'view.rotate': number;
   'view.cleanView': void;
+  'view.sidebar': void;
   'view.mapSymbols': void;
   'view.mapBounds': void;
   'layer.toggle': LayerName;
@@ -85,6 +87,8 @@ export interface CommandDeps {
   availableThemeIds: readonly string[];
   /** Toggles Clean view. Owned by `ShellSession`, injected so this stays view-free. */
   toggleCleanView: (invoker?: string) => void;
+  /** Collapses the sidebar to its rail, or restores it. */
+  toggleSidebar: () => void;
   /** Opens (or closes, if already open) one layer's detail context. */
   toggleLayerDetail: (layer: LayerName, invoker?: string) => void;
   /** Ambient state the availability rules read. */
@@ -116,6 +120,7 @@ export function useDesktopCommands(deps: CommandDeps): CommandRegistry {
     transitDimmingEnabled,
     availableThemeIds,
     toggleCleanView,
+    toggleSidebar,
     toggleLayerDetail,
     hasMap,
     isLoading,
@@ -175,6 +180,10 @@ export function useDesktopCommands(deps: CommandDeps): CommandRegistry {
         (_payload, invoker) => toggleCleanView(invoker),
       ),
       'view.mapSymbols': make('view.mapSymbols', mapReason, toggleIconLegend),
+      // Showing and hiding the sidebar is a first-class command, not just a
+      // button on the sidebar itself — the platform expects a View-menu route
+      // for it, and a collapsed sidebar hides its own toggle's context.
+      'view.sidebar': make('view.sidebar', cleanViewReason, toggleSidebar),
       'view.mapBounds': make('view.mapBounds', mapReason, toggleNavigationMode),
       'layer.toggle': make('layer.toggle', mapReason, (layer) =>
         toggleLayer(layer),
@@ -208,6 +217,7 @@ export function useDesktopCommands(deps: CommandDeps): CommandRegistry {
     toggleCleanView,
     toggleIconLegend,
     toggleLayer,
+    toggleSidebar,
     toggleLayerDetail,
     toggleNavigationMode,
     transitDimmingEnabled,

@@ -14,6 +14,7 @@ const MENU_ID_FIT_TO_SCREEN: &str = "menu.fit-to-screen";
 const MENU_ID_ZOOM_IN: &str = "menu.zoom-in";
 const MENU_ID_ZOOM_OUT: &str = "menu.zoom-out";
 const MENU_ID_CLEAN_MODE: &str = "menu.clean-mode";
+const MENU_ID_TOGGLE_SIDEBAR: &str = "menu.toggle-sidebar";
 const MENU_ID_NAVIGATION_MODE: &str = "menu.navigation-mode";
 const MENU_ID_ICON_LEGEND: &str = "menu.icon-legend";
 const MENU_ID_ROTATE_LEFT: &str = "menu.rotate-left";
@@ -104,14 +105,25 @@ fn build_view_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> 
     )?;
     let zoom_in = custom_item(app, MENU_ID_ZOOM_IN, "Zoom In", Some("CmdOrCtrl+Equal"))?;
     let zoom_out = custom_item(app, MENU_ID_ZOOM_OUT, "Zoom Out", Some("CmdOrCtrl+Minus"))?;
-    let clean_mode = custom_item(app, MENU_ID_CLEAN_MODE, "Clean Mode", Some("KeyH"))?;
+    // Names the user-facing result, per the UX writing contract. The action id
+    // is unchanged, so shortcuts and handlers keep working.
+    let clean_mode = custom_item(app, MENU_ID_CLEAN_MODE, "Clean View", Some("KeyH"))?;
+    // A noun that toggles, matching the other items in this menu. The label
+    // cannot flip between Show and Hide without pushing shell state back into
+    // Rust, which this migration deliberately avoids.
+    let toggle_sidebar = custom_item(
+        app,
+        MENU_ID_TOGGLE_SIDEBAR,
+        "Sidebar",
+        Some("CmdOrCtrl+Alt+KeyS"),
+    )?;
     let navigation_mode = custom_item(
         app,
         MENU_ID_NAVIGATION_MODE,
         "Navigation Mode",
         Some("CmdOrCtrl+KeyB"),
     )?;
-    let icon_legend = custom_item(app, MENU_ID_ICON_LEGEND, "Icon Legend", Some("KeyL"))?;
+    let icon_legend = custom_item(app, MENU_ID_ICON_LEGEND, "Map Symbols", Some("KeyL"))?;
     let rotate_left = custom_item(
         app,
         MENU_ID_ROTATE_LEFT,
@@ -131,6 +143,7 @@ fn build_view_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> 
         .item(&zoom_in)
         .item(&zoom_out)
         .separator()
+        .item(&toggle_sidebar)
         .item(&clean_mode)
         .item(&navigation_mode)
         .item(&icon_legend)
@@ -430,6 +443,7 @@ mod tests {
             super::MENU_ID_ZOOM_IN,
             super::MENU_ID_ZOOM_OUT,
             super::MENU_ID_CLEAN_MODE,
+            super::MENU_ID_TOGGLE_SIDEBAR,
             super::MENU_ID_NAVIGATION_MODE,
             super::MENU_ID_ICON_LEGEND,
             super::MENU_ID_ROTATE_LEFT,
@@ -457,6 +471,7 @@ mod tests {
             "CmdOrCtrl+Equal",
             "CmdOrCtrl+Minus",
             "KeyH",
+            "CmdOrCtrl+Alt+KeyS",
             "CmdOrCtrl+KeyB",
             "KeyL",
             "Shift+ArrowLeft",

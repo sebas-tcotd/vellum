@@ -124,14 +124,14 @@ cambió.
 
 ## Hooks (`hooks/`)
 
-| Hook                        | Propósito                                                                                                                                                         |
-| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `use-keyboard-shortcuts.ts` | Solo keymap: abrir archivo, capas 1-7, zoom, fit, límites, rotar, export, Clean view, leyenda y Escape. Cada tecla invoca un comando; la disponibilidad vive allí |
-| `use-menu-action.ts`        | Traduce las acciones del menú nativo a esos mismos comandos                                                                                                       |
-| `use-tauri-event.ts`        | Helper genérico de suscripción a eventos del backend Tauri, con `onSettled`                                                                                       |
-| `use-themes.ts`             | Carga todos los `.vellumstyle` una vez al arrancar, puebla el store                                                                                               |
-| `use-export-workflow.ts`    | Orquesta el ciclo de vida completo de export (preview, progreso, cancelación, timeout, warnings/errores)                                                          |
-| `use-progress-events.ts`    | Se suscribe a eventos IPC de progreso de carga                                                                                                                    |
+| Hook                        | Propósito                                                                                                                                                                                                                               |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `use-keyboard-shortcuts.ts` | Solo keymap: abrir archivo, capas 1-7, zoom, fit, límites, rotar, export, Clean view, símbolos del mapa y Escape. Cada tecla invoca un comando; la disponibilidad vive allí. El acelerador del sidebar lo lleva el ítem del menú nativo |
+| `use-menu-action.ts`        | Traduce las acciones del menú nativo a esos mismos comandos                                                                                                                                                                             |
+| `use-tauri-event.ts`        | Helper genérico de suscripción a eventos del backend Tauri, con `onSettled`                                                                                                                                                             |
+| `use-themes.ts`             | Carga todos los `.vellumstyle` una vez al arrancar, puebla el store                                                                                                                                                                     |
+| `use-export-workflow.ts`    | Orquesta el ciclo de vida completo de export (preview, progreso, cancelación, timeout, warnings/errores)                                                                                                                                |
+| `use-progress-events.ts`    | Se suscribe a eventos IPC de progreso de carga                                                                                                                                                                                          |
 
 ## Estado global (`store/vellum-store.ts`, Zustand)
 

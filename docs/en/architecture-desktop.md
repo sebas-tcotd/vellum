@@ -142,7 +142,11 @@ What the shell now looks like:
   reliable compositor effect keep it flush and opaque, from the same markup and
   only different token values. The area it covers is measured from the rendered
   element, so those platform insets are accounted for without any component
-  knowing which platform it is on. There is no chrome band above the map: Open and Export
+  knowing which platform it is on. It also steps aside on its own when the
+  window becomes too narrow for it and returns when there is room again —
+  though never reopening one the user closed deliberately — and showing or
+  hiding it is a command with a View-menu route, not only a button on the
+  sidebar itself. There is no chrome band above the map: Open and Export
   are a floating group in its upper-right corner. The viewport tells the
   renderer how much of the canvas the sidebar covers, so framing the city never
   puts part of it underneath.

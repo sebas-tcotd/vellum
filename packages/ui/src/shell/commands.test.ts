@@ -19,10 +19,12 @@ function deps(overrides: Partial<CommandDeps> = {}): CommandDeps {
     transitDimmingEnabled: false,
     availableThemeIds: ['day', 'transit'],
     toggleCleanView: vi.fn(),
+    toggleSidebar: vi.fn(),
     toggleLayerDetail: vi.fn(),
     hasMap: true,
     isLoading: false,
     isExporting: false,
+    hasBlockingModal: false,
     ...overrides,
   };
 }
@@ -91,6 +93,19 @@ describe('execution', () => {
     expect(d.setActiveTheme).not.toHaveBeenCalled();
     commands['style.set'].execute('transit');
     expect(d.setActiveTheme).toHaveBeenCalledWith('transit');
+  });
+
+  it('offers the sidebar as a command, not only as a button on itself', () => {
+    const { commands, deps: d } = build();
+    commands['view.sidebar'].execute();
+    expect(d.toggleSidebar).toHaveBeenCalledTimes(1);
+  });
+
+  it('blocks the sidebar command while a blocking surface owns the screen', () => {
+    const { commands, deps: d } = build({ hasBlockingModal: true });
+    expect(commands['view.sidebar'].unavailableReason).toBe('modal');
+    commands['view.sidebar'].execute();
+    expect(d.toggleSidebar).not.toHaveBeenCalled();
   });
 
   it('passes the rotation delta through unchanged', () => {

@@ -73,6 +73,7 @@ export type MenuAction =
   | 'menu.zoom-in'
   | 'menu.zoom-out'
   | 'menu.clean-mode'
+  | 'menu.toggle-sidebar'
   | 'menu.navigation-mode'
   | 'menu.icon-legend'
   | 'menu.rotate-left'

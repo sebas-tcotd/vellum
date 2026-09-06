@@ -34,6 +34,12 @@ export interface ShellSessionState {
   sidebar: {
     width: number;
     collapsed: boolean;
+    /**
+     * Whether the current collapse was the window getting narrow rather than a
+     * deliberate choice. Only an automatic collapse is automatically undone —
+     * a sidebar the user closed stays closed when the window grows again.
+     */
+    autoCollapsed: boolean;
     view: SidebarView;
   };
   cleanView: boolean;
@@ -57,6 +63,8 @@ export type ShellSessionAction =
   | { type: 'sidebar/toggleDetail'; layerId: LayerName; invoker?: string }
   | { type: 'sidebar/closeDetail' }
   | { type: 'sidebar/setCollapsed'; collapsed: boolean }
+  | { type: 'sidebar/toggleCollapsed' }
+  | { type: 'sidebar/viewportResized'; width: number }
   | { type: 'sidebar/setWidth'; width: number }
   | { type: 'cleanView/toggle'; invoker?: string }
   | { type: 'cleanView/exit' }
@@ -72,6 +80,7 @@ export function initialShellSession(windowWidth: number): ShellSessionState {
     sidebar: {
       width: compact ? SIDEBAR_WIDTH.min : SIDEBAR_WIDTH.preferred,
       collapsed: compact,
+      autoCollapsed: compact,
       view: { kind: 'overview' },
     },
     cleanView: false,
@@ -126,15 +135,48 @@ export function shellSessionReducer(
 
     case 'sidebar/setCollapsed':
       // Collapsing drops the detail context: the rail only carries visibility
-      // switches, so a detail body would have nowhere to render.
+      // switches, so a detail body would have nowhere to render. Asking for it
+      // explicitly also clears the automatic flag — from here on the window
+      // getting wider must not undo the user's own decision.
       return {
         ...state,
         sidebar: {
           ...state.sidebar,
           collapsed: action.collapsed,
+          autoCollapsed: false,
           view: action.collapsed ? { kind: 'overview' } : state.sidebar.view,
         },
       };
+
+    case 'sidebar/toggleCollapsed':
+      return shellSessionReducer(state, {
+        type: 'sidebar/setCollapsed',
+        collapsed: !state.sidebar.collapsed,
+      });
+
+    case 'sidebar/viewportResized': {
+      // The platform convention is to give the sidebar back when there is room
+      // for it again, and to get out of the way when there is not.
+      const narrow = action.width < SIDEBAR_RESIZE_MIN_WINDOW;
+      if (narrow && !state.sidebar.collapsed) {
+        return {
+          ...state,
+          sidebar: {
+            ...state.sidebar,
+            collapsed: true,
+            autoCollapsed: true,
+            view: { kind: 'overview' },
+          },
+        };
+      }
+      if (!narrow && state.sidebar.collapsed && state.sidebar.autoCollapsed) {
+        return {
+          ...state,
+          sidebar: { ...state.sidebar, collapsed: false, autoCollapsed: false },
+        };
+      }
+      return state;
+    }
 
     case 'sidebar/setWidth':
       return {

@@ -206,6 +206,24 @@ export function App({
   );
   // Which layer's detail is open is shell session state, not cartographic
   // state — the choices it edits live in the store, the context does not.
+  const handleToggleSidebar = useCallback(
+    () => shellDispatch({ type: 'sidebar/toggleCollapsed' }),
+    [shellDispatch],
+  );
+
+  // The platform convention is that a sidebar steps aside when its window gets
+  // too narrow for it, and comes back when there is room again — but only if
+  // the window was what closed it (see the reducer).
+  useEffect(() => {
+    const onResize = () =>
+      shellDispatch({
+        type: 'sidebar/viewportResized',
+        width: window.innerWidth,
+      });
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, [shellDispatch]);
+
   const handleOpenAdvancedOptions = useCallback(
     (layer: LayerName, invoker?: string) =>
       shellDispatch({
@@ -268,6 +286,7 @@ export function App({
     transitDimmingEnabled,
     availableThemeIds,
     toggleCleanView: handleHidePanel,
+    toggleSidebar: handleToggleSidebar,
     toggleLayerDetail: handleOpenAdvancedOptions,
     hasMap: cityData !== null,
     isLoading: loadingState === 'loading',

@@ -1627,3 +1627,93 @@ describe('App — shell state machine and command parity', () => {
     expect(screen.queryByTestId('document-command-group')).toBeNull();
   });
 });
+
+describe('App — sidebar routes and window adaptation', () => {
+  const shortcuts = () => vi.mocked(useKeyboardShortcuts).mock.lastCall?.[0];
+
+  function resizeWindowTo(width: number) {
+    act(() => {
+      Object.defineProperty(window, 'innerWidth', {
+        configurable: true,
+        writable: true,
+        value: width,
+      });
+      window.dispatchEvent(new Event('resize'));
+    });
+  }
+
+  it('collapses to the rail when the window gets too narrow, and restores it', async () => {
+    useVellumStore.getState().setCityData(mockCityData);
+    await act(async () => {
+      render(<App />);
+    });
+    const sidebar = screen.getByTestId('shell-sidebar');
+    expect(sidebar).toHaveAttribute('data-state', 'expanded');
+
+    resizeWindowTo(1000);
+    expect(sidebar).toHaveAttribute('data-state', 'collapsed');
+
+    resizeWindowTo(1440);
+    expect(sidebar).toHaveAttribute('data-state', 'expanded');
+  });
+
+  it('leaves a sidebar the user collapsed alone when the window grows', async () => {
+    useVellumStore.getState().setCityData(mockCityData);
+    await act(async () => {
+      render(<App />);
+    });
+    const sidebar = screen.getByTestId('shell-sidebar');
+
+    fireEvent.click(screen.getByRole('button', { name: 'sidebar.collapse' }));
+    expect(sidebar).toHaveAttribute('data-state', 'collapsed');
+
+    resizeWindowTo(1920);
+    expect(sidebar).toHaveAttribute('data-state', 'collapsed');
+  });
+
+  it('reaches the same sidebar toggle from the native menu as from its button', async () => {
+    useVellumStore.getState().setCityData(mockCityData);
+    await act(async () => {
+      render(<App />);
+    });
+    const sidebar = screen.getByTestId('shell-sidebar');
+
+    act(() => {
+      tauriEventHandlers.get('vellum://menu-action')?.({
+        payload: 'menu.toggle-sidebar',
+      });
+    });
+    expect(sidebar).toHaveAttribute('data-state', 'collapsed');
+
+    act(() => {
+      tauriEventHandlers.get('vellum://menu-action')?.({
+        payload: 'menu.toggle-sidebar',
+      });
+    });
+    expect(sidebar).toHaveAttribute('data-state', 'expanded');
+  });
+
+  it('ignores the sidebar command while a blocking dialog is open', async () => {
+    useVellumStore.getState().setCityData(mockCityData);
+    await act(async () => {
+      render(<App />);
+    });
+
+    act(() => {
+      useVellumStore
+        .getState()
+        .setLoadingState('error', { type: 'PartialParse', warnings: ['x'] });
+    });
+
+    act(() => {
+      tauriEventHandlers.get('vellum://menu-action')?.({
+        payload: 'menu.toggle-sidebar',
+      });
+    });
+    expect(screen.getByTestId('shell-sidebar')).toHaveAttribute(
+      'data-state',
+      'expanded',
+    );
+    expect(shortcuts()).toBeDefined();
+  });
+});
