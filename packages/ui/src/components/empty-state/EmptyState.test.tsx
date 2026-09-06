@@ -33,9 +33,10 @@ describe('EmptyState — composición i18n', () => {
     );
   });
 
-  it('renderiza el atajo de teclado con la clave emptyState.openShortcut', () => {
+  it('renderiza el atajo de teclado junto al texto de apertura', () => {
     renderEmptyState();
-    expect(screen.getByText('emptyState.openShortcut')).toBeDefined();
+    expect(screen.getByText('emptyState.orOpenWith')).toBeDefined();
+    expect(screen.getByText('Ctrl + O')).toBeDefined();
   });
 
   it('pasa emptyState.dropHint como aria-label a la zona de drop', () => {
@@ -50,7 +51,8 @@ describe('EmptyState — composición i18n', () => {
     renderEmptyState();
     const region = screen.getByRole('region');
     expect(region).toHaveTextContent('emptyState.dropHint');
-    expect(region).toHaveTextContent('emptyState.openShortcut');
+    expect(region).toHaveTextContent('emptyState.orOpenWith');
+    expect(region).toHaveTextContent('Ctrl + O');
   });
 });
 

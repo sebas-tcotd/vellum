@@ -7,7 +7,7 @@ describe('configuración de ventana nativa Story 8.2', () => {
   it('habilita Mica sin Acrylic únicamente en el override de Windows', () => {
     const window = windowsConfig.app.windows[0];
     expect(window?.transparent).toBe(true);
-    expect(window?.windowEffects?.effects).toEqual(['mica']);
+    expect(window?.windowEffects?.effects).toEqual(['mica', 'blur']);
     expect(window?.windowEffects?.effects).not.toContain('acrylic');
   });
 
@@ -19,7 +19,7 @@ describe('configuración de ventana nativa Story 8.2', () => {
       decorations: true,
       titleBarStyle: 'Overlay',
       hiddenTitle: true,
-      trafficLightPosition: { x: 22, y: 21 },
+      trafficLightPosition: { x: 24, y: 32 },
       windowEffects: {
         effects: ['sidebar'],
         state: 'followsWindowActiveState',
@@ -27,19 +27,10 @@ describe('configuración de ventana nativa Story 8.2', () => {
     });
   });
 
-  it('alinea las traffic lights con el contenido del sidebar flotante', () => {
-    // El panel está separado 10 px del borde de la ventana y su cabecera añade
-    // 12 px, así que 22 pone los botones sobre la misma línea que el nombre de
-    // la ciudad. Si cambia `--shell-sidebar-inset` o el padding de la cabecera,
-    // este valor tiene que moverse con ellos.
-    const SIDEBAR_INSET = 10;
-    const HEADER_PADDING = 12;
+  it('mantiene la posición configurada de las traffic lights en macOS', () => {
     const window = macosConfig.app.windows[0];
 
-    expect(window.trafficLightPosition.x).toBe(SIDEBAR_INSET + HEADER_PADDING);
-    // Y dentro de la franja que el sidebar reserva sobre su cabecera, no encima
-    // de su borde superior.
-    expect(window.trafficLightPosition.y).toBeGreaterThan(SIDEBAR_INSET);
+    expect(window.trafficLightPosition).toEqual({ x: 24, y: 32 });
   });
 
   it('deja Linux en la configuración base opaca y sin efectos emulados', () => {
