@@ -264,84 +264,41 @@
   font-family: var(--font-shell);
 }
 
-/* Sidebar and map share the row below the document strip. */
+/* The map fills the shell; the sidebar floats over its leading edge so the
+   city stays visible while panning. `MapViewport` tells the renderer how much
+   the sidebar covers, so framing never puts the city underneath it. */
 .desktop-shell__body {
+  position: relative;
   display: flex;
   flex: 1 1 auto;
   min-height: 0;
   min-width: 0;
 }
 
-/* ─── Document command strip ─────────────────────────────────────────────── */
-.shell-document-strip {
-  display: flex;
-  z-index: 30;
-  flex: 0 0 auto;
-  gap: 12px;
-  align-items: center;
-  justify-content: space-between;
-  /* Sits below the platform titlebar rather than under it, so its buttons are
-     never swallowed by the drag region. */
-  /* The top inset clears the platform titlebar, so the strip's content already
-     starts below macOS's traffic lights and needs no separate left inset. */
-  padding: calc(4px + var(--shell-titlebar-inset)) 12px 4px;
-  color: var(--shell-text-primary);
-  background: var(--shell-surface-sidebar);
-  border-bottom: 1px solid var(--shell-separator);
-}
-
-.shell-document-strip__city {
-  overflow: hidden;
-  font-family: var(--font-wordmark);
-  font-size: 13px;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  opacity: 0.9;
-}
-
-.shell-document-strip__commands {
-  display: flex;
-  flex-shrink: 0;
-  gap: 4px;
-}
-
-/* Narrow desktops give the width back to the map. Open and Export remain on
-   the native menu and their shortcuts, which is where they are authoritative
-   anyway — this strip is the supplementary visual route. */
-@media (width < 1280px) {
-  .shell-document-strip {
-    display: none;
-  }
-}
-
 /* ─── Map appearance sidebar ─────────────────────────────────────────────── */
 .shell-sidebar {
-  position: relative;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
   display: flex;
   z-index: 20;
-  flex: 0 0 var(--shell-sidebar-expanded-width);
   flex-direction: column;
   width: var(--shell-sidebar-expanded-width);
   min-width: 0;
-  height: 100%;
+  /* Reserves the platform titlebar so the header never sits under the window
+     controls. */
+  padding-top: var(--shell-titlebar-inset);
   overflow: hidden;
   color: var(--shell-text-primary);
   background: var(--shell-surface-sidebar);
   border-right: 1px solid var(--shell-separator);
   box-shadow: var(--shell-shadow-panel);
   backdrop-filter: blur(var(--shell-blur));
-  transition:
-    width var(--shell-layout-duration) ease,
-    flex-basis var(--shell-layout-duration) ease;
-}
-
-/* Without a strip the sidebar carries the titlebar inset itself. */
-.desktop-shell:not([data-has-strip='true']) .shell-sidebar {
-  padding-top: var(--shell-titlebar-inset);
+  transition: width var(--shell-layout-duration) ease;
 }
 
 .shell-sidebar[data-state='collapsed'] {
-  flex: 0 0 var(--shell-sidebar-collapsed-width) !important;
   width: var(--shell-sidebar-collapsed-width) !important;
 }
 
@@ -627,6 +584,8 @@
 }
 
 /* ─── Map overlays ───────────────────────────────────────────────────────── */
+/* Every cluster floating over the map shares one silhouette and material. */
+.shell-floating-group,
 .shell-camera-group {
   display: flex;
   flex-direction: column;
@@ -640,6 +599,12 @@
   backdrop-filter: blur(var(--shell-blur));
 }
 
+/* Clears the platform titlebar, which owns the drag region above it. */
+.shell-document-commands {
+  margin-top: var(--shell-titlebar-inset);
+}
+
+.shell-floating-button,
 .shell-camera-button {
   display: flex;
   align-items: center;
@@ -652,20 +617,24 @@
   cursor: pointer;
 }
 
+.shell-floating-button + .shell-floating-button,
 .shell-camera-button + .shell-camera-button {
   border-top: 1px solid var(--shell-separator);
 }
 
+.shell-floating-button:hover:not(:disabled),
 .shell-camera-button:hover:not(:disabled) {
   background: var(--shell-surface-popover);
 }
 
+.shell-floating-button:disabled,
 .shell-camera-button:disabled {
   cursor: default;
   opacity: 0.35;
 }
 
 @media (forced-colors: active) {
+  .shell-floating-group,
   .shell-camera-group {
     background: Canvas;
     border-color: ButtonBorder;
@@ -673,10 +642,12 @@
     backdrop-filter: none;
   }
 
+  .shell-floating-button,
   .shell-camera-button {
     color: ButtonText;
   }
 
+  .shell-floating-button:disabled,
   .shell-camera-button:disabled {
     color: GrayText;
     opacity: 1;
@@ -699,6 +670,7 @@
 .map-surface {
   position: relative;
   flex: 1 1 auto;
+  /* Full-bleed: the sidebar floats over this, it does not take width from it. */
   min-width: 0;
   height: 100%;
   overflow: hidden;

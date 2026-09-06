@@ -197,7 +197,8 @@
     "cameraControls": "Controles de cámara del mapa",
     "mapStatus": "Estado del mapa",
     "mapViewport": "Mapa",
-    "minimapHelp": "Las flechas desplazan el mapa. Enter lo recentra en la ciudad."
+    "minimapHelp": "Las flechas desplazan el mapa. Enter lo recentra en la ciudad.",
+    "documentCommands": "Comandos de documento"
   },
   "transitModes": {
     "Bus": "Autobús",

@@ -135,6 +135,11 @@ What the shell now looks like:
   overlay collision manager working from measured rectangles. `MapLibreRoot`
   still owns rendering, camera and subscriptions, and publishes only a narrow
   port for the overlays that need to orient or navigate.
+- **The sidebar floats over a full-bleed map**, translucent, so panning stays
+  legible beneath it. There is no chrome band above the map: Open and Export
+  are a floating group in its upper-right corner. The viewport tells the
+  renderer how much of the canvas the sidebar covers, so framing the city never
+  puts part of it underneath.
 - **Opening a map is transactional.** A load no longer clears the current
   document; a cancelled or failed replacement leaves the previous map, camera
   and focus intact.

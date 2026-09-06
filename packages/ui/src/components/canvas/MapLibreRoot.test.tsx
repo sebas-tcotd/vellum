@@ -30,6 +30,7 @@ vi.mock('@vellum/renderer-webgl', () => ({
     return {
       dispose: vi.fn(),
       clear: vi.fn(),
+      setViewportPadding: vi.fn(),
       render: vi.fn().mockResolvedValue(undefined),
       subscribeViewport: vi.fn().mockReturnValue(() => {}),
       subscribeHover: vi.fn().mockReturnValue(() => {}),

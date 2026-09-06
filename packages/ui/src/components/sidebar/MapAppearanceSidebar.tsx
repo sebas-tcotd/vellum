@@ -94,7 +94,7 @@ export function MapAppearanceSidebar({
       className="shell-sidebar"
       data-testid="shell-sidebar"
       data-state={collapsed ? 'collapsed' : 'expanded'}
-      style={collapsed ? undefined : { width, flexBasis: width }}
+      style={collapsed ? undefined : { width }}
       aria-label={t('a11y.mapAppearance')}
       hidden={isCleanView}
       aria-hidden={isCleanView ? true : undefined}

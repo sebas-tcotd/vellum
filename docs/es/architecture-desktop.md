@@ -134,6 +134,11 @@ Cómo quedó el shell:
   coordenadas, con un gestor de colisiones que trabaja sobre rects medidos.
   `MapLibreRoot` conserva renderizado, cámara y suscripciones, y publica solo un
   puerto estrecho para los overlays que necesitan orientarse o navegar.
+- **El sidebar flota sobre un mapa a sangre completa**, translúcido, para que el
+  paneo siga siendo legible por debajo. No hay banda de chrome sobre el mapa:
+  Abrir y Exportar son un grupo flotante en su esquina superior derecha. El
+  viewport le indica al renderer cuánto lienzo cubre el sidebar, así el encuadre
+  de la ciudad nunca deja parte de ella debajo.
 - **Abrir un mapa es transaccional.** Una carga ya no descarta el documento
   actual; un reemplazo cancelado o fallido deja intactos el mapa, la cámara y el
   foco anteriores.

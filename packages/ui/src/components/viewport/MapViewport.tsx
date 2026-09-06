@@ -13,12 +13,19 @@ import type { CommandRegistry } from '../../shell/commands';
 import { useVellumStore } from '../../store/vellum-store';
 import { cn } from '../../lib/utils';
 import { CameraControlGroup } from './CameraControlGroup';
+import { DocumentCommandGroup } from './DocumentCommandGroup';
 import { OverlayCollisionProvider } from './overlay-collision';
 
 export interface MapViewportProps {
   mapProps: MapLibreRootProps;
   commands: CommandRegistry;
   isCleanView: boolean;
+  /**
+   * Area of the viewport covered by shell chrome. The sidebar floats over the
+   * map so the city stays visible while panning, which means the renderer has
+   * to be told not to frame the city underneath it.
+   */
+  mapInset?: { left: number };
   subscribeServiceIconLegendRef: React.RefObject<
     ((callback: (state: ServiceIconLegendState) => void) => () => void) | null
   >;
@@ -40,6 +47,7 @@ export function MapViewport({
   mapProps,
   commands,
   isCleanView,
+  mapInset,
   subscribeServiceIconLegendRef,
   iconLegendToggleRef,
   children,
@@ -118,7 +126,10 @@ export function MapViewport({
       data-testid="map-surface"
       aria-label={t('a11y.mapViewport')}
     >
-      <OverlayCollisionProvider viewportRef={viewportRef}>
+      <OverlayCollisionProvider
+        viewportRef={viewportRef}
+        inset={{ left: mapInset?.left ?? 0 }}
+      >
         <div
           data-testid="canvas-wrapper"
           className={cn(
@@ -126,11 +137,16 @@ export function MapViewport({
             cityData ? 'opacity-100' : 'opacity-0 pointer-events-none',
           )}
         >
-          <MapLibreRoot {...mapProps} portRef={portRef} />
+          <MapLibreRoot
+            {...mapProps}
+            portRef={portRef}
+            {...(mapInset ? { viewportPadding: mapInset } : {})}
+          />
         </div>
         {children}
         {showOverlays && (
           <>
+            <DocumentCommandGroup commands={commands} />
             <CameraControlGroup commands={commands} bearing={bearing} />
             {/* The minimap keeps the lower-right corner; the camera group
                 stacks above it rather than merging with it. */}

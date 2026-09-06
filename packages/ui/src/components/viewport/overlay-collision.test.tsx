@@ -69,11 +69,20 @@ function Slot({
   return <div ref={ref} data-testid={id} data-box={box} style={style} />;
 }
 
-function Harness({ children }: { children: React.ReactNode }) {
+function Harness({
+  children,
+  inset,
+}: {
+  children: React.ReactNode;
+  inset?: { left: number };
+}) {
   const viewportRef = useRef<HTMLElement>(null);
   return (
     <section ref={viewportRef} data-viewport="">
-      <OverlayCollisionProvider viewportRef={viewportRef}>
+      <OverlayCollisionProvider
+        viewportRef={viewportRef}
+        {...(inset ? { inset } : {})}
+      >
         {children}
       </OverlayCollisionProvider>
     </section>
@@ -166,5 +175,49 @@ describe('placement', () => {
     });
     expect(bottomOf('minimap')).toBe('12px');
     expect(bottomOf('status')).not.toBe('12px');
+  });
+});
+
+describe('chrome inset', () => {
+  const leftOf = (id: string) =>
+    (screen.getByTestId(id) as HTMLElement).style.left;
+
+  it('keeps left-anchored overlays clear of the floating sidebar', async () => {
+    await act(async () => {
+      render(
+        <Harness inset={{ left: 272 }}>
+          <Slot id="legend" anchor="bottom-left" box="12,700,200,788" />
+        </Harness>,
+      );
+    });
+    // The map runs edge to edge under the sidebar, so the legend has to start
+    // after it rather than at the canvas edge.
+    expect(leftOf('legend')).toBe('284px');
+  });
+
+  it('leaves right-anchored overlays alone, since nothing covers that edge', async () => {
+    await act(async () => {
+      render(
+        <Harness inset={{ left: 272 }}>
+          <Slot id="minimap" anchor="bottom-right" box="828,628,988,788" />
+        </Harness>,
+      );
+    });
+    expect((screen.getByTestId('minimap') as HTMLElement).style.right).toBe(
+      '12px',
+    );
+  });
+
+  it('places document commands at the top-right corner', async () => {
+    await act(async () => {
+      render(
+        <Harness>
+          <Slot id="documentCommands" anchor="top-right" box="900,12,988,88" />
+        </Harness>,
+      );
+    });
+    const element = screen.getByTestId('documentCommands') as HTMLElement;
+    expect(element.style.top).toBe('12px');
+    expect(element.style.right).toBe('12px');
   });
 });

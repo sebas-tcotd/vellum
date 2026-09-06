@@ -60,6 +60,8 @@ export interface MapLibreRootProps {
   rotateByRef?: React.RefObject<((delta: number) => void) | null>;
   /** Ref populated with a `resetBearing()` callback. */
   resetBearingRef?: React.RefObject<(() => void) | null>;
+  /** Area of the canvas covered by shell chrome, so framing avoids it. */
+  viewportPadding?: { left: number };
   /**
    * Populated with the map behaviour the viewport's overlays consume.
    * Mirrors the imperative-ref pattern the camera commands already use.
@@ -109,6 +111,7 @@ export function MapLibreRoot({
   rotateByRef,
   resetBearingRef,
   portRef,
+  viewportPadding,
   themes = EMPTY_THEMES,
   subscribeServiceIconLegendRef,
   previewCaptureRef,
@@ -246,6 +249,13 @@ export function MapLibreRoot({
     }
     renderer.setWatermarkVisibility(allLayersDisabled);
   }, [activeLayers, allLayersDisabled]);
+
+  // Keep the renderer's framing padding in step with the chrome overlaying it.
+  // Applied before the render effect's fit runs on a fresh city.
+  const paddingLeft = viewportPadding?.left ?? 0;
+  useEffect(() => {
+    rendererRef.current?.setViewportPadding({ left: paddingLeft });
+  }, [paddingLeft]);
 
   // Sync advanced per-layer filters (transit-mode filter, buildings RICO filter)
   useEffect(() => {

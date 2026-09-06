@@ -197,7 +197,8 @@
     "cameraControls": "Map camera controls",
     "mapStatus": "Map status",
     "mapViewport": "Map",
-    "minimapHelp": "Arrow keys pan the map. Enter recentres it on the city."
+    "minimapHelp": "Arrow keys pan the map. Enter recentres it on the city.",
+    "documentCommands": "Document commands"
   },
   "transitModes": {
     "Bus": "Bus",

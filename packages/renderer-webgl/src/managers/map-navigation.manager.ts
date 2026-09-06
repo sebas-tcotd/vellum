@@ -30,6 +30,12 @@ function prefersReducedMotion(): boolean {
 export class MapNavigationManager {
   private navigationMode: 'strict' | 'soft' = 'soft';
   private fitToScreenZoom = 0;
+  /**
+   * Area of the canvas covered by shell chrome, in CSS pixels. The map is
+   * rendered edge to edge so it stays visible behind translucent chrome, so
+   * every framing operation has to keep the city inside the *visible* part.
+   */
+  private viewportPadding = { top: 0, right: 0, bottom: 0, left: 0 };
   private isSnappingBack = false;
   private currentCityData: CityData | null = null;
   private onMoveEndBound: () => void;
@@ -54,10 +60,44 @@ export class MapNavigationManager {
     this.applyConstraints(cityData);
   }
 
+  /**
+   * Sets the area of the canvas that shell chrome covers.
+   *
+   * @remarks
+   * Only affects framing — never the camera's current position — so calling it
+   * while the user is panning does not yank the map.
+   */
+  setViewportPadding(
+    padding: Partial<{
+      top: number;
+      right: number;
+      bottom: number;
+      left: number;
+    }>,
+  ): void {
+    this.viewportPadding = { ...this.viewportPadding, ...padding };
+  }
+
+  /** Fit padding: the base breathing room plus whatever chrome covers. */
+  private framePadding(): {
+    top: number;
+    right: number;
+    bottom: number;
+    left: number;
+  } {
+    const base = 20;
+    return {
+      top: base + this.viewportPadding.top,
+      right: base + this.viewportPadding.right,
+      bottom: base + this.viewportPadding.bottom,
+      left: base + this.viewportPadding.left,
+    };
+  }
+
   /** Fits the MapLibre viewport to the city's geographic bounding box. */
   fitToCityBounds(cityData: CityData): void {
     this.map.fitBounds(getCityBoundsGeoJSON(cityData), {
-      padding: 20,
+      padding: this.framePadding(),
       animate: false,
     });
   }
@@ -214,7 +254,7 @@ export class MapNavigationManager {
           [neLng, neLat],
         ],
         {
-          padding: 20,
+          padding: this.framePadding(),
           animate: !prefersReducedMotion(),
           duration: prefersReducedMotion() ? 0 : 300,
         },

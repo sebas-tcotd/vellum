@@ -19,6 +19,7 @@ export const OVERLAY_PRIORITY = [
   'attribution',
   'minimap',
   'camera',
+  'documentCommands',
   'pinnedEntity',
   'hoverTooltip',
   'legend',
@@ -28,7 +29,11 @@ export const OVERLAY_PRIORITY = [
 export type OverlayId = (typeof OVERLAY_PRIORITY)[number];
 
 /** Where an overlay wants to sit, before collisions are resolved. */
-export type OverlayAnchor = 'bottom-right' | 'bottom-left' | 'top-center';
+export type OverlayAnchor =
+  | 'bottom-right'
+  | 'bottom-left'
+  | 'top-right'
+  | 'top-center';
 
 /** Overlay rectangle in MapViewport coordinates — the one space they share. */
 interface Rect {
@@ -40,6 +45,8 @@ interface Rect {
 
 interface OverlayCollisionValue {
   register: (id: OverlayId, element: HTMLElement | null) => void;
+  /** Area of the viewport covered by shell chrome, excluded from placement. */
+  inset: { left: number };
   /**
    * How far a displaceable overlay at `anchor` must move up to clear every
    * higher-priority overlay it would otherwise overlap.
@@ -74,9 +81,16 @@ const horizontallyOverlaps = (a: Rect, b: Rect): boolean =>
 export function OverlayCollisionProvider({
   children,
   viewportRef,
+  inset = { left: 0 },
 }: {
   children: ReactNode;
   viewportRef: React.RefObject<HTMLElement | null>;
+  /**
+   * How much of the viewport shell chrome covers. The map renders edge to edge
+   * beneath the sidebar, so overlays have to be placed inside the part of it
+   * the user can actually see.
+   */
+  inset?: { left: number };
 }) {
   const elements = useRef(new Map<OverlayId, HTMLElement>());
   const [rects, setRects] = useState<ReadonlyMap<OverlayId, Rect>>(new Map());
@@ -178,9 +192,10 @@ export function OverlayCollisionProvider({
     [rects, viewportHeight],
   );
 
+  const insetLeft = inset.left;
   const value = useMemo(
-    () => ({ register, clearanceFor }),
-    [register, clearanceFor],
+    () => ({ register, clearanceFor, inset: { left: insetLeft } }),
+    [register, clearanceFor, insetLeft],
   );
 
   return (
@@ -228,25 +243,30 @@ export function useOverlaySlot(
     [context, id],
   );
   const clearance = context?.clearanceFor(id, anchor) ?? 0;
+  const insetLeft = context?.inset.left ?? 0;
 
   const style = useMemo<React.CSSProperties>(() => {
     const base: React.CSSProperties = { position: 'absolute', zIndex: 10 };
     if (anchor === 'top-center') {
+      // Centred on the visible map, not on the canvas the sidebar covers.
       return {
         ...base,
         top: EDGE_INSET + clearance,
-        left: '50%',
+        left: `calc((100% + ${insetLeft}px) / 2)`,
         transform: 'translateX(-50%)',
       };
+    }
+    if (anchor === 'top-right') {
+      return { ...base, top: EDGE_INSET + clearance, right: EDGE_INSET };
     }
     return {
       ...base,
       bottom: EDGE_INSET + clearance,
       ...(anchor === 'bottom-right'
         ? { right: EDGE_INSET }
-        : { left: EDGE_INSET }),
+        : { left: EDGE_INSET + insetLeft }),
     };
-  }, [anchor, clearance]);
+  }, [anchor, clearance, insetLeft]);
 
   return { ref, style };
 }

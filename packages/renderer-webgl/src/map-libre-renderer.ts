@@ -524,6 +524,21 @@ export class MapLibreRenderer implements IRenderer {
   }
 
   /**
+   * Declares how much of the canvas shell chrome covers, so the map frames the
+   * city inside the visible area rather than behind a translucent sidebar.
+   */
+  setViewportPadding(
+    padding: Partial<{
+      top: number;
+      right: number;
+      bottom: number;
+      left: number;
+    }>,
+  ): void {
+    this.navigationManager.setViewportPadding(padding);
+  }
+
+  /**
    * Current map bearing in degrees (0 = north up).
    *
    * @remarks

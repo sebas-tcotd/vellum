@@ -344,9 +344,13 @@ describe('App — renderizado condicional', () => {
     expect(body?.className).toContain('desktop-shell__body');
     expect(body?.children).toContain(mapSurface);
     expect(shell.children).toContain(body);
-    expect(shell.children).toContain(
-      screen.getByTestId('document-command-strip'),
-    );
+    // Document commands float over the map's top-right corner; the shell has
+    // no chrome band of its own above the map.
+    expect(
+      screen
+        .getByTestId('map-surface')
+        .contains(screen.getByTestId('document-command-group')),
+    ).toBe(true);
 
     fireEvent.click(screen.getByRole('button', { name: 'sidebar.collapse' }));
     expect(sidebar).toHaveAttribute('data-state', 'collapsed');
@@ -1577,25 +1581,24 @@ describe('App — shell state machine and command parity', () => {
     expect(screen.getByTestId('shell-sidebar')).not.toHaveAttribute('hidden');
   });
 
-  it('opens the same export dialog from the document strip and the shortcut', async () => {
+  it('opens the same export dialog from the floating command and the shortcut', async () => {
     useVellumStore.getState().setCityData(mockCityData);
     await act(async () => {
       render(<App rasterExporter={mockRasterExporter} />);
     });
 
-    const stripExport = screen
-      .getByTestId('document-command-strip')
+    const floatingExport = screen
+      .getByTestId('document-command-group')
       .querySelector('[data-focus-id="document-export"]');
-    expect(stripExport).not.toBeNull();
+    expect(floatingExport).not.toBeNull();
 
     await act(async () => {
-      fireEvent.click(stripExport as HTMLElement);
+      fireEvent.click(floatingExport as HTMLElement);
     });
-    const fromStrip = screen.getAllByRole('button', {
-      name: 'export.exportButton',
-    }).length;
-    // The dialog is open: its own Export button joins the strip's.
-    expect(fromStrip).toBeGreaterThan(1);
+    // The dialog is open: its own Export button joins the floating one.
+    expect(
+      screen.getAllByRole('button', { name: 'export.exportButton' }).length,
+    ).toBeGreaterThan(1);
   });
 
   it('keeps export off the appearance sidebar', async () => {
@@ -1609,7 +1612,7 @@ describe('App — shell state machine and command parity', () => {
     // It lives on the document route instead.
     expect(
       screen
-        .getByTestId('document-command-strip')
+        .getByTestId('document-command-group')
         .querySelector('[data-focus-id="document-export"]'),
     ).not.toBeNull();
   });
@@ -1621,6 +1624,6 @@ describe('App — shell state machine and command parity', () => {
 
     expect(screen.queryByTestId('shell-sidebar')).toBeNull();
     expect(screen.queryByTestId('camera-control-group')).toBeNull();
-    expect(screen.queryByTestId('document-command-strip')).toBeNull();
+    expect(screen.queryByTestId('document-command-group')).toBeNull();
   });
 });
