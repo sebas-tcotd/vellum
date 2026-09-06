@@ -2,6 +2,34 @@
 
 All notable changes to Vellum will be documented here.
 
+## [0.6.0](https://github.com/sebas-tcotd/vellum/compare/v0.5.1...v0.6.0) (2026-09-06)
+
+
+### Features
+
+* **config:** habilitar el uso de la API privada de macOS ([31485ae](https://github.com/sebas-tcotd/vellum/commit/31485aee3652526e765377b5f79339863231c1f7))
+* **i18n:** agregar soporte para cambiar el idioma del menú nativo ([669bf02](https://github.com/sebas-tcotd/vellum/commit/669bf021e1c47911585d0a173b489093f6202d1c))
+* **landing:** add GA for testing purposes ([e5afee9](https://github.com/sebas-tcotd/vellum/commit/e5afee91e698e0fa1cc97cdfa656241374a1f209))
+* **shell:** adapt the sidebar to window size and give it a menu route ([820a921](https://github.com/sebas-tcotd/vellum/commit/820a921f707cb1341b056f488419516fcfbcc526))
+* **shell:** add platform context and shell tokens ([7c960f8](https://github.com/sebas-tcotd/vellum/commit/7c960f86eb45a338170b21606dcefca92a4164ae))
+* **shell:** add ShellSession and the desktop command adapter ([ffd8c7b](https://github.com/sebas-tcotd/vellum/commit/ffd8c7b1128ae7f5b57260cb069a6a2bbf76dd8b))
+* **shell:** add sidebar resizing and document the delivered architecture ([171957a](https://github.com/sebas-tcotd/vellum/commit/171957a9b9a68966b1a39383e6798977d536612e))
+* **shell:** dock the map appearance sidebar and separate document commands ([aa9c6b1](https://github.com/sebas-tcotd/vellum/commit/aa9c6b1fe708f055a4e128c77560616ea17506e8))
+* **shell:** give the macOS sidebar its Liquid Glass treatment ([384b3ac](https://github.com/sebas-tcotd/vellum/commit/384b3ac3dd8d487417dba927b2cd9da185d03392))
+* **shell:** harden focus, escape and platform presentation ([d9fcc83](https://github.com/sebas-tcotd/vellum/commit/d9fcc83ecb5678fbef7a0ed053c0454252de5a41))
+* **shell:** remove manual drag handling and update tests for native window drag ([5d689be](https://github.com/sebas-tcotd/vellum/commit/5d689bec2021ffa3f81dcbd1019f3fe6ac05c8f9))
+* **tests:** actualizar pruebas de configuración de ventana nativa y estado vacío ([bf055ad](https://github.com/sebas-tcotd/vellum/commit/bf055ad3ee5ac3627b6dd62786768154d9c48b54))
+* **ui:** add corner shape variable for shell minimap and update styles ([aafcf25](https://github.com/sebas-tcotd/vellum/commit/aafcf255656f0436f13e7b74252b3beb29695a68))
+* **ui:** implement dark theme support for app chrome and refine styling ([1a6536b](https://github.com/sebas-tcotd/vellum/commit/1a6536bef2c1d37b6a9e802687d338365fd62789))
+* **ui:** implement MapTools component and update layout for map controls ([33051ab](https://github.com/sebas-tcotd/vellum/commit/33051abdcce5affefc35d4d8bfa05742b6c5237f))
+* **ui:** improve layout and styling of OptionRow in AdvancedOptionsPanel ([f8eacb1](https://github.com/sebas-tcotd/vellum/commit/f8eacb111e5ec6d9c0f0f7d86f9a0dd31bf7f92b))
+* **ui:** integrate adaptive shell components ([9f25af8](https://github.com/sebas-tcotd/vellum/commit/9f25af896b27591d4e9bcc2999083e379ec1b301))
+* **ui:** refactor layer visibility handling and update styles for sidebar components ([06ada00](https://github.com/sebas-tcotd/vellum/commit/06ada0050c706849d3cc7847c084e98dc1fd44f4))
+* **ui:** reorganizar el menú nativo y agregar submenús para mejorar la usabilidad ([f127288](https://github.com/sebas-tcotd/vellum/commit/f1272886f008ca9954e963f13fd00a6209b8211b))
+* **ui:** update sidebar dimensions and remove unused title management ([b1324e8](https://github.com/sebas-tcotd/vellum/commit/b1324e89ec274781832a8d0544f9dc62db376bdc))
+* **updater:** agregar comando para instalar actualizaciones pendientes ([77ebecc](https://github.com/sebas-tcotd/vellum/commit/77ebeccc7ab48abeefd359442a2cec887bfd8bb3))
+* **viewport:** give MapViewport ownership of overlay composition ([d18cdb0](https://github.com/sebas-tcotd/vellum/commit/d18cdb04411f3648e7d38a8b598434379c44743f))
+
 ## [0.5.1](https://github.com/sebas-tcotd/vellum/compare/v0.5.0...v0.5.1) (2026-08-18)
 
 
