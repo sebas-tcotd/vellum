@@ -167,6 +167,7 @@
   "about": {
     "tagline": "A visual editor for your city maps",
     "description": "Explore, style, and export cities from CSL Map View with a focused cartographic workspace.",
+    "openCartography": "Open Cartography",
     "versionLabel": "Version",
     "licenseLabel": "License",
     "repository": "View source"

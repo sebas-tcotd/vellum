@@ -44,9 +44,7 @@ describe('useKeyboardShortcuts', () => {
   it('Ctrl+, llama onOpenPreferences', () => {
     const onOpenFile = vi.fn();
     const onOpenPreferences = vi.fn();
-    renderHook(() =>
-      useKeyboardShortcuts({ onOpenFile, onOpenPreferences }),
-    );
+    renderHook(() => useKeyboardShortcuts({ onOpenFile, onOpenPreferences }));
 
     document.dispatchEvent(ctrl(','));
 

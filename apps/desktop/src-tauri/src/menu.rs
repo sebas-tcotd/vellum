@@ -37,6 +37,8 @@ impl NativeMenuVisibility {
 /// Toggles the native menu. The frontend invokes this for the platform's
 /// conventional `Alt` menu key, since Tauri does not expose raw key events in
 /// its window event API.
+// ponytail: Tauri commands can only take AppHandle/State by value.
+#[allow(clippy::needless_pass_by_value)]
 #[tauri::command]
 pub fn toggle_native_menu<R: Runtime>(
     app: AppHandle<R>,
