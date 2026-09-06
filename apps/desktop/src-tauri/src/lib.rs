@@ -46,6 +46,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_os::init())
         .manage(Arc::new(ExportSessionManager::new()))
+        .manage(menu::NativeMenuVisibility::default())
         .invoke_handler(tauri::generate_handler![
             commands::parse_cslmap,
             commands::export_png,
@@ -56,8 +57,12 @@ pub fn run() {
             commands::finish_export,
             commands::cancel_export,
             menu::update_theme_menu,
+            menu::update_menu_language,
+            menu::toggle_native_menu,
             #[cfg(desktop)]
             updater::get_pending_update,
+            #[cfg(desktop)]
+            updater::install_update,
             startup::get_startup_file_path,
         ])
         .setup(|app| {
@@ -75,11 +80,14 @@ pub fn run() {
 
             let menu = menu::build_menu(app.handle())?;
             app.set_menu(menu)?;
+            app.hide_menu()?;
 
             app.on_menu_event(move |app_handle, event| {
                 let id = event.id().0.as_str();
                 if id == "preferences" {
                     let _ = app_handle.emit("vellum://open-preferences", ());
+                } else if id == menu::MENU_ID_ABOUT {
+                    let _ = app_handle.emit("vellum://open-about", ());
                 } else if id == menu::MENU_ID_EXIT {
                     app_handle.exit(0);
                 } else if id.starts_with("menu.") {

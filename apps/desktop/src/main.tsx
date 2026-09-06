@@ -11,7 +11,6 @@ import {
   App,
   AppMetaProvider,
   PlatformProvider,
-  useVellumStore,
   type ExportCancelHandlerRef,
 } from '@vellum/ui';
 import {
@@ -221,41 +220,6 @@ void win.listen('tauri://drag-enter', () => {
   window.dispatchEvent(new CustomEvent('vellum:drag-enter'));
 });
 
-// ── Window title ───────────────────────────────────────────────────────────────
-// `document.title` may not propagate dynamically in Tauri's WKWebView.
-// Subscribe to the store outside React so `setTitle` is called as soon as
-// cityData changes, independently of any React rendering cycle.
-//
-// The native window title survives a WebView `Reload` (only the JS context and
-// the Zustand store reset — the OS-level window chrome does not). So this module
-// must assert the title from the store's *actual* current state as soon as it
-// runs, not just react to future transitions — otherwise a Reload leaves the
-// native title showing whatever was set before it, even though the store has
-// already reset to no map loaded.
-function applyTitle(cityName: string | null): void {
-  const title = cityName ? `Vellum — ${cityName}` : 'Vellum';
-  void win
-    .setTitle(title)
-    .catch((err) => console.error('Error Tauri setTitle:', err));
-}
-
-let prevCityName = useVellumStore.getState().cityData?.cityName ?? null;
-applyTitle(prevCityName);
-
-const unsubTitle = useVellumStore.subscribe((state) => {
-  const cityName = state.cityData?.cityName ?? null;
-  if (cityName === prevCityName) return;
-  prevCityName = cityName;
-  applyTitle(cityName);
-});
-
-// Prevent subscription accumulation during HMR
-if (import.meta.hot) {
-  import.meta.hot.dispose(() => {
-    unsubTitle();
-  });
-}
-
 /**
  * Composition root that wires Tauri-specific hooks into the UI layer.
  * Keeps `@vellum/ui` free of direct Tauri runtime dependencies.
@@ -265,6 +229,29 @@ function AppShell() {
     exportCancelHandlerRef,
   );
   const { openExportFolder } = useExportPng();
+
+  React.useEffect(() => {
+    const handleAlt = (event: KeyboardEvent) => {
+      // Alt alone is the native menu convention. Ignore Alt combinations so
+      // existing application shortcuts keep their current behavior.
+      if (
+        event.key !== 'Alt' ||
+        event.repeat ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.shiftKey
+      ) {
+        return;
+      }
+      event.preventDefault();
+      void invoke(IPC_COMMANDS.TOGGLE_NATIVE_MENU).catch((error: unknown) => {
+        console.warn('[AppShell] toggle_native_menu failed:', error);
+      });
+    };
+
+    window.addEventListener('keydown', handleAlt);
+    return () => window.removeEventListener('keydown', handleAlt);
+  }, []);
 
   // A `.cslmap` opened via the Windows file association (double-click) arrives
   // as a command-line argument, captured by Rust before this component mounts
@@ -283,6 +270,7 @@ function AppShell() {
 
   return (
     <App
+      version={version}
       loadFile={loadFile}
       openFileDialog={openFileDialog}
       loadFilePartial={loadFilePartial}

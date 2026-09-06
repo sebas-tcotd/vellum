@@ -1,6 +1,5 @@
 use std::sync::{Mutex, OnceLock};
 use tauri::Emitter;
-use tauri_plugin_store::StoreExt;
 use tauri_plugin_updater::UpdaterExt;
 
 use crate::ipc_contract::UpdatePayload;
@@ -40,34 +39,21 @@ fn release_notes_url(version: &str) -> String {
 }
 
 /// Checks for a new Vellum release in the background and, if found, emits
-/// `vellum://update-available` and optionally auto-installs it.
+/// `vellum://update-available`.
 ///
 /// # Remarks
-/// Best-effort and silent: network failures or the absence of a new release
-/// never surface an error to the user — this is the only network operation
-/// the app performs (NFR14). If the `autoUpdateEnabled` preference is set,
-/// the update is downloaded, installed, and the app is restarted; a failure
-/// in that path is logged but does not prevent the toast (emitted regardless)
-/// from informing the user of the available version.
+/// Best-effort, silent and read-only: network failures or the absence of a new
+/// release never surface an error to the user — this is the only network
+/// operation the app performs (NFR14). It deliberately never installs anything:
+/// the download/restart is always an explicit user action via
+/// [`install_update`], so an update can never discard an open map without
+/// consent.
 pub async fn check_for_updates(app: &tauri::AppHandle) {
-    eprintln!("updater: check_for_updates started");
-    let updater = match app.updater() {
-        Ok(updater) => updater,
-        Err(error) => {
-            eprintln!("updater: app.updater() failed: {error}");
-            return;
-        }
+    let Ok(updater) = app.updater() else {
+        return;
     };
-    let update = match updater.check().await {
-        Ok(Some(update)) => update,
-        Ok(None) => {
-            eprintln!("updater: check() ok, no update available");
-            return;
-        }
-        Err(error) => {
-            eprintln!("updater: check() failed: {error}");
-            return;
-        }
+    let Ok(Some(update)) = updater.check().await else {
+        return;
     };
 
     let payload = UpdatePayload {
@@ -78,24 +64,40 @@ pub async fn check_for_updates(app: &tauri::AppHandle) {
         *pending = Some(payload.clone());
     }
     let _ = app.emit("vellum://update-available", payload);
+}
 
-    let auto_update_enabled = app
-        .store("preferences.json")
-        .ok()
-        .and_then(|store| store.get("autoUpdateEnabled"))
-        .and_then(|value| value.as_bool())
-        .unwrap_or(false);
+/// Downloads and installs the pending update, then restarts the app.
+///
+/// # Remarks
+/// Re-runs `check()` instead of holding the `Update` handle from
+/// `check_for_updates` in a static — an extra HTTP round trip on an explicit
+/// click, in exchange for no cross-thread global state.
+/// ponytail: re-check on click; cache the handle only if the round trip is ever felt.
+///
+/// On success this never returns — `restart()` tears the process down. Because
+/// it runs off the main thread, the exit travels through `RunEvent::Exit`, so
+/// the export-session cleanup registered in `run()` still runs.
+///
+/// # Errors
+/// Returns a human-readable message if the updater is unavailable, no update is
+/// offered any more, or the download/install fails (e.g. a Windows MSI install
+/// declined at the UAC prompt) — the frontend surfaces it on the update toast
+/// instead of failing silently.
+#[tauri::command]
+pub async fn install_update(app: tauri::AppHandle) -> Result<(), String> {
+    let updater = app.updater().map_err(|error| error.to_string())?;
+    let update = updater
+        .check()
+        .await
+        .map_err(|error| error.to_string())?
+        .ok_or_else(|| "No update is available any more.".to_string())?;
 
-    if auto_update_enabled {
-        if let Err(error) = update
-            .download_and_install(|_chunk, _total| {}, || {})
-            .await
-        {
-            eprintln!("updater: auto-install failed: {error}");
-            return;
-        }
-        app.restart();
-    }
+    update
+        .download_and_install(|_chunk, _total| {}, || {})
+        .await
+        .map_err(|error| error.to_string())?;
+
+    app.restart();
 }
 
 #[cfg(test)]

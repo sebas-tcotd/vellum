@@ -184,7 +184,11 @@ describe('IconLegend', () => {
         name: 'a11y.iconLegendToggle',
       });
       fireEvent.click(button);
-      fireEvent.keyDown(window, { key: 'Escape' });
+      // Dispatched on the focused control, the way a real keypress arrives —
+      // the legend claims Escape in the capture phase on its way down.
+      fireEvent.keyDown(document.activeElement ?? document.body, {
+        key: 'Escape',
+      });
       expect(
         screen.queryByRole('region', { name: 'a11y.iconLegend' }),
       ).not.toBeInTheDocument();

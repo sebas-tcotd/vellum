@@ -15,6 +15,8 @@ const LAYER_SHORTCUT_MAP: LayerName[] = [
 
 interface UseKeyboardShortcutsOptions {
   onOpenFile: () => void;
+  /** Called when the user presses Ctrl/Cmd + , to open preferences. */
+  onOpenPreferences?: () => void;
   /** Called when the user presses Ctrl/Cmd + E to open export configuration. */
   onOpenExport?: () => void;
   /** Called when the user presses keys 1–7 to toggle the corresponding layer. */
@@ -38,6 +40,15 @@ interface UseKeyboardShortcutsOptions {
   /** Called when the user presses Shift+1..7 to open a layer's advanced options panel. */
   onOpenAdvancedOptions?: (layer: LayerName) => void;
   /**
+   * Called on Escape so the shell can resolve the topmost transient state.
+   *
+   * @remarks
+   * The single Escape route for the shell (AD-7). Dialogs trap and consume
+   * Escape themselves, so the composition root only supplies this while no
+   * blocking surface is open — there are no competing global listeners.
+   */
+  onEscape?: () => void;
+  /**
    * When false, the shortcut handler does nothing without removing the listener.
    * @default true
    */
@@ -46,6 +57,7 @@ interface UseKeyboardShortcutsOptions {
 
 export function useKeyboardShortcuts({
   onOpenFile,
+  onOpenPreferences,
   onOpenExport,
   onToggleLayer,
   onFitToScreen,
@@ -57,6 +69,7 @@ export function useKeyboardShortcuts({
   onRotateBy,
   onResetBearing,
   onOpenAdvancedOptions,
+  onEscape,
   enabled = true,
 }: UseKeyboardShortcutsOptions) {
   useEffect(() => {
@@ -65,9 +78,32 @@ export function useKeyboardShortcuts({
       if (isEditableTarget(e.target)) return;
       const isModKey = e.ctrlKey || e.metaKey;
 
+      if (e.key === 'Escape' && !isModKey && !e.altKey) {
+        if (onEscape) {
+          e.preventDefault();
+          onEscape();
+        }
+        return;
+      }
+
       if (isModKey && !e.shiftKey && !e.altKey && e.key === 'o') {
         e.preventDefault();
         onOpenFile();
+        return;
+      }
+
+      // The native Tauri accelerator is not consistently delivered by WebView2
+      // on Windows. Keep the browser-side route as a fallback for Ctrl+,.
+      if (
+        isModKey &&
+        !e.shiftKey &&
+        !e.altKey &&
+        (e.key === ',' || e.code === 'Comma')
+      ) {
+        if (onOpenPreferences) {
+          e.preventDefault();
+          onOpenPreferences();
+        }
         return;
       }
 
@@ -201,6 +237,7 @@ export function useKeyboardShortcuts({
     return () => document.removeEventListener('keydown', handler);
   }, [
     onOpenFile,
+    onOpenPreferences,
     onOpenExport,
     onToggleLayer,
     onFitToScreen,
@@ -212,6 +249,7 @@ export function useKeyboardShortcuts({
     onRotateBy,
     onResetBearing,
     onOpenAdvancedOptions,
+    onEscape,
     enabled,
   ]);
 }

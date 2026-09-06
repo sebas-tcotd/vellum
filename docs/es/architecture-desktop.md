@@ -63,11 +63,13 @@ apps/desktop/
 
 ## Menú nativo
 
-Parte de `tauri::menu::Menu::default()` (conserva Edit/Window/submenús estándar del OS) y agrega un item **"Preferences…"** (`CmdOrCtrl+,`) — en el submenú de la app en macOS, o en un submenú "Vellum" prepended en otras plataformas. El evento de menú `"preferences"` emite `vellum://open-preferences`, que `@vellum/ui` escucha para abrir `PreferencesPanel`.
+El menú nativo conserva las convenciones estándar de `Edit` y `Window`, y organiza las acciones propias en cuatro espacios: `File` para abrir/exportar mapas, `View` para cámara, overlays, layout e interacción, `Layers` para visibilidad y detalle cartográfico, y `Appearance` para temas y énfasis visual. Las opciones de layout (`Sidebar`, `Clean View`), overlays (`Map Symbols`) e interacción (`Navigation Mode`) viven como submenús de `View` para separar el chrome de la ventana y los overlays de la cámara del mapa.
+
+También agrega un item **"Preferences…"** (`CmdOrCtrl+,`) — en el submenú de la app en macOS, o en un submenú "Vellum" prepended en otras plataformas. El evento de menú `"preferences"` emite `vellum://open-preferences`, que `@vellum/ui` escucha para abrir `PreferencesPanel`.
 
 ## Preferencias
 
-`tauri-plugin-store` persiste `preferences.json`. La escritura vive del lado de `@vellum/ui` (`store/preferences-store.ts`, con cola serializada); `apps/desktop` solo lo lee en `updater.rs` para el flag `autoUpdateEnabled` (default `false`).
+`tauri-plugin-store` persiste `preferences.json`. La escritura vive del lado de `@vellum/ui` (`store/preferences-store.ts`, con cola serializada). El flag `autoUpdateEnabled` (default `false`) lo lee únicamente el frontend: decide si el toast de actualización ofrece el botón de instalar, así que cambiarlo surte efecto de inmediato, sin reiniciar.
 
 ## Verificación de actualizaciones
 
@@ -75,7 +77,11 @@ Parte de `tauri::menu::Menu::default()` (conserva Edit/Window/submenús estánda
 
 - Guarda el payload en un `OnceLock<Mutex<Option<UpdatePayload>>>` a nivel de proceso
 - Emite `vellum://update-available` (versión + URL de release notes)
-- Si `autoUpdateEnabled` es `true`, descarga, instala y reinicia sin intervención del usuario
+
+El check nunca instala nada. La descarga y el reinicio son siempre un clic explícito
+en el toast, vía el comando `install_update`, para que una actualización no pueda
+tirar abajo un mapa abierto. Un fallo (por ejemplo un UAC rechazado en el MSI de
+Windows) vuelve como mensaje al toast en vez de morir en silencio.
 
 `get_pending_update` cubre el caso donde el evento llega antes de que el frontend termine de montar su listener.
 
@@ -109,3 +115,51 @@ pnpm test:e2e      # playwright test
 - El pipeline de export concentra una parte importante de la cobertura Rust porque la
   exportación tiled con streaming binario y composición incremental es la lógica más
   delicada del backend.
+
+## Shell de escritorio map-first
+
+La evolución del shell que define la espina
+[Vellum Desktop UX Incremental](../../vellum-context/_bmad-output/planning-artifacts/architecture/architecture-vellum-2026-09-05/ARCHITECTURE-SPINE.md)
+está implementada. El cambio se quedó dentro de `@vellum/ui`: `apps/desktop`
+sigue siendo el composition root, no recibió comandos Tauri nuevos, y los
+contratos de parseo, mapa, exportación, menú nativo y preferencias no cambiaron.
+
+Cómo quedó el shell:
+
+- **`ShellSession`** posee la sesión efímera — ancho, colapso y contexto
+  overview/detalle del sidebar, Clean view, un único slot modal, restauración de
+  foco. Es un reducer local, no un segundo store global. `useVellumStore` sigue
+  siendo el único dueño del estado cartográfico.
+- **`DesktopCommandAdapter`** es la ruta única de toda acción con más de una
+  superficie de invocación. Menú nativo, atajos y botones del shell emiten el
+  mismo comando y leen la misma disponibilidad.
+- **`MapAppearanceSidebar`** reemplazó a `ShellSidebar` y `FloatingLayerPanel`.
+  Visibilidad y disclosure de configuración son controles separados; la
+  exportación dejó de ser asunto de apariencia y vive en la ruta de documento.
+- **`MapViewport`** posee la composición de overlays en un solo espacio de
+  coordenadas, con un gestor de colisiones que trabaja sobre rects medidos.
+  `MapLibreRoot` conserva renderizado, cámara y suscripciones, y publica solo un
+  puerto estrecho para los overlays que necesitan orientarse o navegar.
+- **El sidebar flota sobre un mapa a sangre completa**, translúcido, para que el
+  paneo siga siendo legible por debajo — el tratamiento que la propia HIG de
+  Apple describe para sidebars en la capa Liquid Glass. En macOS además va
+  separado de los bordes de la ventana y redondeado, con el mapa continuando a
+  su alrededor; las plataformas sin un efecto de compositor confiable lo
+  mantienen al ras y opaco, con el mismo marcado y solo distintos valores de
+  token. El área que cubre se mide del elemento renderizado, así esos insets de
+  plataforma se contemplan sin que ningún componente sepa en cuál está. Además
+  se aparta solo cuando la ventana se vuelve demasiado angosta y vuelve cuando
+  hay espacio otra vez —nunca reabriendo uno que el usuario cerró a propósito—,
+  y mostrarlo u ocultarlo es un comando con ruta en el menú Ver, no solo un
+  botón sobre el propio sidebar. No hay banda de chrome sobre el mapa:
+  Abrir y Exportar son un grupo flotante en su esquina superior derecha. El
+  viewport le indica al renderer cuánto lienzo cubre el sidebar, así el encuadre
+  de la ciudad nunca deja parte de ella debajo.
+- **Abrir un mapa es transaccional.** Una carga ya no descarta el documento
+  actual; un reemplazo cancelado o fallido deja intactos el mapa, la cámara y el
+  foco anteriores.
+
+Dos cosas faltan a propósito. La tarjeta de entidad fijable no se publica: el
+renderer no expone selección de entidades navegable por teclado y la espina
+prohíbe una tarjeta interactiva sin ella — el hover no cambió. El ancho del
+sidebar es solo de sesión; persistirlo entre aperturas sigue diferido.

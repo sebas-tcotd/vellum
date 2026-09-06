@@ -13,3 +13,13 @@ global.ResizeObserver = class MockResizeObserver {
 // Extendemos explícitamente en lugar de usar '@testing-library/jest-dom/vitest'
 // para evitar problemas de auto-detección con la extensión de VSCode.
 expect.extend(matchers);
+
+// jsdom reports a 1024 px window, which is a narrow desktop by Vellum's own
+// width model and would start every test with a compact sidebar. Default to
+// the standard desktop configuration instead; the tests that care about
+// narrow behaviour set their own width.
+Object.defineProperty(window, 'innerWidth', {
+  configurable: true,
+  writable: true,
+  value: 1440,
+});

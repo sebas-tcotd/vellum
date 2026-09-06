@@ -1,5 +1,5 @@
-import { Separator } from '@/lib/separator';
-import { Switch } from '@/lib/switch';
+import { Separator } from '../../lib/separator';
+import { Switch } from '../../lib/switch';
 import type {
   BuildingServiceCategory,
   LayerName,
@@ -32,11 +32,12 @@ interface OptionRowProps {
 
 function OptionRow({ label, checked, onCheckedChange }: OptionRowProps) {
   return (
-    <div className="flex items-center gap-2 px-3" style={{ minHeight: 28 }}>
-      <span className="font-ui flex-1 text-xs truncate opacity-80">
+    <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-3 py-2">
+      <span className="font-ui min-w-0 text-xs leading-4 opacity-80 [overflow-wrap:anywhere]">
         {label}
       </span>
       <Switch
+        className="shrink-0"
         aria-label={label}
         checked={checked}
         onCheckedChange={onCheckedChange}
@@ -79,7 +80,7 @@ export interface AdvancedOptionsPanelProps {
 /**
  * Content of the advanced-options floating panel (see `FloatingLayerPanel.tsx`
  * for the panel chrome). Renders terrain sub-element toggles, the transit-mode
- * filter, the buildings RICO filter + "color by category" toggle, or the
+ * filter, the buildings' RICO filter + "color by category" toggle, or the
  * district label toggle, depending on `layer`.
  */
 export function AdvancedOptionsPanel({
@@ -107,7 +108,7 @@ export function AdvancedOptionsPanel({
 
   if (layer === 'transit') {
     return (
-      <div className="grid grid-cols-2 gap-x-3">
+      <div className="min-w-0">
         {TOGGLABLE_TRANSIT_MODES.map((mode) => (
           <OptionRow
             key={mode}
@@ -129,6 +130,11 @@ export function AdvancedOptionsPanel({
           onCheckedChange={onToggleColorByCategory}
         />
         <Separator className="h-px my-1 w-full" />
+        {/* The community term stays, grouped under a label that also explains
+            it to someone meeting RICO for the first time. */}
+        <h3 className="shell-section__subheading">
+          {t('layerOptionsPanel.buildingZones')}
+        </h3>
         {RICO_CATEGORIES.map((category) => (
           <OptionRow
             key={category}

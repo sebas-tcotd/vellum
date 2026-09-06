@@ -6,8 +6,9 @@ import {
 import { MapPinned } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { cn } from '@/lib/utils';
-import { Separator } from '@/lib/separator';
+import { cn } from '../../lib/utils';
+import { Separator } from '../../lib/separator';
+import { useOverlaySlot } from '../viewport/overlay-collision';
 
 /** Milliseconds an `announced` button waits, with no interaction, before collapsing to icon-only. */
 const ANNOUNCE_DURATION_MS = 2000;
@@ -46,9 +47,9 @@ export interface IconLegendProps {
 }
 
 /**
- * Floating legend explaining the fixed-color service icons that appear over
- * civic buildings from zoom 14 onward — the esquina superior derecha mirror
- * of `FloatingLayerPanel`.
+ * On-demand legend for the fixed-colour service icons that appear over civic
+ * buildings from zoom 14 onward. It occupies the lower-left of the map
+ * viewport, deliberately away from the minimap and camera corner.
  *
  * @remarks
  * Progressive disclosure, not a persistent panel: `announced` (pill with
@@ -64,6 +65,9 @@ export function IconLegend({ subscribeRef, toggleRef }: IconLegendProps) {
   const [state, setState] = useState<LegendState>('hidden');
   const [visibleGroups, setVisibleGroups] = useState<ServiceGroup[]>([]);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  // Lower-left, out of the minimap and camera corner, and displaced upward by
+  // the collision manager if anything higher-priority is already there.
+  const slot = useOverlaySlot('legend', 'bottom-left');
 
   // Subscribe to zoom/viewport-driven relevance. Forced-collapse rule: an
   // `expanded` panel steps down to `collapsed` first when zoom drops below
@@ -110,14 +114,19 @@ export function IconLegend({ subscribeRef, toggleRef }: IconLegendProps) {
     };
   }, [toggleRef, toggle]);
 
-  // Escape closes the expanded panel and returns focus to the toggle button.
+  // First rung of the shell's Escape ladder: an open popover consumes Escape
+  // and hands focus back to its trigger. Registered in the capture phase and
+  // stopped there so the shell's own Escape handler never also fires — the
+  // ladder resolves exactly one state per press.
   useEffect(() => {
     if (state !== 'expanded') return;
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') collapse();
+      if (e.key !== 'Escape') return;
+      e.stopPropagation();
+      collapse();
     };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
+    document.addEventListener('keydown', handler, true);
+    return () => document.removeEventListener('keydown', handler, true);
   }, [state]);
 
   if (state === 'hidden') return null;
@@ -126,7 +135,12 @@ export function IconLegend({ subscribeRef, toggleRef }: IconLegendProps) {
   const isAnnounced = state === 'announced';
 
   return (
-    <div className="fixed top-4 right-4 flex flex-col items-end gap-2 z-50">
+    <div
+      ref={slot.ref}
+      style={slot.style}
+      className="flex flex-col items-start gap-2"
+      data-testid="icon-legend"
+    >
       <button
         ref={buttonRef}
         type="button"

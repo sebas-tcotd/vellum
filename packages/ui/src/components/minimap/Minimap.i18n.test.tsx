@@ -85,12 +85,16 @@ describe('Minimap — aria-label traducido (i18n real)', () => {
   it('usa el string en inglés cuando el idioma activo es en', async () => {
     await i18n.changeLanguage('en');
     renderMinimap();
-    expect(screen.getByRole('img', { name: en.a11y.minimap })).toBeDefined();
+    expect(
+      screen.getByRole('application', { name: en.a11y.minimap }),
+    ).toBeDefined();
   });
 
   it('usa el string en español cuando el idioma activo es es', async () => {
     await i18n.changeLanguage('es');
     renderMinimap();
-    expect(screen.getByRole('img', { name: es.a11y.minimap })).toBeDefined();
+    expect(
+      screen.getByRole('application', { name: es.a11y.minimap }),
+    ).toBeDefined();
   });
 });

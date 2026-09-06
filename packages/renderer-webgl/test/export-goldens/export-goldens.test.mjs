@@ -426,6 +426,8 @@ describe('shipped baseline manifest', () => {
       });
     }
     // Decoding 36 real PNGs (up to 4096x2621) takes longer than Vitest's 5s
-    // default — allow slower CI runners enough headroom for the same work.
+    // default. ~2.7s locally since the scanline unfilter stopped calling a
+    // function per byte (see png-to-rgba.mjs); the rest is headroom for a
+    // slower CI runner, which is what timed this test out at 60s before.
   }, 60_000);
 });

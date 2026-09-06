@@ -3,7 +3,6 @@
     "title": "Vellum",
     "dropHint": "Arrastra tu archivo .cslmap aquí",
     "orOpenWith": "o presiona",
-    "openShortcut": "Ctrl+O",
     "firstUseHint": "Exporta tu ciudad con CSL Map View · El exportador nativo de Vellum viene en v2 →"
   },
   "loading": {
@@ -58,19 +57,20 @@
     "monuments": "Monumentos"
   },
   "iconLegend": {
-    "buttonLabel": "Ver leyenda",
-    "title": "Leyenda de íconos",
+    "buttonLabel": "Símbolos del mapa",
+    "title": "Símbolos del mapa",
     "empty": "No hay íconos de servicio visibles en esta vista"
   },
   "layerOptionsPanel": {
-    "close": "Cerrar opciones avanzadas",
-    "colorByCategory": "Colorear por categoría",
+    "close": "Cerrar opciones de capa",
+    "colorByCategory": "Colorear edificios por zona",
     "showDistrictNamesOnMap": "Mostrar nombre en el mapa",
     "showParkAreas": "Mostrar áreas de parque",
     "showContourLines": "Curvas de nivel",
     "showColorRelief": "Relieve hipsométrico",
     "showHillshade": "Sombreado del relieve",
-    "showGrid": "Mostrar grilla de proyección"
+    "showGrid": "Cuadrícula de proyección",
+    "buildingZones": "Zonas de edificios (RICO)"
   },
   "export": {
     "title": "Exportar mapa",
@@ -162,7 +162,18 @@
   },
   "updates": {
     "available": "Vellum {{version}} disponible.",
-    "viewChangelog": "Ver novedades"
+    "viewChangelog": "Ver novedades",
+    "install": "Instalar y reiniciar",
+    "installing": "Instalando…",
+    "installFailed": "Falló la instalación. Descargala manualmente."
+  },
+  "about": {
+    "tagline": "Un editor visual para tus mapas de ciudad",
+    "description": "Explora, diseña y exporta ciudades de CSL Map View desde un espacio cartográfico enfocado.",
+    "openCartography": "Cartografía abierta",
+    "versionLabel": "Versión",
+    "licenseLabel": "Licencia",
+    "repository": "Ver código fuente"
   },
   "toasts": {
     "cityLoaded": "{{cityName}} cargada",
@@ -183,14 +194,22 @@
     "mapCanvasCity": "Mapa de ciudad {{cityName}}",
     "loadingProgress": "Progreso de carga",
     "exportProgress": "Progreso de exportación",
-    "layerPanel": "Panel de control de capas",
+    "layerPanel": "Apariencia del mapa",
     "layerPanelCollapse": "Colapsar panel",
     "layerPanelExpand": "Expandir panel",
     "themeSelector": "Selector de tema",
     "advancedOptions": "Opciones avanzadas de {{layer}}",
     "advancedOptionsToggle": "Alternar opciones avanzadas de {{layer}}",
-    "iconLegendToggle": "Alternar leyenda de íconos",
-    "iconLegend": "Leyenda de íconos"
+    "iconLegendToggle": "Alternar símbolos del mapa",
+    "iconLegend": "Símbolos del mapa",
+    "mapAppearance": "Apariencia del mapa",
+    "configureLayer": "Configurar {{layer}}",
+    "cameraControls": "Controles de cámara del mapa",
+    "mapStatus": "Estado del mapa",
+    "mapViewport": "Mapa",
+    "minimapHelp": "Las flechas desplazan el mapa. Enter lo recentra en la ciudad.",
+    "documentCommands": "Comandos de documento",
+    "mapTools": "Herramientas del mapa"
   },
   "transitModes": {
     "Bus": "Autobús",
@@ -208,5 +227,25 @@
     "svgDegenerateGeometry": "{{count}} elemento(s) no se pudieron dibujar por geometría inválida y se omitieron del SVG.",
     "svgEmptyLayer": "{{count}} capa(s) visible(s) quedaron vacías en el SVG.",
     "svgUnsupportedPresentation": "Algunas opciones de presentación que seleccionaste no se aplicaron a este SVG."
+  },
+  "sidebar": {
+    "mapAppearance": "Apariencia del mapa",
+    "mapStyle": "Estilo de mapa",
+    "layers": "Capas",
+    "collapse": "Contraer barra lateral",
+    "expand": "Expandir barra lateral",
+    "resize": "Redimensionar barra lateral"
+  },
+  "documentContext": {
+    "sourceFile": "Archivo de origen"
+  },
+  "document": {
+    "openMap": "Abrir mapa"
+  },
+  "camera": {
+    "zoomIn": "Acercar",
+    "zoomOut": "Alejar",
+    "fitCity": "Ajustar ciudad",
+    "resetNorth": "Restablecer el norte"
   }
 }

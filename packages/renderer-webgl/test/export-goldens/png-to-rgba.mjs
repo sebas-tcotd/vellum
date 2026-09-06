@@ -75,62 +75,96 @@ export function decodePngToRgba(buffer) {
   const currentRow = new Uint8Array(stride);
 
   let rawOffset = 0;
+  let previous = previousRow;
+  let current = currentRow;
   for (let y = 0; y < height; y += 1) {
     const filterType = raw[rawOffset];
     rawOffset += 1;
-    for (let x = 0; x < stride; x += 1) {
-      const filtered = raw[rawOffset + x];
-      const left = x >= channels ? currentRow[x - channels] : 0;
-      const above = previousRow[x];
-      const aboveLeft = x >= channels ? previousRow[x - channels] : 0;
-      currentRow[x] = unfilterByte(
-        filterType,
-        filtered,
-        left,
-        above,
-        aboveLeft,
-      );
-    }
+    // The filter type is per scanline, so it is hoisted out of the byte loop:
+    // one specialized loop each, instead of a switch plus a function call on
+    // every one of the ~43M bytes a 4096x2621 golden decodes to. Same output,
+    // an order of magnitude less work — see the digest-equivalence test.
+    unfilterRow(
+      filterType,
+      raw,
+      rawOffset,
+      current,
+      previous,
+      stride,
+      channels,
+    );
     rawOffset += stride;
-    writeRowAsRgba(pixels, y, width, channels, currentRow);
-    previousRow.set(currentRow);
+    writeRowAsRgba(pixels, y, width, channels, current);
+    // Swap instead of copying `stride` bytes into `previousRow` every row.
+    const swap = previous;
+    previous = current;
+    current = swap;
   }
   return { width, height, pixels };
 }
 
-function unfilterByte(filterType, filtered, left, above, aboveLeft) {
+function unfilterRow(filterType, raw, offset, cur, prev, stride, channels) {
   switch (filterType) {
     case 0:
-      return filtered;
+      cur.set(raw.subarray(offset, offset + stride));
+      return;
     case 1:
-      return (filtered + left) & 0xff;
+      for (let x = 0; x < channels; x += 1) cur[x] = raw[offset + x];
+      for (let x = channels; x < stride; x += 1) {
+        cur[x] = (raw[offset + x] + cur[x - channels]) & 0xff;
+      }
+      return;
     case 2:
-      return (filtered + above) & 0xff;
+      for (let x = 0; x < stride; x += 1) {
+        cur[x] = (raw[offset + x] + prev[x]) & 0xff;
+      }
+      return;
     case 3:
-      return (filtered + ((left + above) >> 1)) & 0xff;
+      for (let x = 0; x < channels; x += 1) {
+        cur[x] = (raw[offset + x] + (prev[x] >> 1)) & 0xff;
+      }
+      for (let x = channels; x < stride; x += 1) {
+        cur[x] =
+          (raw[offset + x] + ((cur[x - channels] + prev[x]) >> 1)) & 0xff;
+      }
+      return;
     case 4:
-      return (filtered + paethPredictor(left, above, aboveLeft)) & 0xff;
+      // Paeth with left = aboveLeft = 0 collapses to `above`.
+      for (let x = 0; x < channels; x += 1) {
+        cur[x] = (raw[offset + x] + prev[x]) & 0xff;
+      }
+      for (let x = channels; x < stride; x += 1) {
+        const left = cur[x - channels];
+        const above = prev[x];
+        const aboveLeft = prev[x - channels];
+        // paethPredictor inlined — a call per byte was a third of decode time.
+        const estimate = left + above - aboveLeft;
+        let distance = estimate - left;
+        const toLeft = distance < 0 ? -distance : distance;
+        distance = estimate - above;
+        const toAbove = distance < 0 ? -distance : distance;
+        distance = estimate - aboveLeft;
+        const toAboveLeft = distance < 0 ? -distance : distance;
+        const predictor =
+          toLeft <= toAbove && toLeft <= toAboveLeft
+            ? left
+            : toAbove <= toAboveLeft
+              ? above
+              : aboveLeft;
+        cur[x] = (raw[offset + x] + predictor) & 0xff;
+      }
+      return;
     default:
       throw new Error(`Unsupported scanline filter type: ${filterType}`);
   }
 }
 
-function paethPredictor(left, above, aboveLeft) {
-  const estimate = left + above - aboveLeft;
-  const distanceToLeft = Math.abs(estimate - left);
-  const distanceToAbove = Math.abs(estimate - above);
-  const distanceToAboveLeft = Math.abs(estimate - aboveLeft);
-  if (
-    distanceToLeft <= distanceToAbove &&
-    distanceToLeft <= distanceToAboveLeft
-  ) {
-    return left;
-  }
-  return distanceToAbove <= distanceToAboveLeft ? above : aboveLeft;
-}
-
 function writeRowAsRgba(pixels, y, width, channels, row) {
   const rowStart = y * width * 4;
+  if (channels === 4) {
+    pixels.set(row.subarray(0, width * 4), rowStart);
+    return;
+  }
   for (let x = 0; x < width; x += 1) {
     const src = x * channels;
     const dst = rowStart + x * 4;

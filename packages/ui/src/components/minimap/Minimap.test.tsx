@@ -78,7 +78,9 @@ describe('Minimap', () => {
       />,
     );
 
-    expect(screen.getByRole('img', { name: 'a11y.minimap' })).toBeDefined();
+    expect(
+      screen.getByRole('application', { name: 'a11y.minimap' }),
+    ).toBeDefined();
   });
 
   it('llama getInitialViewportBounds en el montaje', () => {
@@ -151,7 +153,7 @@ describe('Minimap', () => {
       />,
     );
 
-    const canvas = screen.getByRole('img', { name: 'a11y.minimap' });
+    const canvas = screen.getByRole('application', { name: 'a11y.minimap' });
 
     Object.defineProperty(canvas, 'getBoundingClientRect', {
       value: () => ({ left: 0, top: 0, width: 160, height: 160 }),
@@ -185,7 +187,7 @@ describe('Minimap', () => {
       />,
     );
 
-    const canvas = screen.getByRole('img', { name: 'a11y.minimap' });
+    const canvas = screen.getByRole('application', { name: 'a11y.minimap' });
     Object.defineProperty(canvas, 'getBoundingClientRect', {
       value: () => ({ left: 0, top: 0, width: 160, height: 160 }),
     });
@@ -226,5 +228,97 @@ describe('Minimap', () => {
 
     // The pre-render effect fills the offscreen canvas with terrain color
     expect(mockCtx.fillRect).toHaveBeenCalled();
+  });
+
+  it('repinta con la paleta del tema activo cuando esta cambia', () => {
+    const fills: string[] = [];
+    mockCtx.fillRect.mockImplementation(() => {
+      fills.push(String(mockCtx.fillStyle));
+    });
+    const props = {
+      cityData: mockCityData,
+      subscribeViewport: vi.fn(() => vi.fn()),
+      getInitialViewportBounds: vi.fn(() => null),
+      navigateTo: vi.fn(),
+    };
+
+    const { rerender } = render(
+      <Minimap
+        {...props}
+        palette={{ water: '#111111', land: '#222222', highway: '#333333' }}
+      />,
+    );
+    expect(fills).toContain('#111111');
+
+    rerender(
+      <Minimap
+        {...props}
+        palette={{ water: '#aabbcc', land: '#ddeeff', highway: '#445566' }}
+      />,
+    );
+    expect(fills).toContain('#aabbcc');
+
+    mockCtx.fillRect.mockReset();
+  });
+});
+
+describe('keyboard navigation', () => {
+  const bounds = {
+    westLng: -0.5,
+    eastLng: 0.5,
+    northLat: 0.5,
+    southLat: -0.5,
+  };
+
+  function renderForKeyboard() {
+    const navigateTo = vi.fn();
+    render(
+      <Minimap
+        cityData={mockCityData}
+        subscribeViewport={(cb) => {
+          cb(bounds);
+          return () => {};
+        }}
+        getInitialViewportBounds={() => bounds}
+        navigateTo={navigateTo}
+      />,
+    );
+    const canvas = screen.getByRole('application', { name: 'a11y.minimap' });
+    return { canvas, navigateTo };
+  }
+
+  it('is reachable by keyboard and describes its own commands', () => {
+    const { canvas } = renderForKeyboard();
+    expect(canvas).toHaveAttribute('tabindex', '0');
+    expect(canvas).toHaveAttribute('aria-describedby');
+  });
+
+  it('pans by a fixed step on each arrow key', () => {
+    const { canvas, navigateTo } = renderForKeyboard();
+
+    fireEvent.keyDown(canvas, { key: 'ArrowRight' });
+    const [rightLng, rightLat] = navigateTo.mock.calls[0] as [number, number];
+    expect(rightLng).toBeGreaterThan(0);
+    expect(rightLat).toBeCloseTo(0);
+
+    fireEvent.keyDown(canvas, { key: 'ArrowUp' });
+    const [upLng, upLat] = navigateTo.mock.calls[1] as [number, number];
+    expect(upLng).toBeCloseTo(0);
+    expect(upLat).toBeGreaterThan(0);
+  });
+
+  it('recentres on the city with Enter', () => {
+    const { canvas, navigateTo } = renderForKeyboard();
+    fireEvent.keyDown(canvas, { key: 'Enter' });
+    expect(navigateTo).toHaveBeenCalledTimes(1);
+    const [lng, lat] = navigateTo.mock.calls[0] as [number, number];
+    expect(lng).toBeCloseTo(0);
+    expect(lat).toBeCloseTo(0);
+  });
+
+  it('ignores keys it does not handle', () => {
+    const { canvas, navigateTo } = renderForKeyboard();
+    fireEvent.keyDown(canvas, { key: 'a' });
+    expect(navigateTo).not.toHaveBeenCalled();
   });
 });

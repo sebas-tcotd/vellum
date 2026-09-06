@@ -49,7 +49,7 @@ export function EmptyState() {
               className="text-xs py-0.5 px-1.5 border border-(--color-border) rounded-sm bg-black/4"
               style={{ fontFamily: 'var(--font-mono)' }}
             >
-              {t('emptyState.openShortcut')}
+              {navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'} + O
             </kbd>
           </p>
         </DropZone>

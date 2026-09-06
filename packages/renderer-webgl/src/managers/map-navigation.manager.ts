@@ -10,9 +10,32 @@ import type { ViewportBounds } from '../types/renderer.types';
  * Strict mode: hard pan/zoom bounds. Soft mode: allows overpanning with
  * snap-back and underzooming down to 25% of fit-to-screen zoom.
  */
+/**
+ * Whether the user has asked for reduced motion.
+ *
+ * @remarks
+ * Read at call time rather than cached: the preference can change while the
+ * app is open, and a camera command is infrequent enough that one media query
+ * costs nothing. Falls back to "motion is fine" wherever `matchMedia` is
+ * unavailable, such as a test environment.
+ */
+function prefersReducedMotion(): boolean {
+  return (
+    typeof window !== 'undefined' &&
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  );
+}
+
 export class MapNavigationManager {
   private navigationMode: 'strict' | 'soft' = 'soft';
   private fitToScreenZoom = 0;
+  /**
+   * Area of the canvas covered by shell chrome, in CSS pixels. The map is
+   * rendered edge to edge so it stays visible behind translucent chrome, so
+   * every framing operation has to keep the city inside the *visible* part.
+   */
+  private viewportPadding = { top: 0, right: 0, bottom: 0, left: 0 };
   private isSnappingBack = false;
   private currentCityData: CityData | null = null;
   private onMoveEndBound: () => void;
@@ -37,10 +60,44 @@ export class MapNavigationManager {
     this.applyConstraints(cityData);
   }
 
+  /**
+   * Sets the area of the canvas that shell chrome covers.
+   *
+   * @remarks
+   * Only affects framing — never the camera's current position — so calling it
+   * while the user is panning does not yank the map.
+   */
+  setViewportPadding(
+    padding: Partial<{
+      top: number;
+      right: number;
+      bottom: number;
+      left: number;
+    }>,
+  ): void {
+    this.viewportPadding = { ...this.viewportPadding, ...padding };
+  }
+
+  /** Fit padding: the base breathing room plus whatever chrome covers. */
+  private framePadding(): {
+    top: number;
+    right: number;
+    bottom: number;
+    left: number;
+  } {
+    const base = 20;
+    return {
+      top: base + this.viewportPadding.top,
+      right: base + this.viewportPadding.right,
+      bottom: base + this.viewportPadding.bottom,
+      left: base + this.viewportPadding.left,
+    };
+  }
+
   /** Fits the MapLibre viewport to the city's geographic bounding box. */
   fitToCityBounds(cityData: CityData): void {
     this.map.fitBounds(getCityBoundsGeoJSON(cityData), {
-      padding: 20,
+      padding: this.framePadding(),
       animate: false,
     });
   }
@@ -121,12 +178,14 @@ export class MapNavigationManager {
    */
   rotateBy(deltaDegrees: number): void {
     const current = this.map.getBearing();
-    this.map.rotateTo(current + deltaDegrees, { duration: 200 });
+    this.map.rotateTo(current + deltaDegrees, {
+      duration: prefersReducedMotion() ? 0 : 200,
+    });
   }
 
   /** Resets the map bearing to 0° (north up) with an animated transition. */
   resetBearing(): void {
-    this.map.rotateTo(0, { duration: 300 });
+    this.map.rotateTo(0, { duration: prefersReducedMotion() ? 0 : 300 });
   }
 
   /** Returns the current bearing in degrees (0 = north up). */
@@ -194,7 +253,11 @@ export class MapNavigationManager {
           [swLng, swLat],
           [neLng, neLat],
         ],
-        { padding: 20, animate: true, duration: 300 },
+        {
+          padding: this.framePadding(),
+          animate: !prefersReducedMotion(),
+          duration: prefersReducedMotion() ? 0 : 300,
+        },
       );
       this.map.once('moveend', () => {
         this.isSnappingBack = false;

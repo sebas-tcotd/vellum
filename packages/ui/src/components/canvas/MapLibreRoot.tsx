@@ -11,20 +11,36 @@ import type {
 import type {
   ServiceIconLegendState,
   TooltipInfo,
+  ViewportBounds,
 } from '@vellum/renderer-webgl';
 import { MapLibreRenderer } from '@vellum/renderer-webgl';
 import {
   DEFAULT_RENDER_STYLE_PARAMS,
   type LoadedTheme,
 } from '@vellum/theme-engine';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useVellumStore } from '../../store/vellum-store';
-import { Minimap } from '../minimap/Minimap';
-import { MapTooltip } from '../overlays/MapTooltip';
 import { useRendererCommandRefs } from './use-renderer-command-refs';
 
 const EMPTY_THEMES: readonly LoadedTheme[] = [];
+
+/**
+ * The map behaviour the viewport's overlays need, without handing them the
+ * renderer itself.
+ *
+ * @remarks
+ * Overlays orient and navigate; they never render, configure or dispose. This
+ * port is the whole of what crosses that line, so `MapViewport` can own
+ * overlay placement while the renderer keeps owning the map (AD-5).
+ */
+export interface MapViewportPort {
+  subscribeViewport: (callback: (bounds: ViewportBounds) => void) => () => void;
+  subscribeHover: (callback: (info: TooltipInfo | null) => void) => () => void;
+  getInitialViewportBounds: () => ViewportBounds | null;
+  navigateTo: (lng: number, lat: number) => void;
+  getBearing: () => number;
+}
 
 /** Props for the `MapLibreRoot` component. Mirrors `CanvasRoot` props for drop-in replacement. */
 export interface MapLibreRootProps {
@@ -44,8 +60,13 @@ export interface MapLibreRootProps {
   rotateByRef?: React.RefObject<((delta: number) => void) | null>;
   /** Ref populated with a `resetBearing()` callback. */
   resetBearingRef?: React.RefObject<(() => void) | null>;
-  /** When true, hides Minimap and MapTooltip for an unobstructed view of the map. */
-  isCleanMode?: boolean;
+  /** Area of the canvas covered by shell chrome, so framing avoids it. */
+  viewportPadding?: { left: number };
+  /**
+   * Populated with the map behaviour the viewport's overlays consume.
+   * Mirrors the imperative-ref pattern the camera commands already use.
+   */
+  portRef?: React.RefObject<MapViewportPort | null>;
   /** All loaded themes. The active one (by `activeTheme` in the store) is applied via `applyTheme`. */
   themes?: readonly LoadedTheme[];
   /**
@@ -89,7 +110,8 @@ export function MapLibreRoot({
   toggleNavigationModeRef,
   rotateByRef,
   resetBearingRef,
-  isCleanMode = false,
+  portRef,
+  viewportPadding,
   themes = EMPTY_THEMES,
   subscribeServiceIconLegendRef,
   previewCaptureRef,
@@ -100,12 +122,6 @@ export function MapLibreRoot({
   const containerRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<MapLibreRenderer | null>(null);
   const unlistenRef = useRef<UnlistenFn | null>(null);
-  const containerDimRef = useRef<{ width: number; height: number }>({
-    width: 0,
-    height: 0,
-  });
-
-  const [tooltipInfo, setTooltipInfo] = useState<TooltipInfo | null>(null);
 
   useRendererCommandRefs(rendererRef, {
     fitToScreenRef,
@@ -121,7 +137,6 @@ export function MapLibreRoot({
   });
 
   const cityData = useVellumStore((s) => s.cityData);
-  const loadingState = useVellumStore((s) => s.loadingState);
   const activeTheme = useVellumStore((s) => s.activeTheme);
   const transitDimmingEnabled = useVellumStore((s) => s.transitDimmingEnabled);
   const layerOptions = useVellumStore((s) => s.layerOptions);
@@ -150,7 +165,13 @@ export function MapLibreRoot({
   // Re-render when cityData changes
   useEffect(() => {
     if (!cityData || !rendererRef.current) return;
-    rendererRef.current
+    const renderer = rendererRef.current;
+    // Commit point of the load transaction: the outgoing city's sources and
+    // layers are torn down only now that a replacement has actually parsed.
+    // The layer ids are fixed, so re-adding them over a live style would fail
+    // every step and strand the old geometry.
+    renderer.clear();
+    renderer
       .render(cityData, {
         activeLayers: activeLayers ?? {
           terrain: true,
@@ -161,6 +182,22 @@ export function MapLibreRoot({
           forests: true,
           districts: true,
         },
+      })
+      .then(() => {
+        // A toggle can arrive while the async style/source setup is pending.
+        // The visibility effect above cannot reach layers that do not exist yet,
+        // so re-apply the latest store snapshot once the initial render settles.
+        if (rendererRef.current !== renderer) return;
+        const latestLayers = useVellumStore.getState().activeLayers;
+        for (const [layer, visible] of Object.entries(latestLayers) as [
+          keyof LayerVisibility,
+          boolean,
+        ][]) {
+          renderer.setLayerVisibility(layer, visible);
+        }
+        renderer.setWatermarkVisibility(
+          (Object.values(latestLayers) as boolean[]).every((v) => !v),
+        );
       })
       // A rejection here truncates the layer stack and skips the camera fit, so it
       // must never be swallowed: `void render(...)` hid exactly that failure mode.
@@ -200,21 +237,6 @@ export function MapLibreRoot({
     };
   }, [activeTheme, themes, transitDimmingEnabled, cityData]);
 
-  // Clear the map when loading starts so the old map doesn't linger
-  useEffect(() => {
-    if (loadingState !== 'loading' || !rendererRef.current) return;
-
-    setTooltipInfo(null);
-
-    // Keep the old map visible during the CSS opacity transition (500ms) so the
-    // fade-out looks smooth, then clean up the map data once the transition completes
-    const timer = setTimeout(() => {
-      rendererRef.current?.clear();
-    }, 500);
-
-    return () => clearTimeout(timer);
-  }, [loadingState]);
-
   // Sync layer visibility whenever activeLayers changes
   useEffect(() => {
     if (!activeLayers || !rendererRef.current) return;
@@ -228,57 +250,54 @@ export function MapLibreRoot({
     renderer.setWatermarkVisibility(allLayersDisabled);
   }, [activeLayers, allLayersDisabled]);
 
+  // Keep the renderer's framing padding in step with the chrome overlaying it.
+  // Applied before the render effect's fit runs on a fresh city.
+  const paddingLeft = viewportPadding?.left ?? 0;
+  useEffect(() => {
+    rendererRef.current?.setViewportPadding({ left: paddingLeft });
+  }, [paddingLeft]);
+
   // Sync advanced per-layer filters (transit-mode filter, buildings RICO filter)
   useEffect(() => {
     rendererRef.current?.setLayerOptions(layerOptions);
   }, [layerOptions]);
 
-  // Stable callbacks for Minimap — empty deps to avoid re-subscriptions on every render
-  const subscribeViewport = useCallback(
-    (cb: Parameters<MapLibreRenderer['subscribeViewport']>[0]) =>
-      rendererRef.current?.subscribeViewport(cb) ?? (() => {}),
-    [],
-  );
+  // Publish the overlay port. Every function reads the renderer at call time,
+  // so the port object stays stable and overlays never resubscribe.
+  useEffect(() => {
+    if (!portRef) return;
+    const port: MapViewportPort = {
+      subscribeViewport: (cb) =>
+        rendererRef.current?.subscribeViewport(cb) ?? (() => {}),
+      subscribeHover: (cb) =>
+        rendererRef.current?.subscribeHover(cb) ?? (() => {}),
+      getInitialViewportBounds: () =>
+        rendererRef.current?.getInitialViewportBounds() ?? null,
+      navigateTo: (lng, lat) => rendererRef.current?.navigateTo(lng, lat),
+      getBearing: () => rendererRef.current?.getBearing() ?? 0,
+    };
+    portRef.current = port;
+    return () => {
+      if (portRef.current === port) portRef.current = null;
+    };
+  }, [portRef]);
 
-  const getInitialViewportBounds = useCallback(
-    () => rendererRef.current?.getInitialViewportBounds() ?? null,
-    [],
-  );
-
-  const navigateTo = useCallback((lng: number, lat: number) => {
-    rendererRef.current?.navigateTo(lng, lat);
-  }, []);
-
-  const subscribeHover = useCallback(
-    (cb: Parameters<MapLibreRenderer['subscribeHover']>[0]) =>
-      rendererRef.current?.subscribeHover(cb) ?? (() => {}),
-    [],
-  );
-
-  // Track container dimensions for edge-aware tooltip positioning
+  // Keep the MapLibre canvas in step with its container.
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
     const observer = new ResizeObserver((entries) => {
       const entry = entries[0];
       if (entry) {
-        containerDimRef.current = {
-          width: entry.contentRect.width,
-          height: entry.contentRect.height,
-        };
+        const { width, height } = entry.contentRect;
+        if (width > 0 && height > 0) {
+          rendererRef.current?.resize(width, height);
+        }
       }
     });
     observer.observe(el);
     return () => observer.disconnect();
   }, []);
-
-  // Subscribe to hover events for tooltip
-  useEffect(() => {
-    const unsub = subscribeHover((info) => {
-      setTooltipInfo(info);
-    });
-    return unsub;
-  }, [subscribeHover]);
 
   // Tauri native drag-drop — mirrors CanvasRoot implementation
   useEffect(() => {
@@ -330,22 +349,6 @@ export function MapLibreRoot({
         overflow: 'hidden',
         position: 'relative',
       }}
-    >
-      {cityData && !isCleanMode && (
-        <Minimap
-          cityData={cityData}
-          subscribeViewport={subscribeViewport}
-          getInitialViewportBounds={getInitialViewportBounds}
-          navigateTo={navigateTo}
-        />
-      )}
-      <MapTooltip
-        info={
-          containerDimRef.current.width > 0 && !isCleanMode ? tooltipInfo : null
-        }
-        containerWidth={containerDimRef.current.width}
-        containerHeight={containerDimRef.current.height}
-      />
-    </div>
+    ></div>
   );
 }

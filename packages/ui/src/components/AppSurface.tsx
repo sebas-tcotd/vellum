@@ -1,14 +1,16 @@
 import {
-  Suspense,
   type Dispatch,
   type RefObject,
   type SetStateAction,
+  Suspense,
+  useState,
 } from 'react';
 import { openUrl } from '@tauri-apps/plugin-opener';
-import type { LayerName } from '@vellum/core';
+import { invoke } from '@tauri-apps/api/core';
+import { IPC_COMMANDS, type LayerName } from '@vellum/core';
 import type { ServiceIconLegendState } from '@vellum/renderer-webgl';
 import type { MapLibreRootProps } from './canvas/MapLibreRoot';
-import { MapLibreRoot } from './canvas/MapLibreRoot';
+import { MapViewport } from './viewport/MapViewport';
 import { EmptyState } from './empty-state/EmptyState';
 import { ProgressBar } from './overlays/ProgressBar';
 import { ErrorToast } from './overlays/ErrorToast';
@@ -16,13 +18,18 @@ import { PartialParseDialog } from './overlays/PartialParseDialog';
 import { DlcWarningToast } from './overlays/DlcWarningToast';
 import { ThemeWarningToast } from './overlays/ThemeWarningToast';
 import { UpdateToast } from './overlays/UpdateToast';
+import { AboutDialog } from './overlays/AboutDialog';
 import { ExportStatusOverlay } from './overlays/ExportStatusOverlay';
-import { FloatingLayerPanel } from './panels/FloatingLayerPanel';
 import { ExportDialog } from './panels/ExportDialog';
 import { PreferencesPanel } from './panels/PreferencesPanel';
-import { IconLegend } from './panels/IconLegend';
+import { DesktopShell } from './shell';
+import { MapAppearanceSidebar } from './sidebar/MapAppearanceSidebar';
+import type { CommandRegistry } from '../shell/commands';
+import type { ShellSession } from '../shell/shell-session';
 import type { useExportWorkflow } from '../hooks/use-export-workflow';
-import { cn } from '../lib/utils';
+// Relativo a propósito: el alias `@/` del composition root apunta a
+// `packages/ui/src`, así que un `@/store/...` compilado a dist carga un SEGUNDO
+// módulo del store — el resto del paquete quedaría suscrito a otra instancia.
 import { useVellumStore } from '../store/vellum-store';
 
 interface AppSurfaceProps {
@@ -32,9 +39,14 @@ interface AppSurfaceProps {
   >;
   iconLegendToggleRef: RefObject<(() => void) | null>;
   exportWorkflow: ReturnType<typeof useExportWorkflow>;
+  commands: CommandRegistry;
+  shell: ShellSession;
   isCleanMode: boolean;
   isPreferencesOpen: boolean;
   setIsPreferencesOpen: Dispatch<SetStateAction<boolean>>;
+  isAboutOpen: boolean;
+  setIsAboutOpen: Dispatch<SetStateAction<boolean>>;
+  version?: string | undefined;
   loadFilePartial: () => Promise<void>;
   onOpenExportFolder?: (folderPath: string) => Promise<void>;
   onDlcDismiss: () => void;
@@ -47,9 +59,14 @@ export function AppSurface({
   subscribeServiceIconLegendRef,
   iconLegendToggleRef,
   exportWorkflow,
+  commands,
+  shell,
   isCleanMode,
   isPreferencesOpen,
   setIsPreferencesOpen,
+  isAboutOpen,
+  setIsAboutOpen,
+  version,
   loadFilePartial,
   onOpenExportFolder,
   onDlcDismiss,
@@ -66,8 +83,13 @@ export function AppSurface({
   const themeWarnings = useVellumStore((state) => state.themeWarnings);
   const updateInfo = useVellumStore((state) => state.updateInfo);
   const setUpdateInfo = useVellumStore((state) => state.setUpdateInfo);
+  const autoUpdateEnabled = useVellumStore((state) => state.autoUpdateEnabled);
 
   const showEmptyState = cityData === null && loadingState !== 'loading';
+  // How much of the map the sidebar covers, measured from the rendered element
+  // so platform insets are included without this having to know about them.
+  const [sidebarWidth, setSidebarWidth] = useState(0);
+  const mapInset = { left: cityData === null ? 0 : sidebarWidth };
   const showPartialParseDialog =
     loadingState === 'error' && loadingError?.type === 'PartialParse';
   const showErrorToast =
@@ -86,15 +108,27 @@ export function AppSurface({
   return (
     <Suspense fallback={null}>
       <div style={{ width: '100vw', height: '100vh', position: 'relative' }}>
-        <div
-          data-testid="canvas-wrapper"
-          className={cn(
-            'absolute inset-0 transition-opacity duration-500',
-            cityData ? 'opacity-100' : 'opacity-0 pointer-events-none',
-          )}
-        >
-          <MapLibreRoot {...mapProps} />
-        </div>
+        <DesktopShell>
+          <div className="desktop-shell__body">
+            {cityData !== null && (
+              <MapAppearanceSidebar
+                cityName={cityData.cityName}
+                fileName={cityData.fileName}
+                commands={commands}
+                shell={shell}
+                onOccupiedWidthChange={setSidebarWidth}
+              />
+            )}
+            <MapViewport
+              mapProps={mapProps}
+              commands={commands}
+              isCleanView={isCleanMode}
+              mapInset={mapInset}
+              subscribeServiceIconLegendRef={subscribeServiceIconLegendRef}
+              iconLegendToggleRef={iconLegendToggleRef}
+            />
+          </div>
+        </DesktopShell>
         {showEmptyState && <EmptyState />}
         {loadingState === 'loading' && <ProgressBar />}
         {showPartialParseDialog && loadingError?.type === 'PartialParse' && (
@@ -130,26 +164,14 @@ export function AppSurface({
                 console.warn('App: failed to open release notes URL', error);
               });
             }}
+            // The preference no longer decides silently at startup — it just
+            // decides whether the toast offers to install. Toggling it takes
+            // effect on the toast already on screen.
+            {...(autoUpdateEnabled
+              ? { onInstall: () => invoke<void>(IPC_COMMANDS.INSTALL_UPDATE) }
+              : {})}
             onDismiss={() => setUpdateInfo(null)}
           />
-        )}
-        {cityData !== null && loadingState !== 'loading' && (
-          <div
-            className={
-              isCleanMode ? 'invisible pointer-events-none' : undefined
-            }
-          >
-            <FloatingLayerPanel
-              cityName={cityData.cityName}
-              fileName={cityData.fileName}
-              onOpenExport={exportWorkflow.handleOpenExport}
-              exportDisabled={exportWorkflow.isExporting}
-            />
-            <IconLegend
-              subscribeRef={subscribeServiceIconLegendRef}
-              toggleRef={iconLegendToggleRef}
-            />
-          </div>
         )}
         {cityData !== null && (
           <ExportDialog
@@ -198,6 +220,11 @@ export function AppSurface({
         <PreferencesPanel
           open={isPreferencesOpen}
           onOpenChange={setIsPreferencesOpen}
+        />
+        <AboutDialog
+          open={isAboutOpen}
+          onOpenChange={setIsAboutOpen}
+          version={version}
         />
         <ExportStatusOverlay
           isExporting={exportWorkflow.isExporting}

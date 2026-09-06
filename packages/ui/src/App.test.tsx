@@ -132,6 +132,7 @@ vi.mock('./store/preferences-store', () => ({
 
 vi.mock('./components/canvas/MapLibreRoot', () => ({
   MapLibreRoot: ({
+    activeLayers,
     previewCaptureRef,
     snapshotCaptureRef,
     svgSnapshotCaptureRef,
@@ -152,6 +153,7 @@ vi.mock('./components/canvas/MapLibreRoot', () => ({
         ) => SvgExportSnapshot | null)
       | null
     >;
+    activeLayers?: import('@vellum/core').LayerVisibility;
   }) => {
     if (previewCaptureRef) {
       previewCaptureRef.current = mockPreviewCapture;
@@ -162,7 +164,12 @@ vi.mock('./components/canvas/MapLibreRoot', () => ({
     if (svgSnapshotCaptureRef) {
       svgSnapshotCaptureRef.current = () => mockSvgSnapshot;
     }
-    return <div data-testid="maplibre-root" />;
+    return (
+      <div
+        data-testid="maplibre-root"
+        data-roads-visible={String(activeLayers?.roads ?? '')}
+      />
+    );
   },
 }));
 
@@ -319,6 +326,67 @@ describe('App — renderizado condicional', () => {
 
     const canvasWrapper = screen.getByTestId('canvas-wrapper');
     expect(canvasWrapper.className).toContain('opacity-100');
+  });
+
+  it('integra sidebar y mapa como superficies hermanas y Clean Mode libera el drawer', async () => {
+    useVellumStore.getState().setCityData(mockCityData);
+    await act(async () => {
+      render(<App />);
+    });
+
+    const shell = screen.getByTestId('desktop-shell');
+    const sidebar = screen.getByTestId('shell-sidebar');
+    const mapSurface = screen.getByTestId('map-surface');
+    // Sidebar and map are siblings in the shell's layout row; the document
+    // command strip is the row above them, not a third column.
+    const body = sidebar.parentElement;
+    expect(body).not.toBeNull();
+    expect(body?.className).toContain('desktop-shell__body');
+    expect(body?.children).toContain(mapSurface);
+    expect(shell.children).toContain(body);
+    // Document commands float over the map's top-right corner; the shell has
+    // no chrome band of its own above the map.
+    expect(
+      screen
+        .getByTestId('map-surface')
+        .contains(screen.getByTestId('document-command-group')),
+    ).toBe(true);
+    expect(screen.getByTestId('map-tools')).toContainElement(
+      screen.getByTestId('document-command-group'),
+    );
+    expect(screen.getByTestId('map-tools')).toContainElement(
+      screen.getByTestId('camera-control-group'),
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'sidebar.collapse' }));
+    expect(sidebar).toHaveAttribute('data-state', 'collapsed');
+
+    const shortcutOptions = vi
+      .mocked(useKeyboardShortcuts)
+      .mock.calls.at(-1)?.[0];
+    act(() => shortcutOptions?.onHidePanel?.());
+    expect(sidebar).toHaveAttribute('hidden');
+
+    act(() => shortcutOptions?.onHidePanel?.());
+    expect(sidebar).not.toHaveAttribute('hidden');
+    expect(sidebar).toHaveAttribute('data-state', 'collapsed');
+  });
+
+  it('propaga activeLayers al renderer para que los toggles afecten el mapa', async () => {
+    useVellumStore.getState().setCityData(mockCityData);
+    await act(async () => {
+      render(<App />);
+    });
+
+    const map = screen.getByTestId('maplibre-root');
+    const initialRoads = useVellumStore.getState().activeLayers.roads;
+    expect(map).toHaveAttribute('data-roads-visible', String(initialRoads));
+
+    act(() => {
+      useVellumStore.getState().toggleLayer('roads');
+    });
+
+    expect(map).toHaveAttribute('data-roads-visible', String(!initialRoads));
   });
 });
 
@@ -1459,5 +1527,199 @@ describe('App — exportación parcial y advertencias (Story 6.4)', () => {
         screen.queryByText('exportWarnings.svgUnsupportedPresentation'),
       ).toBeNull();
     });
+  });
+});
+
+describe('App — shell state machine and command parity', () => {
+  const shortcuts = () => vi.mocked(useKeyboardShortcuts).mock.lastCall?.[0];
+
+  it('resolves one transient state per Escape, deepest first', async () => {
+    useVellumStore.getState().setCityData(mockCityData);
+    await act(async () => {
+      render(<App />);
+    });
+
+    // Open a layer detail the way the Layers menu does.
+    act(() => shortcuts()?.onOpenAdvancedOptions?.('transit'));
+    expect(screen.getByTestId('layer-detail-back')).toBeInTheDocument();
+
+    // Then enter Clean view on top of it.
+    act(() => shortcuts()?.onHidePanel?.());
+    expect(screen.getByTestId('shell-sidebar')).toHaveAttribute('hidden');
+
+    // First Escape leaves the layer detail; Clean view survives it.
+    act(() => shortcuts()?.onEscape?.());
+    expect(screen.getByTestId('shell-sidebar')).toHaveAttribute('hidden');
+
+    // Second Escape leaves Clean view, and the sidebar comes back on overview.
+    act(() => shortcuts()?.onEscape?.());
+    const sidebar = screen.getByTestId('shell-sidebar');
+    expect(sidebar).not.toHaveAttribute('hidden');
+    expect(screen.queryByTestId('layer-detail-back')).toBeNull();
+  });
+
+  it('never exits the app when there is nothing left to close', async () => {
+    useVellumStore.getState().setCityData(mockCityData);
+    await act(async () => {
+      render(<App />);
+    });
+
+    act(() => shortcuts()?.onEscape?.());
+    expect(screen.getByTestId('shell-sidebar')).toBeInTheDocument();
+    expect(screen.getByTestId('map-surface')).toBeInTheDocument();
+  });
+
+  it('refuses to enter Clean view while a recoverable-parse dialog is open', async () => {
+    useVellumStore.getState().setCityData(mockCityData);
+    await act(async () => {
+      render(<App />);
+    });
+
+    act(() => {
+      useVellumStore
+        .getState()
+        .setLoadingState('error', { type: 'PartialParse', warnings: ['x'] });
+    });
+    expect(screen.getByTestId('partial-parse-dialog')).toBeInTheDocument();
+
+    act(() => shortcuts()?.onHidePanel?.());
+    // The blocking surface owns the screen; Clean view cannot start under it.
+    expect(screen.getByTestId('shell-sidebar')).not.toHaveAttribute('hidden');
+  });
+
+  it('opens the same export dialog from the floating command and the shortcut', async () => {
+    useVellumStore.getState().setCityData(mockCityData);
+    await act(async () => {
+      render(<App rasterExporter={mockRasterExporter} />);
+    });
+
+    const floatingExport = screen
+      .getByTestId('document-command-group')
+      .querySelector('[data-focus-id="document-export"]');
+    expect(floatingExport).not.toBeNull();
+
+    await act(async () => {
+      fireEvent.click(floatingExport as HTMLElement);
+    });
+    // The dialog is open: its own Export button joins the floating one.
+    expect(
+      screen.getAllByRole('button', { name: 'export.exportButton' }).length,
+    ).toBeGreaterThan(1);
+  });
+
+  it('keeps export off the appearance sidebar', async () => {
+    useVellumStore.getState().setCityData(mockCityData);
+    await act(async () => {
+      render(<App rasterExporter={mockRasterExporter} />);
+    });
+
+    const sidebar = screen.getByTestId('shell-sidebar');
+    expect(sidebar.textContent).not.toMatch(/export/i);
+    // It lives on the document route instead.
+    expect(
+      screen
+        .getByTestId('document-command-group')
+        .querySelector('[data-focus-id="document-export"]'),
+    ).not.toBeNull();
+  });
+
+  it('shows no sidebar, camera controls or minimap before a map exists', async () => {
+    await act(async () => {
+      render(<App />);
+    });
+
+    expect(screen.queryByTestId('shell-sidebar')).toBeNull();
+    expect(screen.queryByTestId('camera-control-group')).toBeNull();
+    expect(screen.queryByTestId('document-command-group')).toBeNull();
+  });
+});
+
+describe('App — sidebar routes and window adaptation', () => {
+  const shortcuts = () => vi.mocked(useKeyboardShortcuts).mock.lastCall?.[0];
+
+  function resizeWindowTo(width: number) {
+    act(() => {
+      Object.defineProperty(window, 'innerWidth', {
+        configurable: true,
+        writable: true,
+        value: width,
+      });
+      window.dispatchEvent(new Event('resize'));
+    });
+  }
+
+  it('collapses to the rail when the window gets too narrow, and restores it', async () => {
+    useVellumStore.getState().setCityData(mockCityData);
+    await act(async () => {
+      render(<App />);
+    });
+    const sidebar = screen.getByTestId('shell-sidebar');
+    expect(sidebar).toHaveAttribute('data-state', 'expanded');
+
+    resizeWindowTo(1000);
+    expect(sidebar).toHaveAttribute('data-state', 'collapsed');
+
+    resizeWindowTo(1440);
+    expect(sidebar).toHaveAttribute('data-state', 'expanded');
+  });
+
+  it('leaves a sidebar the user collapsed alone when the window grows', async () => {
+    useVellumStore.getState().setCityData(mockCityData);
+    await act(async () => {
+      render(<App />);
+    });
+    const sidebar = screen.getByTestId('shell-sidebar');
+
+    fireEvent.click(screen.getByRole('button', { name: 'sidebar.collapse' }));
+    expect(sidebar).toHaveAttribute('data-state', 'collapsed');
+
+    resizeWindowTo(1920);
+    expect(sidebar).toHaveAttribute('data-state', 'collapsed');
+  });
+
+  it('reaches the same sidebar toggle from the native menu as from its button', async () => {
+    useVellumStore.getState().setCityData(mockCityData);
+    await act(async () => {
+      render(<App />);
+    });
+    const sidebar = screen.getByTestId('shell-sidebar');
+
+    act(() => {
+      tauriEventHandlers.get('vellum://menu-action')?.({
+        payload: 'menu.toggle-sidebar',
+      });
+    });
+    expect(sidebar).toHaveAttribute('data-state', 'collapsed');
+
+    act(() => {
+      tauriEventHandlers.get('vellum://menu-action')?.({
+        payload: 'menu.toggle-sidebar',
+      });
+    });
+    expect(sidebar).toHaveAttribute('data-state', 'expanded');
+  });
+
+  it('ignores the sidebar command while a blocking dialog is open', async () => {
+    useVellumStore.getState().setCityData(mockCityData);
+    await act(async () => {
+      render(<App />);
+    });
+
+    act(() => {
+      useVellumStore
+        .getState()
+        .setLoadingState('error', { type: 'PartialParse', warnings: ['x'] });
+    });
+
+    act(() => {
+      tauriEventHandlers.get('vellum://menu-action')?.({
+        payload: 'menu.toggle-sidebar',
+      });
+    });
+    expect(screen.getByTestId('shell-sidebar')).toHaveAttribute(
+      'data-state',
+      'expanded',
+    );
+    expect(shortcuts()).toBeDefined();
   });
 });

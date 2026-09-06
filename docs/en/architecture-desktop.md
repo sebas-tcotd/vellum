@@ -41,15 +41,16 @@ user-facing API.
 
 ## Tauri commands
 
-| Command                                                                 | Source        | Purpose                                                                                |
-| ----------------------------------------------------------------------- | ------------- | -------------------------------------------------------------------------------------- |
-| `parse_cslmap`                                                          | `commands.rs` | Parses a `.cslmap` on a blocking thread and returns `CityData`.                        |
-| `get_startup_file_path`                                                 | `startup.rs`  | Returns and clears a `.cslmap` path supplied through the OS file association.          |
-| `load_themes`                                                           | `commands.rs` | Reads built-in `.vellumstyle` files.                                                   |
-| `export_png`                                                            | `commands.rs` | Writes already-rendered PNG bytes to disk.                                             |
-| `open_export_folder`                                                    | `commands.rs` | Reveals an exported file in the operating system's file browser.                       |
-| `begin_export`, `append_export_chunk`, `finish_export`, `cancel_export` | `commands.rs` | Manage a transactional tiled-export session.                                           |
-| `get_pending_update`                                                    | `updater.rs`  | Returns and clears an update notification that arrived before the UI listener mounted. |
+| Command                                                                 | Source        | Purpose                                                                                    |
+| ----------------------------------------------------------------------- | ------------- | ------------------------------------------------------------------------------------------ |
+| `parse_cslmap`                                                          | `commands.rs` | Parses a `.cslmap` on a blocking thread and returns `CityData`.                            |
+| `get_startup_file_path`                                                 | `startup.rs`  | Returns and clears a `.cslmap` path supplied through the OS file association.              |
+| `load_themes`                                                           | `commands.rs` | Reads built-in `.vellumstyle` files.                                                       |
+| `export_png`                                                            | `commands.rs` | Writes already-rendered PNG bytes to disk.                                                 |
+| `open_export_folder`                                                    | `commands.rs` | Reveals an exported file in the operating system's file browser.                           |
+| `begin_export`, `append_export_chunk`, `finish_export`, `cancel_export` | `commands.rs` | Manage a transactional tiled-export session.                                               |
+| `get_pending_update`                                                    | `updater.rs`  | Returns and clears an update notification that arrived before the UI listener mounted.     |
+| `install_update`                                                        | `updater.rs`  | Downloads and installs the pending update, then restarts — only ever on an explicit click. |
 
 ## Registered plugins and startup
 
@@ -74,15 +75,19 @@ panel.
 
 ## Preferences and updates
 
-`tauri-plugin-store` persists `preferences.json`. The UI owns preference writes;
-the desktop backend reads `autoUpdateEnabled` when the updater runs. The default is
-`false`.
+`tauri-plugin-store` persists `preferences.json`. The UI owns preference writes and
+is also the only reader of `autoUpdateEnabled` (default `false`): it decides whether
+the update toast offers an install button, so toggling it takes effect immediately
+rather than on the next launch.
 
 At startup, `updater::check_for_updates` checks GitHub Releases in the background.
 When it finds a newer version, it stores a pending payload and emits
-`vellum://update-available`. If automatic updates are enabled, it downloads,
-installs and restarts the app. `get_pending_update` covers the race where the
-event arrives before the frontend has mounted its listener.
+`vellum://update-available`. It never installs anything — downloading and restarting
+is always an explicit click on the toast, via the `install_update` command, so an
+update cannot discard an open map. A failure (e.g. a declined Windows UAC prompt)
+comes back as a message on the toast instead of failing silently.
+`get_pending_update` covers the race where the event arrives before the frontend has
+mounted its listener.
 
 ## Development commands
 
@@ -110,3 +115,51 @@ not in `apps/desktop`. This boundary is deliberate: replacing a native adapter
 should not require rewriting the domain or UI layers. The export pipeline is the
 most stateful native area because large maps are streamed through a transactional
 Rust session instead of being held as one giant buffer.
+
+## Map-first desktop shell
+
+The shell evolution defined by the
+[Vellum Desktop UX Incremental architecture spine](../../vellum-context/_bmad-output/planning-artifacts/architecture/architecture-vellum-2026-09-05/ARCHITECTURE-SPINE.md)
+is implemented. The change stayed inside `@vellum/ui`: `apps/desktop` is still
+the composition root, gained no new Tauri commands, and the parse, map, export,
+native-menu and preferences contracts are unchanged.
+
+What the shell now looks like:
+
+- **`ShellSession`** owns the ephemeral session — sidebar width, collapse and
+  overview/detail context, Clean view, one modal slot, focus restoration. It is
+  a local reducer, not a second global store. `useVellumStore` remains the only
+  owner of cartographic state.
+- **`DesktopCommandAdapter`** is the single route for every action with more
+  than one invocation surface. The native menu, keyboard shortcuts and the
+  shell's own buttons emit the same command and read the same availability.
+- **`MapAppearanceSidebar`** replaced `ShellSidebar` and `FloatingLayerPanel`.
+  Layer visibility and configuration disclosure are separate controls; export
+  is no longer an appearance concern and lives on the document route.
+- **`MapViewport`** owns overlay composition in one coordinate space, with an
+  overlay collision manager working from measured rectangles. `MapLibreRoot`
+  still owns rendering, camera and subscriptions, and publishes only a narrow
+  port for the overlays that need to orient or navigate.
+- **The sidebar floats over a full-bleed map**, translucent, so panning stays
+  legible beneath it — the treatment Apple's own HIG describes for sidebars in
+  the Liquid Glass layer. On macOS it is additionally inset from the window
+  edges and rounded, with the map continuing around it; platforms without a
+  reliable compositor effect keep it flush and opaque, from the same markup and
+  only different token values. The area it covers is measured from the rendered
+  element, so those platform insets are accounted for without any component
+  knowing which platform it is on. It also steps aside on its own when the
+  window becomes too narrow for it and returns when there is room again —
+  though never reopening one the user closed deliberately — and showing or
+  hiding it is a command with a View-menu route, not only a button on the
+  sidebar itself. There is no chrome band above the map: Open and Export
+  are a floating group in its upper-right corner. The viewport tells the
+  renderer how much of the canvas the sidebar covers, so framing the city never
+  puts part of it underneath.
+- **Opening a map is transactional.** A load no longer clears the current
+  document; a cancelled or failed replacement leaves the previous map, camera
+  and focus intact.
+
+Two things are deliberately absent. The pinnable entity card is not shipped:
+the renderer exposes no keyboard-navigable entity selection, and the spine
+forbids an interactive card without one — hover inspection is unchanged.
+Sidebar width is session-only; persisting it across launches remains deferred.

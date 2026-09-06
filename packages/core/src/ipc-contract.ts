@@ -11,6 +11,15 @@ import type { LayerName } from './types/layer';
  */
 export const IPC_COMMANDS = {
   GET_PENDING_UPDATE: 'get_pending_update',
+  /**
+   * Downloads and installs the pending update, then restarts the app.
+   *
+   * @remarks
+   * Always an explicit user action — the backend never installs on its own, so
+   * an update cannot discard an open map. Rejects with a message when the
+   * install fails (e.g. a declined Windows UAC prompt).
+   */
+  INSTALL_UPDATE: 'install_update',
   /** Returns (and clears) the `.cslmap` path the app was launched with via the OS file association, if any. */
   GET_STARTUP_FILE_PATH: 'get_startup_file_path',
   PARSE_CSLMAP: 'parse_cslmap',
@@ -18,6 +27,8 @@ export const IPC_COMMANDS = {
   OPEN_EXPORT_FOLDER: 'open_export_folder',
   LOAD_THEMES: 'load_themes',
   UPDATE_THEME_MENU: 'update_theme_menu',
+  UPDATE_MENU_LANGUAGE: 'update_menu_language',
+  TOGGLE_NATIVE_MENU: 'toggle_native_menu',
   /**
    * Opens a transactional export session. Invoked as `{ metadata }`.
    *
@@ -62,6 +73,7 @@ export const IPC_EVENTS = {
   UPDATE_AVAILABLE: 'vellum://update-available',
   PARSE_WARNINGS: 'vellum://parse-warnings',
   OPEN_PREFERENCES: 'vellum://open-preferences',
+  OPEN_ABOUT: 'vellum://open-about',
   MENU_ACTION: 'vellum://menu-action',
 } as const;
 
@@ -73,6 +85,7 @@ export type MenuAction =
   | 'menu.zoom-in'
   | 'menu.zoom-out'
   | 'menu.clean-mode'
+  | 'menu.toggle-sidebar'
   | 'menu.navigation-mode'
   | 'menu.icon-legend'
   | 'menu.rotate-left'

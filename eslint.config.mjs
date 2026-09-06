@@ -63,6 +63,17 @@ export default [
               message: 'Import from @vellum/ui, not internal paths',
             },
             {
+              // `@/*` solo existe como alias de Vite en apps/desktop (apunta a
+              // packages/ui/src). @vellum/ui se consume compilado (dist), así
+              // que un `@/...` dentro de packages/ui/src sobrevive intacto a tsc
+              // y termina resuelto por Vite contra SRC en vez de dist: cualquier
+              // módulo con estado (el store de Zustand, un singleton) queda
+              // duplicado en dos instancias que no se enteran entre sí.
+              group: ['@/*'],
+              message:
+                'El alias @/ solo lo resuelve Vite en apps/desktop apuntando a packages/ui/src; @vellum/ui se consume compilado (dist), así que sobrevive intacto y termina resolviendo contra src en vez de dist — usa una ruta relativa.',
+            },
+            {
               group: [
                 '@vellum/parser-cslmap/*',
                 '**/parser-cslmap/src/**',

@@ -12,6 +12,8 @@ const mockCapturePreview = vi.hoisted(() =>
     annotations: [],
   }),
 );
+const mockResize = vi.hoisted(() => vi.fn());
+let resizeObserverCallback: ResizeObserverCallback | null = null;
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key }),
@@ -27,6 +29,8 @@ vi.mock('@vellum/renderer-webgl', () => ({
   MapLibreRenderer: function MapLibreRenderer() {
     return {
       dispose: vi.fn(),
+      clear: vi.fn(),
+      setViewportPadding: vi.fn(),
       render: vi.fn().mockResolvedValue(undefined),
       subscribeViewport: vi.fn().mockReturnValue(() => {}),
       subscribeHover: vi.fn().mockReturnValue(() => {}),
@@ -35,6 +39,7 @@ vi.mock('@vellum/renderer-webgl', () => ({
       fitToScreen: vi.fn(),
       zoomIn: vi.fn(),
       zoomOut: vi.fn(),
+      resize: mockResize,
       setLayerVisibility: vi.fn(),
       setLayerOptions: vi.fn(),
       capturePreview: mockCapturePreview,
@@ -61,12 +66,18 @@ vi.mock('../../store/vellum-store', () => ({
 describe('MapLibreRoot — AC2: ARIA en contenedor canvas', () => {
   beforeEach(() => {
     mockCityData = null;
+    mockResize.mockClear();
+    resizeObserverCallback = null;
     vi.stubGlobal(
       'ResizeObserver',
-      function MockResizeObserver(this: {
-        observe: () => void;
-        disconnect: () => void;
-      }) {
+      function MockResizeObserver(
+        this: {
+          observe: () => void;
+          disconnect: () => void;
+        },
+        callback: ResizeObserverCallback,
+      ) {
+        resizeObserverCallback = callback;
         this.observe = vi.fn();
         this.disconnect = vi.fn();
       },
@@ -127,5 +138,23 @@ describe('MapLibreRoot — AC2: ARIA en contenedor canvas', () => {
       }),
     );
     expect(mockCapturePreview).toHaveBeenCalledOnce();
+  });
+
+  it('sincroniza MapLibre con cada tamaño final observado del layout', async () => {
+    render(<MapLibreRoot />);
+    await act(async () => {});
+
+    act(() => {
+      resizeObserverCallback?.(
+        [
+          {
+            contentRect: { width: 742, height: 600 },
+          } as ResizeObserverEntry,
+        ],
+        {} as ResizeObserver,
+      );
+    });
+
+    expect(mockResize).toHaveBeenCalledWith(742, 600);
   });
 });

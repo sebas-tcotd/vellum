@@ -20,6 +20,7 @@ import { useVellumStore } from '../store/vellum-store';
  * @returns The fully-loaded valid themes, or an empty array until loading resolves.
  */
 export function useThemes(): LoadedTheme[] {
+  const activeLanguage = useVellumStore((s) => s.activeLanguage);
   const setAvailableThemes = useVellumStore((s) => s.setAvailableThemes);
   const setThemeWarnings = useVellumStore((s) => s.setThemeWarnings);
   const [themes, setThemes] = useState<LoadedTheme[]>([]);
@@ -53,6 +54,7 @@ export function useThemes(): LoadedTheme[] {
           setAvailableThemes(metadata);
           void invoke(IPC_COMMANDS.UPDATE_THEME_MENU, {
             themes: metadata.map(({ id, name }) => ({ id, name })),
+            language: activeLanguage,
           }).catch((err: unknown) => {
             console.warn(
               '[useThemes] Failed to update native theme menu:',
@@ -80,7 +82,7 @@ export function useThemes(): LoadedTheme[] {
     return () => {
       isMounted.current = false;
     };
-  }, [setAvailableThemes, setThemeWarnings]);
+  }, [activeLanguage, setAvailableThemes, setThemeWarnings]);
 
   return themes;
 }
