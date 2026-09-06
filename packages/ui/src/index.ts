@@ -24,7 +24,18 @@ export type { LayerVisibilityRowProps } from './components/sidebar/LayerVisibili
 export { AppMetaProvider } from './context/AppMetaContext';
 export { PlatformProvider, usePlatform } from './context/PlatformContext';
 export type { Platform } from './context/PlatformContext';
-export { useTauriEvent } from './hooks/use-tauri-event';
+export {
+  NOOP_PLATFORM_SERVICES,
+  PlatformServicesProvider,
+  usePlatformServices,
+} from './context/PlatformServicesContext';
+export type {
+  PlatformServices,
+  PlatformServicesProviderProps,
+} from './context/PlatformServicesContext';
+export { setPreferencesPort } from './store/preferences-store';
+export type { PreferencesPort } from './store/preferences-store';
+export { useAppEvent } from './hooks/use-app-event';
 export { useThemes } from './hooks/use-themes';
 export { initI18n } from './i18n/i18n-setup';
 export { Button, buttonVariants } from './lib/button';

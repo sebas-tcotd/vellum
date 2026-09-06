@@ -17,12 +17,16 @@ import en from '../../i18n/locales/en.json';
 import es from '../../i18n/locales/es.json';
 import type { CityData } from '@vellum/core';
 
-vi.mock('@vellum/renderer-webgl', () => ({
-  csToGeoArray: ({ x, z }: { x: number; z: number }) => [
-    x * 0.0001,
-    z * 0.0001,
-  ],
-}));
+vi.mock('@vellum/core', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@vellum/core')>();
+  return {
+    ...actual,
+    csToGeoArray: ({ x, z }: { x: number; z: number }) => [
+      x * 0.0001,
+      z * 0.0001,
+    ],
+  };
+});
 
 const mockCtx = {
   clearRect: vi.fn(),

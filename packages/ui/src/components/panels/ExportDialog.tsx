@@ -10,11 +10,11 @@ import type {
   LayerName,
   TransitMode,
 } from '@vellum/core';
-import { exportScaleForFormat } from '@vellum/core';
 import {
+  exportScaleForFormat,
   resolveFullMapOutputSurface,
   vellumLogoDataUri,
-} from '@vellum/renderer-webgl';
+} from '@vellum/core';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../../lib/button';

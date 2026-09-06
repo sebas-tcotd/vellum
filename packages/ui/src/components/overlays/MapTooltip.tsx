@@ -1,6 +1,6 @@
 import type React from 'react';
 import { useRef } from 'react';
-import type { TooltipInfo } from '@vellum/renderer-webgl';
+import type { TooltipInfo } from '@vellum/core';
 import { useTranslation } from 'react-i18next';
 
 /** Props for the `MapTooltip` component. */

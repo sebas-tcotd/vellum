@@ -13,7 +13,6 @@
     "paths": {
       "@vellum/core": ["./packages/core/src/index.ts"],
       "@vellum/ui": ["./packages/ui/src/index.ts"],
-      "@vellum/renderer-canvas": ["./packages/renderer-canvas/src/index.ts"],
       "@vellum/theme-engine": ["./packages/theme-engine/src/index.ts"],
       "@vellum/parser-cslmap": ["./packages/parser-cslmap/src/index.ts"],
       "@vellum/renderer-webgl": ["./packages/renderer-webgl/src/index.ts"]

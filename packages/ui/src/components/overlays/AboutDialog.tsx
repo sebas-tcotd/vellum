@@ -1,4 +1,3 @@
-import { openUrl } from '@tauri-apps/plugin-opener';
 import { ExternalLink } from 'lucide-react';
 import { useId } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -11,6 +10,7 @@ import {
   DialogTitle,
 } from '../../lib/dialog';
 import { VellumIsotypeRounded } from '../../lib/vellum-isotype-rounded';
+import { usePlatformServices } from '../../context/PlatformServicesContext';
 
 export interface AboutDialogProps {
   open: boolean;
@@ -25,6 +25,7 @@ export function AboutDialog({
   version = '0.0.0',
 }: AboutDialogProps) {
   const { t } = useTranslation();
+  const { openExternalUrl } = usePlatformServices();
   const titleId = useId();
 
   return (
@@ -96,14 +97,14 @@ export function AboutDialog({
             type="button"
             className="inline-flex items-center gap-1.5 rounded-(--shell-radius-interactive) px-2 py-1.5 text-xs text-(--shell-text-muted) transition-colors hover:bg-black/5 hover:text-(--shell-text-primary) focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-(--shell-focus)"
             onClick={() => {
-              void openUrl('https://github.com/sebas-tcotd/vellum').catch(
-                (error: unknown) => {
-                  console.warn(
-                    'AboutDialog: failed to open repository URL',
-                    error,
-                  );
-                },
-              );
+              void openExternalUrl(
+                'https://github.com/sebas-tcotd/vellum',
+              ).catch((error: unknown) => {
+                console.warn(
+                  'AboutDialog: failed to open repository URL',
+                  error,
+                );
+              });
             }}
           >
             {t('about.repository')}

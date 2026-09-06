@@ -56,15 +56,15 @@ importers:
       '@tauri-apps/plugin-os':
         specifier: ^2
         version: 2.3.2
+      '@tauri-apps/plugin-store':
+        specifier: ^2.4.0
+        version: 2.4.4
       '@vellum/core':
         specifier: workspace:*
         version: link:../../packages/core
       '@vellum/parser-cslmap':
         specifier: workspace:*
         version: link:../../packages/parser-cslmap
-      '@vellum/renderer-canvas':
-        specifier: workspace:*
-        version: link:../../packages/renderer-canvas
       '@vellum/renderer-webgl':
         specifier: workspace:*
         version: link:../../packages/renderer-webgl
@@ -189,28 +189,6 @@ importers:
         specifier: ~5.8.3
         version: 5.8.3
 
-  packages/renderer-canvas:
-    dependencies:
-      '@fontsource/dm-mono':
-        specifier: ^5.2.7
-        version: 5.2.7
-      '@vellum/core':
-        specifier: workspace:*
-        version: link:../core
-      '@vellum/theme-engine':
-        specifier: workspace:*
-        version: link:../theme-engine
-    devDependencies:
-      jsdom:
-        specifier: ^29.0.1
-        version: 29.0.1
-      typescript:
-        specifier: ~5.8.3
-        version: 5.8.3
-      vitest:
-        specifier: ^4.1.2
-        version: 4.1.2(@types/node@25.5.2)(jsdom@29.0.1)(vite@7.3.1(@types/node@25.5.2)(jiti@2.6.1)(lightningcss@1.32.0))
-
   packages/renderer-webgl:
     dependencies:
       '@mapbox/maki':
@@ -269,24 +247,9 @@ importers:
       '@radix-ui/react-switch':
         specifier: ^1.2.6
         version: 1.2.6(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
-      '@tauri-apps/api':
-        specifier: ^2.10.1
-        version: 2.10.1
-      '@tauri-apps/plugin-opener':
-        specifier: ^2
-        version: 2.5.4
-      '@tauri-apps/plugin-store':
-        specifier: ^2.4.0
-        version: 2.4.4
       '@vellum/core':
         specifier: workspace:*
         version: link:../core
-      '@vellum/renderer-canvas':
-        specifier: workspace:*
-        version: link:../renderer-canvas
-      '@vellum/renderer-webgl':
-        specifier: workspace:*
-        version: link:../renderer-webgl
       '@vellum/theme-engine':
         specifier: workspace:*
         version: link:../theme-engine

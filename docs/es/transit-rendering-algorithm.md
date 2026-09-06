@@ -259,16 +259,17 @@ duplica para PNG/SVG.
 La implementación es una reimplementación basada en las fórmulas del paper,
 no una integración del binario LOOM ni una traducción del código C++ GPL-3.0.
 
-## 6. Renderer Canvas legacy
+## 6. Destino canónico de esta semántica
 
-`@vellum/renderer-canvas` conserva una implementación independiente de bandas
-concéntricas sin este ordering. No es el renderer montado por la aplicación
-actual: `MapLibreRoot` usa `@vellum/renderer-webgl`.
+`@vellum/renderer-canvas` tenía una implementación independiente de bandas
+concéntricas sin este ordering; fue retirado por
+[ADR-0001](../adr/0001-rendering-ownership.md) y ya no existe.
 
-Si Canvas volviera a ser relevante, la solución arquitectónica sería mover los
-módulos puros `line-graph`, `ordering` y `render-geometry` a `@vellum/core` para
-que ambos renderers compartieran una única fuente de verdad. No se hace ahora
-porque ampliaría el alcance hacia un renderer legacy no montado.
+La ADR nombra el destino canónico de la derivación de red de tránsito: la
+proyección `TransitNetwork` pertenece a `@vellum/core`, y la geometría de render
+se queda en el adapter. `line-graph` y `ordering` son los módulos puros que
+migran; `render-geometry` no. **Story 1.5 lo implementa** — aquí sólo queda
+nombrado.
 
 ## 7. Validación y límites conocidos
 

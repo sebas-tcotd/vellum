@@ -15,10 +15,10 @@ import type { BuildingFeature, BuildingsFeatureCollection } from '../types';
  *
  * @remarks
  * The mandatory `ItemClass` exclusions from the project rules: decorative and
- * utility assets with no cartographic footprint. The legacy canvas renderer
- * has carried this list since day one (`renderer-canvas/layers/buildings-layer.ts`);
- * the WebGL builder did not, so a `Radio` mast or an `Earthquake Sensor` was
- * drawn as a building on the live map — `aurelia-del-delta` contains one.
+ * utility assets with no cartographic footprint. La lista se originó en el
+ * adapter `renderer-canvas`, retirado por ADR-0001; este builder no la tenía,
+ * así que un mástil `Radio` o un `Earthquake Sensor` se dibujaban como
+ * edificio en el mapa vivo — `aurelia-del-delta` contiene uno.
  *
  * `Beautification Item` is deliberately *absent* here even though the project
  * rules list it. That class covers both natural props (rocks, cliffs) and

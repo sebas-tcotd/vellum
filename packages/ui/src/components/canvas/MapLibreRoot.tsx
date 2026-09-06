@@ -1,25 +1,23 @@
-import type { UnlistenFn } from '@tauri-apps/api/event';
-import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import type {
   ExportPreviewSnapshot,
   ExportRequest,
   ExportSnapshot,
+  MapRendererFactory,
+  MapRendererPort,
+  ServiceIconLegendState,
   SvgExportRequest,
   SvgExportSnapshot,
-  LayerVisibility,
-} from '@vellum/core';
-import type {
-  ServiceIconLegendState,
   TooltipInfo,
   ViewportBounds,
-} from '@vellum/renderer-webgl';
-import { MapLibreRenderer } from '@vellum/renderer-webgl';
+  LayerVisibility,
+} from '@vellum/core';
 import {
   DEFAULT_RENDER_STYLE_PARAMS,
   type LoadedTheme,
 } from '@vellum/theme-engine';
 import { useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
+import { usePlatformServices } from '../../context/PlatformServicesContext';
 import { useVellumStore } from '../../store/vellum-store';
 import { useRendererCommandRefs } from './use-renderer-command-refs';
 
@@ -44,6 +42,22 @@ export interface MapViewportPort {
 
 /** Props for the `MapLibreRoot` component. Mirrors `CanvasRoot` props for drop-in replacement. */
 export interface MapLibreRootProps {
+  /**
+   * Builds the renderer this host owns for its lifetime.
+   *
+   * @remarks
+   * Required, and deliberately so: `@vellum/ui` never names a rendering
+   * technology, and only `apps/desktop` — the single composition root — closes
+   * over the concrete adapter (ADR-0001). Leaving it out is a compile error at
+   * the composition root rather than a silently blank map at runtime.
+   *
+   * Se lee a través de un ref, de modo que el efecto de montaje no depende de
+   * su identidad: una factory creada inline en JSX no destruye ni reconstruye
+   * el mapa en cada render. Aun así, pásala estable desde el composition root —
+   * el renderer se construye una sola vez y una factory que cambie después de
+   * montar no se vuelve a consultar.
+   */
+  createRenderer: MapRendererFactory;
   /** Loads a .cslmap file via the IPC bridge. */
   loadFile?: ((filePath: string) => Promise<void>) | undefined;
   /** Current layer visibility from the Zustand store — propagated to `map.setLayoutProperty`. */
@@ -93,15 +107,17 @@ export interface MapLibreRootProps {
 }
 
 /**
- * React host for `MapLibreRenderer`.
+ * React host for the interactive map renderer.
  *
  * @remarks
- * Owns the lifecycle of a `MapLibreRenderer` instance. Unlike `CanvasRoot`,
+ * Owns the lifecycle of the renderer built by the injected `createRenderer`
+ * factory — it never learns which adapter that is. Unlike `CanvasRoot`,
  * there is no RAF loop — MapLibre handles pan/zoom internally and repaints
  * only on viewport changes. Drag-drop is replicated from `CanvasRoot` so the
  * Tauri file-drop workflow is preserved.
  */
 export function MapLibreRoot({
+  createRenderer,
   loadFile,
   activeLayers,
   fitToScreenRef,
@@ -119,9 +135,10 @@ export function MapLibreRoot({
   svgSnapshotCaptureRef,
 }: MapLibreRootProps) {
   const { t } = useTranslation();
+  const { subscribeFileDrop } = usePlatformServices();
   const containerRef = useRef<HTMLDivElement>(null);
-  const rendererRef = useRef<MapLibreRenderer | null>(null);
-  const unlistenRef = useRef<UnlistenFn | null>(null);
+  const rendererRef = useRef<MapRendererPort | null>(null);
+  const unlistenRef = useRef<(() => void) | null>(null);
 
   useRendererCommandRefs(rendererRef, {
     fitToScreenRef,
@@ -148,10 +165,17 @@ export function MapLibreRoot({
     [activeLayers],
   );
 
+  // La factory se guarda en un ref y el efecto de montaje NO depende de su
+  // identidad: un host que la pase inline en JSX destruiría y reconstruiría el
+  // renderer en cada render — churn de contexto WebGL y mapa en blanco. La
+  // prop sigue documentando que debe ser estable; esto es la red de seguridad.
+  const createRendererRef = useRef(createRenderer);
+  createRendererRef.current = createRenderer;
+
   // Mount / unmount the renderer
   useEffect(() => {
     if (!containerRef.current) return;
-    const renderer = new MapLibreRenderer(
+    const renderer = createRendererRef.current(
       containerRef.current,
       DEFAULT_RENDER_STYLE_PARAMS,
     );
@@ -299,22 +323,18 @@ export function MapLibreRoot({
     return () => observer.disconnect();
   }, []);
 
-  // Tauri native drag-drop — mirrors CanvasRoot implementation
+  // Native drag-drop. The adapter reports dropped paths; which of them is
+  // interesting and whether the app can accept one right now is UI policy and
+  // stays here (ADR-0001).
   useEffect(() => {
     if (!loadFile) return;
     let cancelled = false;
-    getCurrentWebviewWindow()
-      .onDragDropEvent((event) => {
-        if (event.payload.type === 'drop') {
-          if (useVellumStore.getState().loadingState === 'loading') return;
-          const paths: string[] = event.payload.paths;
-          const cslmapPath = paths.find((p) =>
-            p.toLowerCase().endsWith('.cslmap'),
-          );
-          if (cslmapPath) void loadFile(cslmapPath);
-        }
-      })
-      .then((unlisten: UnlistenFn) => {
+    subscribeFileDrop((paths) => {
+      if (useVellumStore.getState().loadingState === 'loading') return;
+      const cslmapPath = paths.find((p) => p.toLowerCase().endsWith('.cslmap'));
+      if (cslmapPath) void loadFile(cslmapPath);
+    })
+      .then((unlisten: () => void) => {
         if (!cancelled) {
           unlistenRef.current = unlisten;
         } else {
@@ -332,7 +352,7 @@ export function MapLibreRoot({
       unlistenRef.current?.();
       unlistenRef.current = null;
     };
-  }, [loadFile]);
+  }, [loadFile, subscribeFileDrop]);
 
   return (
     <div

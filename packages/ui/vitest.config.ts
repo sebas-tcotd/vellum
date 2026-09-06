@@ -26,13 +26,6 @@ export default mergeConfig(
           replacement: path.resolve(__dirname, '../core/src/index.ts'),
         },
         {
-          find: '@vellum/renderer-canvas',
-          replacement: path.resolve(
-            __dirname,
-            '../renderer-canvas/src/index.ts',
-          ),
-        },
-        {
           find: '@vellum/theme-engine',
           replacement: path.resolve(__dirname, '../theme-engine/src/index.ts'),
         },

@@ -1,15 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, act } from '../../test-utils';
 import { Minimap } from './Minimap';
-import type { ViewportBounds } from '@vellum/renderer-webgl';
-import type { CityData } from '@vellum/core';
+import type { CityData, ViewportBounds } from '@vellum/core';
 
-vi.mock('@vellum/renderer-webgl', () => ({
-  csToGeoArray: ({ x, z }: { x: number; z: number }) => [
-    x * 0.0001,
-    z * 0.0001,
-  ],
-}));
+vi.mock('@vellum/core', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@vellum/core')>();
+  return {
+    ...actual,
+    csToGeoArray: ({ x, z }: { x: number; z: number }) => [
+      x * 0.0001,
+      z * 0.0001,
+    ],
+  };
+});
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key }),

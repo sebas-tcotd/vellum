@@ -8,30 +8,41 @@ import type {
   SvgExportSnapshot,
 } from '@vellum/core';
 import { render, screen, cleanup, act, waitFor, fireEvent } from './test-utils';
-import { App, type ExportCancelHandlerRef } from './App';
+import {
+  App as AppRoot,
+  type AppProps,
+  type ExportCancelHandlerRef,
+} from './App';
+import { createRendererHarness } from './testing/test-renderer';
+import { createPlatformServicesHarness } from './testing/test-platform-services';
 import { useKeyboardShortcuts } from './hooks/use-keyboard-shortcuts';
 import { useVellumStore } from './store/vellum-store';
 
-const mockUnlisten = vi.fn();
-const mockListen = vi.hoisted(() => vi.fn());
-const tauriEventHandlers = new Map<
-  string,
-  (event: { payload: unknown }) => void
->();
+// El shell llega a `@vellum/ui` como contrato inyectado, nunca como import de
+// `@tauri-apps/*` — así que aquí va el mismo harness compartido que usan el
+// resto de los tests del package, no un doble propio que pueda divergir del
+// puerto (ADR-0001).
+const shell = createPlatformServicesHarness();
+const {
+  invoke: mockInvoke,
+  subscribeEvent: mockListen,
+  openExternalUrl: mockOpenUrl,
+  unsubscribe: mockUnlisten,
+} = shell;
 
-vi.mock('@tauri-apps/api/event', () => ({
-  listen: (...args: unknown[]) => mockListen(...args),
-}));
+const rendererHarness = createRendererHarness();
 
-const mockInvoke = vi.hoisted(() => vi.fn());
-vi.mock('@tauri-apps/api/core', () => ({
-  invoke: (...args: unknown[]) => mockInvoke(...args),
-}));
-
-const mockOpenUrl = vi.hoisted(() => vi.fn());
-vi.mock('@tauri-apps/plugin-opener', () => ({
-  openUrl: (...args: unknown[]) => mockOpenUrl(...args),
-}));
+/**
+ * `App` with everything the composition root normally injects, so each test
+ * renders the real component tree instead of a stubbed one.
+ */
+function App(props: Omit<AppProps, 'createRenderer'>) {
+  return shell.wrapper({
+    children: (
+      <AppRoot createRenderer={rendererHarness.createRenderer} {...props} />
+    ),
+  });
+}
 
 const mockPreviewCapture = vi.hoisted(() =>
   vi.fn().mockResolvedValue({
@@ -223,14 +234,11 @@ function resetStore() {
 beforeEach(() => {
   cleanup();
   vi.mocked(useKeyboardShortcuts).mockClear();
-  tauriEventHandlers.clear();
-  mockListen.mockReset();
-  mockListen.mockImplementation(
-    (event: string, handler: (event: { payload: unknown }) => void) => {
-      tauriEventHandlers.set(event, handler);
-      return Promise.resolve(mockUnlisten);
-    },
-  );
+  // Ambos harnesses viven a nivel de módulo (su identidad tiene que ser
+  // estable entre renders), así que sin este reset las llamadas de un test
+  // se cuentan en el siguiente.
+  shell.reset();
+  rendererHarness.reset();
   mockPreviewCapture.mockReset();
   mockPreviewCapture.mockResolvedValue({
     dataUrl: 'data:image/png;base64,viewport',
@@ -242,10 +250,7 @@ beforeEach(() => {
   });
   vi.mocked(mockRasterExporter.capabilities).mockClear();
   vi.mocked(mockRasterExporter.export).mockClear();
-  mockInvoke.mockReset();
   mockInvoke.mockResolvedValue(null);
-  mockOpenUrl.mockReset();
-  mockOpenUrl.mockResolvedValue(undefined);
   resetStore();
 });
 
@@ -489,9 +494,7 @@ describe('App — PreferencesPanel (Story 7.3)', () => {
     expect(screen.queryByText('preferences.title')).toBeNull();
 
     await act(async () => {
-      tauriEventHandlers.get('vellum://open-preferences')?.({
-        payload: undefined,
-      });
+      shell.emit('vellum://open-preferences', undefined);
     });
 
     expect(screen.getByText('preferences.title')).toBeInTheDocument();
@@ -521,9 +524,7 @@ describe('App — PreferencesPanel (Story 7.3)', () => {
     expect(screen.getByTestId('empty-state')).toBeDefined();
 
     await act(async () => {
-      tauriEventHandlers.get('vellum://open-preferences')?.({
-        payload: undefined,
-      });
+      shell.emit('vellum://open-preferences', undefined);
     });
 
     expect(screen.getByText('preferences.title')).toBeInTheDocument();
@@ -544,12 +545,11 @@ describe('App — native menu actions', () => {
     });
 
     await act(async () => {
-      tauriEventHandlers.get('vellum://menu-action')?.({
-        payload: 'menu.toggle-layer.roads',
-      });
-      tauriEventHandlers.get('vellum://menu-action')?.({
-        payload: 'menu.toggle-advanced.terrain.contour-lines',
-      });
+      shell.emit('vellum://menu-action', 'menu.toggle-layer.roads');
+      shell.emit(
+        'vellum://menu-action',
+        'menu.toggle-advanced.terrain.contour-lines',
+      );
     });
 
     expect(useVellumStore.getState().activeLayers.roads).toBe(!initialRoads);
@@ -565,9 +565,7 @@ describe('App — native menu actions', () => {
 
     const initialRoads = useVellumStore.getState().activeLayers.roads;
     await act(async () => {
-      tauriEventHandlers.get('vellum://menu-action')?.({
-        payload: 'menu.toggle-layer.roads',
-      });
+      shell.emit('vellum://menu-action', 'menu.toggle-layer.roads');
     });
 
     expect(useVellumStore.getState().activeLayers.roads).toBe(initialRoads);
@@ -585,8 +583,9 @@ describe('App — UpdateToast (Story 7.4)', () => {
     });
 
     await act(async () => {
-      tauriEventHandlers.get('vellum://update-available')?.({
-        payload: { version: '1.2.0', url: 'https://example.com/v1.2.0' },
+      shell.emit('vellum://update-available', {
+        version: '1.2.0',
+        url: 'https://example.com/v1.2.0',
       });
     });
 
@@ -605,8 +604,9 @@ describe('App — UpdateToast (Story 7.4)', () => {
     });
 
     await act(async () => {
-      tauriEventHandlers.get('vellum://update-available')?.({
-        payload: { version: '1.2.0', url: 'https://example.com/v1.2.0' },
+      shell.emit('vellum://update-available', {
+        version: '1.2.0',
+        url: 'https://example.com/v1.2.0',
       });
     });
 
@@ -633,14 +633,11 @@ describe('App — UpdateToast (Story 7.4)', () => {
 
   it('no consulta get_pending_update hasta que listen() resuelve (evita la carrera de arranque)', async () => {
     let resolveListen: ((fn: () => void) => void) | undefined;
-    mockListen.mockReset();
     mockListen.mockImplementation(
-      (event: string, handler: (event: { payload: unknown }) => void) => {
-        tauriEventHandlers.set(event, handler);
-        return new Promise<() => void>((resolve) => {
+      () =>
+        new Promise<() => void>((resolve) => {
           resolveListen = resolve;
-        });
-      },
+        }),
     );
 
     render(<App />);
@@ -666,6 +663,21 @@ describe('App — UpdateToast (Story 7.4)', () => {
     expect(screen.queryByText('updates.available')).toBeNull();
   });
 
+  it('no muestra el toast cuando get_pending_update resuelve undefined (sin adapter de plataforma)', async () => {
+    // El guard de `App` es `payload != null`, no `!== null`, precisamente para
+    // absorber el `undefined` que devuelve `NOOP_PLATFORM_SERVICES.invoke`
+    // cuando no hay shell detrás. Ningún otro caso cubre esa rama.
+    mockInvoke.mockResolvedValue(undefined);
+
+    await act(async () => {
+      render(<App />);
+    });
+
+    expect(mockInvoke).toHaveBeenCalledWith('get_pending_update');
+    expect(screen.queryByText('updates.available')).toBeNull();
+    expect(screen.getByTestId('empty-state')).toBeDefined();
+  });
+
   it('no rompe el montaje si get_pending_update rechaza (best-effort)', async () => {
     mockInvoke.mockRejectedValue(new Error('no Tauri context'));
 
@@ -685,8 +697,9 @@ describe('App — UpdateToast (Story 7.4)', () => {
     const { rerender } = renderResult;
 
     await act(async () => {
-      tauriEventHandlers.get('vellum://update-available')?.({
-        payload: { version: '1.2.0', url: 'https://example.com/v1.2.0' },
+      shell.emit('vellum://update-available', {
+        version: '1.2.0',
+        url: 'https://example.com/v1.2.0',
       });
     });
 
@@ -707,8 +720,9 @@ describe('App — UpdateToast (Story 7.4)', () => {
     });
 
     await act(async () => {
-      tauriEventHandlers.get('vellum://update-available')?.({
-        payload: { version: '1.2.0', url: 'https://example.com/v1.2.0' },
+      shell.emit('vellum://update-available', {
+        version: '1.2.0',
+        url: 'https://example.com/v1.2.0',
       });
     });
 
@@ -731,8 +745,9 @@ describe('App — UpdateToast (Story 7.4)', () => {
     });
 
     await act(async () => {
-      tauriEventHandlers.get('vellum://update-available')?.({
-        payload: { version: '1.2.0', url: 'https://example.com/v1.2.0' },
+      shell.emit('vellum://update-available', {
+        version: '1.2.0',
+        url: 'https://example.com/v1.2.0',
       });
     });
 
@@ -1685,16 +1700,12 @@ describe('App — sidebar routes and window adaptation', () => {
     const sidebar = screen.getByTestId('shell-sidebar');
 
     act(() => {
-      tauriEventHandlers.get('vellum://menu-action')?.({
-        payload: 'menu.toggle-sidebar',
-      });
+      shell.emit('vellum://menu-action', 'menu.toggle-sidebar');
     });
     expect(sidebar).toHaveAttribute('data-state', 'collapsed');
 
     act(() => {
-      tauriEventHandlers.get('vellum://menu-action')?.({
-        payload: 'menu.toggle-sidebar',
-      });
+      shell.emit('vellum://menu-action', 'menu.toggle-sidebar');
     });
     expect(sidebar).toHaveAttribute('data-state', 'expanded');
   });
@@ -1712,9 +1723,7 @@ describe('App — sidebar routes and window adaptation', () => {
     });
 
     act(() => {
-      tauriEventHandlers.get('vellum://menu-action')?.({
-        payload: 'menu.toggle-sidebar',
-      });
+      shell.emit('vellum://menu-action', 'menu.toggle-sidebar');
     });
     expect(screen.getByTestId('shell-sidebar')).toHaveAttribute(
       'data-state',

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { ServiceIconLegendState } from '@vellum/renderer-webgl';
+import type { ServiceIconLegendState } from '@vellum/core';
 import type {
   MapLibreRootProps,
   MapViewportPort,

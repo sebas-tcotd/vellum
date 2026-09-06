@@ -16,17 +16,12 @@ graph TD
   desktop --> core
   desktop --> parser["parser-cslmap"]
   desktop --> rweb["renderer-webgl"]
-  desktop --> rcanvas["renderer-canvas"]
   desktop --> themes["theme-engine"]
 
   ui --> core
-  ui --> rweb
-  ui --> rcanvas
   ui --> themes
 
   rweb --> core
-  rcanvas --> core
-  rcanvas --> themes
 
   themes --> core
   parser --> core
@@ -34,7 +29,9 @@ graph TD
 
 `@vellum/core` tiene cero dependencias internas — es la capa de entidades pura. `apps/desktop` es el único Composition Root y puede importar cualquier package.
 
-> **Nota sobre `renderer-canvas`**: sigue declarado en el grafo de paquetes como implementación legacy, pero la aplicación actual instancia el renderer MapLibre. Los wrappers React Canvas anteriores ya no forman parte del árbol activo de componentes.
+> **Nota sobre `renderer-canvas`**: retirado del repositorio por [ADR-0001](../adr/0001-rendering-ownership.md). No tenía importadores de runtime, su terreno y su agua eran no-ops desde que `LandTile`/`WaterTile` salieron de `@vellum/core`, y su taxonomía vial divergía de la de `renderer-webgl`. Vive en el historial de git.
+
+> **Nota sobre `ui → renderer-webgl`**: esa arista ya no existe. Desde ADR-0001, `@vellum/ui` recibe una `MapRendererFactory` inyectada desde `apps/desktop` y depende sólo de los puertos declarados en `@vellum/core`. Lo mismo aplica al shell: `@vellum/ui` no importa `@tauri-apps/*`, lo recibe como `PlatformServices`.
 
 ## Cómo se comunican las partes
 
@@ -63,7 +60,7 @@ RenderStyleParams (theme-engine) ─┘         │
                                   packages/ui/src/components/canvas/MapLibreRoot.tsx (React)
 ```
 
-`IRenderer` (`packages/core/src/types/renderer.ts`) es el puerto previsto: `render`, `updateViewport`, `resize`, `applyTheme`, `dispose`. `renderer-webgl` lo implementa y `renderer-canvas` queda como implementación legacy. El `MapLibreRoot` actual todavía instancia `MapLibreRenderer` directamente porque también usa capacidades específicas de MapLibre, como suscripciones de capas, controles de cámara y captura de snapshots. Es decir, el puerto documenta el límite arquitectónico deseado, pero el adapter activo de la UI todavía no es completamente agnóstico al renderer.
+`IRenderer` (`packages/core/src/types/renderer.ts`) es el puerto de rendering interactivo: `render`, `updateViewport`, `resize`, `applyTheme`, `dispose`. Sobre él, `@vellum/core` declara puertos segregados por preocupación — `MapCameraPort`, `MapLayersPort`, `MapSubscriptionsPort`, `MapCapturePort` — y su composición `MapRendererPort`, que es lo que `MapLibreRoot` consume. `MapLibreRenderer` los satisface estructuralmente; `MapLibreRoot` ya no lo instancia: recibe una `MapRendererFactory` inyectada por `apps/desktop`, el único composition root. Ver [ADR-0001](../adr/0001-rendering-ownership.md).
 
 ### 3. Export (PNG/SVG) — el flujo más complejo del sistema
 

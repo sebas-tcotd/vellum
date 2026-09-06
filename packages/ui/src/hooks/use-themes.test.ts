@@ -3,10 +3,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderHook, waitFor } from '../test-utils';
 import { useThemes } from './use-themes';
 
-const invokeMock = vi.fn();
-vi.mock('@tauri-apps/api/core', () => ({
-  invoke: (...args: unknown[]) => invokeMock(...args),
-}));
+import { createPlatformServicesHarness } from '../testing/test-platform-services';
+
+let harness = createPlatformServicesHarness();
+let invokeMock = harness.invoke;
 
 const setAvailableThemes = vi.fn();
 const setThemeWarnings = vi.fn();
@@ -20,6 +20,8 @@ const validJson = (name: string) =>
 
 beforeEach(() => {
   vi.clearAllMocks();
+  harness = createPlatformServicesHarness();
+  invokeMock = harness.invoke;
 });
 afterEach(() => {
   vi.clearAllMocks();
@@ -32,7 +34,9 @@ describe('useThemes', () => {
       { id: 'bad', source: 'user', rawJson: '{ not json' },
     ]);
 
-    const { result } = renderHook(() => useThemes());
+    const { result } = renderHook(() => useThemes(), {
+      wrapper: harness.wrapper,
+    });
 
     await waitFor(() => expect(result.current).toHaveLength(1));
     expect(invokeMock).toHaveBeenCalledWith('load_themes');
@@ -47,14 +51,18 @@ describe('useThemes', () => {
 
   it('does not throw when the IPC command rejects', async () => {
     invokeMock.mockRejectedValue(new Error('ipc down'));
-    const { result } = renderHook(() => useThemes());
+    const { result } = renderHook(() => useThemes(), {
+      wrapper: harness.wrapper,
+    });
     await waitFor(() => expect(invokeMock).toHaveBeenCalled());
     expect(result.current).toEqual([]);
   });
 
   it('does not throw when the IPC command resolves with a non-array', async () => {
     invokeMock.mockResolvedValue(null);
-    const { result } = renderHook(() => useThemes());
+    const { result } = renderHook(() => useThemes(), {
+      wrapper: harness.wrapper,
+    });
     await waitFor(() => expect(invokeMock).toHaveBeenCalled());
     expect(result.current).toEqual([]);
     expect(setAvailableThemes).not.toHaveBeenCalled();

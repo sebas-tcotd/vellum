@@ -5,17 +5,21 @@ import type {
   CapabilityReport,
   ExportRequest,
   ExportSnapshot,
+  MapRendererFactory,
 } from '@vellum/core';
 import { IPC_COMMANDS } from '@vellum/core';
 import {
   App,
   AppMetaProvider,
   PlatformProvider,
+  PlatformServicesProvider,
+  setPreferencesPort,
   type ExportCancelHandlerRef,
 } from '@vellum/ui';
 import {
   buildCartographicScene,
   LegacyRasterExporter,
+  MapLibreRenderer,
   probeCapabilities,
   TiledRasterExporter,
 } from '@vellum/renderer-webgl';
@@ -26,10 +30,16 @@ import '@vellum/ui/globals.css';
 // MapLibre GL JS default styles — must be imported at the app entry point.
 // Without this, the map renders without base UI styles (attribution, controls).
 import 'maplibre-gl/dist/maplibre-gl.css';
+import { listen } from '@tauri-apps/api/event';
+import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { openUrl } from '@tauri-apps/plugin-opener';
 import { platform } from '@tauri-apps/plugin-os';
+import { load } from '@tauri-apps/plugin-store';
 import { version } from '../package.json';
 import { detectPlatform } from './detect-platform';
+import { createPlatformServices } from './platform-services';
+import { createPreferencesAdapter } from './preferences-adapter';
 import { useParseCslmap } from './hooks/use-parse-cslmap';
 import { useExportPng } from './hooks/use-export-png';
 import {
@@ -59,6 +69,58 @@ const win = getCurrentWindow();
 // (mirrors `window-close-cancel.ts`) so any unsupported platform string or a
 // throwing plugin call falls back to `'unknown'` without ever blocking boot.
 const detectedPlatform = detectPlatform(() => platform());
+
+/**
+ * The single place in the app where the concrete rendering adapter is named.
+ *
+ * @remarks
+ * `@vellum/ui` receives this as `MapRendererFactory` and never learns that
+ * MapLibre is behind it — ADR-0001's composition-root rule, enforced by the
+ * `packages/ui/src/**` import scope in `eslint.config.mjs`. Declared at module
+ * scope so its identity is stable: `MapLibreRoot` keys the renderer's lifetime
+ * on this reference, and a factory rebuilt per render would rebuild the map.
+ */
+const createRenderer: MapRendererFactory = (container, style) =>
+  new MapLibreRenderer(container, style);
+
+/**
+ * The Tauri implementation of every shell capability `@vellum/ui` consumes.
+ *
+ * @remarks
+ * Module scope, built exactly once: `useThemes` guards its one-time
+ * `load_themes` invoke against React StrictMode's double mount, and that guard
+ * only holds while this object keeps its identity across renders (ADR-0001).
+ *
+ * La lógica vive en `platform-services.ts` con sus dependencias inyectadas;
+ * aquí sólo se nombran las primitivas concretas. Ese es el único motivo por el
+ * que el desempaquetado del payload y el guard de la fase `drop` son
+ * testeables: este módulo tiene efectos en el import y ningún test lo alcanza.
+ */
+const platformServices = createPlatformServices({
+  invoke: (command, args) => invoke(command, args),
+  listen: (event, handler) => listen(event, handler),
+  openUrl: (url) => openUrl(url),
+  onDragDropEvent: (handler) =>
+    getCurrentWebviewWindow().onDragDropEvent(handler),
+});
+
+/**
+ * On-disk preferences adapter.
+ *
+ * @remarks
+ * `autoSave` stays disabled — `persistPreference` flushes every write itself so
+ * a forced close cannot lose a change the user already made (NFR9). El fallback
+ * silencioso ante una carga fallida vive en `preferences-adapter.ts`, con
+ * `load` inyectado para poder probarlo.
+ *
+ * Se registra **antes** de `createRoot`: la hidratación inicial de
+ * preferencias corre en el primer efecto de `App` y leería el puerto no-op si
+ * el orden se invirtiera.
+ */
+setPreferencesPort(
+  createPreferencesAdapter(() => load('preferences.json', { autoSave: false })),
+);
+
 const legacyExporter = new LegacyRasterExporter();
 const legacySink = new LegacyExportSink();
 const rasterExporter = new ExportCoordinator(legacyExporter, legacySink);
@@ -215,14 +277,20 @@ const exportCancelHandlerRef: ExportCancelHandlerRef = { current: null };
 // WebView2 (Windows) no propaga el evento browser 'dragenter' para drags externos
 // del SO (archivos desde el explorador). Escuchamos el evento nativo de Tauri y lo
 // re-despachamos como CustomEvent para que EmptyState (en @vellum/ui) lo reciba
-// sin depender directamente de @tauri-apps/api.
+// sin depender directamente de @tauri-apps/api — que a partir de ADR-0001 es
+// una regla de lint, no sólo una convención.
 void win.listen('tauri://drag-enter', () => {
   window.dispatchEvent(new CustomEvent('vellum:drag-enter'));
 });
 
 /**
  * Composition root that wires Tauri-specific hooks into the UI layer.
- * Keeps `@vellum/ui` free of direct Tauri runtime dependencies.
+ *
+ * @remarks
+ * `@vellum/ui` genuinely has no `@tauri-apps/*` dependency as of ADR-0001 —
+ * the renderer arrives as `createRenderer`, the shell as `platformServices`,
+ * and preferences through `setPreferencesPort`. The claim is enforced by the
+ * `packages/ui/src/**` scope in `eslint.config.mjs`, not left to convention.
  */
 function AppShell() {
   const { loadFile, openFileDialog, loadFilePartial } = useParseCslmap(
@@ -270,6 +338,7 @@ function AppShell() {
 
   return (
     <App
+      createRenderer={createRenderer}
       version={version}
       loadFile={loadFile}
       openFileDialog={openFileDialog}
@@ -287,7 +356,9 @@ ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
     <AppMetaProvider version={version}>
       <PlatformProvider platform={detectedPlatform}>
-        <AppShell />
+        <PlatformServicesProvider services={platformServices}>
+          <AppShell />
+        </PlatformServicesProvider>
       </PlatformProvider>
     </AppMetaProvider>
   </React.StrictMode>,

@@ -32,6 +32,17 @@ cambiar de idioma sin perder el contexto.
 | [Renderizado de bosques](forest-rendering.md)                          | El enfoque de overlay de densidad para los datos forestales de `.cslmap`.        |
 | [Schema `.vellumstyle`](vellumstyle-schema.md)                         | El formato público v1 para crear temas personalizados.                           |
 
+## Registros de decisiones de arquitectura (ADR)
+
+Las decisiones aceptadas viven en `docs/adr/`, un archivo por decisión y
+numeración de cuatro dígitos. Un ADR aceptado no se reescribe: se supersede con
+uno nuevo que lo referencie. El árbol es neutral al idioma y lo comparten ambos
+índices.
+
+| ADR                                                                      | Qué decide                                                                                           |
+| ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
+| [ADR-0001 — Ownership del rendering](../adr/0001-rendering-ownership.md) | El puerto `IRenderer` y sus puertos segregados, los adapters admisibles y el composition root único. |
+
 ## Una nota sobre el alcance
 
 La mayoría de los documentos describe comportamiento existente en el repositorio.

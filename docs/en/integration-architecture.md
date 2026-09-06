@@ -12,15 +12,10 @@ graph TD
   desktop --> core
   desktop --> parser["parser-cslmap"]
   desktop --> webgl["renderer-webgl"]
-  desktop --> canvas["renderer-canvas"]
   desktop --> themes["theme-engine"]
   ui --> core
-  ui --> webgl
-  ui --> canvas
   ui --> themes
   webgl --> core
-  canvas --> core
-  canvas --> themes
   themes --> core
   parser --> core
 ```
@@ -28,8 +23,15 @@ graph TD
 `@vellum/core` has no internal package dependencies. It contains the domain
 entities, ports and IPC contract; it does not parse XML or draw a map.
 
-`renderer-canvas` remains in the declared graph as a legacy implementation, but
-the desktop application currently instantiates the MapLibre renderer.
+`renderer-canvas` was retired from the repository by
+[ADR-0001](../adr/0001-rendering-ownership.md): it had no runtime importers, its
+terrain and water layers had become no-ops, and its road taxonomy had diverged
+from `renderer-webgl`'s. It lives on in git history.
+
+`@vellum/ui` no longer depends on `renderer-webgl` either. It receives an
+injected `MapRendererFactory` and depends only on the ports declared in
+`@vellum/core`; the same applies to the desktop shell, which reaches the UI as
+the `PlatformServices` contract rather than as `@tauri-apps/*` imports.
 
 ## How the parts communicate
 
@@ -62,13 +64,14 @@ MapLibreRenderer.render()
 packages/ui/src/components/canvas/MapLibreRoot.tsx
 ```
 
-`IRenderer` in `packages/core` is the intended port: `render`, `updateViewport`,
-`resize`, `applyTheme` and `dispose`. `renderer-webgl` implements it, while
-`renderer-canvas` is retained as a legacy implementation. The current
-`MapLibreRoot` still instantiates `MapLibreRenderer` directly because it also uses
-MapLibre-specific capabilities such as layer subscriptions, camera controls and
-snapshot capture. In other words, the port documents the desired architectural
-boundary, but the active UI adapter has not been made fully renderer-agnostic yet.
+`IRenderer` in `packages/core` is the interactive rendering port: `render`,
+`updateViewport`, `resize`, `applyTheme` and `dispose`. Around it, `@vellum/core`
+declares concern-segregated ports — `MapCameraPort`, `MapLayersPort`,
+`MapSubscriptionsPort`, `MapCapturePort` — composed into `MapRendererPort`, which
+is what `MapLibreRoot` consumes. `MapLibreRenderer` satisfies them structurally.
+`MapLibreRoot` no longer instantiates it: it receives a `MapRendererFactory`
+injected by `apps/desktop`, the single composition root. See
+[ADR-0001](../adr/0001-rendering-ownership.md).
 
 ### 3. Export: the stateful path
 

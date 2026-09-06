@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { listen } from '@tauri-apps/api/event';
+import { usePlatformServices } from '../context/PlatformServicesContext';
 
-interface UseTauriEventOptions {
+interface UseAppEventOptions {
   /** If listen() hasn't resolved after this many ms, sets listenError = true. */
   timeoutMs?: number;
   /**
@@ -14,21 +14,28 @@ interface UseTauriEventOptions {
 }
 
 /**
- * Subscribes to a Tauri event for the lifetime of the component.
+ * Subscribes to a shell event for the lifetime of the component.
  * Handles unlisten on unmount, cancelled-flag races, and optional timeout.
  *
- * @param event - Tauri event name (e.g. `IPC_EVENTS.PROGRESS`)
+ * @remarks
+ * The subscription itself comes from `PlatformServices` — this package never
+ * names Tauri (ADR-0001). Outside a `<PlatformServicesProvider>` the no-op
+ * default resolves immediately to an inert unsubscribe, so the hook settles
+ * cleanly instead of timing out.
+ *
+ * @param event - Shell event name (e.g. `IPC_EVENTS.PROGRESS`)
  * @param handler - Called with the event payload on each emission.
  *   Stable reference not required — the hook tracks the latest value internally.
  * @param options - Optional `timeoutMs` to surface listen() failures, and `onSettled`
  *   to sequence follow-up work after the subscription attempt completes.
  * @returns `listenError` — true if listen() rejected or timed out.
  */
-export function useTauriEvent<T>(
+export function useAppEvent<T>(
   event: string,
   handler: (payload: T) => void,
-  options?: UseTauriEventOptions,
+  options?: UseAppEventOptions,
 ): { listenError: boolean } {
+  const { subscribeEvent } = usePlatformServices();
   const [listenError, setListenError] = useState(false);
 
   // Always-fresh refs so we never need to re-subscribe when handler/onSettled identity changes
@@ -47,8 +54,8 @@ export function useTauriEvent<T>(
         }, options.timeoutMs)
       : null;
 
-    listen<T>(event, (e) => {
-      if (!cancelled) handlerRef.current(e.payload);
+    subscribeEvent<T>(event, (payload) => {
+      if (!cancelled) handlerRef.current(payload);
     })
       .then((fn) => {
         if (timeoutId) clearTimeout(timeoutId);
@@ -62,7 +69,7 @@ export function useTauriEvent<T>(
       .catch((err: unknown) => {
         if (timeoutId) clearTimeout(timeoutId);
         console.error(
-          `[useTauriEvent] Failed to register listener for "${event}":`,
+          `[useAppEvent] Failed to register listener for "${event}":`,
           err,
         );
         if (!cancelled) setListenError(true);
@@ -76,7 +83,7 @@ export function useTauriEvent<T>(
       if (timeoutId) clearTimeout(timeoutId);
       unlisten?.();
     };
-  }, [event]); // handler is tracked via ref — intentionally excluded from deps
+  }, [event, subscribeEvent]); // handler is tracked via ref — intentionally excluded from deps
 
   return { listenError };
 }
