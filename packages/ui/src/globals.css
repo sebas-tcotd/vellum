@@ -256,6 +256,7 @@
   /* Liquid Glass: the sidebar floats in its own layer, inset from the window
      edges with the map continuing around it, the way the platform's own
      sidebars separate themselves from content. */
+  --shell-sidebar-collapsed-width: 5.5rem;
   --shell-sidebar-inset: 10px;
   --shell-sidebar-radius: 12px;
 }
