@@ -10,6 +10,7 @@ import { useThemes } from './hooks/use-themes';
 import { useExportWorkflow } from './hooks/use-export-workflow';
 import { useMenuAction } from './hooks/use-menu-action';
 import { useDesktopCommands } from './shell/commands';
+import { isDarkThemeBackground } from './lib/theme-appearance';
 import { useShellSession, type ActiveModal } from './shell/shell-session';
 
 /**
@@ -165,6 +166,19 @@ export function App({
     isExportingProp,
   });
   const { isExporting, isExportDialogOpen, handleOpenExport } = exportWorkflow;
+
+  // The chrome follows the selected map theme, not the OS: a dark theme like
+  // Transit darkens the sidebar, dialogs and icons. `globals.css` scopes every
+  // dark override on `[data-appearance='dark']`.
+  const activeTheme = useVellumStore((s) => s.activeTheme);
+  useEffect(() => {
+    const style = themes.find((theme) => theme.id === activeTheme);
+    document.documentElement.dataset.appearance = isDarkThemeBackground(
+      style?.mapBackground,
+    )
+      ? 'dark'
+      : 'light';
+  }, [activeTheme, themes]);
 
   useEffect(() => {
     document.title =

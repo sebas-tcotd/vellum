@@ -30,14 +30,13 @@ export const VellumIsotypeRounded = ({
       --vellum-icon-muted-alpha: rgba(128, 112, 96, 0.4);
     }
 
-    @media (prefers-color-scheme: dark) {
-      svg {
-        --vellum-icon-bg-start: #483f36;
-        --vellum-icon-bg-end: #2a251f;
-        --vellum-icon-ink: #f7f6f1;
-        --vellum-icon-muted: #e9d2b5;
-        --vellum-icon-muted-alpha: rgba(233, 210, 181, 0.4);
-      }
+    /* Sigue al tema de mapa activo (data-appearance en <html>), no al SO. */
+    [data-appearance='dark'] svg {
+      --vellum-icon-bg-start: #483f36;
+      --vellum-icon-bg-end: #2a251f;
+      --vellum-icon-ink: #f7f6f1;
+      --vellum-icon-muted: #e9d2b5;
+      --vellum-icon-muted-alpha: rgba(233, 210, 181, 0.4);
     }
 
     path[fill='#4A4035'] {

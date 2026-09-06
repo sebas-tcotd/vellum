@@ -329,6 +329,76 @@
   --shell-corner-shape: squircle;
 }
 
+/* ─── Apariencia oscura del chrome ────────────────────────────────────────
+   Sigue al TEMA DE MAPA seleccionado, no al sistema: `App.tsx` pone
+   `data-appearance` en <html> según la luminancia del `mapBackground` del
+   tema activo (ver lib/theme-appearance.ts). Va después de los perfiles de
+   plataforma para ganar por orden (misma especificidad), y solo redefine
+   superficies/texto/bordes — blur, radios y sombras siguen siendo del perfil
+   de plataforma. */
+[data-appearance='dark'] {
+  /* Base + shadcn */
+  --color-bg: #16161f;
+  --color-background: #16161f;
+  --color-text: #e9e7e2;
+  --color-foreground: #e9e7e2;
+  --color-text-subtle: #a5a29b; /* 7.2:1 sobre #16161f */
+  --color-muted: #262633;
+  --color-muted-foreground: #a5a29b;
+  --color-secondary: #262633;
+  --color-secondary-foreground: #e9e7e2;
+  --color-primary: #e9e7e2;
+  --color-primary-foreground: #16161f;
+  --color-accent: #2f2f3d;
+  --color-accent-foreground: #e9e7e2;
+  --color-popover: #202029;
+  --color-popover-foreground: #e9e7e2;
+  --color-card: #202029;
+  --color-card-foreground: #e9e7e2;
+  --color-destructive: #e5675a;
+  --color-ring: #8f8bd6;
+  --color-border: rgba(255, 255, 255, 0.12);
+  --color-input: rgba(255, 255, 255, 0.12);
+  --color-panel-border: rgba(255, 255, 255, 0.12);
+
+  /* Shell */
+  --shell-solid-surface: #1b1b25;
+  --shell-surface: rgba(27, 27, 37, 0.94);
+  --shell-surface-sidebar: var(--shell-surface);
+  --shell-surface-floating: rgba(27, 27, 37, 0.94);
+  --shell-surface-popover: rgba(32, 32, 43, 0.98);
+  --shell-border: rgba(255, 255, 255, 0.14);
+  --shell-stroke-light: rgba(255, 255, 255, 0.08);
+  --shell-stroke-dark: rgba(0, 0, 0, 0.4);
+  --shell-shadow-panel:
+    0 8px 30px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.35);
+  --shell-overlay-dimming: 0.6;
+}
+
+/* Las superficies translúcidas de macOS son vidrio blanco; en oscuro el
+   vidrio se tiñe del propio panel para no lavar el fondo. */
+[data-appearance='dark'][data-platform='macos'] {
+  --shell-surface: rgba(28, 28, 40, 0.55);
+  --shell-surface-floating: rgba(28, 28, 40, 0.55);
+  --shell-surface-popover: rgba(30, 30, 44, 0.7);
+  --shell-border: rgba(255, 255, 255, 0.16);
+  --shell-inner-highlight:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.04);
+  --shell-backdrop-brightness: 0.85;
+}
+
+[data-appearance='dark'][data-platform='windows'] {
+  --shell-solid-surface: #202020;
+  --shell-surface: rgba(32, 32, 32, 0.82);
+  --shell-surface-sidebar: rgba(32, 32, 32, 0.92);
+  --shell-surface-floating: rgba(43, 43, 43, 0.96);
+  --shell-surface-popover: rgba(43, 43, 43, 0.99);
+  --shell-border: rgba(255, 255, 255, 0.09);
+  --color-border: rgba(255, 255, 255, 0.09);
+  --color-input: rgba(255, 255, 255, 0.09);
+  --color-panel-border: rgba(255, 255, 255, 0.09);
+}
 /* ─── Shell adaptativo inline (Story 8.2) ─────────────────────────────────── */
 .desktop-shell {
   position: relative;
