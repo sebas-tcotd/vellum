@@ -1,0 +1,66 @@
+/* Utilities: capability fallbacks, accessibility preferences, and state-wide rules. */
+@supports not ((backdrop-filter: blur(1px))) {
+  .shell-sidebar,
+  .shell-floating-group,
+  .shell-camera-group,
+  .shell-dialog-content {
+    background: var(--shell-solid-surface);
+  }
+}
+
+.desktop-shell :focus-visible {
+  outline: 2px solid var(--shell-focus);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --transition-panel: 0ms;
+    --transition-theme: 0ms;
+    --shell-layout-duration: 0ms;
+  }
+
+  .desktop-shell *,
+  .desktop-shell *::before,
+  .desktop-shell *::after {
+    animation-duration: 0ms !important;
+    transition-duration: 0ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@media (forced-colors: active) {
+  .shell-sidebar,
+  [data-platform='macos'] .shell-sidebar {
+    color: CanvasText;
+    background: Canvas;
+    border-color: CanvasText;
+    box-shadow: none;
+    backdrop-filter: none;
+  }
+
+  .shell-floating-group,
+  .shell-camera-group {
+    background: Canvas;
+    border-color: ButtonBorder;
+    box-shadow: none;
+    backdrop-filter: none;
+  }
+
+  .shell-floating-button,
+  .shell-camera-button {
+    color: ButtonText;
+  }
+
+  .shell-floating-button:disabled,
+  .shell-camera-button:disabled {
+    color: GrayText;
+    opacity: 1;
+  }
+
+  .shell-style-pill.is-selected {
+    color: HighlightText;
+    background: Highlight;
+    border-color: Highlight;
+  }
+}

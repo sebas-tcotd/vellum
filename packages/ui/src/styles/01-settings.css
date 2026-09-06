@@ -1,0 +1,118 @@
+/* Settings: font loading, Tailwind theme tokens, and shared design tokens. */
+
+/* @font-face directo (no @import @fontsource) para poder fijar font-display: block.
+   Los woff2 vienen del package @fontsource/cormorant-garamond (dep de @vellum/ui);
+   Vite resuelve URLs con prefijo '@' en CSS como imports de npm. */
+@font-face {
+  font-family: 'Cormorant Garamond';
+  src: url('@fontsource/cormorant-garamond/files/cormorant-garamond-latin-400-normal.woff2')
+    format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  /* block: bloquea render hasta que cargue — correcto para fuente bundleada
+     (sin latencia de red). Evita el FOUT en el wordmark al arrancar la app.
+     @fontsource usa 'swap' por defecto — esta declaración directa lo sobreescribe. */
+  font-display: block;
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212,
+    U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Cormorant Garamond';
+  src: url('@fontsource/cormorant-garamond/files/cormorant-garamond-latin-400-italic.woff2')
+    format('woff2');
+  font-weight: 400;
+  font-style: italic;
+  font-display: block;
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212,
+    U+2215, U+FEFF, U+FFFD;
+}
+
+/* DM Mono — 400 normal — font-display: block para consistencia cross-platform (NFR10).
+   Usado por la capa de distritos en el OffscreenCanvas Worker. */
+@font-face {
+  font-family: 'DM Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url('@fontsource/dm-mono/files/dm-mono-latin-400-normal.woff2')
+    format('woff2');
+}
+
+/* shadcn/ui semantic variables. @theme stays outside a cascade layer because
+   Tailwind v4 reads it to generate utilities. */
+@theme {
+  --color-background: #f7f6f1;
+  --color-foreground: #333333;
+  --color-primary: #4a4035;
+  --color-primary-foreground: #f2efe9;
+  --color-secondary: #e8e3da;
+  --color-secondary-foreground: #4a4035;
+  --color-destructive: #c0392b;
+  --color-destructive-foreground: #f2efe9;
+  --color-muted: #e0ddd7;
+  --color-muted-foreground: #626262;
+  --color-accent: #d9d3c8;
+  --color-accent-foreground: #333333;
+  --color-popover: #f2efe9;
+  --color-popover-foreground: #333333;
+  --color-card: #f2efe9;
+  --color-card-foreground: #333333;
+  --color-border: rgba(0, 0, 0, 0.12);
+  --color-input: rgba(0, 0, 0, 0.12);
+  --color-ring: #4a4035;
+  --color-panel-border: #2c28251f;
+  --radius: 10px;
+  --font-wordmark: 'Cormorant Garamond', 'Georgia', serif;
+  --font-ui: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'DM Mono', 'Consolas', 'Monaco', monospace;
+}
+
+:root {
+  /* Map palette — Tema Day (OSM Humanitarian). */
+  --color-bg: #f7f6f1;
+  --color-terrain: #f7f6f1;
+  --color-terrain-low: #95ae79;
+  --color-terrain-mid: #deddbe;
+  --color-terrain-high: #c4a06a;
+  --color-water: #6db8b7;
+  --color-green: #95ae79;
+  --color-building: #c8bfb5;
+  --color-building-stroke: #a09585;
+  --color-district-fill: #b4a08c;
+  --color-district-label: #ffffff;
+  --color-text: #333333;
+  --color-text-subtle: #626262;
+  --color-border: rgba(0, 0, 0, 0.08);
+  --color-transit-bg: #1a1a2e;
+
+  --color-road-highway: #a098b0;
+  --color-road-highway-casing: #7d748e;
+  --color-road-large-arterial: #d2938e;
+  --color-road-large-arterial-casing: #b8756e;
+  --color-road-medium-arterial: #d4a882;
+  --color-road-local: #e4e1d1;
+  --color-road-local-casing: #8a8278;
+  --color-road-gravel: #e0d5c1;
+  --color-road-gravel-casing: #c4b89e;
+  --color-road-pedestrian: #7a6e60;
+  --color-road-pedestrian-casing: #5d5550;
+  --color-road-pedestrian-way: #8b7d6b;
+  --color-road-railway: #eceff1;
+  --color-road-railway-casing: #455a64;
+
+  --font-wordmark: 'Cormorant Garamond', 'Georgia', serif;
+  --font-ui: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'DM Mono', 'Consolas', 'Monaco', monospace;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --shadow-panel: 0 4px 24px rgba(0, 0, 0, 0.12);
+  --transition-layer: 200ms ease;
+  --transition-panel: 150ms ease;
+  --transition-theme: 300ms ease;
+}

@@ -1,0 +1,192 @@
+/* Themes: platform profiles and map-driven appearance overrides. */
+
+/* Shell tokens are scoped to <html> by PlatformProvider. They are exclusive to
+   application chrome; map renderer tokens remain in 01-settings.css. */
+:root,
+[data-platform='linux'],
+[data-platform='unknown'] {
+  --shell-radius-control: 6px;
+  --shell-radius-panel: 12px;
+  --shell-radius-overlay: 12px;
+  --shell-radius-popover: 12px;
+  --shell-radius-lg: var(--shell-radius-panel);
+  --shell-material-alpha: 0.94;
+  --shell-backdrop-blur: 16px;
+  --shell-blur: var(--shell-backdrop-blur);
+  --shell-backdrop-saturate: 100%;
+  --shell-backdrop-brightness: 1;
+  --shell-noise-opacity: 0;
+  --shell-inner-highlight: none;
+  --shell-overlay-dimming: 0.45;
+  --shell-sidebar-backdrop-filter: none;
+  --shell-floating-backdrop-filter: blur(var(--shell-backdrop-blur));
+  --shell-popover-backdrop-filter: blur(var(--shell-backdrop-blur));
+  --shell-shadow-panel: 0 4px 24px rgba(0, 0, 0, 0.12);
+  --font-shell: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --shell-solid-surface: #f7f6f1;
+  --shell-surface: rgba(247, 246, 241, 0.94);
+  --shell-border: rgba(44, 40, 37, 0.12);
+  --shell-sidebar-expanded-width: 272px;
+  --shell-sidebar-collapsed-width: 56px;
+  --shell-titlebar-inset: 0px;
+  --shell-layout-duration: 180ms;
+  --shell-surface-sidebar: var(--shell-surface);
+  --shell-surface-floating: rgba(247, 246, 241, 0.94);
+  --shell-surface-popover: rgba(247, 246, 241, 0.98);
+  --shell-surface-selected: var(--color-accent-foreground);
+  --shell-on-selected: var(--color-bg);
+  --shell-text-primary: var(--color-text);
+  --shell-text-muted: var(--color-text-subtle);
+  --shell-layer-icon: var(--shell-text-muted);
+  --shell-separator: var(--shell-border);
+  --shell-focus: var(--color-ring);
+  --shell-radius-interactive: var(--shell-radius-control);
+  --shell-shadow-floating: var(--shell-shadow-panel);
+  --shell-shadow-popover: var(--shell-shadow-panel);
+  --shell-panel-padding: 6px;
+  --shell-radius-inner: calc(
+    var(--shell-radius-panel) - var(--shell-panel-padding)
+  );
+  --shell-row-height: 32px;
+  --shell-control-size: 28px;
+  --shell-overlay-inset: 12px;
+  --shell-overlay-gap: 8px;
+  --shell-sidebar-inset: 0px;
+  --shell-sidebar-radius: 0px;
+}
+
+[data-platform='windows'] {
+  --shell-radius-control: 4px;
+  --shell-radius-panel: 8px;
+  --shell-radius-overlay: 8px;
+  --shell-radius-popover: 12px;
+  --shell-radius-lg: var(--shell-radius-panel);
+  --shell-material-alpha: 0.72;
+  --shell-backdrop-blur: 30px;
+  --shell-blur: var(--shell-backdrop-blur);
+  --shell-backdrop-saturate: 125%;
+  --shell-backdrop-brightness: 1;
+  --shell-noise-opacity: 0.08;
+  --shell-inner-highlight: none;
+  --shell-overlay-dimming: 0.55;
+  --shell-sidebar-backdrop-filter: none;
+  --shell-floating-backdrop-filter: blur(var(--shell-backdrop-blur))
+    saturate(var(--shell-backdrop-saturate));
+  --shell-popover-backdrop-filter: blur(var(--shell-backdrop-blur))
+    saturate(var(--shell-backdrop-saturate));
+  --shell-shadow-panel:
+    0 0 8px rgba(0, 0, 0, 0.2), 0 14px 28px rgba(0, 0, 0, 0.24);
+  --font-shell: 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
+  --shell-solid-surface: #f3f3f3;
+  --shell-surface: rgba(243, 243, 243, 0.82);
+  --shell-surface-sidebar: rgba(243, 243, 243, 0.92);
+  --shell-border: rgba(0, 0, 0, 0.06);
+  --shell-stroke-light: rgba(0, 0, 0, 0.05);
+  --shell-stroke-dark: rgba(255, 255, 255, 0.1);
+  --color-border: rgba(0, 0, 0, 0.06);
+  --color-input: rgba(0, 0, 0, 0.06);
+  --color-panel-border: rgba(0, 0, 0, 0.06);
+  --shell-surface-floating: rgba(249, 249, 249, 0.96);
+  --shell-surface-popover: rgba(249, 249, 249, 0.99);
+  --shell-row-height: 30px;
+}
+
+[data-platform='macos'] {
+  --shell-radius-control: 10px;
+  --shell-radius-panel: 16px;
+  --shell-radius-overlay: 16px;
+  --shell-radius-popover: 18px;
+  --shell-radius-capsule: 999px;
+  --shell-radius-lg: var(--shell-radius-panel);
+  --shell-material-alpha: 0.16;
+  --shell-backdrop-blur: 32px;
+  --shell-blur: var(--shell-backdrop-blur);
+  --shell-backdrop-saturate: 155%;
+  --shell-backdrop-brightness: 1.04;
+  --shell-noise-opacity: 0;
+  --shell-inner-highlight:
+    inset 0 1px 0 rgba(255, 255, 255, 0.38),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.08);
+  --shell-overlay-dimming: 0.35;
+  --shell-sidebar-backdrop-filter: blur(var(--shell-backdrop-blur))
+    saturate(var(--shell-backdrop-saturate))
+    brightness(var(--shell-backdrop-brightness));
+  --shell-floating-backdrop-filter: var(--shell-sidebar-backdrop-filter);
+  --shell-popover-backdrop-filter: var(--shell-sidebar-backdrop-filter);
+  --shell-shadow-panel:
+    0 8px 30px rgba(0, 0, 0, 0.14), 0 2px 8px rgba(0, 0, 0, 0.08),
+    var(--shell-inner-highlight);
+  --font-shell: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+  --shell-solid-surface: #f7f6f1;
+  --shell-surface: rgba(255, 255, 255, 0.16);
+  --shell-border: rgba(255, 255, 255, 0.28);
+  --shell-stroke-light: rgba(255, 255, 255, 0.28);
+  --shell-titlebar-inset: 44px;
+  --shell-surface-floating: rgba(255, 255, 255, 0.16);
+  --shell-surface-popover: rgba(255, 255, 255, 0.2);
+  --shell-row-height: 34px;
+  --shell-sidebar-collapsed-width: 5.5rem;
+  --shell-sidebar-inset: 10px;
+  --shell-sidebar-radius: var(--shell-radius-panel);
+  --shell-corner-shape: squircle;
+}
+
+/* App.tsx sets data-appearance from the active map theme, not the OS. */
+[data-appearance='dark'] {
+  --color-bg: #16161f;
+  --color-background: #16161f;
+  --color-text: #e9e7e2;
+  --color-foreground: #e9e7e2;
+  --color-text-subtle: #a5a29b;
+  --color-muted: #262633;
+  --color-muted-foreground: #a5a29b;
+  --color-secondary: #262633;
+  --color-secondary-foreground: #e9e7e2;
+  --color-primary: #e9e7e2;
+  --color-primary-foreground: #16161f;
+  --color-accent: #2f2f3d;
+  --color-accent-foreground: #e9e7e2;
+  --color-popover: #202029;
+  --color-popover-foreground: #e9e7e2;
+  --color-card: #202029;
+  --color-card-foreground: #e9e7e2;
+  --color-destructive: #e5675a;
+  --color-ring: #8f8bd6;
+  --color-border: rgba(255, 255, 255, 0.12);
+  --color-input: rgba(255, 255, 255, 0.12);
+  --color-panel-border: rgba(255, 255, 255, 0.12);
+  --shell-solid-surface: #1b1b25;
+  --shell-surface: rgba(27, 27, 37, 0.94);
+  --shell-surface-sidebar: var(--shell-surface);
+  --shell-surface-floating: rgba(27, 27, 37, 0.94);
+  --shell-surface-popover: rgba(32, 32, 43, 0.98);
+  --shell-border: rgba(255, 255, 255, 0.14);
+  --shell-stroke-light: rgba(255, 255, 255, 0.08);
+  --shell-stroke-dark: rgba(0, 0, 0, 0.4);
+  --shell-shadow-panel:
+    0 8px 30px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.35);
+  --shell-overlay-dimming: 0.6;
+}
+
+[data-appearance='dark'][data-platform='macos'] {
+  --shell-surface: rgba(28, 28, 40, 0.55);
+  --shell-surface-floating: rgba(28, 28, 40, 0.55);
+  --shell-surface-popover: rgba(30, 30, 44, 0.7);
+  --shell-border: rgba(255, 255, 255, 0.16);
+  --shell-inner-highlight:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.04);
+  --shell-backdrop-brightness: 0.85;
+}
+
+[data-appearance='dark'][data-platform='windows'] {
+  --shell-solid-surface: #202020;
+  --shell-surface: rgba(32, 32, 32, 0.82);
+  --shell-surface-sidebar: rgba(32, 32, 32, 0.92);
+  --shell-surface-floating: rgba(43, 43, 43, 0.96);
+  --shell-surface-popover: rgba(43, 43, 43, 0.99);
+  --shell-border: rgba(255, 255, 255, 0.09);
+  --color-border: rgba(255, 255, 255, 0.09);
+  --color-input: rgba(255, 255, 255, 0.09);
+  --color-panel-border: rgba(255, 255, 255, 0.09);
+}

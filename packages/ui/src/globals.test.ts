@@ -8,7 +8,20 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const css = readFileSync(resolve(__dirname, './globals.css'), 'utf-8');
+const cssFiles = [
+  './globals.css',
+  './styles/01-settings.css',
+  './styles/02-themes.css',
+  './styles/03-generic.css',
+  './styles/04-objects.css',
+  './styles/05-components.css',
+  './styles/06-utilities.css',
+  './styles/07-animations.css',
+];
+
+const css = cssFiles
+  .map((file) => readFileSync(resolve(__dirname, file), 'utf-8'))
+  .join('\n');
 
 describe('globals.css design tokens', () => {
   it('define todos los tokens de color de la paleta pergamino', () => {

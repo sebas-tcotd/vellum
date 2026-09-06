@@ -1,0 +1,446 @@
+/* Components: named shell, sidebar, overlay, and dialog interfaces. */
+.shell-sidebar {
+  position: absolute;
+  top: var(--shell-sidebar-inset);
+  bottom: var(--shell-sidebar-inset);
+  left: var(--shell-sidebar-inset);
+  display: flex;
+  z-index: 20;
+  flex-direction: column;
+  width: var(--shell-sidebar-expanded-width);
+  min-width: 0;
+  padding-top: max(
+    0px,
+    calc(var(--shell-titlebar-inset) - var(--shell-sidebar-inset))
+  );
+  overflow: hidden;
+  color: var(--shell-text-primary);
+  background: var(--shell-surface-sidebar);
+  border-right: 1px solid var(--shell-separator);
+  border-radius: var(--shell-sidebar-radius);
+  box-shadow: var(--shell-shadow-panel);
+  backdrop-filter: var(--shell-sidebar-backdrop-filter);
+  transition: width var(--shell-layout-duration) ease;
+  corner-shape: var(--shell-corner-shape, round);
+}
+
+[data-platform='macos'] .shell-sidebar {
+  border: 1px solid var(--shell-separator);
+}
+
+.shell-sidebar[data-state='collapsed'] {
+  width: var(--shell-sidebar-collapsed-width) !important;
+}
+
+.shell-sidebar[hidden] {
+  display: none;
+}
+
+.shell-sidebar__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding-bottom: 12px;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.shell-context-header {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 8px;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 12px 12px 8px;
+  border-bottom: 1px solid var(--shell-separator);
+}
+
+.shell-context-header[data-collapsed] {
+  justify-content: center;
+  padding: 12px 4px 8px;
+}
+
+.shell-context-header__identity {
+  min-width: 0;
+}
+
+.shell-context-header__city {
+  margin: 0;
+  overflow: hidden;
+  font-family: var(--font-wordmark);
+  font-size: 1.25rem;
+  font-weight: 500;
+  line-height: 1.2;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.shell-context-header__file summary {
+  font-size: 11px;
+  color: var(--shell-text-muted);
+  cursor: pointer;
+  list-style: none;
+}
+
+.shell-context-header__file summary::-webkit-details-marker {
+  display: none;
+}
+
+.shell-context-header__file p {
+  margin: 2px 0 0;
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--shell-text-muted);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.shell-section {
+  padding: 12px 12px 4px;
+}
+
+.shell-section__heading {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--shell-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.shell-section__subheading {
+  margin: 8px 0 4px;
+  padding: 0 12px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--shell-text-muted);
+}
+
+.shell-style-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.shell-style-pill {
+  padding: 4px 10px;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  color: inherit;
+  background: transparent;
+  border: 1px solid var(--shell-separator);
+  border-radius: 999px;
+  cursor: pointer;
+  opacity: 0.75;
+}
+
+.shell-style-pill:hover {
+  opacity: 1;
+}
+
+.shell-style-pill.is-selected {
+  color: var(--shell-on-selected);
+  background: var(--shell-surface-selected);
+  border-color: transparent;
+  opacity: 1;
+}
+
+.shell-layer-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-height: var(--shell-row-height);
+}
+
+.shell-layer-row__indicator {
+  display: flex;
+  flex-shrink: 0;
+  color: var(--shell-layer-icon);
+}
+
+.shell-layer-row__name {
+  flex: 1;
+  overflow: hidden;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.shell-layer-row__disclosure {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: var(--shell-control-size);
+  height: var(--shell-control-size);
+  color: inherit;
+  background: transparent;
+  border: none;
+  border-radius: var(--shell-radius-interactive);
+  cursor: pointer;
+  opacity: 0.6;
+}
+
+.shell-layer-row__disclosure:hover {
+  opacity: 1;
+}
+
+.shell-layer-row[data-detail-open] .shell-layer-row__disclosure {
+  opacity: 1;
+  transform: rotate(90deg);
+}
+
+.shell-back {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  margin-bottom: 8px;
+  padding: 4px 6px 4px 0;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  color: var(--shell-text-muted);
+  background: transparent;
+  border: none;
+  border-radius: var(--shell-radius-interactive);
+  cursor: pointer;
+}
+
+.shell-back:hover {
+  color: var(--shell-text-primary);
+}
+
+.shell-option-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-height: var(--shell-row-height);
+  margin-top: 4px;
+}
+
+.shell-option-row__label {
+  flex: 1;
+  overflow: hidden;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  opacity: 0.85;
+}
+
+.shell-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+  padding: 12px 8px;
+}
+
+.shell-rail__item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 34px;
+  padding: 5px;
+  color: var(--shell-layer-icon);
+  background: transparent;
+  border: 0;
+  border-radius: var(--shell-radius-interactive);
+  cursor: pointer;
+  opacity: 0.38;
+  transition:
+    opacity 120ms ease,
+    background 120ms ease;
+}
+
+.shell-rail__item[data-state='on'] {
+  opacity: 1;
+}
+
+.shell-rail__item:hover,
+.shell-rail__item:focus-visible {
+  background: var(--shell-surface-popover);
+  opacity: 1;
+}
+
+.shell-rail__item:focus-visible {
+  outline: 2px solid var(--shell-focus);
+  outline-offset: -2px;
+}
+
+.shell-rail__item:active {
+  opacity: 0.75;
+}
+
+.shell-rail__icon {
+  align-items: center;
+  display: flex;
+  width: 22px;
+  height: 22px;
+  justify-content: center;
+  color: inherit;
+}
+
+.shell-icon-button {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: var(--shell-control-size);
+  height: var(--shell-control-size);
+  color: inherit;
+  background: transparent;
+  border: none;
+  border-radius: var(--shell-radius-interactive);
+  cursor: pointer;
+  opacity: 0.65;
+}
+
+.shell-icon-button:hover {
+  opacity: 1;
+}
+
+.shell-command-button {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 4px 10px;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  color: inherit;
+  background: transparent;
+  border: 1px solid var(--shell-separator);
+  border-radius: var(--shell-radius-interactive);
+  cursor: pointer;
+}
+
+.shell-command-button:hover:not(:disabled) {
+  background: var(--shell-surface-floating);
+}
+
+.shell-command-button:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+
+.shell-resize-handle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 6px;
+  border-top-right-radius: var(--shell-sidebar-radius);
+  border-bottom-right-radius: var(--shell-sidebar-radius);
+  cursor: col-resize;
+  background: transparent;
+}
+
+.shell-resize-handle:hover,
+.shell-resize-handle:focus-visible {
+  background: var(--shell-focus);
+  opacity: 0.5;
+}
+
+.shell-floating-group,
+.shell-camera-group {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  color: var(--shell-text-primary);
+  background: var(--shell-surface-floating);
+  border: 1px solid var(--shell-separator);
+  border-radius: var(--shell-radius-overlay);
+  box-shadow: var(--shell-shadow-floating);
+  backdrop-filter: var(--shell-floating-backdrop-filter);
+  corner-shape: var(--shell-corner-shape, round);
+}
+
+.shell-sidebar::before,
+.shell-floating-group::before,
+.shell-camera-group::before {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  content: '';
+  border-radius: inherit;
+  opacity: var(--shell-noise-opacity);
+  background-image: radial-gradient(
+    rgba(0, 0, 0, 0.55) 0.5px,
+    transparent 0.5px
+  );
+  background-size: 3px 3px;
+}
+
+.shell-sidebar,
+.shell-floating-group,
+.shell-camera-group {
+  isolation: isolate;
+}
+
+.shell-dialog-overlay {
+  background: rgb(0 0 0 / var(--shell-overlay-dimming));
+}
+
+.shell-dialog-content {
+  color: var(--shell-text-primary);
+  background: var(--shell-surface-popover);
+  border-color: var(--shell-border);
+  border-radius: var(--shell-radius-popover);
+  box-shadow: var(--shell-shadow-popover);
+  backdrop-filter: var(--shell-popover-backdrop-filter);
+  corner-shape: var(--shell-corner-shape, round);
+}
+
+.shell-document-commands {
+  margin-top: var(--shell-titlebar-inset);
+}
+
+.shell-floating-button,
+.shell-camera-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  color: inherit;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.shell-floating-button + .shell-floating-button,
+.shell-camera-button + .shell-camera-button {
+  border-top: 1px solid var(--shell-separator);
+}
+
+.shell-floating-button:hover:not(:disabled),
+.shell-camera-button:hover:not(:disabled) {
+  background: var(--shell-surface-popover);
+}
+
+.shell-floating-button:disabled,
+.shell-camera-button:disabled {
+  cursor: default;
+  opacity: 0.35;
+}
+
+.shell-minimap {
+  corner-shape: var(--shell-corner-shape, round);
+}
+
+.shell-titlebar-drag-region {
+  display: none;
+}
+
+[data-platform='macos'] .shell-titlebar-drag-region {
+  position: fixed;
+  z-index: 40;
+  top: 0;
+  right: 0;
+  left: 0;
+  display: block;
+  height: var(--shell-titlebar-inset);
+}
