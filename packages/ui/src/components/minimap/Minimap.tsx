@@ -262,7 +262,7 @@ export function Minimap({
 
   return (
     <div
-      className="rounded-md overflow-hidden border border-white/20 shadow-lg bg-[#f2efe9]"
+      className="shell-minimap rounded-md overflow-hidden border border-white/20 shadow-lg bg-[#f2efe9]"
       style={{
         width: CANVAS_SIZE,
         height: CANVAS_SIZE,

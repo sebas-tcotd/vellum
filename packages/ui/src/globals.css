@@ -260,6 +260,7 @@
   --shell-sidebar-collapsed-width: 5.5rem;
   --shell-sidebar-inset: 10px;
   --shell-sidebar-radius: 12px;
+  --shell-corner-shape: squircle;
 }
 
 /* ─── Shell adaptativo inline (Story 8.2) ─────────────────────────────────── */
@@ -311,6 +312,7 @@
   box-shadow: var(--shell-shadow-panel);
   backdrop-filter: blur(var(--shell-blur));
   transition: width var(--shell-layout-duration) ease;
+  corner-shape: var(--shell-corner-shape, round);
 }
 
 /* Once inset, it is a panel on every side rather than a wall on one. */
@@ -682,6 +684,7 @@
   border-radius: var(--shell-radius-panel);
   box-shadow: var(--shell-shadow-floating);
   backdrop-filter: blur(var(--shell-blur));
+  corner-shape: var(--shell-corner-shape, round);
 }
 
 /* Clears the platform titlebar, which owns the drag region above it. */
@@ -716,6 +719,10 @@
 .shell-camera-button:disabled {
   cursor: default;
   opacity: 0.35;
+}
+
+.shell-minimap {
+  corner-shape: var(--shell-corner-shape, round);
 }
 
 @media (forced-colors: active) {
