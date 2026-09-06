@@ -229,6 +229,37 @@ describe('Minimap', () => {
     // The pre-render effect fills the offscreen canvas with terrain color
     expect(mockCtx.fillRect).toHaveBeenCalled();
   });
+
+  it('repinta con la paleta del tema activo cuando esta cambia', () => {
+    const fills: string[] = [];
+    mockCtx.fillRect.mockImplementation(() => {
+      fills.push(String(mockCtx.fillStyle));
+    });
+    const props = {
+      cityData: mockCityData,
+      subscribeViewport: vi.fn(() => vi.fn()),
+      getInitialViewportBounds: vi.fn(() => null),
+      navigateTo: vi.fn(),
+    };
+
+    const { rerender } = render(
+      <Minimap
+        {...props}
+        palette={{ water: '#111111', land: '#222222', highway: '#333333' }}
+      />,
+    );
+    expect(fills).toContain('#111111');
+
+    rerender(
+      <Minimap
+        {...props}
+        palette={{ water: '#aabbcc', land: '#ddeeff', highway: '#445566' }}
+      />,
+    );
+    expect(fills).toContain('#aabbcc');
+
+    mockCtx.fillRect.mockReset();
+  });
 });
 
 describe('keyboard navigation', () => {
