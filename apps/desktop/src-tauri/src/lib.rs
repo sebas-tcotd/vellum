@@ -57,6 +57,7 @@ pub fn run() {
             commands::finish_export,
             commands::cancel_export,
             menu::update_theme_menu,
+            menu::update_menu_language,
             menu::toggle_native_menu,
             #[cfg(desktop)]
             updater::get_pending_update,

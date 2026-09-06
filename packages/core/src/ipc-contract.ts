@@ -18,6 +18,7 @@ export const IPC_COMMANDS = {
   OPEN_EXPORT_FOLDER: 'open_export_folder',
   LOAD_THEMES: 'load_themes',
   UPDATE_THEME_MENU: 'update_theme_menu',
+  UPDATE_MENU_LANGUAGE: 'update_menu_language',
   TOGGLE_NATIVE_MENU: 'toggle_native_menu',
   /**
    * Opens a transactional export session. Invoked as `{ metadata }`.

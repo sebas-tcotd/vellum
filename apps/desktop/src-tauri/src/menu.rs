@@ -71,6 +71,151 @@ pub const MENU_ID_ABOUT: &str = "menu.about";
 pub const MENU_ID_EXIT: &str = "menu.exit";
 const MENU_ID_THEMES: &str = "menu.themes";
 const MENU_ID_THEME_PREFIX: &str = "menu.theme.";
+const MENU_ID_VIEW_LAYOUT: &str = "menu.view.layout";
+const MENU_ID_VIEW_INTERACTION: &str = "menu.view.interaction";
+const MENU_ID_VIEW_OVERLAYS: &str = "menu.view.overlays";
+const MENU_ID_LAYER_PREFIX: &str = "menu.layer.";
+
+struct MenuLocale {
+    file: &'static str,
+    edit: &'static str,
+    view: &'static str,
+    layers: &'static str,
+    appearance: &'static str,
+    window: &'static str,
+    open_map: &'static str,
+    export_map: &'static str,
+    fit_to_screen: &'static str,
+    zoom_in: &'static str,
+    zoom_out: &'static str,
+    clean_view: &'static str,
+    sidebar: &'static str,
+    navigation_mode: &'static str,
+    map_symbols: &'static str,
+    rotate_left: &'static str,
+    rotate_right: &'static str,
+    reset_north: &'static str,
+    layout: &'static str,
+    interaction: &'static str,
+    overlays: &'static str,
+    open_in_sidebar: &'static str,
+    dim_non_transit: &'static str,
+    preferences: &'static str,
+    about: &'static str,
+}
+
+fn menu_locale(language: &str) -> Result<MenuLocale, String> {
+    match language {
+        "en" => Ok(MenuLocale {
+            file: "File",
+            edit: "Edit",
+            view: "View",
+            layers: "Layers",
+            appearance: "Appearance",
+            window: "Window",
+            open_map: "Open Map…",
+            export_map: "Export Map…",
+            fit_to_screen: "Fit to Screen",
+            zoom_in: "Zoom In",
+            zoom_out: "Zoom Out",
+            clean_view: "Clean View",
+            sidebar: "Sidebar",
+            navigation_mode: "Navigation Mode",
+            map_symbols: "Map Symbols",
+            rotate_left: "Rotate Left",
+            rotate_right: "Rotate Right",
+            reset_north: "Reset North",
+            layout: "Layout",
+            interaction: "Interaction",
+            overlays: "Overlays",
+            open_in_sidebar: "Open in Sidebar…",
+            dim_non_transit: "Dim Non-Transit Layers",
+            preferences: "Preferences…",
+            about: "About Vellum",
+        }),
+        "es" => Ok(MenuLocale {
+            file: "Archivo",
+            edit: "Editar",
+            view: "Ver",
+            layers: "Capas",
+            appearance: "Apariencia",
+            window: "Ventana",
+            open_map: "Abrir mapa…",
+            export_map: "Exportar mapa…",
+            fit_to_screen: "Ajustar a la pantalla",
+            zoom_in: "Acercar",
+            zoom_out: "Alejar",
+            clean_view: "Vista limpia",
+            sidebar: "Barra lateral",
+            navigation_mode: "Modo de navegación",
+            map_symbols: "Símbolos del mapa",
+            rotate_left: "Girar a la izquierda",
+            rotate_right: "Girar a la derecha",
+            reset_north: "Restablecer norte",
+            layout: "Diseño",
+            interaction: "Interacción",
+            overlays: "Superposiciones",
+            open_in_sidebar: "Abrir en la barra lateral…",
+            dim_non_transit: "Atenuar capas no relacionadas con transporte",
+            preferences: "Preferencias…",
+            about: "Acerca de Vellum",
+        }),
+        _ => Err(format!("unsupported menu language: {language}")),
+    }
+}
+
+fn set_menu_item_text<R: Runtime>(
+    item: &MenuItemKind<R>,
+    id: &str,
+    text: &str,
+) -> Result<bool, String> {
+    if item.id().0.as_str() == id {
+        match item {
+            MenuItemKind::MenuItem(item) => item
+                .set_text(text)
+                .map_err(|error| format!("failed to set menu item text: {error}"))?,
+            MenuItemKind::Check(item) => item
+                .set_text(text)
+                .map_err(|error| format!("failed to set check item text: {error}"))?,
+            MenuItemKind::Predefined(item) => item
+                .set_text(text)
+                .map_err(|error| format!("failed to set predefined item text: {error}"))?,
+            MenuItemKind::Submenu(item) => item
+                .set_text(text)
+                .map_err(|error| format!("failed to set submenu text: {error}"))?,
+            MenuItemKind::Icon(item) => item
+                .set_text(text)
+                .map_err(|error| format!("failed to set icon item text: {error}"))?,
+        }
+        return Ok(true);
+    }
+
+    if let MenuItemKind::Submenu(submenu) = item {
+        for child in submenu
+            .items()
+            .map_err(|error| format!("failed to inspect submenu: {error}"))?
+        {
+            if set_menu_item_text(&child, id, text)? {
+                return Ok(true);
+            }
+        }
+    }
+
+    Ok(false)
+}
+
+fn set_localized_menu_item<R: Runtime>(menu: &Menu<R>, id: &str, text: &str) -> Result<(), String> {
+    let found = menu
+        .items()
+        .map_err(|error| format!("failed to inspect native menu: {error}"))?
+        .iter()
+        .any(|item| set_menu_item_text(item, id, text).unwrap_or(false));
+    if found {
+        Ok(())
+    } else {
+        Err(format!("native menu item not found: {id}"))
+    }
+}
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -110,7 +255,7 @@ fn build_file_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> 
     let open_file = custom_item(app, MENU_ID_OPEN_FILE, "Open Map…", Some("CmdOrCtrl+O"))?;
     let open_export = custom_item(app, MENU_ID_OPEN_EXPORT, "Export Map…", Some("CmdOrCtrl+E"))?;
 
-    let mut builder = SubmenuBuilder::new(app, "File")
+    let mut builder = SubmenuBuilder::with_id(app, "menu.file", "File")
         .item(&open_file)
         .item(&open_export)
         .separator();
@@ -130,7 +275,7 @@ fn build_file_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> 
 }
 
 fn build_edit_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> {
-    SubmenuBuilder::new(app, "Edit")
+    SubmenuBuilder::with_id(app, "menu.edit", "Edit")
         .undo()
         .redo()
         .separator()
@@ -183,18 +328,18 @@ fn build_view_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> 
     )?;
     let reset_bearing = custom_item(app, MENU_ID_RESET_BEARING, "Reset North", Some("KeyR"))?;
 
-    let layout = SubmenuBuilder::new(app, "Layout")
+    let layout = SubmenuBuilder::with_id(app, MENU_ID_VIEW_LAYOUT, "Layout")
         .item(&toggle_sidebar)
         .item(&clean_mode)
         .build()?;
-    let interaction = SubmenuBuilder::new(app, "Interaction")
+    let interaction = SubmenuBuilder::with_id(app, MENU_ID_VIEW_INTERACTION, "Interaction")
         .item(&navigation_mode)
         .build()?;
-    let overlays = SubmenuBuilder::new(app, "Overlays")
+    let overlays = SubmenuBuilder::with_id(app, MENU_ID_VIEW_OVERLAYS, "Overlays")
         .item(&icon_legend)
         .build()?;
 
-    SubmenuBuilder::new(app, "View")
+    SubmenuBuilder::with_id(app, "menu.view", "View")
         .item(&fit_to_screen)
         .item(&zoom_in)
         .item(&zoom_out)
@@ -232,10 +377,11 @@ fn build_layer_menu<R: Runtime>(
             "Open in Sidebar…",
             None,
         )?;
-        let mut builder = SubmenuBuilder::new(app, label)
-            .item(&visible)
-            .item(&open_sidebar)
-            .separator();
+        let mut builder =
+            SubmenuBuilder::with_id(app, format!("{MENU_ID_LAYER_PREFIX}{layer}"), label)
+                .item(&visible)
+                .item(&open_sidebar)
+                .separator();
 
         let mut items = Vec::with_capacity(options.len());
         for (id, text, checked) in options {
@@ -254,7 +400,9 @@ fn build_layer_menu<R: Runtime>(
         return builder.build();
     }
 
-    SubmenuBuilder::new(app, label).item(&visible).build()
+    SubmenuBuilder::with_id(app, format!("{MENU_ID_LAYER_PREFIX}{layer}"), label)
+        .item(&visible)
+        .build()
 }
 
 fn build_layers_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> {
@@ -320,7 +468,7 @@ fn build_layers_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>
     let roads = build_layer_menu(app, "roads", "Roads", Some("Digit3"), &[])?;
     let forests = build_layer_menu(app, "forests", "Forests", Some("Digit6"), &[])?;
 
-    SubmenuBuilder::new(app, "Layers")
+    SubmenuBuilder::with_id(app, "menu.layers", "Layers")
         .item(&terrain)
         .item(&basemap)
         .item(&roads)
@@ -353,7 +501,7 @@ fn build_preferences_item<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<MenuI
 }
 
 fn build_window_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> {
-    SubmenuBuilder::new(app, "Window")
+    SubmenuBuilder::with_id(app, "menu.window", "Window")
         .minimize()
         .maximize()
         .separator()
@@ -422,7 +570,12 @@ pub fn build_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
 /// Replaces the contents of the dynamic Appearance submenu after `useThemes` resolves.
 #[tauri::command]
 #[allow(clippy::needless_pass_by_value)]
-pub fn update_theme_menu(app_handle: AppHandle, themes: Vec<ThemeMenuItem>) -> Result<(), String> {
+pub fn update_theme_menu(
+    app_handle: AppHandle,
+    themes: Vec<ThemeMenuItem>,
+    language: String,
+) -> Result<(), String> {
+    let locale = menu_locale(&language)?;
     let menu = app_handle
         .menu()
         .ok_or_else(|| "Vellum menu is not initialized".to_owned())?;
@@ -455,13 +608,156 @@ pub fn update_theme_menu(app_handle: AppHandle, themes: Vec<ThemeMenuItem>) -> R
     let dim_non_transit = custom_item(
         &app_handle,
         "menu.toggle-transit-dimming",
-        "Dim Non-Transit Layers",
+        locale.dim_non_transit,
         None,
     )
     .map_err(|error| format!("failed to create transit dimming menu item: {error}"))?;
     submenu
         .append(&dim_non_transit)
         .map_err(|error| format!("failed to append transit dimming menu item: {error}"))?;
+
+    Ok(())
+}
+
+/// Applies the selected application language to Vellum's custom native menu labels.
+#[tauri::command]
+#[allow(clippy::needless_pass_by_value)]
+#[allow(clippy::too_many_lines)]
+pub fn update_menu_language(app_handle: AppHandle, language: String) -> Result<(), String> {
+    let locale = menu_locale(&language)?;
+    let menu = app_handle
+        .menu()
+        .ok_or_else(|| "Vellum menu is not initialized".to_owned())?;
+
+    let labels = [
+        ("menu.file", locale.file),
+        ("menu.edit", locale.edit),
+        ("menu.view", locale.view),
+        ("menu.layers", locale.layers),
+        (MENU_ID_THEMES, locale.appearance),
+        ("menu.window", locale.window),
+        (MENU_ID_OPEN_FILE, locale.open_map),
+        (MENU_ID_OPEN_EXPORT, locale.export_map),
+        (MENU_ID_FIT_TO_SCREEN, locale.fit_to_screen),
+        (MENU_ID_ZOOM_IN, locale.zoom_in),
+        (MENU_ID_ZOOM_OUT, locale.zoom_out),
+        (MENU_ID_CLEAN_MODE, locale.clean_view),
+        (MENU_ID_TOGGLE_SIDEBAR, locale.sidebar),
+        (MENU_ID_NAVIGATION_MODE, locale.navigation_mode),
+        (MENU_ID_ICON_LEGEND, locale.map_symbols),
+        (MENU_ID_ROTATE_LEFT, locale.rotate_left),
+        (MENU_ID_ROTATE_RIGHT, locale.rotate_right),
+        (MENU_ID_RESET_BEARING, locale.reset_north),
+        (MENU_ID_VIEW_LAYOUT, locale.layout),
+        (MENU_ID_VIEW_INTERACTION, locale.interaction),
+        (MENU_ID_VIEW_OVERLAYS, locale.overlays),
+        (MENU_ID_PREFERENCES, locale.preferences),
+        (MENU_ID_ABOUT, locale.about),
+        ("menu.toggle-transit-dimming", locale.dim_non_transit),
+    ];
+
+    for (id, text) in labels {
+        set_localized_menu_item(&menu, id, text)?;
+    }
+
+    let layers = match language.as_str() {
+        "en" => [
+            ("terrain", "Terrain"),
+            ("basemap", "Basemap"),
+            ("roads", "Roads"),
+            ("transit", "Transit"),
+            ("buildings", "Buildings"),
+            ("forests", "Forests"),
+            ("districts", "Districts"),
+        ],
+        "es" => [
+            ("terrain", "Terreno"),
+            ("basemap", "Mapa base"),
+            ("roads", "Calles"),
+            ("transit", "Transporte"),
+            ("buildings", "Edificios"),
+            ("forests", "Bosques"),
+            ("districts", "Distritos"),
+        ],
+        _ => unreachable!("menu_locale validates language"),
+    };
+    for (layer, layer_label) in layers {
+        set_localized_menu_item(
+            &menu,
+            &format!("{MENU_ID_LAYER_PREFIX}{layer}"),
+            layer_label,
+        )?;
+        set_localized_menu_item(
+            &menu,
+            &format!("menu.toggle-layer.{layer}"),
+            &format!(
+                "{} {layer_label}",
+                if language == "es" { "Mostrar" } else { "Show" }
+            ),
+        )?;
+        if layer != "roads" && layer != "forests" {
+            set_localized_menu_item(
+                &menu,
+                &format!("menu.open-advanced.{layer}"),
+                locale.open_in_sidebar,
+            )?;
+        }
+    }
+
+    let options = match language.as_str() {
+        "en" => vec![
+            ("terrain", "contour-lines", "Show Contour Lines"),
+            ("terrain", "color-relief", "Show Color Relief"),
+            ("terrain", "hillshade", "Show Hillshade"),
+            ("basemap", "grid", "Show Projection Grid"),
+            ("transit", "Bus", "Bus"),
+            ("transit", "Tram", "Tram"),
+            ("transit", "Train", "Train"),
+            ("transit", "Metro", "Metro"),
+            ("transit", "CableCar", "Cable Car"),
+            ("transit", "Monorail", "Monorail"),
+            ("transit", "Ferry", "Ferry"),
+            ("transit", "Blimp", "Blimp"),
+            ("transit", "Trolleybus", "Trolleybus"),
+            ("buildings", "color-by-category", "Color by Category"),
+            ("buildings", "residential", "Residential"),
+            ("buildings", "industry", "Industry"),
+            ("buildings", "commercial", "Commercial"),
+            ("buildings", "office", "Office"),
+            ("districts", "show-names", "Show District Names"),
+            ("districts", "show-park-areas", "Show Park Areas"),
+        ],
+        "es" => vec![
+            ("terrain", "contour-lines", "Mostrar curvas de nivel"),
+            ("terrain", "color-relief", "Mostrar relieve cromático"),
+            ("terrain", "hillshade", "Mostrar sombreado del relieve"),
+            ("basemap", "grid", "Mostrar cuadrícula de proyección"),
+            ("transit", "Bus", "Autobús"),
+            ("transit", "Tram", "Tranvía"),
+            ("transit", "Train", "Tren"),
+            ("transit", "Metro", "Metro"),
+            ("transit", "CableCar", "Teleférico"),
+            ("transit", "Monorail", "Monorraíl"),
+            ("transit", "Ferry", "Ferri"),
+            ("transit", "Blimp", "Dirigible"),
+            ("transit", "Trolleybus", "Trolebús"),
+            ("buildings", "color-by-category", "Colorear por categoría"),
+            ("buildings", "residential", "Residencial"),
+            ("buildings", "industry", "Industria"),
+            ("buildings", "commercial", "Comercial"),
+            ("buildings", "office", "Oficinas"),
+            ("districts", "show-names", "Mostrar nombres de distritos"),
+            ("districts", "show-park-areas", "Mostrar áreas de parques"),
+        ],
+        _ => unreachable!("menu_locale validates language"),
+    };
+    for (layer, option, text) in options {
+        set_localized_menu_item(
+            &menu,
+            &format!("menu.toggle-advanced.{layer}.{option}"),
+            text,
+        )?;
+    }
 
     Ok(())
 }

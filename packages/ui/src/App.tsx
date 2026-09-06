@@ -145,6 +145,7 @@ export function App({
   const loadingState = useVellumStore((s) => s.loadingState);
   const loadingError = useVellumStore((s) => s.loadingError);
   const activeLayers = useVellumStore((s) => s.activeLayers);
+  const activeLanguage = useVellumStore((s) => s.activeLanguage);
   const setDlcWarnings = useVellumStore((s) => s.setDlcWarnings);
   const setHasPartialData = useVellumStore((s) => s.setHasPartialData);
   const toggleLayer = useVellumStore((s) => s.toggleLayer);
@@ -429,6 +430,16 @@ export function App({
         setI18nReady(true);
       });
   }, [syncActiveLanguage, hydratePreferences]);
+
+  // Keep the native menu labels aligned with the React/i18next language.
+  useEffect(() => {
+    if (!i18nReady) return;
+    void invoke(IPC_COMMANDS.UPDATE_MENU_LANGUAGE, {
+      language: activeLanguage,
+    }).catch((error: unknown) => {
+      console.warn('App: failed to update native menu language', error);
+    });
+  }, [activeLanguage, i18nReady]);
 
   const handleDlcDismiss = useCallback(() => {
     setDlcWarnings([]);
