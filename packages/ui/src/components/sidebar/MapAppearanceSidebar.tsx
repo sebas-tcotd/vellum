@@ -3,12 +3,11 @@ import { useTranslation } from 'react-i18next';
 import { LAYER_NAMES } from '@vellum/core';
 import type { CommandRegistry } from '../../shell/commands';
 import type { ShellSession } from '../../shell/shell-session';
-import { LAYER_COLORS, LAYER_ICONS } from './layer-presentation';
+import { LAYER_ICONS } from './layer-presentation';
 import { DocumentContextHeader } from './DocumentContextHeader';
 import { LayerDetailPanel } from './LayerDetailPanel';
 import { MapAppearanceOverview } from './MapAppearanceOverview';
 import { useVellumStore } from '../../store/vellum-store';
-import { Switch } from '../../lib/switch';
 import { SidebarResizeHandle } from './SidebarResizeHandle';
 
 export interface MapAppearanceSidebarProps {
@@ -166,24 +165,20 @@ function CompactLayerRail({ commands }: { commands: CommandRegistry }) {
         const Icon = LAYER_ICONS[layer];
         const name = t(`layers.${layer}`);
         return (
-          <div key={layer} className="shell-rail__item">
-            <span
-              aria-hidden="true"
-              className="shell-rail__icon"
-              style={{
-                color: LAYER_COLORS[layer],
-                opacity: activeLayers[layer] ? 1 : 0.35,
-              }}
-            >
-              <Icon size={16} strokeWidth={1.5} />
+          <button
+            key={layer}
+            type="button"
+            className="shell-rail__item"
+            data-state={activeLayers[layer] ? 'on' : 'off'}
+            aria-label={name}
+            aria-pressed={activeLayers[layer]}
+            title={name}
+            onClick={() => commands['layer.toggle'].execute(layer)}
+          >
+            <span aria-hidden="true" className="shell-rail__icon">
+              <Icon size={20} strokeWidth={1.5} />
             </span>
-            <Switch
-              checked={activeLayers[layer]}
-              onCheckedChange={() => commands['layer.toggle'].execute(layer)}
-              aria-label={name}
-              title={name}
-            />
-          </div>
+          </button>
         );
       })}
     </div>

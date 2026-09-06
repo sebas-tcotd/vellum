@@ -9,8 +9,6 @@ export interface LayerVisibilityRowProps {
   /** Whether the layer is currently rendered. */
   visible: boolean;
   onToggleVisible: (layer: LayerName) => void;
-  /** Hex colour of the leading indicator. */
-  color: string;
   icon: ReactNode;
   /** Dims the leading indicator while the Transit style dims everything else. */
   dimIndicator?: boolean;
@@ -38,7 +36,6 @@ export function LayerVisibilityRow({
   layer,
   visible,
   onToggleVisible,
-  color,
   icon,
   dimIndicator = false,
   hasDetail = false,
@@ -58,7 +55,7 @@ export function LayerVisibilityRow({
       <span
         aria-hidden="true"
         className="shell-layer-row__indicator"
-        style={{ color, opacity: dimIndicator ? 0.4 : 1 }}
+        style={{ opacity: dimIndicator ? 0.4 : 1 }}
       >
         {icon}
       </span>

@@ -91,6 +91,8 @@ const disclosure = (layer: string) =>
   screen.getByRole('button', { name: `a11y.configureLayer:layers.${layer}` });
 const visibilitySwitch = (layer: string) =>
   screen.getByRole('switch', { name: `layers.${layer}` });
+const compactLayerToggle = (layer: string) =>
+  screen.getByRole('button', { name: `layers.${layer}` });
 
 beforeEach(() => {
   useVellumStore.setState({
@@ -236,8 +238,11 @@ describe('compact rail', () => {
       />,
     );
 
-    fireEvent.click(visibilitySwitch('roads'));
+    const roadsToggle = compactLayerToggle('roads');
+    expect(roadsToggle).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(roadsToggle);
     expect(useVellumStore.getState().activeLayers.roads).toBe(false);
+    expect(roadsToggle).toHaveAttribute('aria-pressed', 'false');
     expect(screen.queryByText('sidebar.mapStyle')).toBeNull();
     expect(
       screen.queryByRole('button', {
