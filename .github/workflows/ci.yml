@@ -15,7 +15,7 @@ jobs:
     name: Code Quality & Tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup Vellum Environment
         uses: ./.github/actions/setup-vellum
@@ -56,15 +56,15 @@ jobs:
     # Sin needs de lint-and-test: arranca en paralelo, igual que compile-matrix.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           version: 10.33.0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 24
           cache: pnpm
 
       - name: Install dependencies
@@ -76,7 +76,7 @@ jobs:
       - name: Build frontend
         run: pnpm --filter @vellum/desktop run build:vite
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: frontend-dist
           path: apps/desktop/dist
@@ -94,7 +94,7 @@ jobs:
           - platform: ubuntu-22.04
     runs-on: ${{ matrix.platform }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup Vellum Environment
         uses: ./.github/actions/setup-vellum
