@@ -54,6 +54,8 @@ export type ExportCancelHandlerRef = {
  * while still receiving the file-loading callbacks it needs.
  */
 export interface AppProps {
+  /** Build version displayed in the About surface. */
+  version?: string | undefined;
   /** Loads a .cslmap file via the IPC bridge. Injected from the Tauri composition root. */
   loadFile?: (filePath: string) => Promise<void>;
   /** Opens the OS file picker. Injected from the Tauri composition root. */
@@ -93,6 +95,7 @@ export interface AppProps {
  * montado para preservar el contexto WebGL al cargar un mapa.
  */
 export function App({
+  version,
   loadFile,
   openFileDialog = noop,
   loadFilePartial = noop,
@@ -105,6 +108,7 @@ export function App({
 }: AppProps) {
   const [i18nReady, setI18nReady] = useState(false);
   const [isPreferencesOpen, setIsPreferencesOpen] = useState(false);
+  const [isAboutOpen, setIsAboutOpen] = useState(false);
   // Ephemeral desktop-shell session (AD-10): sidebar context, Clean view,
   // modal exclusivity and focus restoration. Cartographic state stays in the
   // store; nothing here is duplicated from it.
@@ -168,6 +172,28 @@ export function App({
         ? `Vellum — ${cityData.cityName}`
         : 'Vellum';
   }, [cityData]);
+
+  // Preferences is an application-level command. Keep its Windows fallback
+  // outside the map keymap so loading state and focused form controls cannot
+  // suppress Ctrl+, before WebView2 has a chance to deliver the menu shortcut.
+  useEffect(() => {
+    const handlePreferencesShortcut = (event: KeyboardEvent) => {
+      if (
+        (event.ctrlKey || event.metaKey) &&
+        !event.shiftKey &&
+        !event.altKey &&
+        (event.key === ',' || event.code === 'Comma')
+      ) {
+        event.preventDefault();
+        event.stopPropagation();
+        setIsPreferencesOpen(true);
+      }
+    };
+
+    window.addEventListener('keydown', handlePreferencesShortcut, true);
+    return () =>
+      window.removeEventListener('keydown', handlePreferencesShortcut, true);
+  }, []);
 
   // Reset clean view when a new map is loaded so the chrome is always visible on first render
   useEffect(() => {
@@ -245,7 +271,9 @@ export function App({
         ? 'export'
         : isPreferencesOpen
           ? 'preferences'
-          : null;
+          : isAboutOpen
+            ? 'about'
+            : null;
 
   useEffect(() => {
     if (blockingModal === null) {
@@ -307,6 +335,7 @@ export function App({
 
   useKeyboardShortcuts({
     onOpenFile: commands['document.open'].execute,
+    onOpenPreferences: () => setIsPreferencesOpen(true),
     ...(commands['layer.toggle'].canExecute
       ? { onToggleLayer: commands['layer.toggle'].execute }
       : {}),
@@ -340,13 +369,14 @@ export function App({
       : {}),
     // Escape is only offered while no dialog owns focus — dialogs trap and
     // consume it themselves, so the ladder never has two listeners racing.
-    ...(!isExportDialogOpen && !isPreferencesOpen
+    ...(!isExportDialogOpen && !isPreferencesOpen && !isAboutOpen
       ? { onEscape: handleEscape }
       : {}),
     enabled: loadingState !== 'loading' && !isExportDialogOpen,
   });
 
   useTauriEvent(IPC_EVENTS.OPEN_PREFERENCES, () => setIsPreferencesOpen(true));
+  useTauriEvent(IPC_EVENTS.OPEN_ABOUT, () => setIsAboutOpen(true));
   useTauriEvent(IPC_EVENTS.MENU_ACTION, handleMenuAction);
   const [updateListenerSettled, setUpdateListenerSettled] = useState(false);
   useTauriEvent(
@@ -425,6 +455,9 @@ export function App({
       isCleanMode={isCleanMode}
       isPreferencesOpen={isPreferencesOpen}
       setIsPreferencesOpen={setIsPreferencesOpen}
+      isAboutOpen={isAboutOpen}
+      setIsAboutOpen={setIsAboutOpen}
+      version={version}
       loadFilePartial={loadFilePartial}
       {...(onOpenExportFolder ? { onOpenExportFolder } : {})}
       onDlcDismiss={handleDlcDismiss}

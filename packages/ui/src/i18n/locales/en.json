@@ -164,6 +164,13 @@
     "available": "Vellum {{version}} available.",
     "viewChangelog": "View changelog"
   },
+  "about": {
+    "tagline": "A visual editor for your city maps",
+    "description": "Explore, style, and export cities from CSL Map View with a focused cartographic workspace.",
+    "versionLabel": "Version",
+    "licenseLabel": "License",
+    "repository": "View source"
+  },
   "toasts": {
     "cityLoaded": "{{cityName}} loaded",
     "partialLoad": "Some elements (DLC or mods) displayed in simplified form.",

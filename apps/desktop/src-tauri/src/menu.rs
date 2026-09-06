@@ -1,12 +1,55 @@
 use serde::Deserialize;
+use std::sync::Mutex;
 use tauri::menu::{
-    AboutMetadata, Menu, MenuBuilder, MenuItem, MenuItemBuilder, MenuItemKind, Submenu,
-    SubmenuBuilder,
+    Menu, MenuBuilder, MenuItem, MenuItemBuilder, MenuItemKind, Submenu, SubmenuBuilder,
 };
-use tauri::{AppHandle, Manager, Runtime};
+
+use tauri::{AppHandle, Manager, Runtime, State};
 
 /// Event consumed by the React shell for custom Vellum menu actions.
 pub const MENU_ACTION_EVENT: &str = "vellum://menu-action";
+
+/// Tracks whether the native menu is currently visible.
+///
+/// The menu itself remains installed so that dynamic menu updates and native
+/// menu events continue to work while it is hidden.
+#[derive(Default)]
+pub struct NativeMenuVisibility(Mutex<bool>);
+
+impl NativeMenuVisibility {
+    pub fn set_visible(&self, visible: bool) -> Result<(), String> {
+        let mut state = self
+            .0
+            .lock()
+            .map_err(|_| "native menu visibility state is unavailable".to_owned())?;
+        *state = visible;
+        Ok(())
+    }
+
+    pub fn is_visible(&self) -> Result<bool, String> {
+        self.0
+            .lock()
+            .map(|state| *state)
+            .map_err(|_| "native menu visibility state is unavailable".to_owned())
+    }
+}
+
+/// Toggles the native menu. The frontend invokes this for the platform's
+/// conventional `Alt` menu key, since Tauri does not expose raw key events in
+/// its window event API.
+#[tauri::command]
+pub fn toggle_native_menu<R: Runtime>(
+    app: AppHandle<R>,
+    visibility: State<'_, NativeMenuVisibility>,
+) -> Result<(), String> {
+    let visible = visibility.is_visible()?;
+    if visible {
+        app.hide_menu().map_err(|error| error.to_string())?;
+    } else {
+        app.show_menu().map_err(|error| error.to_string())?;
+    }
+    visibility.set_visible(!visible)
+}
 
 const MENU_ID_OPEN_FILE: &str = "menu.open-file";
 const MENU_ID_OPEN_EXPORT: &str = "menu.open-export";
@@ -21,6 +64,7 @@ const MENU_ID_ROTATE_LEFT: &str = "menu.rotate-left";
 const MENU_ID_ROTATE_RIGHT: &str = "menu.rotate-right";
 const MENU_ID_RESET_BEARING: &str = "menu.reset-bearing";
 const MENU_ID_PREFERENCES: &str = "preferences";
+pub const MENU_ID_ABOUT: &str = "menu.about";
 pub const MENU_ID_EXIT: &str = "menu.exit";
 const MENU_ID_THEMES: &str = "menu.themes";
 const MENU_ID_THEME_PREFIX: &str = "menu.theme.";
@@ -43,22 +87,6 @@ fn custom_item<R: Runtime, M: Manager<R>>(
         builder = builder.accelerator(accelerator);
     }
     builder.build(manager)
-}
-
-fn about_metadata<R: Runtime>(app: &AppHandle<R>) -> AboutMetadata<'static> {
-    let package = app.package_info();
-    let config = app.config();
-    AboutMetadata {
-        name: Some(package.name.clone()),
-        version: Some(package.version.to_string()),
-        copyright: config.bundle.copyright.clone(),
-        authors: config
-            .bundle
-            .publisher
-            .clone()
-            .map(|publisher| vec![publisher]),
-        ..Default::default()
-    }
 }
 
 fn build_file_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> {
@@ -327,6 +355,7 @@ fn build_window_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>
 /// making every application action explicit and discoverable.
 pub fn build_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
     let preferences = build_preferences_item(app)?;
+    let about = custom_item(app, MENU_ID_ABOUT, "About Vellum", None)?;
     let layers = build_layers_menu(app)?;
     let themes = build_themes_menu(app)?;
     let window = build_window_menu(app)?;
@@ -336,7 +365,7 @@ pub fn build_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
     #[cfg(target_os = "macos")]
     {
         let app_menu = SubmenuBuilder::new(app, app.package_info().name.clone())
-            .about(Some(about_metadata(app)))
+            .item(&about)
             .separator()
             .item(&preferences)
             .separator()
@@ -365,7 +394,7 @@ pub fn build_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
     #[cfg(not(target_os = "macos"))]
     {
         let app_menu = SubmenuBuilder::new(app, "Vellum")
-            .about(Some(about_metadata(app)))
+            .item(&about)
             .separator()
             .item(&preferences);
         let app_menu = app_menu.build()?;
@@ -450,6 +479,7 @@ mod tests {
             super::MENU_ID_ROTATE_RIGHT,
             super::MENU_ID_RESET_BEARING,
             super::MENU_ID_PREFERENCES,
+            super::MENU_ID_ABOUT,
             super::MENU_ID_EXIT,
             super::MENU_ID_THEMES,
             "menu.toggle-transit-dimming",

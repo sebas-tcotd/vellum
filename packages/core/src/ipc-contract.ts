@@ -18,6 +18,7 @@ export const IPC_COMMANDS = {
   OPEN_EXPORT_FOLDER: 'open_export_folder',
   LOAD_THEMES: 'load_themes',
   UPDATE_THEME_MENU: 'update_theme_menu',
+  TOGGLE_NATIVE_MENU: 'toggle_native_menu',
   /**
    * Opens a transactional export session. Invoked as `{ metadata }`.
    *
@@ -62,6 +63,7 @@ export const IPC_EVENTS = {
   UPDATE_AVAILABLE: 'vellum://update-available',
   PARSE_WARNINGS: 'vellum://parse-warnings',
   OPEN_PREFERENCES: 'vellum://open-preferences',
+  OPEN_ABOUT: 'vellum://open-about',
   MENU_ACTION: 'vellum://menu-action',
 } as const;
 

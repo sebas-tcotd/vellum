@@ -10,7 +10,12 @@ export type SidebarView =
   | { kind: 'detail'; layerId: LayerName };
 
 /** Blocking surfaces. Only one may be active at a time (AD-7). */
-export type ActiveModal = 'export' | 'preferences' | 'partialParse' | null;
+export type ActiveModal =
+  | 'export'
+  | 'preferences'
+  | 'about'
+  | 'partialParse'
+  | null;
 
 /**
  * Sidebar width model from EXPERIENCE.md: 272 preferred, 240 min, 320 max,

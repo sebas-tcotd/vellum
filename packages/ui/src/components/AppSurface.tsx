@@ -17,6 +17,7 @@ import { PartialParseDialog } from './overlays/PartialParseDialog';
 import { DlcWarningToast } from './overlays/DlcWarningToast';
 import { ThemeWarningToast } from './overlays/ThemeWarningToast';
 import { UpdateToast } from './overlays/UpdateToast';
+import { AboutDialog } from './overlays/AboutDialog';
 import { ExportStatusOverlay } from './overlays/ExportStatusOverlay';
 import { ExportDialog } from './panels/ExportDialog';
 import { PreferencesPanel } from './panels/PreferencesPanel';
@@ -42,6 +43,9 @@ interface AppSurfaceProps {
   isCleanMode: boolean;
   isPreferencesOpen: boolean;
   setIsPreferencesOpen: Dispatch<SetStateAction<boolean>>;
+  isAboutOpen: boolean;
+  setIsAboutOpen: Dispatch<SetStateAction<boolean>>;
+  version?: string | undefined;
   loadFilePartial: () => Promise<void>;
   onOpenExportFolder?: (folderPath: string) => Promise<void>;
   onDlcDismiss: () => void;
@@ -59,6 +63,9 @@ export function AppSurface({
   isCleanMode,
   isPreferencesOpen,
   setIsPreferencesOpen,
+  isAboutOpen,
+  setIsAboutOpen,
+  version,
   loadFilePartial,
   onOpenExportFolder,
   onDlcDismiss,
@@ -205,6 +212,11 @@ export function AppSurface({
         <PreferencesPanel
           open={isPreferencesOpen}
           onOpenChange={setIsPreferencesOpen}
+        />
+        <AboutDialog
+          open={isAboutOpen}
+          onOpenChange={setIsAboutOpen}
+          version={version}
         />
         <ExportStatusOverlay
           isExporting={exportWorkflow.isExporting}

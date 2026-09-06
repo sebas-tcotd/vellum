@@ -230,6 +230,29 @@ function AppShell() {
   );
   const { openExportFolder } = useExportPng();
 
+  React.useEffect(() => {
+    const handleAlt = (event: KeyboardEvent) => {
+      // Alt alone is the native menu convention. Ignore Alt combinations so
+      // existing application shortcuts keep their current behavior.
+      if (
+        event.key !== 'Alt' ||
+        event.repeat ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.shiftKey
+      ) {
+        return;
+      }
+      event.preventDefault();
+      void invoke(IPC_COMMANDS.TOGGLE_NATIVE_MENU).catch((error: unknown) => {
+        console.warn('[AppShell] toggle_native_menu failed:', error);
+      });
+    };
+
+    window.addEventListener('keydown', handleAlt);
+    return () => window.removeEventListener('keydown', handleAlt);
+  }, []);
+
   // A `.cslmap` opened via the Windows file association (double-click) arrives
   // as a command-line argument, captured by Rust before this component mounts
   // (see `startup::capture_startup_file_path` in lib.rs). Claim it once, on
@@ -247,6 +270,7 @@ function AppShell() {
 
   return (
     <App
+      version={version}
       loadFile={loadFile}
       openFileDialog={openFileDialog}
       loadFilePartial={loadFilePartial}

@@ -15,6 +15,8 @@ const LAYER_SHORTCUT_MAP: LayerName[] = [
 
 interface UseKeyboardShortcutsOptions {
   onOpenFile: () => void;
+  /** Called when the user presses Ctrl/Cmd + , to open preferences. */
+  onOpenPreferences?: () => void;
   /** Called when the user presses Ctrl/Cmd + E to open export configuration. */
   onOpenExport?: () => void;
   /** Called when the user presses keys 1–7 to toggle the corresponding layer. */
@@ -55,6 +57,7 @@ interface UseKeyboardShortcutsOptions {
 
 export function useKeyboardShortcuts({
   onOpenFile,
+  onOpenPreferences,
   onOpenExport,
   onToggleLayer,
   onFitToScreen,
@@ -86,6 +89,21 @@ export function useKeyboardShortcuts({
       if (isModKey && !e.shiftKey && !e.altKey && e.key === 'o') {
         e.preventDefault();
         onOpenFile();
+        return;
+      }
+
+      // The native Tauri accelerator is not consistently delivered by WebView2
+      // on Windows. Keep the browser-side route as a fallback for Ctrl+,.
+      if (
+        isModKey &&
+        !e.shiftKey &&
+        !e.altKey &&
+        (e.key === ',' || e.code === 'Comma')
+      ) {
+        if (onOpenPreferences) {
+          e.preventDefault();
+          onOpenPreferences();
+        }
         return;
       }
 
@@ -219,6 +237,7 @@ export function useKeyboardShortcuts({
     return () => document.removeEventListener('keydown', handler);
   }, [
     onOpenFile,
+    onOpenPreferences,
     onOpenExport,
     onToggleLayer,
     onFitToScreen,
