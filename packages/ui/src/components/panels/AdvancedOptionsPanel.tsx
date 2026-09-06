@@ -32,11 +32,12 @@ interface OptionRowProps {
 
 function OptionRow({ label, checked, onCheckedChange }: OptionRowProps) {
   return (
-    <div className="flex items-center gap-2 px-3" style={{ minHeight: 28 }}>
-      <span className="font-ui flex-1 text-xs truncate opacity-80">
+    <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-3 py-2">
+      <span className="font-ui min-w-0 text-xs leading-4 opacity-80 [overflow-wrap:anywhere]">
         {label}
       </span>
       <Switch
+        className="shrink-0"
         aria-label={label}
         checked={checked}
         onCheckedChange={onCheckedChange}
@@ -107,7 +108,7 @@ export function AdvancedOptionsPanel({
 
   if (layer === 'transit') {
     return (
-      <div className="grid grid-cols-2 gap-x-3">
+      <div className="min-w-0">
         {TOGGLABLE_TRANSIT_MODES.map((mode) => (
           <OptionRow
             key={mode}
