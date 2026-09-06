@@ -255,7 +255,7 @@
   --shell-blur: var(--shell-backdrop-blur);
   --shell-backdrop-saturate: 125%;
   --shell-backdrop-brightness: 1;
-  --shell-noise-opacity: 0.025;
+  --shell-noise-opacity: 0.08;
   --shell-inner-highlight: none;
   --shell-overlay-dimming: 0.55;
   --shell-sidebar-backdrop-filter: none;
@@ -268,9 +268,17 @@
   --font-shell: 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
   --shell-solid-surface: #f3f3f3;
   --shell-surface: rgba(243, 243, 243, 0.82);
-  --shell-border: rgba(0, 0, 0, 0.05);
+  /* The persistent sidebar follows Fluent LayerFill: readable and nearly
+     opaque. Acrylic remains reserved for transient surfaces below. */
+  --shell-surface-sidebar: rgba(243, 243, 243, 0.92);
+  --shell-border: rgba(0, 0, 0, 0.06);
   --shell-stroke-light: rgba(0, 0, 0, 0.05);
   --shell-stroke-dark: rgba(255, 255, 255, 0.1);
+  /* Fluent's control stroke, applied to semantic UI borders only. Map
+     surfaces keep their renderer-owned strokes and are not affected. */
+  --color-border: rgba(0, 0, 0, 0.06);
+  --color-input: rgba(0, 0, 0, 0.06);
+  --color-panel-border: rgba(0, 0, 0, 0.06);
   --shell-surface-floating: rgba(249, 249, 249, 0.96);
   --shell-surface-popover: rgba(249, 249, 249, 0.99);
   /* Fluent runs tighter than the neutral profile. Same rows, less air. */
@@ -418,7 +426,7 @@
   margin: 0;
   overflow: hidden;
   font-family: var(--font-wordmark);
-  font-size: 17px;
+  font-size: 1.25rem;
   font-weight: 500;
   line-height: 1.2;
   white-space: nowrap;
