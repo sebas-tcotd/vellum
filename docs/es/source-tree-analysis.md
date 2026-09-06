@@ -53,11 +53,6 @@ vellum/
 │   │       ├── capability-probe.ts     # Mide límites WebGL/memoria/encoder → decide ruta de export
 │   │       ├── interactions/           # Hover/click/tooltip
 │   │       └── assets/maki-icons/      # Iconografía de servicios
-│   ├── renderer-canvas/                # @vellum/renderer-canvas — LEGACY, sin uso real fuera de su propio package
-│   │   └── src/
-│   │       ├── layers/                 # terrain/water/roads/transit/buildings/forests/districts-layer.ts
-│   │       ├── worker/renderer-worker.ts  # OffscreenCanvas por capa, dispatch de mensajes tipados
-│   │       └── geometry/{PresenceGrid,WaterContour}.ts
 │   ├── theme-engine/                   # @vellum/theme-engine — .vellumstyle → RenderStyleParams
 │   │   └── src/
 │   │       ├── default-style.ts        # DEFAULT_RENDER_STYLE_PARAMS
@@ -100,4 +95,4 @@ vellum/
 
 ## Nota sobre `renderer-canvas`
 
-Los últimos wrappers de React (`CanvasRoot.tsx`, `CanvasLayer.tsx`, `hooks/useRenderLoop.ts`) ya no forman parte de `packages/ui/src/components/canvas/`. `renderer-canvas` queda como referencia testeada y paquete legado; el renderer activo de la aplicación es `renderer-webgl`.
+Retirado del repositorio por [ADR-0001](../adr/0001-rendering-ownership.md). Los wrappers de React (`CanvasRoot.tsx`, `CanvasLayer.tsx`, `hooks/useRenderLoop.ts`) ya se habían eliminado antes; el package en sí se elimina ahora, sin importadores de runtime que lo sostuvieran. El único renderer de la aplicación es `renderer-webgl`, y `@vellum/ui` lo alcanza a través de `MapRendererPort` — nunca por import directo.

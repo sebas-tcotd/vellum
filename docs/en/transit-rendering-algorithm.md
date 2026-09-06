@@ -254,16 +254,16 @@ separately for PNG/SVG.
 This is a clean reimplementation based on the paper's formulas, not an integration
 of the LOOM binary or a translation of its GPL-3.0 C++ code.
 
-## 6. Legacy Canvas renderer
+## 6. Canonical home for these semantics
 
-`@vellum/renderer-canvas` retains an independent concentric-band implementation
-without this ordering pipeline. It is not mounted by the current application:
-`MapLibreRoot` uses `@vellum/renderer-webgl`.
+`@vellum/renderer-canvas` held an independent concentric-band implementation
+without this ordering pipeline. It was retired by
+[ADR-0001](../adr/0001-rendering-ownership.md) and no longer exists.
 
-If Canvas becomes relevant again, the architectural solution is to move the pure
-`line-graph`, `ordering` and `render-geometry` modules into `@vellum/core` so both
-renderers share one source of truth. That work is intentionally deferred because
-it would expand the scope toward an unmounted legacy renderer.
+The ADR names where transit derivation belongs: the `TransitNetwork` projection
+moves to `@vellum/core`, while render geometry stays in the adapter — `line-graph`
+and `ordering` migrate, `render-geometry` does not. **Story 1.5 implements it**;
+here the cut is only named.
 
 ## 7. Validation and known limits
 

@@ -2,7 +2,7 @@ import {
   serviceIconDataUri,
   type ServiceGroup,
   type ServiceIconLegendState,
-} from '@vellum/renderer-webgl';
+} from '@vellum/core';
 import { MapPinned } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';

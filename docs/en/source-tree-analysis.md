@@ -47,15 +47,13 @@ vellum/
 │   │       ├── export/                  # PNG and SVG pipelines
 │   │       ├── interactions/            # Hover, click and tooltip behavior
 │   │       └── assets/maki-icons/       # Service icon catalogue
-│   ├── renderer-canvas/                 # Legacy Canvas 2D implementation
-│   │   └── src/                         # Worker-based rendering and geometry
 │   ├── theme-engine/                   # .vellumstyle → RenderStyleParams
 │   │   └── src/                         # Defaults, migration, loader and validators
 │   └── ui/                              # @vellum/ui — the only React package
 │       └── src/
 │           ├── App.tsx                  # App shell and feature composition
 │           ├── components/              # Map, panels, overlays and empty state
-│           ├── hooks/                   # Keyboard, themes, export and Tauri events
+│           ├── hooks/                   # Keyboard, themes, export and app events
 │           ├── store/                   # Zustand state and persisted preferences
 │           ├── i18n/                    # English and Spanish locale data
 │           └── lib/                     # Radix/Tailwind UI primitives
@@ -81,9 +79,11 @@ vellum/
   → `lib.rs::run()`
 - React app: [`packages/ui/src/App.tsx`](../../packages/ui/src/App.tsx)
 
-## The legacy Canvas renderer
+## The retired Canvas renderer
 
-The active application mounts `MapLibreRoot`, not the old Canvas React wrappers.
-`@vellum/renderer-canvas` remains a tested reference and implements the same
-renderer port, which makes the historical performance trade-off visible without
-making the legacy path part of the current runtime.
+`@vellum/renderer-canvas` was removed from the repository by
+[ADR-0001](../adr/0001-rendering-ownership.md): no runtime importers, terrain and
+water layers already reduced to no-ops, and a road taxonomy that had diverged
+from `renderer-webgl`'s. The historical performance trade-off is recorded in git
+history and in the ADR. `renderer-webgl` is the only renderer, and `@vellum/ui`
+reaches it only through `MapRendererPort`.

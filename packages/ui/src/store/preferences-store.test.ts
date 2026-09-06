@@ -5,20 +5,16 @@ const storeMock = {
   set: vi.fn(),
   save: vi.fn(),
 };
-const loadMock = vi.fn();
-
-vi.mock('@tauri-apps/plugin-store', () => ({
-  load: (...args: unknown[]) => loadMock(...args),
-}));
-
 describe('preferences-store', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    // `resetModules` keeps the registry's default (no-op) port honest between
+    // tests: the module-level `preferencesPort` is per-module-instance state.
     vi.resetModules();
     storeMock.get.mockReset();
     storeMock.set.mockReset();
     storeMock.save.mockReset();
-    loadMock.mockReset();
-    loadMock.mockResolvedValue(storeMock);
+    const { setPreferencesPort } = await import('./preferences-store');
+    setPreferencesPort(storeMock);
   });
 
   it('returns all four keys when present and valid', async () => {
@@ -65,8 +61,22 @@ describe('preferences-store', () => {
     expect(prefs.autoUpdateEnabled).toBeUndefined();
   });
 
-  it('returns {} without throwing when the store fails to load, and persistPreference does not throw either', async () => {
-    loadMock.mockRejectedValue(new Error('corrupted file'));
+  it('returns {} without throwing when no port is registered, and persistPreference does not throw either', async () => {
+    const { loadPersistedPreferences, persistPreference, setPreferencesPort } =
+      await import('./preferences-store');
+    // The exact fallback a failed `preferences.json` load produces in the
+    // composition root: persistence disabled for the session, never a throw.
+    setPreferencesPort(null);
+
+    await expect(loadPersistedPreferences()).resolves.toEqual({});
+    await expect(
+      persistPreference('selectedTheme', 'day'),
+    ).resolves.toBeUndefined();
+  });
+
+  it('does not throw when the registered port rejects on every operation', async () => {
+    storeMock.get.mockRejectedValue(new Error('corrupted file'));
+    storeMock.set.mockRejectedValue(new Error('disk full'));
 
     const { loadPersistedPreferences, persistPreference } =
       await import('./preferences-store');

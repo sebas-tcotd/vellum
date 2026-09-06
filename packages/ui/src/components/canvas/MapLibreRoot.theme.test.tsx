@@ -3,6 +3,7 @@ import { DEFAULT_RENDER_STYLE_PARAMS } from '@vellum/theme-engine';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, render, waitFor } from '../../test-utils';
 import { MapLibreRoot } from './MapLibreRoot';
+import { createRendererHarness } from '../../testing/test-renderer';
 
 const applyThemeSpy = vi.fn().mockResolvedValue(undefined);
 const setTransitDimmingSpy = vi.fn();
@@ -11,34 +12,13 @@ vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));
 
-vi.mock('@tauri-apps/api/webviewWindow', () => ({
-  getCurrentWebviewWindow: () => ({
-    onDragDropEvent: () => Promise.resolve(() => {}),
-  }),
-}));
-
-vi.mock('@vellum/renderer-webgl', () => ({
-  MapLibreRenderer: function MapLibreRenderer() {
-    return {
-      dispose: vi.fn(),
-      clear: vi.fn(),
-      setViewportPadding: vi.fn(),
-      render: vi.fn().mockResolvedValue(undefined),
-      applyTheme: applyThemeSpy,
-      subscribeViewport: vi.fn().mockReturnValue(() => {}),
-      subscribeHover: vi.fn().mockReturnValue(() => {}),
-      getInitialViewportBounds: vi.fn().mockReturnValue(null),
-      navigateTo: vi.fn(),
-      fitToScreen: vi.fn(),
-      zoomIn: vi.fn(),
-      zoomOut: vi.fn(),
-      setLayerVisibility: vi.fn(),
-      setTransitDimming: setTransitDimmingSpy,
-      setLayerOptions: vi.fn(),
-    };
-  },
-  readTokensFromDOM: () => ({}),
-}));
+// The renderer arrives as an injected factory; `@vellum/ui` never names the
+// adapter, so there is no module to mock (ADR-0001).
+const rendererHarness = createRendererHarness({
+  applyTheme: applyThemeSpy,
+  setTransitDimming: setTransitDimmingSpy,
+});
+const { createRenderer } = rendererHarness;
 
 vi.mock('../minimap/Minimap', () => ({ Minimap: () => null }));
 vi.mock('../overlays/MapTooltip', () => ({ MapTooltip: () => null }));
@@ -77,6 +57,9 @@ const theme = (id: string, name: string): LoadedTheme => ({
 
 describe('MapLibreRoot — Story 5.1: aplicación de tema (AC #2, #4)', () => {
   beforeEach(() => {
+    // El harness es de módulo (identidad estable de la factory): sin reset,
+    // los spies del puerto acumulan llamadas de un test al siguiente.
+    rendererHarness.reset();
     applyThemeSpy.mockClear();
     setTransitDimmingSpy.mockClear();
     mockActiveTheme = 'day';
@@ -101,6 +84,7 @@ describe('MapLibreRoot — Story 5.1: aplicación de tema (AC #2, #4)', () => {
     mockActiveTheme = 'transit';
     render(
       <MapLibreRoot
+        createRenderer={createRenderer}
         themes={[theme('day', 'Day'), theme('transit', 'Transit')]}
       />,
     );
@@ -112,14 +96,19 @@ describe('MapLibreRoot — Story 5.1: aplicación de tema (AC #2, #4)', () => {
   });
 
   it('no llama applyTheme si no hay temas cargados', async () => {
-    render(<MapLibreRoot themes={[]} />);
+    render(<MapLibreRoot createRenderer={createRenderer} themes={[]} />);
     await act(async () => {});
     expect(applyThemeSpy).not.toHaveBeenCalled();
   });
 
   it('no llama applyTheme si activeTheme no coincide con ningún tema cargado', async () => {
     mockActiveTheme = 'inexistente';
-    render(<MapLibreRoot themes={[theme('day', 'Day')]} />);
+    render(
+      <MapLibreRoot
+        createRenderer={createRenderer}
+        themes={[theme('day', 'Day')]}
+      />,
+    );
     await act(async () => {});
     expect(applyThemeSpy).not.toHaveBeenCalled();
   });
@@ -132,6 +121,7 @@ describe('MapLibreRoot — Story 5.1: aplicación de tema (AC #2, #4)', () => {
     mockActiveTheme = 'transit';
     render(
       <MapLibreRoot
+        createRenderer={createRenderer}
         themes={[theme('day', 'Day'), theme('transit', 'Transit')]}
       />,
     );
@@ -147,7 +137,9 @@ describe('MapLibreRoot — Story 5.1: aplicación de tema (AC #2, #4)', () => {
   it('vuelve a llamar applyTheme cuando cityData cambia, para colorear correctamente las capas recién creadas', async () => {
     mockActiveTheme = 'transit';
     const themes = [theme('day', 'Day'), theme('transit', 'Transit')];
-    const { rerender } = render(<MapLibreRoot themes={themes} />);
+    const { rerender } = render(
+      <MapLibreRoot createRenderer={createRenderer} themes={themes} />,
+    );
     await waitFor(() => expect(applyThemeSpy).toHaveBeenCalledTimes(1));
 
     // Simula una ciudad cargándose después de que los temas ya resolvieron: si
@@ -155,7 +147,7 @@ describe('MapLibreRoot — Story 5.1: aplicación de tema (AC #2, #4)', () => {
     // `initializeSourcesAndLayers` (base-water, base-land) quedan pintadas con
     // los colores por defecto en lugar del tema activo.
     mockCityData = { cityName: 'Test City' };
-    rerender(<MapLibreRoot themes={themes} />);
+    rerender(<MapLibreRoot createRenderer={createRenderer} themes={themes} />);
 
     await waitFor(() => expect(applyThemeSpy).toHaveBeenCalledTimes(2));
   });
@@ -163,6 +155,9 @@ describe('MapLibreRoot — Story 5.1: aplicación de tema (AC #2, #4)', () => {
 
 describe('MapLibreRoot — Story 5.3: dimming automático, opt-in (AC #1, #4)', () => {
   beforeEach(() => {
+    // El harness es de módulo (identidad estable de la factory): sin reset,
+    // los spies del puerto acumulan llamadas de un test al siguiente.
+    rendererHarness.reset();
     applyThemeSpy.mockClear();
     setTransitDimmingSpy.mockClear();
     mockActiveTheme = 'day';
@@ -189,6 +184,7 @@ describe('MapLibreRoot — Story 5.3: dimming automático, opt-in (AC #1, #4)', 
     mockTransitDimmingEnabled = false;
     render(
       <MapLibreRoot
+        createRenderer={createRenderer}
         themes={[theme('day', 'Day'), theme('transit', 'Transit')]}
       />,
     );
@@ -202,6 +198,7 @@ describe('MapLibreRoot — Story 5.3: dimming automático, opt-in (AC #1, #4)', 
     mockTransitDimmingEnabled = true;
     render(
       <MapLibreRoot
+        createRenderer={createRenderer}
         themes={[theme('day', 'Day'), theme('transit', 'Transit')]}
       />,
     );
@@ -215,6 +212,7 @@ describe('MapLibreRoot — Story 5.3: dimming automático, opt-in (AC #1, #4)', 
     mockTransitDimmingEnabled = true;
     render(
       <MapLibreRoot
+        createRenderer={createRenderer}
         themes={[theme('day', 'Day'), theme('transit', 'Transit')]}
       />,
     );

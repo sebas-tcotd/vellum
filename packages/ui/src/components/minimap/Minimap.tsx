@@ -1,9 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { CityData } from '@vellum/core';
-import { csToGeoArray } from '@vellum/renderer-webgl';
+import { csToGeoArray, type CityData, type ViewportBounds } from '@vellum/core';
 import { DEFAULT_RENDER_STYLE_PARAMS } from '@vellum/theme-engine';
-import type { ViewportBounds } from '@vellum/renderer-webgl';
 
 const CANVAS_SIZE = 160;
 

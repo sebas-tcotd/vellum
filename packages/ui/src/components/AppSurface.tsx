@@ -5,10 +5,11 @@ import {
   Suspense,
   useState,
 } from 'react';
-import { openUrl } from '@tauri-apps/plugin-opener';
-import { invoke } from '@tauri-apps/api/core';
-import { IPC_COMMANDS, type LayerName } from '@vellum/core';
-import type { ServiceIconLegendState } from '@vellum/renderer-webgl';
+import {
+  IPC_COMMANDS,
+  type LayerName,
+  type ServiceIconLegendState,
+} from '@vellum/core';
 import type { MapLibreRootProps } from './canvas/MapLibreRoot';
 import { MapViewport } from './viewport/MapViewport';
 import { EmptyState } from './empty-state/EmptyState';
@@ -31,6 +32,7 @@ import type { useExportWorkflow } from '../hooks/use-export-workflow';
 // `packages/ui/src`, así que un `@/store/...` compilado a dist carga un SEGUNDO
 // módulo del store — el resto del paquete quedaría suscrito a otra instancia.
 import { useVellumStore } from '../store/vellum-store';
+import { usePlatformServices } from '../context/PlatformServicesContext';
 
 interface AppSurfaceProps {
   mapProps: MapLibreRootProps;
@@ -72,6 +74,7 @@ export function AppSurface({
   onDlcDismiss,
   onThemeWarningsDismiss,
 }: AppSurfaceProps) {
+  const { invoke, openExternalUrl } = usePlatformServices();
   const cityData = useVellumStore((state) => state.cityData);
   const activeLayers = useVellumStore((state) => state.activeLayers);
   const activeTheme = useVellumStore((state) => state.activeTheme);
@@ -160,7 +163,7 @@ export function AppSurface({
           <UpdateToast
             version={updateInfo.version}
             onViewChangelog={() => {
-              openUrl(updateInfo.url).catch((error: unknown) => {
+              openExternalUrl(updateInfo.url).catch((error: unknown) => {
                 console.warn('App: failed to open release notes URL', error);
               });
             }}
@@ -168,7 +171,21 @@ export function AppSurface({
             // decides whether the toast offers to install. Toggling it takes
             // effect on the toast already on screen.
             {...(autoUpdateEnabled
-              ? { onInstall: () => invoke<void>(IPC_COMMANDS.INSTALL_UPDATE) }
+              ? {
+                  // Best-effort, igual que como `App` trata el fallo de
+                  // UPDATE_MENU_LANGUAGE: si el shell rechaza (updater no
+                  // disponible, permisos), se avisa y la app sigue. Sin el
+                  // `.catch` quedaba un rechazo sin manejar.
+                  onInstall: () =>
+                    invoke<void>(IPC_COMMANDS.INSTALL_UPDATE).catch(
+                      (error: unknown) => {
+                        console.warn(
+                          'AppSurface: failed to install pending update',
+                          error,
+                        );
+                      },
+                    ),
+                }
               : {})}
             onDismiss={() => setUpdateInfo(null)}
           />

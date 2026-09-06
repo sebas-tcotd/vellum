@@ -98,7 +98,7 @@ Layers reveal the city; transit turns its infrastructure into a readable network
 
 ## The engineering story
 
-Vellum began with a Canvas 2D renderer. As maps grew, CPU-rendered overscan hit a performance ceiling. A focused spike proved that MapLibre GL JS and WebGL could deliver the target experience, so the active renderer moved there while the legacy Canvas implementation remained as a tested reference.
+Vellum began with a Canvas 2D renderer. As maps grew, CPU-rendered overscan hit a performance ceiling. A focused spike proved that MapLibre GL JS and WebGL could deliver the target experience, so the active renderer moved there. The Canvas implementation was retired in [ADR-0001](docs/adr/0001-rendering-ownership.md) once it had no runtime importers left; it lives on in git history.
 
 That pivot was possible because the domain model was separated from rendering from the start. The package graph is intentionally one-directional, and `pnpm check:architecture` enforces it.
 
@@ -164,16 +164,16 @@ Skip it if the hero and layer composition already establish the visual identity 
 
 ## Repository map
 
-| Path                                                   | Purpose                                           |
-| ------------------------------------------------------ | ------------------------------------------------- |
-| [`apps/desktop`](apps/desktop)                         | Tauri shell, native commands and composition root |
-| [`packages/core`](packages/core)                       | Domain types and IPC contract                     |
-| [`packages/parser-cslmap`](packages/parser-cslmap)     | `.cslmap` parsing adapter                         |
-| [`packages/renderer-webgl`](packages/renderer-webgl)   | Active MapLibre renderer                          |
-| [`packages/renderer-canvas`](packages/renderer-canvas) | Tested legacy Canvas reference                    |
-| [`packages/theme-engine`](packages/theme-engine)       | Theme loading, validation and style parameters    |
-| [`packages/ui`](packages/ui)                           | React components and interaction layer            |
-| [`docs`](docs)                                         | Technical documentation and design references     |
+| Path                                                 | Purpose                                           |
+| ---------------------------------------------------- | ------------------------------------------------- |
+| [`apps/desktop`](apps/desktop)                       | Tauri shell, native commands and composition root |
+| [`packages/core`](packages/core)                     | Domain types and IPC contract                     |
+| [`packages/parser-cslmap`](packages/parser-cslmap)   | `.cslmap` parsing adapter                         |
+| [`packages/renderer-webgl`](packages/renderer-webgl) | Active MapLibre renderer                          |
+| [`packages/theme-engine`](packages/theme-engine)     | Theme loading, validation and style parameters    |
+| [`packages/ui`](packages/ui)                         | React components and interaction layer            |
+| [`docs`](docs)                                       | Technical documentation and design references     |
+| [`docs/adr`](docs/adr)                               | Accepted architecture decision records            |
 
 ## Useful commands
 

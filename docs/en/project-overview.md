@@ -41,15 +41,14 @@ Vellum-native exporter remains a separate direction from the v1 viewer.
 
 ## Repository structure
 
-| Part                       | Role                                                                                        |
-| -------------------------- | ------------------------------------------------------------------------------------------- |
-| `apps/desktop`             | Composition root: assembles the UI, adapters and native Tauri commands.                     |
-| `packages/core`            | Domain types, renderer ports and the IPC contract. It has no internal package dependencies. |
-| `packages/parser-cslmap`   | Adapter that turns XML `.cslmap` data into `CityData`.                                      |
-| `packages/renderer-webgl`  | Active MapLibre renderer: `CityData` becomes GeoJSON and styled map layers.                 |
-| `packages/renderer-canvas` | Legacy Canvas 2D renderer, retained as a tested reference.                                  |
-| `packages/theme-engine`    | Loads, validates and migrates `.vellumstyle` files.                                         |
-| `packages/ui`              | React components, Zustand state, preferences and i18n.                                      |
+| Part                      | Role                                                                                        |
+| ------------------------- | ------------------------------------------------------------------------------------------- |
+| `apps/desktop`            | Composition root: assembles the UI, adapters and native Tauri commands.                     |
+| `packages/core`           | Domain types, renderer ports and the IPC contract. It has no internal package dependencies. |
+| `packages/parser-cslmap`  | Adapter that turns XML `.cslmap` data into `CityData`.                                      |
+| `packages/renderer-webgl` | Active MapLibre renderer: `CityData` becomes GeoJSON and styled map layers.                 |
+| `packages/theme-engine`   | Loads, validates and migrates `.vellumstyle` files.                                         |
+| `packages/ui`             | React components, Zustand state, preferences and i18n.                                      |
 
 Dependencies point inward through this graph:
 

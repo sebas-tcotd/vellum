@@ -37,15 +37,14 @@ La versión actual de la aplicación es `v0.5.0`. El flujo principal del visor e
 
 ## Estructura del repositorio (7 partes)
 
-| Parte                      | Tipo               | Rol                                                                    |
-| -------------------------- | ------------------ | ---------------------------------------------------------------------- |
-| `apps/desktop`             | Desktop (Tauri)    | Composition root — único lugar que ensambla todo                       |
-| `packages/core`            | Library TS         | Tipos de dominio + contrato IPC. Cero dependencias internas            |
-| `packages/parser-cslmap`   | Library Rust+TS    | Adapter: XML `.cslmap` → `CityData`, crate Rust propio                 |
-| `packages/renderer-webgl`  | Library TS         | **Activo.** `CityData` → GeoJSON → capas MapLibre GL JS                |
-| `packages/renderer-canvas` | Library TS         | Legacy — Canvas 2D vía Web Worker, sin uso real hoy                    |
-| `packages/theme-engine`    | Library TS         | `.vellumstyle` → `RenderStyleParams`, validación + migración de schema |
-| `packages/ui`              | Library TS + React | Única capa con React — componentes, store Zustand, i18n                |
+| Parte                     | Tipo               | Rol                                                                    |
+| ------------------------- | ------------------ | ---------------------------------------------------------------------- |
+| `apps/desktop`            | Desktop (Tauri)    | Composition root — único lugar que ensambla todo                       |
+| `packages/core`           | Library TS         | Tipos de dominio + contrato IPC. Cero dependencias internas            |
+| `packages/parser-cslmap`  | Library Rust+TS    | Adapter: XML `.cslmap` → `CityData`, crate Rust propio                 |
+| `packages/renderer-webgl` | Library TS         | **Activo.** `CityData` → GeoJSON → capas MapLibre GL JS                |
+| `packages/theme-engine`   | Library TS         | `.vellumstyle` → `RenderStyleParams`, validación + migración de schema |
+| `packages/ui`             | Library TS + React | Única capa con React — componentes, store Zustand, i18n                |
 
 Ver [Análisis del Árbol de Fuentes](./source-tree-analysis.md) para el detalle archivo por archivo y [Arquitectura de Integración](./integration-architecture.md) para cómo se comunican.
 

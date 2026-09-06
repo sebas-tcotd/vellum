@@ -2,12 +2,11 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '../test-utils';
 import { useProgressEvents } from './use-progress-events';
 
-const mockUnlisten = vi.fn();
-const mockListen = vi.fn();
+import { createPlatformServicesHarness } from '../testing/test-platform-services';
 
-vi.mock('@tauri-apps/api/event', () => ({
-  listen: (...args: unknown[]) => mockListen(...args),
-}));
+let harness = createPlatformServicesHarness();
+let mockUnlisten = harness.unsubscribe;
+let mockListen = harness.subscribeEvent;
 
 vi.mock('@vellum/core', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@vellum/core')>();
@@ -20,7 +19,9 @@ vi.mock('@vellum/core', async (importOriginal) => {
 beforeEach(() => {
   vi.clearAllMocks();
   vi.useFakeTimers();
-  mockListen.mockResolvedValue(mockUnlisten);
+  harness = createPlatformServicesHarness();
+  mockUnlisten = harness.unsubscribe;
+  mockListen = harness.subscribeEvent;
 });
 
 afterEach(() => {
@@ -30,13 +31,15 @@ afterEach(() => {
 
 describe('useProgressEvents', () => {
   it('retorna percent inicial en 0 y listenError en false', () => {
-    const { result } = renderHook(() => useProgressEvents());
+    const { result } = renderHook(() => useProgressEvents(), {
+      wrapper: harness.wrapper,
+    });
     expect(result.current.percent).toBe(0);
     expect(result.current.listenError).toBe(false);
   });
 
   it('registra el listener de vellum://progress al montar', async () => {
-    renderHook(() => useProgressEvents());
+    renderHook(() => useProgressEvents(), { wrapper: harness.wrapper });
     await act(async () => {});
     expect(mockListen).toHaveBeenCalledWith(
       'vellum://progress',
@@ -45,60 +48,72 @@ describe('useProgressEvents', () => {
   });
 
   it('actualiza percent cuando recibe un evento de progreso', async () => {
-    const { result } = renderHook(() => useProgressEvents());
+    const { result } = renderHook(() => useProgressEvents(), {
+      wrapper: harness.wrapper,
+    });
     await act(async () => {});
 
-    const handler = mockListen.mock.calls[0][1] as (event: {
-      payload: { percent: number; currentStep: string };
+    const handler = mockListen.mock.calls[0][1] as (payload: {
+      percent: number;
+      currentStep: string;
     }) => void;
 
     act(() => {
-      handler({ payload: { percent: 60, currentStep: 'roads' } });
+      handler({ percent: 60, currentStep: 'roads' });
     });
 
     expect(result.current.percent).toBe(60);
   });
 
   it('clampea percent a 0 cuando el valor es negativo', async () => {
-    const { result } = renderHook(() => useProgressEvents());
+    const { result } = renderHook(() => useProgressEvents(), {
+      wrapper: harness.wrapper,
+    });
     await act(async () => {});
 
-    const handler = mockListen.mock.calls[0][1] as (event: {
-      payload: { percent: number; currentStep: string };
+    const handler = mockListen.mock.calls[0][1] as (payload: {
+      percent: number;
+      currentStep: string;
     }) => void;
 
     act(() => {
-      handler({ payload: { percent: -10, currentStep: 'init' } });
+      handler({ percent: -10, currentStep: 'init' });
     });
 
     expect(result.current.percent).toBe(0);
   });
 
   it('clampea percent a 100 cuando el valor supera el máximo', async () => {
-    const { result } = renderHook(() => useProgressEvents());
+    const { result } = renderHook(() => useProgressEvents(), {
+      wrapper: harness.wrapper,
+    });
     await act(async () => {});
 
-    const handler = mockListen.mock.calls[0][1] as (event: {
-      payload: { percent: number; currentStep: string };
+    const handler = mockListen.mock.calls[0][1] as (payload: {
+      percent: number;
+      currentStep: string;
     }) => void;
 
     act(() => {
-      handler({ payload: { percent: 150, currentStep: 'done' } });
+      handler({ percent: 150, currentStep: 'done' });
     });
 
     expect(result.current.percent).toBe(100);
   });
 
   it('clampea percent a 0 cuando el valor es NaN', async () => {
-    const { result } = renderHook(() => useProgressEvents());
+    const { result } = renderHook(() => useProgressEvents(), {
+      wrapper: harness.wrapper,
+    });
     await act(async () => {});
 
-    const handler = mockListen.mock.calls[0][1] as (event: {
-      payload: { percent: number; currentStep: string };
+    const handler = mockListen.mock.calls[0][1] as (payload: {
+      percent: number;
+      currentStep: string;
     }) => void;
 
     act(() => {
-      handler({ payload: { percent: NaN, currentStep: 'init' } });
+      handler({ percent: NaN, currentStep: 'init' });
     });
 
     expect(result.current.percent).toBe(0);
@@ -106,14 +121,18 @@ describe('useProgressEvents', () => {
 
   it('activa listenError cuando listen() rechaza', async () => {
     mockListen.mockRejectedValue(new Error('IPC unavailable'));
-    const { result } = renderHook(() => useProgressEvents());
+    const { result } = renderHook(() => useProgressEvents(), {
+      wrapper: harness.wrapper,
+    });
     await act(async () => {});
     expect(result.current.listenError).toBe(true);
   });
 
   it('activa listenError por timeout si listen() nunca resuelve', async () => {
     mockListen.mockReturnValue(new Promise(() => {})); // nunca resuelve
-    const { result } = renderHook(() => useProgressEvents());
+    const { result } = renderHook(() => useProgressEvents(), {
+      wrapper: harness.wrapper,
+    });
     await act(async () => {
       vi.advanceTimersByTime(5000);
     });
@@ -121,7 +140,9 @@ describe('useProgressEvents', () => {
   });
 
   it('llama unlisten al desmontar el hook', async () => {
-    const { unmount } = renderHook(() => useProgressEvents());
+    const { unmount } = renderHook(() => useProgressEvents(), {
+      wrapper: harness.wrapper,
+    });
     await act(async () => {});
     unmount();
     expect(mockUnlisten).toHaveBeenCalledTimes(1);
@@ -135,7 +156,9 @@ describe('useProgressEvents', () => {
       }),
     );
 
-    const { result, unmount } = renderHook(() => useProgressEvents());
+    const { result, unmount } = renderHook(() => useProgressEvents(), {
+      wrapper: harness.wrapper,
+    });
     unmount();
 
     await act(async () => {

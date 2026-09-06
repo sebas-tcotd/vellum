@@ -1,4 +1,4 @@
-import type { ServiceIconLegendState } from '@vellum/renderer-webgl';
+import type { ServiceIconLegendState } from '@vellum/core';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen } from '../../test-utils';
 import { IconLegend } from './IconLegend';

@@ -3,13 +3,11 @@ import type {
   ExportPreviewSnapshot,
   ExportRequest,
   ExportSnapshot,
+  MapRendererPort,
+  ServiceIconLegendState,
   SvgExportRequest,
   SvgExportSnapshot,
 } from '@vellum/core';
-import type {
-  MapLibreRenderer,
-  ServiceIconLegendState,
-} from '@vellum/renderer-webgl';
 
 interface RendererCommandRefs {
   fitToScreenRef?: RefObject<(() => void) | null> | undefined;
@@ -39,7 +37,7 @@ interface RendererCommandRefs {
 
 /** Registers renderer commands in refs owned by the application composition root. */
 export function useRendererCommandRefs(
-  rendererRef: RefObject<MapLibreRenderer | null>,
+  rendererRef: RefObject<MapRendererPort | null>,
   refs: RendererCommandRefs,
 ): void {
   const {

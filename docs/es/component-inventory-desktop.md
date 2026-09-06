@@ -62,7 +62,7 @@ cambió.
 | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
 | `MapLibreRoot.tsx` | Monta el renderer WebGL activo; wirea visibilidad de capas, tema, zoom/pan/bearing y expone captura de preview/snapshot para export |
 
-> El wrapper legacy Canvas 2D (`CanvasRoot.tsx`, `CanvasLayer.tsx`, `hooks/useRenderLoop.ts`) fue eliminado de este módulo — `MapLibreRoot` es su reemplazo directo, sin equivalente Canvas activo en el árbol de componentes.
+> El wrapper legacy Canvas 2D (`CanvasRoot.tsx`, `CanvasLayer.tsx`, `hooks/useRenderLoop.ts`) fue eliminado de este módulo — `MapLibreRoot` es su reemplazo directo. El package `@vellum/renderer-canvas` fue retirado por [ADR-0001](../adr/0001-rendering-ownership.md); `MapLibreRoot` recibe hoy una `MapRendererFactory` inyectada y no conoce ningún adapter concreto.
 
 ### `components/empty-state/`
 

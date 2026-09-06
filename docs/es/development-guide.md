@@ -40,7 +40,7 @@ cd apps/desktop && pnpm dev:vite  # solo frontend, sin proceso Tauri
 pnpm build                 # todos los packages, orden topológico vía Turborepo
 ```
 
-Orden topológico: `core` → `theme-engine` / `parser-cslmap` → `renderer-canvas` / `renderer-webgl` → `ui` → `desktop`.
+Orden topológico: `core` → `theme-engine` / `parser-cslmap` → `renderer-webgl` → `ui` → `desktop`.
 
 ### Limpiar artefactos de build obsoletos
 

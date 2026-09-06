@@ -1,4 +1,3 @@
-import { invoke } from '@tauri-apps/api/core';
 import { IPC_COMMANDS, type RawThemeFile } from '@vellum/core';
 import {
   loadThemes,
@@ -6,6 +5,7 @@ import {
   type LoadedTheme,
 } from '@vellum/theme-engine';
 import { useEffect, useRef, useState } from 'react';
+import { usePlatformServices } from '../context/PlatformServicesContext';
 import { useVellumStore } from '../store/vellum-store';
 
 /**
@@ -20,6 +20,7 @@ import { useVellumStore } from '../store/vellum-store';
  * @returns The fully-loaded valid themes, or an empty array until loading resolves.
  */
 export function useThemes(): LoadedTheme[] {
+  const { invoke } = usePlatformServices();
   const activeLanguage = useVellumStore((s) => s.activeLanguage);
   const setAvailableThemes = useVellumStore((s) => s.setAvailableThemes);
   const setThemeWarnings = useVellumStore((s) => s.setThemeWarnings);
@@ -82,7 +83,10 @@ export function useThemes(): LoadedTheme[] {
     return () => {
       isMounted.current = false;
     };
-  }, [activeLanguage, setAvailableThemes, setThemeWarnings]);
+    // `invoke` is part of the dependency list, so the services object injected
+    // by the composition root must have stable identity — a per-render object
+    // would re-run this effect and defeat the `hasInvoked` guard above.
+  }, [activeLanguage, invoke, setAvailableThemes, setThemeWarnings]);
 
   return themes;
 }

@@ -1,6 +1,5 @@
 import type { LayerVisibility } from '@vellum/core';
 import { LAYER_NAMES } from '@vellum/core';
-import { load, type Store } from '@tauri-apps/plugin-store';
 
 /**
  * User preferences persisted to disk via `tauri-plugin-store`.
@@ -20,26 +19,65 @@ export interface PersistedPreferences {
   autoUpdateEnabled: boolean;
 }
 
-const STORE_PATH = 'preferences.json';
+/**
+ * Durable key/value storage for user preferences, as the store needs it.
+ *
+ * @remarks
+ * Narrower than any concrete store API on purpose: three operations, no
+ * `autoSave`, no file path. The backing file and its load semantics belong to
+ * the adapter, which `apps/desktop` registers via {@link setPreferencesPort} —
+ * this module is imported by `vellum-store` and `i18n-setup`, both of which run
+ * outside React, so a context could not reach them (ADR-0001).
+ */
+export interface PreferencesPort {
+  /**
+   * Reads one persisted key.
+   * @param key - On-disk key name.
+   * @returns The stored value, or `undefined` when absent.
+   */
+  get<T>(key: string): Promise<T | undefined>;
+  /**
+   * Stages one value for the next {@link PreferencesPort.save}.
+   * @param key - On-disk key name.
+   * @param value - Value to store.
+   */
+  set(key: string, value: unknown): Promise<void>;
+  /** Flushes staged values to durable storage. */
+  save(): Promise<void>;
+}
 
-let storePromise: Promise<Store | null> | null = null;
+/**
+ * The port with no storage behind it: reads yield `undefined`, writes do
+ * nothing, nothing throws.
+ *
+ * @remarks
+ * Exactly the fallback the previous implementation reached when
+ * `preferences.json` failed to load — persistence is disabled for the session
+ * and the app boots on defaults (NFR9). It is also the default, so tests and
+ * any host that registers no adapter behave identically.
+ */
+const NOOP_PREFERENCES_PORT: PreferencesPort = {
+  get: () => Promise.resolve(undefined),
+  set: () => Promise.resolve(),
+  save: () => Promise.resolve(),
+};
+
+let preferencesPort: PreferencesPort = NOOP_PREFERENCES_PORT;
 let writeQueue: Promise<void> = Promise.resolve();
 
 /**
- * Lazily loads (and memoizes) the on-disk preferences store.
+ * Registers the storage adapter this module writes through.
+ *
  * @remarks
- * `autoSave` is explicitly disabled — every write goes through `persistPreference()`,
- * which calls `save()` immediately (see Dev Notes on NFR9 in story 7.2). If the store
- * fails to load (e.g. a corrupted `preferences.json`), the error is logged and `null`
- * is memoized so every subsequent call treats persistence as disabled for this session
- * instead of retrying or throwing.
+ * Module-registry injection rather than React context, because the consumers
+ * (`vellum-store`, `i18n-setup`) are not components. Call it once from the
+ * composition root **before** the first render, or the initial hydration reads
+ * the no-op default and the app starts on defaults for that session.
+ *
+ * @param port - The adapter, or `null` to restore the inert default.
  */
-function getStore(): Promise<Store | null> {
-  storePromise ??= load(STORE_PATH, { autoSave: false }).catch((error) => {
-    console.warn('preferences-store: failed to load store', error);
-    return null;
-  });
-  return storePromise;
+export function setPreferencesPort(port: PreferencesPort | null): void {
+  preferencesPort = port ?? NOOP_PREFERENCES_PORT;
 }
 
 function isValidLayerVisibility(raw: unknown): LayerVisibility | undefined {
@@ -58,16 +96,14 @@ function isValidLayerVisibility(raw: unknown): LayerVisibility | undefined {
  * @remarks
  * Each key is validated independently — an invalid or missing key is simply omitted
  * from the result rather than throwing, so a partially corrupted file (NFR9) never
- * blocks the valid keys next to it. Returns `{}` (persistence disabled) if the store
- * itself failed to load.
+ * blocks the valid keys next to it. Returns `{}` when no adapter is registered
+ * (persistence disabled).
  * @returns Only the keys present and valid on disk.
  */
 export async function loadPersistedPreferences(): Promise<
   Partial<PersistedPreferences>
 > {
-  const store = await getStore();
-  if (store === null) return {};
-
+  const store = preferencesPort;
   const result: Partial<PersistedPreferences> = {};
 
   try {
@@ -114,8 +150,8 @@ export async function loadPersistedPreferences(): Promise<
  * @remarks
  * No debounce/`autoSave` — `set()` is followed by an immediate `save()` so a forced
  * app close never loses a change the user already made (NFR9). Never throws: any
- * failure (disk I/O, a store that failed to load) is logged with `console.warn` and
- * swallowed, so a persistence failure never breaks the UI.
+ * failure (disk I/O, an adapter that could not open its file) is logged with
+ * `console.warn` and swallowed, so a persistence failure never breaks the UI.
  */
 export async function persistPreference<K extends keyof PersistedPreferences>(
   key: K,
@@ -123,10 +159,8 @@ export async function persistPreference<K extends keyof PersistedPreferences>(
 ): Promise<void> {
   const write = async (): Promise<void> => {
     try {
-      const store = await getStore();
-      if (store === null) return;
-      await store.set(key, value);
-      await store.save();
+      await preferencesPort.set(key, value);
+      await preferencesPort.save();
     } catch (error) {
       console.warn(`preferences-store: failed to persist ${key}`, error);
     }

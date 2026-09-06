@@ -17,9 +17,8 @@ vi.mock('react-i18next', () => ({
   }),
 }));
 
-vi.mock('@vellum/renderer-webgl', async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import('@vellum/renderer-webgl')>();
+vi.mock('@vellum/core', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@vellum/core')>();
   return {
     ...actual,
     vellumLogoDataUri: () => 'data:image/svg+xml;base64,vellum-logo',

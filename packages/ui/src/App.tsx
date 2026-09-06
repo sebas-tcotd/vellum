@@ -1,11 +1,10 @@
 // packages/ui/src/App.tsx
-import type { ServiceIconLegendState } from '@vellum/renderer-webgl';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppSurface } from './components/AppSurface';
 import { initI18n } from './i18n/i18n-setup';
 import { loadPersistedPreferences } from './store/preferences-store';
 import { useKeyboardShortcuts } from './hooks/use-keyboard-shortcuts';
-import { useTauriEvent } from './hooks/use-tauri-event';
+import { useAppEvent } from './hooks/use-app-event';
 import { useThemes } from './hooks/use-themes';
 import { useExportWorkflow } from './hooks/use-export-workflow';
 import { useMenuAction } from './hooks/use-menu-action';
@@ -27,14 +26,16 @@ import type {
   ExportRequest,
   ExportSnapshot,
   LayerName,
+  MapRendererFactory,
   RasterExportV2,
+  ServiceIconLegendState,
   SvgExportPort,
   SvgExportRequest,
   SvgExportSnapshot,
   UpdatePayload,
 } from '@vellum/core';
 import { IPC_COMMANDS, IPC_EVENTS } from '@vellum/core';
-import { invoke } from '@tauri-apps/api/core';
+import { usePlatformServices } from './context/PlatformServicesContext';
 import { useVellumStore } from './store/vellum-store';
 
 const noop = async (): Promise<void> => {};
@@ -55,6 +56,16 @@ export type ExportCancelHandlerRef = {
  * while still receiving the file-loading callbacks it needs.
  */
 export interface AppProps {
+  /**
+   * Builds the interactive map renderer, forwarded to `MapLibreRoot`.
+   *
+   * @remarks
+   * Required: `@vellum/ui` never names a rendering technology, so the single
+   * composition root (`apps/desktop`) has to supply the adapter (ADR-0001).
+   * Must be referentially stable — define it once at module scope, never
+   * inline in JSX, or the map is rebuilt on every render.
+   */
+  createRenderer: MapRendererFactory;
   /** Build version displayed in the About surface. */
   version?: string | undefined;
   /** Loads a .cslmap file via the IPC bridge. Injected from the Tauri composition root. */
@@ -96,6 +107,7 @@ export interface AppProps {
  * montado para preservar el contexto WebGL al cargar un mapa.
  */
 export function App({
+  createRenderer,
   version,
   loadFile,
   openFileDialog = noop,
@@ -107,6 +119,7 @@ export function App({
   exportSnapshotCaptureRef,
   svgExporter,
 }: AppProps) {
+  const { invoke } = usePlatformServices();
   const [i18nReady, setI18nReady] = useState(false);
   const [isPreferencesOpen, setIsPreferencesOpen] = useState(false);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
@@ -390,11 +403,11 @@ export function App({
     enabled: loadingState !== 'loading' && !isExportDialogOpen,
   });
 
-  useTauriEvent(IPC_EVENTS.OPEN_PREFERENCES, () => setIsPreferencesOpen(true));
-  useTauriEvent(IPC_EVENTS.OPEN_ABOUT, () => setIsAboutOpen(true));
-  useTauriEvent(IPC_EVENTS.MENU_ACTION, handleMenuAction);
+  useAppEvent(IPC_EVENTS.OPEN_PREFERENCES, () => setIsPreferencesOpen(true));
+  useAppEvent(IPC_EVENTS.OPEN_ABOUT, () => setIsAboutOpen(true));
+  useAppEvent(IPC_EVENTS.MENU_ACTION, handleMenuAction);
   const [updateListenerSettled, setUpdateListenerSettled] = useState(false);
-  useTauriEvent(
+  useAppEvent(
     IPC_EVENTS.UPDATE_AVAILABLE,
     (payload: UpdatePayload) => setUpdateInfo(payload),
     { onSettled: () => setUpdateListenerSettled(true) },
@@ -409,12 +422,15 @@ export function App({
     if (!updateListenerSettled) return;
     void invoke<UpdatePayload | null>(IPC_COMMANDS.GET_PENDING_UPDATE)
       .then((payload) => {
-        if (payload !== null) setUpdateInfo(payload);
+        // `!= null` rather than `!== null`: without a platform adapter the
+        // no-op default resolves to `undefined`, which must read as "no
+        // pending update" exactly like an explicit `null` does.
+        if (payload != null) setUpdateInfo(payload);
       })
       .catch((error: unknown) => {
         console.warn('App: failed to load pending update notification', error);
       });
-  }, [updateListenerSettled, setUpdateInfo]);
+  }, [invoke, updateListenerSettled, setUpdateInfo]);
 
   useEffect(() => {
     Promise.all([initI18n(), loadPersistedPreferences()])
@@ -439,7 +455,7 @@ export function App({
     }).catch((error: unknown) => {
       console.warn('App: failed to update native menu language', error);
     });
-  }, [activeLanguage, i18nReady]);
+  }, [activeLanguage, i18nReady, invoke]);
 
   const handleDlcDismiss = useCallback(() => {
     setDlcWarnings([]);
@@ -458,6 +474,7 @@ export function App({
   return (
     <AppSurface
       mapProps={{
+        createRenderer,
         loadFile,
         activeLayers,
         fitToScreenRef,
