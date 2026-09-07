@@ -185,6 +185,17 @@ describe('golden cartographic flow', () => {
     // Stage: startup + load + ready. Each is named so a failure says which.
     await waitForMapReady(browser);
 
+    // A viewport export announces its size only once the renderer hands the
+    // dialog a preview snapshot, and that capture resolves on MapLibre's next
+    // `render` event with a 1.5s deadline (`map-libre-renderer.ts`,
+    // PREVIEW_CAPTURE_TIMEOUT_MS). A settled map emits no `render` at all, so
+    // on a slow host the capture times out and the dialog shows no dimensions
+    // — which is a real product fragility, tracked separately, not something
+    // this flow should silently absorb. Nudging a resize guarantees the frame
+    // the capture is waiting for, so the assertions below are about the
+    // export, not about who won that race.
+    await browser.execute(() => window.dispatchEvent(new Event('resize')));
+
     // Stage: the export dialog.
     await openExportDialog(browser);
     const exportLabel = await readExportLabel(browser);
