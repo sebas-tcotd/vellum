@@ -39,6 +39,18 @@ describe('ErrorToast', () => {
     );
   });
 
+  it('usa errors.MissingVersion cuando found viene vacío', () => {
+    render(
+      <ErrorToast
+        error={{ type: 'UnsupportedVersion', found: '' }}
+        onDismiss={vi.fn()}
+      />,
+    );
+    const text = screen.getByRole('alert').textContent;
+    expect(text).toContain('errors.MissingVersion');
+    expect(text).not.toContain('errors.UnsupportedVersion');
+  });
+
   it('llama onDismiss al hacer click en el botón de cerrar', () => {
     const onDismiss = vi.fn();
     render(

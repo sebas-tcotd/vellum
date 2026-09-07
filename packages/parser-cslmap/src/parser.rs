@@ -27,7 +27,10 @@ use tauri::Emitter;
 ///
 /// # Errors
 /// Returns `VellumError::IoError` if the file cannot be read.
-/// Returns `VellumError::InvalidFile` for XML that is entirely unreadable.
+/// Returns `VellumError::InvalidFile` for XML that is entirely unreadable or whose
+/// root element is not `<CSLExportXML>`.
+/// Returns `VellumError::UnsupportedVersion` when the root declares no `version` or
+/// one of an unsupported major.
 /// Returns `VellumError::PartialParse` for XML valid at root level but with damaged sections.
 pub fn parse_cslmap_file(
     path: &str,
@@ -49,7 +52,8 @@ pub fn parse_cslmap_file(
 /// Pure parsing function (no `AppHandle`): used directly by unit tests.
 ///
 /// # Errors
-/// Returns `VellumError::InvalidFile` for completely unreadable XML.
+/// Returns `VellumError::InvalidFile` for completely unreadable XML or a foreign root.
+/// Returns `VellumError::UnsupportedVersion` for an absent or unsupported root `version`.
 /// Returns `VellumError::PartialParse` for XML valid at root but with damaged sections.
 pub fn parse_cslmap_bytes(content: &[u8]) -> Result<CityData, VellumError> {
     run_parse_loop(strip_bom(content), false, &mut NoopObserver)
@@ -59,7 +63,9 @@ pub fn parse_cslmap_bytes(content: &[u8]) -> Result<CityData, VellumError> {
 /// Swallows recoverable section errors and returns whatever data was built.
 ///
 /// # Errors
-/// Returns `VellumError::InvalidFile` if the root element is missing or the XML is fatally malformed.
+/// Returns `VellumError::InvalidFile` if the root element is missing, foreign, or the
+/// XML is fatally malformed, and `VellumError::UnsupportedVersion` for an absent or
+/// unsupported root `version` — the root gate ignores lenient mode.
 pub fn parse_cslmap_bytes_lenient(content: &[u8]) -> Result<CityData, VellumError> {
     run_parse_loop(strip_bom(content), true, &mut NoopObserver)
 }
@@ -69,6 +75,69 @@ pub fn parse_cslmap_bytes_lenient(content: &[u8]) -> Result<CityData, VellumErro
 /// Strips the UTF-8 BOM (EF BB BF) present in real `.cslmap` files (Gotcha 3).
 fn strip_bom(bytes: &[u8]) -> &[u8] {
     bytes.strip_prefix(b"\xEF\xBB\xBF").unwrap_or(bytes)
+}
+
+// ─── Root gate ────────────────────────────────────────────────────────────────
+
+/// The only root element a `.cslmap` may declare.
+const ROOT_ELEMENT: &[u8] = b"CSLExportXML";
+
+/// The only exporter major version this parser understands. Any minor of the
+/// same major is accepted (`"4"`, `"4.1"`, `"4.9"`) — every known fixture
+/// declares `4.1`, and rejecting future minors of the same exporter would turn
+/// the gate into a source of false negatives.
+const SUPPORTED_MAJOR: &str = "4";
+
+/// Validates the first element of the document: it must be `<CSLExportXML>` and
+/// declare a supported `version`.
+///
+/// A missing `version` attribute is reported as `UnsupportedVersion { found: "" }`
+/// — the empty string is a value the shared enum already admits, so the UI can
+/// distinguish it without a new variant crossing the IPC boundary.
+///
+/// # Errors
+/// Returns `VellumError::InvalidFile` when the root is not `CSLExportXML`, and
+/// `VellumError::UnsupportedVersion` when the declared version is absent or of a
+/// different major.
+fn gate_root(e: &quick_xml::events::BytesStart<'_>) -> Result<(), VellumError> {
+    // The qualified name, not the local one: a document from a foreign schema
+    // that happens to use the local name (`<x:CSLExportXML>`) is not a `.cslmap`,
+    // and every real export declares the root unprefixed.
+    let name = e.name();
+    if name.as_ref() != ROOT_ELEMENT {
+        return Err(VellumError::InvalidFile {
+            reason: format!(
+                "expected root element <CSLExportXML>, found <{}>",
+                String::from_utf8_lossy(name.as_ref())
+            ),
+        });
+    }
+
+    // A malformed attribute list is a broken file, not a missing version —
+    // swallowing the error here would report it as `UnsupportedVersion`.
+    let attribute = e
+        .try_get_attribute("version")
+        .map_err(|err| VellumError::InvalidFile {
+            reason: format!("malformed attributes on <CSLExportXML>: {err}"),
+        })?;
+
+    // Trimmed so a padded value (`version=" 4.1 "`) is neither misread as an
+    // unsupported major nor rendered as "unsupported version ( )" downstream.
+    let found = attribute
+        .map(|attr| {
+            String::from_utf8_lossy(attr.value.as_ref())
+                .trim()
+                .to_owned()
+        })
+        .unwrap_or_default();
+
+    // Compared on the first `.`-separated segment: no semver parsing, and an
+    // absent attribute falls through here as the empty major.
+    if found.split('.').next().unwrap_or("") != SUPPORTED_MAJOR {
+        return Err(VellumError::UnsupportedVersion { found });
+    }
+
+    Ok(())
 }
 
 // ─── Observer ─────────────────────────────────────────────────────────────────
@@ -153,10 +222,18 @@ fn run_parse_loop<O: ParseObserver>(
     loop {
         match reader.read_event_into(&mut buf) {
             Ok(Event::Start(ref e)) => {
+                if !has_parsed_root {
+                    // Deliberately outside `handle_element_result`: the root gate
+                    // is never softened by `allow_partial`.
+                    gate_root(e)?;
+                }
                 has_parsed_root = true;
                 handle_element_result(builder.handle_start(e), allow_partial)?;
             }
             Ok(Event::Empty(ref e)) => {
+                if !has_parsed_root {
+                    gate_root(e)?;
+                }
                 has_parsed_root = true;
                 handle_element_result(builder.handle_empty(e), allow_partial)?;
             }
@@ -181,6 +258,16 @@ fn run_parse_loop<O: ParseObserver>(
         }
         buf.clear();
         tick_progress(&reader, total_len, &mut last_pct, observer);
+    }
+
+    // Covers both loop exits (EOF and the lenient early break): a document that
+    // never produced an element never went through `gate_root`, so it must not
+    // reach `build()` — that is exactly the path that used to yield a plausible
+    // but empty map. Independent of `allow_partial`.
+    if !has_parsed_root {
+        return Err(VellumError::InvalidFile {
+            reason: "no XML elements found — expected a <CSLExportXML> root".to_string(),
+        });
     }
 
     observer.on_warnings(builder.warnings());
