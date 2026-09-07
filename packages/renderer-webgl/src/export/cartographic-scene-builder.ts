@@ -426,16 +426,21 @@ function buildRoadEntities(context: LayerContext): SceneEntity[] {
           : null;
 
     if (dashedWay) {
+      const dashWidthPx = dashedWay.widthPx ?? widthPx;
       fills.push({
         id: `${ID_PREFIX.roads}-${id}`,
         geometry,
         stroke: {
           color: dashedWay.color,
-          widthPx: dashedWay.widthPx ?? widthPx,
+          widthPx: dashWidthPx,
           opacity: dashedWay.opacity,
           lineCap: 'butt',
           lineJoin: 'round',
-          dashPx: dashedWay.dashPx,
+          // MapLibre states `line-dasharray` in multiples of the line width;
+          // `dashPx` is in output pixels. Without this conversion the same
+          // constant draws long dashes on the map and square dots in the
+          // export — which is how the airship has looked until now.
+          dashPx: dashedWay.dashPx.map((d) => d * dashWidthPx),
         },
       });
       continue;

@@ -226,11 +226,18 @@ describe('buildCartographicScene', () => {
   it('renders airship ways as a low-opacity dashed cloud-tinted stroke', () => {
     const roads = layerEntities(build(transitCity('Blimp')), 'roads');
     expect(roads).toHaveLength(1);
-    expect(roads[0]!.stroke).toMatchObject({
+    const { stroke } = roads[0]!;
+    expect(stroke).toMatchObject({
       color: resolveAirshipColor('#4080c0'),
       opacity: AIRSHIP_LINE_OPACITY,
-      dashPx: AIRSHIP_LINE_DASHARRAY,
     });
+    // MapLibre states `line-dasharray` in multiples of the line width, while
+    // `dashPx` is in output pixels. Pin the conversion, not a literal pair:
+    // passing the constant through unscaled drew square dots in the export
+    // where the map drew long dashes.
+    expect(stroke!.dashPx).toEqual(
+      AIRSHIP_LINE_DASHARRAY.map((d) => d * stroke!.widthPx),
+    );
   });
 
   it('keeps airship transit routes with their original line colour', () => {
