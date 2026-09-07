@@ -386,12 +386,16 @@
 
 .shell-dialog-content {
   color: var(--shell-text-primary);
-  background: var(--shell-surface-popover);
+  background: var(--shell-surface-dialog);
   border-color: var(--shell-border);
   border-radius: var(--shell-radius-popover);
   box-shadow: var(--shell-shadow-popover);
   backdrop-filter: var(--shell-popover-backdrop-filter);
   corner-shape: var(--shell-corner-shape, round);
+}
+
+.shell-dialog-content.about-dialog {
+  border-color: var(--about-border);
 }
 
 .shell-document-commands {

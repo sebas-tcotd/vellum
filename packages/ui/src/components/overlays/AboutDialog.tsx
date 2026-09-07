@@ -33,12 +33,12 @@ export function AboutDialog({
       <DialogContent
         aria-modal="true"
         aria-labelledby={titleId}
-        className="max-w-120 overflow-hidden rounded-(--shell-radius-popover) border-(--shell-border) bg-(--shell-surface-popover) p-0 text-(--shell-text-primary) shadow-(--shell-shadow-popover) backdrop-blur-(--shell-blur)"
+        className="about-dialog max-w-120 overflow-hidden rounded-(--shell-radius-popover) border-(--about-border) p-0 text-(--shell-text-primary) shadow-(--shell-shadow-popover) backdrop-blur-(--shell-blur)"
       >
-        <div className="relative overflow-hidden border-b border-black/10 bg-(--color-bg) px-7 pb-7 pt-8">
-          <div className="pointer-events-none absolute inset-0 opacity-40 bg-[linear-gradient(105deg,transparent_0%,transparent_49%,rgba(74,64,53,0.07)_49%,rgba(74,64,53,0.07)_50%,transparent_50%),linear-gradient(25deg,transparent_0%,transparent_68%,rgba(109,184,183,0.12)_68%,rgba(109,184,183,0.12)_69%,transparent_69%)]" />
-          <div className="pointer-events-none absolute -right-14 -top-20 size-52 rounded-full border border-(--color-water)/25" />
-          <div className="pointer-events-none absolute -right-5 -top-11 size-32 rounded-full border border-(--color-water)/15" />
+        <div className="relative overflow-hidden border-b border-(--about-divider) bg-(--color-bg) px-7 pb-7 pt-8">
+          <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(105deg,transparent_0%,transparent_49%,var(--ui-decoration-primary)_49%,var(--ui-decoration-primary)_50%,transparent_50%),linear-gradient(25deg,transparent_0%,transparent_68%,var(--ui-decoration-water)_68%,var(--ui-decoration-water)_69%,transparent_69%)]" />
+          <div className="pointer-events-none absolute -right-14 -top-20 size-52 rounded-full border border-(--ui-accent-water)/25" />
+          <div className="pointer-events-none absolute -right-5 -top-11 size-32 rounded-full border border-(--ui-accent-water)/15" />
           <div className="relative flex items-start gap-4">
             <div className="relative flex size-16 shrink-0 items-center justify-center rounded-full bg-(--color-text) text-(--color-bg) shadow-[0_8px_18px_rgba(51,51,51,0.16)]">
               <VellumIsotypeRounded height="100%" width="100%" />
@@ -59,7 +59,7 @@ export function AboutDialog({
           </div>
 
           <div className="relative mt-6 flex items-center gap-2 text-[0.62rem] font-medium uppercase tracking-[0.22em] text-(--color-text-subtle)">
-            <span className="h-px w-7 bg-(--color-road-large-arterial)" />
+            <span className="h-px w-7 bg-(--ui-accent-rule)" />
             <span>{t('about.openCartography')}</span>
           </div>
         </div>
@@ -69,7 +69,7 @@ export function AboutDialog({
             {t('about.description')}
           </p>
 
-          <div className="grid grid-cols-2 divide-x divide-(--shell-border) rounded-(--shell-radius-interactive) border border-(--shell-border) bg-(--shell-surface)">
+          <div className="grid grid-cols-2 divide-x divide-(--about-border) rounded-(--shell-radius-interactive) border border-(--about-border) bg-(--shell-surface)">
             <div className="px-4 py-3.5">
               <div className="text-[0.62rem] font-medium uppercase tracking-[0.16em] text-(--shell-text-muted)">
                 {t('about.versionLabel')}
@@ -92,7 +92,7 @@ export function AboutDialog({
           </div>
         </div>
 
-        <DialogFooter className="flex-row items-center justify-between border-t border-(--shell-border) bg-(--shell-surface) px-7 py-4">
+        <DialogFooter className="flex-row items-center justify-between border-t border-(--about-divider) bg-(--color-bg) px-7 py-4">
           <button
             type="button"
             className="inline-flex items-center gap-1.5 rounded-(--shell-radius-interactive) px-2 py-1.5 text-xs text-(--shell-text-muted) transition-colors hover:bg-black/5 hover:text-(--shell-text-primary) focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-(--shell-focus)"
@@ -114,7 +114,7 @@ export function AboutDialog({
           <button
             type="button"
             onClick={() => onOpenChange(false)}
-            className="inline-flex items-center justify-center rounded-(--shell-radius-interactive) bg-(--shell-text) px-4 py-2 text-sm font-medium text-(--shell-bg) shadow-sm transition-[background-color,transform] hover:bg-(--shell-road-pedestrian) hover:-translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-(--shell-focus)"
+            className="inline-flex items-center justify-center rounded-(--shell-radius-interactive) bg-(--shell-text-primary) px-4 py-2 text-sm font-medium text-(--shell-on-selected) shadow-sm transition-[background-color,transform] hover:bg-(--shell-surface-floating) hover:-translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-(--shell-focus)"
           >
             {t('common.close')}
           </button>

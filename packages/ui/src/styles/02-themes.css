@@ -33,6 +33,9 @@
   --shell-surface-sidebar: var(--shell-surface);
   --shell-surface-floating: rgba(247, 246, 241, 0.94);
   --shell-surface-popover: rgba(247, 246, 241, 0.98);
+  /* Reading dialogs must remain legible above a dimmed map. Unlike popovers,
+     this surface is intentionally opaque on every platform. */
+  --shell-surface-dialog: var(--shell-solid-surface);
   --shell-surface-selected: var(--color-accent-foreground);
   --shell-on-selected: var(--color-bg);
   --shell-text-primary: var(--color-text);
@@ -155,6 +158,14 @@
   --color-border: rgba(255, 255, 255, 0.12);
   --color-input: rgba(255, 255, 255, 0.12);
   --color-panel-border: rgba(255, 255, 255, 0.12);
+  /* About's cartographic decoration is a UI accent, not a map-theme token.
+     It needs more luminance in dark chrome to remain intentional. */
+  --ui-accent-water: #8dc9c8;
+  --ui-accent-rule: #f09a92;
+  --ui-decoration-primary: rgb(233 231 226 / 0.08);
+  --ui-decoration-water: rgb(141 201 200 / 0.24);
+  --about-border: rgb(255 255 255 / 0.16);
+  --about-divider: rgb(255 255 255 / 0.14);
   --shell-solid-surface: #1b1b25;
   --shell-surface: rgba(27, 27, 37, 0.94);
   --shell-surface-sidebar: var(--shell-surface);

@@ -1,3 +1,4 @@
 {
-  "vitest.workspaceConfig": "./vitest.workspace.ts"
+  "vitest.workspaceConfig": "./vitest.workspace.ts",
+  "css.lint.unknownAtRules": "ignore"
 }

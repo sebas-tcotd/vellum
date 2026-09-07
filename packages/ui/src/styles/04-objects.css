@@ -53,6 +53,6 @@
   height: 100%;
   overflow: hidden;
   isolation: isolate;
-  background: var(--color-terrain);
+  background: var(--color-bg);
   forced-color-adjust: none;
 }
