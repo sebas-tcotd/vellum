@@ -28,6 +28,7 @@ export type RoadTier =
   | 'local'
   | 'gravel'
   | 'pedestrian'
+  | 'pedestrianStreet'
   | 'pedestrianWay';
 
 /** Width model for a road tier: `totalWidth = fixed + scaled * zoomFactor`. */
@@ -73,6 +74,9 @@ export const ROAD_WIDTH_STYLES: Readonly<Record<RoadTier, RoadWidthStyle>> =
     local: { fixed: 0.2, scaled: 0.8 },
     gravel: { fixed: 0.2, scaled: 0.5 },
     pedestrian: { fixed: 0.2, scaled: 0.4 },
+    // Wider than a path: in-game a Pedestrian Street is 16–32 world units,
+    // a plaza-like surface rather than a footpath.
+    pedestrianStreet: { fixed: 0.2, scaled: 0.6 },
     pedestrianWay: { fixed: 0.1, scaled: 0.3 },
   });
 
@@ -115,6 +119,9 @@ export const ITEM_CLASS_TIER: Readonly<Record<string, RoadTier>> = {
   // the heuristic's 28-unit cut and made a single runway change thickness
   // halfway down. Pinned to the widest tier so it reads as one flat surface.
   'Airplane Runway': 'highway',
+  // The theme contract has carried a `roads.pedestrian.street` colour with no
+  // tier to feed it. This is the class it was waiting for.
+  'Pedestrian Street': 'pedestrianStreet',
 };
 
 /**
@@ -133,6 +140,8 @@ export const ITEM_CLASS_TIER: Readonly<Record<string, RoadTier>> = {
 export const EXCLUDED_ROAD_CLASSES: ReadonlySet<string> = new Set([
   'Electricity Wire',
   'Airplane Path',
+  // Virtual routing geometry for helicopters, exactly like `Airplane Path`.
+  'Helicopter Path',
   'Ship Path',
   'Tram Line',
   'Tram Facility',

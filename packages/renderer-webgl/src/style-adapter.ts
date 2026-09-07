@@ -135,12 +135,10 @@ export function resolveColors(style: RenderStyleParams): ResolvedColors {
       local: roads.local.generic.fill,
       gravel: roads.local.gravel.fill,
       pedestrian: roads.pedestrian.path.fill,
+      pedestrianStreet: roads.pedestrian.street.fill,
       pedestrianWay: roads.pedestrian.way.fill,
       train: roads.rail.train.fill,
       metro: roads.rail.metro.fill,
-      // NOTE: `pedestrian.street` exists in `RoadColorParams` but has no
-      // distinct `RoadTier` — it's accepted by the contract for future use
-      // (Story 5.1+) but not wired to any layer today.
     },
     roadCasing: {
       highway: roads.highway.generic.casing,
@@ -149,11 +147,10 @@ export function resolveColors(style: RenderStyleParams): ResolvedColors {
       local: roads.local.generic.casing,
       gravel: roads.local.gravel.casing,
       pedestrian: roads.pedestrian.path.casing,
+      pedestrianStreet: roads.pedestrian.street.casing,
       pedestrianWay: roads.pedestrian.way.casing,
       train: roads.rail.train.casing,
       metro: roads.rail.metro.casing,
-      // NOTE: `pedestrian.street` exists in `RoadColorParams` but has no
-      // distinct `RoadTier` — accepted by contract, not wired today.
     },
     ferry: roads.ferry.fill,
     grid: {

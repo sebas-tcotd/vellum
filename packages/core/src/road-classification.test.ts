@@ -108,6 +108,23 @@ describe('classifyRoadCategory', () => {
     expect(classifyRoadTier('Airplane Runway', ['None'], 44)).toBe('highway');
   });
 
+  it('gives the pedestrian street its own tier instead of an arterial', () => {
+    // 16–32 world units straddles the heuristic's cuts, so it used to render
+    // as a `local` or `largeArterial` car road depending on the segment.
+    expect(classifyRoadTier('Pedestrian Street', ['None'], 16)).toBe(
+      'pedestrianStreet',
+    );
+    expect(classifyRoadTier('Pedestrian Street', ['None'], 32)).toBe(
+      'pedestrianStreet',
+    );
+    expect(classifyRoadCategory('Pedestrian Street')).toBe('road');
+  });
+
+  it('excludes helicopter paths, like the other virtual route geometry', () => {
+    expect(classifyRoadTier('Helicopter Path', ['None'], 40)).toBeNull();
+    expect(classifyRoadCategory('Helicopter Path')).toBe('excluded');
+  });
+
   it('routes rail item classes to railway', () => {
     expect(classifyRoadCategory('Monorail Track Elevated')).toBe('railway');
     expect(classifyRoadCategory('Train Track')).toBe('railway');
