@@ -133,8 +133,11 @@ export const EXCLUDED_ROAD_CLASSES: ReadonlySet<string> = new Set([
   // Virtual connectors used only for transit routing — never real geometry.
   'Bus Line',
   // Terrain-shaping landscaping tools, not part of the road network.
+  // Quays are not inherently walkable or driveable per the game docs, and the
+  // Rust parser drops all three before they reach `CityData`.
   'Landscaping Canal',
   'Landscaping Flood Wall',
+  'Landscaping Quay',
 ]);
 
 /** Item classes drawn as ferry routes rather than as road geometry. */
