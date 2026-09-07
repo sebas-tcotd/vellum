@@ -18,7 +18,7 @@ runs:
         cache: pnpm
 
     - name: Cache Turborepo
-      uses: actions/cache@v4
+      uses: actions/cache@v6
       with:
         path: .turbo
         key: turbo-${{ inputs.os }}-${{ hashFiles('pnpm-lock.yaml', 'turbo.json') }}-${{ github.sha }}
