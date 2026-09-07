@@ -91,6 +91,23 @@ describe('classifyRoadCategory', () => {
     expect(classifyRoadCategory('Unknown Modded Asset')).toBe('road');
   });
 
+  it('gives the cable-car way its own category, not a road hairline', () => {
+    // 12.4 world units falls under the heuristic's 14-unit cut, so its tier is
+    // a pedestrian way. The category is what earns it a dedicated layer.
+    expect(classifyRoadCategory('CableCar Path')).toBe('cablecar');
+    expect(classifyRoadTier('CableCar Path', ['None'], 12.4)).toBe(
+      'pedestrianWay',
+    );
+  });
+
+  it('routes runways to their own category while keeping them road geometry', () => {
+    expect(classifyRoadCategory('Airplane Runway')).toBe('runway');
+    // Pinned to one tier: 20 and 44 straddle the 28-unit cut, which used to
+    // change a single runway's thickness halfway down its own length.
+    expect(classifyRoadTier('Airplane Runway', ['None'], 20)).toBe('highway');
+    expect(classifyRoadTier('Airplane Runway', ['None'], 44)).toBe('highway');
+  });
+
   it('routes rail item classes to railway', () => {
     expect(classifyRoadCategory('Monorail Track Elevated')).toBe('railway');
     expect(classifyRoadCategory('Train Track')).toBe('railway');
@@ -103,6 +120,19 @@ describe('classifyRoadCategory', () => {
       const tier = ITEM_CLASS_TIER[itemClass]!;
       const isRail = railTiers.has(tier);
       expect(classifyRoadCategory(itemClass) === 'railway').toBe(isRail);
+    }
+  });
+
+  it('gives every category a tier, so nothing can be categorised into nothing', () => {
+    for (const itemClass of [
+      'Small Road',
+      'Airplane Runway',
+      'CableCar Path',
+      'Ferry Path',
+      'Blimp Path',
+      'Train Track',
+    ]) {
+      expect(classifyRoadTier(itemClass, ['None'], 20)).not.toBeNull();
     }
   });
 

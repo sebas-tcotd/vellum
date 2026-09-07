@@ -554,6 +554,8 @@ describe('buildRoadsGeoJson — tier classification', () => {
     ['Ferry Path', 'ferry'],
     ['Blimp Path', 'airship'],
     ['Small Road', 'road'],
+    ['Airplane Runway', 'runway'],
+    ['CableCar Path', 'cablecar'],
   ])('emits properties.category %s → %s', (itemClass, category) => {
     const city = makeCityData({
       roadNodes: [NODE_A, NODE_B],

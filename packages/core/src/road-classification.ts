@@ -48,9 +48,11 @@ export interface RoadWidthStyle {
  */
 export type RoadCategory =
   | 'road'
+  | 'runway'
   | 'railway'
   | 'ferry'
   | 'airship'
+  | 'cablecar'
   | 'excluded';
 
 /**
@@ -109,6 +111,10 @@ export const ITEM_CLASS_TIER: Readonly<Record<string, RoadTier>> = {
   'Small Road Elevated': 'local',
   'Pedestrian Tunnel': 'pedestrianWay',
   'Pedestrian Bridge': 'pedestrian',
+  // A runway is 20–44 world units wide along its own length, which straddles
+  // the heuristic's 28-unit cut and made a single runway change thickness
+  // halfway down. Pinned to the widest tier so it reads as one flat surface.
+  'Airplane Runway': 'highway',
 };
 
 /**
@@ -145,6 +151,21 @@ const FERRY_CLASSES = new Set(['Ferry Path']);
 
 /** Item classes drawn as airship (dirigible) routes. */
 const AIRSHIP_CLASSES = new Set(['Blimp Path', 'Blimp Line']);
+
+/**
+ * Item classes drawn as cable-car ways.
+ *
+ * @remarks
+ * The way geometry the CableCar transit mode rides on. Like `Ferry Path` and
+ * `Blimp Path` it stays in `road_segments` because route reconstruction needs
+ * it, and like them it needs a treatment of its own: at 12.4 world units it
+ * otherwise falls under the heuristic's 14-unit cut and draws as a
+ * pedestrian-way hairline.
+ */
+const CABLECAR_CLASSES = new Set(['CableCar Path']);
+
+/** Item classes drawn as airport runways: road geometry, flat-capped. */
+const RUNWAY_CLASSES = new Set(['Airplane Runway']);
 
 /**
  * The tier {@link ITEM_CLASS_TIER} assigns to `itemClass`, or `undefined`.
@@ -208,11 +229,16 @@ export function classifyRoadTier(
  * parallel enumeration. `railway` is exactly `tier ∈ { train, metro }`, which
  * only the item-class table can produce; the modded-asset heuristics never
  * yield a rail tier, so an unknown class is always `road`.
+ *
+ * `runway` still draws in the ordinary road layers — the category only tells
+ * them to cap it flat. Every other non-`road` category has a layer of its own.
  */
 export function classifyRoadCategory(itemClass: string): RoadCategory {
   if (EXCLUDED_ROAD_CLASSES.has(itemClass)) return 'excluded';
   if (FERRY_CLASSES.has(itemClass)) return 'ferry';
   if (AIRSHIP_CLASSES.has(itemClass)) return 'airship';
+  if (CABLECAR_CLASSES.has(itemClass)) return 'cablecar';
+  if (RUNWAY_CLASSES.has(itemClass)) return 'runway';
 
   const tier = tierOf(itemClass);
   return tier === 'train' || tier === 'metro' ? 'railway' : 'road';
