@@ -17,11 +17,10 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { readFile } from 'node:fs/promises';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { setTimeout as delay } from 'node:timers/promises';
 import { RGB_CHANNEL_DELTA_EXCLUSIVE } from '../../../../packages/renderer-webgl/test/export-goldens/harness.mjs';
 import { decodePngToRgba } from '../../../../packages/renderer-webgl/test/export-goldens/png-to-rgba.mjs';
 import { compareAgainstBaseline } from './baseline-compare.mjs';
-import { REPO_ROOT, waitForMapReady, withApp } from './driver.mjs';
+import { REPO_ROOT, waitForMapReady, waitUntil, withApp } from './driver.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const BASELINE_DIR = join(HERE, 'baselines');
@@ -43,8 +42,20 @@ const UPDATE_BASELINES = process.env.VELLUM_E2E_UPDATE_BASELINES === '1';
 /** The three shell profiles `02-themes.css` defines distinct tokens for. */
 const PLATFORM_PROFILES = ['linux', 'windows', 'macos'];
 
-/** Time for the platform token swap and the map's opacity transition to settle. */
-const REPAINT_SETTLE_MS = 900;
+/**
+ * How long to keep waiting for the window to stop changing before giving up.
+ *
+ * @remarks
+ * Not a sleep. The first attempt at this waited a fixed 900ms and produced
+ * unusable baselines on a software-rendered CI runner: one capture caught the
+ * map with only terrain painted and its tiles visibly torn, and another caught
+ * it before the transit layer had drawn at all. Three captures that differ
+ * because they froze the map at three different moments also satisfy "each
+ * profile looks different", so the sweep looked healthy while comparing
+ * nothing.
+ */
+const STABLE_FRAME_TIMEOUT_MS = 60_000;
+const STABLE_FRAME_INTERVAL_MS = 500;
 
 let comparison = null;
 let app = null;
@@ -79,6 +90,32 @@ function repoPath(absolutePath) {
 }
 
 /**
+ * Screenshots until the window stops changing.
+ *
+ * @remarks
+ * Two consecutive identical frames is the only evidence available from outside
+ * the app that the map has finished painting, its layers have finished
+ * arriving and the profile's transitions have finished running. Software
+ * rendering makes all three slow and none of them announce themselves.
+ */
+async function captureStableFrame(browser, platform) {
+  let previous = null;
+  return waitUntil(
+    async () => {
+      const frame = Buffer.from(await browser.takeScreenshot(), 'base64');
+      const settled = previous !== null && previous.equals(frame);
+      previous = frame;
+      return settled ? frame : null;
+    },
+    {
+      timeoutMs: STABLE_FRAME_TIMEOUT_MS,
+      intervalMs: STABLE_FRAME_INTERVAL_MS,
+      describe: `the ${platform} window to stop repainting`,
+    },
+  );
+}
+
+/**
  * Switches the shell profile without restarting the app.
  *
  * @remarks
@@ -105,8 +142,7 @@ async function captureProfile(browser, platform) {
         'sweep needs a relaunch per profile.',
     );
   }
-  await delay(REPAINT_SETTLE_MS);
-  const bytes = Buffer.from(await browser.takeScreenshot(), 'base64');
+  const bytes = await captureStableFrame(browser, platform);
   // The original PNG bytes travel with the decode: a baseline is written
   // exactly as the WebView produced it, never through a re-encoder this
   // repository does not have.
@@ -116,6 +152,35 @@ async function captureProfile(browser, platform) {
 describe('shell profile and surface regression', () => {
   beforeAll(async () => {
     await waitForMapReady(app.browser);
+    // The DLC notice dismisses itself on a timer, so whether it is on screen
+    // depends on how long the run took to get here. Left alone it would be
+    // baked into some baselines and not others, and every later comparison
+    // would turn on a stopwatch. Closing it first makes the window's contents
+    // a function of the app, not of the clock.
+    await app.browser.execute(() => {
+      document
+        .querySelectorAll('[role="status"] button, [role="alert"] button')
+        .forEach((button) => button.click());
+    });
+    // Every canvas is hidden before the sweep, and the reason is measured, not
+    // precautionary: with the map visible the three profiles each differed
+    // from their baseline by ~16% of the window, in near-identical proportion,
+    // because the terrain raster finishes a different set of tiles on every
+    // run under the runner's software renderer. The map goes idle without
+    // having finished, so waiting longer does not converge — it just picks a
+    // different unfinished frame.
+    //
+    // Losing map coverage here costs nothing: the cartographic surface already
+    // has a deterministic visual regression in
+    // `packages/renderer-webgl/test/export-goldens`, which compares the
+    // renderer's own output instead of a screenshot of a window. What only
+    // this suite can see is the shell — and the shell is DOM and CSS, which
+    // paint the same way every time.
+    await app.browser.execute(() => {
+      document
+        .querySelectorAll('canvas')
+        .forEach((node) => (node.style.visibility = 'hidden'));
+    });
     for (const platform of PLATFORM_PROFILES) {
       captures.set(platform, await captureProfile(app.browser, platform));
     }

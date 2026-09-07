@@ -2,8 +2,24 @@
 
 Reference captures for `apps/desktop/tests/e2e/visual-regression.test.mjs`.
 Each file is a full-window PNG taken over WebDriver from the **compiled release
-binary**, with `packages/parser-cslmap/fixtures/altavento.cslmap` loaded and the
-map reporting `data-map-state="ready"`.
+binary**, with `packages/parser-cslmap/fixtures/altavento.cslmap` loaded, the
+map reporting `data-map-state="ready"`, and **every canvas hidden**.
+
+## Why the map is not in the picture
+
+It was, and it did not work. On the CI runner's software renderer the terrain
+raster finishes a different set of tiles on every run: the map goes idle
+without having finished, so waiting longer picks a different unfinished frame
+rather than converging. Measured, that put all three profiles ~16% of the
+window away from their baselines, in near-identical proportion — the map, not
+the chrome.
+
+Nothing is lost by hiding it. The cartographic surface already has a
+deterministic visual regression in
+`packages/renderer-webgl/test/export-goldens`, which compares the renderer's
+own output rather than a screenshot of a window. What only this suite can see
+is the shell, and the shell is DOM and CSS — it paints the same way every
+time.
 
 ## What each baseline captures
 
@@ -13,10 +29,9 @@ map reporting `data-map-state="ready"`.
 | `shell-windows.png` | Fluent 2 profile (`data-platform="windows"`).                        |
 | `shell-macos.png`   | Liquid Glass profile (`data-platform="macos"`).                      |
 
-A capture is one window, so each file covers **both** subjects at once: the
-rendered map surface (the cartographic regression) and the shell chrome around
-it (the profile regression). They are not two separate sets of images because
-they are not two separate captures.
+A capture is one window with its canvases hidden: the sidebar, the floating
+overlays, the frame, the toolbars and the surfaces behind them — everything
+the platform profiles actually restyle.
 
 `*.actual.png` files are written next to a baseline when a comparison fails, so
 the difference can be looked at rather than only read about. They are scratch
