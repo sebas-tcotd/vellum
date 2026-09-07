@@ -24,6 +24,19 @@
   corner-shape: var(--shell-corner-shape, round);
 }
 
+/* Windows already has native Mica on the transparent window. This additional
+   material gives the sidebar a stable, theme-aware tint without applying a
+   live backdrop blur to the map behind it. */
+[data-platform='windows'] .shell-sidebar {
+  isolation: isolate;
+  /* Keep the surface on the element itself. A valid background-color remains
+     painted even if WebView2 rejects one of the decorative color functions. */
+  background-color: var(--shell-surface-sidebar);
+  background-image:
+    linear-gradient(145deg, var(--shell-mica-highlight), transparent 42%),
+    linear-gradient(145deg, var(--shell-mica-start), var(--shell-mica-end) 72%);
+}
+
 [data-platform='macos'] .shell-sidebar {
   border: 1px solid var(--shell-separator);
 }
@@ -433,6 +446,7 @@
 
 .shell-minimap {
   corner-shape: var(--shell-corner-shape, round);
+  box-shadow: var(--shell-shadow-floating);
 }
 
 .shell-titlebar-drag-region {

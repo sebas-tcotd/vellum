@@ -6,6 +6,16 @@
   .shell-dialog-content {
     background: var(--shell-solid-surface);
   }
+
+  [data-platform='windows'] .shell-sidebar {
+    background: var(--shell-solid-surface);
+  }
+}
+
+@media (forced-colors: active) {
+  [data-platform='windows'] .shell-sidebar {
+    background: Canvas;
+  }
 }
 
 .desktop-shell :focus-visible {

@@ -73,6 +73,25 @@
   --shell-inner-highlight: none;
   --shell-overlay-dimming: 0.55;
   --shell-sidebar-backdrop-filter: none;
+  /* A themed Mica-like material: the native window still supplies the real
+     Windows Mica backdrop, while the sidebar tint follows Vellum's active
+     theme instead of sampling the map or wallpaper a second time. */
+  --shell-mica-start: color-mix(
+    in srgb,
+    var(--shell-mica-highway, var(--color-accent)) 26%,
+    var(--shell-solid-surface)
+  );
+  --shell-mica-end: color-mix(
+    in srgb,
+    var(--shell-solid-surface) 82%,
+    var(--color-bg)
+  );
+  --shell-mica-highlight: color-mix(
+    in srgb,
+    var(--color-primary) 10%,
+    transparent
+  );
+  --shell-mica-noise-opacity: 0.04;
   --shell-floating-backdrop-filter: blur(var(--shell-backdrop-blur))
     saturate(var(--shell-backdrop-saturate));
   --shell-popover-backdrop-filter: blur(var(--shell-backdrop-blur))
@@ -196,6 +215,22 @@
   --shell-surface-sidebar: rgba(32, 32, 32, 0.92);
   --shell-surface-floating: rgba(43, 43, 43, 0.96);
   --shell-surface-popover: rgba(43, 43, 43, 0.99);
+  --shell-mica-start: color-mix(
+    in srgb,
+    var(--shell-mica-highway, var(--color-accent)) 26%,
+    var(--shell-solid-surface)
+  );
+  --shell-mica-end: color-mix(
+    in srgb,
+    var(--shell-solid-surface) 82%,
+    var(--color-bg)
+  );
+  --shell-mica-highlight: color-mix(
+    in srgb,
+    var(--color-primary) 6%,
+    transparent
+  );
+  --shell-mica-noise-opacity: 0.04;
   --shell-border: rgba(255, 255, 255, 0.09);
   --color-border: rgba(255, 255, 255, 0.09);
   --color-input: rgba(255, 255, 255, 0.09);

@@ -84,4 +84,18 @@ describe('platform adaptation', () => {
     expect(shellCss).toContain('CanvasText');
     expect(shellCss).toContain('Highlight');
   });
+
+  it('derives the Windows sidebar material from active theme tokens', () => {
+    expect(shellCss).toContain('--shell-mica-start');
+    expect(shellCss).toContain('--shell-mica-highway');
+    expect(shellCss).toContain('--shell-mica-end');
+    expect(shellCss).toContain('--shell-mica-highlight');
+    expect(shellCss).toContain('--shell-mica-noise-opacity');
+    expect(shellCss).toContain("[data-platform='windows'] .shell-sidebar {");
+    expect(shellCss).toContain(
+      'background-color: var(--shell-surface-sidebar)',
+    );
+    expect(shellCss).toContain('background-image:');
+    expect(shellCss).toContain('color-mix(');
+  });
 });

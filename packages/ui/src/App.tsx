@@ -35,6 +35,7 @@ import type {
   UpdatePayload,
 } from '@vellum/core';
 import { IPC_COMMANDS, IPC_EVENTS } from '@vellum/core';
+import { DEFAULT_RENDER_STYLE_PARAMS } from '@vellum/theme-engine';
 import { usePlatformServices } from './context/PlatformServicesContext';
 import { useVellumStore } from './store/vellum-store';
 
@@ -192,6 +193,11 @@ export function App({
     )
       ? 'dark'
       : 'light';
+    document.documentElement.style.setProperty(
+      '--shell-mica-highway',
+      style?.roads.highway.generic.fill ??
+        DEFAULT_RENDER_STYLE_PARAMS.roads.highway.generic.fill,
+    );
   }, [activeTheme, themes]);
 
   useEffect(() => {
