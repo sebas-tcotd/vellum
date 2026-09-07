@@ -174,14 +174,35 @@ export async function withApp(fn, options = {}) {
     // Kept only to make a startup failure legible; never asserted on.
     driver.stdout.on('data', (chunk) => driverOutput.push(String(chunk)));
     driver.stderr.on('data', (chunk) => driverOutput.push(String(chunk)));
-    driver.once('error', (error) => {
-      driverOutput.push(
-        `failed to spawn tauri-driver: ${error.message}. ` +
-          'Install it with `cargo install tauri-driver --locked`.',
-      );
+    // A driver that never spawned is never going to open the port, so this
+    // rejects the race below immediately instead of letting it burn the full
+    // startup timeout on a missing binary.
+    const driverFailed = new Promise((_, reject) => {
+      driver.once('error', (error) => {
+        reject(
+          new Error(
+            `failed to spawn tauri-driver: ${error.message}. ` +
+              'Install it with `cargo install tauri-driver --locked`.',
+          ),
+        );
+      });
+      driver.once('exit', (code, signal) => {
+        reject(
+          new Error(
+            `tauri-driver exited before it was ready (${signal ?? `code ${code}`}).`,
+          ),
+        );
+      });
     });
+    // The driver also exits during normal teardown, long after the race is
+    // settled. Without this the late rejection would surface as an unhandled
+    // one and fail an otherwise green run.
+    driverFailed.catch(() => {});
 
-    await waitForPort(DRIVER_PORT, DRIVER_STARTUP_TIMEOUT_MS).catch((error) => {
+    await Promise.race([
+      waitForPort(DRIVER_PORT, DRIVER_STARTUP_TIMEOUT_MS),
+      driverFailed,
+    ]).catch((error) => {
       throw new Error(`${error.message}\n${driverOutput.join('')}`);
     });
 
