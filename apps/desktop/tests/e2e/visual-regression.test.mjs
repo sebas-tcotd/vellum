@@ -162,6 +162,25 @@ describe('shell profile and surface regression', () => {
         .querySelectorAll('[role="status"] button, [role="alert"] button')
         .forEach((button) => button.click());
     });
+    // Every canvas is hidden before the sweep, and the reason is measured, not
+    // precautionary: with the map visible the three profiles each differed
+    // from their baseline by ~16% of the window, in near-identical proportion,
+    // because the terrain raster finishes a different set of tiles on every
+    // run under the runner's software renderer. The map goes idle without
+    // having finished, so waiting longer does not converge — it just picks a
+    // different unfinished frame.
+    //
+    // Losing map coverage here costs nothing: the cartographic surface already
+    // has a deterministic visual regression in
+    // `packages/renderer-webgl/test/export-goldens`, which compares the
+    // renderer's own output instead of a screenshot of a window. What only
+    // this suite can see is the shell — and the shell is DOM and CSS, which
+    // paint the same way every time.
+    await app.browser.execute(() => {
+      document
+        .querySelectorAll('canvas')
+        .forEach((node) => (node.style.visibility = 'hidden'));
+    });
     for (const platform of PLATFORM_PROFILES) {
       captures.set(platform, await captureProfile(app.browser, platform));
     }
