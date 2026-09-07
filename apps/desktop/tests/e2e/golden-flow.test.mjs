@@ -152,6 +152,19 @@ async function confirmExport(browser, exportLabel) {
   }, exportLabel);
 }
 
+/**
+ * Collects whatever the app is currently announcing — toasts, alerts, the
+ * status lane. Diagnostics only; never asserted on.
+ */
+function readLiveMessages(browser) {
+  return browser.execute(() =>
+    Array.from(
+      document.querySelectorAll('[role="alert"], [role="status"]'),
+      (node) => node.textContent?.trim(),
+    ).filter(Boolean),
+  );
+}
+
 function isExporting(browser) {
   return browser.execute(
     () => document.querySelector('[role="progressbar"]') !== null,
@@ -187,7 +200,21 @@ describe('golden cartographic flow', () => {
       {
         describe: `the exported PNG to appear at ${finalPath}`,
       },
-    );
+      // An export that never lands is the least self-explanatory failure in
+      // this file: the click succeeded and nothing on disk says why. What the
+      // app is telling the user, and what the directory actually holds, are
+      // the two answers worth having before anyone starts guessing.
+    ).catch(async (error) => {
+      throw new Error(
+        `${error.message}\n` +
+          `app said: ${JSON.stringify(await readLiveMessages(browser))}\n` +
+          `${downloadsDir} holds: ${JSON.stringify(
+            await readdir(downloadsDir).catch(
+              (e) => `unreadable: ${e.message}`,
+            ),
+          )}`,
+      );
+    });
     await waitUntil(async () => !(await isExporting(browser)), {
       describe: 'the export session to settle',
     });

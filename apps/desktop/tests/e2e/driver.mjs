@@ -16,7 +16,7 @@
 
 import { spawn } from 'node:child_process';
 import { connect } from 'node:net';
-import { access, mkdir, mkdtemp, rm } from 'node:fs/promises';
+import { access, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
@@ -121,16 +121,28 @@ async function killAndWait(child) {
  *
  * @remarks
  * `begin_export` resolves its destination through `app_handle.path()
- * .download_dir()`, which on Linux honours `XDG_DOWNLOAD_DIR` and otherwise
- * falls back to `$HOME/Downloads`. Both are redirected — and the redirected
- * Downloads directory *is* `$HOME/Downloads` — so neither route can reach the
- * real Downloads folder even if the resolution order changes.
+ * .download_dir()`. On Linux that goes through the `dirs` crate, which reads
+ * the XDG user-dirs *config file*, not the environment variable of the same
+ * name — so the file below is what actually redirects the export. `HOME` and
+ * `XDG_DOWNLOAD_DIR` are set too, and the redirected Downloads directory *is*
+ * `$HOME/Downloads`, so every resolution route lands inside the sandbox and
+ * none can reach the real Downloads folder.
  */
 async function createSandboxHome() {
   const root = await mkdtemp(join(tmpdir(), 'vellum-e2e-'));
   const home = join(root, 'home');
   const downloads = join(home, 'Downloads');
   await mkdir(downloads, { recursive: true });
+  // Tauri resolves `download_dir()` through the `dirs` crate, which on Linux
+  // parses this file rather than reading `XDG_DOWNLOAD_DIR` from the
+  // environment. Without it the lookup returns nothing at all and
+  // `begin_export` fails with "download directory unavailable" — the export
+  // would never reach the disk, in this sandbox or on a CI runner.
+  await mkdir(join(home, '.config'), { recursive: true });
+  await writeFile(
+    join(home, '.config', 'user-dirs.dirs'),
+    'XDG_DOWNLOAD_DIR="$HOME/Downloads"\n',
+  );
   return { root, home, downloads };
 }
 
