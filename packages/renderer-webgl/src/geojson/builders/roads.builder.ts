@@ -1,12 +1,14 @@
 /** Road segment GeoJSON construction and tier/width classification. */
 
-import type { CityData, RoadNode, RoadSegment, WayType } from '@vellum/core';
-import { csToGeoArray } from '../../coordinate-transform';
 import {
+  classifyRoadCategory,
+  classifyRoadTier,
   ROAD_WIDTH_STYLES,
-  ITEM_CLASS_TIER,
-  EXCLUDED_ROAD_CLASSES,
-} from '../config/road-classification';
+  type CityData,
+  type RoadNode,
+  type RoadSegment,
+} from '@vellum/core';
+import { csToGeoArray } from '../../coordinate-transform';
 import type {
   RoadFeature,
   RoadTier,
@@ -287,23 +289,17 @@ function isValidSegment(
   return nodeMap.has(segment.startNodeId) && nodeMap.has(segment.endNodeId);
 }
 
-function classifyRoadTier(
-  itemClass: string,
-  wayType: WayType[],
-  width: number,
-): RoadTier | null {
-  if (EXCLUDED_ROAD_CLASSES.has(itemClass)) return null;
-  if (ITEM_CLASS_TIER[itemClass]) return ITEM_CLASS_TIER[itemClass];
-
-  if (wayType.includes('Highway')) return 'highway';
-  if (wayType.includes('Pedestrian')) return 'pedestrianWay';
-
-  if (width >= 28) return 'largeArterial';
-  if (width >= 14) return 'local';
-
-  return 'pedestrianWay';
-}
-
+/**
+ * Builds the welded chain's single `LineString` feature.
+ *
+ * @remarks
+ * The chain's `itemClass` and `category` are read off its **first** segment.
+ * That is only correct because {@link signatureOf} includes `segment.itemClass`
+ * and segments only weld when their signatures match, which makes every chain
+ * item-class-homogeneous by construction. Drop `itemClass` from the signature
+ * and this silently starts labelling a whole chain by whichever end happened to
+ * come first — so the two must change together.
+ */
 function createChainFeature(
   chain: number[],
   rendered: RenderedSegment[],
@@ -324,6 +320,7 @@ function createChainFeature(
       id: segment.id,
       itemClass: segment.itemClass,
       tier,
+      category: classifyRoadCategory(segment.itemClass),
       isTunnel: segment.wayType.includes('Tunnel'),
       isBridge: segment.wayType.includes('Bridge'),
       isElevated: segment.wayType.includes('Elevated'),

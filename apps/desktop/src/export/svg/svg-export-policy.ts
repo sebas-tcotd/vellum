@@ -11,8 +11,12 @@
  * Main-thread only. It is not on the SVG worker's import graph (worker →
  * `svg-serialization-driver` → `svg-serializer`), which is what lets it reach
  * `renderer-webgl` for the shared scale conversions without violating AD-16.
+ * The road width model itself comes from `@vellum/core` — the canonical road
+ * taxonomy of ADR-0001 D6 — so the export calibrates against the same table
+ * the interactive map paints from, not a copy of it.
  */
 
+import { ROAD_WIDTH_STYLES } from '@vellum/core';
 import {
   roadCasingAddPxAtZoom,
   roadWidthFactorAtZoom,
@@ -37,9 +41,9 @@ import {
  */
 export const DEFAULT_LOCAL_ROAD_WIDTH_PX = 6;
 
-/** `ROAD_WIDTH_STYLES.local` — the tier a pinned width calibrates against. */
-const LOCAL_ROAD_FIXED = 0.2;
-const LOCAL_ROAD_SCALED = 0.8;
+/** The tier a pinned width calibrates against, read from the canonical table. */
+const { fixed: LOCAL_ROAD_FIXED, scaled: LOCAL_ROAD_SCALED } =
+  ROAD_WIDTH_STYLES.local;
 
 /** Resolved scales an SVG export applies to one scene. */
 export interface SvgExportPolicy {
@@ -171,6 +175,5 @@ export class SvgExportPolicyError extends Error {
  * than a special case for the tier it was calibrated on.
  */
 export const LOCAL_ROAD_WIDTH_STYLE = Object.freeze({
-  fixed: LOCAL_ROAD_FIXED,
-  scaled: LOCAL_ROAD_SCALED,
+  ...ROAD_WIDTH_STYLES.local,
 });

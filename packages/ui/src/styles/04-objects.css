@@ -1,0 +1,58 @@
+/* Objects: reusable layout primitives, independent of a visual component. */
+.desktop-shell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  overflow: hidden;
+  background: transparent;
+  font-family: var(--font-shell);
+}
+
+.desktop-shell__body {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+}
+
+/* Shared map-tool column. Its groups remain in normal flex flow so their gaps
+   stay deterministic. */
+.map-tools {
+  position: absolute;
+  top: var(--shell-overlay-inset);
+  right: var(--shell-overlay-inset);
+  bottom: var(--shell-overlay-inset);
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--shell-overlay-gap);
+  pointer-events: none;
+}
+
+.map-tools > * {
+  pointer-events: auto;
+}
+
+.map-tools__navigation {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--shell-overlay-gap);
+}
+
+.map-surface {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
+  overflow: hidden;
+  isolation: isolate;
+  background: var(--color-bg);
+  forced-color-adjust: none;
+}

@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { csToGeoArray, type CityData, type ViewportBounds } from '@vellum/core';
+import {
+  classifyRoadTier,
+  csToGeoArray,
+  type CityData,
+  type ViewportBounds,
+} from '@vellum/core';
 import { DEFAULT_RENDER_STYLE_PARAMS } from '@vellum/theme-engine';
 
 const CANVAS_SIZE = 160;
@@ -123,8 +128,11 @@ export function Minimap({
 
     // 3. Highway roads — draw using node position lookup
     const nodeMap = new Map(cityData.roadNodes.map((n) => [n.id, n]));
+    // The canonical classifier, not an `itemClass === 'Highway'` literal: this
+    // is what brings in `Highway Tunnel` / `Highway Elevated` and any modded
+    // asset whose wayType says highway (ADR-0001 D6).
     const highways = cityData.roadSegments.filter(
-      (s) => s.itemClass === 'Highway',
+      (s) => classifyRoadTier(s.itemClass, s.wayType, s.width) === 'highway',
     );
     if (highways.length > 0) {
       ctx.beginPath();

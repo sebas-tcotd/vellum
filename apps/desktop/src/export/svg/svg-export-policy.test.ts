@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { ROAD_WIDTH_STYLES } from '@vellum/core';
 import {
   resolveRoadWidthPx,
   roadCasingAddPxAtZoom,
@@ -11,14 +12,8 @@ import {
   SvgExportPolicyError,
 } from './svg-export-policy';
 
-/** `ROAD_WIDTH_STYLES` — duplicated here only so a drift in it fails loudly. */
-const TIERS = {
-  highway: { fixed: 0.3, scaled: 3.0 },
-  largeArterial: { fixed: 0.3, scaled: 2.0 },
-  mediumArterial: { fixed: 0.3, scaled: 1.5 },
-  local: { fixed: 0.2, scaled: 0.8 },
-  pedestrianWay: { fixed: 0.1, scaled: 0.3 },
-} as const;
+/** The canonical tier table — the only place these numbers are written down. */
+const TIERS = ROAD_WIDTH_STYLES;
 
 describe('resolveSvgExportPolicy', () => {
   // A full CS1 map (17280 world units) exported at these widths.

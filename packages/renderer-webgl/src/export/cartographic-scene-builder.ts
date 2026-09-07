@@ -34,6 +34,7 @@ import {
   type SceneWarning,
   type SceneWarningCode,
   type TransitMode,
+  ROAD_WIDTH_STYLES,
 } from '@vellum/core';
 import { VELLUM_LOGO_SIZE, vellumLogoInnerSvg } from '../assets/vellum-logo';
 import { geoToCs } from '../coordinate-transform';
@@ -62,8 +63,11 @@ import {
 } from '../layers/layer-transit';
 import {
   AIRSHIP_LINE_DASHARRAY,
+  CABLECAR_LINE_DASHARRAY,
+  CABLECAR_LINE_OPACITY,
   AIRSHIP_LINE_OPACITY,
   resolveAirshipColor,
+  resolveCableCarColor,
 } from '../expressions/transit-color';
 import { TRANSIT_DIM_FACTOR } from '../constants/layer.constants';
 import { buildSceneAnnotations } from './scene-annotations';
@@ -389,23 +393,54 @@ function buildRoadEntities(context: LayerContext): SceneEntity[] {
       scaledWidth,
       roadWidthFactor,
     );
-    const cap = capEnds ? ('round' as const) : ('butt' as const);
+    const { category } = feature.properties;
+    // A runway is flat-capped for the same reason as on the interactive map:
+    // round caps bulge past each threshold and round off the ends.
+    const cap =
+      capEnds && category !== 'runway' ? ('round' as const) : ('butt' as const);
     const geometry = { kind: 'path', points } as const;
-    const isAirshipPath =
-      feature.properties.itemClass === 'Blimp Path' ||
-      feature.properties.itemClass === 'Blimp Line';
 
-    if (isAirshipPath) {
+    // Ways with a dedicated dashed treatment on the interactive map get the
+    // same one here — the export and the map read the same `category`.
+    const dashedWay =
+      category === 'airship'
+        ? {
+            color: resolveAirshipColor(colors.ferry),
+            opacity: AIRSHIP_LINE_OPACITY,
+            dashPx: AIRSHIP_LINE_DASHARRAY,
+          }
+        : category === 'cablecar'
+          ? {
+              color: resolveCableCarColor(colors.ferry),
+              opacity: CABLECAR_LINE_OPACITY,
+              dashPx: CABLECAR_LINE_DASHARRAY,
+              // Its tier is a pedestrian-way hairline; borrow the local-street
+              // weight from the canonical table so the export matches the
+              // dedicated width the interactive layer gives it.
+              widthPx: resolveRoadWidthPx(
+                ROAD_WIDTH_STYLES.local.fixed,
+                ROAD_WIDTH_STYLES.local.scaled,
+                roadWidthFactor,
+              ),
+            }
+          : null;
+
+    if (dashedWay) {
+      const dashWidthPx = dashedWay.widthPx ?? widthPx;
       fills.push({
         id: `${ID_PREFIX.roads}-${id}`,
         geometry,
         stroke: {
-          color: resolveAirshipColor(colors.ferry),
-          widthPx,
-          opacity: AIRSHIP_LINE_OPACITY,
+          color: dashedWay.color,
+          widthPx: dashWidthPx,
+          opacity: dashedWay.opacity,
           lineCap: 'butt',
           lineJoin: 'round',
-          dashPx: AIRSHIP_LINE_DASHARRAY,
+          // MapLibre states `line-dasharray` in multiples of the line width;
+          // `dashPx` is in output pixels. Without this conversion the same
+          // constant draws long dashes on the map and square dots in the
+          // export — which is how the airship has looked until now.
+          dashPx: dashedWay.dashPx.map((d) => d * dashWidthPx),
         },
       });
       continue;

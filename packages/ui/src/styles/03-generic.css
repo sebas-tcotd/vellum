@@ -1,0 +1,23 @@
+/* Generic: application-wide defaults not provided by Tailwind Preflight. */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-ui);
+  min-width: 900px;
+  min-height: 600px;
+  overflow: hidden;
+}
+
+/* Transparent native materials are opt-in. Linux/unknown windows retain an
+   opaque Vellum backdrop even when no compositor effect is available. */
+[data-platform='macos'] body,
+[data-platform='windows'] body {
+  background-color: transparent;
+}

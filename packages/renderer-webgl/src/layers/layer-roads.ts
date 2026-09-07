@@ -5,7 +5,7 @@
  * Internal module — not exported from the package barrel.
  */
 
-import type { CityData } from '@vellum/core';
+import type { CityData, RoadCategory } from '@vellum/core';
 import type maplibregl from 'maplibre-gl';
 import {
   buildRoadColorExpression,
@@ -27,7 +27,10 @@ import type { ResolvedColors } from '../style-adapter';
 import {
   AIRSHIP_LINE_DASHARRAY,
   AIRSHIP_LINE_OPACITY,
+  CABLECAR_LINE_DASHARRAY,
+  CABLECAR_LINE_OPACITY,
   resolveAirshipColor,
+  resolveCableCarColor,
 } from '../expressions/transit-color';
 
 /** Adds roads source and both casing + fill layers. */
@@ -43,34 +46,33 @@ export function addRoadsLayer(
     maxzoom: HEAVY_SOURCE_MAX_ZOOM,
   });
 
-  const notFerry = [
-    '!=',
-    ['get', 'itemClass'],
-    'Ferry Path',
-  ] as unknown as maplibregl.ExpressionSpecification;
-  const notRailway = [
-    '!',
+  // Network membership comes from the canonical `category` property emitted by
+  // the GeoJSON builder (`classifyRoadCategory` in `@vellum/core`), never from
+  // item-class literals repeated per layer.
+  const isCategory = (category: RoadCategory) =>
     [
-      'in',
-      ['get', 'itemClass'],
-      [
-        'literal',
-        [
-          'Train Track',
-          'Train Track Tunnel',
-          'Train Track Elevated',
-          'Metro Track',
-          'Metro Track Tunnel',
-          'Metro Track Elevated',
-          'Monorail Track',
-          'Monorail Track Elevated',
-        ],
-      ],
-    ],
+      '==',
+      ['get', 'category'],
+      category,
+    ] as unknown as maplibregl.ExpressionSpecification;
+  // Positive membership, not a stack of exclusions: a new category is left out
+  // of the ordinary road layers by default instead of needing another `notX`
+  // added in seven places. `runway` belongs here — it *is* road geometry; the
+  // category only tells the surface layers to cap it flat.
+  const drawnAsRoad = [
+    'in',
+    ['get', 'category'],
+    ['literal', ['road', 'runway']],
   ] as unknown as maplibregl.ExpressionSpecification;
-  const notAirship = [
-    '!',
-    ['in', ['get', 'itemClass'], ['literal', ['Blimp Path', 'Blimp Line']]],
+
+  // A runway is a flat strip of tarmac, not a street: a round cap would bulge
+  // half a line-width past each threshold and round off the very ends that
+  // make it read as a runway from above.
+  const surfaceLineCap = [
+    'case',
+    ['==', ['get', 'category'], 'runway'],
+    'butt',
+    'round',
   ] as unknown as maplibregl.ExpressionSpecification;
 
   // Tunnels render *below* at-grade roads (added first): solid casing avoids
@@ -86,11 +88,9 @@ export function addRoadsLayer(
         ['==', ['get', 'isTunnel'], true],
         ['==', ['get', 'isUnderground'], true],
       ],
-      notFerry,
-      notRailway,
-      notAirship,
+      drawnAsRoad,
     ],
-    layout: { 'line-cap': 'round', 'line-join': 'round' },
+    layout: { 'line-cap': surfaceLineCap, 'line-join': 'round' },
     paint: {
       'line-color': buildRoadColorExpression(colors, 'casing'),
       'line-width': ROAD_CASING_WIDTH_EXPR,
@@ -110,11 +110,9 @@ export function addRoadsLayer(
         ['==', ['get', 'isTunnel'], true],
         ['==', ['get', 'isUnderground'], true],
       ],
-      notFerry,
-      notRailway,
-      notAirship,
+      drawnAsRoad,
     ],
-    layout: { 'line-cap': 'round', 'line-join': 'round' },
+    layout: { 'line-cap': surfaceLineCap, 'line-join': 'round' },
     paint: {
       'line-color': buildRoadColorExpression(colors, 'fill'),
       'line-width': ROAD_WIDTH_EXPR,
@@ -134,11 +132,9 @@ export function addRoadsLayer(
       ['!=', ['get', 'isUnderground'], true],
       ['!=', ['get', 'isBridge'], true],
       ['!=', ['get', 'isElevated'], true],
-      notFerry,
-      notRailway,
-      notAirship,
+      drawnAsRoad,
     ],
-    layout: { 'line-cap': 'round', 'line-join': 'round' },
+    layout: { 'line-cap': surfaceLineCap, 'line-join': 'round' },
     paint: {
       'line-color': buildRoadColorExpression(colors, 'casing'),
       'line-width': ROAD_CASING_WIDTH_EXPR,
@@ -157,11 +153,9 @@ export function addRoadsLayer(
       ['!=', ['get', 'isUnderground'], true],
       ['!=', ['get', 'isBridge'], true],
       ['!=', ['get', 'isElevated'], true],
-      notFerry,
-      notRailway,
-      notAirship,
+      drawnAsRoad,
     ],
-    layout: { 'line-cap': 'round', 'line-join': 'round' },
+    layout: { 'line-cap': surfaceLineCap, 'line-join': 'round' },
     paint: {
       'line-color': buildRoadColorExpression(colors, 'fill'),
       'line-width': ROAD_WIDTH_EXPR,
@@ -196,9 +190,7 @@ export function addRoadsLayer(
         ['==', ['get', 'isBridge'], true],
         ['==', ['get', 'isElevated'], true],
       ],
-      notFerry,
-      notRailway,
-      notAirship,
+      drawnAsRoad,
     ],
     // Blurred and drawn under everything, so it keeps a round cap: it costs
     // nothing visually and softens the joint where elevated branches fork.
@@ -225,9 +217,7 @@ export function addRoadsLayer(
         ['==', ['get', 'isBridge'], true],
         ['==', ['get', 'isElevated'], true],
       ],
-      notFerry,
-      notRailway,
-      notAirship,
+      drawnAsRoad,
     ],
     layout: { 'line-cap': elevatedLineCap, 'line-join': 'round' },
     paint: {
@@ -253,9 +243,7 @@ export function addRoadsLayer(
         ['==', ['get', 'isBridge'], true],
         ['==', ['get', 'isElevated'], true],
       ],
-      notFerry,
-      notRailway,
-      notAirship,
+      drawnAsRoad,
     ],
     layout: { 'line-cap': elevatedLineCap, 'line-join': 'round' },
     paint: {
@@ -270,7 +258,7 @@ export function addRoadsLayer(
     id: 'roads-ferry',
     type: 'line',
     source: 'roads',
-    filter: ['==', ['get', 'itemClass'], 'Ferry Path'],
+    filter: isCategory('ferry'),
     layout: { 'line-cap': 'butt', 'line-join': 'round' },
     paint: {
       'line-color': colors.ferry,
@@ -295,11 +283,7 @@ export function addRoadsLayer(
     id: 'roads-blimp',
     type: 'line',
     source: 'roads',
-    filter: [
-      'in',
-      ['get', 'itemClass'],
-      ['literal', ['Blimp Path', 'Blimp Line']],
-    ],
+    filter: isCategory('airship'),
     layout: { 'line-cap': 'butt', 'line-join': 'round' },
     paint: {
       'line-color': resolveAirshipColor(colors.ferry),
@@ -310,25 +294,37 @@ export function addRoadsLayer(
     },
   });
 
+  addLayerIfAbsent(map, {
+    id: 'roads-cablecar',
+    type: 'line',
+    source: 'roads',
+    filter: isCategory('cablecar'),
+    layout: { 'line-cap': 'butt', 'line-join': 'round' },
+    paint: {
+      'line-color': resolveCableCarColor(colors.ferry),
+      // Its own width, like the ferry layer's: a CableCar Path is 12.4 world
+      // units wide, which the width heuristic tiers as a pedestrian way, and a
+      // 0.1/0.3 hairline is exactly why the cable car was invisible before.
+      'line-width': [
+        'interpolate',
+        ['exponential', 1.5],
+        ['zoom'],
+        10,
+        1,
+        14,
+        2,
+        18,
+        3.5,
+      ] as unknown as maplibregl.ExpressionSpecification,
+      'line-dasharray': [...CABLECAR_LINE_DASHARRAY],
+      'line-opacity': CABLECAR_LINE_OPACITY,
+      'line-opacity-transition': { duration: 300 },
+    },
+  });
+
   // ─── Railways: surface / elevated / underground ──────────────────────────
 
-  const isRailway = [
-    'in',
-    ['get', 'itemClass'],
-    [
-      'literal',
-      [
-        'Train Track',
-        'Train Track Tunnel',
-        'Train Track Elevated',
-        'Metro Track',
-        'Metro Track Tunnel',
-        'Metro Track Elevated',
-        'Monorail Track',
-        'Monorail Track Elevated',
-      ],
-    ],
-  ] as unknown as maplibregl.ExpressionSpecification;
+  const isRailway = isCategory('railway');
 
   // Surface railways: solid casing + dashed fill (cross-tie pattern).
   addLayerIfAbsent(map, {

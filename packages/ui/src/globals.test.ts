@@ -8,17 +8,43 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const css = readFileSync(resolve(__dirname, './globals.css'), 'utf-8');
+const cssFiles = [
+  './globals.css',
+  './styles/01-settings.css',
+  './styles/02-themes.css',
+  './styles/03-generic.css',
+  './styles/04-objects.css',
+  './styles/05-components.css',
+  './styles/06-utilities.css',
+  './styles/07-animations.css',
+];
+
+const css = cssFiles
+  .map((file) => readFileSync(resolve(__dirname, file), 'utf-8'))
+  .join('\n');
 
 describe('globals.css design tokens', () => {
-  it('define todos los tokens de color de la paleta pergamino', () => {
+  it('define tokens semánticos para el chrome, no una paleta cartográfica', () => {
     expect(css).toContain('--color-bg');
-    expect(css).toContain('--color-terrain');
-    expect(css).toContain('--color-water');
-    expect(css).toContain('--color-green');
     expect(css).toContain('--color-text');
     expect(css).toContain('--color-text-subtle');
     expect(css).toContain('--color-border');
+    expect(css).toContain('--ui-accent-water');
+    expect(css).toContain('--ui-accent-rule');
+    expect(css).toContain('--ui-decoration-primary');
+    expect(css).toContain('--ui-decoration-water');
+    expect(css).toContain('--about-border');
+    expect(css).toContain('--about-divider');
+    expect(css).toContain('--shell-surface-dialog');
+    expect(css).not.toMatch(
+      /--color-(terrain|water|green|building|district|road|transit)/,
+    );
+  });
+
+  it('usa una superficie opaca para todos los diálogos modales', () => {
+    expect(css).toMatch(
+      /\.shell-dialog-content\s*\{[^}]*background:\s*var\(--shell-surface-dialog\)/,
+    );
   });
 
   it('define los tokens de tipografía', () => {

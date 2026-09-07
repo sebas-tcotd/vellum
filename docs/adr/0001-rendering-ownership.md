@@ -243,19 +243,26 @@ Las dependencias siguen al adapter: `@tauri-apps/api`, `@tauri-apps/plugin-opene
 y `@tauri-apps/plugin-store` se declaran ahora en `apps/desktop/package.json` y
 no en `packages/ui/package.json`.
 
-### D6 — Destino canónico de la semántica vial y de tránsito (sólo se nombra)
+### D6 — Destino canónico de la semántica vial y de tránsito
 
-Esta ADR **nombra** el destino; migrarlo es trabajo de las Stories 1.4 y 1.5, y
-está explícitamente fuera de alcance aquí.
+Esta ADR **nombra** el destino. La mitad vial ya está migrada (Story 1.4); la
+de tránsito sigue pendiente (Story 1.5) y está fuera de alcance aquí.
 
-- **Vial.** El conocimiento real vive hoy en
+- **Vial — migrado (Story 1.4).** El conocimiento vive en
+  `packages/core/src/road-classification.ts` (`ITEM_CLASS_TIER`,
+  `EXCLUDED_ROAD_CLASSES`, `ROAD_WIDTH_STYLES`, `classifyRoadTier`,
+  `classifyRoadCategory`, `RoadTier`, `RoadCategory`), exportado por el barrel
+  de `@vellum/core`. El antiguo
   `packages/renderer-webgl/src/geojson/config/road-classification.ts`
-  (`ITEM_CLASS_TIER`, `EXCLUDED_ROAD_CLASSES`, `ROAD_WIDTH_STYLES`), consumido
-  por `geojson/builders/roads.builder.ts`, `layers/layer-roads.ts`,
-  `expressions/road-color.ts` y `export/cartographic-scene-builder.ts`. Es
-  lógica pura sobre `ItemClass`, sin dependencia de MapLibre. **Destino
-  canónico: `@vellum/core`** — módulo `packages/core/src/road-classification.ts`,
-  exportado por el barrel. **Story 1.4 lo mueve.**
+  desapareció: sus consumidores —`geojson/builders/roads.builder.ts`,
+  `layers/layer-roads.ts`, `expressions/road-color.ts`,
+  `export/cartographic-scene-builder.ts`, `apps/desktop/src/export/svg/*` y el
+  minimapa de `@vellum/ui`— derivan del módulo canónico en lugar de re-listar
+  `ItemClass`. Es lógica pura sobre `ItemClass`, sin dependencia de MapLibre.
+  La decisión de _categoría de red_ (`road` / `railway` / `ferry` / `airship` /
+  `excluded`) es una proyección de las mismas tablas, no una enumeración
+  paralela: `properties.category` del GeoJSON es la única entrada de los
+  filtros de capa.
 - **Tránsito.** `packages/renderer-webgl/src/transit/*` mezcla derivación de red
   (`line-graph`, `ordering`) con geometría de render (`render-geometry`). El
   corte es exactamente ése: **la proyección `TransitNetwork` pertenece a

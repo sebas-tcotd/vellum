@@ -331,10 +331,12 @@ impl RoadBuilder {
                     }
 
                     if !dlc_fallback::is_known_item_class(&seg.item_class) {
-                        let hierarchy = dlc_fallback::classify_by_width(seg.width);
+                        // Width only. The tier this ends up rendered as is decided
+                        // by `classifyRoadTier` in `@vellum/core`; restating it here
+                        // in a second vocabulary just gave the two a way to drift.
                         self.warnings.push(format!(
-                            "Unknown ItemClass '{}' (width {:.1}) classified as {:?}",
-                            seg.item_class, seg.width, hierarchy
+                            "Unknown ItemClass '{}' (width {:.1})",
+                            seg.item_class, seg.width
                         ));
                     }
 
