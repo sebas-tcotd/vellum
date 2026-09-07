@@ -12,6 +12,7 @@
   "errors": {
     "InvalidFile": "This file couldn't be read. It may be corrupted or not a valid .cslmap.",
     "UnsupportedVersion": "This map was exported with an unsupported version ({{found}}).",
+    "MissingVersion": "This map doesn't declare an exporter version. It may not be a valid .cslmap.",
     "PartialParse": "Map loaded with warnings. Some elements may not display correctly.",
     "ExportFailed": "Export failed. Check that the destination folder is writable.",
     "ExportCapacityUnavailable": "This resolution isn't available right now. Try a smaller preset, or restart the app if this keeps happening.",

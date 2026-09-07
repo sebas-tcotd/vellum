@@ -15,7 +15,12 @@ export function ErrorToast({ error, onDismiss }: ErrorToastProps) {
   const message = (() => {
     switch (error.type) {
       case 'UnsupportedVersion':
-        return t('errors.UnsupportedVersion', { found: error.found });
+        // The parser reports an absent `version` attribute as the empty string;
+        // interpolating it would render "unsupported version ()". The distinction
+        // lives here — in the message — rather than as a new shared enum variant.
+        return error.found === ''
+          ? t('errors.MissingVersion')
+          : t('errors.UnsupportedVersion', { found: error.found });
       case 'InvalidFile':
         return t('errors.InvalidFile');
       case 'IoError':

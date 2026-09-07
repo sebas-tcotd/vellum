@@ -580,3 +580,185 @@ fn validate_real_altavento() {
         .any(|s| s.item_class == "Bus Line");
     assert!(!has_bus_line, "Bus Line must not be in road_segments");
 }
+
+// ─── Root gate (Story 1.6) ────────────────────────────────────────────────────
+//
+// One test per row of the spec matrix that touches the parser. These are the
+// only place the gate is pinned: without them nothing stops a foreign XML from
+// producing a plausible-but-empty `CityData`.
+
+// Matrix: "Versión soportada" — the shape every fixture declares.
+#[test]
+fn root_gate_accepts_the_declared_supported_version() {
+    let xml = br#"<CSLExportXML version="4.1"><City>Gate City</City></CSLExportXML>"#;
+    let city = parse_cslmap_bytes(xml).expect("version 4.1 must parse");
+    assert_eq!(city.city_name, "Gate City");
+}
+
+// Matrix: "Versión futura del mismo major" — minors are not a rejection reason.
+#[test]
+fn root_gate_accepts_a_future_minor_of_the_same_major() {
+    let xml = br#"<CSLExportXML version="4.9"><City>Future City</City></CSLExportXML>"#;
+    let city = parse_cslmap_bytes(xml).expect("version 4.9 must parse");
+    assert_eq!(city.city_name, "Future City");
+
+    let bare_major = br#"<CSLExportXML version="4"><City>Bare</City></CSLExportXML>"#;
+    assert!(
+        parse_cslmap_bytes(bare_major).is_ok(),
+        "a bare major must be accepted"
+    );
+}
+
+// Matrix: "Versión no soportada".
+#[test]
+fn root_gate_rejects_an_unsupported_major() {
+    let xml = br#"<CSLExportXML version="3.0"><City>Old</City></CSLExportXML>"#;
+    let result = parse_cslmap_bytes(xml);
+    match result {
+        Err(VellumError::UnsupportedVersion { found }) => assert_eq!(found, "3.0"),
+        other => panic!("expected UnsupportedVersion {{ found: \"3.0\" }}, got: {other:?}"),
+    }
+}
+
+// Matrix: "Versión ausente" — reported as the empty `found`, which the UI maps
+// to `errors.MissingVersion` instead of interpolating an empty value.
+#[test]
+fn root_gate_reports_a_missing_version_as_empty_found() {
+    let xml = br"<CSLExportXML><City>No Version</City></CSLExportXML>";
+    let result = parse_cslmap_bytes(xml);
+    match result {
+        Err(VellumError::UnsupportedVersion { found }) => {
+            assert_eq!(found, "", "an absent attribute must surface as empty");
+        }
+        other => panic!("expected UnsupportedVersion with empty found, got: {other:?}"),
+    }
+}
+
+// Matrix: "Root ajeno" — this is the leak the gate closes: before it, any XML
+// parsed into an empty `CityData` and rendered as a plausible map.
+#[test]
+fn root_gate_rejects_a_foreign_root_element() {
+    let xml = br"<html><body><p>not a cslmap</p></body></html>";
+    let result = parse_cslmap_bytes(xml);
+    assert!(
+        matches!(result, Err(VellumError::InvalidFile { .. })),
+        "expected InvalidFile for a foreign root, got: {result:?}"
+    );
+}
+
+// Matrix: "Sin ningún elemento".
+#[test]
+fn root_gate_rejects_input_without_any_element() {
+    for bytes in [b"".as_slice(), b"just plain text".as_slice()] {
+        let result = parse_cslmap_bytes(bytes);
+        assert!(
+            matches!(result, Err(VellumError::InvalidFile { .. })),
+            "expected InvalidFile for input without a root, got: {result:?}"
+        );
+        let lenient = parse_cslmap_bytes_lenient(bytes);
+        assert!(
+            matches!(lenient, Err(VellumError::InvalidFile { .. })),
+            "lenient mode must not invent an empty map, got: {lenient:?}"
+        );
+    }
+}
+
+// Matrix: "Reintento parcial de archivo incompatible" — the "Try partial
+// render" retry cannot be used to walk past the gate.
+#[test]
+fn root_gate_is_not_softened_by_lenient_mode() {
+    let unsupported = br#"<CSLExportXML version="3.0"><City>Old</City></CSLExportXML>"#;
+    assert!(
+        matches!(
+            parse_cslmap_bytes_lenient(unsupported),
+            Err(VellumError::UnsupportedVersion { .. })
+        ),
+        "lenient mode must still reject an unsupported version"
+    );
+
+    let foreign = br"<html><body>nope</body></html>";
+    assert!(
+        matches!(
+            parse_cslmap_bytes_lenient(foreign),
+            Err(VellumError::InvalidFile { .. })
+        ),
+        "lenient mode must still reject a foreign root"
+    );
+}
+
+// Matrix: "Corrupción tras un root válido" — re-pinned here because the gate
+// runs on the same first-element path that `corrupted.cslmap` exercises.
+#[test]
+fn root_gate_leaves_post_root_corruption_on_the_partial_parse_path() {
+    let bytes = include_bytes!("../../fixtures/corrupted.cslmap");
+    assert!(
+        matches!(
+            parse_cslmap_bytes(bytes),
+            Err(VellumError::PartialParse { .. })
+        ),
+        "corrupted.cslmap must still report PartialParse, not a gate error"
+    );
+    assert!(
+        parse_cslmap_bytes_lenient(bytes).is_ok(),
+        "corrupted.cslmap must still parse leniently"
+    );
+}
+
+// The gate reads the root even when it is an empty element (`<CSLExportXML />`),
+// which is the shape several existing tests rely on.
+#[test]
+fn root_gate_applies_to_an_empty_root_element() {
+    assert!(
+        parse_cslmap_bytes(b"<CSLExportXML version=\"4.1\" />").is_ok(),
+        "an empty supported root must parse"
+    );
+    assert!(
+        matches!(
+            parse_cslmap_bytes(b"<CSLExportXML />"),
+            Err(VellumError::UnsupportedVersion { .. })
+        ),
+        "an empty root without a version must be rejected"
+    );
+}
+
+// A future major is the case that will actually arrive in the field; `3.0`
+// above only proves the comparison rejects *older* majors.
+#[test]
+fn root_gate_rejects_a_future_major() {
+    let xml = br#"<CSLExportXML version="5.0"><City>Next</City></CSLExportXML>"#;
+    match parse_cslmap_bytes(xml) {
+        Err(VellumError::UnsupportedVersion { found }) => assert_eq!(found, "5.0"),
+        other => panic!("expected UnsupportedVersion for a future major, got: {other:?}"),
+    }
+}
+
+// A foreign schema that reuses the local name is not a `.cslmap`: the gate
+// compares the qualified name, so the prefix is not stripped away.
+#[test]
+fn root_gate_rejects_a_namespace_prefixed_root() {
+    let xml = br#"<x:CSLExportXML xmlns:x="http://example.com/other" version="4.1"><City>Nope</City></x:CSLExportXML>"#;
+    let result = parse_cslmap_bytes(xml);
+    assert!(
+        matches!(result, Err(VellumError::InvalidFile { .. })),
+        "expected InvalidFile for a prefixed root, got: {result:?}"
+    );
+}
+
+// A padded value must not be read as an unsupported major, and must not reach
+// the UI as the empty `found` that means "no version declared".
+#[test]
+fn root_gate_trims_the_declared_version() {
+    let padded = b"<CSLExportXML version=\" 4.1 \"><City>Padded</City></CSLExportXML>";
+    assert!(
+        parse_cslmap_bytes(padded).is_ok(),
+        "a padded but supported version must parse"
+    );
+
+    let blank = b"<CSLExportXML version=\"   \"><City>Blank</City></CSLExportXML>";
+    match parse_cslmap_bytes(blank) {
+        Err(VellumError::UnsupportedVersion { found }) => {
+            assert_eq!(found, "", "a whitespace-only version must surface as empty");
+        }
+        other => panic!("expected UnsupportedVersion with empty found, got: {other:?}"),
+    }
+}

@@ -76,6 +76,35 @@ describe('useParseCslmap', () => {
     expect(useVellumStore.getState().loadingError).toEqual(fakeError);
   });
 
+  // The parser reports an absent `version` attribute as the empty string, and
+  // `toVellumError` admits it only because its guard is `typeof found === 'string'`.
+  // A truthiness guard there would collapse this into the generic IoError
+  // fallback and silently undo the MissingVersion message.
+  it('preserva UnsupportedVersion con found vacío en vez de caer al fallback', async () => {
+    const missingVersion = { type: 'UnsupportedVersion', found: '' };
+    vi.mocked(invoke).mockRejectedValue(missingVersion);
+
+    const { result } = renderHook(() => useParseCslmap());
+    await act(() => result.current.loadFile('/path/to/no-version.cslmap'));
+
+    expect(useVellumStore.getState().loadingState).toBe('error');
+    expect(useVellumStore.getState().loadingError).toEqual(missingVersion);
+  });
+
+  // The "Try partial render" retry must surface the gate error too — the Rust
+  // gate ignores lenient mode, and nothing else pins that the UI shows it.
+  it('propaga el error del gate también en el reintento parcial', async () => {
+    const unsupported = { type: 'UnsupportedVersion', found: '3.0' };
+    vi.mocked(invoke).mockRejectedValue(unsupported);
+
+    const { result } = renderHook(() => useParseCslmap());
+    await act(() => result.current.loadFile('/path/to/old.cslmap'));
+    await act(() => result.current.loadFilePartial());
+
+    expect(useVellumStore.getState().loadingState).toBe('error');
+    expect(useVellumStore.getState().loadingError).toEqual(unsupported);
+  });
+
   it('ignores stale response during race conditions', async () => {
     let resolveFirst!: (v: unknown) => void;
     vi.mocked(invoke)

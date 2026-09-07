@@ -4,7 +4,7 @@ import { listen } from '@tauri-apps/api/event';
 import { open } from '@tauri-apps/plugin-dialog';
 import { useVellumStore, type ExportCancelHandlerRef } from '@vellum/ui';
 import type { CityData, VellumError, ParseWarningsPayload } from '@vellum/core';
-import { IPC_EVENTS } from '@vellum/core';
+import { IPC_COMMANDS, IPC_EVENTS } from '@vellum/core';
 
 /**
  * Hook that wires Tauri IPC file-loading into the VellumStore.
@@ -123,7 +123,7 @@ export function useParseCslmap(
         .catch(console.error);
 
       try {
-        const cityData = await invoke<CityData>('parse_cslmap', {
+        const cityData = await invoke<CityData>(IPC_COMMANDS.PARSE_CSLMAP, {
           filePath,
           allowPartial: false,
         });
@@ -190,7 +190,7 @@ export function useParseCslmap(
       .catch(console.error);
 
     try {
-      const cityData = await invoke<CityData>('parse_cslmap', {
+      const cityData = await invoke<CityData>(IPC_COMMANDS.PARSE_CSLMAP, {
         filePath,
         allowPartial: true,
       });
