@@ -54,15 +54,27 @@ matrix stays a manual check. See `docs/en/release-verification-matrix.md`.
 Regeneration is deliberate, never automatic. A missing baseline fails the test
 asking for it; nothing is ever written silently.
 
-```bash
-pnpm --filter @vellum/desktop build          # the release binary under test
-VELLUM_E2E_UPDATE_BASELINES=1 pnpm test:e2e  # writes the PNGs, then fails on purpose
-pnpm test:e2e                                # re-run: now it actually compares
-```
+**Generate them on CI, not on your machine.** These are full-window captures
+compared at 0.5% differing pixels, and font antialiasing alone differs enough
+between two Linux installs to blow past that. A baseline is only valid in the
+image that later compares it — the `ubuntu-22.04` runner, which is not a clean
+`ubuntu:22.04` container either.
 
-The flagged run **always fails**. That is the point: a run that writes baselines
-can never also be the run that approves them, so a regenerated image is always a
+So: run the **E2E Golden Flow** workflow manually (Actions → E2E Golden Flow →
+Run workflow) with `update_baselines` checked. Download the
+`golden-flow-captures` artifact, review the three PNGs, and commit them here.
+
+That run **always fails**. That is the point: a run that writes baselines can
+never also be the run that approves them, so a regenerated image is always a
 diff someone looked at in a pull request.
+
+Locally the same flag works, and is useful for seeing what the capture _looks_
+like while developing — but the output will not match CI, so never commit it:
+
+```bash
+pnpm --filter @vellum/desktop exec tauri build --no-bundle
+VELLUM_E2E_UPDATE_BASELINES=1 xvfb-run -a --server-args="-screen 0 1920x1080x24" pnpm test:e2e
+```
 
 Before committing a regenerated baseline, say in the PR **why** it changed. A
 baseline updated without a stated reason converts every future regression in

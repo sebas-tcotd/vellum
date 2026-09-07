@@ -16,6 +16,18 @@ name: E2E Golden Flow
 
 on:
   workflow_call:
+  # Los baselines visuales sólo son válidos si nacen en la misma imagen que
+  # luego los compara: la del runner, no un `ubuntu:22.04` limpio ni el
+  # portátil de nadie. Con un umbral de 0,5 % de píxeles distintos, el
+  # antialiasing de fuentes de otra máquina ya basta para fallar. Por eso la
+  # generación se dispara aquí a mano, y las capturas salen como artefacto
+  # para revisarlas y commitearlas.
+  workflow_dispatch:
+    inputs:
+      update_baselines:
+        description: 'Regenerar los baselines visuales (la corrida falla a propósito)'
+        type: boolean
+        default: false
 
 jobs:
   golden-flow:
@@ -54,20 +66,26 @@ jobs:
         run: cargo install tauri-driver --locked
 
       # El harness conduce el binario compilado, nunca el devUrl de Vite: por
-      # eso acá hay un `tauri build` real y no un `tauri dev`.
+      # eso acá hay un `tauri build` real y no un `tauri dev`. `--no-bundle`
+      # porque el flujo dorado sólo necesita el ejecutable: empaquetar dispara
+      # además la firma del updater, que sin el secreto de firma aborta el job
+      # por algo que esta verificación no comprueba.
       - name: Build the release binary
-        run: pnpm --filter @vellum/desktop build
+        run: pnpm --filter @vellum/desktop exec tauri build --no-bundle
 
       - name: Run the golden flow
+        env:
+          VELLUM_E2E_UPDATE_BASELINES: ${{ inputs.update_baselines && '1' || '' }}
         run: xvfb-run -a --server-args="-screen 0 1920x1080x24" pnpm test:e2e
 
-      # Sólo existen cuando una comparación falló; suben para poder mirar la
-      # diferencia en vez de sólo leerla.
-      - name: Upload visual diffs
-        if: failure()
+      # En una corrida normal sólo existen los `.actual.png` de una comparación
+      # fallida. En una de regeneración salen los baselines nuevos, que es la
+      # única vía para obtenerlos en la misma imagen que luego los compara.
+      - name: Upload captures
+        if: always()
         uses: actions/upload-artifact@v7
         with:
           name: golden-flow-captures
-          path: apps/desktop/tests/e2e/baselines/*.actual.png
+          path: apps/desktop/tests/e2e/baselines/*.png
           if-no-files-found: ignore
           retention-days: 7
