@@ -214,11 +214,22 @@ export async function withApp(fn, options = {}) {
       connectionRetryCount: 1,
       capabilities: {
         browserName: 'wry',
+        // WebdriverIO 9 opts into WebDriver BiDi by default and puts
+        // `webSocketUrl: true` in `alwaysMatch`. `tauri-driver` only lifts
+        // `tauri:options` out and forwards everything else to
+        // `WebKitWebDriver`, which has no BiDi support and answers the whole
+        // session with "Failed to match capabilities". Classic protocol is
+        // all this suite needs.
+        'wdio:enforceWebDriverClassic': true,
         // The production load path: the app reads the `.cslmap` argument in
         // `startup::capture_startup_file_path`, exactly as a file association
         // or a shell invocation delivers it. No IPC shortcut.
         'tauri:options': { application: binaryPath, args: [fixture] },
       },
+    }).catch((error) => {
+      // The driver's own stderr usually says which native driver rejected the
+      // session; without it the failure is a bare protocol error.
+      throw new Error(`${error.message}\n${driverOutput.join('')}`);
     });
 
     return await fn({
