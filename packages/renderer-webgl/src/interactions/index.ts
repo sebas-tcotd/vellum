@@ -5,7 +5,6 @@
  * Internal module — not exported from the package barrel.
  */
 
-import type { TransitMode } from '@vellum/core';
 import type maplibregl from 'maplibre-gl';
 import type {
   DistrictFeatureProperties,
@@ -17,11 +16,10 @@ import type {
   DistrictTooltipInfo,
   ServiceIconLegendState,
   TooltipInfo,
+  TransitLineInfo,
   TransitTooltipInfo,
   ViewportBounds,
 } from '../types/renderer.types';
-
-type TransitLineInfo = { name: string; color: string; mode: TransitMode };
 
 /** Station hit-test layers: the detail-zoom capsule and the overview-zoom dot. */
 const STATION_HIT_LAYERS = ['transit-stops', 'transit-stops-dot'];

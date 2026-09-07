@@ -1,6 +1,6 @@
 /** Tunable constants for the line-ordering optimization (weights, search limits, tie-break priority). */
 
-import type { TransitMode } from '@vellum/core';
+import type { TransitMode } from '../../types/city-data';
 
 // Objective weights, per §6 of the paper (all further scaled by deg(v)).
 export const W_CROSS_SAME_SEG = 4;

@@ -1,16 +1,15 @@
 /**
- * Transit pipeline GeoJSON construction: runs line graph construction (with
- * corridor contraction and Lemma-4.1 bundling), MLNCM-S line ordering, and
- * render geometry (trims, inner connections, stations), then converts the
- * result to GeoJSON. See the modules under `../../transit/` for the
- * methodology references.
+ * Transit pipeline GeoJSON construction: derives the canonical
+ * `TransitNetwork` projection once via `deriveTransitNetwork` (`@vellum/core`
+ * — line graph, MLNCM-S ordering, stop/transfer semantics), builds the render
+ * geometry from it (trims, inner connections, stations), and converts the
+ * result to GeoJSON. See `@vellum/core`'s `transit-network` module and
+ * `../../transit/render-geometry` for the methodology references.
  */
 
-import type { CityData } from '@vellum/core';
+import type { CityData, TransitNetwork } from '@vellum/core';
+import { deriveTransitNetwork } from '@vellum/core';
 import { csToGeoArray } from '../../coordinate-transform';
-import type { TransitLineGraph } from '../../transit/line-graph';
-import { buildTransitLineGraph } from '../../transit/line-graph';
-import { computeLineOrder } from '../../transit/ordering';
 import type {
   ConnectorGeometry,
   CorridorGeometry,
@@ -34,18 +33,17 @@ import { calculatePolygonCentroid } from '../utils/geometry.helpers';
  * @returns Line, connector, and station FeatureCollections for MapLibre.
  */
 export function buildTransitRenderData(cityData: CityData): TransitRenderData {
-  const graph = buildTransitLineGraph(cityData);
-  const { lineOrder } = computeLineOrder(graph);
-  const geometry = buildRenderGeometry(graph, lineOrder, cityData);
+  const network = deriveTransitNetwork(cityData);
+  const geometry = buildRenderGeometry(network, cityData);
 
   return {
     lines: {
       type: 'FeatureCollection',
-      features: createLineFeatures(geometry.corridors, graph),
+      features: createLineFeatures(geometry.corridors, network),
     },
     connectors: {
       type: 'FeatureCollection',
-      features: createConnectorFeatures(geometry.connectors, graph),
+      features: createConnectorFeatures(geometry.connectors, network),
     },
     stations: {
       type: 'FeatureCollection',
@@ -64,8 +62,8 @@ export function buildTransitRenderData(cityData: CityData): TransitRenderData {
  *
  * @remarks
  * Thin wrapper over {@link buildTransitRenderData}; prefer that function when
- * the connector and station collections are also needed, to avoid running the
- * ordering pipeline three times.
+ * the connector and station collections are also needed: each call derives the
+ * whole network again (no caching, by design).
  */
 export function buildTransitGeoJson(
   cityData: CityData,
@@ -92,7 +90,7 @@ export function buildTransitStopsGeoJson(
 
 function createLineFeatures(
   corridors: CorridorGeometry[],
-  graph: TransitLineGraph,
+  network: TransitNetwork,
 ): TransitFeature[] {
   const features: TransitFeature[] = [];
 
@@ -103,7 +101,7 @@ function createLineFeatures(
     const n = corridor.lineIds.length;
 
     for (let p = 0; p < n; p++) {
-      const info = graph.lines.get(corridor.lineIds[p]);
+      const info = network.lines.get(corridor.lineIds[p]);
       if (!info) continue;
 
       features.push({
@@ -123,10 +121,10 @@ function createLineFeatures(
 
 function createConnectorFeatures(
   connectors: ConnectorGeometry[],
-  graph: TransitLineGraph,
+  network: TransitNetwork,
 ): TransitFeature[] {
   return connectors.flatMap((conn) => {
-    const info = graph.lines.get(conn.lineId);
+    const info = network.lines.get(conn.lineId);
     if (!info) return [];
 
     return [

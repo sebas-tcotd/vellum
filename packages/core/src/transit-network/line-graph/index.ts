@@ -32,8 +32,8 @@
  * only at GeoJSON emission time.
  */
 
-import type { CityData } from '@vellum/core';
-import type { TransitLineGraph } from './types';
+import type { CityData } from '../../types/city-data';
+import type { TransitLineGraph } from '../../types/transit-network';
 import { extractLines, buildBaseGraph } from './builders/base-graph-builder';
 import { collapseBundles } from './builders/bundle-builder';
 import { contractCorridors } from './builders/corridor-builder';
@@ -49,7 +49,7 @@ export {
   LineGraphNode,
   LineInfo,
   TransitLineGraph,
-} from './types';
+} from '../../types/transit-network';
 export { continuationKey } from './utils/keys';
 
 /**

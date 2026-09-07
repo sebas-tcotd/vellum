@@ -43,7 +43,7 @@ export const LAYER_NAMES: LayerName[] = [
 export type LayerVisibility = Record<LayerName, boolean>;
 
 /** Ordered array of every `TransitMode` variant, including the `'Unknown'` DLC fallback. */
-export const TRANSIT_MODES: TransitMode[] = [
+export const TRANSIT_MODES: readonly TransitMode[] = [
   'Bus',
   'Tram',
   'Train',
@@ -55,6 +55,18 @@ export const TRANSIT_MODES: TransitMode[] = [
   'Trolleybus',
   'Unknown',
 ];
+
+/**
+ * Modes a user can toggle: every variant except `'Unknown'`, the DLC fallback,
+ * which has no display label and stays always visible.
+ *
+ * @remarks
+ * Canonical list for every surface that offers per-mode visibility (advanced
+ * options panel, native menu actions). Deriving it here keeps those surfaces
+ * from re-listing modes literally.
+ */
+export const TOGGLABLE_TRANSIT_MODES: readonly TransitMode[] =
+  TRANSIT_MODES.filter((mode) => mode !== 'Unknown');
 
 /** Top-level zoning group a building belongs to, derived from `Building.serviceType`
  * via `BUILDING_SERVICE_TYPE_CATEGORY` (the substring before the first `.`).

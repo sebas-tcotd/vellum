@@ -265,18 +265,24 @@ no una integración del binario LOOM ni una traducción del código C++ GPL-3.0.
 concéntricas sin este ordering; fue retirado por
 [ADR-0001](../adr/0001-rendering-ownership.md) y ya no existe.
 
-La ADR nombra el destino canónico de la derivación de red de tránsito: la
-proyección `TransitNetwork` pertenece a `@vellum/core`, y la geometría de render
-se queda en el adapter. `line-graph` y `ordering` son los módulos puros que
-migran; `render-geometry` no. **Story 1.5 lo implementa** — aquí sólo queda
-nombrado.
+La ADR nombra el destino canónico y la Story 1.5 lo ejecutó: la proyección
+`TransitNetwork` vive en `@vellum/core` —vocabulario en
+`packages/core/src/types/transit-network.ts` y derivación en
+`packages/core/src/transit-network/` (`line-graph/`, `ordering/`, `stops.ts`)—
+con `deriveTransitNetwork(cityData, extensions?)` como única entrada, que
+devuelve una proyección congelada. La geometría de render se quedó en el
+adapter: `packages/renderer-webgl/src/transit/render-geometry/` consume la red
+y ya no reagrupa paradas.
 
 ## 7. Validación y límites conocidos
 
 La implementación tiene cobertura en:
 
-- `packages/renderer-webgl/src/transit/line-graph.test.ts`;
-- `packages/renderer-webgl/src/transit/ordering.test.ts`;
+- `packages/core/src/transit-network/line-graph.test.ts`;
+- `packages/core/src/transit-network/ordering.test.ts`;
+- `packages/core/src/transit-network/transit-network.test.ts` para la proyección
+  derivada (paradas, candidatos de transferencia, extensiones, congelado y
+  determinismo);
 - `packages/renderer-webgl/src/transit/render-geometry.test.ts`;
 - `packages/renderer-webgl/src/geojson.test.ts` para la salida GeoJSON.
 

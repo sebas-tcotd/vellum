@@ -1,6 +1,6 @@
 import type { TransitLineGraph } from '../../line-graph';
 import { scoreEdgeSet } from '../scoring';
-import type { BundleOrderConfig } from '../types';
+import type { BundleOrderConfig } from '../../../types/transit-network';
 import { permutations } from '../utils/combinatorics';
 
 /** Exhaustive optimum for a small component (paper-optimal for its subspace). */

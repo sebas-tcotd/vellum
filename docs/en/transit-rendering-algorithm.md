@@ -260,17 +260,24 @@ of the LOOM binary or a translation of its GPL-3.0 C++ code.
 without this ordering pipeline. It was retired by
 [ADR-0001](../adr/0001-rendering-ownership.md) and no longer exists.
 
-The ADR names where transit derivation belongs: the `TransitNetwork` projection
-moves to `@vellum/core`, while render geometry stays in the adapter — `line-graph`
-and `ordering` migrate, `render-geometry` does not. **Story 1.5 implements it**;
-here the cut is only named.
+The ADR names where transit derivation belongs, and Story 1.5 carried it out:
+the `TransitNetwork` projection lives in `@vellum/core`
+(`packages/core/src/types/transit-network.ts` for the vocabulary,
+`packages/core/src/transit-network/` for the derivation — `line-graph/`,
+`ordering/`, `stops.ts`), behind the single entry point
+`deriveTransitNetwork(cityData, extensions?)`, which returns a frozen
+projection. Render geometry stayed in the adapter:
+`packages/renderer-webgl/src/transit/render-geometry/` consumes the network and
+no longer regroups stops.
 
 ## 7. Validation and known limits
 
 Coverage lives in:
 
-- `packages/renderer-webgl/src/transit/line-graph.test.ts`;
-- `packages/renderer-webgl/src/transit/ordering.test.ts`;
+- `packages/core/src/transit-network/line-graph.test.ts`;
+- `packages/core/src/transit-network/ordering.test.ts`;
+- `packages/core/src/transit-network/transit-network.test.ts` for the derived
+  projection (stops, transfer candidates, extensions, freeze, determinism);
 - `packages/renderer-webgl/src/transit/render-geometry.test.ts`;
 - `packages/renderer-webgl/src/geojson.test.ts` for GeoJSON output.
 

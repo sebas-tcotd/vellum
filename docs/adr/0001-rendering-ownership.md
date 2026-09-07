@@ -245,8 +245,8 @@ no en `packages/ui/package.json`.
 
 ### D6 — Destino canónico de la semántica vial y de tránsito
 
-Esta ADR **nombra** el destino. La mitad vial ya está migrada (Story 1.4); la
-de tránsito sigue pendiente (Story 1.5) y está fuera de alcance aquí.
+Esta ADR **nombra** el destino. Ambas mitades están migradas: la vial en la
+Story 1.4 y la de tránsito en la Story 1.5.
 
 - **Vial — migrado (Story 1.4).** El conocimiento vive en
   `packages/core/src/road-classification.ts` (`ITEM_CLASS_TIER`,
@@ -263,12 +263,28 @@ de tránsito sigue pendiente (Story 1.5) y está fuera de alcance aquí.
   `excluded`) es una proyección de las mismas tablas, no una enumeración
   paralela: `properties.category` del GeoJSON es la única entrada de los
   filtros de capa.
-- **Tránsito.** `packages/renderer-webgl/src/transit/*` mezcla derivación de red
-  (`line-graph`, `ordering`) con geometría de render (`render-geometry`). El
-  corte es exactamente ése: **la proyección `TransitNetwork` pertenece a
-  `@vellum/core`** (módulo `packages/core/src/types/transit-network.ts` más su
-  derivación), y la geometría de render se queda en el adapter. **Story 1.5 lo
-  implementa.**
+- **Tránsito — migrado (Story 1.5).** El corte anunciado aquí ya está hecho:
+  **la proyección `TransitNetwork` pertenece a `@vellum/core`**. El vocabulario
+  vive en `packages/core/src/types/transit-network.ts` y la derivación en
+  `packages/core/src/transit-network/` (`line-graph/`, `ordering/`, `stops.ts`),
+  con `deriveTransitNetwork(cityData, extensions?)` como única entrada: encadena
+  el grafo de líneas, la ordenación MLNCM-S y la semántica de paradas, y
+  devuelve un objeto congelado. `packages/renderer-webgl/src/transit/line-graph/`
+  y `.../ordering/` desaparecieron; sólo queda `render-geometry`, que consume la
+  red (`buildRenderGeometry(network, cityData)`) y recibe
+  `network.transferCandidates` en vez de reagrupar paradas. `config.ts`
+  re-exporta `STATION_MERGE_THRESHOLD_M` desde core para no cambiar el barrel
+  de `render-geometry` (su único consumidor real es la suite del adapter;
+  `layer-transit.ts` y el scene builder de exportación sólo importan de ahí
+  `LINE_WIDTH_M` y `SLOT_M`). Cada consumidor deriva la red por su cuenta —
+  `transit.builder.ts` lo hace una sola vez por llamada y no hay memoización,
+  decisión deliberada de esta historia. Las dos declaraciones paralelas de
+  modos en TS (el `TransitLineInfo` local de `interactions/index.ts` y el
+  `isTransitMode` de nueve literales de `use-menu-action.ts`) se sustituyeron
+  por el `TransitLineInfo` de core —hoy derivado de `LineInfo`— y por
+  `TOGGLABLE_TRANSIT_MODES`, que preserva la exclusión de `'Unknown'`. `extensions.lineAttributes` es el
+  contrato mínimo que deja abierta la fuente Vellum Bridge del Épico 5 sin
+  implementarla.
 - Invariantes de dominio que ninguna migración puede romper: no renderizar
   `icls="Bus Line"` como geometría vial; no unificar `LandArray` con
   `WaterArray`; exponer siempre `fixed` y `scaled` de ancho por separado, nunca

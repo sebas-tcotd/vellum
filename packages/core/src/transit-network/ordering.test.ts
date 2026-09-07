@@ -1,10 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import {
-  makeCityData,
-  makeRoadSegment,
-  makeTransitLine,
-} from '@vellum/core/testing';
-import type { RoadNode } from '@vellum/core';
+import { makeCityData, makeRoadSegment, makeTransitLine } from '../testing';
+import type { RoadNode } from '../types/city-data';
 import { buildTransitLineGraph } from './line-graph';
 import {
   computeLineOrder,

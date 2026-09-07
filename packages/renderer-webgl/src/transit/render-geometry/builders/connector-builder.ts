@@ -7,7 +7,7 @@
  */
 
 import type { CsPoint } from '../../../coordinate-transform';
-import type { TransitLineGraph } from '../../line-graph';
+import type { TransitNetwork } from '@vellum/core';
 import { BEZIER_ARM_FACTOR, BEZIER_SAMPLES, SLOT_M } from '../config';
 import type { ConnectorGeometry, CorridorGeometry } from '../types';
 import { cubicBezier, endDirection } from '../utils/path';
@@ -15,12 +15,12 @@ import { add, norm, rightOf, scale, sub } from '../utils/vector';
 
 /** Builds one Bézier connector per route transition between two corridors. */
 export function buildConnectors(
-  graph: TransitLineGraph,
+  network: TransitNetwork,
   corridors: Map<string, CorridorGeometry>,
 ): ConnectorGeometry[] {
   const connectors: ConnectorGeometry[] = [];
 
-  for (const transition of graph.transitions) {
+  for (const transition of network.transitions) {
     const ce = corridors.get(transition.fromEdge);
     const cf = corridors.get(transition.toEdge);
     if (!ce || !cf) continue;

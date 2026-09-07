@@ -5,8 +5,11 @@
  * right).
  */
 
-import type { CityData } from '@vellum/core';
-import type { LineGraphEdge, LineGraphNode } from '../types';
+import type { CityData } from '../../../types/city-data';
+import type {
+  LineGraphEdge,
+  LineGraphNode,
+} from '../../../types/transit-network';
 import { getOrCreate } from '../utils/collections';
 import { departureAzimuth } from '../utils/geo';
 

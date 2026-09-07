@@ -5,7 +5,7 @@ import type {
   MenuAction,
   TransitMode,
 } from '@vellum/core';
-import { LAYER_NAMES } from '@vellum/core';
+import { LAYER_NAMES, TOGGLABLE_TRANSIT_MODES } from '@vellum/core';
 import { useVellumStore } from '../store/vellum-store';
 import type { CommandRegistry } from '../shell/commands';
 
@@ -13,18 +13,13 @@ function isLayerName(value: string): value is LayerName {
   return LAYER_NAMES.includes(value as LayerName);
 }
 
+/**
+ * Modes this adapter accepts from the native menu: the togglable ones only.
+ * `'Unknown'` is deliberately excluded — it has no menu entry and no UI control
+ * to restore it once hidden.
+ */
 function isTransitMode(value: string): value is TransitMode {
-  return (
-    value === 'Bus' ||
-    value === 'Tram' ||
-    value === 'Train' ||
-    value === 'Metro' ||
-    value === 'CableCar' ||
-    value === 'Monorail' ||
-    value === 'Ferry' ||
-    value === 'Blimp' ||
-    value === 'Trolleybus'
-  );
+  return (TOGGLABLE_TRANSIT_MODES as readonly string[]).includes(value);
 }
 
 function isBuildingCategory(value: string): value is BuildingServiceCategory {

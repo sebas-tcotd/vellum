@@ -1,5 +1,5 @@
 import { CsPoint } from '../../../coordinate-transform';
-import { LineGraphEdge } from '../types';
+import { LineGraphEdge } from '../../../types/transit-network';
 
 const MIN_DISTANCE_FOR_DIRECTION_SQ = 1; // 1^2 = 1
 

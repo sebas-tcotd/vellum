@@ -21,7 +21,10 @@
 
 import type { TransitLineGraph } from '../../line-graph';
 import { W_CROSS_DIFF_SEG, W_CROSS_SAME_SEG, W_SEPARATION } from '../constants';
-import type { BundleOrderConfig, OrderingStats } from '../types';
+import type {
+  BundleOrderConfig,
+  OrderingStats,
+} from '../../../types/transit-network';
 import { continuationAt, seenFrom } from '../utils/graph';
 
 /**

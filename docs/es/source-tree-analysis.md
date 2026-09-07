@@ -31,7 +31,9 @@ vellum/
 ├── packages/
 │   ├── core/                           # @vellum/core — capa de dominio pura, cero dependencias internas
 │   │   └── src/
-│   │       ├── types/                  # city-data, cartographic-scene, layer, renderer (IRenderer), theme, color-tokens, export-pipeline, export-presentation
+│   │       ├── types/                  # city-data, cartographic-scene, layer, renderer (IRenderer), theme, color-tokens, export-pipeline, export-presentation, transit-network
+│   │       ├── transit-network/        # Derivación canónica de la red de tránsito (line-graph, ordering, stops)
+│   │       ├── road-classification.ts  # Semántica vial canónica (tiers, categorías, anchos)
 │   │       ├── ipc-contract.ts         # IPC_COMMANDS, IPC_EVENTS, VellumError — fuente de verdad del contrato
 │   │       ├── testing/city-data-factory.ts  # Barrel de test independiente (@vellum/core/testing)
 │   │       └── index.ts                # Barrel público; re-exporta tipos, renderer, theme e IPC
@@ -48,7 +50,7 @@ vellum/
 │   │       ├── geojson/                # CityData → GeoJSON puro (sin import de MapLibre), builders/ config/ types/ utils/
 │   │       ├── layers/                 # Un archivo de config de capa MapLibre por capa (terrain, roads, transit, buildings, forests, districts, grid, map-frame, service-icons, watermark, background, basemap)
 │   │       ├── managers/               # map-layer / map-navigation / map-source (mutación de capas/fuentes/cámara)
-│   │       ├── transit/                # Geometría, ordering y line-graph específicos de tránsito
+│   │       ├── transit/                # Sólo geometría de render de tránsito (la derivación vive en @vellum/core)
 │   │       ├── export/                 # Pipeline PNG (tiled + legacy) y SVG — ver architecture-desktop.md
 │   │       ├── capability-probe.ts     # Mide límites WebGL/memoria/encoder → decide ruta de export
 │   │       ├── interactions/           # Hover/click/tooltip

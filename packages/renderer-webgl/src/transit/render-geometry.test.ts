@@ -5,8 +5,7 @@ import {
   makeTransitLine,
 } from '@vellum/core/testing';
 import type { RoadNode } from '@vellum/core';
-import { buildTransitLineGraph } from './line-graph';
-import { computeLineOrder } from './ordering';
+import { deriveTransitNetwork } from '@vellum/core';
 import {
   buildRenderGeometry,
   SLOT_M,
@@ -42,9 +41,8 @@ function tJunctionCity() {
 }
 
 function buildGeom(city: ReturnType<typeof makeCityData>) {
-  const graph = buildTransitLineGraph(city);
-  const { lineOrder } = computeLineOrder(graph);
-  return { graph, geometry: buildRenderGeometry(graph, lineOrder, city) };
+  const network = deriveTransitNetwork(city);
+  return { network, geometry: buildRenderGeometry(network, city) };
 }
 
 // ─── Complex-node regression suite (route-based continuations) ────────────────
@@ -81,10 +79,10 @@ describe('buildRenderGeometry — inner connections at complex nodes', () => {
         }),
       ],
     });
-    const graph = buildTransitLineGraph(city);
+    const network = deriveTransitNetwork(city);
 
     // Confirm the topology that used to break: L is in 3 corridors at J.
-    const atJ = graph.nodes.get('J');
+    const atJ = network.nodes.get('J');
     expect(atJ?.edgeIds.length).toBe(3);
 
     const { geometry } = buildGeom(city);
@@ -132,10 +130,10 @@ describe('buildRenderGeometry — inner connections at complex nodes', () => {
         }),
       ],
     });
-    const { geometry, graph } = buildGeom(city);
+    const { geometry, network } = buildGeom(city);
 
     // N and S are genuine junctions (stem + 2 arcs).
-    expect(graph.nodes.get('N')?.edgeIds.length).toBeGreaterThanOrEqual(3);
+    expect(network.nodes.get('N')?.edgeIds.length).toBeGreaterThanOrEqual(3);
 
     // The through line must have a connector at N (stem→east arc) and at S
     // (east arc→stem): no gap where it meets the ring.
@@ -205,11 +203,10 @@ describe('buildRenderGeometry — inner connections at complex nodes', () => {
         }),
       ],
     });
-    const graph = buildTransitLineGraph(city);
-    const { lineOrder } = computeLineOrder(graph);
-    const geometry = buildRenderGeometry(graph, lineOrder, city);
+    const network = deriveTransitNetwork(city);
+    const geometry = buildRenderGeometry(network, city);
     const surviving = new Set(geometry.corridors.map((c) => c.edgeId));
-    const expected = graph.transitions.filter(
+    const expected = network.transitions.filter(
       (t) => surviving.has(t.fromEdge) && surviving.has(t.toEdge),
     ).length;
     expect(geometry.connectors).toHaveLength(expected);

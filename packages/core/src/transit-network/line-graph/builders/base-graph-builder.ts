@@ -3,8 +3,8 @@
  * sets, stage 1 of {@link buildTransitLineGraph}.
  */
 
-import type { CityData } from '@vellum/core';
-import type { LineInfo, BaseSegment } from '../types';
+import type { CityData } from '../../../types/city-data';
+import type { LineInfo, BaseSegment } from '../../../types/transit-network';
 import { getOrCreate } from '../utils/collections';
 
 /** Extracts per-line metadata (id, name, color, mode) from `CityData`. */

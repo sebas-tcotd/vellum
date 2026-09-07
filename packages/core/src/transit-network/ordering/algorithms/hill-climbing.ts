@@ -1,7 +1,7 @@
 import type { TransitLineGraph } from '../../line-graph';
 import { MAX_HILL_CLIMB_PASSES } from '../constants';
 import { scoreEdgeSet } from '../scoring';
-import type { BundleOrderConfig } from '../types';
+import type { BundleOrderConfig } from '../../../types/transit-network';
 import { candidateOrders } from '../utils/combinatorics';
 
 /** Local search: per-edge best-candidate moves until a local optimum. */
