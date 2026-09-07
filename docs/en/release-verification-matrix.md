@@ -60,7 +60,7 @@ green baseline is never read as more than it is.
 
 ```bash
 cargo install tauri-driver --locked     # once
-pnpm --filter @vellum/desktop build     # the release binary under test
+pnpm --filter @vellum/desktop exec tauri build --no-bundle     # the release binary under test
 pnpm test:e2e
 ```
 

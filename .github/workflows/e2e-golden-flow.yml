@@ -29,6 +29,9 @@ on:
         type: boolean
         default: false
 
+env:
+  TAURI_DRIVER_VERSION: '2.0.6'
+
 jobs:
   golden-flow:
     name: Golden flow (Linux, real Tauri WebView)
@@ -36,6 +39,8 @@ jobs:
     # Techo de seguridad, no objetivo: si el job se acerca a esto, el flujo
     # creció más de lo que esta story acordó.
     timeout-minutes: 25
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v6
 
@@ -54,16 +59,20 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # Pinned on purpose: sin `--version`, cada runner frío instala lo que
+      # crates.io sirva ese día contra una suite que compara píxeles, y la
+      # caché —que no hashea nada del driver— congelaría esa versión sin que
+      # nadie la revisara. Subirla es una edición revisable.
       - name: Cache tauri-driver
         id: cache-tauri-driver
         uses: actions/cache@v6
         with:
           path: ~/.cargo/bin/tauri-driver
-          key: tauri-driver-ubuntu-22.04-${{ hashFiles('rust-toolchain.toml') }}
+          key: tauri-driver-${{ env.TAURI_DRIVER_VERSION }}-ubuntu-22.04
 
       - name: Install tauri-driver
         if: steps.cache-tauri-driver.outputs.cache-hit != 'true'
-        run: cargo install tauri-driver --locked
+        run: cargo install tauri-driver --locked --version ${{ env.TAURI_DRIVER_VERSION }}
 
       # El harness conduce el binario compilado, nunca el devUrl de Vite: por
       # eso acá hay un `tauri build` real y no un `tauri dev`. `--no-bundle`

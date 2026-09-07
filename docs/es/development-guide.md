@@ -78,7 +78,7 @@ shell contra baselines versionados.
 
 ```bash
 cargo install tauri-driver --locked   # una vez
-pnpm --filter @vellum/desktop build   # el binario de release bajo prueba
+pnpm --filter @vellum/desktop exec tauri build --no-bundle   # el binario de release bajo prueba
 pnpm test:e2e                         # bloqueante en CI (Linux); ver la matriz de release
 ```
 

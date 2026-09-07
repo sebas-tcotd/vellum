@@ -60,7 +60,7 @@ para que un baseline verde nunca se lea como más de lo que es.
 
 ```bash
 cargo install tauri-driver --locked     # una vez
-pnpm --filter @vellum/desktop build     # el binario de release bajo prueba
+pnpm --filter @vellum/desktop exec tauri build --no-bundle     # el binario de release bajo prueba
 pnpm test:e2e
 ```
 

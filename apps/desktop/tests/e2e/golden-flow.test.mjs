@@ -55,8 +55,12 @@ afterAll(async () => {
   await appClosed;
 });
 
-/** Files the export pipeline may leave behind in the output directory. */
-const RESIDUE_PATTERN = /(^\.vellum-export-.*\.part$)|(\.part$)/;
+/**
+ * The temp file the export pipeline creates, named exactly as
+ * `export/session.rs` names it. Deliberately narrow: a looser `\.part$` would
+ * report any unrelated stray file as export residue.
+ */
+const RESIDUE_PATTERN = /^\.vellum-export-.+\.part$/;
 
 async function outputResidue(downloadsDir) {
   const entries = await readdir(downloadsDir);
@@ -131,9 +135,12 @@ function readAnnouncedDimensions(browser) {
       .split('×')
       // Locale-formatted integers: strip grouping separators of any kind.
       .map((part) => Number(part.replace(/\D/g, '')));
+    // `Number(''.replace(/\D/g, ''))` is 0, which is finite — so a panel with
+    // no digits would read as a valid 0x0 announcement. Only positive
+    // integers count as "the dialog announced something".
     if (
       digits.length !== 2 ||
-      digits.some((value) => !Number.isFinite(value))
+      digits.some((value) => !Number.isInteger(value) || value <= 0)
     ) {
       return null;
     }
@@ -285,9 +292,18 @@ describe('golden cartographic flow', () => {
     const finalPath = join(downloadsDir, 'cancelled-export.png');
     const stats = await stat(finalPath).catch(() => null);
     expect(stats, 'a cancelled export published a final file').toBeNull();
-    expect(
-      await outputResidue(downloadsDir),
-      'a cancelled export left an orphan .part file behind',
-    ).toEqual([]);
+    // The overlay disappearing and Rust unlinking the `.part` are not the same
+    // instant. Polling distinguishes "cleanup is a moment behind the UI" from
+    // "cleanup never happened"; asserting immediately would call the first one
+    // an orphan.
+    await waitUntil(
+      async () => (await outputResidue(downloadsDir)).length === 0,
+      { describe: 'the cancelled export to clean up its .part file' },
+    ).catch(async () => {
+      expect(
+        await outputResidue(downloadsDir),
+        'a cancelled export left an orphan .part file behind',
+      ).toEqual([]);
+    });
   });
 });

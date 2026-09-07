@@ -92,6 +92,19 @@ async function captureProfile(browser, platform) {
   await browser.execute((value) => {
     document.documentElement.dataset.platform = value;
   }, platform);
+  // Three captures that merely differ from each other would also be produced
+  // by an override that never stuck plus some transition timing. Reading the
+  // attribute back is what ties each baseline to the profile it claims.
+  const applied = await browser.execute(
+    () => document.documentElement.dataset.platform,
+  );
+  if (applied !== platform) {
+    throw new Error(
+      `the ${platform} profile did not stick: data-platform reads "${applied}". ` +
+        'PlatformProvider may now re-assert it at runtime, in which case the ' +
+        'sweep needs a relaunch per profile.',
+    );
+  }
   await delay(REPAINT_SETTLE_MS);
   const bytes = Buffer.from(await browser.takeScreenshot(), 'base64');
   // The original PNG bytes travel with the decode: a baseline is written

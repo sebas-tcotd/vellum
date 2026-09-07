@@ -63,11 +63,25 @@ export async function resolveAppBinary() {
   } catch {
     throw new Error(
       `Vellum release binary not found at ${candidate}. ` +
-        'Build it first with `pnpm --filter @vellum/desktop build`, ' +
+        'Build it first with `pnpm --filter @vellum/desktop exec tauri build --no-bundle`, ' +
         'or point VELLUM_E2E_BINARY at an existing one.',
     );
   }
   return candidate;
+}
+
+/** True when something is already listening on `port`. */
+async function isPortTaken(port) {
+  return new Promise((resolvePromise) => {
+    const socket = connect({ host: '127.0.0.1', port });
+    const settle = (value) => {
+      socket.destroy();
+      resolvePromise(value);
+    };
+    socket.once('connect', () => settle(true));
+    socket.once('error', () => settle(false));
+    socket.setTimeout(1000, () => settle(false));
+  });
 }
 
 /** Resolves once something is listening on `port`, or throws after the timeout. */
@@ -129,6 +143,16 @@ async function killAndWait(child) {
  * none can reach the real Downloads folder.
  */
 async function createSandboxHome() {
+  // The redirection below only works where `download_dir()` resolves through
+  // HOME. On Windows it reads the registry and on macOS the user's own
+  // domain, so a run there would export straight into the real Downloads
+  // folder — the one thing this sandbox exists to prevent.
+  if (process.platform !== 'linux') {
+    throw new Error(
+      `The golden-flow sandbox can only redirect Downloads on Linux, not on ${process.platform}. ` +
+        'Tauri v2 ships no WKWebView driver either — see docs/en/release-verification-matrix.md.',
+    );
+  }
   const root = await mkdtemp(join(tmpdir(), 'vellum-e2e-'));
   const home = join(root, 'home');
   const downloads = join(home, 'Downloads');
@@ -138,12 +162,13 @@ async function createSandboxHome() {
   // environment. Without it the lookup returns nothing at all and
   // `begin_export` fails with "download directory unavailable" — the export
   // would never reach the disk, in this sandbox or on a CI runner.
-  await mkdir(join(home, '.config'), { recursive: true });
+  const config = join(home, '.config');
+  await mkdir(config, { recursive: true });
   await writeFile(
-    join(home, '.config', 'user-dirs.dirs'),
+    join(config, 'user-dirs.dirs'),
     'XDG_DOWNLOAD_DIR="$HOME/Downloads"\n',
   );
-  return { root, home, downloads };
+  return { root, home, downloads, config };
 }
 
 /**
@@ -159,6 +184,14 @@ async function createSandboxHome() {
 export async function withApp(fn, options = {}) {
   const fixture = resolve(options.fixture ?? DEFAULT_FIXTURE);
   const binaryPath = await resolveAppBinary();
+  // `waitForPort` cannot tell our driver from a stranger's. Without this, a
+  // leftover tauri-driver makes the suite quietly drive some other build.
+  if (await isPortTaken(DRIVER_PORT)) {
+    throw new Error(
+      `Something is already listening on port ${DRIVER_PORT}. ` +
+        'Kill the stale tauri-driver, or set VELLUM_E2E_DRIVER_PORT.',
+    );
+  }
   const sandbox = await createSandboxHome();
 
   let driver = null;
@@ -180,6 +213,11 @@ export async function withApp(fn, options = {}) {
           ...process.env,
           HOME: sandbox.home,
           XDG_DOWNLOAD_DIR: sandbox.downloads,
+          // Many CI images export XDG_CONFIG_HOME. If it survives, the
+          // `dirs` lookup reads *that* directory's user-dirs.dirs instead of
+          // the sandbox's and the redirection silently stops working — the
+          // same failure that kept every export off disk before.
+          XDG_CONFIG_HOME: sandbox.config,
         },
       },
     );

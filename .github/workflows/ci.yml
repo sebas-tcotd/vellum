@@ -46,8 +46,10 @@ jobs:
       - name: Rust Tests
         run: cargo test --workspace
 
-  # El recorrido cartográfico real. Bloqueante: si esto falla, el PR no entra y
-  # `publish-release` —que llama al mismo workflow— no puede publicar.
+  # El recorrido cartográfico real. En `publish-release` el bloqueo es real y
+  # está en el repo: `build-release` lo tiene en `needs`. Aquí el check sale en
+  # rojo, pero que además impida el merge depende de marcarlo como required en
+  # la protección de rama, que no vive en estos archivos.
   e2e-golden-flow:
     name: E2E Golden Flow
     uses: ./.github/workflows/e2e-golden-flow.yml

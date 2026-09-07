@@ -8,9 +8,12 @@ export default mergeConfig(
   defineConfig({
     test: {
       // The golden-flow E2E suite lives under tests/ and runs via `test:e2e`
-      // against a compiled binary; `pnpm test` must never start the app.
-      exclude: ['tests/**', '**/node_modules/**'],
-      include: ['src/**/*.{test,spec}.{ts,tsx}'],
+      // against a compiled binary; `pnpm test` must never start the app. The
+      // `.unit.test.mjs` suffix is the opt-in for the ones that drive nothing:
+      // an ordinary `tests/e2e/*.test.mjs` still stays out by default, so a
+      // new E2E file cannot wander into this project by being added.
+      exclude: ['**/node_modules/**'],
+      include: ['src/**/*.{test,spec}.{ts,tsx}', 'tests/**/*.unit.test.mjs'],
       setupFiles: [
         path.resolve(__dirname, '../../packages/ui/src/test-setup.ts'),
       ],

@@ -92,7 +92,7 @@ versioned baselines.
 
 ```bash
 cargo install tauri-driver --locked   # once
-pnpm --filter @vellum/desktop build   # the release binary under test
+pnpm --filter @vellum/desktop exec tauri build --no-bundle   # the release binary under test
 pnpm test:e2e                         # blocking in CI (Linux)
 ```
 
