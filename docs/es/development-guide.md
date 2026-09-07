@@ -71,25 +71,32 @@ cargo test --workspace
 ```
 
 Las suites Vitest cubren los packages TypeScript; los tests Rust cubren parser y
-export nativo; y Playwright mantiene un smoke test bajo `apps/desktop/tests/e2e`.
-El smoke test valida que la app arranca, pero todavía no cubre drag&drop → render →
-export completo.
+export nativo; y el flujo dorado bajo `apps/desktop/tests/e2e` conduce el binario
+Tauri compilado con `tauri-driver`: abre un `.cslmap` por argv, espera el mapa
+listo, exporta desde el `ExportDialog` real y compara superficies y perfiles de
+shell contra baselines versionados.
 
 ```bash
-pnpm test:e2e   # requiere tauri-driver instalado y la app compilada; NO corre en CI (ver ci.yml)
+cargo install tauri-driver --locked   # una vez
+pnpm --filter @vellum/desktop exec tauri build --no-bundle   # el binario de release bajo prueba
+pnpm test:e2e                         # bloqueante en CI (Linux); ver la matriz de release
 ```
+
+`pnpm test` no arranca la app: el flujo dorado es un comando aparte. Los detalles
+de qué cubre CI y qué queda manual están en la
+[matriz de verificación de release](release-verification-matrix.md).
 
 **Al agregar un campo a `RendererTokens`/`tokens.ts`**: rompe el typecheck de todos los `MOCK_TOKENS` en tests existentes — no hay factory helper todavía, hay que actualizar cada uno manualmente en el mismo PR.
 
 ## CI/CD
 
-| Workflow                                                             | Trigger                      | Qué valida                                                                                                 |
-| -------------------------------------------------------------------- | ---------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| [`ci.yml`](../../.github/workflows/ci.yml)                           | Push/PR a `main`             | Build, Vitest, Rust tests, lint TS + Clippy, formato. Playwright **no** corre acá (requiere tauri-driver). |
-| [`landing-ci.yml`](../../.github/workflows/landing-ci.yml)           | PR de landing o manual       | Lint y build de `@vellum/landing`.                                                                         |
-| [`deploy-pages.yml`](../../.github/workflows/deploy-pages.yml)       | Cambios de landing en `main` | Build, deploy a GitHub Pages y smoke check de HTML/assets.                                                 |
-| [`release-please.yml`](../../.github/workflows/release-please.yml)   | Push a `main`                | Crea o actualiza el PR de Release Please para preparar versiones.                                          |
-| [`publish-release.yml`](../../.github/workflows/publish-release.yml) | Tag `v*`                     | Build multiplataforma (Windows `.msi` firmado, macOS `.dmg`, Linux `.AppImage`) + publicación de release   |
+| Workflow                                                             | Trigger                      | Qué valida                                                                                               |
+| -------------------------------------------------------------------- | ---------------------------- | -------------------------------------------------------------------------------------------------------- |
+| [`ci.yml`](../../.github/workflows/ci.yml)                           | Push/PR a `main`             | Build, Vitest, Rust tests, lint TS + Clippy, formato y el flujo dorado E2E (bloqueante).                 |
+| [`landing-ci.yml`](../../.github/workflows/landing-ci.yml)           | PR de landing o manual       | Lint y build de `@vellum/landing`.                                                                       |
+| [`deploy-pages.yml`](../../.github/workflows/deploy-pages.yml)       | Cambios de landing en `main` | Build, deploy a GitHub Pages y smoke check de HTML/assets.                                               |
+| [`release-please.yml`](../../.github/workflows/release-please.yml)   | Push a `main`                | Crea o actualiza el PR de Release Please para preparar versiones.                                        |
+| [`publish-release.yml`](../../.github/workflows/publish-release.yml) | Tag `v*`                     | Build multiplataforma (Windows `.msi` firmado, macOS `.dmg`, Linux `.AppImage`) + publicación de release |
 
 ## Comandos IPC — agregar uno nuevo
 

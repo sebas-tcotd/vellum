@@ -98,16 +98,16 @@ pnpm dev:vite      # solo Vite (puerto 1420, HMR 1421)
 pnpm build         # tauri build
 pnpm build:vite    # tsc -b && vite build
 pnpm test          # todos los tests TypeScript vía Turborepo/Vitest
-pnpm test:e2e      # playwright test
+pnpm test:e2e      # flujo dorado sobre el binario Tauri (tauri-driver)
 ```
 
 ## Testing
 
-| Tipo           | Cobertura                                                                                                               |
-| -------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| Vitest (TS)    | Tests unitarios de adapters Tauri, hooks y coordinación del export.                                                     |
-| `#[test]` Rust | Parser, sesiones de export, framing y composición tiled.                                                                |
-| Playwright E2E | `tests/e2e/smoke.spec.ts`: smoke test de arranque y visibilidad; todavía no cubre drag&drop → render → export completo. |
+| Tipo             | Cobertura                                                                                                                                                                                                                                      |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Vitest (TS)      | Tests unitarios de adapters Tauri, hooks y coordinación del export.                                                                                                                                                                            |
+| `#[test]` Rust   | Parser, sesiones de export, framing y composición tiled.                                                                                                                                                                                       |
+| E2E flujo dorado | `tests/e2e/`: conduce el binario de release con `tauri-driver` — abre un `.cslmap` por argv, espera el mapa listo, exporta y compara superficies contra baselines. Ver la [matriz de verificación de release](release-verification-matrix.md). |
 
 ## Notas de arquitectura
 

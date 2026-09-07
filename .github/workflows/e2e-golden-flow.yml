@@ -1,0 +1,100 @@
+name: E2E Golden Flow
+
+# El recorrido cartográfico real: binario Tauri de release conducido por
+# `tauri-driver` + `webdriverio`, abriendo un `.cslmap` por argv, esperando el
+# mapa listo y exportando desde el `ExportDialog` de verdad.
+#
+# Vive como workflow reutilizable porque lo consumen dos pipelines con la misma
+# definición: `ci.yml` (cada PR y cada push a main) y `publish-release.yml`
+# (donde bloquea la publicación). Duplicar los pasos en ambos sería duplicar la
+# única evidencia automatizada de que la app funciona.
+#
+# Linux es la única plataforma conducible en CI: Tauri v2 no publica driver de
+# WKWebView, así que macOS queda como comprobación manual documentada en
+# docs/en/release-verification-matrix.md. Los tres perfiles de shell se cubren
+# igual, vía `data-platform`, no vía runner.
+
+on:
+  workflow_call:
+  # Los baselines visuales sólo son válidos si nacen en la misma imagen que
+  # luego los compara: la del runner, no un `ubuntu:22.04` limpio ni el
+  # portátil de nadie. Con un umbral de 0,5 % de píxeles distintos, el
+  # antialiasing de fuentes de otra máquina ya basta para fallar. Por eso la
+  # generación se dispara aquí a mano, y las capturas salen como artefacto
+  # para revisarlas y commitearlas.
+  workflow_dispatch:
+    inputs:
+      update_baselines:
+        description: 'Regenerar los baselines visuales (la corrida falla a propósito)'
+        type: boolean
+        default: false
+
+env:
+  TAURI_DRIVER_VERSION: '2.0.6'
+
+jobs:
+  golden-flow:
+    name: Golden flow (Linux, real Tauri WebView)
+    runs-on: ubuntu-22.04
+    # Techo de seguridad, no objetivo: si el job se acerca a esto, el flujo
+    # creció más de lo que esta story acordó.
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Vellum Environment
+        uses: ./.github/actions/setup-vellum
+        with:
+          os: ubuntu-22.04
+
+      # `webkit2gtk-driver` trae `WebKitWebDriver`, el driver nativo al que
+      # `tauri-driver` delega; `xvfb` da el display que la ventana necesita.
+      - name: Install WebDriver system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y webkit2gtk-driver xvfb
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Pinned on purpose: sin `--version`, cada runner frío instala lo que
+      # crates.io sirva ese día contra una suite que compara píxeles, y la
+      # caché —que no hashea nada del driver— congelaría esa versión sin que
+      # nadie la revisara. Subirla es una edición revisable.
+      - name: Cache tauri-driver
+        id: cache-tauri-driver
+        uses: actions/cache@v6
+        with:
+          path: ~/.cargo/bin/tauri-driver
+          key: tauri-driver-${{ env.TAURI_DRIVER_VERSION }}-ubuntu-22.04
+
+      - name: Install tauri-driver
+        if: steps.cache-tauri-driver.outputs.cache-hit != 'true'
+        run: cargo install tauri-driver --locked --version ${{ env.TAURI_DRIVER_VERSION }}
+
+      # El harness conduce el binario compilado, nunca el devUrl de Vite: por
+      # eso acá hay un `tauri build` real y no un `tauri dev`. `--no-bundle`
+      # porque el flujo dorado sólo necesita el ejecutable: empaquetar dispara
+      # además la firma del updater, que sin el secreto de firma aborta el job
+      # por algo que esta verificación no comprueba.
+      - name: Build the release binary
+        run: pnpm --filter @vellum/desktop exec tauri build --no-bundle
+
+      - name: Run the golden flow
+        env:
+          VELLUM_E2E_UPDATE_BASELINES: ${{ inputs.update_baselines && '1' || '' }}
+        run: xvfb-run -a --server-args="-screen 0 1920x1080x24" pnpm test:e2e
+
+      # En una corrida normal sólo existen los `.actual.png` de una comparación
+      # fallida. En una de regeneración salen los baselines nuevos, que es la
+      # única vía para obtenerlos en la misma imagen que luego los compara.
+      - name: Upload captures
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: golden-flow-captures
+          path: apps/desktop/tests/e2e/baselines/*.png
+          if-no-files-found: ignore
+          retention-days: 7

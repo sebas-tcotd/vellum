@@ -103,10 +103,13 @@ pnpm test:e2e
 ## Testing
 
 The desktop package has unit coverage around its Tauri adapters and export
-coordination, Rust tests around export sessions and tile composition, and a
-Playwright smoke spec under `apps/desktop/tests/e2e`. The E2E suite currently
-checks that the app starts and the document is visible; it does not yet exercise
-the complete drag-and-drop → render → export journey.
+coordination, Rust tests around export sessions and tile composition, and the
+golden-flow E2E suite under `apps/desktop/tests/e2e`. That suite drives the
+compiled release binary through `tauri-driver`: it opens a `.cslmap` passed in
+argv, waits for the map to report ready, exports through the real dialog and
+compares the result against committed baselines. See the
+[release verification matrix](release-verification-matrix.md) for what it covers
+and what stays manual.
 
 ## Architectural boundary
 

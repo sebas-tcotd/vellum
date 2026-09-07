@@ -84,16 +84,21 @@ cargo test --workspace
 ```
 
 The TypeScript suites run through Turborepo and Vitest. Rust tests cover the
-parser and the native export pipeline. Playwright is configured under
-`apps/desktop/tests/e2e`:
+parser and the native export pipeline. The golden-flow E2E suite under
+`apps/desktop/tests/e2e` drives the compiled Tauri binary with `tauri-driver`:
+it opens a `.cslmap` passed in argv, waits for the map to report ready, exports
+through the real `ExportDialog` and compares surfaces and shell profiles against
+versioned baselines.
 
 ```bash
-pnpm test:e2e
+cargo install tauri-driver --locked   # once
+pnpm --filter @vellum/desktop exec tauri build --no-bundle   # the release binary under test
+pnpm test:e2e                         # blocking in CI (Linux)
 ```
 
-The E2E command requires a built desktop app, `tauri-driver` and a compatible
-display environment. It is available for local validation but is not part of the
-default CI job yet.
+`pnpm test` never starts the app; the golden flow is a separate command. What CI
+covers and what stays a manual check is written down in the
+[release verification matrix](release-verification-matrix.md).
 
 ## CI and releases
 

@@ -52,3 +52,6 @@ packages/renderer-webgl/test/export-goldens/**/*.rgba
 # Environment files
 .env
 .env.local
+# Captures the golden-flow visual comparison writes next to a failing baseline
+# for inspection. Scratch output, never evidence — see the baselines README.
+apps/desktop/tests/e2e/baselines/*.actual.png
