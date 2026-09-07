@@ -87,6 +87,7 @@ describe('platform adaptation', () => {
 
   it('derives the Windows sidebar material from active theme tokens', () => {
     expect(shellCss).toContain('--shell-mica-start');
+    expect(shellCss).toContain('--shell-mica-highway');
     expect(shellCss).toContain('--shell-mica-end');
     expect(shellCss).toContain('--shell-mica-highlight');
     expect(shellCss).toContain('--shell-mica-noise-opacity');

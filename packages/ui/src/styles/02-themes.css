@@ -78,7 +78,7 @@
      theme instead of sampling the map or wallpaper a second time. */
   --shell-mica-start: color-mix(
     in srgb,
-    var(--color-accent) 30%,
+    var(--shell-mica-highway, var(--color-accent)) 30%,
     var(--shell-solid-surface)
   );
   --shell-mica-end: color-mix(
@@ -217,7 +217,7 @@
   --shell-surface-popover: rgba(43, 43, 43, 0.99);
   --shell-mica-start: color-mix(
     in srgb,
-    var(--color-accent) 30%,
+    var(--shell-mica-highway, var(--color-accent)) 30%,
     var(--shell-solid-surface)
   );
   --shell-mica-end: color-mix(
