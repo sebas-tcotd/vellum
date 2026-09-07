@@ -558,6 +558,40 @@ describe('App — native menu actions', () => {
     ).toBe(!initialContours);
   });
 
+  it('routea los modos de tránsito togglables e ignora Unknown', async () => {
+    await act(async () => {
+      render(<App />);
+    });
+
+    act(() => {
+      useVellumStore.getState().setCityData(mockCityData);
+    });
+
+    const initialModes =
+      useVellumStore.getState().layerOptions.transit.visibleModes;
+    expect(initialModes).toContain('Bus');
+    expect(initialModes).toContain('Unknown');
+
+    await act(async () => {
+      shell.emit('vellum://menu-action', 'menu.toggle-advanced.transit.Bus');
+    });
+
+    expect(
+      useVellumStore.getState().layerOptions.transit.visibleModes,
+    ).not.toContain('Bus');
+
+    await act(async () => {
+      shell.emit(
+        'vellum://menu-action',
+        'menu.toggle-advanced.transit.Unknown',
+      );
+    });
+
+    expect(
+      useVellumStore.getState().layerOptions.transit.visibleModes,
+    ).toContain('Unknown');
+  });
+
   it('ignora acciones que requieren mapa cuando no hay cityData', async () => {
     await act(async () => {
       render(<App />);

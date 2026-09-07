@@ -4,7 +4,7 @@
  * See that function's module doc for the rendering steps this geometry feeds.
  */
 
-import type { TransitMode } from '@vellum/core';
+import type { TransitMode, TransitStopEntry } from '@vellum/core';
 import type { CsPoint } from '../../coordinate-transform';
 
 /** A trimmed corridor centerline ready for offset rendering. */
@@ -14,7 +14,7 @@ export interface CorridorGeometry {
   /** Trimmed centerline, oriented nodeA → nodeB. */
   path: CsPoint[];
   /** Line ids in left-to-right order along the path direction. */
-  lineIds: string[];
+  lineIds: readonly string[];
 }
 
 /** One inner connection (paper §5 step 3) for a single line at a node. */
@@ -59,15 +59,18 @@ export interface TransitRenderGeometry {
   stations: StationGeometry[];
 }
 
-/** Internal: one deduplicated stop, before proximity grouping. */
-export interface StopEntry {
-  /** CS1 stop id. */
-  stopId: string;
-  /** World-space stop position. */
-  position: CsPoint;
-  /** Line this entry was recorded for. */
-  lineId: string;
-}
+/**
+ * One deduplicated stop, as it arrives from the network's transfer candidates.
+ *
+ * @remarks
+ * Alias of the canonical `TransitStopEntry` of `@vellum/core` (Story 1.5): the
+ * dedupe and grouping rules moved to `deriveTransitNetwork`, this name is kept
+ * so the adapter's existing surface does not change.
+ *
+ * @deprecated Use `TransitStopEntry` from `@vellum/core`; this alias exists
+ * only to keep the adapter's export surface stable across the migration.
+ */
+export type StopEntry = TransitStopEntry;
 
 /** Internal: the lines of a proximity-grouped stop assigned to one corridor. */
 export interface Bucket {

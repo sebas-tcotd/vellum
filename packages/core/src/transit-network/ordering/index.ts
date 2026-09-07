@@ -32,7 +32,7 @@ import type {
   BundleOrderConfig,
   LineOrderConfig,
   LineOrderResult,
-} from './types';
+} from '../../types/transit-network';
 import { factorial } from './utils/combinatorics';
 
 export { scoreConfiguration } from './scoring';
@@ -41,7 +41,7 @@ export type {
   LineOrderConfig,
   LineOrderResult,
   OrderingStats,
-} from './types';
+} from '../../types/transit-network';
 
 /**
  * Computes the line ordering for the whole graph: exhaustive for small

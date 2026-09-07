@@ -6,8 +6,11 @@
  * hubs).
  */
 
-import type { CityData } from '@vellum/core';
-import type { LineGraphEdge, CorridorTransition } from '../types';
+import type { CityData } from '../../../types/city-data';
+import type {
+  LineGraphEdge,
+  CorridorTransition,
+} from '../../../types/transit-network';
 import { continuationKey } from '../utils/keys';
 import { getOrCreate } from '../utils/collections';
 

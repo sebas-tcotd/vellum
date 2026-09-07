@@ -5,7 +5,10 @@
  * edges are maximal corridors rather than individual road segments.
  */
 
-import type { BaseSegment, LineGraphEdge } from '../types';
+import type {
+  BaseSegment,
+  LineGraphEdge,
+} from '../../../types/transit-network';
 import type { CsPoint } from '../../../coordinate-transform';
 import { keyOfLineSet } from '../utils/keys';
 import { getOrCreate } from '../utils/collections';

@@ -5,7 +5,10 @@
  * only.
  */
 
-import type { LineGraphEdge, LineGraphNode } from '../types';
+import type {
+  LineGraphEdge,
+  LineGraphNode,
+} from '../../../types/transit-network';
 
 /**
  * Finds connected components (via shared nodes) among edges with two or

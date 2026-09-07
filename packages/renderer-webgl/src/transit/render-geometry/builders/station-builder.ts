@@ -7,14 +7,13 @@
  * there.
  */
 
-import type { CityData } from '@vellum/core';
+import type { CityData, TransitTransferCandidate } from '@vellum/core';
 import type { CsPoint } from '../../../coordinate-transform';
 import {
   SLOT_M,
   STATION_ACROSS_MARGIN_M,
   STATION_CORNER_STEPS,
   STATION_HALF_THICKNESS_M,
-  STATION_MERGE_THRESHOLD_M,
 } from '../config';
 import type {
   Bucket,
@@ -24,74 +23,23 @@ import type {
   StopEntry,
 } from '../types';
 import { roundedRectRing } from '../utils/shape';
-import {
-  add,
-  norm,
-  projectOnPath,
-  rightOf,
-  scale,
-  sub,
-  unit,
-} from '../utils/vector';
+import { add, projectOnPath, rightOf, scale, unit } from '../utils/vector';
 
-/** Builds station markers from proximity-grouped stops projected onto their corridor. */
+/**
+ * Builds station markers from the network's transfer candidates (already
+ * deduplicated and proximity-grouped by `@vellum/core`), projected onto their
+ * corridor.
+ */
 export function buildStations(
   cityData: CityData,
   corridors: Map<string, CorridorGeometry>,
+  transferCandidates: readonly TransitTransferCandidate[],
 ): StationGeometry[] {
-  const stopEntries = extractUniqueStops(cityData);
-  const stopGroups = groupStopsByProximity(stopEntries);
   const lineInfoMap = createLineInfoMap(cityData);
 
-  return stopGroups.flatMap((group) =>
+  return transferCandidates.flatMap((group) =>
     createStationPolygonsForGroup(group, corridors, lineInfoMap),
   );
-}
-
-function extractUniqueStops(cityData: CityData): StopEntry[] {
-  const entries: StopEntry[] = [];
-  const sortedLines = [...cityData.transitLines].sort((a, b) =>
-    a.id.localeCompare(b.id),
-  );
-
-  for (const line of sortedLines) {
-    const seen = new Set<string>();
-    for (const stop of line.stops) {
-      if (seen.has(stop.id)) continue; // circular routes repeat the terminal stop
-      seen.add(stop.id);
-      entries.push({
-        stopId: stop.id,
-        position: { x: stop.position.x, z: stop.position.z },
-        lineId: line.id,
-      });
-    }
-  }
-  return entries;
-}
-
-/** Greedy proximity grouping (deterministic: entries are in sorted order). */
-function groupStopsByProximity(entries: StopEntry[]): StopEntry[][] {
-  const groupedIndices = new Set<number>();
-  const groups: StopEntry[][] = [];
-
-  for (let i = 0; i < entries.length; i++) {
-    if (groupedIndices.has(i)) continue;
-
-    const currentGroup = [entries[i]];
-    groupedIndices.add(i);
-
-    for (let j = i + 1; j < entries.length; j++) {
-      if (groupedIndices.has(j)) continue;
-      const distance = norm(sub(entries[j].position, entries[i].position));
-
-      if (distance <= STATION_MERGE_THRESHOLD_M) {
-        currentGroup.push(entries[j]);
-        groupedIndices.add(j);
-      }
-    }
-    groups.push(currentGroup);
-  }
-  return groups;
 }
 
 function createLineInfoMap(cityData: CityData): Map<string, StationLineInfo> {
@@ -104,7 +52,7 @@ function createLineInfoMap(cityData: CityData): Map<string, StationLineInfo> {
 }
 
 function createStationPolygonsForGroup(
-  group: StopEntry[],
+  group: readonly StopEntry[],
   corridors: Map<string, CorridorGeometry>,
   lineInfoMap: Map<string, StationLineInfo>,
 ): StationGeometry[] {
@@ -131,7 +79,7 @@ function createStationPolygonsForGroup(
   return stations;
 }
 
-function calculateCentroid(group: StopEntry[]): CsPoint {
+function calculateCentroid(group: readonly StopEntry[]): CsPoint {
   const sum = group.reduce((acc, e) => add(acc, e.position), { x: 0, z: 0 });
   return scale(sum, 1 / group.length);
 }

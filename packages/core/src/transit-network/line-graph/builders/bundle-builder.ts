@@ -5,7 +5,7 @@
  * rather than individual lines.
  */
 
-import type { BaseSegment, LineBundle } from '../types';
+import type { BaseSegment, LineBundle } from '../../../types/transit-network';
 import { getOrCreate } from '../utils/collections';
 
 /** Result of {@link collapseBundles}. */

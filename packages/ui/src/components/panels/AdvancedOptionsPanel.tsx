@@ -5,13 +5,8 @@ import type {
   LayerName,
   TransitMode,
 } from '@vellum/core';
-import { TRANSIT_MODES } from '@vellum/core';
+import { TOGGLABLE_TRANSIT_MODES } from '@vellum/core';
 import { useTranslation } from 'react-i18next';
-
-/** Modes rendered as checkboxes — excludes `'Unknown'`, which has no display
- * label (see `transitModes.Unknown` in the locale files) and is always kept
- * visible rather than exposed as a togglable row. */
-const TOGGLABLE_TRANSIT_MODES = TRANSIT_MODES.filter((m) => m !== 'Unknown');
 
 /** The 4 zoning categories CSLMapView's "Ocultar Edificios R/I/C/O" option exposes.
  * `civic` and `none` (services, landmarks) are intentionally not togglable here,

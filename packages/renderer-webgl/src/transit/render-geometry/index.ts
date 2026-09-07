@@ -29,9 +29,7 @@
  * MapLibre's positive `line-offset` direction.
  */
 
-import type { CityData } from '@vellum/core';
-import type { TransitLineGraph } from '../line-graph';
-import type { LineOrderConfig } from '../ordering';
+import type { CityData, TransitNetwork } from '@vellum/core';
 import { buildConnectors } from './builders/connector-builder';
 import { buildCorridors } from './builders/corridor-builder';
 import { buildStations } from './builders/station-builder';
@@ -62,29 +60,32 @@ export {
 
 /**
  * Builds all world-space render geometry for the transit layer group from the
- * optimized line graph.
+ * derived transit network.
  *
- * @param graph - The transit line graph.
- * @param lineOrder - Per-edge line order from `computeLineOrder`.
- * @param cityData - Domain model (for stop positions and line names).
+ * @param network - The derived transit network from `deriveTransitNetwork`
+ *   (`@vellum/core`): corridors, ordering, stops and transfer candidates.
+ * @param cityData - Domain model (for line names and colors).
  * @returns Corridors, inner connections, and station polygons.
  */
 export function buildRenderGeometry(
-  graph: TransitLineGraph,
-  lineOrder: LineOrderConfig,
+  network: TransitNetwork,
   cityData: CityData,
 ): TransitRenderGeometry {
   // 1. Corridors: trim back from junction nodes.
-  const corridors = buildCorridors(graph, lineOrder);
+  const corridors = buildCorridors(network);
 
   // 2. Inner connections (paper §5 step 3): one cubic Bézier per route
   // transition, driven by the route-derived transitions, so lines that touch
   // 3+ corridors at a node (loops, roundabouts, revisited hubs) still connect
   // correctly.
-  const connectors = buildConnectors(graph, corridors);
+  const connectors = buildConnectors(network, corridors);
 
-  // 3. Stations: proximity-grouped stops projected onto their corridor.
-  const stations = buildStations(cityData, corridors);
+  // 3. Stations: the network's transfer candidates projected onto their corridor.
+  const stations = buildStations(
+    cityData,
+    corridors,
+    network.transferCandidates,
+  );
 
   return {
     corridors: Array.from(corridors.values()),

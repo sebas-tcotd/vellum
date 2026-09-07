@@ -10,17 +10,17 @@
  */
 
 import type { ServiceGroup } from '../service-icons';
-import type { TransitMode } from './city-data';
+import type { LineInfo } from './transit-network';
 
-/** A transit line serving a hovered stop, reduced to what the tooltip paints. */
-export type TransitLineInfo = {
-  /** Line name as authored in the `.cslmap`. */
-  name: string;
-  /** Line color, already resolved to a CSS color string. */
-  color: string;
-  /** Transport mode the line runs on. */
-  mode: TransitMode;
-};
+/**
+ * A transit line serving a hovered stop, reduced to what the tooltip paints.
+ *
+ * @remarks
+ * Derived from the canonical {@link LineInfo} of the transit network instead
+ * of redeclaring name/color/mode: the tooltip is a projection of the same
+ * vocabulary, minus identity and extension payload.
+ */
+export type TransitLineInfo = Omit<LineInfo, 'id' | 'attributes'>;
 
 /** Info emitted by the hover subscription when the cursor enters a transit-stop feature. */
 export interface TransitTooltipInfo {
