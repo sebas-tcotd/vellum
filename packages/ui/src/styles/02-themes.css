@@ -78,20 +78,20 @@
      theme instead of sampling the map or wallpaper a second time. */
   --shell-mica-start: color-mix(
     in srgb,
-    var(--shell-mica-highway, var(--color-accent)) 30%,
+    var(--shell-mica-highway, var(--color-accent)) 26%,
     var(--shell-solid-surface)
   );
   --shell-mica-end: color-mix(
     in srgb,
-    var(--shell-solid-surface) 78%,
+    var(--shell-solid-surface) 82%,
     var(--color-bg)
   );
   --shell-mica-highlight: color-mix(
     in srgb,
-    var(--color-primary) 12%,
+    var(--color-primary) 10%,
     transparent
   );
-  --shell-mica-noise-opacity: 0.045;
+  --shell-mica-noise-opacity: 0.04;
   --shell-floating-backdrop-filter: blur(var(--shell-backdrop-blur))
     saturate(var(--shell-backdrop-saturate));
   --shell-popover-backdrop-filter: blur(var(--shell-backdrop-blur))
@@ -217,20 +217,20 @@
   --shell-surface-popover: rgba(43, 43, 43, 0.99);
   --shell-mica-start: color-mix(
     in srgb,
-    var(--shell-mica-highway, var(--color-accent)) 30%,
+    var(--shell-mica-highway, var(--color-accent)) 26%,
     var(--shell-solid-surface)
   );
   --shell-mica-end: color-mix(
     in srgb,
-    var(--shell-solid-surface) 78%,
+    var(--shell-solid-surface) 82%,
     var(--color-bg)
   );
   --shell-mica-highlight: color-mix(
     in srgb,
-    var(--color-primary) 7%,
+    var(--color-primary) 6%,
     transparent
   );
-  --shell-mica-noise-opacity: 0.045;
+  --shell-mica-noise-opacity: 0.04;
   --shell-border: rgba(255, 255, 255, 0.09);
   --color-border: rgba(255, 255, 255, 0.09);
   --color-input: rgba(255, 255, 255, 0.09);
