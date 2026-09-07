@@ -2,6 +2,20 @@
 
 All notable changes to Vellum will be documented here.
 
+## [0.7.0](https://github.com/sebas-tcotd/vellum/compare/v0.6.0...v0.7.0) (2026-09-07)
+
+
+### Features
+
+* **roads:** dar tier propio a la calle peatonal y excluir la ruta de helicóptero ([c9dc461](https://github.com/sebas-tcotd/vellum/commit/c9dc4613fcf538af88dd76e2160d307de81cbf4f))
+* **roads:** dar tratamiento propio al teleférico y aplanar las cabezas de pista ([14d35aa](https://github.com/sebas-tcotd/vellum/commit/14d35aa294379a929440076eb8621d7c31646eae))
+
+
+### Bug Fixes
+
+* **export:** convertir los dasharray de MapLibre a píxeles de salida ([c751d0d](https://github.com/sebas-tcotd/vellum/commit/c751d0d50d225c4f3345b3f927f23cfa3e4fad06))
+* **parser:** corregir el vocabulario de ItemClass y eliminar la clasificación por ancho duplicada ([6fef47d](https://github.com/sebas-tcotd/vellum/commit/6fef47d087e0cd8b842b68628f5a1c54f47ffa2e))
+
 ## [0.6.0](https://github.com/sebas-tcotd/vellum/compare/v0.5.1...v0.6.0) (2026-09-06)
 
 
