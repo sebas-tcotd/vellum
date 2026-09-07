@@ -260,6 +260,20 @@ describe('golden cartographic flow', () => {
       intervalMs: 50,
       describe: 'the export to start reporting progress',
     });
+    // Progress alone is not evidence that an export began: a `begin_export`
+    // that fails outright still flashes the overlay before the error toast
+    // replaces it, and this test's assertions are all about absence — they
+    // would pass just as well for an export that never started. The `.part`
+    // file only exists once the session is genuinely open, so it is what makes
+    // the cancellation below a cancellation.
+    await waitUntil(
+      async () => (await outputResidue(downloadsDir)).length > 0,
+      {
+        timeoutMs: 30_000,
+        intervalMs: 50,
+        describe: 'the export session to open its .part file',
+      },
+    );
 
     await browser.execute(() => {
       document.querySelector('[role="progressbar"] button')?.click();
