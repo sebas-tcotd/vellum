@@ -92,7 +92,9 @@ describe('platform adaptation', () => {
     expect(shellCss).toContain('--shell-mica-highlight');
     expect(shellCss).toContain('--shell-mica-noise-opacity');
     expect(shellCss).toContain("[data-platform='windows'] .shell-sidebar {");
-    expect(shellCss).toContain('background-color: var(--shell-surface-sidebar)');
+    expect(shellCss).toContain(
+      'background-color: var(--shell-surface-sidebar)',
+    );
     expect(shellCss).toContain('background-image:');
     expect(shellCss).toContain('color-mix(');
   });
