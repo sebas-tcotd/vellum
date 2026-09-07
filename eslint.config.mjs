@@ -318,10 +318,14 @@ export default [
     },
   },
   {
-    // Node-side tooling scripts (the baseline export golden harness). Plain
-    // ESM, no TS parser — they sit outside the tsc projects, so lint and
-    // prettier are their only gates.
-    files: ['packages/*/test/**/*.mjs', 'apps/desktop/scripts/**/*.mjs'],
+    // Node-side tooling scripts (the baseline export golden harness) and the
+    // golden-flow E2E suite. Plain ESM, no TS parser — they sit outside the
+    // tsc projects, so lint and prettier are their only gates.
+    files: [
+      'packages/*/test/**/*.mjs',
+      'apps/desktop/scripts/**/*.mjs',
+      'apps/desktop/tests/**/*.mjs',
+    ],
     languageOptions: {
       ecmaVersion: 'latest',
       sourceType: 'module',

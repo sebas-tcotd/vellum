@@ -7,7 +7,8 @@ export default mergeConfig(
   baseConfig,
   defineConfig({
     test: {
-      // Exclude Playwright e2e tests — they run via `test:e2e`, not vitest
+      // The golden-flow E2E suite lives under tests/ and runs via `test:e2e`
+      // against a compiled binary; `pnpm test` must never start the app.
       exclude: ['tests/**', '**/node_modules/**'],
       include: ['src/**/*.{test,spec}.{ts,tsx}'],
       setupFiles: [

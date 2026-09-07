@@ -135,11 +135,27 @@ export function MapViewport({
 
   const showOverlays = cityData !== null && !isCleanView;
 
+  // The one readiness signal the map region publishes to the outside world.
+  // `canvas-wrapper`'s opacity already tracks `cityData`, but opacity is a
+  // presentation detail an automated check cannot read as a state machine, and
+  // it collapses "nothing opened yet" and "opening right now" into the same
+  // transparent frame. `loading` wins over a still-present `cityData` because
+  // a second load leaves the previous city on screen while the new one parses:
+  // reporting `ready` there would let a driver act on a map that is about to
+  // be replaced. Nothing else derives from this — it is read, never rendered.
+  const mapState =
+    loadingState === 'loading'
+      ? 'loading'
+      : cityData !== null
+        ? 'ready'
+        : 'empty';
+
   return (
     <main
       ref={viewportRef}
       className="map-surface"
       data-testid="map-surface"
+      data-map-state={mapState}
       aria-label={t('a11y.mapViewport')}
     >
       <OverlayCollisionProvider

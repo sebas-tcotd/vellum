@@ -45,6 +45,10 @@ opencode.json
 # .rgba sidecar is ~10x the size of its .png and nothing reads it.
 packages/renderer-webgl/test/export-goldens/**/*.rgba
 
+# Captures the golden-flow visual comparison writes next to a failing baseline
+# for inspection. Scratch output, never evidence — see the baselines README.
+apps/desktop/tests/e2e/baselines/*.actual.png
+
 # OS files
 .DS_Store
 *.swp

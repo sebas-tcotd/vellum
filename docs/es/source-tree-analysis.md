@@ -27,7 +27,7 @@ vellum/
 │       │   │   ├── ipc_contract.rs     # Payloads IPC internos (incl. UpdatePayload)
 │       │   │   └── export/             # session.rs (ExportSessionManager), framing.rs, svg_writer.rs, tile_composer.rs
 │       │   └── resources/themes/       # 5 temas built-in (.vellumstyle): day, grayscale, classic, transit, grayscale-water
-│       └── tests/e2e/smoke.spec.ts     # Playwright — smoke test mínimo (título + body visible)
+│       └── tests/e2e/                  # Flujo dorado E2E — tauri-driver + webdriverio sobre el binario de release
 ├── packages/
 │   ├── core/                           # @vellum/core — capa de dominio pura, cero dependencias internas
 │   │   └── src/

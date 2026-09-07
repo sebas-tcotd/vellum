@@ -23,21 +23,21 @@ Vellum-native exporter remains a separate direction from the v1 viewer.
 
 ## Technology stack
 
-| Category            | Technology                           | Version                          |
-| ------------------- | ------------------------------------ | -------------------------------- |
-| Language            | TypeScript                           | `~5.8.3`                         |
-| UI framework        | React                                | `^19.1.0`                        |
-| Native shell        | Tauri                                | `2.x`                            |
-| Native language     | Rust                                 | Edition 2021, toolchain `1.96.0` |
-| Frontend build      | Vite                                 | `^7.0.4`                         |
-| Renderer            | MapLibre GL JS                       | `^5.24.0`                        |
-| Package manager     | pnpm                                 | `10.33.0`                        |
-| Build orchestration | Turborepo                            | `2.9.3`                          |
-| State               | Zustand                              | `^5.0.12`                        |
-| Styling             | Tailwind CSS 4 + Radix UI primitives | —                                |
-| TypeScript tests    | Vitest                               | `^4.1.2`                         |
-| End-to-end tests    | Playwright                           | `^1.59.1`                        |
-| XML parser          | quick-xml                            | `0.36`                           |
+| Category            | Technology                             | Version                          |
+| ------------------- | -------------------------------------- | -------------------------------- |
+| Language            | TypeScript                             | `~5.8.3`                         |
+| UI framework        | React                                  | `^19.1.0`                        |
+| Native shell        | Tauri                                  | `2.x`                            |
+| Native language     | Rust                                   | Edition 2021, toolchain `1.96.0` |
+| Frontend build      | Vite                                   | `^7.0.4`                         |
+| Renderer            | MapLibre GL JS                         | `^5.24.0`                        |
+| Package manager     | pnpm                                   | `10.33.0`                        |
+| Build orchestration | Turborepo                              | `2.9.3`                          |
+| State               | Zustand                                | `^5.0.12`                        |
+| Styling             | Tailwind CSS 4 + Radix UI primitives   | —                                |
+| TypeScript tests    | Vitest                                 | `^4.1.2`                         |
+| End-to-end tests    | tauri-driver + webdriverio (on Vitest) | webdriverio `^9.24.1`            |
+| XML parser          | quick-xml                              | `0.36`                           |
 
 ## Repository structure
 

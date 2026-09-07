@@ -27,7 +27,7 @@ vellum/
 │       │   │   ├── ipc_contract.rs      # Native IPC payloads
 │       │   │   └── export/              # Sessions, framing, SVG and tile composition
 │       │   └── resources/themes/        # Built-in .vellumstyle themes
-│       └── tests/e2e/                   # Playwright smoke test
+│       └── tests/e2e/                   # Golden-flow E2E (tauri-driver + webdriverio)
 ├── packages/
 │   ├── core/                            # @vellum/core — pure domain layer
 │   │   └── src/

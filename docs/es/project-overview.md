@@ -29,7 +29,7 @@ La versión actual de la aplicación es `v0.5.0`. El flujo principal del visor e
 | Renderer activo      | MapLibre GL JS                             | ^5.24.0                                           |
 | Estilos              | Tailwind CSS v4 + Radix UI (patrón shadcn) | —                                                 |
 | Tests TS             | Vitest                                     | ^4.1.2                                            |
-| Tests E2E            | Playwright                                 | ^1.59.1 (1 smoke test)                            |
+| Tests E2E            | tauri-driver + webdriverio (vía Vitest)    | webdriverio ^9.24.1                               |
 | i18n                 | react-i18next + i18next                    | en/es                                             |
 | Estado               | Zustand                                    | ^5.0.12                                           |
 | Preferencias         | tauri-plugin-store                         | `preferences.json`                                |

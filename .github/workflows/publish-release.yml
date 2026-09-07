@@ -91,6 +91,15 @@ jobs:
             exit 1
           fi
 
+  # El gate real de publicación (Story 1.7). Es el mismo workflow que corre en
+  # cada PR, invocado aquí de nuevo contra el commit taggeado: un tag puede
+  # apuntar a algo que nunca pasó por `ci.yml`, así que la evidencia se produce
+  # sobre lo que efectivamente se va a publicar, no sobre lo que se prometió.
+  e2e-golden-flow:
+    name: E2E Golden Flow
+    needs: preflight
+    uses: ./.github/workflows/e2e-golden-flow.yml
+
   build-frontend:
     name: Build frontend (shared)
     needs: preflight
@@ -124,7 +133,9 @@ jobs:
 
   build-release:
     name: Build ${{ matrix.platform }}
-    needs: [preflight, build-frontend]
+    # Ninguna plataforma empieza a compilar hasta que el flujo dorado pasó: un
+    # gate que corre en paralelo con la publicación no es un gate.
+    needs: [preflight, build-frontend, e2e-golden-flow]
     strategy:
       fail-fast: false
       # tauri-action merges the existing latest.json when each platform uploads
@@ -170,7 +181,7 @@ jobs:
 
   finalize-release:
     name: Verify release assets and publish
-    needs: [preflight, build-release]
+    needs: [preflight, build-release, e2e-golden-flow]
     runs-on: ubuntu-latest
     steps:
       - name: Verify required release assets are present
