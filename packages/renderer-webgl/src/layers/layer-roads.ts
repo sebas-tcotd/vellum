@@ -5,7 +5,7 @@
  * Internal module — not exported from the package barrel.
  */
 
-import type { CityData } from '@vellum/core';
+import type { CityData, RoadCategory } from '@vellum/core';
 import type maplibregl from 'maplibre-gl';
 import {
   buildRoadColorExpression,
@@ -43,35 +43,25 @@ export function addRoadsLayer(
     maxzoom: HEAVY_SOURCE_MAX_ZOOM,
   });
 
-  const notFerry = [
-    '!=',
-    ['get', 'itemClass'],
-    'Ferry Path',
-  ] as unknown as maplibregl.ExpressionSpecification;
-  const notRailway = [
-    '!',
+  // Network membership comes from the canonical `category` property emitted by
+  // the GeoJSON builder (`classifyRoadCategory` in `@vellum/core`), never from
+  // item-class literals repeated per layer.
+  const isCategory = (category: RoadCategory) =>
     [
-      'in',
-      ['get', 'itemClass'],
-      [
-        'literal',
-        [
-          'Train Track',
-          'Train Track Tunnel',
-          'Train Track Elevated',
-          'Metro Track',
-          'Metro Track Tunnel',
-          'Metro Track Elevated',
-          'Monorail Track',
-          'Monorail Track Elevated',
-        ],
-      ],
-    ],
-  ] as unknown as maplibregl.ExpressionSpecification;
-  const notAirship = [
-    '!',
-    ['in', ['get', 'itemClass'], ['literal', ['Blimp Path', 'Blimp Line']]],
-  ] as unknown as maplibregl.ExpressionSpecification;
+      '==',
+      ['get', 'category'],
+      category,
+    ] as unknown as maplibregl.ExpressionSpecification;
+  const isNotCategory = (category: RoadCategory) =>
+    [
+      '!=',
+      ['get', 'category'],
+      category,
+    ] as unknown as maplibregl.ExpressionSpecification;
+
+  const notFerry = isNotCategory('ferry');
+  const notRailway = isNotCategory('railway');
+  const notAirship = isNotCategory('airship');
 
   // Tunnels render *below* at-grade roads (added first): solid casing avoids
   // the dash-alignment gap bug, dashed fill + reduced opacity signal depth.
@@ -270,7 +260,7 @@ export function addRoadsLayer(
     id: 'roads-ferry',
     type: 'line',
     source: 'roads',
-    filter: ['==', ['get', 'itemClass'], 'Ferry Path'],
+    filter: isCategory('ferry'),
     layout: { 'line-cap': 'butt', 'line-join': 'round' },
     paint: {
       'line-color': colors.ferry,
@@ -295,11 +285,7 @@ export function addRoadsLayer(
     id: 'roads-blimp',
     type: 'line',
     source: 'roads',
-    filter: [
-      'in',
-      ['get', 'itemClass'],
-      ['literal', ['Blimp Path', 'Blimp Line']],
-    ],
+    filter: isCategory('airship'),
     layout: { 'line-cap': 'butt', 'line-join': 'round' },
     paint: {
       'line-color': resolveAirshipColor(colors.ferry),
@@ -312,23 +298,7 @@ export function addRoadsLayer(
 
   // ─── Railways: surface / elevated / underground ──────────────────────────
 
-  const isRailway = [
-    'in',
-    ['get', 'itemClass'],
-    [
-      'literal',
-      [
-        'Train Track',
-        'Train Track Tunnel',
-        'Train Track Elevated',
-        'Metro Track',
-        'Metro Track Tunnel',
-        'Metro Track Elevated',
-        'Monorail Track',
-        'Monorail Track Elevated',
-      ],
-    ],
-  ] as unknown as maplibregl.ExpressionSpecification;
+  const isRailway = isCategory('railway');
 
   // Surface railways: solid casing + dashed fill (cross-tie pattern).
   addLayerIfAbsent(map, {

@@ -60,6 +60,7 @@ export type {
   LineStringGeometry,
   PointGeometry,
   PolygonGeometry,
+  RoadCategory,
   RoadFeature,
   RoadFeatureProperties,
   RoadsFeatureCollection,

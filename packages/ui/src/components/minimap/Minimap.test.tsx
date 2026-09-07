@@ -265,6 +265,80 @@ describe('Minimap', () => {
   });
 });
 
+describe('highway pre-render', () => {
+  const cityWithRoads: CityData = {
+    ...mockCityData,
+    roadNodes: [
+      { id: 'n0', position: { x: 0, y: 0, z: 0 } },
+      { id: 'n1', position: { x: 1000, y: 0, z: 0 } },
+      { id: 'n2', position: { x: 2000, y: 0, z: 0 } },
+      { id: 'n3', position: { x: 3000, y: 0, z: 0 } },
+    ],
+    roadSegments: [
+      {
+        id: 'hw-tunnel',
+        startNodeId: 'n0',
+        endNodeId: 'n1',
+        points: [],
+        wayType: ['Road', 'Tunnel'],
+        itemClass: 'Highway Tunnel',
+        width: 32,
+      },
+      {
+        id: 'small',
+        startNodeId: 'n1',
+        endNodeId: 'n2',
+        points: [],
+        wayType: ['Road'],
+        itemClass: 'Small Road',
+        width: 16,
+      },
+      {
+        id: 'modded-hw',
+        startNodeId: 'n2',
+        endNodeId: 'n3',
+        points: [],
+        wayType: ['Highway'],
+        itemClass: 'Super Freeway DLC',
+        width: 8,
+      },
+    ],
+  };
+
+  const props = {
+    subscribeViewport: vi.fn(() => vi.fn()),
+    getInitialViewportBounds: vi.fn(() => null),
+    navigateTo: vi.fn(),
+  };
+
+  it('strokes every highway-tier segment, and only those, at palette.highway', () => {
+    const palette = { water: '#111111', land: '#222222', highway: '#334455' };
+
+    render(<Minimap {...props} cityData={cityWithRoads} palette={palette} />);
+
+    // `Highway Tunnel` (item class) and the modded `wayType: ['Highway']`
+    // asset both classify as the highway tier; `Small Road` does not.
+    expect(mockCtx.stroke).toHaveBeenCalled();
+    expect(mockCtx.strokeStyle).toBe(palette.highway);
+    expect(mockCtx.moveTo).toHaveBeenCalledTimes(2);
+    expect(mockCtx.lineTo).toHaveBeenCalledTimes(2);
+  });
+
+  it('draws no road strokes when the city has no highway-tier segments', () => {
+    const noHighways: CityData = {
+      ...cityWithRoads,
+      roadSegments: cityWithRoads.roadSegments.filter(
+        (s) => s.itemClass === 'Small Road',
+      ),
+    };
+
+    render(<Minimap {...props} cityData={noHighways} />);
+
+    expect(mockCtx.moveTo).not.toHaveBeenCalled();
+    expect(mockCtx.lineTo).not.toHaveBeenCalled();
+  });
+});
+
 describe('keyboard navigation', () => {
   const bounds = {
     westLng: -0.5,

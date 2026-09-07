@@ -27,6 +27,7 @@ export type {
   PolygonGeometry,
 } from './geojson-primitives';
 export type {
+  RoadCategory,
   RoadFeature,
   RoadFeatureProperties,
   RoadsFeatureCollection,

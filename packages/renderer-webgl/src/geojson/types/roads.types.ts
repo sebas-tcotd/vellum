@@ -1,29 +1,15 @@
-/** Road-feature GeoJSON types and the road tier/width model. */
+/** Road-feature GeoJSON types, over the canonical tier/width model. */
 
+import type { RoadCategory, RoadTier, RoadWidthStyle } from '@vellum/core';
 import type {
   Feature,
   FeatureCollection,
   LineStringGeometry,
 } from './geojson-primitives';
 
-export type RoadTier =
-  | 'highway'
-  | 'train'
-  | 'metro'
-  | 'largeArterial'
-  | 'mediumArterial'
-  | 'local'
-  | 'gravel'
-  | 'pedestrian'
-  | 'pedestrianWay';
-
-/** Width model for a road tier: `totalWidth = fixed + scaled * zoomFactor`. */
-export interface RoadWidthStyle {
-  /** Fixed component of the line width model. */
-  fixed: number;
-  /** Scaled component of the line width model. */
-  scaled: number;
-}
+// The tier vocabulary and its width model are canonical in `@vellum/core`
+// (ADR-0001 D6). Re-exported here so the `geojson` barrel keeps its surface.
+export type { RoadCategory, RoadTier, RoadWidthStyle };
 
 /**
  * Properties attached to each road segment GeoJSON feature.
@@ -36,6 +22,11 @@ export interface RoadFeatureProperties {
   itemClass: string;
   /** Classified road tier used for color and width expressions. */
   tier: RoadTier;
+  /**
+   * Which network the segment belongs to, and therefore which layer draws it.
+   * Drives `['get', 'category']` filters instead of item-class literals.
+   */
+  category: RoadCategory;
   /** Whether the segment's wayType includes Tunnel. */
   isTunnel: boolean;
   /** Whether the segment's wayType includes Bridge. */

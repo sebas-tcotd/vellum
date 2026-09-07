@@ -391,9 +391,7 @@ function buildRoadEntities(context: LayerContext): SceneEntity[] {
     );
     const cap = capEnds ? ('round' as const) : ('butt' as const);
     const geometry = { kind: 'path', points } as const;
-    const isAirshipPath =
-      feature.properties.itemClass === 'Blimp Path' ||
-      feature.properties.itemClass === 'Blimp Line';
+    const isAirshipPath = feature.properties.category === 'airship';
 
     if (isAirshipPath) {
       fills.push({

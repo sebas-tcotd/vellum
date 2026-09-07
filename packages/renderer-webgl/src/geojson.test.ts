@@ -544,6 +544,33 @@ describe('buildRoadsGeoJson — tier classification', () => {
     const fc = buildRoadsGeoJson(city);
     expect(fc.features[0].properties.tier).toBe('train');
   });
+
+  // `properties.category` is the sole input to every filter in
+  // `layer-roads.ts`. If the builder stopped emitting it, those `!=` filters
+  // would pass for everything and railways, ferries and airship paths would be
+  // drawn as ordinary roads — with no other test noticing.
+  it.each([
+    ['Train Track', 'railway'],
+    ['Ferry Path', 'ferry'],
+    ['Blimp Path', 'airship'],
+    ['Small Road', 'road'],
+  ])('emits properties.category %s → %s', (itemClass, category) => {
+    const city = makeCityData({
+      roadNodes: [NODE_A, NODE_B],
+      roadSegments: [
+        makeRoadSegment({
+          id: `cat-${itemClass}`,
+          startNodeId: 'node-a',
+          endNodeId: 'node-b',
+          itemClass,
+        }),
+      ],
+    });
+
+    const fc = buildRoadsGeoJson(city);
+    expect(fc.features).toHaveLength(1);
+    expect(fc.features[0].properties.category).toBe(category);
+  });
 });
 
 // ─── buildRoadsGeoJson — welding & caps ─────────────────────────────────────
