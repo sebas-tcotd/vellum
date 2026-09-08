@@ -66,6 +66,13 @@ describe('vellum-store — persistencia de preferencias (Story 7.2)', () => {
     expect(persistPreferenceMock).toHaveBeenCalledWith('activeLayers', after);
   });
 
+  it('una instalación nueva busca actualizaciones: el default es true', () => {
+    // Story 1.8 AC4: este default tiene que coincidir con el de Rust cuando la
+    // clave no existe en preferences.json (`missing_key_checks_for_updates`).
+    // Si divergen, el switch dice una cosa y la conexión hace otra.
+    expect(useVellumStore.getState().autoUpdateEnabled).toBe(true);
+  });
+
   it('setAutoUpdateEnabled persiste autoUpdateEnabled con la key y valor correctos', () => {
     useVellumStore.getState().setAutoUpdateEnabled(true);
 

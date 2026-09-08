@@ -26,14 +26,18 @@ actually about to ship rather than against a promise made earlier.
 
 ## What runs automatically
 
-| Check                                      | Where                    | What it proves                                                                                                          |
-| ------------------------------------------ | ------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
-| Golden flow (open → ready → export)        | Linux CI                 | The compiled binary opens a `.cslmap` passed in argv, renders it, and the real `ExportDialog` writes the announced PNG. |
-| Export cancellation                        | Linux CI                 | A cancelled export publishes no file and leaves no orphan `.vellum-export-*.part`.                                      |
-| Surface and shell visual regression        | Linux CI                 | The rendered map and the shell chrome match committed baselines within the export goldens' versioned threshold.         |
-| Shell profiles (`windows`/`macos`/`linux`) | Linux CI                 | Each profile's token set produces a visibly distinct shell.                                                             |
-| Compile check                              | Windows, macOS, Linux CI | The Rust shell still compiles on all three targets (`compile-matrix` in `ci.yml`).                                      |
-| Bundle, signing and updater manifest       | Windows, macOS, Linux CI | Installers build, are signed, and the updater manifest resolves (`publish-release.yml`).                                |
+| Check                                      | Where                    | What it proves                                                                                                                                                                                 |
+| ------------------------------------------ | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Golden flow (open → ready → export)        | Linux CI                 | The compiled binary opens a `.cslmap` passed in argv, renders it, and the real `ExportDialog` writes the announced PNG.                                                                        |
+| Export cancellation                        | Linux CI                 | A cancelled export publishes no file and leaves no orphan `.vellum-export-*.part`.                                                                                                             |
+| Surface and shell visual regression        | Linux CI                 | The rendered map and the shell chrome match committed baselines within the export goldens' versioned threshold.                                                                                |
+| Shell profiles (`windows`/`macos`/`linux`) | Linux CI                 | Each profile's token set produces a visibly distinct shell.                                                                                                                                    |
+| Compile check                              | Windows, macOS, Linux CI | The Rust shell still compiles on all three targets (`compile-matrix` in `ci.yml`).                                                                                                             |
+| Bundle and updater manifest                | Windows, macOS, Linux CI | Installers build, their updater artifacts are signed, and the published `latest.json` resolves and validates (`publish-release.yml`).                                                          |
+| Windows Authenticode signature             | Windows CI               | **Only when a certificate is configured.** With one, the MSI signature is verified and an invalid one fails the release. Without one, the release still publishes and the absence is recorded. |
+| Signing evidence asset                     | Linux CI                 | Every release carries `signing-evidence.md` stating, per platform, whether the installer is code-signed and whether its updater artifact is (`publish-release.yml`).                           |
+| Network surface guardrail                  | Linux CI                 | `pnpm check:network` — no browser networking in production code, no HTTP crates, CSP and capabilities unchanged. Blocking.                                                                     |
+| Dependency audit                           | Linux CI                 | `pnpm audit:deps` reports JavaScript and Rust advisories. **Informative — never blocks.**                                                                                                      |
 
 The suite drives the **compiled release binary** through `tauri-driver` plus
 `webdriverio` used as a library, so it exercises the real WebView, the real IPC
@@ -41,12 +45,42 @@ boundary and the real export pipeline. It never points a separate browser at the
 Vite dev URL — that was the previous Playwright setup, and it verified the
 frontend in Chromium while proving nothing about the application.
 
+Note what the signing rows do **not** claim. macOS is never code-signed today:
+`tauri.conf.json` declares no `signingIdentity`, and the pipeline repackages the
+DMG after the build, which would invalidate a signature anyway. Windows is
+signed only when a certificate is configured. Neither absence blocks a release —
+both are recorded in the `signing-evidence.md` asset and warned about in the
+release notes. The reasoning is in
+[Security and privacy](security-and-privacy.md).
+
 ## What stays manual
 
 | Platform | Why it is not automated                                                                                                                                              | What a human checks                                                                               |
 | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
 | macOS    | Tauri v2 ships **no WebDriver implementation for WKWebView**. There is no driver to run, so a macOS runner cannot be driven at all — simulating it would be theatre. | Open a `.cslmap` from Finder, export, and confirm the window chrome, vibrancy and menu behaviour. |
 | Windows  | `tauri-driver` can drive WebView2 via `msedgedriver`, but a Windows runner is not part of this gate yet (extending it is a deliberate, separate decision).           | Same journey, plus the `.cslmap` file association the MSI installs.                               |
+
+### The CSP smoke check
+
+The golden flow exercises the Content-Security-Policy only on Linux, under
+WebKitGTK. The two directives most likely to differ between engines —
+`worker-src`/`child-src` with `blob:`, which MapLibre's worker pool depends on —
+are exactly the ones a single engine cannot vouch for: WebView2 (Windows) and
+WKWebView (macOS) implement them differently, and WebKit has historically not
+honoured `worker-src` at all. So on a release candidate, on **each** of Windows
+and macOS, with the WebView console open:
+
+1. Open a large `.cslmap` and confirm the map renders rather than staying blank
+   — a blank map is the signature of a blocked worker.
+2. Open the layer panel and any dialog (Preferences, About) — a broken
+   `style-src` shows as unstyled or invisible modal content.
+3. Export a PNG and export an SVG — both paths touch a worker, a `blob:` and a
+   `data:` URI at once.
+4. Confirm the console reports **no** CSP violation.
+
+A violation is a policy bug, not a reason to relax the policy to `'unsafe-eval'`:
+find the directive the evidence actually demands and record it in
+[Security and privacy](security-and-privacy.md).
 
 The three shell profiles are still covered on Linux, because they are selected
 by `data-platform` on `<html>` rather than by the host OS. That verifies the

@@ -28,6 +28,22 @@ Vellum is a native desktop app built with Tauri 2. Areas most relevant to securi
 
 Issues in third-party dependencies should generally be reported upstream, but feel free to flag them here too if you're not sure where they belong.
 
+Two things a reporter should know before filing, because they are deliberate and
+already documented rather than oversights:
+
+- **Vellum's releases are not code-signed.** There is no Authenticode certificate
+  for Windows and no Apple Developer ID for macOS, so installers trigger
+  SmartScreen and Gatekeeper warnings. Every release says so in its notes and
+  carries a `signing-evidence.md` asset recording, per platform, what was and was
+  not signed. Updater artifacts _are_ cryptographically signed, and that part is
+  mandatory — a release cannot be published without it.
+- **Dependency advisories are reported, not gated.** CI publishes a dependency
+  audit for JavaScript and Rust on every run without failing on findings, because
+  an advisory published upstream is not a regression in this repository. Most open
+  advisories affect build tooling that never reaches the shipped binary.
+
+The current posture — the Content Security Policy and why each permissive directive exists, the scope of the dependency audit and why it is informative, what an unsigned build means on each platform and where its evidence lives, and exactly what network Vellum opens — is documented in [docs/en/security-and-privacy.md](docs/en/security-and-privacy.md) ([español](docs/es/security-and-privacy.md)).
+
 ## Supported versions
 
 Only the latest released version is supported with security fixes. Vellum has not yet reached a stable 1.0 — there is no long-term support branch.

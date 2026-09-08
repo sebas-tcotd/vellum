@@ -65,7 +65,15 @@ pnpm lint                  # TypeScript checks and package lint tasks
 pnpm check:architecture    # enforces the one-way package dependency graph
 pnpm format                # writes Prettier formatting
 pnpm format:check          # checks formatting, as CI does
+pnpm check:network         # freezes the network surface — blocking, as CI does
+pnpm audit:deps            # JavaScript + Rust advisories — informative, always exits 0
 ```
+
+`check:network` fails if production code gains a `fetch`, an analytics SDK, an
+HTTP crate, or if the CSP, the capability permissions or the updater endpoint
+change. `audit:deps` needs `cargo install cargo-deny --locked` for its Rust
+half; without it the JavaScript half still reports. Both are explained in
+[Security and privacy](security-and-privacy.md).
 
 The architecture check is not cosmetic. A package may import another package
 only along the allowed dependency graph; use package barrels rather than another

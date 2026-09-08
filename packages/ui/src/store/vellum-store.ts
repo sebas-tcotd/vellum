@@ -81,7 +81,16 @@ interface VellumStore {
    * Non-empty triggers the ThemeWarningToast. */
   themeWarnings: ThemeWarning[];
 
-  /** Indicates whether the automatic update checker is enabled. */
+  /**
+   * Whether Vellum checks for a new release when it starts.
+   *
+   * @remarks
+   * The Rust shell reads the persisted value before spawning the check
+   * (`lib.rs`), so `false` means no connection is opened at all — not a silent
+   * check whose result is hidden. Defaults to `true`: a fresh install behaves
+   * as every release before Story 1.8 did, and the one network call Vellum
+   * makes stays opt-out rather than opt-in.
+   */
   autoUpdateEnabled: boolean;
 
   /** The currently active application language code. */
@@ -233,7 +242,7 @@ export const useVellumStore = create<VellumStore>((set, get) => ({
   layerOptions: DEFAULT_LAYER_OPTIONS,
   availableThemes: [],
   themeWarnings: [],
-  autoUpdateEnabled: false,
+  autoUpdateEnabled: true,
   activeLanguage: 'en',
   updateInfo: null,
   dlcWarnings: [],

@@ -157,7 +157,7 @@
   "preferences": {
     "title": "Preferencias",
     "language": "Idioma",
-    "autoUpdate": "Actualizaciones automáticas",
+    "autoUpdate": "Buscar actualizaciones al iniciar",
     "language_en": "Inglés",
     "language_es": "Español"
   },

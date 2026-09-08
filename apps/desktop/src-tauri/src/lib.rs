@@ -25,6 +25,49 @@ use export::session::{sweep_stale_temp_files, ExportSessionManager};
 use std::sync::Arc;
 use tauri::{Emitter, Manager};
 
+/// Key in `preferences.json` that decides whether Vellum may open its one
+/// network connection.
+#[cfg(desktop)]
+const AUTO_UPDATE_PREFERENCE_KEY: &str = "autoUpdateEnabled";
+
+/// Reads the startup update-check preference from `preferences.json`.
+///
+/// # Remarks
+/// Missing key, missing file or an unreadable store all mean `true`: a fresh
+/// install checks for updates, which is what a new user expects and what every
+/// release before this one did. Only an explicit `false` suppresses the check,
+/// and it suppresses the *connection* — not just the toast (Story 1.8 AC4).
+///
+/// The builder mirrors the frontend's `load('preferences.json', { autoSave:
+/// false })` exactly. `StoreBuilder::build` returns an already-registered
+/// store as-is, so a mismatched `auto_save` here would silently win over the
+/// options the frontend asks for later.
+#[cfg(desktop)]
+fn startup_update_check_enabled(app: &tauri::AppHandle) -> bool {
+    use tauri_plugin_store::StoreExt;
+
+    let Ok(store) = app
+        .store_builder("preferences.json")
+        .disable_auto_save()
+        .build()
+    else {
+        return true;
+    };
+
+    update_check_enabled_from(store.get(AUTO_UPDATE_PREFERENCE_KEY).as_ref())
+}
+
+/// Decides the startup check from whatever `preferences.json` held for the key.
+///
+/// # Remarks
+/// Split out from the store plumbing so the policy — and only the policy — is
+/// testable: absent, null or a non-boolean all mean `true`, so a hand-edited
+/// or half-migrated preferences file can never silently suppress the check.
+#[cfg(desktop)]
+fn update_check_enabled_from(stored: Option<&serde_json::Value>) -> bool {
+    stored.and_then(serde_json::Value::as_bool).unwrap_or(true)
+}
+
 /// The main entry point for the Vellum desktop application backend.
 ///
 /// This function initializes the Tauri builder, registers all available IPC
@@ -100,12 +143,18 @@ pub fn run() {
                 app.handle()
                     .plugin(tauri_plugin_updater::Builder::new().build())?;
 
-                tauri::async_runtime::spawn({
-                    let app_handle = app.handle().clone();
-                    async move {
-                        updater::check_for_updates(&app_handle).await;
-                    }
-                });
+                // The preference is read here, before the spawn, rather than
+                // inside the toast handler: "optional update check" has to
+                // mean no socket is opened, not a silent check whose result is
+                // discarded (Story 1.8 AC4).
+                if startup_update_check_enabled(app.handle()) {
+                    tauri::async_runtime::spawn({
+                        let app_handle = app.handle().clone();
+                        async move {
+                            updater::check_for_updates(&app_handle).await;
+                        }
+                    });
+                }
             }
 
             Ok(())
@@ -136,6 +185,34 @@ pub fn run() {
         Err(error) => {
             eprintln!("error while running tauri application: {error}");
             std::process::exit(1);
+        }
+    }
+}
+
+#[cfg(all(test, desktop))]
+mod tests {
+    use super::update_check_enabled_from;
+    use serde_json::json;
+
+    #[test]
+    fn missing_key_checks_for_updates() {
+        assert!(update_check_enabled_from(None));
+    }
+
+    #[test]
+    fn explicit_false_suppresses_the_connection() {
+        assert!(!update_check_enabled_from(Some(&json!(false))));
+    }
+
+    #[test]
+    fn explicit_true_checks_for_updates() {
+        assert!(update_check_enabled_from(Some(&json!(true))));
+    }
+
+    #[test]
+    fn a_non_boolean_value_never_suppresses_silently() {
+        for value in [json!(null), json!("false"), json!(0)] {
+            assert!(update_check_enabled_from(Some(&value)));
         }
     }
 }

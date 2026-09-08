@@ -167,9 +167,10 @@ export function AppSurface({
                 console.warn('App: failed to open release notes URL', error);
               });
             }}
-            // The preference no longer decides silently at startup — it just
-            // decides whether the toast offers to install. Toggling it takes
-            // effect on the toast already on screen.
+            // The preference gates the startup check itself in the Rust
+            // shell; here it additionally decides whether the toast offers to
+            // install. Toggling it takes effect on the toast already on
+            // screen, but the connection decision was made at launch.
             {...(autoUpdateEnabled
               ? {
                   // Best-effort, igual que como `App` trata el fallo de

@@ -283,6 +283,9 @@ function packElevation(rawUnits: number): string {
 
 /** Decodes a `data:image/png;base64,…` URI into an `ImageBitmap`. */
 async function decodeDataUri(dataUri: string): Promise<ImageBitmap> {
+  // vellum-allow-network: the argument is always a `data:` URI built in this
+  // module — no socket is opened, which is why the CSP allows `connect-src
+  // data:` and nothing remote. Checked by `pnpm check:network`.
   const response = await fetch(dataUri);
   return createImageBitmap(await response.blob());
 }

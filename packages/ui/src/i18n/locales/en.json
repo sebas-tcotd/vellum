@@ -157,7 +157,7 @@
   "preferences": {
     "title": "Preferences",
     "language": "Language",
-    "autoUpdate": "Automatic updates",
+    "autoUpdate": "Check for updates at startup",
     "language_en": "English",
     "language_es": "Spanish"
   },

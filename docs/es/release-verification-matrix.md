@@ -26,14 +26,18 @@ va a publicar y no sobre una promesa anterior.
 
 ## Qué corre automáticamente
 
-| Verificación                                  | Dónde                    | Qué prueba                                                                                                                   |
-| --------------------------------------------- | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
-| Flujo dorado (abrir → listo → exportar)       | CI Linux                 | El binario compilado abre un `.cslmap` pasado por argv, lo renderiza y el `ExportDialog` real escribe el PNG que anunció.    |
-| Cancelación de export                         | CI Linux                 | Un export cancelado no publica archivo y no deja `.vellum-export-*.part` huérfano.                                           |
-| Regresión visual de superficie y shell        | CI Linux                 | El mapa renderizado y el chrome del shell coinciden con los baselines dentro del umbral versionado de los goldens de export. |
-| Perfiles de shell (`windows`/`macos`/`linux`) | CI Linux                 | Cada perfil produce un shell visiblemente distinto.                                                                          |
-| Compile check                                 | CI Windows, macOS, Linux | El shell Rust sigue compilando en las tres plataformas (`compile-matrix` en `ci.yml`).                                       |
-| Bundle, firma y manifiesto de updater         | CI Windows, macOS, Linux | Los instaladores se construyen, se firman y el manifiesto del updater resuelve (`publish-release.yml`).                      |
+| Verificación                                  | Dónde                    | Qué prueba                                                                                                                                                                               |
+| --------------------------------------------- | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Flujo dorado (abrir → listo → exportar)       | CI Linux                 | El binario compilado abre un `.cslmap` pasado por argv, lo renderiza y el `ExportDialog` real escribe el PNG que anunció.                                                                |
+| Cancelación de export                         | CI Linux                 | Un export cancelado no publica archivo y no deja `.vellum-export-*.part` huérfano.                                                                                                       |
+| Regresión visual de superficie y shell        | CI Linux                 | El mapa renderizado y el chrome del shell coinciden con los baselines dentro del umbral versionado de los goldens de export.                                                             |
+| Perfiles de shell (`windows`/`macos`/`linux`) | CI Linux                 | Cada perfil produce un shell visiblemente distinto.                                                                                                                                      |
+| Compile check                                 | CI Windows, macOS, Linux | El shell Rust sigue compilando en las tres plataformas (`compile-matrix` en `ci.yml`).                                                                                                   |
+| Bundle y manifiesto de updater                | CI Windows, macOS, Linux | Los instaladores se construyen, sus artefactos de updater se firman y el `latest.json` publicado resuelve y valida (`publish-release.yml`).                                              |
+| Firma Authenticode de Windows                 | CI Windows               | **Sólo si hay certificado configurado.** Con él, se verifica la firma del MSI y una inválida hace fallar el release. Sin él, el release se publica igual y la ausencia queda registrada. |
+| Asset de evidencia de firmado                 | CI Linux                 | Cada release lleva `signing-evidence.md` diciendo, por plataforma, si el instalador está firmado y si lo está su artefacto de updater (`publish-release.yml`).                           |
+| Guardrail de superficie de red                | CI Linux                 | `pnpm check:network` — nada de red de navegador en producción, ningún crate HTTP, CSP y capabilities sin cambiar. Bloqueante.                                                            |
+| Auditoría de dependencias                     | CI Linux                 | `pnpm audit:deps` reporta advisories de JavaScript y de Rust. **Informativa — nunca bloquea.**                                                                                           |
 
 La suite conduce el **binario de release compilado** con `tauri-driver` y
 `webdriverio` usado como librería, así que ejercita el WebView real, el límite
@@ -41,12 +45,42 @@ IPC real y el pipeline de export real. Nunca apunta un navegador aparte al
 devUrl de Vite — eso hacía la configuración anterior de Playwright, y verificaba
 el frontend en Chromium sin probar nada de la aplicación.
 
+Ojo con lo que las filas de firmado **no** afirman. macOS hoy no se firma nunca:
+`tauri.conf.json` no declara `signingIdentity`, y el pipeline reempaqueta el DMG
+después del build, lo que invalidaría cualquier firma. Windows se firma sólo si
+hay certificado configurado. Ninguna de las dos ausencias bloquea el release:
+ambas quedan registradas en el asset `signing-evidence.md` y advertidas en las
+notas. El razonamiento está en
+[Seguridad y privacidad](security-and-privacy.md).
+
 ## Qué queda manual
 
 | Plataforma | Por qué no se automatiza                                                                                                                                              | Qué revisa una persona                                                                                       |
 | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
 | macOS      | Tauri v2 **no publica una implementación de WebDriver para WKWebView**. No hay driver que ejecutar, así que un runner macOS no es conducible; simularlo sería teatro. | Abrir un `.cslmap` desde Finder, exportar y confirmar chrome de ventana, vibrancy y comportamiento de menús. |
 | Windows    | `tauri-driver` sí puede conducir WebView2 vía `msedgedriver`, pero un runner Windows todavía no forma parte de este gate (extenderlo es una decisión aparte).         | El mismo recorrido, más la asociación de archivos `.cslmap` que instala el MSI.                              |
+
+### El smoke de CSP
+
+El flujo dorado ejercita la Content-Security-Policy sólo en Linux, sobre
+WebKitGTK. Las dos directivas con más probabilidad de diferir entre motores
+—`worker-src`/`child-src` con `blob:`, de las que depende el worker pool de
+MapLibre— son justo las que un solo motor no puede avalar: WebView2 (Windows) y
+WKWebView (macOS) las implementan distinto, y WebKit históricamente no ha
+respetado `worker-src`. Así que en un release candidate, en **cada** uno de
+Windows y macOS, con la consola de la WebView abierta:
+
+1. Abrir un `.cslmap` grande y confirmar que el mapa se dibuja en vez de quedar
+   en blanco — un mapa en blanco es la firma de un worker bloqueado.
+2. Abrir el panel de capas y algún diálogo (Preferencias, Acerca de) — un
+   `style-src` roto se ve como contenido modal sin estilos o invisible.
+3. Exportar un PNG y exportar un SVG — ambos caminos tocan a la vez un worker,
+   un `blob:` y un `data:` URI.
+4. Confirmar que la consola **no** reporta ninguna violación de CSP.
+
+Una violación es un bug de la política, no una razón para relajarla a
+`'unsafe-eval'`: hay que encontrar la directiva que la evidencia realmente exige
+y dejarla registrada en [Seguridad y privacidad](security-and-privacy.md).
 
 Los tres perfiles de shell sí se cubren en Linux, porque los selecciona
 `data-platform` en `<html>` y no el sistema operativo anfitrión. Eso verifica los
