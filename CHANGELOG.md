@@ -2,6 +2,34 @@
 
 All notable changes to Vellum will be documented here.
 
+## [0.7.0](https://github.com/sebas-tcotd/vellum/compare/v0.6.0...v0.7.0) (2026-09-08)
+
+
+### Features
+
+* **ipc:** proteger los contratos entre fuentes de datos y escritorio ([859da88](https://github.com/sebas-tcotd/vellum/commit/859da8821fe77848980787698422ae0648f6f3a2))
+* **ipc:** proteger los contratos entre fuentes de datos y escritorio ([ff6057b](https://github.com/sebas-tcotd/vellum/commit/ff6057b00fe1700e3ae36e86eaae071c0dcf8687))
+* **roads:** dar tier propio a la calle peatonal y excluir la ruta de helicóptero ([c9dc461](https://github.com/sebas-tcotd/vellum/commit/c9dc4613fcf538af88dd76e2160d307de81cbf4f))
+* **roads:** dar tratamiento propio al teleférico y aplanar las cabezas de pista ([14d35aa](https://github.com/sebas-tcotd/vellum/commit/14d35aa294379a929440076eb8621d7c31646eae))
+* **security:** publicar una aplicación de escritorio segura y privada ([6e1888e](https://github.com/sebas-tcotd/vellum/commit/6e1888ef4e6fd8412680f1ec1af978fb0cbe85fc))
+* **security:** publicar una aplicación de escritorio segura y privada (Story 1.8) ([9555399](https://github.com/sebas-tcotd/vellum/commit/9555399dbb62c1808f6c25a6407cd1883537c59c))
+* **ui:** add dynamic gradient based on active theme ([056a728](https://github.com/sebas-tcotd/vellum/commit/056a72868846e1354660fc1c61bdab11b4b4fee1))
+
+
+### Bug Fixes
+
+* **e2e:** capturar un frame asentado, no uno a los 900 ms ([916ee29](https://github.com/sebas-tcotd/vellum/commit/916ee29ca0c771041ffe4e69b8d57116681753ab))
+* **e2e:** cerrar los huecos que encontró la revisión adversarial ([3edc7d8](https://github.com/sebas-tcotd/vellum/commit/3edc7d86e0fde889b309ca034ae87aa57d04e1f3))
+* **e2e:** fallar de inmediato si tauri-driver no arranca ([921d021](https://github.com/sebas-tcotd/vellum/commit/921d0212234a97ff822a55dafbaf7f1d919f9a9b))
+* **e2e:** forzar WebDriver clásico para WebKitWebDriver ([f7563c3](https://github.com/sebas-tcotd/vellum/commit/f7563c391dd6396ce0af00c5b2d04ff6aae841dc))
+* **e2e:** garantizar el frame que espera la captura del preview ([3b3d642](https://github.com/sebas-tcotd/vellum/commit/3b3d642194deed2d8f61a19c9b124538950229b3))
+* **e2e:** redirigir download_dir por el archivo XDG, no por la variable ([cc735bb](https://github.com/sebas-tcotd/vellum/commit/cc735bbfcb7d966ba3db816db1502da64c103e28))
+* **e2e:** sacar el lienzo del mapa de la regresión visual ([2e294e2](https://github.com/sebas-tcotd/vellum/commit/2e294e2eda23c31770f7e3fabcd5fe9864033428))
+* **e2e:** update golden references ([ca060ed](https://github.com/sebas-tcotd/vellum/commit/ca060ed7ce94af88fdd1f9941156f2e0913ca08b))
+* **export:** convertir los dasharray de MapLibre a píxeles de salida ([c751d0d](https://github.com/sebas-tcotd/vellum/commit/c751d0d50d225c4f3345b3f927f23cfa3e4fad06))
+* **parser:** corregir el vocabulario de ItemClass y eliminar la clasificación por ancho duplicada ([6fef47d](https://github.com/sebas-tcotd/vellum/commit/6fef47d087e0cd8b842b68628f5a1c54f47ffa2e))
+* **styles:** ajustar valores de mezcla de color y opacidad en temas Mica ([8d8af14](https://github.com/sebas-tcotd/vellum/commit/8d8af14c8156181dc01faac3bb4d25b646f9de65))
+
 ## [0.6.0](https://github.com/sebas-tcotd/vellum/compare/v0.5.1...v0.6.0) (2026-09-06)
 
 
