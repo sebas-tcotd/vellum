@@ -37,6 +37,7 @@ va a publicar y no sobre una promesa anterior.
 | Firma Authenticode de Windows                 | CI Windows               | **Sólo si hay certificado configurado.** Con él, se verifica la firma del MSI y una inválida hace fallar el release. Sin él, el release se publica igual y la ausencia queda registrada. |
 | Asset de evidencia de firmado                 | CI Linux                 | Cada release lleva `signing-evidence.md` diciendo, por plataforma, si el instalador está firmado y si lo está su artefacto de updater (`publish-release.yml`).                           |
 | Guardrail de superficie de red                | CI Linux                 | `pnpm check:network` — nada de red de navegador en producción, ningún crate HTTP, CSP y capabilities sin cambiar. Bloqueante.                                                            |
+| Guardrail de identidad de instalador          | CI Linux                 | `pnpm check:installer` — metadatos contra `brand/`, artwork derivado y bien dimensionado, la asociación `.cslmap` opt-in intacta y ningún script de instalación. Bloqueante.             |
 | Auditoría de dependencias                     | CI Linux                 | `pnpm audit:deps` reporta advisories de JavaScript y de Rust. **Informativa — nunca bloquea.**                                                                                           |
 
 La suite conduce el **binario de release compilado** con `tauri-driver` y
@@ -46,19 +47,24 @@ devUrl de Vite — eso hacía la configuración anterior de Playwright, y verifi
 el frontend en Chromium sin probar nada de la aplicación.
 
 Ojo con lo que las filas de firmado **no** afirman. macOS hoy no se firma nunca:
-`tauri.conf.json` no declara `signingIdentity`, y el pipeline reempaqueta el DMG
-después del build, lo que invalidaría cualquier firma. Windows se firma sólo si
+`tauri.conf.json` no declara `signingIdentity`. (El pipeline ya no reempaqueta el
+DMG después del build —ese paso se retiró en la Story 1.9— así que esa segunda
+razón desapareció; la ausencia de firma sigue siendo deliberada.) Windows se firma sólo si
 hay certificado configurado. Ninguna de las dos ausencias bloquea el release:
 ambas quedan registradas en el asset `signing-evidence.md` y advertidas en las
 notas. El razonamiento está en
-[Seguridad y privacidad](security-and-privacy.md).
+[Seguridad y privacidad](security-and-privacy.md), y qué se puede personalizar de
+cada instalador, en [Empaquetado e instaladores](packaging-and-installers.md).
 
 ## Qué queda manual
 
-| Plataforma | Por qué no se automatiza                                                                                                                                              | Qué revisa una persona                                                                                       |
-| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| macOS      | Tauri v2 **no publica una implementación de WebDriver para WKWebView**. No hay driver que ejecutar, así que un runner macOS no es conducible; simularlo sería teatro. | Abrir un `.cslmap` desde Finder, exportar y confirmar chrome de ventana, vibrancy y comportamiento de menús. |
-| Windows    | `tauri-driver` sí puede conducir WebView2 vía `msedgedriver`, pero un runner Windows todavía no forma parte de este gate (extenderlo es una decisión aparte).         | El mismo recorrido, más la asociación de archivos `.cslmap` que instala el MSI.                              |
+| Plataforma                   | Por qué no se automatiza                                                                                                                                                                                        | Qué revisa una persona                                                                                                                                                                                                                                                                          |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| macOS                        | Tauri v2 **no publica una implementación de WebDriver para WKWebView**. No hay driver que ejecutar, así que un runner macOS no es conducible; simularlo sería teatro.                                           | Abrir un `.cslmap` desde Finder, exportar y confirmar chrome de ventana, vibrancy y comportamiento de menús.                                                                                                                                                                                    |
+| Windows                      | `tauri-driver` sí puede conducir WebView2 vía `msedgedriver`, pero un runner Windows todavía no forma parte de este gate (extenderlo es una decisión aparte).                                                   | El mismo recorrido, más la asociación de archivos `.cslmap` que instala el MSI.                                                                                                                                                                                                                 |
+| macOS — DMG                  | El bundler de DMG coloca iconos y fondo conduciendo Finder por AppleScript. En un runner headless eso es inestable y puede saltarse en silencio: el build reporta éxito con la ventana en el default de Finder. | Montar el `.dmg`, confirmar fondo Vellum, tamaño de ventana y las posiciones de la app y del alias de Aplicaciones, y que no aparece ningún archivo de readme suelto.                                                                                                                           |
+| Windows — instalación limpia | Ningún runner de CI instala de verdad: verificar un MSI exige una máquina limpia, y la reputación de SmartScreen depende de telemetría de base instalada que un runner no produce.                              | Instalar el MSI: editor, icono, banner y textos de Vellum; el checkbox de `.cslmap` desmarcado por defecto; desinstalar y comprobar que no queda la asociación y que mapas, temas y preferencias sobreviven. Repetir el recorrido con el `.exe` de NSIS (sin asociación: es exclusiva del MSI). |
+| Linux — instalación limpia   | Un `dpkg -i` en un contenedor no tiene entorno de escritorio, y lo que hay que ver es exactamente lo que dibuja el lanzador.                                                                                    | Instalar el `.deb` y el `.rpm` en un escritorio real y buscar Vellum en el lanzador: icono, nombre, comentario en el idioma del sistema y categoría. Desinstalar y comprobar que mapas, temas y preferencias sobreviven.                                                                        |
 
 ### El smoke de CSP
 

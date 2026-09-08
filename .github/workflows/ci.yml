@@ -57,6 +57,13 @@ jobs:
       - name: Network surface guardrail
         run: pnpm check:network
 
+      # Congela la identidad de instalador (Story 1.9): metadatos contra
+      # `brand/`, artwork derivado con sus dimensiones exactas, la asociación
+      # `.cslmap` opt-in de la 7.5 y la ausencia de scripts de instalación.
+      # Bloqueante por la misma razón que el de red: sólo mira este árbol.
+      - name: Installer identity guardrail
+        run: pnpm check:installer
+
   # Auditoría de dependencias — informativa por decisión (Story 1.8 AC2).
   #
   # `continue-on-error` a nivel de job, además del `exit 0` del script: la base

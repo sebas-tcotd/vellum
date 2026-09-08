@@ -47,7 +47,11 @@ For the current v1 workflow, **CSL Map View is the exporter; Vellum is the moder
 
 - **Windows:** run the `.msi`. File association is opt-in during installation. Releases are configured for Authenticode signing; an explicitly unsigned build may show an unknown-publisher warning.
 - **macOS:** open the `.dmg` and move Vellum to `Applications`. v1 is not notarized by Apple, so clear quarantine once with `xattr -cr /Applications/Vellum.app` if Gatekeeper blocks it.
-- **Linux:** make the `.AppImage` executable and run it.
+- **Linux:** make the `.AppImage` executable and run it. `.deb` and `.rpm` packages are also published.
+
+Which artifact each platform gets, what is actually customisable in it, and what
+its signing state means: [Packaging and installers](docs/en/packaging-and-installers.md)
+· [Empaquetado e instaladores](docs/es/packaging-and-installers.md).
 
 </details>
 

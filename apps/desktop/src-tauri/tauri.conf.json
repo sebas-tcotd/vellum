@@ -37,6 +37,13 @@
     "active": true,
     "createUpdaterArtifacts": true,
     "targets": "all",
+    "publisher": "Sebastian Enrique Vargas Pizango",
+    "homepage": "https://github.com/sebas-tcotd/vellum",
+    "copyright": "Copyright (c) 2026 Sebastian Enrique Vargas Pizango",
+    "license": "MIT",
+    "category": "GraphicsAndDesign",
+    "shortDescription": "Turn Cities: Skylines saves into printable maps.",
+    "longDescription": "Vellum is an offline desktop application that reads a Cities: Skylines .cslmap export and draws it as a cartographic map you can style and export to PNG or SVG. It works entirely on your machine: no account, no telemetry, and the only network request it ever makes is the update check you can turn off.",
     "resources": [
       "resources/themes/*"
     ],
@@ -49,18 +56,64 @@
     ],
     "macOS": {
       "infoPlist": "Info.plist",
+      "minimumSystemVersion": "10.15",
       "files": {
         "Resources/Assets.car": "icons/iconcomposer/Assets.car"
+      },
+      "dmg": {
+        "background": "installer/dmg-background.png",
+        "windowSize": {
+          "width": 660,
+          "height": 400
+        },
+        "appPosition": {
+          "x": 180,
+          "y": 200
+        },
+        "applicationFolderPosition": {
+          "x": 480,
+          "y": 200
+        }
+      }
+    },
+    "linux": {
+      "deb": {
+        "section": "graphics",
+        "depends": [
+          "libwebkit2gtk-4.1-0",
+          "libgtk-3-0"
+        ],
+        "desktopTemplate": "linux/vellum.desktop"
+      },
+      "rpm": {
+        "desktopTemplate": "linux/vellum.desktop"
       }
     },
     "windows": {
       "wix": {
+        "language": [
+          "en-US",
+          "es-ES"
+        ],
+        "bannerPath": "installer/wix-banner.bmp",
+        "dialogImagePath": "installer/wix-dialog.bmp",
         "fragmentPaths": [
           "windows/cslmap-association.wxs"
         ],
         "featureRefs": [
           "CslmapAssociationFeature"
         ]
+      },
+      "nsis": {
+        "headerImage": "installer/nsis-header.bmp",
+        "sidebarImage": "installer/nsis-sidebar.bmp",
+        "installerIcon": "icons/icon.ico",
+        "installMode": "currentUser",
+        "languages": [
+          "English",
+          "Spanish"
+        ],
+        "displayLanguageSelector": true
       }
     }
   }

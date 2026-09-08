@@ -16,6 +16,7 @@ cambiar de idioma sin perder el contexto.
 | [Arquitectura de integración](integration-architecture.md)          | Cómo encajan parser, dominio, render, export, temas y updates.                                  |
 | [Matriz de verificación de release](release-verification-matrix.md) | Qué verifica CI antes de publicar una release y qué queda manual.                               |
 | [Seguridad y privacidad](security-and-privacy.md)                   | La CSP, la auditoría de dependencias, qué significa una build sin firmar y qué red abre Vellum. |
+| [Empaquetado e instaladores](packaging-and-installers.md)           | Qué instalador publica cada plataforma, qué se puede personalizar y de dónde sale la identidad. |
 
 ## Arquitectura y código fuente
 

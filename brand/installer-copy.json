@@ -1,0 +1,33 @@
+{
+  "$comment": "Single versioned source of installer identity. Edited here, never at the destination. `pnpm brand:build` derives the artwork; `pnpm check:installer` proves tauri.conf.json and the .desktop entry still say what this file says. Every field here has a consumer: a key nobody reads would still be hashed as an artwork input and would force a pointless rebuild.",
+  "productName": "Vellum",
+  "publisher": "Sebastian Enrique Vargas Pizango",
+  "copyright": "Copyright (c) 2026 Sebastian Enrique Vargas Pizango",
+  "homepage": "https://github.com/sebas-tcotd/vellum",
+  "license": "MIT",
+  "category": "GraphicsAndDesign",
+  "shortDescription": {
+    "en": "Turn Cities: Skylines saves into printable maps.",
+    "es": "Convierte partidas de Cities: Skylines en mapas imprimibles."
+  },
+  "longDescription": {
+    "en": "Vellum is an offline desktop application that reads a Cities: Skylines .cslmap export and draws it as a cartographic map you can style and export to PNG or SVG. It works entirely on your machine: no account, no telemetry, and the only network request it ever makes is the update check you can turn off."
+  },
+  "linux": {
+    "categories": "Graphics;Education;",
+    "genericName": {
+      "en": "City map renderer",
+      "es": "Renderizador de mapas de ciudad"
+    },
+    "keywords": {
+      "en": "cities;skylines;cslmap;map;cartography;",
+      "es": "cities;skylines;cslmap;mapa;cartografia;"
+    },
+    "debSection": "graphics"
+  },
+  "palette": {
+    "parchment": "#f7f6f1",
+    "softInk": "#626262",
+    "sepia": "#4a4035"
+  }
+}

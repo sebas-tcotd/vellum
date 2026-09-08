@@ -1,0 +1,42 @@
+[Desktop Entry]
+# Handlebars template shared by the .deb and the .rpm
+# (bundle.linux.deb.desktopTemplate / bundle.linux.rpm.desktopTemplate).
+#
+# Linux is the only one of the three platforms with no installer artwork at
+# all: nothing about a `dpkg -i` or a `dnf install` is visible. This file *is*
+# Vellum's whole identity there — it is what the desktop launcher reads to
+# decide the name, the icon, the category and the one-line description a user
+# sees. Tauri's default template carries a name and an icon and nothing else.
+#
+# `name`, `comment`, `exec` and `icon` are interpolated by the bundler from
+# tauri.conf.json, which in turn mirrors brand/installer-copy.json. The `[es]`
+# lines are literal because Tauri has no notion of a localized bundle
+# description; the Spanish copy lives in brand/installer-copy.json and
+# `pnpm check:installer` proves the two still agree.
+#
+# There is deliberately no `MimeType`: nothing in the .deb or the .rpm installs
+# a shared-mime-info definition mapping *.cslmap to a type, and adding one would
+# need a maintainer script — which this story rules out. A MimeType line no MIME
+# database knows about matches nothing and only makes the association look
+# verified. The .cslmap association is Windows-only and opt-in, on all three
+# platforms.
+#
+# `Categories` is literal too, and deliberately not `{{categories}}`: that
+# variable is derived from `bundle.category`, and the whole AppCategory enum —
+# whose real job is the macOS LSApplicationCategoryType — collapses to a single
+# freedesktop category. Vellum belongs in both Graphics and Education menus.
+Type=Application
+Version=1.0
+Name={{name}}
+GenericName=City map renderer
+GenericName[es]=Renderizador de mapas de ciudad
+Comment={{comment}}
+Comment[es]=Convierte partidas de Cities: Skylines en mapas imprimibles.
+Exec={{exec}} %F
+Icon={{icon}}
+Terminal=false
+Categories=Graphics;Education;
+Keywords=cities;skylines;cslmap;map;cartography;
+Keywords[es]=cities;skylines;cslmap;mapa;cartografia;
+StartupNotify=true
+StartupWMClass=Vellum
