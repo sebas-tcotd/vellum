@@ -17,7 +17,8 @@ import {
 
 const CLEAN_CSP =
   "default-src 'self'; script-src 'self' blob:; style-src 'self' 'unsafe-inline'; " +
-  "img-src 'self' data: blob:; font-src 'self'; connect-src 'self' data:; " +
+  "img-src 'self' data: blob:; font-src 'self'; " +
+  "connect-src 'self' data: ipc: http://ipc.localhost; " +
   "worker-src 'self' blob:; child-src 'self' blob:; object-src 'none'; " +
   "frame-src 'none'; base-uri 'self'; form-action 'none'";
 
@@ -312,6 +313,37 @@ describe('verify-network-surface', () => {
         csp: CLEAN_CSP.replace(
           "connect-src 'self' data:",
           "connect-src 'self' data: https://telemetry.test",
+        ),
+      });
+      expect(rules(verifyNetworkSurface(root))).toContain('csp-remote-origin');
+    });
+
+    it('fails when connect-src drops the Tauri IPC bridge', () => {
+      const root = cleanRoot({
+        csp: CLEAN_CSP.replace(' ipc: http://ipc.localhost', ''),
+      });
+      expect(rules(verifyNetworkSurface(root))).toContain(
+        'csp-ipc-origin-missing',
+      );
+    });
+
+    // The likelier regression than dropping both: `http://ipc.localhost` reads
+    // as a remote origin to anyone tightening the policy, and deleting it
+    // breaks Windows only — a platform this suite never exercises.
+    it('fails when only one platform IPC origin survives', () => {
+      const root = cleanRoot({
+        csp: CLEAN_CSP.replace(' http://ipc.localhost', ''),
+      });
+      expect(rules(verifyNetworkSurface(root))).toContain(
+        'csp-ipc-origin-missing',
+      );
+    });
+
+    it('still rejects an origin that only looks like the IPC bridge', () => {
+      const root = cleanRoot({
+        csp: CLEAN_CSP.replace(
+          "connect-src 'self' data:",
+          "connect-src 'self' data: http://ipc.localhost.evil.test",
         ),
       });
       expect(rules(verifyNetworkSurface(root))).toContain('csp-remote-origin');

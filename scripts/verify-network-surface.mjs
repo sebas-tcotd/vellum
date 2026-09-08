@@ -411,12 +411,47 @@ function checkDeclaredSurface(root) {
       });
     }
 
+    // Tauri's own IPC bridge — `ipc://localhost` on Linux and macOS, the
+    // loopback-shaped `http://ipc.localhost` Windows and Android need instead.
+    // Neither reaches the network: both are answered in-process by the app's
+    // own protocol handler.
+    const TAURI_IPC_ORIGINS = ['ipc:', 'http://ipc.localhost'];
+
+    // Both directions are load-bearing, so both are checked.
+    //
+    // Present: without these origins the WebView blocks the IPC `fetch` and
+    // Tauri falls back to its `postMessage` transport, which JSON-encodes
+    // binary payloads. Every JSON command keeps working, so the app looks
+    // healthy while raw-body commands — the export sink's
+    // `append_export_chunk` — fail with "requires a raw binary body". That
+    // only reproduces in a packaged build, which is why tightening the CSP
+    // needs a check standing behind it rather than a code review.
+    //
+    // Exact: matched as literals, never as a pattern, so a lookalike origin
+    // like `http://ipc.localhost.evil.test` stays a violation below.
+    const connectSrc = directives.get('connect-src') ?? [];
+    const missingIpcOrigins = TAURI_IPC_ORIGINS.filter(
+      (origin) => !connectSrc.includes(origin),
+    );
+    if (missingIpcOrigins.length > 0) {
+      violations.push({
+        file: configPath,
+        rule: 'csp-ipc-origin-missing',
+        detail:
+          `connect-src no longer allows Tauri's IPC bridge (${missingIpcOrigins.join(', ')}). ` +
+          'Tauri would silently downgrade to the postMessage transport, which breaks binary IPC.',
+      });
+    }
+
     // Every fetch directive, not just connect-src: a remote origin on img-src
     // or script-src is an exfiltration and execution path all the same.
     const REMOTE = /^(?:https?:|wss?:|\*$|\/\/)/;
+    const ipcOrigins = new Set(TAURI_IPC_ORIGINS);
     for (const [name, values] of directives) {
       if (name === 'devCsp') continue;
-      const remote = values.filter((value) => REMOTE.test(value));
+      const remote = values.filter(
+        (value) => REMOTE.test(value) && !ipcOrigins.has(value),
+      );
       if (remote.length > 0) {
         violations.push({
           file: configPath,

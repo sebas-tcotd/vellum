@@ -76,7 +76,10 @@ export type {
   ViewportBounds,
 } from './types/renderer.types';
 
-const PREVIEW_CAPTURE_TIMEOUT_MS = 1_500;
+// Safe to keep generous: the caller no longer blocks the dialog's open on
+// this promise (see `useExportWorkflow.handleOpenExport`), so a slow capture
+// costs a delayed dimensions readout, not a delayed dialog.
+const PREVIEW_CAPTURE_TIMEOUT_MS = 5_000;
 
 /**
  * Upper bound on MapLibre's worker pool.

@@ -16,6 +16,12 @@ name: E2E Golden Flow
 
 on:
   workflow_call:
+    inputs:
+      frontend_artifact:
+        description: 'Usa frontend-dist producido por el workflow llamador'
+        required: false
+        type: boolean
+        default: false
   # Los baselines visuales sólo son válidos si nacen en la misma imagen que
   # luego los compara: la del runner, no un `ubuntu:22.04` limpio ni el
   # portátil de nadie. Con un umbral de 0,5 % de píxeles distintos, el
@@ -48,16 +54,17 @@ jobs:
         uses: ./.github/actions/setup-vellum
         with:
           os: ubuntu-22.04
-
-      # `webkit2gtk-driver` trae `WebKitWebDriver`, el driver nativo al que
-      # `tauri-driver` delega; `xvfb` da el display que la ventana necesita.
-      - name: Install WebDriver system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y webkit2gtk-driver xvfb
+          e2e-deps: 'true'
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Download pre-built frontend
+        if: inputs.frontend_artifact == true
+        uses: actions/download-artifact@v7
+        with:
+          name: frontend-dist
+          path: apps/desktop/dist
 
       # Pinned on purpose: sin `--version`, cada runner frío instala lo que
       # crates.io sirva ese día contra una suite que compara píxeles, y la
@@ -79,7 +86,16 @@ jobs:
       # porque el flujo dorado sólo necesita el ejecutable: empaquetar dispara
       # además la firma del updater, que sin el secreto de firma aborta el job
       # por algo que esta verificación no comprueba.
-      - name: Build the release binary
+      - name: Build the release binary with shared frontend
+        if: inputs.frontend_artifact == true
+        run: >-
+          pnpm --filter @vellum/desktop exec tauri build --no-bundle
+          --config '{"build":{"beforeBuildCommand":""}}'
+
+      # `workflow_dispatch` no tiene un job llamador que produzca artefactos.
+      # Esa ruta sigue siendo autosuficiente para regenerar baselines.
+      - name: Build the release binary for a manual run
+        if: inputs.frontend_artifact != true
         run: pnpm --filter @vellum/desktop exec tauri build --no-bundle
 
       - name: Run the golden flow

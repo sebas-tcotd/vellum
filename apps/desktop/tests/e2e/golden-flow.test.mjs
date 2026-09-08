@@ -178,19 +178,70 @@ function isExporting(browser) {
   );
 }
 
+/**
+ * Mirrors the page's `console.error` and `console.warn` into an array this
+ * suite can read back.
+ *
+ * @remarks
+ * Every export failure reaches the user as the same generic toast: the app
+ * renders a localized key and never `VellumError.reason`, which is the rule
+ * that keeps internal strings off screen. That leaves the actual cause visible
+ * only in the `console.error` line `handleExport` writes on its way to that
+ * toast, and the app's own stdout never reaches CI — the binary is launched by
+ * WebKitWebDriver, not by this process.
+ *
+ * `warn` is mirrored for one specific sentence: Tauri announces "IPC custom
+ * protocol failed, Tauri will now use the postMessage interface instead" there
+ * and then silently downgrades every later call to a transport that
+ * JSON-encodes binary payloads. Nothing else in the app reports that switch,
+ * and it turns `append_export_chunk` — the one raw-body command — into a
+ * guaranteed failure while every JSON command keeps working.
+ */
+function captureConsoleErrors(browser) {
+  return browser.execute(() => {
+    if (window.__vellumConsoleErrors) return;
+    const collected = [];
+    window.__vellumConsoleErrors = collected;
+    const format = (arg) => {
+      if (arg instanceof Error) return `${arg.name}: ${arg.message}`;
+      if (typeof arg === 'object' && arg !== null) {
+        try {
+          return JSON.stringify(arg);
+        } catch {
+          return Object.prototype.toString.call(arg);
+        }
+      }
+      return String(arg);
+    };
+    for (const level of ['error', 'warn']) {
+      const original = console[level];
+      console[level] = (...args) => {
+        collected.push(`[${level}] ${args.map(format).join(' ')}`);
+        original(...args);
+      };
+    }
+  });
+}
+
+/** Reads back whatever {@link captureConsoleErrors} has mirrored so far. */
+function readConsoleErrors(browser) {
+  return browser.execute(() => window.__vellumConsoleErrors ?? []);
+}
+
 describe('golden cartographic flow', () => {
   it('opens the fixture from argv, exports, and writes the announced PNG', async () => {
     const { browser, downloadsDir } = app;
 
     // Stage: startup + load + ready. Each is named so a failure says which.
     await waitForMapReady(browser);
+    await captureConsoleErrors(browser);
 
     // A viewport export announces its size only once the renderer hands the
     // dialog a preview snapshot, and that capture resolves on MapLibre's next
-    // `render` event with a 1.5s deadline (`map-libre-renderer.ts`,
-    // PREVIEW_CAPTURE_TIMEOUT_MS). A settled map emits no `render` at all, so
-    // on a slow host the capture times out and the dialog shows no dimensions
-    // — which is a real product fragility, tracked separately, not something
+    // `render` event within `PREVIEW_CAPTURE_TIMEOUT_MS`
+    // (`map-libre-renderer.ts`). A settled map emits no `render` at all, so on
+    // a slow host the capture can expire and the dialog shows no dimensions —
+    // which is a real product fragility, tracked separately, not something
     // this flow should silently absorb. Nudging a resize guarantees the frame
     // the capture is waiting for, so the assertions below are about the
     // export, not about who won that race.
@@ -226,6 +277,7 @@ describe('golden cartographic flow', () => {
       throw new Error(
         `${error.message}\n` +
           `app said: ${JSON.stringify(await readLiveMessages(browser))}\n` +
+          `app logged: ${JSON.stringify(await readConsoleErrors(browser))}\n` +
           `${downloadsDir} holds: ${JSON.stringify(
             await readdir(downloadsDir).catch(
               (e) => `unreadable: ${e.message}`,

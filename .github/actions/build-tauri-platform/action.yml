@@ -53,19 +53,16 @@ runs:
   using: 'composite'
   steps:
     - name: Install frontend dependencies
+      if: inputs.mode == 'release'
       shell: bash
       run: pnpm install --frozen-lockfile
 
     - name: Download pre-built frontend
+      if: inputs.mode == 'release'
       uses: actions/download-artifact@v7
       with:
         name: frontend-dist
         path: apps/desktop/dist
-
-    - name: Install macOS universal Rust targets
-      if: inputs.platform == 'macos-latest'
-      shell: bash
-      run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
 
     # --- mode: check -----------------------------------------------------
 

@@ -5,6 +5,10 @@
       "dependsOn": ["^build"],
       "outputs": ["dist/**", "tsconfig.tsbuildinfo"]
     },
+    "build:vite": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**", "tsconfig.tsbuildinfo"]
+    },
     "test": {
       "dependsOn": ["^build"],
       "outputs": []
