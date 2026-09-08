@@ -9,13 +9,14 @@ top of each index to switch without losing your place.
 
 ## Start here
 
-| Document                                                      | What it explains                                                                            |
-| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| [Project overview](project-overview.md)                       | What Vellum does, how the repository is shaped, and what is implemented today.              |
-| [Development guide](development-guide.md)                     | Prerequisites, local setup, checks, tests, CI and common extension workflows.               |
-| [Integration architecture](integration-architecture.md)       | How parsing, domain data, rendering, export, themes and updates fit together.               |
-| [Release verification matrix](release-verification-matrix.md) | What CI verifies before a release can be published, and what stays manual.                  |
-| [Security and privacy](security-and-privacy.md)               | The CSP, the dependency audit, what an unsigned build means, and what network Vellum opens. |
+| Document                                                      | What it explains                                                                                 |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| [Project overview](project-overview.md)                       | What Vellum does, how the repository is shaped, and what is implemented today.                   |
+| [Development guide](development-guide.md)                     | Prerequisites, local setup, checks, tests, CI and common extension workflows.                    |
+| [Integration architecture](integration-architecture.md)       | How parsing, domain data, rendering, export, themes and updates fit together.                    |
+| [Release verification matrix](release-verification-matrix.md) | What CI verifies before a release can be published, and what stays manual.                       |
+| [Security and privacy](security-and-privacy.md)               | The CSP, the dependency audit, what an unsigned build means, and what network Vellum opens.      |
+| [Packaging and installers](packaging-and-installers.md)       | What installer each platform publishes, what is customisable, and where the identity comes from. |
 
 ## Architecture and source code
 

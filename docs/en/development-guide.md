@@ -66,6 +66,8 @@ pnpm check:architecture    # enforces the one-way package dependency graph
 pnpm format                # writes Prettier formatting
 pnpm format:check          # checks formatting, as CI does
 pnpm check:network         # freezes the network surface — blocking, as CI does
+pnpm check:installer       # freezes the installer identity — blocking, as CI does
+pnpm brand:build           # regenerates installer artwork from brand/ (by hand, committed)
 pnpm audit:deps            # JavaScript + Rust advisories — informative, always exits 0
 ```
 
@@ -74,6 +76,13 @@ HTTP crate, or if the CSP, the capability permissions or the updater endpoint
 change. `audit:deps` needs `cargo install cargo-deny --locked` for its Rust
 half; without it the JavaScript half still reports. Both are explained in
 [Security and privacy](security-and-privacy.md).
+
+`check:installer` fails if an installer metadata key disappears or drifts from
+`brand/installer-copy.json`, if a derived artwork file is missing or the wrong
+size, if the opt-in `.cslmap` association loses one of its invariants, or if an
+installation script appears. Only `brand:build` is run by hand, and only when
+the brand changes: see
+[Packaging and installers](packaging-and-installers.md).
 
 The architecture check is not cosmetic. A package may import another package
 only along the allowed dependency graph; use package barrels rather than another

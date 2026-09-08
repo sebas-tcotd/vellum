@@ -370,10 +370,18 @@ jobs:
           > **This macOS app is not signed or notarized.** Gatekeeper will
           > refuse the first launch. Open **System Settings → Privacy &
           > Security** and allow Vellum to open, or right-click the app and
-          > choose *Open*.
+          > choose *Open*. If macOS still refuses it, clear the quarantine
+          > attribute: `xattr -cr /Applications/Vellum.app`
           > Tauri updater artifacts remain cryptographically signed, so
           > in-app updates are still verified.
-          > See the `signing-evidence.md` asset below for the full record.'
+          > See the `signing-evidence.md` asset below for the full record.
+          >
+          > **Esta app de macOS no está firmada ni notarizada.** Gatekeeper
+          > bloqueará el primer arranque. Abre **Ajustes del Sistema →
+          > Privacidad y seguridad** y permite abrir Vellum, o haz clic
+          > derecho sobre la app y elige *Abrir*. Si macOS sigue negándose,
+          > limpia el atributo de cuarentena: `xattr -cr /Applications/Vellum.app`
+          > Los artefactos del actualizador siguen firmados criptográficamente.'
           fi
 
           GUIDE=$(cat <<'EOF'

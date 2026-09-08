@@ -57,6 +57,8 @@ pnpm check:architecture    # regla ESLint no-restricted-imports — enforcea el 
 pnpm format                # prettier --write
 pnpm format:check          # prettier --check (usado en CI)
 pnpm check:network         # congela la superficie de red — bloqueante, como en CI
+pnpm check:installer       # congela la identidad de instalador — bloqueante, como en CI
+pnpm brand:build           # regenera el artwork de instalador desde brand/ (a mano, se commitea)
 pnpm audit:deps            # advisories de JavaScript + Rust — informativo, siempre sale con 0
 ```
 
@@ -65,6 +67,12 @@ analytics, un crate HTTP, o si cambian la CSP, los permisos de capabilities o el
 endpoint del updater. `audit:deps` necesita `cargo install cargo-deny --locked`
 para su mitad Rust; sin eso la mitad JavaScript igual reporta. Ambos están
 explicados en [Seguridad y privacidad](security-and-privacy.md).
+
+`check:installer` falla si un metadato de instalador desaparece o se aleja de
+`brand/installer-copy.json`, si un artwork derivado falta o mide otra cosa, si la
+asociación opt-in de `.cslmap` pierde alguna de sus invariantes, o si aparece un
+script de instalación. Sólo `brand:build` se corre a mano, y sólo cuando cambia
+la marca: ver [Empaquetado e instaladores](packaging-and-installers.md).
 
 ## Tests
 

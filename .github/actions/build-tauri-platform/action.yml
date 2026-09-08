@@ -137,16 +137,27 @@ runs:
       if: inputs.mode == 'release' && inputs.platform == 'windows-latest' && inputs.windows-signing == 'true'
       shell: pwsh
       run: |
-        $msi = Get-ChildItem -Path "target/x86_64-pc-windows-msvc/release/bundle/msi" -Filter *.msi -Recurse | Select-Object -First 1
-        if (-not $msi) {
+        # Every MSI, not the first: bundle.windows.wix.language declares en-US
+        # and es-ES, so WiX emits one installer per locale and both are
+        # published. Verifying only the first would let an unsigned or
+        # invalidly signed sibling ship past a gate documented as blocking.
+        $installers = @(Get-ChildItem -Path "target/x86_64-pc-windows-msvc/release/bundle/msi" -Filter *.msi -Recurse)
+        if ($installers.Count -eq 0) {
           Write-Error "No .msi artifact found to verify."
           exit 1
         }
-        $sig = Get-AuthenticodeSignature -FilePath $msi.FullName
-        $subject = $sig.SignerCertificate.Subject
-        Write-Host "Signature status: $($sig.Status) - Subject: $subject"
-        if ($sig.Status -ne 'Valid' -or [string]::IsNullOrWhiteSpace($subject)) {
-          Write-Error "MSI Authenticode signature is missing or invalid (status: $($sig.Status))."
+        $failed = $false
+        foreach ($msi in $installers) {
+          $sig = Get-AuthenticodeSignature -FilePath $msi.FullName
+          $subject = $sig.SignerCertificate.Subject
+          Write-Host "$($msi.Name) - status: $($sig.Status) - subject: $subject"
+          if ($sig.Status -ne 'Valid' -or [string]::IsNullOrWhiteSpace($subject)) {
+            Write-Output "::error title=Invalid MSI signature::$($msi.Name) status $($sig.Status)"
+            $failed = $true
+          }
+        }
+        if ($failed) {
+          Write-Error "At least one MSI Authenticode signature is missing or invalid."
           exit 1
         }
         # SmartScreen "unknown publisher" reputation additionally depends on install-base
@@ -158,39 +169,51 @@ runs:
       if: inputs.mode == 'release' && inputs.platform == 'windows-latest' && inputs.windows-signing != 'true'
       shell: pwsh
       run: |
-        $msi = Get-ChildItem -Path "target/x86_64-pc-windows-msvc/release/bundle/msi" -Filter *.msi -Recurse | Select-Object -First 1
-        if (-not $msi) {
+        $installers = @(Get-ChildItem -Path "target/x86_64-pc-windows-msvc/release/bundle/msi" -Filter *.msi -Recurse)
+        if ($installers.Count -eq 0) {
           Write-Error "No .msi artifact found for the unsigned Windows release."
           exit 1
         }
-        $sig = Get-AuthenticodeSignature -FilePath $msi.FullName
-        Write-Output "::warning title=Unsigned Windows installer::$($msi.Name) is published without an Authenticode signature (status: $($sig.Status)). See signing-evidence.md on the release."
+        # One annotation per published installer: naming only the first would
+        # under-report what actually ships without a signature.
+        foreach ($msi in $installers) {
+          $sig = Get-AuthenticodeSignature -FilePath $msi.FullName
+          Write-Output "::warning title=Unsigned Windows installer::$($msi.Name) is published without an Authenticode signature (status: $($sig.Status)). See signing-evidence.md on the release."
+        }
 
-    - name: Add visible install guide inside the DMG (AC4, macOS)
+    # El DMG ya no se reabre después del build. Antes, este punto convertía el
+    # DMG a lectura/escritura, copiaba dentro `Leeme-Install-ReadMe.txt` y lo
+    # reempaquetaba: un archivo copiado *después* de que el bundler colocara los
+    # iconos queda sin posición asignada y aparece encima del layout deliberado
+    # que ahora declara `bundle.macOS.dmg` (Story 1.9). La guía de instalación
+    # vive en el cuerpo del release (`publish-release.yml`) y el `xattr -cr` de
+    # Gatekeeper en el README, donde se leen antes de descargar en vez de
+    # después de montar.
+
+    # Read-only on purpose. Removing the old `hdiutil convert` round trip also
+    # removed the only step that ever opened the DMG in CI, so a truncated or
+    # corrupt image would now pass `finalize-release` on the strength of its
+    # filename alone. `attach -readonly` mounts it, looks, and detaches: it
+    # cannot rewrite the image, so it cannot disturb the icon layout the way the
+    # repack did.
+    - name: Verify the DMG mounts and carries only what it should (macOS)
       if: inputs.mode == 'release' && inputs.platform == 'macos-latest'
       shell: bash
       run: |
         set -euo pipefail
         DMG=$(ls target/universal-apple-darwin/release/bundle/dmg/*.dmg | head -n1)
-        WORK=$(mktemp -d)
         MOUNT_DIR=$(mktemp -d)
-        hdiutil convert "$DMG" -format UDRW -o "$WORK/rw"
-        hdiutil attach "$WORK/rw.dmg" -mountpoint "$MOUNT_DIR" -nobrowse -noautoopen
-        cp "apps/desktop/src-tauri/macos/Leeme-Install-ReadMe.txt" "$MOUNT_DIR/Leeme - Install ReadMe.txt"
-        hdiutil detach "$MOUNT_DIR"
-        hdiutil convert "$WORK/rw.dmg" -format UDZO -o "$WORK/final"
-        mv "$WORK/final.dmg" "$DMG"
-        rm -rf "$WORK" "$MOUNT_DIR"
-
-    - name: Re-upload updated DMG to the release (AC4)
-      if: inputs.mode == 'release' && inputs.platform == 'macos-latest'
-      shell: bash
-      env:
-        GITHUB_TOKEN: ${{ inputs.github-token }}
-      run: |
-        set -euo pipefail
-        DMG=$(ls target/universal-apple-darwin/release/bundle/dmg/*.dmg | head -n1)
-        gh release upload "${{ inputs.tag-name }}" "$DMG" --clobber -R "${{ github.repository }}"
+        hdiutil attach "$DMG" -mountpoint "$MOUNT_DIR" -nobrowse -noautoopen -readonly
+        trap 'hdiutil detach "$MOUNT_DIR" -quiet || true' EXIT
+        ls -A1 "$MOUNT_DIR"
+        test -d "$MOUNT_DIR/Vellum.app" || { echo "::error::Vellum.app is missing from the DMG"; exit 1; }
+        test -e "$MOUNT_DIR/Applications" || { echo "::error::The Applications alias is missing from the DMG"; exit 1; }
+        STRAY=$(ls -A1 "$MOUNT_DIR" | grep -v -e '^Vellum\.app$' -e '^Applications$' -e '^\.' || true)
+        if [ -n "$STRAY" ]; then
+          echo "::error::The DMG carries unexpected files, which land unpositioned over the layout: $STRAY"
+          exit 1
+        fi
+        echo "DMG mounts, holds Vellum.app and the Applications alias, and nothing else."
 
     - name: Report installer size target (NFR12)
       if: inputs.mode == 'release'
@@ -198,19 +221,23 @@ runs:
       run: |
         set -euo pipefail
         MAX_BYTES=$((20 * 1024 * 1024))
-        FILE=$(ls ${{ inputs.bundle-glob }} 2>/dev/null | head -n1 || true)
-        if [ -z "$FILE" ]; then
+        FILES=$(ls ${{ inputs.bundle-glob }} 2>/dev/null || true)
+        if [ -z "$FILES" ]; then
           echo "::error::No installer artifact matched ${{ inputs.bundle-glob }}"
           exit 1
         fi
-        SIZE=$(wc -c < "$FILE" | tr -d ' ')
-        NAME=$(basename "$FILE")
-        echo "Installer: $NAME — $SIZE bytes"
-        if [ "$SIZE" -gt "$MAX_BYTES" ]; then
-          echo "::warning::$NAME is $SIZE bytes, exceeds the $MAX_BYTES byte target (NFR12). Publishing continues; optimize in a future release."
-        else
-          echo "NFR12 size target passed: $NAME is within $MAX_BYTES bytes."
-        fi
+        # Every match: Windows now produces one MSI per WiX locale, and a size
+        # report that only ever looked at the first would miss the other.
+        for FILE in $FILES; do
+          SIZE=$(wc -c < "$FILE" | tr -d ' ')
+          NAME=$(basename "$FILE")
+          echo "Installer: $NAME — $SIZE bytes"
+          if [ "$SIZE" -gt "$MAX_BYTES" ]; then
+            echo "::warning::$NAME is $SIZE bytes, exceeds the $MAX_BYTES byte target (NFR12). Publishing continues; optimize in a future release."
+          else
+            echo "NFR12 size target passed: $NAME is within $MAX_BYTES bytes."
+          fi
+        done
 
     - name: Remove uploaded asset if verification failed
       if: inputs.mode == 'release' && failure() && steps.tauri-build.outcome == 'success'
