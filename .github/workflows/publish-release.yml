@@ -9,14 +9,24 @@ name: Publish Release
 #     - Sign updater artifacts for tauri-plugin-updater. Not a code-signing
 #       certificate; unrelated to Authenticode/SmartScreen (see 7.5 Dev Notes).
 #   WINDOWS_CERTIFICATE (base64-encoded .pfx), WINDOWS_CERTIFICATE_PASSWORD
-#     - Authenticode code-signing certificate for the Windows MSI (AC3). The
-#       preflight job fails before any platform runner starts if these are
-#       missing, unless the repository variable ALLOW_UNSIGNED_WINDOWS is
-#       explicitly set to 'true' as a temporary opt-in.
-#   ALLOW_UNSIGNED_WINDOWS (repository variable, not a secret)
-#     - Set to 'true' only for a temporary unsigned Windows release. This
-#       bypasses Authenticode import/verification but never bypasses Tauri
-#       updater signing via TAURI_SIGNING_PRIVATE_KEY.
+#     - Optional Authenticode code-signing certificate for the Windows
+#       installers. When present the MSI is signed and the signature is
+#       verified; a failed verification still fails the release. When absent
+#       the release is published unsigned — see the signing policy below.
+#   APPLE_SIGNING_IDENTITY
+#     - Read only to warn that it is currently ignored. Nothing in this
+#       repository signs or notarizes the macOS bundle, so the evidence report
+#       records macOS as unsigned regardless of this secret. Wiring it in is a
+#       separate change that must flip the policy step together with the steps
+#       that sign (see docs/en/security-and-privacy.md).
+#
+# Signing policy (Story 1.8, AC3): publishing without a platform code-signing
+#   certificate is legitimate and does NOT block. What is mandatory is
+#   evidence: every release carries a `signing-evidence.md` asset stating, per
+#   platform, whether the installer is code-signed, whether its updater
+#   artifact is signed, and the dependency-audit summary for that commit — and
+#   the release notes carry a high-visibility warning per unsigned platform.
+#   `ALLOW_UNSIGNED_WINDOWS` is gone: nothing has to be opted into any more.
 #
 # Release publication policy:
 #   Release Please creates the GitHub Release as a draft and force-creates its
@@ -41,6 +51,8 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       release-id: ${{ steps.resolve-release.outputs.release-id }}
+      windows-signing: ${{ steps.signing-policy.outputs.windows-signing }}
+      macos-signing: ${{ steps.signing-policy.outputs.macos-signing }}
     steps:
       - name: Resolve existing Release by tag
         id: resolve-release
@@ -82,14 +94,54 @@ jobs:
             exit 1
           fi
 
-      - name: Verify Windows signing secrets are present
-        if: vars.ALLOW_UNSIGNED_WINDOWS != 'true'
+      # Warn and record, never block (AC3). This step is the single source of
+      # truth for the whole run: the same two outputs drive the build's signing
+      # steps, the release-notes warnings and `signing-evidence.md`, so the
+      # three can never disagree.
+      - name: Resolve platform code-signing policy
+        id: signing-policy
         shell: bash
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
         run: |
-          if [ -z "${{ secrets.WINDOWS_CERTIFICATE }}" ] || [ -z "${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}" ]; then
-            echo "::error::WINDOWS_CERTIFICATE / WINDOWS_CERTIFICATE_PASSWORD secrets are not set. Refusing to build an unsigned MSI (AC3)."
+          set -euo pipefail
+
+          # A half-configured certificate is the dangerous case: the build would
+          # skip signing and the evidence would record "no certificate", which
+          # is not what happened. Refuse to guess.
+          if { [ -n "$WINDOWS_CERTIFICATE" ] && [ -z "$WINDOWS_CERTIFICATE_PASSWORD" ]; } \
+            || { [ -z "$WINDOWS_CERTIFICATE" ] && [ -n "$WINDOWS_CERTIFICATE_PASSWORD" ]; }; then
+            echo "::error title=Partial Authenticode configuration::Exactly one of WINDOWS_CERTIFICATE / WINDOWS_CERTIFICATE_PASSWORD is set. Set both to sign, or neither to publish unsigned — a half-configured certificate would be silently ignored and misrecorded as absent."
             exit 1
           fi
+
+          if [ -n "$WINDOWS_CERTIFICATE" ] && [ -n "$WINDOWS_CERTIFICATE_PASSWORD" ]; then
+            WINDOWS_SIGNING=true
+            echo "Windows: Authenticode certificate present — the MSI will be signed and verified."
+          else
+            WINDOWS_SIGNING=false
+            echo "::warning title=Unsigned Windows installer::WINDOWS_CERTIFICATE is not configured. The MSI and EXE will be published without an Authenticode signature; Windows will show an 'Unknown publisher' SmartScreen warning. Recorded in signing-evidence.md."
+          fi
+
+          # Deliberately hardcoded false, not derived from the secret. Nothing in
+          # this repository signs the macOS bundle: `tauri.conf.json` declares no
+          # `signingIdentity`, there is no notarization step, and the DMG is
+          # remounted and repackaged after the build, which would invalidate a
+          # signature anyway. Reading APPLE_SIGNING_IDENTITY here would let the
+          # mere presence of a secret print "signed with an Apple Developer ID"
+          # on a release that is not signed — evidence that lies is worse than no
+          # evidence. Flip this only together with the steps that actually sign.
+          MACOS_SIGNING=false
+          if [ -n "$APPLE_SIGNING_IDENTITY" ]; then
+            echo "::warning title=Apple signing identity ignored::APPLE_SIGNING_IDENTITY is set, but this pipeline does not sign or notarize macOS artifacts yet. The DMG is published unsigned and recorded as such."
+          else
+            echo "::warning title=Unsigned macOS app::No Apple signing identity is configured. The DMG is published unsigned and un-notarized; Gatekeeper will refuse the first launch until the user allows it in System Settings. Recorded in signing-evidence.md."
+          fi
+
+          echo "windows-signing=$WINDOWS_SIGNING" >> "$GITHUB_OUTPUT"
+          echo "macos-signing=$MACOS_SIGNING" >> "$GITHUB_OUTPUT"
 
   # El gate real de publicación (Story 1.7). Es el mismo workflow que corre en
   # cada PR, invocado aquí de nuevo contra el commit taggeado: un tag puede
@@ -130,6 +182,49 @@ jobs:
           name: frontend-dist
           path: apps/desktop/dist
           retention-days: 1
+
+  # Informativo, igual que en ci.yml, pero acá el reporte además viaja al
+  # release: `signing-evidence.md` lo incrusta, así que la evidencia adjunta
+  # dice qué advisories estaban abiertos el día que se publicó ese binario.
+  dependency-audit:
+    name: Dependency audit (informative)
+    needs: preflight
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Vellum Environment
+        uses: ./.github/actions/setup-vellum
+        with:
+          os: ubuntu-latest
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Restore cargo-deny
+        id: cargo-deny-cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.cargo/bin/cargo-deny
+          key: cargo-deny-${{ runner.os }}-0.18.4
+
+      - name: Install cargo-deny
+        if: steps.cargo-deny-cache.outputs.cache-hit != 'true'
+        run: cargo install cargo-deny --locked --version 0.18.4
+
+      - name: Audit JavaScript and Rust dependencies
+        run: pnpm audit:deps --out dependency-audit.md
+
+      # `if: always()`: el job es continue-on-error, así que un paso anterior
+      # que falle no debe hacer que la evidencia diga "no hubo auditoría"
+      # cuando en realidad hay un reporte parcial escrito.
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: dependency-audit
+          path: dependency-audit.md
+          retention-days: 30
 
   build-release:
     name: Build ${{ matrix.platform }}
@@ -177,11 +272,11 @@ jobs:
           windows-certificate-password: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
           tauri-signing-private-key: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           tauri-signing-private-key-password: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-          allow-unsigned-windows: ${{ vars.ALLOW_UNSIGNED_WINDOWS }}
+          windows-signing: ${{ needs.preflight.outputs.windows-signing }}
 
   finalize-release:
     name: Verify release assets and publish
-    needs: [preflight, build-release, e2e-golden-flow]
+    needs: [preflight, build-release, e2e-golden-flow, dependency-audit]
     runs-on: ubuntu-latest
     steps:
       - name: Verify required release assets are present
@@ -219,7 +314,8 @@ jobs:
       - name: Add download and installation guide
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ALLOW_UNSIGNED_WINDOWS: ${{ vars.ALLOW_UNSIGNED_WINDOWS }}
+          WINDOWS_SIGNING: ${{ needs.preflight.outputs.windows-signing }}
+          MACOS_SIGNING: ${{ needs.preflight.outputs.macos-signing }}
         run: |
           set -euo pipefail
 
@@ -248,15 +344,36 @@ jobs:
           DEB=$(asset_name '\.deb$')
           RPM=$(asset_name '\.rpm$')
 
-          if [ "${ALLOW_UNSIGNED_WINDOWS:-}" = "true" ]; then
+          # Una advertencia por plataforma, decidida por el mismo estado que
+          # genera signing-evidence.md (AC3). Antes Windows tenía nota y macOS
+          # tenía una frase fija que no sabía si el build iba firmado o no.
+          if [ "${WINDOWS_SIGNING:-false}" = "true" ]; then
             WINDOWS_NOTE='> [!NOTE]
-          > Vellum is not yet Authenticode-signed on Windows.
-          > Windows may display an **Unknown publisher** warning.
-          > Tauri updater artifacts remain cryptographically signed.'
-          else
-            WINDOWS_NOTE='> [!NOTE]
-          > The Windows installer is Authenticode-signed.
+          > The Windows installer is Authenticode-signed and the signature was
+          > verified before publishing.
           > Tauri updater artifacts are cryptographically signed as well.'
+          else
+            WINDOWS_NOTE='> [!WARNING]
+          > **This Windows installer is not code-signed.** Windows SmartScreen
+          > will show an **Unknown publisher** warning; you have to choose
+          > *More info → Run anyway* to install.
+          > Tauri updater artifacts remain cryptographically signed, so
+          > in-app updates are still verified.
+          > See the `signing-evidence.md` asset below for the full record.'
+          fi
+
+          if [ "${MACOS_SIGNING:-false}" = "true" ]; then
+            MACOS_NOTE='> [!NOTE]
+          > The macOS app is signed with an Apple Developer ID.'
+          else
+            MACOS_NOTE='> [!WARNING]
+          > **This macOS app is not signed or notarized.** Gatekeeper will
+          > refuse the first launch. Open **System Settings → Privacy &
+          > Security** and allow Vellum to open, or right-click the app and
+          > choose *Open*.
+          > Tauri updater artifacts remain cryptographically signed, so
+          > in-app updates are still verified.
+          > See the `signing-evidence.md` asset below for the full record.'
           fi
 
           GUIDE=$(cat <<'EOF'
@@ -301,10 +418,7 @@ jobs:
           2. Drag **Vellum** into the **Applications** folder.
           3. Open Vellum from Applications.
 
-          > [!NOTE]
-          > If macOS prevents Vellum from opening because the developer cannot
-          > be verified, go to **System Settings → Privacy & Security** and allow
-          > Vellum to open.
+          __MACOS_NOTE__
 
           ---
 
@@ -361,6 +475,7 @@ jobs:
           GUIDE="${GUIDE//__DEB__/$DEB}"
           GUIDE="${GUIDE//__RPM__/$RPM}"
           GUIDE="${GUIDE//__WINDOWS_NOTE__/$WINDOWS_NOTE}"
+          GUIDE="${GUIDE//__MACOS_NOTE__/$MACOS_NOTE}"
           GUIDE+=$'\n\n'
           GUIDE+="$BODY"
 
@@ -373,6 +488,118 @@ jobs:
 
       - name: Verify synchronized version files
         run: node scripts/verify-release-config.mjs
+
+      - name: Download dependency audit report
+        id: audit-report
+        continue-on-error: true
+        uses: actions/download-artifact@v7
+        with:
+          name: dependency-audit
+
+      # La evidencia trazable de AC3. Se genera del mismo estado que decidió
+      # las notas (los outputs de preflight), nunca a mano, y se sube antes de
+      # publicar: un release sin este asset no llega a `draft=false`.
+      - name: Generate and attach signing evidence
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WINDOWS_SIGNING: ${{ needs.preflight.outputs.windows-signing }}
+          MACOS_SIGNING: ${{ needs.preflight.outputs.macos-signing }}
+          RELEASE_ID: ${{ needs.preflight.outputs.release-id }}
+        run: |
+          set -euo pipefail
+
+          ASSETS=$(gh api --paginate \
+            "repos/${{ github.repository }}/releases/${RELEASE_ID}/assets" \
+            --jq '.[].name')
+
+          # Un artefacto del updater es `<instalador>.sig` junto al archivo.
+          # El patrón se ancla a la línea entera: sin anclar, un asset llamado
+          # `notes-about-latest.json.txt` bastaba para declarar presente el
+          # manifiesto, y la evidencia afirmaba algo que no estaba ahí.
+          asset_matching() {
+            printf '%s\n' "$ASSETS" | grep -cE "$1" || true
+          }
+          updater_signed() {
+            if [ "$(asset_matching "$1")" -gt 0 ]; then echo "yes"; else echo "no"; fi
+          }
+
+          if [ "${WINDOWS_SIGNING}" = "true" ]; then
+            WINDOWS_ROW="| Windows | MSI + EXE | **yes** — Authenticode, verified in CI before upload |"
+          else
+            WINDOWS_ROW="| Windows | MSI + EXE | **no** — published unsigned; SmartScreen shows *Unknown publisher* |"
+          fi
+
+          if [ "${MACOS_SIGNING}" = "true" ]; then
+            MACOS_ROW="| macOS | DMG (universal) | **yes** — Apple Developer ID |"
+          else
+            MACOS_ROW="| macOS | DMG (universal) | **no** — unsigned and un-notarized; Gatekeeper blocks the first launch |"
+          fi
+
+          {
+            echo "# Signing evidence — ${GITHUB_REF_NAME}"
+            echo
+            echo "Commit: \`${GITHUB_SHA}\`  "
+            echo "Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            echo
+            echo "Vellum publishes releases whether or not a platform code-signing"
+            echo "certificate is available. What it never does is publish without saying"
+            echo "so: this file is the record for this exact build."
+            echo
+            echo "## Platform code signing"
+            echo
+            echo "| Platform | Artifact | Code-signed |"
+            echo "| --- | --- | --- |"
+            echo "$WINDOWS_ROW"
+            echo "$MACOS_ROW"
+            echo "| Linux | AppImage + DEB + RPM | n/a — Linux packages carry no equivalent publisher signature |"
+            echo
+            echo "## Updater artifact signing"
+            echo
+            echo "Updater signing is independent of platform code signing and is"
+            echo "**mandatory**: the release fails before any build starts without"
+            echo "\`TAURI_SIGNING_PRIVATE_KEY\`, and \`latest.json\` would not validate."
+            echo
+            echo "- \`latest.json\` present: $(updater_signed '^latest\.json$')"
+            echo "- Detached \`.sig\` artifacts present: $(updater_signed '\.sig$') ($(asset_matching '\.sig$') artifact(s))"
+            echo
+            echo "## macOS caveat"
+            echo
+            echo "The DMG is remounted and repackaged after the build to add the install"
+            echo "readme, which would invalidate a signature applied by \`tauri build\`."
+            echo "Signing macOS therefore needs that step reworked as well — see"
+            echo "\`docs/en/security-and-privacy.md\`."
+            echo
+            if [ -f dependency-audit.md ]; then
+              cat dependency-audit.md
+            else
+              echo "## Dependency audit"
+              echo
+              echo "> [!WARNING]"
+              echo "> The dependency-audit job produced no report for this run."
+            fi
+          } > signing-evidence.md
+
+          # Re-running a partially failed publish is a normal recovery path, and
+          # the upload endpoint answers 422 when the asset name already exists.
+          # Under `set -e` that aborted the run and left the release a draft
+          # forever, so replace rather than append.
+          EXISTING=$(gh api --paginate \
+            "repos/${{ github.repository }}/releases/${RELEASE_ID}/assets" \
+            --jq '.[] | select(.name == "signing-evidence.md") | .id')
+          for asset_id in $EXISTING; do
+            gh api --method DELETE \
+              "repos/${{ github.repository }}/releases/assets/${asset_id}" >/dev/null
+            echo "Replaced a previous signing-evidence.md (asset ${asset_id})."
+          done
+
+          gh api --method POST \
+            -H "Content-Type: text/markdown" \
+            "https://uploads.github.com/repos/${{ github.repository }}/releases/${RELEASE_ID}/assets?name=signing-evidence.md" \
+            --input signing-evidence.md \
+            >/dev/null
+
+          echo "Attached signing-evidence.md to release ${RELEASE_ID}."
+          cat signing-evidence.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Associate and publish release (required for updater endpoint)
         env:

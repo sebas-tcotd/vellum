@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "turbo dev",
     "build": "turbo build",
-    "test": "turbo test",
+    "test": "turbo test && pnpm test:scripts",
+    "test:scripts": "vitest run --config vitest.scripts.config.mjs",
     "test:e2e": "turbo test:e2e",
     "lint": "turbo lint && pnpm lint:arch",
     "lint:arch": "eslint packages apps",
@@ -14,6 +15,8 @@
     "rust:lint": "cargo clippy --workspace -- -D warnings",
     "rust:test": "cargo test --workspace",
     "release:verify": "node scripts/verify-release-config.mjs",
+    "check:network": "node scripts/verify-network-surface.mjs",
+    "audit:deps": "node scripts/audit-deps.mjs",
     "prepare": "husky",
     "format": "prettier --write \"**/*.{js,mjs,cjs,ts,tsx,json,md,css,scss,html,yaml,yml}\" --ignore-path .prettierignore",
     "format:check": "prettier --check \"**/*.{js,mjs,cjs,ts,tsx,json,md,css,scss,html,yaml,yml}\" --ignore-path .prettierignore"

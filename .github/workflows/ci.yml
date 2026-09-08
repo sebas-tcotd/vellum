@@ -6,6 +6,12 @@ on:
   pull_request:
     branches: [main]
 
+# Este workflow sólo lee el repositorio. Sin esta línea heredaba el default de
+# la organización, que puede ser `write` para todo — los demás workflows del
+# repo ya lo declaran; éste era el único que no.
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -45,6 +51,53 @@ jobs:
 
       - name: Rust Tests
         run: cargo test --workspace
+
+      # Congela la superficie de red (Story 1.8 AC4). Este sí bloquea: no
+      # depende de ninguna base externa, sólo del árbol que trae el PR.
+      - name: Network surface guardrail
+        run: pnpm check:network
+
+  # Auditoría de dependencias — informativa por decisión (Story 1.8 AC2).
+  #
+  # `continue-on-error` a nivel de job, además del `exit 0` del script: la base
+  # de advisories cambia sin que nadie toque el repo, así que un rojo acá
+  # significaría "hoy se publicó un advisory", no "este PR rompió algo". Lo que
+  # sí se garantiza es visibilidad — el reporte va al summary del run, y el
+  # pipeline de release lo adjunta a `signing-evidence.md`.
+  #
+  # Sin `needs`: es hermano top-level de lint-and-test, no su continuación.
+  dependency-audit:
+    name: Dependency Audit (informative)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Vellum Environment
+        uses: ./.github/actions/setup-vellum
+        with:
+          os: ubuntu-latest
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # `cargo install cargo-deny` compila ~5 min desde cero; el binario es lo
+      # único que hace falta cachear.
+      - name: Restore cargo-deny
+        id: cargo-deny-cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.cargo/bin/cargo-deny
+          key: cargo-deny-${{ runner.os }}-0.18.4
+
+      - name: Install cargo-deny
+        if: steps.cargo-deny-cache.outputs.cache-hit != 'true'
+        run: cargo install cargo-deny --locked --version 0.18.4
+
+      # El script escribe el reporte en $GITHUB_STEP_SUMMARY por su cuenta y
+      # siempre sale con 0.
+      - name: Audit JavaScript and Rust dependencies
+        run: pnpm audit:deps
 
   # El recorrido cartográfico real. En `publish-release` el bloqueo es real y
   # está en el repo: `build-release` lo tiene en `needs`. Aquí el check sale en

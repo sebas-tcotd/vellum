@@ -9,12 +9,13 @@ cambiar de idioma sin perder el contexto.
 
 ## Para empezar
 
-| Documento                                                           | Qué explica                                                                   |
-| ------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| [Visión general del proyecto](project-overview.md)                  | Qué hace Vellum, cómo está organizado el repositorio y qué existe hoy.        |
-| [Guía de desarrollo](development-guide.md)                          | Prerrequisitos, setup local, verificaciones, tests, CI y flujos de extensión. |
-| [Arquitectura de integración](integration-architecture.md)          | Cómo encajan parser, dominio, render, export, temas y updates.                |
-| [Matriz de verificación de release](release-verification-matrix.md) | Qué verifica CI antes de publicar una release y qué queda manual.             |
+| Documento                                                           | Qué explica                                                                                     |
+| ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| [Visión general del proyecto](project-overview.md)                  | Qué hace Vellum, cómo está organizado el repositorio y qué existe hoy.                          |
+| [Guía de desarrollo](development-guide.md)                          | Prerrequisitos, setup local, verificaciones, tests, CI y flujos de extensión.                   |
+| [Arquitectura de integración](integration-architecture.md)          | Cómo encajan parser, dominio, render, export, temas y updates.                                  |
+| [Matriz de verificación de release](release-verification-matrix.md) | Qué verifica CI antes de publicar una release y qué queda manual.                               |
+| [Seguridad y privacidad](security-and-privacy.md)                   | La CSP, la auditoría de dependencias, qué significa una build sin firmar y qué red abre Vellum. |
 
 ## Arquitectura y código fuente
 

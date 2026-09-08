@@ -1,0 +1,18 @@
+# cargo-deny configuration — advisories only (Story 1.8, AC2).
+#
+# Vellum audits its Rust dependency tree for known vulnerabilities and nothing
+# else. `licenses` and `bans` are deliberately absent: they are a different
+# policy with a different failure mode, and adding them here would turn a
+# security signal into a licence-compliance chore nobody asked for. Only
+# `cargo deny check advisories` is ever run (see `scripts/audit-deps.mjs`).
+#
+# The audit is informative: `scripts/audit-deps.mjs` always exits 0 and CI
+# never blocks a PR on it. That is a decision, not an oversight — the advisory
+# database moves independently of this repository, so a red check here would
+# mean "someone published an advisory today", not "this pull request broke
+# something".
+
+[advisories]
+# RustSec advisory IDs to ignore, each with the reason it does not apply.
+# Empty by design: nothing has been waived.
+ignore = []

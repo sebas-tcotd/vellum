@@ -74,6 +74,13 @@ export function PreferencesPanel({
               </button>
             </div>
           </div>
+          {/*
+            The label names what the switch actually controls: whether the app
+            contacts GitHub when it launches. It never installs anything on its
+            own — that is always the explicit button on the update toast — so
+            "automatic updates" would have promised the wrong thing in both
+            directions (Story 1.8 AC4).
+          */}
           <label className="flex items-center justify-between gap-2 text-xs font-semibold">
             <span>{t('preferences.autoUpdate')}</span>
             <Switch

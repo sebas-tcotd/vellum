@@ -56,7 +56,15 @@ pnpm lint                  # lint TypeScript + regla de arquitectura
 pnpm check:architecture    # regla ESLint no-restricted-imports — enforcea el grafo de dependencias unidireccional
 pnpm format                # prettier --write
 pnpm format:check          # prettier --check (usado en CI)
+pnpm check:network         # congela la superficie de red — bloqueante, como en CI
+pnpm audit:deps            # advisories de JavaScript + Rust — informativo, siempre sale con 0
 ```
+
+`check:network` falla si el código de producción gana un `fetch`, un SDK de
+analytics, un crate HTTP, o si cambian la CSP, los permisos de capabilities o el
+endpoint del updater. `audit:deps` necesita `cargo install cargo-deny --locked`
+para su mitad Rust; sin eso la mitad JavaScript igual reporta. Ambos están
+explicados en [Seguridad y privacidad](security-and-privacy.md).
 
 ## Tests
 

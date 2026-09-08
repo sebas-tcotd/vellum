@@ -44,10 +44,10 @@ inputs:
     description: 'Password de la clave privada Tauri. Solo se usa en mode=release.'
     required: false
     default: ''
-  allow-unsigned-windows:
-    description: 'Permite release Windows sin Authenticode. Solo se usa en mode=release.'
+  windows-signing:
+    description: "'true' cuando hay certificado Authenticode disponible; cualquier otro valor publica el MSI sin firmar y lo deja registrado. Solo se usa en mode=release."
     required: false
-    default: ''
+    default: 'false'
 
 runs:
   using: 'composite'
@@ -75,13 +75,15 @@ runs:
       run: cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml
 
     # --- mode: release -----------------------------------------------------
-    # Secret presence (TAURI_SIGNING_PRIVATE_KEY, WINDOWS_CERTIFICATE) is
-    # verified once in the caller's preflight job, before this action ever
-    # runs, so it is not re-checked per platform here.
+    # The caller's preflight job decides the signing policy once, before this
+    # action ever runs, and hands it down as `windows-signing`. Updater signing
+    # (TAURI_SIGNING_PRIVATE_KEY) is still gated there and still blocks:
+    # without it `latest.json` does not validate. Platform code signing does
+    # not block — it warns and is recorded (Story 1.8, AC3).
 
     - name: Import Windows code signing certificate
       id: import-cert
-      if: inputs.mode == 'release' && inputs.platform == 'windows-latest' && inputs.allow-unsigned-windows != 'true'
+      if: inputs.mode == 'release' && inputs.platform == 'windows-latest' && inputs.windows-signing == 'true'
       shell: pwsh
       env:
         WINDOWS_CERTIFICATE: ${{ inputs.windows-certificate }}
@@ -107,7 +109,7 @@ runs:
         # to drop the ,"build":{"beforeBuildCommand":""} fragment from both
         # branches below and let tauri-action rebuild the frontend per platform
         # again, as it did before this change.
-        if [ "${{ inputs.platform }}" = "windows-latest" ] && [ "${{ inputs.allow-unsigned-windows }}" != "true" ]; then
+        if [ "${{ inputs.platform }}" = "windows-latest" ] && [ "${{ inputs.windows-signing }}" = "true" ]; then
           CONFIG_JSON=$(printf '{"bundle":{"windows":{"certificateThumbprint":"%s","digestAlgorithm":"sha256","timestampUrl":"http://timestamp.digicert.com"}},"build":{"beforeBuildCommand":""}}' "${{ steps.import-cert.outputs.thumbprint }}")
         else
           CONFIG_JSON='{"build":{"beforeBuildCommand":""}}'
@@ -132,7 +134,7 @@ runs:
         projectPath: apps/desktop
 
     - name: Verify Authenticode signature (Windows, AC3)
-      if: inputs.mode == 'release' && inputs.platform == 'windows-latest' && inputs.allow-unsigned-windows != 'true'
+      if: inputs.mode == 'release' && inputs.platform == 'windows-latest' && inputs.windows-signing == 'true'
       shell: pwsh
       run: |
         $msi = Get-ChildItem -Path "target/x86_64-pc-windows-msvc/release/bundle/msi" -Filter *.msi -Recurse | Select-Object -First 1
@@ -150,17 +152,19 @@ runs:
         # SmartScreen "unknown publisher" reputation additionally depends on install-base
         # telemetry that only a real, clean-machine install can confirm — see Task 4 evidence.
 
-    - name: Record intentional unsigned Windows MSI
-      if: inputs.mode == 'release' && inputs.platform == 'windows-latest' && inputs.allow-unsigned-windows == 'true'
+    # Not a warning in a log any more: the annotation is visible on the run,
+    # and `signing-evidence.md` carries the same fact into the release itself.
+    - name: Record unsigned Windows installer
+      if: inputs.mode == 'release' && inputs.platform == 'windows-latest' && inputs.windows-signing != 'true'
       shell: pwsh
       run: |
         $msi = Get-ChildItem -Path "target/x86_64-pc-windows-msvc/release/bundle/msi" -Filter *.msi -Recurse | Select-Object -First 1
         if (-not $msi) {
-          Write-Error "No .msi artifact found for the intentional unsigned Windows release."
+          Write-Error "No .msi artifact found for the unsigned Windows release."
           exit 1
         }
         $sig = Get-AuthenticodeSignature -FilePath $msi.FullName
-        Write-Warning "Publishing an intentionally unsigned Windows MSI: $($msi.Name) (status: $($sig.Status))."
+        Write-Output "::warning title=Unsigned Windows installer::$($msi.Name) is published without an Authenticode signature (status: $($sig.Status)). See signing-evidence.md on the release."
 
     - name: Add visible install guide inside the DMG (AC4, macOS)
       if: inputs.mode == 'release' && inputs.platform == 'macos-latest'
