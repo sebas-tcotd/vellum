@@ -55,6 +55,7 @@ jobs:
         with:
           os: ubuntu-22.04
           e2e-deps: 'true'
+          cache-class: e2e
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile

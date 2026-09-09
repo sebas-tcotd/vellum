@@ -203,6 +203,7 @@ jobs:
         with:
           os: ubuntu-latest
           linux-deps: 'false'
+          cache-class: audit
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -239,10 +240,8 @@ jobs:
     needs: [preflight, build-frontend]
     strategy:
       fail-fast: false
-      # tauri-action merges the existing latest.json when each platform uploads
-      # its updater artifacts. Serializing the matrix prevents concurrent
-      # read/delete/upload races on that single release asset.
-      max-parallel: 1
+      # Cada celda sube assets con nombres independientes. latest.json está
+      # desactivado en tauri-action y se escribe una sola vez en el job posterior.
       matrix:
         include:
           - platform: windows-latest
@@ -263,6 +262,13 @@ jobs:
         uses: ./.github/actions/setup-vellum
         with:
           os: ${{ matrix.platform }}
+          # Misma clase que compile-matrix a propósito: corre en las imágenes
+          # idénticas y es la única caché que main escribe para estas
+          # plataformas. Una clase propia sólo se guardaría bajo refs/tags/*,
+          # que ningún run posterior puede leer, y arrancaría siempre fría.
+          # No reintroduce la mezcla del E0463: el perfil dev vive en
+          # target/debug y el release en target/release.
+          cache-class: compile
 
       - name: Build, sign and upload release artifact
         uses: ./.github/actions/build-tauri-platform
@@ -280,9 +286,142 @@ jobs:
           tauri-signing-private-key-password: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           windows-signing: ${{ needs.preflight.outputs.windows-signing }}
 
+  generate-updater-manifest:
+    name: Generate and upload updater manifest
+    needs: [preflight, build-release]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Generate complete updater manifest from release assets
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_ID: ${{ needs.preflight.outputs.release-id }}
+        run: |
+          set -euo pipefail
+          RELEASE_API="repos/${{ github.repository }}/releases/${RELEASE_ID}"
+          ASSETS_API="${RELEASE_API}/assets?per_page=100"
+
+          gh api "$RELEASE_API" > release.json
+          RELEASE_TAG=$(jq -r '.tag_name' release.json)
+          if [ "$RELEASE_TAG" != "${{ github.ref_name }}" ]; then
+            echo "::error::Release ${RELEASE_ID} belongs to tag ${RELEASE_TAG}, expected ${{ github.ref_name }}."
+            exit 1
+          fi
+          jq -r '.created_at' release.json > release-created-at.txt
+          jq -r '.body // ""' release.json > release-notes.txt
+
+          generated=false
+          for attempt in $(seq 1 6); do
+            # GitHub can expose the matrix uploads with a short delay. Fetch all
+            # pages and regenerate from a clean signature directory each time.
+            gh api --paginate --slurp "$ASSETS_API" | jq 'add' > release-assets.json
+            rm -rf updater-signatures
+            mkdir updater-signatures
+            download_failed=false
+
+            while IFS=$'\t' read -r asset_id asset_name; do
+              if [ "$(basename "$asset_name")" != "$asset_name" ]; then
+                echo "::error::Invalid release asset name: $asset_name"
+                exit 1
+              fi
+              if ! gh api \
+                -H "Accept: application/octet-stream" \
+                "repos/${{ github.repository }}/releases/assets/${asset_id}" \
+                > "updater-signatures/${asset_name}"; then
+                download_failed=true
+                break
+              fi
+            done < <(jq -r '.[] | select(.name | endswith(".sig")) | [.id, .name] | @tsv' release-assets.json)
+
+            if [ "$download_failed" = false ] && node scripts/generate-updater-manifest.mjs \
+              --inventory release-assets.json \
+              --signatures-dir updater-signatures \
+              --repository "${{ github.repository }}" \
+              --tag "${{ github.ref_name }}" \
+              --version "${GITHUB_REF_NAME#v}" \
+              --pub-date "$(cat release-created-at.txt)" \
+              --notes-file release-notes.txt \
+              --output latest.json; then
+              generated=true
+              break
+            fi
+
+            if [ "$attempt" -lt 6 ]; then
+              echo "::warning::Release assets are not complete yet (attempt ${attempt}/6); retrying in 5s."
+              sleep 5
+            fi
+          done
+
+          if [ "$generated" != true ]; then
+            echo "::error::Could not build a complete updater manifest after 6 attempts."
+            exit 1
+          fi
+
+      - name: Replace latest.json idempotently
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_ID: ${{ needs.preflight.outputs.release-id }}
+        run: |
+          set -euo pipefail
+          LATEST_IDS=$(jq -r '.[] | select(.name == "latest.json") | .id' release-assets.json)
+          LATEST_COUNT=$(printf '%s\n' "$LATEST_IDS" | grep -c '[0-9]' || true)
+          if [ "$LATEST_COUNT" -gt 1 ]; then
+            echo "::error::Release contains multiple latest.json assets; refusing an ambiguous replacement."
+            exit 1
+          fi
+          if [ "$LATEST_COUNT" -eq 1 ]; then
+            gh api --method DELETE \
+              "repos/${{ github.repository }}/releases/assets/${LATEST_IDS}" \
+              >/dev/null
+            echo "Removed previous latest.json asset ${LATEST_IDS}."
+          fi
+
+          UPLOADED_ID=$(gh api --method POST \
+            -H "Content-Type: application/json" \
+            "https://uploads.github.com/repos/${{ github.repository }}/releases/${RELEASE_ID}/assets?name=latest.json" \
+            --input latest.json \
+            --jq '.id')
+
+          gh api \
+            -H "Accept: application/octet-stream" \
+            "repos/${{ github.repository }}/releases/assets/${UPLOADED_ID}" \
+            > uploaded-latest.json
+          if ! cmp -s latest.json uploaded-latest.json; then
+            echo "::error::The uploaded latest.json does not match the generated manifest."
+            exit 1
+          fi
+
+          confirmed=false
+          ASSETS_API="repos/${{ github.repository }}/releases/${RELEASE_ID}/assets?per_page=100"
+          for attempt in $(seq 1 6); do
+            gh api --paginate --slurp "$ASSETS_API" | jq 'add' > uploaded-assets.json
+            MATCHING=$(jq '[.[] | select(.name == "latest.json" and .size > 0)] | length' uploaded-assets.json)
+            MATCHING_ID=$(jq -r '.[] | select(.name == "latest.json" and .size > 0) | .id' uploaded-assets.json)
+            if [ "$MATCHING" -eq 1 ] && [ "$MATCHING_ID" = "$UPLOADED_ID" ]; then
+              confirmed=true
+              break
+            fi
+            if [ "$attempt" -lt 6 ]; then
+              sleep 2
+            fi
+          done
+          if [ "$confirmed" != true ]; then
+            echo "::error::Expected exactly the uploaded non-empty latest.json asset."
+            exit 1
+          fi
+          echo "Uploaded one validated latest.json to release ${RELEASE_ID}."
+
   finalize-release:
     name: Verify release assets and publish
-    needs: [preflight, build-release, e2e-golden-flow, dependency-audit]
+    needs:
+      [
+        preflight,
+        build-release,
+        generate-updater-manifest,
+        e2e-golden-flow,
+        dependency-audit,
+      ]
     runs-on: ubuntu-latest
     steps:
       - name: Verify required release assets are present
@@ -343,7 +482,10 @@ jobs:
             printf '%s' "$name"
           }
 
-          MSI=$(asset_name '\.msi$')
+          # Anclado a en-US: wix.language declara en-US y es-ES, así que hay
+          # dos MSI y el orden de la API es el de subida. Sin anclar, la
+          # descarga recomendada podía ser el instalador en español.
+          MSI=$(asset_name '_en-US\.msi$')
           EXE=$(asset_name '\.exe$')
           DMG=$(asset_name '\.dmg$')
           APPIMAGE=$(asset_name '\.AppImage$')

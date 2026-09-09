@@ -20,6 +20,12 @@ inputs:
     description: 'Añade WebKitWebDriver y Xvfb a las dependencias Linux'
     required: false
     default: 'false'
+  cache-class:
+    description: >-
+      Clase de trabajo que comparte caché de Cargo (compile | quality | e2e |
+      audit). Jobs de clases distintas NO deben compartir target/.
+    required: false
+    default: 'shared'
 
 runs:
   using: 'composite'
@@ -58,10 +64,17 @@ runs:
       if: inputs.rust == 'true'
       with:
         # Cargo.toml vive en la raíz, por lo que todos los crates escriben en
-        # ./target. shared-key evita fragmentar la caché por nombre de job;
-        # rust-cache conserva el aislamiento por OS, arquitectura y toolchain.
+        # ./target.
         workspaces: '. -> target'
-        shared-key: vellum-workspace
+        # La clave lleva el runner exacto y la clase de trabajo. rust-cache sólo
+        # aísla por `runner.os`, que es `Linux` tanto en ubuntu-22.04 como en
+        # ubuntu-latest (24.04), y `shared-key` sustituye al aislamiento por job:
+        # con una sola clave, `cargo check` restauraba un target/ producido por
+        # clippy/test en otra imagen. Cargo daba `tauri` por fresca y rustc no
+        # encontraba su .rmeta -> E0463 intermitente en parser-cslmap.
+        shared-key: vellum-${{ inputs.os }}-${{ inputs.cache-class }}
+        # Bump manual: invalida de una vez las cachés mezcladas anteriores.
+        prefix-key: v1-vellum
 
     - name: Install system dependencies (Linux)
       if: inputs.linux-deps == 'true' && (inputs.os == 'ubuntu-22.04' || inputs.os == 'ubuntu-latest')
