@@ -17,6 +17,7 @@ import { fileURLToPath } from 'node:url';
 import {
   IDENTITY_KEYS,
   FRAGMENT_INVARIANTS,
+  NSIS_TEMPLATE_INVARIANTS,
   readImageSize,
   verifyInstallerIdentity,
 } from './verify-installer-identity.mjs';
@@ -443,6 +444,20 @@ describe('verify-installer-identity', () => {
       });
       expect(rules(root)).toContain('no-installer-template');
       expect(rules(root)).not.toContain('no-install-scripts');
+    });
+
+    it('requires the reviewed NSIS template and every Tauri invariant', () => {
+      const root = cleanRoot();
+      const file = path.join(
+        root,
+        'apps/desktop/src-tauri/installer/vellum-installer.nsi',
+      );
+      fs.writeFileSync(
+        file,
+        fs.readFileSync(file, 'utf8').replace('WriteUninstaller', '; removed'),
+      );
+      expect(rules(root)).toContain('nsis-template');
+      expect(NSIS_TEMPLATE_INVARIANTS).toHaveLength(8);
     });
 
     it('finds a script key nested inside an array', () => {

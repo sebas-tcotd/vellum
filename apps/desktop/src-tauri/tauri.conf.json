@@ -105,6 +105,7 @@
         ]
       },
       "nsis": {
+        "template": "installer/vellum-installer.nsi",
         "headerImage": "installer/nsis-header.bmp",
         "sidebarImage": "installer/nsis-sidebar.bmp",
         "installerIcon": "icons/icon.ico",

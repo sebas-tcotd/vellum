@@ -184,9 +184,9 @@ export function generateUpdaterManifest({
     entries.set(key, platformEntry(candidate, repository, tag, readSignature));
   };
 
-  // El inventario real de Vellum usa unzippedSig. La entrada genérica Windows
-  // debe apuntar al MSI en-US por contrato, nunca al primer asset encontrado.
-  add('windows-x86_64', windowsMsi);
+  // La entrada genérica Windows representa la descarga pública para usuarios
+  // comunes: NSIS instala por usuario y evita el flujo corporativo de MSI.
+  add('windows-x86_64', windowsNsis);
   add('windows-x86_64-msi', windowsMsi);
   add('windows-x86_64-nsis', windowsNsis);
 

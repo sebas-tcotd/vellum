@@ -42,9 +42,10 @@ numeración de cuatro dígitos. Un ADR aceptado no se reescribe: se supersede co
 uno nuevo que lo referencie. El árbol es neutral al idioma y lo comparten ambos
 índices.
 
-| ADR                                                                      | Qué decide                                                                                           |
-| ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
-| [ADR-0001 — Ownership del rendering](../adr/0001-rendering-ownership.md) | El puerto `IRenderer` y sus puertos segregados, los adapters admisibles y el composition root único. |
+| ADR                                                                                      | Qué decide                                                                                           |
+| ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| [ADR-0001 — Ownership del rendering](../adr/0001-rendering-ownership.md)                 | El puerto `IRenderer` y sus puertos segregados, los adapters admisibles y el composition root único. |
+| [ADR-0002 — Instalador público de Windows](../adr/0002-nsis-public-windows-installer.md) | NSIS como instalador Windows recomendado de Vellum, con MSI como alternativa.                        |
 
 ## Una nota sobre el alcance
 

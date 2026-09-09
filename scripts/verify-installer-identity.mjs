@@ -47,6 +47,21 @@ const TAURI_DIR = 'apps/desktop/src-tauri';
 const COPY_FILE = 'brand/installer-copy.json';
 const FRAGMENT_FILE = 'apps/desktop/src-tauri/windows/cslmap-association.wxs';
 const DESKTOP_FILE = 'apps/desktop/src-tauri/linux/vellum.desktop';
+const NSIS_TEMPLATE_FILE =
+  'apps/desktop/src-tauri/installer/vellum-installer.nsi';
+const NSIS_TEMPLATE_PATH = 'installer/vellum-installer.nsi';
+
+/** Non-negotiable Tauri mechanics retained by Vellum's compact NSIS UI. */
+export const NSIS_TEMPLATE_INVARIANTS = [
+  { name: 'per-user privilege level', pattern: /RequestExecutionLevel user/ },
+  { name: 'silent installation', pattern: /\$\{Silent\}/ },
+  { name: 'updater mode', pattern: /"\/UPDATE"/ },
+  { name: 'Tauri app-running check', pattern: /CheckIfAppIsRunning/ },
+  { name: 'Tauri uninstaller', pattern: /WriteUninstaller/ },
+  { name: 'legacy MSI migration', pattern: /Function MigrateLegacyMsi/ },
+  { name: 'legacy MSI uninstall call', pattern: /ExecWait '\$4'/ },
+  { name: 'launch after installation', pattern: /RunAsUser/ },
+];
 
 /**
  * Identity keys, and where each one's value has to come from.
@@ -767,6 +782,12 @@ function checkNoInstallScripts(config) {
         });
       }
       if (TEMPLATE_KEYS.includes(key)) {
+        if (
+          [...trail, key].join('.') === 'bundle.windows.nsis.template' &&
+          nested === NSIS_TEMPLATE_PATH
+        ) {
+          continue;
+        }
         violations.push({
           file: CONFIG_FILE,
           rule: 'no-installer-template',
@@ -778,6 +799,38 @@ function checkNoInstallScripts(config) {
   };
   walk(config.bundle ?? {}, ['bundle']);
   return violations;
+}
+
+function checkNsisTemplate(root, config) {
+  const template = pick(config.bundle ?? {}, ['windows', 'nsis', 'template']);
+  if (template !== NSIS_TEMPLATE_PATH) {
+    return [
+      {
+        file: CONFIG_FILE,
+        rule: 'nsis-template',
+        detail: `bundle.windows.nsis.template must be ${JSON.stringify(NSIS_TEMPLATE_PATH)}.`,
+      },
+    ];
+  }
+  const absolute = path.join(root, NSIS_TEMPLATE_FILE);
+  if (!fs.existsSync(absolute)) {
+    return [
+      {
+        file: NSIS_TEMPLATE_FILE,
+        rule: 'nsis-template',
+        detail:
+          'Missing. The public Windows installer must keep its reviewed NSIS template.',
+      },
+    ];
+  }
+  const source = fs.readFileSync(absolute, 'utf8');
+  return NSIS_TEMPLATE_INVARIANTS.filter(
+    ({ pattern }) => !pattern.test(source),
+  ).map(({ name }) => ({
+    file: NSIS_TEMPLATE_FILE,
+    rule: 'nsis-template',
+    detail: `Missing ${name}; it is required for the Tauri-compatible installer contract.`,
+  }));
 }
 
 /**
@@ -868,6 +921,7 @@ export function verifyInstallerIdentity(root) {
     ...checkDerivedArtwork(root),
     ...checkPlatformConfig(root, config, copy),
     ...checkCslmapFragment(root, config),
+    ...checkNsisTemplate(root, config),
     ...checkNoInstallScripts(config),
     ...checkMarkIsSingleSource(root),
     ...checkOverlays(root),
