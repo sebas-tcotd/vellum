@@ -245,6 +245,15 @@ describe('verify-installer-identity', () => {
       expect(details(root)).toContain('does not exist relative to');
     });
 
+    it('fails when the NSIS splash is not bundled as a resource', () => {
+      const root = editConfig(cleanRoot(), (bundle) => {
+        bundle.resources = bundle.resources.filter(
+          (resource) => resource !== 'installer/vellum-splash.bmp',
+        );
+      });
+      expect(details(root)).toContain('vellum-splash.bmp');
+    });
+
     it('fails when the WiX Spanish locale is dropped', () => {
       const root = editConfig(cleanRoot(), (bundle) => {
         bundle.windows.wix.language = ['en-US'];
@@ -457,7 +466,7 @@ describe('verify-installer-identity', () => {
         fs.readFileSync(file, 'utf8').replace('WriteUninstaller', '; removed'),
       );
       expect(rules(root)).toContain('nsis-template');
-      expect(NSIS_TEMPLATE_INVARIANTS).toHaveLength(10);
+      expect(NSIS_TEMPLATE_INVARIANTS).toHaveLength(11);
     });
 
     it('finds a script key nested inside an array', () => {

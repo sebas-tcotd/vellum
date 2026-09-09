@@ -55,6 +55,7 @@ const NSIS_TEMPLATE_PATH = 'installer/vellum-installer.nsi';
 export const NSIS_TEMPLATE_INVARIANTS = [
   { name: 'per-user privilege level', pattern: /RequestExecutionLevel user/ },
   { name: 'custom install splash', pattern: /Function SplashPage/ },
+  { name: 'full-bleed splash artwork', pattern: /NSD_SetStretchedBitmap/ },
   { name: 'splash install CTA', pattern: /Install Vellum/ },
   { name: 'silent installation', pattern: /\$\{Silent\}/ },
   { name: 'updater mode', pattern: /"\/UPDATE"/ },
@@ -505,6 +506,17 @@ function checkPlatformConfig(root, config, copy) {
       file: CONFIG_FILE,
       rule: 'installer-privileges',
       detail: `bundle.windows.nsis.installMode must be "currentUser"; found ${JSON.stringify(nsis.installMode)}. Vellum writes only inside its install prefix and the user's data directories, so it never needs the UAC elevation a per-machine install prompts for.`,
+    });
+  }
+  if (
+    !Array.isArray(bundle.resources) ||
+    !bundle.resources.includes('installer/vellum-splash.bmp')
+  ) {
+    violations.push({
+      file: CONFIG_FILE,
+      rule: 'installer-artwork-reference',
+      detail:
+        'bundle.resources must include "installer/vellum-splash.bmp" so the custom NSIS splash can extract its full-bleed artwork before the first page is shown.',
     });
   }
 

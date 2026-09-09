@@ -56,6 +56,8 @@ Var UpdateMode
 Var NoShortcutMode
 Var OldMainBinaryName
 Var SplashInstallButton
+Var SplashBitmap
+Var SplashBitmapHandle
 
 Name "${PRODUCTNAME}"
 BrandingText "${COPYRIGHT}"
@@ -109,31 +111,51 @@ Page custom SplashPage SplashLeave
 !include "{{this}}"
 {{/each}}
 
-; A deliberately quiet splash instead of MUI's wizard welcome page. The page
-; owns the single visible action and advances directly to real install progress.
+; Tauri makes configured resources available to Handlebars as absolute source
+; paths. Extract them into $PLUGINSDIR before the splash page appears. This
+; keeps the artwork load independent of Tauri's temporary NSIS working folder.
+!macro ExtractSplashArtwork
+{{#each resources_dirs}}
+  CreateDirectory "$PLUGINSDIR\\{{this}}"
+{{/each}}
+{{#each resources}}
+  File "/oname=$PLUGINSDIR\\{{this.[1]}}" "{{no-escape @key}}"
+{{/each}}
+!macroend
+
+; A full-bleed product splash instead of MUI's wizard welcome page. Static
+; controls remain only for accessibility and localisation; all visual chrome
+; is one composed bitmap, avoiding the boxed Win32-label layout.
 Function SplashPage
   nsDialogs::Create 1044
   Pop $0
   ${IfThen} $0 == error ${|} Abort ${|}
 
-  ${NSD_CreateLabel} 28u 24u 48u 48u "V"
+  ${NSD_CreateBitmap} 0 0 100% 100% ""
+  Pop $1
+  ${NSD_SetStretchedBitmap} $1 "$PLUGINSDIR\\installer\\vellum-splash.bmp" $SplashBitmapHandle
+
+  ${NSD_CreateLabel} 28u 28u 145u 20u "Vellum"
   Pop $1
   SetCtlColors $1 "4a4035" "f7f6f1"
 
-  ${NSD_CreateLabel} 28u 82u 260u 22u "Vellum"
+  ${NSD_CreateLabel} 28u 60u 145u 44u "Turn Cities: Skylines saves into beautiful maps."
   Pop $1
-  SetCtlColors $1 "333333" "f7f6f1"
+  SetCtlColors $1 "4a4035" "f7f6f1"
 
-  ${NSD_CreateLabel} 28u 110u 280u 32u "Turn Cities: Skylines saves into beautiful maps."
+  ${NSD_CreateLabel} 28u 116u 145u 32u "Installs only for your Windows account. No administrator access needed."
   Pop $1
-  SetCtlColors $1 "626262" "f7f6f1"
+  SetCtlColors $1 "665f56" "f7f6f1"
 
-  ${NSD_CreateLabel} 28u 154u 280u 24u "Installs only for your Windows account. No administrator access needed."
-  Pop $1
-  SetCtlColors $1 "626262" "f7f6f1"
+  ${If} $LANGUAGE == ${LANG_SPANISH}
+    SendMessage $1 ${WM_SETTEXT} 0 "STR:Se instala solo para tu cuenta de Windows. No necesita permisos de administrador."
+  ${EndIf}
 
-  ${NSD_CreateButton} 28u 198u 132u 18u "Install Vellum"
+  ${NSD_CreateButton} 28u 162u 124u 20u "Install Vellum"
   Pop $SplashInstallButton
+  ${If} $LANGUAGE == ${LANG_SPANISH}
+    SendMessage $SplashInstallButton ${WM_SETTEXT} 0 "STR:Instalar Vellum"
+  ${EndIf}
   ${NSD_OnClick} $SplashInstallButton SplashInstall
 
   ; The stock wizard controls must never leak into the splash.
@@ -144,6 +166,7 @@ Function SplashPage
   GetDlgItem $1 $HWNDPARENT 2
   ShowWindow $1 ${SW_HIDE}
   nsDialogs::Show
+  ${NSD_FreeBitmap} $SplashBitmapHandle
 FunctionEnd
 
 Function SplashInstall
@@ -156,6 +179,8 @@ Function SplashLeave
 FunctionEnd
 
 Function .onInit
+  InitPluginsDir
+  !insertmacro ExtractSplashArtwork
   ${GetOptions} $CMDLINE "/P" $PassiveMode
   ${IfNot} ${Errors}
     StrCpy $PassiveMode 1
