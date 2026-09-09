@@ -203,6 +203,7 @@ jobs:
         with:
           os: ubuntu-latest
           linux-deps: 'false'
+          cache-class: audit
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -261,6 +262,7 @@ jobs:
         uses: ./.github/actions/setup-vellum
         with:
           os: ${{ matrix.platform }}
+          cache-class: release
 
       - name: Build, sign and upload release artifact
         uses: ./.github/actions/build-tauri-platform
