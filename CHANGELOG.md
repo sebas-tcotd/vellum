@@ -2,6 +2,25 @@
 
 All notable changes to Vellum will be documented here.
 
+## [0.8.0](https://github.com/sebas-tcotd/vellum/compare/v0.7.0...v0.8.0) (2026-09-09)
+
+
+### Features
+
+* **installer:** ofrecer una instalación reconociblemente Vellum en cada plataforma ([cdea7dc](https://github.com/sebas-tcotd/vellum/commit/cdea7dccac9e64e24e7e1852f3434a1d90c89047))
+
+
+### Bug Fixes
+
+* **ci:** corregir el contrato de caché y el MSI enlazado en las notas ([25d3ce2](https://github.com/sebas-tcotd/vellum/commit/25d3ce2de0d9723a3b7a3b827f1390b2a7638cae))
+* **ci:** separar la caché de Cargo por runner y clase de trabajo ([b187774](https://github.com/sebas-tcotd/vellum/commit/b187774ab483d053e638e17bd333d893b1c2e444))
+* **security:** declarar el bridge IPC de Tauri en el CSP ([941d385](https://github.com/sebas-tcotd/vellum/commit/941d385fa5282f47f6328cdf1ee4fca3ba04d524))
+
+
+### Reverts
+
+* restaurar el timeout de captura de exportación en 8s ([941d385](https://github.com/sebas-tcotd/vellum/commit/941d385fa5282f47f6328cdf1ee4fca3ba04d524))
+
 ## [0.7.0](https://github.com/sebas-tcotd/vellum/compare/v0.6.0...v0.7.0) (2026-09-08)
 
 
