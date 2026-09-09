@@ -1,23 +1,14 @@
 name: Landing Validation
 
 on:
-  pull_request:
-    branches: [main]
-    paths:
-      - 'apps/landing/**'
-      - '.github/workflows/landing-ci.yml'
-      - 'package.json'
-      - 'pnpm-lock.yaml'
-      - 'pnpm-workspace.yaml'
-      - 'tsconfig.json'
-      - 'turbo.json'
+  workflow_call:
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: landing-ci-${{ github.event.pull_request.number || github.ref }}
+  group: landing-ci-${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -29,16 +20,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v6
+      - name: Setup Node environment
+        uses: ./.github/actions/setup-vellum
         with:
-          version: 10.33.0
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: pnpm
+          os: ubuntu-latest
+          rust: 'false'
+          linux-deps: 'false'
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
