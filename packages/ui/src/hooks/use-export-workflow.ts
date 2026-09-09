@@ -305,6 +305,14 @@ export function useExportWorkflow({
   // afterwards, since by then `exportPhase` carries the same answer.
   const isExportingRef = useRef(isExporting);
   isExportingRef.current = isExporting;
+  // Unlike `isExportingRef`, this tracks only the externally-driven signal,
+  // never `exportPhase` — `handleOpenExport` needs to tell "an export started
+  // outside this dialog while its preview was still loading" (close the
+  // dialog it eagerly opened) apart from "the user just confirmed the export
+  // this same dialog is showing" (exportPhase leaving idle, which must not
+  // close the dialog it's the progress UI for).
+  const isExportingPropRef = useRef(isExportingProp);
+  isExportingPropRef.current = isExportingProp;
   const previewCapturePendingRef = useRef(false);
 
   /**
@@ -355,7 +363,7 @@ export function useExportWorkflow({
     setExportPreview(null);
   }, [loadingState]);
 
-  const handleOpenExport = useCallback(async () => {
+  const handleOpenExport = useCallback((): void => {
     if (
       cityData === null ||
       loadingState === 'loading' ||
@@ -364,23 +372,38 @@ export function useExportWorkflow({
     ) {
       return;
     }
+    // The dialog opens immediately with no preview; `OutputDimensions`
+    // already renders nothing until `preview` arrives (same as it does for
+    // svg/full-map today), so a slow capture delays the dimensions readout,
+    // never the dialog itself.
+    setExportPreview(null);
+    setIsExportDialogOpen(true);
     previewCapturePendingRef.current = true;
-    try {
-      const preview = await (previewCaptureRef.current?.() ??
-        Promise.resolve(null));
-      const currentState = useVellumStore.getState();
-      if (
-        currentState.cityData !== cityData ||
-        currentState.loadingState === 'loading' ||
-        isExportingRef.current
-      ) {
-        return;
-      }
-      setExportPreview(preview);
-      setIsExportDialogOpen(true);
-    } finally {
-      previewCapturePendingRef.current = false;
-    }
+    void (previewCaptureRef.current?.() ?? Promise.resolve(null))
+      .then((preview) => {
+        // An export starting outside this dialog invalidates it outright —
+        // AD-15 allows only one live export while the DEM protocol is
+        // global, so the config UI this promise would otherwise populate
+        // must not stay up. The cityData/loadingState effects above already
+        // close the dialog for their own triggers; this is the equivalent
+        // for `isExportingProp`, which has none.
+        if (isExportingPropRef.current) {
+          setIsExportDialogOpen(false);
+          setExportPreview(null);
+          return;
+        }
+        const currentState = useVellumStore.getState();
+        if (
+          currentState.cityData !== cityData ||
+          currentState.loadingState === 'loading'
+        ) {
+          return;
+        }
+        setExportPreview(preview);
+      })
+      .finally(() => {
+        previewCapturePendingRef.current = false;
+      });
   }, [cityData, loadingState, previewCaptureRef]);
 
   const handleExport = useCallback(

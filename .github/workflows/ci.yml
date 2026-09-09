@@ -17,19 +17,51 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  lint-and-test:
-    name: Code Quality & Tests
+  detect-changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      js: ${{ steps.changes.outputs.js }}
+      rust: ${{ steps.changes.outputs.rust }}
+      frontend: ${{ steps.changes.outputs.frontend }}
+      e2e: ${{ steps.changes.outputs.e2e }}
+      compile: ${{ steps.changes.outputs.compile }}
+      landing: ${{ steps.changes.outputs.landing }}
+      dependencies: ${{ steps.changes.outputs.dependencies }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Classify changed paths
+        id: changes
+        env:
+          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+        run: >-
+          node scripts/detect-ci-changes.mjs
+          --base "$BASE_SHA"
+          --head "$HEAD_SHA"
+          --mode "${{ github.event_name }}"
+
+  repository-checks:
+    name: Repository checks
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
 
-      - name: Setup Vellum Environment
+      - name: Setup Node environment
         uses: ./.github/actions/setup-vellum
         with:
           os: ubuntu-latest
+          rust: 'false'
+          linux-deps: 'false'
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      - run: pnpm install --frozen-lockfile
 
       - name: Verify release configuration
         run: pnpm release:verify
@@ -37,44 +69,53 @@ jobs:
       - name: Prettier Format Check
         run: pnpm format:check
 
-      - name: ESLint
-        run: pnpm lint
-
-      - name: TypeScript Tests
-        run: pnpm test
-
-      - name: Rustfmt Check
-        run: cargo fmt --all -- --check
-
-      - name: Clippy Check
-        run: cargo clippy --workspace -- -D warnings
-
-      - name: Rust Tests
-        run: cargo test --workspace
-
-      # Congela la superficie de red (Story 1.8 AC4). Este sí bloquea: no
-      # depende de ninguna base externa, sólo del árbol que trae el PR.
       - name: Network surface guardrail
         run: pnpm check:network
 
-      # Congela la identidad de instalador (Story 1.9): metadatos contra
-      # `brand/`, artwork derivado con sus dimensiones exactas, la asociación
-      # `.cslmap` opt-in de la 7.5 y la ausencia de scripts de instalación.
-      # Bloqueante por la misma razón que el de red: sólo mira este árbol.
       - name: Installer identity guardrail
         run: pnpm check:installer
 
-  # Auditoría de dependencias — informativa por decisión (Story 1.8 AC2).
-  #
-  # `continue-on-error` a nivel de job, además del `exit 0` del script: la base
-  # de advisories cambia sin que nadie toque el repo, así que un rojo acá
-  # significaría "hoy se publicó un advisory", no "este PR rompió algo". Lo que
-  # sí se garantiza es visibilidad — el reporte va al summary del run, y el
-  # pipeline de release lo adjunta a `signing-evidence.md`.
-  #
-  # Sin `needs`: es hermano top-level de lint-and-test, no su continuación.
+  js-quality:
+    name: JavaScript quality
+    needs: detect-changes
+    if: needs.detect-changes.outputs.js == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Node environment
+        uses: ./.github/actions/setup-vellum
+        with:
+          os: ubuntu-latest
+          rust: 'false'
+          linux-deps: 'false'
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm test
+
+  rust-quality:
+    name: Rust quality
+    needs: detect-changes
+    if: needs.detect-changes.outputs.rust == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Rust environment
+        uses: ./.github/actions/setup-vellum
+        with:
+          os: ubuntu-latest
+          node: 'false'
+
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy --workspace -- -D warnings
+      - run: cargo test --workspace
+
   dependency-audit:
     name: Dependency Audit (informative)
+    needs: detect-changes
+    if: needs.detect-changes.outputs.dependencies == 'true' || github.event_name == 'push'
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
@@ -84,6 +125,7 @@ jobs:
         uses: ./.github/actions/setup-vellum
         with:
           os: ubuntu-latest
+          linux-deps: 'false'
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -106,38 +148,26 @@ jobs:
       - name: Audit JavaScript and Rust dependencies
         run: pnpm audit:deps
 
-  # El recorrido cartográfico real. En `publish-release` el bloqueo es real y
-  # está en el repo: `build-release` lo tiene en `needs`. Aquí el check sale en
-  # rojo, pero que además impida el merge depende de marcarlo como required en
-  # la protección de rama, que no vive en estos archivos.
-  e2e-golden-flow:
-    name: E2E Golden Flow
-    uses: ./.github/workflows/e2e-golden-flow.yml
-
   build-frontend:
     name: Build frontend (shared)
-    # Sin needs de lint-and-test: arranca en paralelo, igual que compile-matrix.
+    needs: detect-changes
+    if: needs.detect-changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
 
-      - uses: pnpm/action-setup@v6
+      - name: Setup Node environment
+        uses: ./.github/actions/setup-vellum
         with:
-          version: 10.33.0
-
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: pnpm
+          os: ubuntu-latest
+          rust: 'false'
+          linux-deps: 'false'
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # A diferencia del `pnpm --filter ... run build:vite` anterior, esto sí
-      # pasa por turbo y se beneficia de su cache — antes se reconstruía el
-      # frontend una vez por cada plataforma de compile-matrix, sin cache.
       - name: Build frontend
-        run: pnpm --filter @vellum/desktop run build:vite
+        run: pnpm turbo run build:vite --filter=@vellum/desktop
 
       - uses: actions/upload-artifact@v7
         with:
@@ -145,9 +175,18 @@ jobs:
           path: apps/desktop/dist
           retention-days: 1
 
+  e2e-golden-flow:
+    name: E2E Golden Flow
+    needs: [detect-changes, build-frontend]
+    if: needs.detect-changes.outputs.e2e == 'true'
+    uses: ./.github/workflows/e2e-golden-flow.yml
+    with:
+      frontend_artifact: true
+
   compile-matrix:
     name: Compile Check ${{ matrix.platform }}
-    needs: build-frontend
+    needs: detect-changes
+    if: needs.detect-changes.outputs.compile == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -163,10 +202,47 @@ jobs:
         uses: ./.github/actions/setup-vellum
         with:
           os: ${{ matrix.platform }}
+          node: 'false'
 
-      # MAGIA: Usamos `check` en lugar de `build`. Un 60% más rápido.
       - name: Compile check desktop Rust shell
         uses: ./.github/actions/build-tauri-platform
         with:
           mode: check
           platform: ${{ matrix.platform }}
+
+  # Conserva el nombre visible del check histórico para no romper la
+  # protección de rama. Un skip sólo es válido cuando el router lo esperaba.
+  lint-and-test:
+    name: Code Quality & Tests
+    if: always()
+    needs:
+      - detect-changes
+      - repository-checks
+      - js-quality
+      - rust-quality
+      - build-frontend
+      - e2e-golden-flow
+      - compile-matrix
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Verify routed job results
+        env:
+          DETECT_RESULT: ${{ needs.detect-changes.result }}
+          REPOSITORY_RESULT: ${{ needs.repository-checks.result }}
+          JS_EXPECTED: ${{ needs.detect-changes.outputs.js }}
+          JS_RESULT: ${{ needs.js-quality.result }}
+          RUST_EXPECTED: ${{ needs.detect-changes.outputs.rust }}
+          RUST_RESULT: ${{ needs.rust-quality.result }}
+          FRONTEND_EXPECTED: ${{ needs.detect-changes.outputs.frontend }}
+          FRONTEND_RESULT: ${{ needs.build-frontend.result }}
+          E2E_EXPECTED: ${{ needs.detect-changes.outputs.e2e }}
+          E2E_RESULT: ${{ needs.e2e-golden-flow.result }}
+          COMPILE_EXPECTED: ${{ needs.detect-changes.outputs.compile }}
+          COMPILE_RESULT: ${{ needs.compile-matrix.result }}
+        run: node scripts/verify-ci-gate.mjs

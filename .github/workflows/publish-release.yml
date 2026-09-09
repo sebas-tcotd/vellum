@@ -45,6 +45,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: publish-release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   preflight:
     name: Resolve release draft and verify signing secrets
@@ -149,8 +153,10 @@ jobs:
   # sobre lo que efectivamente se va a publicar, no sobre lo que se prometió.
   e2e-golden-flow:
     name: E2E Golden Flow
-    needs: preflight
+    needs: [preflight, build-frontend]
     uses: ./.github/workflows/e2e-golden-flow.yml
+    with:
+      frontend_artifact: true
 
   build-frontend:
     name: Build frontend (shared)
@@ -159,14 +165,12 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: pnpm/action-setup@v6
+      - name: Setup Node environment
+        uses: ./.github/actions/setup-vellum
         with:
-          version: 10.33.0
-
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: pnpm
+          os: ubuntu-latest
+          rust: 'false'
+          linux-deps: 'false'
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -175,7 +179,7 @@ jobs:
       # (3x) vía beforeBuildCommand. Se construye acá una sola vez y se
       # descarga en cada job de build-release (ver build-tauri-platform).
       - name: Build frontend
-        run: pnpm --filter @vellum/desktop run build:vite
+        run: pnpm turbo run build:vite --filter=@vellum/desktop
 
       - uses: actions/upload-artifact@v7
         with:
@@ -198,6 +202,7 @@ jobs:
         uses: ./.github/actions/setup-vellum
         with:
           os: ubuntu-latest
+          linux-deps: 'false'
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -228,9 +233,10 @@ jobs:
 
   build-release:
     name: Build ${{ matrix.platform }}
-    # Ninguna plataforma empieza a compilar hasta que el flujo dorado pasó: un
-    # gate que corre en paralelo con la publicación no es un gate.
-    needs: [preflight, build-frontend, e2e-golden-flow]
+    # Compilar y publicar son etapas distintas: los builds pueden solaparse con
+    # el E2E porque escriben en un Release draft. finalize-release sigue siendo
+    # la única puerta a público y espera ambas ramas.
+    needs: [preflight, build-frontend]
     strategy:
       fail-fast: false
       # tauri-action merges the existing latest.json when each platform uploads
