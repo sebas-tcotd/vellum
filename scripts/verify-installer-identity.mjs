@@ -54,6 +54,8 @@ const NSIS_TEMPLATE_PATH = 'installer/vellum-installer.nsi';
 /** Non-negotiable Tauri mechanics retained by Vellum's compact NSIS UI. */
 export const NSIS_TEMPLATE_INVARIANTS = [
   { name: 'per-user privilege level', pattern: /RequestExecutionLevel user/ },
+  { name: 'custom install splash', pattern: /Function SplashPage/ },
+  { name: 'splash install CTA', pattern: /Install Vellum/ },
   { name: 'silent installation', pattern: /\$\{Silent\}/ },
   { name: 'updater mode', pattern: /"\/UPDATE"/ },
   { name: 'Tauri app-running check', pattern: /CheckIfAppIsRunning/ },

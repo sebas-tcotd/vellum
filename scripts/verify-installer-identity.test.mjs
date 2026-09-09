@@ -457,7 +457,7 @@ describe('verify-installer-identity', () => {
         fs.readFileSync(file, 'utf8').replace('WriteUninstaller', '; removed'),
       );
       expect(rules(root)).toContain('nsis-template');
-      expect(NSIS_TEMPLATE_INVARIANTS).toHaveLength(8);
+      expect(NSIS_TEMPLATE_INVARIANTS).toHaveLength(10);
     });
 
     it('finds a script key nested inside an array', () => {

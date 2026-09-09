@@ -12,6 +12,7 @@ ManifestDPIAwareness PerMonitorV2
 !endif
 
 !include MUI2.nsh
+!include nsDialogs.nsh
 !include FileFunc.nsh
 !include x64.nsh
 !include StrFunc.nsh
@@ -54,6 +55,7 @@ Var PassiveMode
 Var UpdateMode
 Var NoShortcutMode
 Var OldMainBinaryName
+Var SplashInstallButton
 
 Name "${PRODUCTNAME}"
 BrandingText "${COPYRIGHT}"
@@ -87,13 +89,11 @@ RequestExecutionLevel user
 !define MUI_LANGDLL_REGISTRY_KEY "${MANUPRODUCTKEY}"
 !define MUI_LANGDLL_REGISTRY_VALUENAME "Installer Language"
 
-!define MUI_WELCOMEPAGE_TEXT "Turn Cities: Skylines saves into beautiful maps.$\r$\n$\r$\nVellum installs only for your Windows account and never asks for administrator access."
 !define MUI_FINISHPAGE_TEXT "Vellum is ready."
 !define MUI_FINISHPAGE_RUN
 !define MUI_FINISHPAGE_RUN_TEXT "Open Vellum"
 !define MUI_FINISHPAGE_RUN_FUNCTION RunMainBinary
-!define MUI_PAGE_CUSTOMFUNCTION_SHOW WelcomeShow
-!insertmacro MUI_PAGE_WELCOME
+Page custom SplashPage SplashLeave
 !insertmacro MUI_PAGE_INSTFILES
 !define MUI_PAGE_CUSTOMFUNCTION_PRE SkipIfPassive
 !insertmacro MUI_PAGE_FINISH
@@ -109,10 +109,50 @@ RequestExecutionLevel user
 !include "{{this}}"
 {{/each}}
 
-Function WelcomeShow
-  ; One deliberate action instead of a wizard's generic "Next >".
-  GetDlgItem $0 $HWNDPARENT 1
-  SendMessage $0 ${WM_SETTEXT} 0 "STR:Install Vellum"
+; A deliberately quiet splash instead of MUI's wizard welcome page. The page
+; owns the single visible action and advances directly to real install progress.
+Function SplashPage
+  nsDialogs::Create 1044
+  Pop $0
+  ${IfThen} $0 == error ${|} Abort ${|}
+
+  ${NSD_CreateLabel} 28u 24u 48u 48u "V"
+  Pop $1
+  SetCtlColors $1 "4a4035" "f7f6f1"
+
+  ${NSD_CreateLabel} 28u 82u 260u 22u "Vellum"
+  Pop $1
+  SetCtlColors $1 "333333" "f7f6f1"
+
+  ${NSD_CreateLabel} 28u 110u 280u 32u "Turn Cities: Skylines saves into beautiful maps."
+  Pop $1
+  SetCtlColors $1 "626262" "f7f6f1"
+
+  ${NSD_CreateLabel} 28u 154u 280u 24u "Installs only for your Windows account. No administrator access needed."
+  Pop $1
+  SetCtlColors $1 "626262" "f7f6f1"
+
+  ${NSD_CreateButton} 28u 198u 132u 18u "Install Vellum"
+  Pop $SplashInstallButton
+  ${NSD_OnClick} $SplashInstallButton SplashInstall
+
+  ; The stock wizard controls must never leak into the splash.
+  GetDlgItem $1 $HWNDPARENT 3
+  ShowWindow $1 ${SW_HIDE}
+  GetDlgItem $1 $HWNDPARENT 1
+  ShowWindow $1 ${SW_HIDE}
+  GetDlgItem $1 $HWNDPARENT 2
+  ShowWindow $1 ${SW_HIDE}
+  nsDialogs::Show
+FunctionEnd
+
+Function SplashInstall
+  SendMessage $HWNDPARENT ${WM_COMMAND} 1 0
+FunctionEnd
+
+Function SplashLeave
+  GetDlgItem $1 $HWNDPARENT 2
+  ShowWindow $1 ${SW_SHOW}
 FunctionEnd
 
 Function .onInit
