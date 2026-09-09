@@ -55,7 +55,7 @@ const NSIS_TEMPLATE_PATH = 'installer/vellum-installer.nsi';
 export const NSIS_TEMPLATE_INVARIANTS = [
   { name: 'per-user privilege level', pattern: /RequestExecutionLevel user/ },
   { name: 'custom install splash', pattern: /Function SplashPage/ },
-  { name: 'full-bleed splash artwork', pattern: /NSD_SetStretchedBitmap/ },
+  { name: 'DPI-safe centered splash artwork', pattern: /nsis-header\.bmp/ },
   { name: 'splash install CTA', pattern: /Install Vellum/ },
   { name: 'silent installation', pattern: /\$\{Silent\}/ },
   { name: 'updater mode', pattern: /"\/UPDATE"/ },
@@ -508,16 +508,18 @@ function checkPlatformConfig(root, config, copy) {
       detail: `bundle.windows.nsis.installMode must be "currentUser"; found ${JSON.stringify(nsis.installMode)}. Vellum writes only inside its install prefix and the user's data directories, so it never needs the UAC elevation a per-machine install prompts for.`,
     });
   }
-  if (
-    !Array.isArray(bundle.resources) ||
-    !bundle.resources.includes('installer/vellum-splash.bmp')
-  ) {
+  for (const resource of [
+    'installer/nsis-header.bmp',
+    'installer/vellum-splash.bmp',
+  ]) {
+    if (!Array.isArray(bundle.resources) || !bundle.resources.includes(resource)) {
     violations.push({
       file: CONFIG_FILE,
       rule: 'installer-artwork-reference',
       detail:
-        'bundle.resources must include "installer/vellum-splash.bmp" so the custom NSIS splash can extract its full-bleed artwork before the first page is shown.',
+        `bundle.resources must include "${resource}" so the custom NSIS page can extract its artwork before the first page is shown.`,
     });
+    }
   }
 
   const dmg = pick(bundle, ['macOS', 'dmg']) ?? {};

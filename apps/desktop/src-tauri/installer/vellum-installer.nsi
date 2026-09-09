@@ -13,6 +13,7 @@ ManifestDPIAwareness PerMonitorV2
 
 !include MUI2.nsh
 !include nsDialogs.nsh
+!include WinMessages.nsh
 !include FileFunc.nsh
 !include x64.nsh
 !include StrFunc.nsh
@@ -58,9 +59,17 @@ Var OldMainBinaryName
 Var SplashInstallButton
 Var SplashBitmap
 Var SplashBitmapHandle
+Var SplashLogo
+Var SplashTitleFont
+Var SplashBodyFont
+Var SplashButtonFont
 
 Name "${PRODUCTNAME}"
-BrandingText "${COPYRIGHT}"
+; The copyright belongs in the executable metadata, not in the visual page.
+; MUI's branding control creates the grey footer seen in the old screenshot.
+; An empty value makes MUI2 fall back to its default "Nullsoft Install
+; System" label. A single space keeps the branding control intentionally blank.
+BrandingText " "
 OutFile "${OUTFILE}"
 InstallDir "$LOCALAPPDATA\${PRODUCTNAME}"
 VIProductVersion "${VERSIONWITHBUILD}"
@@ -83,10 +92,8 @@ RequestExecutionLevel user
 !if "${SIDEBARIMAGE}" != ""
   !define MUI_WELCOMEFINISHPAGE_BITMAP "${SIDEBARIMAGE}"
 !endif
-!if "${HEADERIMAGE}" != ""
-  !define MUI_HEADERIMAGE
-  !define MUI_HEADERIMAGE_BITMAP "${HEADERIMAGE}"
-!endif
+; Do not enable MUI's header strip. The public installer uses a page-level
+; composition instead; enabling this adds the old 150x57 toolbar above it.
 !define MUI_LANGDLL_REGISTRY_ROOT "HKCU"
 !define MUI_LANGDLL_REGISTRY_KEY "${MANUPRODUCTKEY}"
 !define MUI_LANGDLL_REGISTRY_VALUENAME "Installer Language"
@@ -95,7 +102,11 @@ RequestExecutionLevel user
 !define MUI_FINISHPAGE_RUN
 !define MUI_FINISHPAGE_RUN_TEXT "Open Vellum"
 !define MUI_FINISHPAGE_RUN_FUNCTION RunMainBinary
+ShowInstDetails hide
+InstProgressFlags smooth colored
+InstallColors "4a4035" "f7f6f1"
 Page custom SplashPage SplashLeave
+!define MUI_PAGE_CUSTOMFUNCTION_SHOW StyleInstFilesPage
 !insertmacro MUI_PAGE_INSTFILES
 !define MUI_PAGE_CUSTOMFUNCTION_PRE SkipIfPassive
 !insertmacro MUI_PAGE_FINISH
@@ -123,40 +134,77 @@ Page custom SplashPage SplashLeave
 {{/each}}
 !macroend
 
-; A full-bleed product splash instead of MUI's wizard welcome page. Static
-; controls remain only for accessibility and localisation; all visual chrome
-; is one composed bitmap, avoiding the boxed Win32-label layout.
+; A deliberately small, centered product page. The controls are real Win32
+; controls so keyboard navigation, high-DPI scaling and localisation continue
+; to work; the logo uses the existing derived NSIS header tile.
 Function SplashPage
+  ; 1044 is the full-page dialog resource used by the MUI host. The generic
+  ; nsDialogs example uses 1018, but that resource creates an inset child page
+  ; when hosted after MUI2, which is exactly the grey card seen in the preview.
   nsDialogs::Create 1044
   Pop $0
   ${IfThen} $0 == error ${|} Abort ${|}
 
-  ${NSD_CreateBitmap} 0 0 100% 100% ""
+  ; Paint the custom dialog itself. This removes the old full-bleed bitmap and
+  ; prevents DPI-dependent stretching from moving the composition.
+  SetCtlColors $0 "4a4035" "f7f6f1"
+
+  ; Remove MUI chrome that is still created by the host dialog. The IDs are
+  ; stable MUI controls: branding, header image, header rule and header text.
+  GetDlgItem $1 $HWNDPARENT 1028
+  ; Keep the reserved branding area alive, but paint it as part of the page.
+  ; Hiding it exposes the outer dialog's default Windows grey background.
+  SetCtlColors $1 "f7f6f1" "f7f6f1"
+  ShowWindow $1 ${SW_SHOW}
+  GetDlgItem $1 $HWNDPARENT 1256
+  SetCtlColors $1 "f7f6f1" "f7f6f1"
+  ShowWindow $1 ${SW_HIDE}
+  GetDlgItem $1 $HWNDPARENT 1035
+  ShowWindow $1 ${SW_HIDE}
+  GetDlgItem $1 $HWNDPARENT 1045
+  ShowWindow $1 ${SW_HIDE}
+  GetDlgItem $1 $HWNDPARENT 1037
+  ShowWindow $1 ${SW_HIDE}
+  GetDlgItem $1 $HWNDPARENT 1038
+  ShowWindow $1 ${SW_HIDE}
+  GetDlgItem $1 $HWNDPARENT 1039
+  ShowWindow $1 ${SW_HIDE}
+  GetDlgItem $1 $HWNDPARENT 1040
+  ShowWindow $1 ${SW_HIDE}
+  SetCtlColors $HWNDPARENT "f7f6f1" "f7f6f1"
+
+  ${NSD_CreateBitmap} 115u 14u 70u 26u ""
+  Pop $SplashLogo
+  ${NSD_SetStretchedBitmap} $SplashLogo "$PLUGINSDIR\\installer\\nsis-header.bmp" $SplashBitmapHandle
+
+  ${NSD_CreateLabel} 96u 52u 108u 24u "Vellum"
   Pop $1
-  ${NSD_SetStretchedBitmap} $1 "$PLUGINSDIR\\installer\\vellum-splash.bmp" $SplashBitmapHandle
+  SetCtlColors $1 "4a4035" transparent
+  CreateFont $SplashTitleFont "Georgia" 19 400
+  SendMessage $1 ${WM_SETFONT} $SplashTitleFont 1
 
-  ${NSD_CreateLabel} 28u 28u 145u 20u "Vellum"
+  ${NSD_CreateLabel} 74u 82u 152u 16u "Your city, beautifully mapped."
   Pop $1
-  SetCtlColors $1 "4a4035" "f7f6f1"
+  SetCtlColors $1 "665f56" transparent
+  CreateFont $SplashBodyFont "Segoe UI" 9 400
+  SendMessage $1 ${WM_SETFONT} $SplashBodyFont 1
 
-  ${NSD_CreateLabel} 28u 60u 145u 44u "Turn Cities: Skylines saves into beautiful maps."
-  Pop $1
-  SetCtlColors $1 "4a4035" "f7f6f1"
-
-  ${NSD_CreateLabel} 28u 116u 145u 32u "Installs only for your Windows account. No administrator access needed."
-  Pop $1
-  SetCtlColors $1 "665f56" "f7f6f1"
-
-  ${If} $LANGUAGE == ${LANG_SPANISH}
-    SendMessage $1 ${WM_SETTEXT} 0 "STR:Se instala solo para tu cuenta de Windows. No necesita permisos de administrador."
-  ${EndIf}
-
-  ${NSD_CreateButton} 28u 162u 124u 20u "Install Vellum"
+  ${NSD_CreateButton} 118u 108u 64u 20u "Install Vellum"
   Pop $SplashInstallButton
+  SetCtlColors $SplashInstallButton "f7f6f1" "4a4035"
+  CreateFont $SplashButtonFont "Segoe UI" 9 600
+  SendMessage $SplashInstallButton ${WM_SETFONT} $SplashButtonFont 1
+  ${NSD_OnClick} $SplashInstallButton SplashInstall
+
+  ${NSD_CreateLabel} 76u 132u 148u 12u "Installs for your Windows account."
+  Pop $1
+  SetCtlColors $1 "807060" transparent
+  SendMessage $1 ${WM_SETFONT} $SplashBodyFont 1
+
   ${If} $LANGUAGE == ${LANG_SPANISH}
+    SendMessage $1 ${WM_SETTEXT} 0 "STR:Se instala para tu cuenta de Windows."
     SendMessage $SplashInstallButton ${WM_SETTEXT} 0 "STR:Instalar Vellum"
   ${EndIf}
-  ${NSD_OnClick} $SplashInstallButton SplashInstall
 
   ; The stock wizard controls must never leak into the splash.
   GetDlgItem $1 $HWNDPARENT 3
@@ -176,6 +224,33 @@ FunctionEnd
 Function SplashLeave
   GetDlgItem $1 $HWNDPARENT 2
   ShowWindow $1 ${SW_SHOW}
+FunctionEnd
+
+; Keep the real installation page for Tauri's sections, but reduce it to the
+; same quiet visual language as the custom page. Progress control 1004 and the
+; details/status controls are standard NSIS IDs.
+Function StyleInstFilesPage
+  GetDlgItem $0 $HWNDPARENT 1
+  ShowWindow $0 ${SW_HIDE}
+  GetDlgItem $0 $HWNDPARENT 3
+  ShowWindow $0 ${SW_HIDE}
+  GetDlgItem $0 $HWNDPARENT 1028
+  SetCtlColors $0 "f7f6f1" "f7f6f1"
+  ShowWindow $0 ${SW_SHOW}
+  GetDlgItem $0 $HWNDPARENT 1256
+  SetCtlColors $0 "f7f6f1" "f7f6f1"
+  ShowWindow $0 ${SW_HIDE}
+  GetDlgItem $0 $HWNDPARENT 1035
+  ShowWindow $0 ${SW_HIDE}
+  GetDlgItem $0 $HWNDPARENT 1045
+  ShowWindow $0 ${SW_HIDE}
+  GetDlgItem $0 $HWNDPARENT 1006
+  ShowWindow $0 ${SW_HIDE}
+  GetDlgItem $0 $HWNDPARENT 1007
+  ShowWindow $0 ${SW_HIDE}
+  GetDlgItem $0 $HWNDPARENT 1004
+  SendMessage $0 ${PBM_SETBARCOLOR} 0 0x35404A
+  SetCtlColors $HWNDPARENT "4a4035" "f7f6f1"
 FunctionEnd
 
 Function .onInit
