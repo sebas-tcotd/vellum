@@ -18,7 +18,7 @@ function job(workflow, name, nextName) {
 }
 
 describe('contratos de optimización de CI', () => {
-  it('fija Rust y comparte la caché Cargo del workspace raíz', () => {
+  it('fija Rust y separa la caché Cargo por runner y clase de trabajo', () => {
     const setup = read('.github/actions/setup-vellum/action.yml');
     const toolchain = read('rust-toolchain.toml');
     const pinned = toolchain.match(/channel = "([^"]+)"/)?.[1];
@@ -26,7 +26,25 @@ describe('contratos de optimización de CI', () => {
     expect(pinned).toBe('1.96.0');
     expect(setup).toContain(`dtolnay/rust-toolchain@${pinned}`);
     expect(setup).toContain("workspaces: '. -> target'");
-    expect(setup).toContain('shared-key: vellum-workspace');
+    // Una sola clave para todos los jobs Linux (`runner.os` es `Linux` tanto
+    // en ubuntu-22.04 como en ubuntu-latest) hacía que `cargo check` restaurara
+    // un target/ producido por clippy/test en otra imagen: E0463 intermitente.
+    expect(setup).toContain(
+      'shared-key: vellum-${{ inputs.os }}-${{ inputs.cache-class }}',
+    );
+
+    // Ningún job con Rust puede quedarse con la clase por defecto: eso los
+    // volvería a juntar a todos en la misma entrada de caché.
+    const rustJobs = [
+      ['.github/workflows/ci.yml', 3],
+      ['.github/workflows/publish-release.yml', 2],
+      ['.github/workflows/e2e-golden-flow.yml', 1],
+    ];
+    for (const [workflow, expected] of rustJobs) {
+      expect(read(workflow).match(/cache-class:/g) ?? []).toHaveLength(
+        expected,
+      );
+    }
   });
 
   it('mantiene cargo check independiente de Node y del frontend', () => {

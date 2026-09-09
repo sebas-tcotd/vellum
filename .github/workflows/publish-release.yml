@@ -262,7 +262,13 @@ jobs:
         uses: ./.github/actions/setup-vellum
         with:
           os: ${{ matrix.platform }}
-          cache-class: release
+          # Misma clase que compile-matrix a propósito: corre en las imágenes
+          # idénticas y es la única caché que main escribe para estas
+          # plataformas. Una clase propia sólo se guardaría bajo refs/tags/*,
+          # que ningún run posterior puede leer, y arrancaría siempre fría.
+          # No reintroduce la mezcla del E0463: el perfil dev vive en
+          # target/debug y el release en target/release.
+          cache-class: compile
 
       - name: Build, sign and upload release artifact
         uses: ./.github/actions/build-tauri-platform
@@ -476,7 +482,10 @@ jobs:
             printf '%s' "$name"
           }
 
-          MSI=$(asset_name '\.msi$')
+          # Anclado a en-US: wix.language declara en-US y es-ES, así que hay
+          # dos MSI y el orden de la API es el de subida. Sin anclar, la
+          # descarga recomendada podía ser el instalador en español.
+          MSI=$(asset_name '_en-US\.msi$')
           EXE=$(asset_name '\.exe$')
           DMG=$(asset_name '\.dmg$')
           APPIMAGE=$(asset_name '\.AppImage$')
