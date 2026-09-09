@@ -127,6 +127,9 @@ runs:
         # releaseId identifies the draft; tagName makes updater URLs point to
         # the immutable release tag instead of the moving `latest` alias.
         tagName: ${{ inputs.tag-name }}
+        # Cada plataforma sigue subiendo sus artefactos updater y `.sig`, pero
+        # latest.json tiene un único escritor después de que termine la matriz.
+        includeUpdaterJson: false
         args: ${{ steps.build-args.outputs.args }}
         projectPath: apps/desktop
 

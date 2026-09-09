@@ -100,7 +100,13 @@ describe('contratos de optimización de CI', () => {
 
   it('solapa E2E y builds, pero conserva la publicación detrás del gate', () => {
     const release = read('.github/workflows/publish-release.yml');
-    const builds = job(release, 'build-release', 'finalize-release');
+    const action = read('.github/actions/build-tauri-platform/action.yml');
+    const builds = job(release, 'build-release', 'generate-updater-manifest');
+    const manifest = job(
+      release,
+      'generate-updater-manifest',
+      'finalize-release',
+    );
     const finalize = job(release, 'finalize-release');
 
     expect(release).toContain('group: publish-release-${{ github.ref }}');
@@ -109,11 +115,41 @@ describe('contratos de optimización de CI', () => {
     expect(builds).not.toContain(
       'needs: [preflight, build-frontend, e2e-golden-flow]',
     );
-    expect(builds).toContain('max-parallel: 1');
-    expect(finalize).toContain(
-      'needs: [preflight, build-release, e2e-golden-flow, dependency-audit]',
+    expect(builds).not.toContain('max-parallel: 1');
+    expect(action).toContain('includeUpdaterJson: false');
+    expect(manifest).toContain('needs: [preflight, build-release]');
+    expect(manifest).toContain('node scripts/generate-updater-manifest.mjs');
+    expect(manifest).toContain('gh api --paginate --slurp "$ASSETS_API"');
+    expect(manifest).toContain('for attempt in $(seq 1 6)');
+    expect(manifest).toContain("RELEASE_TAG=$(jq -r '.tag_name' release.json)");
+    expect(manifest).toContain('name=latest.json');
+    expect(manifest.match(/name=latest\.json/g)).toHaveLength(1);
+    expect(finalize).toContain('generate-updater-manifest');
+    expect(finalize.indexOf('generate-updater-manifest')).toBeLessThan(
+      finalize.indexOf('e2e-golden-flow'),
     );
     expect(finalize).not.toMatch(/^\s+if:\s*always\(\)/m);
+  });
+
+  it('mantiene un único escritor de latest.json y conserva las firmas updater', () => {
+    const action = read('.github/actions/build-tauri-platform/action.yml');
+    const release = read('.github/workflows/publish-release.yml');
+    const manifest = job(
+      release,
+      'generate-updater-manifest',
+      'finalize-release',
+    );
+
+    expect(action.match(/includeUpdaterJson:\s*false/g)).toHaveLength(1);
+    expect(action).not.toMatch(/includeUpdaterJson:\s*true/);
+    expect(manifest).toContain('select(.name | endswith(".sig"))');
+    expect(manifest).toContain('select(.name == "latest.json")');
+    expect(manifest).toContain('gh api --method DELETE');
+    expect(manifest).toContain('> uploaded-latest.json');
+    expect(manifest).toContain('cmp -s latest.json uploaded-latest.json');
+    expect(manifest).toContain('MATCHING_ID');
+    expect(manifest).not.toContain('--input updater-signatures');
+    expect(release.match(/--input latest\.json/g)).toHaveLength(1);
   });
 
   it('permite publicar sin firma de plataforma y deja notarización en espera', () => {
