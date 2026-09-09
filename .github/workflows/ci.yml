@@ -210,6 +210,12 @@ jobs:
           mode: check
           platform: ${{ matrix.platform }}
 
+  landing-quality:
+    name: Landing quality
+    needs: detect-changes
+    if: needs.detect-changes.outputs.landing == 'true'
+    uses: ./.github/workflows/landing-ci.yml
+
   # Conserva el nombre visible del check histórico para no romper la
   # protección de rama. Un skip sólo es válido cuando el router lo esperaba.
   lint-and-test:
@@ -223,6 +229,7 @@ jobs:
       - build-frontend
       - e2e-golden-flow
       - compile-matrix
+      - landing-quality
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -245,4 +252,6 @@ jobs:
           E2E_RESULT: ${{ needs.e2e-golden-flow.result }}
           COMPILE_EXPECTED: ${{ needs.detect-changes.outputs.compile }}
           COMPILE_RESULT: ${{ needs.compile-matrix.result }}
+          LANDING_EXPECTED: ${{ needs.detect-changes.outputs.landing }}
+          LANDING_RESULT: ${{ needs.landing-quality.result }}
         run: node scripts/verify-ci-gate.mjs

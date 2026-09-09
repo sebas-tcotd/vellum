@@ -49,6 +49,23 @@ describe('clasificación de cambios de CI', () => {
     expect(classifyPaths(['.github/workflows/ci.yml'])).toEqual(all(true));
   });
 
+  it('activa landing y cada rama adicional en cambios mixtos', () => {
+    expect(
+      classifyPaths([
+        'apps/landing/src/Hero.tsx',
+        'apps/desktop/src/main.tsx',
+        'apps/desktop/src-tauri/src/lib.rs',
+      ]),
+    ).toMatchObject({
+      js: true,
+      rust: true,
+      frontend: true,
+      e2e: true,
+      compile: true,
+      landing: true,
+    });
+  });
+
   it('marca manifests locales como cambios de dependencias', () => {
     expect(classifyPaths(['apps/landing/package.json'])).toMatchObject({
       js: false,
@@ -120,6 +137,24 @@ describe('resolución del diff', () => {
       'docs/new\nname.tsx',
       'packages/ui/src/deleted.tsx',
     ]);
+  });
+
+  it.each([
+    ['apps/landing/src/old.tsx', 'docs/new.tsx'],
+    ['docs/old.tsx', 'apps/landing/src/new.tsx'],
+  ])('activa landing en un rename desde %s hacia %s', (from, to) => {
+    const result = resolveClassification({
+      base: 'base',
+      head: 'head',
+      mode: 'pull_request',
+      runGit: () => ({
+        status: 0,
+        stdout: `R100\0${from}\0${to}\0`,
+        stderr: '',
+      }),
+    });
+
+    expect(result.flags.landing).toBe(true);
   });
 
   it('falla cerrado ante una salida name-status truncada', () => {

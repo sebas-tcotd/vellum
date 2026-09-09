@@ -59,6 +59,11 @@ function main() {
         expected: process.env.COMPILE_EXPECTED,
         result: process.env.COMPILE_RESULT,
       },
+      {
+        name: 'Landing quality',
+        expected: process.env.LANDING_EXPECTED,
+        result: process.env.LANDING_RESULT,
+      },
     ],
   });
 

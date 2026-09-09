@@ -7,9 +7,14 @@ const read = (path) => readFileSync(resolve(path), 'utf8');
 
 function job(workflow, name, nextName) {
   const start = workflow.indexOf(`  ${name}:`);
-  const end = nextName ? workflow.indexOf(`  ${nextName}:`, start + 1) : -1;
   expect(start).toBeGreaterThanOrEqual(0);
-  return workflow.slice(start, end >= 0 ? end : undefined);
+  if (!nextName) return workflow.slice(start);
+
+  const end = workflow.indexOf(`  ${nextName}:`, start + 1);
+  if (end < 0) {
+    throw new Error(`No se encontró el job siguiente '${nextName}'.`);
+  }
+  return workflow.slice(start, end);
 }
 
 describe('contratos de optimización de CI', () => {
@@ -27,7 +32,7 @@ describe('contratos de optimización de CI', () => {
   it('mantiene cargo check independiente de Node y del frontend', () => {
     const action = read('.github/actions/build-tauri-platform/action.yml');
     const ci = read('.github/workflows/ci.yml');
-    const compile = job(ci, 'compile-matrix', 'lint-and-test');
+    const compile = job(ci, 'compile-matrix', 'landing-quality');
 
     expect(action).toMatch(
       /Install frontend dependencies[\s\S]*?if: inputs\.mode == 'release'/,
@@ -38,6 +43,44 @@ describe('contratos de optimización de CI', () => {
     expect(compile).toContain("node: 'false'");
     expect(compile).not.toContain('pnpm install');
     expect(compile).not.toContain('frontend-dist');
+  });
+
+  it('falla cerrado si no encuentra el límite siguiente de un job', () => {
+    expect(() => job('jobs:\n  primero:\n', 'primero', 'ausente')).toThrow(
+      "No se encontró el job siguiente 'ausente'.",
+    );
+  });
+
+  it('reutiliza una única validación de landing manual y desde el gate', () => {
+    const landing = read('.github/workflows/landing-ci.yml');
+    const ci = read('.github/workflows/ci.yml');
+    const landingJob = job(ci, 'landing-quality', 'lint-and-test');
+    const gate = job(ci, 'lint-and-test');
+
+    expect(landing).toMatch(/on:\n  workflow_call:\n  workflow_dispatch:/);
+    expect(landing).not.toMatch(/^  pull_request:/m);
+    expect(landing).toContain('uses: ./.github/actions/setup-vellum');
+    expect(landing).toContain("rust: 'false'");
+    expect(landing).toContain("linux-deps: 'false'");
+    expect(landing).toContain('pnpm --filter @vellum/landing lint');
+    expect(landing).toContain('pnpm --filter @vellum/landing build');
+    expect(landing).toContain(
+      'group: landing-ci-${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}',
+    );
+    expect(landing).toContain('cancel-in-progress: true');
+
+    expect(landingJob).toContain('needs: detect-changes');
+    expect(landingJob).toContain(
+      "if: needs.detect-changes.outputs.landing == 'true'",
+    );
+    expect(landingJob).toContain('uses: ./.github/workflows/landing-ci.yml');
+    expect(gate).toContain('- landing-quality');
+    expect(gate).toContain(
+      'LANDING_EXPECTED: ${{ needs.detect-changes.outputs.landing }}',
+    );
+    expect(gate).toContain(
+      'LANDING_RESULT: ${{ needs.landing-quality.result }}',
+    );
   });
 
   it('reutiliza el frontend en E2E sin romper la ejecución manual', () => {
