@@ -10,21 +10,21 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@fontsource/cormorant-garamond": "^5.3.0",
-    "@phosphor-icons/react": "^2.1.10",
-    "i18next": "^26.4.2",
-    "motion": "^12.43.0",
-    "react": "^19.3.0",
-    "react-dom": "^19.3.0",
-    "react-i18next": "^17.0.13"
+    "@fontsource/cormorant-garamond": "^5.2.11",
+    "@phosphor-icons/react": "^2.1.7",
+    "i18next": "^26.0.3",
+    "motion": "^12.23.12",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-i18next": "^17.0.2"
   },
   "devDependencies": {
-    "@tailwindcss/vite": "^4.3.3",
-    "@types/react": "^19.3.0",
-    "@types/react-dom": "^19.3.0",
-    "@vitejs/plugin-react": "^4.7.0",
-    "tailwindcss": "^4.3.3",
+    "@tailwindcss/vite": "^4.2.2",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "@vitejs/plugin-react": "^4.6.0",
+    "tailwindcss": "^4.2.2",
     "typescript": "~5.8.3",
-    "vite": "^7.3.6"
+    "vite": "^7.0.4"
   }
 }

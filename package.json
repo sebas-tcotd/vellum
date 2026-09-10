@@ -25,17 +25,17 @@
     "format:check": "prettier --check \"**/*.{js,mjs,cjs,ts,tsx,json,md,css,scss,html,yaml,yml}\" --ignore-path .prettierignore"
   },
   "devDependencies": {
-    "@commitlint/cli": "^20.5.3",
-    "@commitlint/config-conventional": "^20.5.3",
+    "@commitlint/cli": "^20.5.0",
+    "@commitlint/config-conventional": "^20.5.0",
     "@resvg/resvg-js": "2.6.2",
-    "eslint": "^10.10.0",
+    "eslint": "^10.2.0",
     "eslint-config-prettier": "^10.1.8",
-    "eslint-plugin-prettier": "^5.5.6",
+    "eslint-plugin-prettier": "^5.5.5",
     "husky": "^9.1.7",
-    "prettier": "^3.9.6",
+    "prettier": "^3.8.1",
     "turbo": "2.9.3",
     "typescript": "~5.8.3",
-    "typescript-eslint": "^8.70.0",
-    "vitest": "^4.1.11"
+    "typescript-eslint": "^8.58.0",
+    "vitest": "^4.1.2"
   }
 }
