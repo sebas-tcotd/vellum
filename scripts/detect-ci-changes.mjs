@@ -58,6 +58,15 @@ export function classifyPaths(inputPaths) {
       continue;
     }
 
+    // ADR-0003: installer-bootstrap declares its own empty [workspace] and is
+    // dormant — not part of the root Cargo workspace, not built by any
+    // release path today. Nothing in rust-quality, build-frontend, e2e or
+    // compile-matrix touches it, so routing changes here into any of them
+    // would only burn CI minutes on jobs that check nothing new.
+    if (file.startsWith('apps/desktop/src-tauri/installer-bootstrap/')) {
+      continue;
+    }
+
     if (file.startsWith('apps/desktop/src-tauri/')) {
       enable(flags, 'rust', 'frontend', 'e2e', 'compile');
       if (/(?:Cargo\.toml|Cargo\.lock)$/.test(file)) flags.dependencies = true;

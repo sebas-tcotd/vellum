@@ -92,6 +92,24 @@ describe('clasificación de cambios de CI', () => {
     expect(!flags.e2e || flags.frontend).toBe(true);
   });
 
+  it('deja fuera de todo job caro al bootstrap dormido de ADR-0003', () => {
+    expect(
+      classifyPaths([
+        'apps/desktop/src-tauri/installer-bootstrap/src/main.rs',
+        'apps/desktop/src-tauri/installer-bootstrap/Cargo.toml',
+      ]),
+    ).toEqual(all(false));
+  });
+
+  it('sigue clasificando el resto de src-tauri como antes', () => {
+    expect(classifyPaths(['apps/desktop/src-tauri/src/lib.rs'])).toMatchObject({
+      rust: true,
+      frontend: true,
+      e2e: true,
+      compile: true,
+    });
+  });
+
   it('falla cerrado para rutas nuevas desconocidas', () => {
     expect(classifyPaths(['tooling/new-system/config.toml'])).toEqual(
       all(true),
