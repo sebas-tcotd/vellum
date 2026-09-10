@@ -14,7 +14,7 @@
  * — this file only needs to stay a plain color layer.
  */
 
-import type maplibregl from 'maplibre-gl';
+import type * as maplibregl from 'maplibre-gl';
 import type { ResolvedColors } from '../style-adapter';
 
 /** Returns the minimal MapLibre style containing only the solid background. */

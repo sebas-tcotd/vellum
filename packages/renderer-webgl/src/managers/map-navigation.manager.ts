@@ -1,4 +1,4 @@
-import maplibregl from 'maplibre-gl';
+import * as maplibregl from 'maplibre-gl';
 import type { CityData } from '@vellum/core';
 import { getCityBoundsGeoJSON } from '../helpers';
 import type { ViewportBounds } from '../types/renderer.types';

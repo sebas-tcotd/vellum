@@ -1,4 +1,4 @@
-import maplibregl from 'maplibre-gl';
+import * as maplibregl from 'maplibre-gl';
 import { vellumLogoDataUri } from '../assets/vellum-logo';
 import { WATERMARK_LAYER_ID } from '../constants/layer.constants';
 import { csToGeo } from '../coordinate-transform';
@@ -33,12 +33,33 @@ const WATERMARK_SIZE_EXPR: maplibregl.ExpressionSpecification = [
   2.5,
 ];
 
+/**
+ * Upper bound on the logo decode, mirroring `loadServiceIcon`'s own.
+ *
+ * @remarks
+ * Without it this promise can never settle — jsdom fires neither `onload` nor
+ * `onerror` for a data URI — and an unsettleable promise is something no
+ * caller can safely wait on. The export path does wait on it, because a
+ * watermark that arrives after the capture is missing from the exported image.
+ */
+const WATERMARK_LOAD_TIMEOUT_MS = 2_000;
+
 function loadWatermarkImage(): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.crossOrigin = 'anonymous';
-    img.onload = () => resolve(img);
-    img.onerror = reject;
+    const timeout = setTimeout(
+      () => reject(new Error('Watermark image load timeout')),
+      WATERMARK_LOAD_TIMEOUT_MS,
+    );
+    img.onload = () => {
+      clearTimeout(timeout);
+      resolve(img);
+    };
+    img.onerror = () => {
+      clearTimeout(timeout);
+      reject(new Error('Failed to load the watermark image'));
+    };
     img.src = vellumLogoDataUri();
   });
 }

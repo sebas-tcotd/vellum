@@ -7,7 +7,7 @@
  * Internal module — not exported from the package barrel.
  */
 
-import type maplibregl from 'maplibre-gl';
+import type * as maplibregl from 'maplibre-gl';
 import {
   SERVICE_GROUPS,
   SERVICE_ICONS_MIN_ZOOM,

@@ -6,7 +6,7 @@
  */
 
 import type { CityData } from '@vellum/core';
-import type maplibregl from 'maplibre-gl';
+import type * as maplibregl from 'maplibre-gl';
 import { HEAVY_SOURCE_MAX_ZOOM } from '../constants/layer.constants';
 import { buildBuildingsGeoJson } from '../geojson';
 import { addLayerIfAbsent, addSourceIfAbsent } from '../helpers';

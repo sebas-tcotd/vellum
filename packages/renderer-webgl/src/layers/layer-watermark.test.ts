@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest';
-import type maplibregl from 'maplibre-gl';
+import type * as maplibregl from 'maplibre-gl';
 import { addWatermarkLayer } from './layer-watermark';
 import { WATERMARK_LAYER_ID } from '../constants/layer.constants';
 
@@ -75,5 +75,32 @@ describe('addWatermarkLayer', () => {
     const { map, ids } = fakeMap(['base-land']);
     await addWatermarkLayer(map);
     expect(ids()).toEqual(['base-land', WATERMARK_LAYER_ID]);
+  });
+});
+
+// The export path waits on this promise before capturing, so it has to settle
+// even when the image never resolves — jsdom fires neither `onload` nor
+// `onerror` for a data URI, and a browser can stall on one too.
+describe('addWatermarkLayer image loading', () => {
+  it('gives up instead of hanging when the logo never decodes', async () => {
+    vi.useFakeTimers();
+    class SilentImage {
+      onload: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      crossOrigin = '';
+      set src(_value: string) {
+        /* never settles */
+      }
+    }
+    vi.stubGlobal('Image', SilentImage);
+
+    const { map } = fakeMap(['background']);
+    // Asserted before the clock moves: the rejection lands while the timers
+    // run, and an unattached handler at that moment is an unhandled rejection.
+    const settled = expect(addWatermarkLayer(map)).rejects.toThrow(/timeout/i);
+    await vi.advanceTimersByTimeAsync(2_000);
+
+    await settled;
+    vi.useRealTimers();
   });
 });

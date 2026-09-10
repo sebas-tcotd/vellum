@@ -20,7 +20,7 @@
  */
 
 import type { TerrainDem } from '@vellum/core';
-import maplibregl from 'maplibre-gl';
+import * as maplibregl from 'maplibre-gl';
 import { CS1_HALF_EXTENT_DEG } from '../coordinate-transform';
 
 /** URL scheme MapLibre uses to request DEM tiles from this module. */

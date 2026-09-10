@@ -4,7 +4,7 @@ import type {
   ExportPreviewScale,
   ExportPreviewSnapshot,
 } from '@vellum/core';
-import maplibregl from 'maplibre-gl';
+import * as maplibregl from 'maplibre-gl';
 import { csToGeo, geoToCs } from '../coordinate-transform';
 
 const SCALE_SAMPLE_PIXELS = 100;

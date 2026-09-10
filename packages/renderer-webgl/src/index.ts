@@ -52,6 +52,7 @@ export {
   ViewportBounds,
 } from './map-libre-renderer';
 export type { MapLibreRendererOptions } from './map-libre-renderer-options';
+export { setMapWorkerUrl } from './sources/map-worker-url';
 export type { PngExportOptions } from './export/export-types';
 export {
   buildServiceIconSvg,

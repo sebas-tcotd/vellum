@@ -30,7 +30,7 @@
  * changed.
  */
 
-import type maplibregl from 'maplibre-gl';
+import type * as maplibregl from 'maplibre-gl';
 import {
   ROAD_CASING_ADD_PX,
   ROAD_WIDTH_FACTOR_STOPS,

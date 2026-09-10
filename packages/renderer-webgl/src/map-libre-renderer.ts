@@ -35,7 +35,7 @@ import {
   type RenderParams,
   type RenderStyleParams,
 } from '@vellum/core';
-import maplibregl from 'maplibre-gl';
+import * as maplibregl from 'maplibre-gl';
 import {
   captureCanvasOnNextRender,
   captureOnNextRender,
@@ -110,6 +110,72 @@ const MAX_WORKERS = 4;
 function raiseWorkerCount(): void {
   const cores = navigator.hardwareConcurrency || 1;
   maplibregl.setWorkerCount(Math.max(Math.min(cores - 1, MAX_WORKERS), 1));
+}
+
+/** The `TileManager` state `TileManager.loaded()` is derived from. */
+interface TileManagerInternals {
+  loaded(): boolean;
+  _sourceLoaded?: boolean;
+  _updated?: boolean;
+  _source?: { loaded?: () => boolean };
+  _inViewTiles?: { getAllTiles(): { state: string }[] };
+}
+
+/** Names which of `TileManager.loaded()`'s conditions is the one still false. */
+function describeUnloadedSource(manager: TileManagerInternals): string {
+  if (manager._sourceLoaded === false) return 'sourceLoading';
+  if (manager._source?.loaded?.() === false) return 'sourceNotReady';
+  if (manager._updated === false) return 'neverUpdated';
+  const states = (manager._inViewTiles?.getAllTiles() ?? [])
+    .map((tile) => tile.state)
+    .filter((state) => state !== 'loaded' && state !== 'errored');
+  return states.length > 0 ? `tiles:${states.join('/')}` : 'no tile pending';
+}
+
+/**
+ * Names what is still keeping MapLibre from firing `idle`.
+ *
+ * @remarks
+ * A bare "render timed out" says nothing about which of the four independent
+ * conditions behind `map.loaded()` never settled, and the export surface is
+ * torn down before anyone can inspect it. Reading the internals is the only
+ * way to answer that from a timeout message.
+ * @internal Exported for its unit test only.
+ */
+export function describeIdleBlockers(map: maplibregl.Map): string {
+  // ponytail: reaches into MapLibre internals on purpose — this runs only on
+  // the timeout path, and a wrong guess here costs a full CI round trip.
+  const internals = map as unknown as {
+    _styleDirty?: boolean;
+    _sourcesDirty?: boolean;
+    style?: {
+      _loaded?: boolean;
+      _updatedSources?: Record<string, unknown>;
+      tileManagers?: Record<string, TileManagerInternals>;
+      imageManager?: { isLoaded(): boolean };
+    };
+  };
+  const style = internals.style;
+  const blockers: string[] = [];
+  if (internals._styleDirty) blockers.push('styleDirty');
+  if (internals._sourcesDirty) blockers.push('sourcesDirty');
+  if (map.isMoving()) blockers.push('moving');
+  if (!style) blockers.push('noStyle');
+  if (style?._loaded === false) blockers.push('styleNotLoaded');
+  for (const id of Object.keys(style?._updatedSources ?? {})) {
+    blockers.push(`updatedSource:${id}`);
+  }
+  for (const [id, manager] of Object.entries(style?.tileManagers ?? {})) {
+    if (!manager.loaded()) {
+      blockers.push(
+        `sourceNotLoaded:${id}(${describeUnloadedSource(manager)})`,
+      );
+    }
+  }
+  if (style?.imageManager && !style.imageManager.isLoaded()) {
+    blockers.push('imagesNotLoaded');
+  }
+  return blockers.length > 0 ? blockers.join(', ') : 'no blocker reported';
 }
 
 /**
@@ -398,9 +464,17 @@ export class MapLibreRenderer implements IRenderer {
 
   /**
    * Waits until MapLibre has painted all pending sources and layers.
+   *
+   * @remarks
+   * The watermark is settled first: it is the one layer added after `render`
+   * resolves, so starting the idle wait without it means either capturing an
+   * image the mark never made it into, or having its source appear mid-wait
+   * and expire the timeout. Both were observed as an intermittent export.
+   *
    * @internal Bounded export API — used by disposable export surfaces only.
    */
-  waitForIdle(): Promise<void> {
+  async waitForIdle(): Promise<void> {
+    await this.sourceManager.whenWatermarkReady();
     return new Promise((resolve, reject) => {
       const finish = (): void => {
         clearTimeout(timeout);
@@ -408,7 +482,11 @@ export class MapLibreRenderer implements IRenderer {
       };
       const timeout = setTimeout(() => {
         this.map.off('idle', finish);
-        reject(new Error('PNG map render timed out'));
+        reject(
+          new Error(
+            `PNG map render timed out (${describeIdleBlockers(this.map)})`,
+          ),
+        );
       }, EXPORT_CAPTURE_TIMEOUT_MS);
       this.map.once('idle', finish);
       this.map.triggerRepaint();

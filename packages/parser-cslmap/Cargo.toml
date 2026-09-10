@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }
-quick-xml = { version = "0.36" }
+quick-xml = { version = "0.41" }
 tauri = { version = "2", features = [] }
 contour-isobands = "0.4"
 contour = "0.13.1"

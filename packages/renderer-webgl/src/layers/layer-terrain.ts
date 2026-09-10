@@ -16,7 +16,7 @@
  */
 
 import type { CityData } from '@vellum/core';
-import type maplibregl from 'maplibre-gl';
+import type * as maplibregl from 'maplibre-gl';
 import { HILLSHADE_EXAGGERATION } from '../constants/layer.constants';
 import { CS1_HALF_EXTENT_DEG } from '../coordinate-transform';
 import { buildColorReliefRamp } from '../expressions/terrain-relief';

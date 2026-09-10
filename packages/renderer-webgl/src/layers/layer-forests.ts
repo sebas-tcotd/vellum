@@ -6,7 +6,7 @@
  */
 
 import type { CityData } from '@vellum/core';
-import type maplibregl from 'maplibre-gl';
+import type * as maplibregl from 'maplibre-gl';
 import {
   FORESTS_CIRCLE_OPACITY_EXPRESSION,
   HEAVY_SOURCE_MAX_ZOOM,
