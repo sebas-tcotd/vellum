@@ -143,7 +143,7 @@ jobs:
 
       - name: Install cargo-deny
         if: steps.cargo-deny-cache.outputs.cache-hit != 'true'
-        run: cargo install cargo-deny --locked --version 0.20.2
+        run: cargo install cargo-deny --locked --version 0.20.2 --force
 
       # El script escribe el reporte en $GITHUB_STEP_SUMMARY por su cuenta y
       # siempre sale con 0.

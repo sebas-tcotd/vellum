@@ -217,7 +217,7 @@ jobs:
 
       - name: Install cargo-deny
         if: steps.cargo-deny-cache.outputs.cache-hit != 'true'
-        run: cargo install cargo-deny --locked --version 0.20.2
+        run: cargo install cargo-deny --locked --version 0.20.2 --force
 
       - name: Audit JavaScript and Rust dependencies
         run: pnpm audit:deps --out dependency-audit.md
