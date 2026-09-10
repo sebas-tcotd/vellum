@@ -8,8 +8,15 @@ import type {
 } from '@vellum/core';
 import type { PngExportOptions } from './export-types';
 
-/** Timeout used while waiting for an isolated MapLibre surface to become idle. */
-export const EXPORT_CAPTURE_TIMEOUT_MS = 8_000;
+/**
+ * Timeout used while waiting for an isolated MapLibre surface to become idle.
+ * @remarks
+ * 8 s was not enough on a GPU-less CI runner: the timeout message showed every
+ * source loading its tiles exactly once (no loop), with the last few still in
+ * flight at the deadline. 30 s absorbs slow machines and still turns a real
+ * hang into an error well inside the E2E's 60 s wait for the PNG.
+ */
+export const EXPORT_CAPTURE_TIMEOUT_MS = 30_000;
 const MAX_EXPORT_PIXELS = 64_000_000;
 
 interface PngExportRenderer {
