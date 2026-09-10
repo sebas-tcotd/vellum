@@ -318,11 +318,13 @@ export default [
     },
   },
   {
-    // Node-side tooling scripts (the baseline export golden harness) and the
-    // golden-flow E2E suite. Plain ESM, no TS parser — they sit outside the
-    // tsc projects, so lint and prettier are their only gates.
+    // Node-side tooling scripts (the baseline export golden harness, los
+    // scripts de build de cada paquete como `theme-engine/scripts/emit-schema.mjs`)
+    // y la suite E2E del golden flow. Plain ESM, no TS parser — they sit outside
+    // the tsc projects, so lint and prettier are their only gates.
     files: [
       'packages/*/test/**/*.mjs',
+      'packages/*/scripts/**/*.mjs',
       'apps/desktop/scripts/**/*.mjs',
       'apps/desktop/tests/**/*.mjs',
     ],

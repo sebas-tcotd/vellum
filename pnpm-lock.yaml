@@ -220,9 +220,18 @@ importers:
         specifier: workspace:*
         version: link:../core
     devDependencies:
+      '@types/node':
+        specifier: ^25.9.6
+        version: 25.9.6
+      ajv:
+        specifier: ^8.18.0
+        version: 8.20.0
       jsdom:
         specifier: ^29.1.1
         version: 29.1.1
+      prettier:
+        specifier: ~3.8.1
+        version: 3.8.5
       typescript:
         specifier: ~5.8.3
         version: 5.8.3

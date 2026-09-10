@@ -9,13 +9,87 @@ loads any additional `.vellumstyle` files a user installs (see
 This document is the public, stable reference for modders and theme authors. It describes
 the **actual current behavior of the app** — not aspirational or planned behavior.
 
+## Machine-readable schema (JSON Schema)
+
+The contract on this page is also published as a JSON Schema (2020-12) file, so an editor
+can autocomplete and validate a `.vellumstyle` while you write it:
+
+```
+https://raw.githubusercontent.com/sebas-tcotd/vellum/main/packages/theme-engine/vellumstyle.schema.json
+```
+
+Add it to your file with the standard `$schema` property:
+
+```json
+{
+  "$schema": "https://raw.githubusercontent.com/sebas-tcotd/vellum/main/packages/theme-engine/vellumstyle.schema.json",
+  "schemaVersion": 1,
+  "name": "My theme"
+}
+```
+
+A `.vellumstyle` file is strict JSON — Vellum parses it with `JSON.parse`. Comments (`//`)
+and trailing commas are **not** allowed and make the whole file fail to load.
+
+### Telling your editor that `.vellumstyle` is JSON
+
+`.vellumstyle` is not a `.json` extension, so out of the box no editor treats it as JSON
+and the `$schema` property does nothing. Map the extension to the JSON language once and
+autocompletion, validation and hover docs start working.
+
+**VS Code** (and forks) — in your user or workspace `settings.json`:
+
+```json
+{
+  "files.associations": {
+    "*.vellumstyle": "json"
+  }
+}
+```
+
+**JetBrains IDEs** — Settings → Editor → File Types → JSON → add the `*.vellumstyle`
+pattern.
+
+**Neovim** — `vim.filetype.add({ extension = { vellumstyle = 'json' } })`, with a JSON
+language server (`jsonls`) attached.
+
+Things worth knowing about it:
+
+- **`$schema` is entirely optional and purely an editor affordance.** Vellum never reads
+  it, never requires it, and none of the five built-in themes declare it. A file with it
+  and a file without it load identically.
+- **Only `name` is required at the root.** Every top-level style group (`terrain`, `roads`,
+  `buildings`, `grid`, `parkAreas`, …) may be omitted — Vellum fills a missing group from
+  the built-in defaults when it loads the file. Inside a group you _do_ provide, though,
+  all of that group's keys are required, exactly as the runtime validator demands.
+- **`schemaVersion` is optional in the schema too** (Vellum defaults it to `1`), and when
+  present must be an integer ≥ 1.
+- **Nothing is closed.** No level sets `additionalProperties: false`, so the
+  [extension points](#extension-points) rule holds in the schema as well as at runtime.
+- **The schema checks a little more than the app does.** The runtime validator only
+  inspects color leaves; the JSON Schema additionally:
+  - types the numeric leaves (`grid.opacity`, `grid.width`) and the `grid.dasharray` array
+    of numbers;
+  - requires `schemaVersion` to be an **integer ≥ 1**, while the app's migration step
+    accepts any finite number (`1.5` and `0` load fine, they just don't match a known
+    migration path).
+
+  A file your editor flags for either reason still loads in Vellum — the schema is simply
+  stricter there.
+
+The file is **derived** from the same default palette and the same color regexes the app
+validates with, and a test fails CI if the committed artifact ever falls out of step
+(regenerate it with `pnpm --filter @vellum/theme-engine schema:emit`). That is what keeps
+this document, the schema and the code from drifting apart.
+
 ## Backward compatibility guarantee
 
 A `.vellumstyle` file that is valid today will keep loading without errors in future
 versions of Vellum, even after the schema evolves (NFR11). This is enforced by two
 mechanisms working together:
 
-- **`schemaVersion` migration.** Every file must declare a `schemaVersion`. Vellum runs it
+- **`schemaVersion` migration.** A file should declare a `schemaVersion` (Vellum assumes
+  `1` when the key is absent, so a legacy file still loads). Vellum runs it
   through a migration step before validating it; each past schema version has its own
   migration path to the current shape, so an old file is upgraded in memory rather than
   rejected.
@@ -39,11 +113,15 @@ rule above.
 
 ```ts
 interface VellumStyle {
-  schemaVersion: number; // starts at 1
-  name: string; // display name shown on the theme selector pill
-  // ...plus every field of RenderStyleParams, below
+  schemaVersion?: number; // optional; starts at 1, and Vellum assumes 1 when absent
+  name: string; // display name shown on the theme selector pill — the only required field
+  // ...plus every field of RenderStyleParams, below (each group optional; see above)
 }
 ```
+
+`name` is the only key a file must declare. `schemaVersion` and every style group are
+optional in the file on disk — Vellum fills them in as it loads (which is why the in-memory
+`VellumStyle` the renderer sees always has a `schemaVersion: number`).
 
 ## Color types
 
@@ -129,10 +207,21 @@ resolves to `buildings.civic.services`.
 
 ## Validation behavior
 
-When Vellum loads a `.vellumstyle` file, it walks the expected shape and checks that every
-color leaf is present and matches `HexColor`/`HslColor`. If **any single field** is missing
-or malformed, the **entire file** is skipped (not just that field) and a warning names the
-exact offending path, e.g.:
+When Vellum loads a `.vellumstyle` file, it first fills in whatever the file left out, then
+walks the expected shape and checks that every color leaf is present and matches
+`HexColor`/`HslColor`. The distinction that matters is **whole group vs. partial group**:
+
+- **A group omitted entirely is fine.** Leave `grid` (or `roads`, or `parkAreas`, …) out of
+  the file and Vellum substitutes the built-in default for that group before validating.
+  This is why a file as small as `{ "name": "My theme", "water": "#6db8b7" }` loads.
+- **A group you provide must be complete.** Providing a group _replaces_ the default for
+  that group wholesale — there is no per-leaf merge — so a `roads` object missing
+  `roads.ferry`, or a `roads.highway.generic` missing its `casing`, leaves a hole that
+  validation rejects. If you only want to change one road color, copy the whole `roads`
+  block from a built-in theme and edit the one leaf.
+
+If **any single field** ends up missing or malformed, the **entire file** is skipped (not
+just that field) and a warning names the exact offending path, e.g.:
 
 > `day.vellumstyle is not valid: field roads.highway.generic.fill not recognized`
 > (the exact wording depends on the user's locale)

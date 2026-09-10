@@ -1,0 +1,677 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/sebas-tcotd/vellum/main/packages/theme-engine/vellumstyle.schema.json",
+  "title": "Vellum .vellumstyle theme",
+  "description": "Color palette contract for a Vellum `.vellumstyle` theme file. Unknown properties are allowed at every level — they are the documented extension point and are ignored by Vellum.",
+  "type": "object",
+  "$defs": {
+    "colorToken": {
+      "title": "ColorToken",
+      "description": "A hex color (`#rgb`, `#rgba`, `#rrggbb`, `#rrggbbaa`) or a CSS `hsl(...)` string. No other color format is accepted.",
+      "type": "string",
+      "pattern": "^(?:#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|[hH][sS][lL]\\(\\s*-?\\d+(?:\\.\\d+)?(?:[dD][eE][gG])?\\s*[,\\s]\\s*\\d+(?:\\.\\d+)?%\\s*[,\\s]\\s*\\d+(?:\\.\\d+)?%(?:\\s*[,\\s/]\\s*(?:\\d+(?:\\.\\d+)?%?|\\.\\d+))?\\s*\\))$"
+    }
+  },
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Optional. Points an editor at this schema for autocompletion; Vellum never requires it."
+    },
+    "schemaVersion": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Optional. Contract version of the file; defaults to 1 when omitted."
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Display name shown on the theme selector pill."
+    },
+    "mapBackground": {
+      "$ref": "#/$defs/colorToken",
+      "default": "#f7f6f1"
+    },
+    "mapFrame": {
+      "$ref": "#/$defs/colorToken",
+      "default": "#f5f0e6"
+    },
+    "terrain": {
+      "type": "object",
+      "properties": {
+        "base": {
+          "$ref": "#/$defs/colorToken",
+          "default": "#f7f6f1"
+        },
+        "low": {
+          "$ref": "#/$defs/colorToken",
+          "default": "#95ae79"
+        },
+        "mid": {
+          "$ref": "#/$defs/colorToken",
+          "default": "#deddbe"
+        },
+        "high": {
+          "$ref": "#/$defs/colorToken",
+          "default": "#c4a06a"
+        }
+      },
+      "required": ["base", "low", "mid", "high"]
+    },
+    "water": {
+      "$ref": "#/$defs/colorToken",
+      "default": "#6db8b7"
+    },
+    "contourLine": {
+      "$ref": "#/$defs/colorToken",
+      "default": "#000000"
+    },
+    "forests": {
+      "$ref": "#/$defs/colorToken",
+      "default": "#14592a"
+    },
+    "transitBackground": {
+      "$ref": "#/$defs/colorToken",
+      "default": "#1a1a2e"
+    },
+    "roads": {
+      "type": "object",
+      "properties": {
+        "highway": {
+          "type": "object",
+          "properties": {
+            "generic": {
+              "type": "object",
+              "properties": {
+                "fill": {
+                  "$ref": "#/$defs/colorToken",
+                  "default": "#a098b0"
+                },
+                "casing": {
+                  "$ref": "#/$defs/colorToken",
+                  "default": "#7d748e"
+                }
+              },
+              "required": ["fill", "casing"]
+            }
+          },
+          "required": ["generic"]
+        },
+        "largeArterial": {
+          "type": "object",
+          "properties": {
+            "generic": {
+              "type": "object",
+              "properties": {
+                "fill": {
+                  "$ref": "#/$defs/colorToken",
+                  "default": "#d2938e"
+                },
+                "casing": {
+                  "$ref": "#/$defs/colorToken",
+                  "default": "#b8756e"
+                }
+              },
+              "required": ["fill", "casing"]
+            }
+          },
+          "required": ["generic"]
+        },
+        "mediumArterial": {
+          "type": "object",
+          "properties": {
+            "generic": {
+              "type": "object",
+              "properties": {
+                "fill": {
+                  "$ref": "#/$defs/colorToken",
+                  "default": "#d4a882"
+                },
+                "casing": {
+                  "$ref": "#/$defs/colorToken",
+                  "default": "#b48a69"
+                }
+              },
+              "required": ["fill", "casing"]
+            }
+          },
+          "required": ["generic"]
+        },
+        "local": {
+          "type": "object",
+          "properties": {
+            "generic": {
+              "type": "object",
+              "properties": {
+                "fill": {
+                  "$ref": "#/$defs/colorToken",
+                  "default": "#e4e1d1"
+                },
+                "casing": {
+                  "$ref": "#/$defs/colorToken",
+                  "default": "#8a8278"
+                }
+              },
+              "required": ["fill", "casing"]
+            },
+            "gravel": {
+              "type": "object",
+              "properties": {
+                "fill": {
+                  "$ref": "#/$defs/colorToken",
+                  "default": "#e0d5c1"
+                },
+                "casing": {
+                  "$ref": "#/$defs/colorToken",
+                  "default": "#c4b89e"
+                }
+              },
+              "required": ["fill", "casing"]
+            }
+          },
+          "required": ["generic", "gravel"]
+        },
+        "pedestrian": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "object",
+              "properties": {
+                "fill": {
+                  "$ref": "#/$defs/colorToken",
+                  "default": "#7a6e60"
+                },
+                "casing": {
+                  "$ref": "#/$defs/colorToken",
+                  "default": "#5d5550"
+                }
+              },
+              "required": ["fill", "casing"]
+            },
+            "way": {
+              "type": "object",
+              "properties": {
+                "fill": {
+                  "$ref": "#/$defs/colorToken",
+                  "default": "#8b7d6b"
+                },
+                "casing": {
+                  "$ref": "#/$defs/colorToken",
+                  "default": "#8b7d6b"
+                }
+              },
+              "required": ["fill", "casing"]
+            },
+            "street": {
+              "type": "object",
+              "properties": {
+                "fill": {
+                  "$ref": "#/$defs/colorToken",
+                  "default": "#7a6e60"
+                },
+                "casing": {
+                  "$ref": "#/$defs/colorToken",
+                  "default": "#5d5550"
+                }
+              },
+              "required": ["fill", "casing"]
+            }
+          },
+          "required": ["path", "way", "street"]
+        },
+        "rail": {
+          "type": "object",
+          "properties": {
+            "train": {
+              "type": "object",
+              "properties": {
+                "fill": {
+                  "$ref": "#/$defs/colorToken",
+                  "default": "#eceff1"
+                },
+                "casing": {
+                  "$ref": "#/$defs/colorToken",
+                  "default": "#455a64"
+                }
+              },
+              "required": ["fill", "casing"]
+            },
+            "metro": {
+              "type": "object",
+              "properties": {
+                "fill": {
+                  "$ref": "#/$defs/colorToken",
+                  "default": "#eceff1"
+                },
+                "casing": {
+                  "$ref": "#/$defs/colorToken",
+                  "default": "#e4572e"
+                }
+              },
+              "required": ["fill", "casing"]
+            }
+          },
+          "required": ["train", "metro"]
+        },
+        "ferry": {
+          "type": "object",
+          "properties": {
+            "fill": {
+              "$ref": "#/$defs/colorToken",
+              "default": "#1A5276"
+            },
+            "casing": {
+              "$ref": "#/$defs/colorToken",
+              "default": "#1A5276"
+            }
+          },
+          "required": ["fill", "casing"]
+        }
+      },
+      "required": [
+        "highway",
+        "largeArterial",
+        "mediumArterial",
+        "local",
+        "pedestrian",
+        "rail",
+        "ferry"
+      ]
+    },
+    "buildings": {
+      "type": "object",
+      "properties": {
+        "residential": {
+          "type": "object",
+          "properties": {
+            "low": {
+              "type": "object",
+              "properties": {
+                "fill": {
+                  "$ref": "#/$defs/colorToken",
+                  "default": "#c8bfb5"
+                },
+                "stroke": {
+                  "$ref": "#/$defs/colorToken",
+                  "default": "#a09585"
+                }
+              },
+              "required": ["fill", "stroke"]
+            },
+            "high": {
+              "type": "object",
+              "properties": {
+                "fill": {
+                  "$ref": "#/$defs/colorToken",
+                  "default": "#c8bfb5"
+                },
+                "stroke": {
+                  "$ref": "#/$defs/colorToken",
+                  "default": "#a09585"
+                }
+              },
+              "required": ["fill", "stroke"]
+            },
+            "selfSufficient": {
+              "type": "object",
+              "properties": {
+                "fill": {
+                  "$ref": "#/$defs/colorToken",
+                  "default": "#c8bfb5"
+                },
+                "stroke": {
+                  "$ref": "#/$defs/colorToken",
+                  "default": "#a09585"
+                }
+              },
+              "required": ["fill", "stroke"]
+            }
+          },
+          "required": ["low", "high", "selfSufficient"]
+        },
+        "commercial": {
+          "type": "object",
+          "properties": {
+            "low": {
+              "type": "object",
+              "properties": {
+                "fill": {
+                  "$ref": "#/$defs/colorToken",
+                  "default": "#c8bfb5"
+                },
+                "stroke": {
+                  "$ref": "#/$defs/colorToken",
+                  "default": "#a09585"
+                }
+              },
+              "required": ["fill", "stroke"]
+            },
+            "high": {
+              "type": "object",
+              "properties": {
+                "fill": {
+                  "$ref": "#/$defs/colorToken",
+                  "default": "#c8bfb5"
+                },
+                "stroke": {
+                  "$ref": "#/$defs/colorToken",
+                  "default": "#a09585"
+                }
+              },
+              "required": ["fill", "stroke"]
+            },
+            "leisure": {
+              "type": "object",
+              "properties": {
+                "fill": {
+                  "$ref": "#/$defs/colorToken",
+                  "default": "#c8bfb5"
+                },
+                "stroke": {
+                  "$ref": "#/$defs/colorToken",
+                  "default": "#a09585"
+                }
+              },
+              "required": ["fill", "stroke"]
+            },
+            "tourism": {
+              "type": "object",
+              "properties": {
+                "fill": {
+                  "$ref": "#/$defs/colorToken",
+                  "default": "#c8bfb5"
+                },
+                "stroke": {
+                  "$ref": "#/$defs/colorToken",
+                  "default": "#a09585"
+                }
+              },
+              "required": ["fill", "stroke"]
+            },
+            "organic": {
+              "type": "object",
+              "properties": {
+                "fill": {
+                  "$ref": "#/$defs/colorToken",
+                  "default": "#c8bfb5"
+                },
+                "stroke": {
+                  "$ref": "#/$defs/colorToken",
+                  "default": "#a09585"
+                }
+              },
+              "required": ["fill", "stroke"]
+            }
+          },
+          "required": ["low", "high", "leisure", "tourism", "organic"]
+        },
+        "office": {
+          "type": "object",
+          "properties": {
+            "generic": {
+              "type": "object",
+              "properties": {
+                "fill": {
+                  "$ref": "#/$defs/colorToken",
+                  "default": "#c8bfb5"
+                },
+                "stroke": {
+                  "$ref": "#/$defs/colorToken",
+                  "default": "#a09585"
+                }
+              },
+              "required": ["fill", "stroke"]
+            },
+            "tech": {
+              "type": "object",
+              "properties": {
+                "fill": {
+                  "$ref": "#/$defs/colorToken",
+                  "default": "#c8bfb5"
+                },
+                "stroke": {
+                  "$ref": "#/$defs/colorToken",
+                  "default": "#a09585"
+                }
+              },
+              "required": ["fill", "stroke"]
+            },
+            "financial": {
+              "type": "object",
+              "properties": {
+                "fill": {
+                  "$ref": "#/$defs/colorToken",
+                  "default": "#c8bfb5"
+                },
+                "stroke": {
+                  "$ref": "#/$defs/colorToken",
+                  "default": "#a09585"
+                }
+              },
+              "required": ["fill", "stroke"]
+            }
+          },
+          "required": ["generic", "tech", "financial"]
+        },
+        "industry": {
+          "type": "object",
+          "properties": {
+            "generic": {
+              "type": "object",
+              "properties": {
+                "fill": {
+                  "$ref": "#/$defs/colorToken",
+                  "default": "#c8bfb5"
+                },
+                "stroke": {
+                  "$ref": "#/$defs/colorToken",
+                  "default": "#a09585"
+                }
+              },
+              "required": ["fill", "stroke"]
+            },
+            "forestry": {
+              "type": "object",
+              "properties": {
+                "fill": {
+                  "$ref": "#/$defs/colorToken",
+                  "default": "#c8bfb5"
+                },
+                "stroke": {
+                  "$ref": "#/$defs/colorToken",
+                  "default": "#a09585"
+                }
+              },
+              "required": ["fill", "stroke"]
+            },
+            "ore": {
+              "type": "object",
+              "properties": {
+                "fill": {
+                  "$ref": "#/$defs/colorToken",
+                  "default": "#c8bfb5"
+                },
+                "stroke": {
+                  "$ref": "#/$defs/colorToken",
+                  "default": "#a09585"
+                }
+              },
+              "required": ["fill", "stroke"]
+            },
+            "oil": {
+              "type": "object",
+              "properties": {
+                "fill": {
+                  "$ref": "#/$defs/colorToken",
+                  "default": "#c8bfb5"
+                },
+                "stroke": {
+                  "$ref": "#/$defs/colorToken",
+                  "default": "#a09585"
+                }
+              },
+              "required": ["fill", "stroke"]
+            },
+            "farming": {
+              "type": "object",
+              "properties": {
+                "fill": {
+                  "$ref": "#/$defs/colorToken",
+                  "default": "#c8bfb5"
+                },
+                "stroke": {
+                  "$ref": "#/$defs/colorToken",
+                  "default": "#a09585"
+                }
+              },
+              "required": ["fill", "stroke"]
+            }
+          },
+          "required": ["generic", "forestry", "ore", "oil", "farming"]
+        },
+        "civic": {
+          "type": "object",
+          "properties": {
+            "publicTransport": {
+              "type": "object",
+              "properties": {
+                "fill": {
+                  "$ref": "#/$defs/colorToken",
+                  "default": "#c8bfb5"
+                },
+                "stroke": {
+                  "$ref": "#/$defs/colorToken",
+                  "default": "#a09585"
+                }
+              },
+              "required": ["fill", "stroke"]
+            },
+            "education": {
+              "type": "object",
+              "properties": {
+                "fill": {
+                  "$ref": "#/$defs/colorToken",
+                  "default": "#c8bfb5"
+                },
+                "stroke": {
+                  "$ref": "#/$defs/colorToken",
+                  "default": "#a09585"
+                }
+              },
+              "required": ["fill", "stroke"]
+            },
+            "services": {
+              "type": "object",
+              "properties": {
+                "fill": {
+                  "$ref": "#/$defs/colorToken",
+                  "default": "#c8bfb5"
+                },
+                "stroke": {
+                  "$ref": "#/$defs/colorToken",
+                  "default": "#a09585"
+                }
+              },
+              "required": ["fill", "stroke"]
+            }
+          },
+          "required": ["publicTransport", "education", "services"]
+        },
+        "none": {
+          "type": "object",
+          "properties": {
+            "fill": {
+              "$ref": "#/$defs/colorToken",
+              "default": "#c8bfb5"
+            },
+            "stroke": {
+              "$ref": "#/$defs/colorToken",
+              "default": "#a09585"
+            }
+          },
+          "required": ["fill", "stroke"]
+        }
+      },
+      "required": [
+        "residential",
+        "commercial",
+        "office",
+        "industry",
+        "civic",
+        "none"
+      ]
+    },
+    "districts": {
+      "type": "object",
+      "properties": {
+        "fill": {
+          "$ref": "#/$defs/colorToken",
+          "default": "#b4a08c"
+        },
+        "label": {
+          "$ref": "#/$defs/colorToken",
+          "default": "#ffffff"
+        }
+      },
+      "required": ["fill", "label"]
+    },
+    "grid": {
+      "type": "object",
+      "properties": {
+        "color": {
+          "$ref": "#/$defs/colorToken",
+          "default": "#555555"
+        },
+        "opacity": {
+          "type": "number",
+          "default": 0.25
+        },
+        "width": {
+          "type": "number",
+          "default": 1
+        },
+        "dasharray": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "default": 4
+          },
+          "default": [4, 4]
+        }
+      },
+      "required": ["color", "opacity", "width", "dasharray"]
+    },
+    "parkAreas": {
+      "type": "object",
+      "properties": {
+        "generic": {
+          "$ref": "#/$defs/colorToken",
+          "default": "#95ae79"
+        },
+        "university": {
+          "$ref": "#/$defs/colorToken",
+          "default": "#c4a06a"
+        },
+        "tradeSchool": {
+          "$ref": "#/$defs/colorToken",
+          "default": "#d2938e"
+        },
+        "industry": {
+          "$ref": "#/$defs/colorToken",
+          "default": "#a098b0"
+        },
+        "forestry": {
+          "$ref": "#/$defs/colorToken",
+          "default": "#14592a"
+        }
+      },
+      "required": [
+        "generic",
+        "university",
+        "tradeSchool",
+        "industry",
+        "forestry"
+      ]
+    }
+  },
+  "required": ["name"]
+}

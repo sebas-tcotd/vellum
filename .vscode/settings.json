@@ -1,4 +1,17 @@
 {
   "vitest.workspaceConfig": "./vitest.workspace.ts",
-  "css.lint.unknownAtRules": "ignore"
+  "css.lint.unknownAtRules": "ignore",
+  // `.vellumstyle` es JSON estricto, pero la extensión no lo delata: sin esta
+  // asociación el editor no lo parsea como JSON y el schema nunca se aplica.
+  "files.associations": {
+    "*.vellumstyle": "json"
+  },
+  // Apunta al artefacto del working tree, no al `$id` publicado en `main`: al
+  // trabajar en el contrato se valida contra el schema que estás cambiando.
+  "json.schemas": [
+    {
+      "fileMatch": ["*.vellumstyle"],
+      "url": "./packages/theme-engine/vellumstyle.schema.json"
+    }
+  ]
 }
