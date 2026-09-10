@@ -18,6 +18,7 @@
     "brand:build": "node scripts/build-brand-assets.mjs",
     "check:installer": "node scripts/verify-installer-identity.mjs",
     "check:network": "node scripts/verify-network-surface.mjs",
+    "package:windows-bootstrap": "node scripts/package-windows-bootstrap.mjs",
     "audit:deps": "node scripts/audit-deps.mjs",
     "prepare": "husky",
     "format": "prettier --write \"**/*.{js,mjs,cjs,ts,tsx,json,md,css,scss,html,yaml,yml}\" --ignore-path .prettierignore",
