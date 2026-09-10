@@ -489,18 +489,43 @@ export class MapLibreRenderer implements IRenderer {
   async waitForIdle(): Promise<void> {
     await this.sourceManager.whenWatermarkReady();
     return new Promise((resolve, reject) => {
+      // ponytail: frame/data counters only feed the timeout message. They tell
+      // "something keeps calling `_update()` every frame" (many renders, many
+      // data events) apart from "frames stopped" (few renders, long silence).
+      const startedAt = performance.now();
+      let renders = 0;
+      let dataEvents = 0;
+      let lastRenderAt = startedAt;
+      const onRender = (): void => {
+        renders += 1;
+        lastRenderAt = performance.now();
+      };
+      const onData = (): void => {
+        dataEvents += 1;
+      };
+      const stopCounting = (): void => {
+        this.map.off('render', onRender);
+        this.map.off('data', onData);
+      };
       const finish = (): void => {
         clearTimeout(timeout);
+        stopCounting();
         resolve();
       };
       const timeout = setTimeout(() => {
         this.map.off('idle', finish);
+        stopCounting();
+        const now = performance.now();
         reject(
           new Error(
-            `PNG map render timed out (${describeIdleBlockers(this.map)})`,
+            `PNG map render timed out (${describeIdleBlockers(this.map)}; ` +
+              `${renders} renders, ${dataEvents} data events, ` +
+              `last render ${Math.round(now - lastRenderAt)}ms ago)`,
           ),
         );
       }, EXPORT_CAPTURE_TIMEOUT_MS);
+      this.map.on('render', onRender);
+      this.map.on('data', onData);
       this.map.once('idle', finish);
       this.map.triggerRepaint();
     });
