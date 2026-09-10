@@ -30,7 +30,8 @@ where
             }
         };
         if a.key.local_name().as_ref() == name {
-            f(a.unescape_value().ok()?)
+            f(a.normalized_value(quick_xml::XmlVersion::Implicit1_0)
+                .ok()?)
         } else {
             None
         }

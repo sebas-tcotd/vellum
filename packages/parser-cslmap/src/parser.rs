@@ -301,7 +301,13 @@ fn dispatch_text_event(
     allow_partial: bool,
     has_parsed_root: bool,
 ) -> Result<(), VellumError> {
-    match e.unescape() {
+    let unescaped: Result<String, quick_xml::Error> =
+        e.decode().map_err(quick_xml::Error::from).and_then(|s| {
+            quick_xml::escape::unescape(&s)
+                .map(std::borrow::Cow::into_owned)
+                .map_err(quick_xml::Error::from)
+        });
+    match unescaped {
         Ok(text) => {
             builder.handle_text(&text);
             Ok(())
