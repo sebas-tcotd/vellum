@@ -28,6 +28,8 @@ import { registerDemProtocol } from '../sources/dem-protocol';
  * Handles the injection and disposal of GeoJSON sources and their initial layers.
  */
 export class MapSourceManager {
+  private watermarkReady: Promise<void> = Promise.resolve();
+
   constructor(
     private readonly map: maplibregl.Map,
     private colors: ResolvedColors,
@@ -35,6 +37,20 @@ export class MapSourceManager {
 
   updateColors(newColors: ResolvedColors): void {
     this.colors = newColors;
+  }
+
+  /**
+   * Settles once the watermark layer has been added, or has given up trying.
+   *
+   * @remarks
+   * The watermark is the only layer added after `initializeSourcesAndLayers`
+   * resolves. On the interactive map that is invisible; on a disposable export
+   * surface it is a race the output loses either way — the capture happens
+   * without the mark, or the source lands mid-`waitForIdle` and the export
+   * times out waiting for tiles it did not know were coming.
+   */
+  whenWatermarkReady(): Promise<void> {
+    return this.watermarkReady;
   }
 
   /**
@@ -98,7 +114,11 @@ export class MapSourceManager {
     );
     await step('parks', () => addParksLayer(this.map, cityData, this.colors));
     await step('map-frame', () => addMapFrameLayer(this.map, this.colors));
-    addWatermarkLayer(this.map).catch(() => {
+    // The one step that is not awaited: the interactive map should paint the
+    // cartography without waiting on a decorative logo. Anything that needs the
+    // watermark to actually be there — the export — waits on
+    // `whenWatermarkReady()` instead.
+    this.watermarkReady = addWatermarkLayer(this.map).catch(() => {
       /* Image loading may fail in non-browser environments (tests) */
     });
 

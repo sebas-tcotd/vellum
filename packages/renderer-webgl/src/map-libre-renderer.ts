@@ -464,9 +464,17 @@ export class MapLibreRenderer implements IRenderer {
 
   /**
    * Waits until MapLibre has painted all pending sources and layers.
+   *
+   * @remarks
+   * The watermark is settled first: it is the one layer added after `render`
+   * resolves, so starting the idle wait without it means either capturing an
+   * image the mark never made it into, or having its source appear mid-wait
+   * and expire the timeout. Both were observed as an intermittent export.
+   *
    * @internal Bounded export API — used by disposable export surfaces only.
    */
-  waitForIdle(): Promise<void> {
+  async waitForIdle(): Promise<void> {
+    await this.sourceManager.whenWatermarkReady();
     return new Promise((resolve, reject) => {
       const finish = (): void => {
         clearTimeout(timeout);
