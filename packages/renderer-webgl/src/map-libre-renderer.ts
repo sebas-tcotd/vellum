@@ -112,6 +112,26 @@ function raiseWorkerCount(): void {
   maplibregl.setWorkerCount(Math.max(Math.min(cores - 1, MAX_WORKERS), 1));
 }
 
+/** The `TileManager` state `TileManager.loaded()` is derived from. */
+interface TileManagerInternals {
+  loaded(): boolean;
+  _sourceLoaded?: boolean;
+  _updated?: boolean;
+  _source?: { loaded?: () => boolean };
+  _inViewTiles?: { getAllTiles(): { state: string }[] };
+}
+
+/** Names which of `TileManager.loaded()`'s conditions is the one still false. */
+function describeUnloadedSource(manager: TileManagerInternals): string {
+  if (manager._sourceLoaded === false) return 'sourceLoading';
+  if (manager._source?.loaded?.() === false) return 'sourceNotReady';
+  if (manager._updated === false) return 'neverUpdated';
+  const states = (manager._inViewTiles?.getAllTiles() ?? [])
+    .map((tile) => tile.state)
+    .filter((state) => state !== 'loaded' && state !== 'errored');
+  return states.length > 0 ? `tiles:${states.join('/')}` : 'no tile pending';
+}
+
 /**
  * Names what is still keeping MapLibre from firing `idle`.
  *
@@ -131,7 +151,7 @@ export function describeIdleBlockers(map: maplibregl.Map): string {
     style?: {
       _loaded?: boolean;
       _updatedSources?: Record<string, unknown>;
-      tileManagers?: Record<string, { loaded(): boolean }>;
+      tileManagers?: Record<string, TileManagerInternals>;
       imageManager?: { isLoaded(): boolean };
     };
   };
@@ -146,7 +166,11 @@ export function describeIdleBlockers(map: maplibregl.Map): string {
     blockers.push(`updatedSource:${id}`);
   }
   for (const [id, manager] of Object.entries(style?.tileManagers ?? {})) {
-    if (!manager.loaded()) blockers.push(`sourceNotLoaded:${id}`);
+    if (!manager.loaded()) {
+      blockers.push(
+        `sourceNotLoaded:${id}(${describeUnloadedSource(manager)})`,
+      );
+    }
   }
   if (style?.imageManager && !style.imageManager.isLoaded()) {
     blockers.push('imagesNotLoaded');

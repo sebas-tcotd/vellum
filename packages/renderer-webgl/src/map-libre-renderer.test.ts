@@ -2073,7 +2073,7 @@ describe('describeIdleBlockers', () => {
           _loaded: false,
           _updatedSources: { roads: {} },
           tileManagers: {
-            roads: { loaded: () => false },
+            roads: { loaded: () => false, _sourceLoaded: false },
             water: { loaded: () => true },
           },
           imageManager: { isLoaded: () => false },
@@ -2083,7 +2083,7 @@ describe('describeIdleBlockers', () => {
 
     expect(blockers).toBe(
       'sourcesDirty, moving, styleNotLoaded, updatedSource:roads, ' +
-        'sourceNotLoaded:roads, imagesNotLoaded',
+        'sourceNotLoaded:roads(sourceLoading), imagesNotLoaded',
     );
   });
 
