@@ -19,7 +19,7 @@
  */
 
 import type { TerrainDem } from '@vellum/core';
-import type maplibregl from 'maplibre-gl';
+import type * as maplibregl from 'maplibre-gl';
 import { demPadElevation, demRampFloor } from '../sources/dem-protocol';
 import type { ResolvedColors } from '../style-adapter';
 import { adjustLightness, mixColorTokens } from './color-mix';

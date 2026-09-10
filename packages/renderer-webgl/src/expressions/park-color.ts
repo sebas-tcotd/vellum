@@ -1,6 +1,6 @@
 /** Maps DLC park types to their resolved MapLibre marker colors. */
 
-import type maplibregl from 'maplibre-gl';
+import type * as maplibregl from 'maplibre-gl';
 import type { ResolvedColors } from '../style-adapter';
 
 /**

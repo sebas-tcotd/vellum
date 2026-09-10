@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Mock } from 'vitest';
-import maplibregl from 'maplibre-gl';
+import * as maplibregl from 'maplibre-gl';
 import { MapLibreRenderer } from './map-libre-renderer';
 import { makeCityData } from '@vellum/core/testing';
 import type {
@@ -72,18 +72,16 @@ const mockMap = vi.hoisted(() => ({
 }));
 
 vi.mock('maplibre-gl', () => ({
-  default: {
-    // Regular function (not arrow) so `new Map(...)` works as a constructor.
-    Map: vi.fn().mockImplementation(function () {
-      return mockMap;
-    }),
-    // The DEM tile protocol registers itself on the module default export.
-    addProtocol: vi.fn(),
-    removeProtocol: vi.fn(),
-    // Read at module scope to raise the default worker count off MapLibre's 1.
-    setWorkerCount: vi.fn(),
-    getWorkerCount: vi.fn(() => 4),
-  },
+  // Regular function (not arrow) so `new Map(...)` works as a constructor.
+  Map: vi.fn().mockImplementation(function () {
+    return mockMap;
+  }),
+  // The DEM tile protocol registers itself on the module's named exports.
+  addProtocol: vi.fn(),
+  removeProtocol: vi.fn(),
+  // Read at module scope to raise the default worker count off MapLibre's 1.
+  setWorkerCount: vi.fn(),
+  getWorkerCount: vi.fn(() => 4),
 }));
 
 // jsdom has neither OffscreenCanvas nor createImageBitmap; the DEM protocol is
@@ -279,7 +277,7 @@ describe('MapLibreRenderer', () => {
   // recognise as Safari, and Tauri's WKWebView fails that check — so every
   // GeoJSON source was sliced through a single worker.
   it('raises the worker pool above MapLibre default of one, before the map exists', async () => {
-    const maplibregl = (await import('maplibre-gl')).default;
+    const maplibregl = await import('maplibre-gl');
     makeRenderer();
 
     expect(maplibregl.setWorkerCount).toHaveBeenCalledOnce();

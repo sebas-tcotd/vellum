@@ -6,7 +6,7 @@
  */
 
 import type { CityData, RoadCategory } from '@vellum/core';
-import type maplibregl from 'maplibre-gl';
+import type * as maplibregl from 'maplibre-gl';
 import {
   buildRoadColorExpression,
   BRIDGE_CASING_DARKEN_PERCENT,

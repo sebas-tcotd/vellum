@@ -1,4 +1,4 @@
-import type maplibregl from 'maplibre-gl';
+import type * as maplibregl from 'maplibre-gl';
 
 /** Handle for a capture that can be cancelled during renderer disposal. */
 export interface PendingMapCapture<T> {

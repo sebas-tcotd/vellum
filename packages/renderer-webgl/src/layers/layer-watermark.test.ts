@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest';
-import type maplibregl from 'maplibre-gl';
+import type * as maplibregl from 'maplibre-gl';
 import { addWatermarkLayer } from './layer-watermark';
 import { WATERMARK_LAYER_ID } from '../constants/layer.constants';
 

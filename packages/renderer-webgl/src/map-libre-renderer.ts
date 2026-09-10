@@ -35,7 +35,7 @@ import {
   type RenderParams,
   type RenderStyleParams,
 } from '@vellum/core';
-import maplibregl from 'maplibre-gl';
+import * as maplibregl from 'maplibre-gl';
 import {
   captureCanvasOnNextRender,
   captureOnNextRender,

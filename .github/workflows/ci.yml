@@ -139,11 +139,11 @@ jobs:
         uses: actions/cache@v6
         with:
           path: ~/.cargo/bin/cargo-deny
-          key: cargo-deny-${{ runner.os }}-0.18.4
+          key: cargo-deny-${{ runner.os }}-0.20.2
 
       - name: Install cargo-deny
         if: steps.cargo-deny-cache.outputs.cache-hit != 'true'
-        run: cargo install cargo-deny --locked --version 0.18.4
+        run: cargo install cargo-deny --locked --version 0.20.2
 
       # El script escribe el reporte en $GITHUB_STEP_SUMMARY por su cuenta y
       # siempre sale con 0.

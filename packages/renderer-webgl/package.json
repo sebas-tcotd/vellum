@@ -19,7 +19,7 @@
   "dependencies": {
     "@mapbox/maki": "^8.2.0",
     "@vellum/core": "workspace:*",
-    "maplibre-gl": "^5.24.0"
+    "maplibre-gl": "^6.9.0"
   },
   "devDependencies": {
     "typescript": "~5.8.3",

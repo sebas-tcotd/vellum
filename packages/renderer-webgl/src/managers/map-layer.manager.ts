@@ -1,4 +1,4 @@
-import maplibregl from 'maplibre-gl';
+import * as maplibregl from 'maplibre-gl';
 import type { LayerName, LayerOptions, TerrainDem } from '@vellum/core';
 import {
   HILLSHADE_EXAGGERATION,

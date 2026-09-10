@@ -1,7 +1,7 @@
 /** Registers DLC park-area markers and labels under the districts layer. */
 
 import type { CityData } from '@vellum/core';
-import type maplibregl from 'maplibre-gl';
+import type * as maplibregl from 'maplibre-gl';
 import { buildParkColorExpression } from '../expressions/park-color';
 import { buildParkAreasGeoJson } from '../geojson';
 import { addLayerIfAbsent, addSourceIfAbsent } from '../helpers';

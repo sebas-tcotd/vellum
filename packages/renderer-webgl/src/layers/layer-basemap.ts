@@ -24,7 +24,7 @@
  */
 
 import type { CityData } from '@vellum/core';
-import type maplibregl from 'maplibre-gl';
+import type * as maplibregl from 'maplibre-gl';
 import {
   buildCoastlineGeoJson,
   buildLandPolygonGeoJson,

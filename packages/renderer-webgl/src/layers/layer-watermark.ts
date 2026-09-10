@@ -1,4 +1,4 @@
-import maplibregl from 'maplibre-gl';
+import * as maplibregl from 'maplibre-gl';
 import { vellumLogoDataUri } from '../assets/vellum-logo';
 import { WATERMARK_LAYER_ID } from '../constants/layer.constants';
 import { csToGeo } from '../coordinate-transform';

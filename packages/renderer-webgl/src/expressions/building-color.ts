@@ -6,7 +6,7 @@
  */
 
 import type { BuildingServiceCategory } from '@vellum/core';
-import type maplibregl from 'maplibre-gl';
+import type * as maplibregl from 'maplibre-gl';
 import type { ResolvedColors } from '../style-adapter';
 
 /**

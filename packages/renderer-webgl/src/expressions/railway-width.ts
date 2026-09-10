@@ -10,7 +10,7 @@
  * Internal module — not exported from the package barrel.
  */
 
-import type maplibregl from 'maplibre-gl';
+import type * as maplibregl from 'maplibre-gl';
 
 // factor(zoom): cartographic floor below z15, then geographic 2^(z−15) to z22.
 const FACTOR_STOPS: ReadonlyArray<readonly [zoom: number, factor: number]> = [

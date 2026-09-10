@@ -128,16 +128,14 @@ const mockMap = vi.hoisted(() => ({
 }));
 
 vi.mock('maplibre-gl', () => ({
-  default: {
-    Map: vi.fn().mockImplementation(function () {
-      return mockMap;
-    }),
-    addProtocol: vi.fn(),
-    removeProtocol: vi.fn(),
-    // Read at module scope to raise the default worker count off MapLibre's 1.
-    setWorkerCount: vi.fn(),
-    getWorkerCount: vi.fn(() => 4),
-  },
+  Map: vi.fn().mockImplementation(function () {
+    return mockMap;
+  }),
+  addProtocol: vi.fn(),
+  removeProtocol: vi.fn(),
+  // Read at module scope to raise the default worker count off MapLibre's 1.
+  setWorkerCount: vi.fn(),
+  getWorkerCount: vi.fn(() => 4),
 }));
 
 vi.mock('../sources/dem-protocol', async (importOriginal) => ({
@@ -218,7 +216,7 @@ beforeEach(() => {
 
 describe('RasterTileRenderer', () => {
   it('creates a single hidden, preserve-drawing-buffer surface that never touches the interactive map', async () => {
-    const maplibregl = (await import('maplibre-gl')).default;
+    const maplibregl = await import('maplibre-gl');
     const renderer = new RasterTileRenderer(MOCK_STYLE);
     await renderer.configure(makeSnapshot(), new AbortController().signal);
 
@@ -250,7 +248,7 @@ describe('RasterTileRenderer', () => {
 
     expect(first).toEqual(new Uint8Array([137, 80, 78, 71]));
     expect(second).toEqual(new Uint8Array([137, 80, 78, 71]));
-    const maplibregl = (await import('maplibre-gl')).default;
+    const maplibregl = await import('maplibre-gl');
     expect(maplibregl.Map).toHaveBeenCalledTimes(1);
     renderer.dispose();
   });

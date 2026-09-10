@@ -1,4 +1,4 @@
-import maplibregl from 'maplibre-gl';
+import * as maplibregl from 'maplibre-gl';
 import type { CityData } from '@vellum/core';
 import type { ResolvedColors } from '../style-adapter';
 import {

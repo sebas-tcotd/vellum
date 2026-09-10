@@ -13,7 +13,7 @@ import {
   type SvgExportRequest,
   type SvgExportSnapshot,
 } from '@vellum/core';
-import type maplibregl from 'maplibre-gl';
+import type * as maplibregl from 'maplibre-gl';
 import { geoToCs } from '../coordinate-transform';
 
 /** State required to capture an immutable export snapshot from a live map. */
