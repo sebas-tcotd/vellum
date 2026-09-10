@@ -38,7 +38,7 @@ export const BRAND_SOURCES = [
 ];
 
 /**
- * The five derived files and the dimensions each consumer demands.
+ * The six derived files and the dimensions each consumer demands.
  *
  * @remarks
  * The BMP sizes are not suggestions: WiX rejects a banner that is not
@@ -51,6 +51,10 @@ export const DERIVED_ASSETS = [
   { file: 'wix-dialog.bmp', width: 493, height: 312, format: 'bmp' },
   { file: 'nsis-header.bmp', width: 150, height: 57, format: 'bmp' },
   { file: 'nsis-sidebar.bmp', width: 164, height: 314, format: 'bmp' },
+  // This is not MUI chrome: the custom NSIS splash owns the whole client area.
+  // Its aspect ratio is deliberately wider than the sidebar, so it reads as a
+  // product moment instead of a reskinned wizard.
+  { file: 'vellum-splash.bmp', width: 740, height: 440, format: 'bmp' },
   { file: 'dmg-background.png', width: 660, height: 400, format: 'png' },
 ];
 
@@ -252,6 +256,37 @@ export function compose(name, mark, palette, { width, height }) {
         color: parchment,
         opacity: '0.2',
       })}<rect x="26" y="${height - 46}" width="112" height="1" fill="${parchment}" opacity="0.4"/></svg>`;
+
+    // The interactive copy is overlaid by NSIS in the clear parchment area at
+    // the left. The illustration occupies the other half and the lower edge;
+    // keeping that text zone a single colour prevents old Win32 static controls
+    // from painting visible rectangular backgrounds over the composition.
+    case 'vellum-splash.bmp':
+      return `${open}${ground}<path d="M410 0 H${width} V${height} H120 C280 388 326 290 438 226 C518 180 582 132 610 0 Z" fill="${sepia}"/><path d="M520 0 H${width} V${height} H302 C420 365 510 302 578 235 C642 173 691 98 702 0 Z" fill="${softInk}" opacity="0.32"/>${contourLines(
+        {
+          x: 442,
+          y: 80,
+          width: 210,
+          count: 13,
+          gap: 15,
+          color: parchment,
+          opacity: '0.18',
+        },
+      )}${contourLines({
+        x: 472,
+        y: 292,
+        width: 180,
+        count: 5,
+        gap: 13,
+        color: parchment,
+        opacity: '0.16',
+      })}${markGroup(mark, {
+        x: 548,
+        y: 48,
+        size: 108,
+        disc: parchment,
+        glyph: sepia,
+      })}<rect x="44" y="64" width="88" height="2" fill="${sepia}" opacity="0.45"/><circle cx="164" cy="65" r="3" fill="${sepia}" opacity="0.55"/></svg>`;
 
     // The DMG window: Vellum.app sits at (180, 200), the Applications alias at
     // (480, 200). The arrow lives in the gap between them and is the only

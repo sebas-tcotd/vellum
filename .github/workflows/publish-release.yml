@@ -434,7 +434,7 @@ jobs:
           for attempt in $(seq 1 6); do
             ASSETS=$(gh api "repos/${{ github.repository }}/releases/${{ needs.preflight.outputs.release-id }}/assets" --jq '.[].name')
             MISSING=""
-            for ext in msi dmg AppImage; do
+            for ext in msi exe dmg AppImage; do
               if ! echo "$ASSETS" | grep -qi "\\.${ext}$"; then
                 MISSING="$MISSING .$ext"
               fi
@@ -482,9 +482,8 @@ jobs:
             printf '%s' "$name"
           }
 
-          # Anclado a en-US: wix.language declara en-US y es-ES, así que hay
-          # dos MSI y el orden de la API es el de subida. Sin anclar, la
-          # descarga recomendada podía ser el instalador en español.
+          # MSI sigue siendo una alternativa localizada, pero NSIS es la
+          # descarga pública per-user y nunca se elige por orden incidental.
           MSI=$(asset_name '_en-US\.msi$')
           EXE=$(asset_name '\.exe$')
           DMG=$(asset_name '\.dmg$')
@@ -542,21 +541,22 @@ jobs:
 
           ### Download
 
-          **Recommended:** [Windows MSI installer](__BASE_URL__/__MSI__)
+          **Recommended:** [Windows installer](__BASE_URL__/__EXE__)
 
-          [Alternative EXE installer](__BASE_URL__/__EXE__)
+          [Alternative MSI installer](__BASE_URL__/__MSI__)
 
           __WINDOWS_NOTE__
 
           ### Installation
 
-          1. Download the **MSI installer** above.
+          1. Download the **Windows installer** above.
           2. Double-click the downloaded file.
           3. If Windows displays a security warning, continue to the installer.
           4. Follow the on-screen steps.
           5. Open **Vellum** once installation completes.
 
-          If you're unsure which Windows file to use, choose the **MSI**.
+          The EXE installs only for your Windows account and does not require
+          administrator access. Choose the MSI only for managed deployments.
 
           ---
 

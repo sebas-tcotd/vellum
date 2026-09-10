@@ -47,6 +47,24 @@ const TAURI_DIR = 'apps/desktop/src-tauri';
 const COPY_FILE = 'brand/installer-copy.json';
 const FRAGMENT_FILE = 'apps/desktop/src-tauri/windows/cslmap-association.wxs';
 const DESKTOP_FILE = 'apps/desktop/src-tauri/linux/vellum.desktop';
+const NSIS_TEMPLATE_FILE =
+  'apps/desktop/src-tauri/installer/vellum-installer.nsi';
+const NSIS_TEMPLATE_PATH = 'installer/vellum-installer.nsi';
+
+/** Non-negotiable Tauri mechanics retained by Vellum's compact NSIS UI. */
+export const NSIS_TEMPLATE_INVARIANTS = [
+  { name: 'per-user privilege level', pattern: /RequestExecutionLevel user/ },
+  { name: 'custom install splash', pattern: /Function SplashPage/ },
+  { name: 'DPI-safe centered splash artwork', pattern: /nsis-header\.bmp/ },
+  { name: 'splash install CTA', pattern: /Install Vellum/ },
+  { name: 'silent installation', pattern: /\$\{Silent\}/ },
+  { name: 'updater mode', pattern: /"\/UPDATE"/ },
+  { name: 'Tauri app-running check', pattern: /CheckIfAppIsRunning/ },
+  { name: 'Tauri uninstaller', pattern: /WriteUninstaller/ },
+  { name: 'legacy MSI migration', pattern: /Function MigrateLegacyMsi/ },
+  { name: 'legacy MSI uninstall call', pattern: /ExecWait '\$4'/ },
+  { name: 'launch after installation', pattern: /RunAsUser/ },
+];
 
 /**
  * Identity keys, and where each one's value has to come from.
@@ -490,6 +508,21 @@ function checkPlatformConfig(root, config, copy) {
       detail: `bundle.windows.nsis.installMode must be "currentUser"; found ${JSON.stringify(nsis.installMode)}. Vellum writes only inside its install prefix and the user's data directories, so it never needs the UAC elevation a per-machine install prompts for.`,
     });
   }
+  for (const resource of [
+    'installer/nsis-header.bmp',
+    'installer/vellum-splash.bmp',
+  ]) {
+    if (
+      !Array.isArray(bundle.resources) ||
+      !bundle.resources.includes(resource)
+    ) {
+      violations.push({
+        file: CONFIG_FILE,
+        rule: 'installer-artwork-reference',
+        detail: `bundle.resources must include "${resource}" so the custom NSIS page can extract its artwork before the first page is shown.`,
+      });
+    }
+  }
 
   const dmg = pick(bundle, ['macOS', 'dmg']) ?? {};
   const background = DERIVED_ASSETS.find(
@@ -767,6 +800,12 @@ function checkNoInstallScripts(config) {
         });
       }
       if (TEMPLATE_KEYS.includes(key)) {
+        if (
+          [...trail, key].join('.') === 'bundle.windows.nsis.template' &&
+          nested === NSIS_TEMPLATE_PATH
+        ) {
+          continue;
+        }
         violations.push({
           file: CONFIG_FILE,
           rule: 'no-installer-template',
@@ -778,6 +817,38 @@ function checkNoInstallScripts(config) {
   };
   walk(config.bundle ?? {}, ['bundle']);
   return violations;
+}
+
+function checkNsisTemplate(root, config) {
+  const template = pick(config.bundle ?? {}, ['windows', 'nsis', 'template']);
+  if (template !== NSIS_TEMPLATE_PATH) {
+    return [
+      {
+        file: CONFIG_FILE,
+        rule: 'nsis-template',
+        detail: `bundle.windows.nsis.template must be ${JSON.stringify(NSIS_TEMPLATE_PATH)}.`,
+      },
+    ];
+  }
+  const absolute = path.join(root, NSIS_TEMPLATE_FILE);
+  if (!fs.existsSync(absolute)) {
+    return [
+      {
+        file: NSIS_TEMPLATE_FILE,
+        rule: 'nsis-template',
+        detail:
+          'Missing. The public Windows installer must keep its reviewed NSIS template.',
+      },
+    ];
+  }
+  const source = fs.readFileSync(absolute, 'utf8');
+  return NSIS_TEMPLATE_INVARIANTS.filter(
+    ({ pattern }) => !pattern.test(source),
+  ).map(({ name }) => ({
+    file: NSIS_TEMPLATE_FILE,
+    rule: 'nsis-template',
+    detail: `Missing ${name}; it is required for the Tauri-compatible installer contract.`,
+  }));
 }
 
 /**
@@ -868,6 +939,7 @@ export function verifyInstallerIdentity(root) {
     ...checkDerivedArtwork(root),
     ...checkPlatformConfig(root, config, copy),
     ...checkCslmapFragment(root, config),
+    ...checkNsisTemplate(root, config),
     ...checkNoInstallScripts(config),
     ...checkMarkIsSingleSource(root),
     ...checkOverlays(root),

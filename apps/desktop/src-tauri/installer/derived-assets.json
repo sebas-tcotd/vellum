@@ -29,6 +29,12 @@
       "format": "bmp",
       "sha256": "a64d2cdd2150bc1370f99d62ffb427003428b50ce8f95f97fe417e57d8d59640"
     },
+    "vellum-splash.bmp": {
+      "width": 740,
+      "height": 440,
+      "format": "bmp",
+      "sha256": "7ed2f7ef38e956d822564e927218faae7d54e416eda8aed1a0177646570d4036"
+    },
     "dmg-background.png": {
       "width": 660,
       "height": 400,

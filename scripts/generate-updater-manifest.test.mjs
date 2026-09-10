@@ -33,7 +33,7 @@ const platformArtifacts = {
   'linux-x86_64-appimage': artifacts.appimage,
   'linux-x86_64-deb': artifacts.deb,
   'linux-x86_64-rpm': artifacts.rpm,
-  'windows-x86_64': artifacts.msi,
+  'windows-x86_64': artifacts.nsis,
   'windows-x86_64-msi': artifacts.msi,
   'windows-x86_64-nsis': artifacts.nsis,
 };
@@ -87,10 +87,10 @@ describe('generateUpdaterManifest', () => {
     ]);
     expect(manifest.platforms).not.toHaveProperty('darwin-universal');
     expect(manifest.platforms['windows-x86_64']).toEqual(
-      manifest.platforms['windows-x86_64-msi'],
+      manifest.platforms['windows-x86_64-nsis'],
     );
     expect(manifest.platforms['windows-x86_64'].url).toBe(
-      `https://github.com/sebas-tcotd/vellum/releases/download/v0.2.1/${artifacts.msi}`,
+      `https://github.com/sebas-tcotd/vellum/releases/download/v0.2.1/${artifacts.nsis}`,
     );
     expect(manifest.platforms['linux-x86_64']).toEqual(
       manifest.platforms['linux-x86_64-appimage'],

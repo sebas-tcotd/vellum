@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      :root {
+        --parchment: #f7f6f1;
+        --sepia: #4a4035;
+        --soft-ink: #626262;
+        --track: #e7e2d8;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: var(--parchment);
+        font-family: 'Segoe UI', sans-serif;
+        -webkit-user-select: none;
+        user-select: none;
+      }
+      body {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 14px;
+        padding: 40px;
+      }
+      .logo {
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        object-fit: cover;
+      }
+      h1 {
+        margin: 4px 0 0;
+        font-family: Georgia, serif;
+        font-weight: 400;
+        font-size: 28px;
+        color: var(--sepia);
+      }
+      p.subtitle {
+        margin: 0 0 10px;
+        font-size: 13px;
+        color: var(--soft-ink);
+      }
+      .track {
+        width: 220px;
+        height: 10px;
+        border-radius: 999px;
+        background: var(--track);
+        overflow: hidden;
+      }
+      .fill {
+        height: 100%;
+        width: 0%;
+        border-radius: 999px;
+        background: linear-gradient(90deg, #6b5c4b, var(--sepia));
+        transition: width 0.35s ease;
+      }
+      p.status {
+        margin: 2px 0 0;
+        font-size: 12px;
+        color: var(--soft-ink);
+      }
+    </style>
+  </head>
+  <body>
+    <img class="logo" src="{{LOGO_DATA_URI}}" alt="Vellum" />
+    <h1>Vellum</h1>
+    <p class="subtitle">Your city, beautifully mapped.</p>
+    <div class="track"><div class="fill" id="fill"></div></div>
+    <p class="status" id="status">Preparing installation…</p>
+
+    <script>
+      // Called from Rust via evaluate_script as `setProgress(pct, label)`.
+      window.setProgress = function (pct, label) {
+        document.getElementById('fill').style.width = pct + '%';
+        if (label) document.getElementById('status').textContent = label;
+      };
+    </script>
+  </body>
+</html>

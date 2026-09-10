@@ -11,19 +11,17 @@ verifica y lo que alguien tiene que abrir a mano.
 
 ## Qué produce un release
 
-| Plataforma | Artefacto                      | Dónde se ve la identidad                                                                                | Firma hoy                                                  |
-| ---------- | ------------------------------ | ------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| Windows    | `.msi` (WiX) — **recomendado** | Editor en Programas y características, banner y artwork de diálogos, el diálogo opt-in `.cslmap`.       | Authenticode **sólo si hay certificado configurado**.      |
-| Windows    | `.exe` (NSIS)                  | Artwork de cabecera y panel lateral, icono del instalador, instalación por usuario, selector de idioma. | El mismo certificado, la misma condición.                  |
-| macOS      | `.dmg`                         | La ventana del volumen: fondo, tamaño y posiciones de la app y del alias de Aplicaciones.               | **Nunca firmado ni notarizado.** El gate sigue en `false`. |
-| Linux      | `.deb`, `.rpm`                 | El `.desktop`: nombre, comentario, icono, categoría.                                                    | No existe firma de editor equivalente para estos formatos. |
-| Linux      | `.AppImage`                    | Nada más allá del icono embebido y el nombre del binario.                                               | Igual.                                                     |
+| Plataforma | Artefacto                       | Dónde se ve la identidad                                                                  | Firma hoy                                                  |
+| ---------- | ------------------------------- | ----------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| Windows    | `.exe` (NSIS) — **recomendado** | Instalación one-click por usuario, progreso y apertura final de Vellum.                   | Authenticode **sólo si hay certificado configurado**.      |
+| Windows    | `.msi` (WiX) — alternativa      | Editor en Programas y características, banner y diálogo opt-in `.cslmap`.                 | La misma condición.                                        |
+| macOS      | `.dmg`                          | La ventana del volumen: fondo, tamaño y posiciones de la app y del alias de Aplicaciones. | **Nunca firmado ni notarizado.** El gate sigue en `false`. |
+| Linux      | `.deb`, `.rpm`                  | El `.desktop`: nombre, comentario, icono, categoría.                                      | No existe firma de editor equivalente para estos formatos. |
+| Linux      | `.AppImage`                     | Nada más allá del icono embebido y el nombre del binario.                                 | Igual.                                                     |
 
-`finalize-release` exige de forma dura sólo el `.msi`, el `.dmg`, el
-`.AppImage` y `latest.json`; el `.exe`, el `.deb` y el `.rpm` se exigen más
-tarde y de forma incidental, cuando el cuerpo del release busca un asset por
-cada extensión. Que falte uno de esos tres falla tarde, no en el gate — conviene
-saberlo antes de leer un preflight verde como prueba de que los seis salieron.
+`finalize-release` exige el `.exe` NSIS, el `.msi`, el `.dmg`, el `.AppImage` y
+`latest.json`. El updater genérico de Windows (`windows-x86_64`) apunta al EXE;
+las claves explícitas de MSI y NSIS permanecen para instalaciones existentes.
 Las builds sin firma conservan la advertencia que la Story 1.8 puso
 en las notas y en `signing-evidence.md` — el artwork no la atenúa, y un
 instalador más bonito no es evidencia de procedencia.
@@ -63,12 +61,12 @@ tienen que ser BMP de 24 bits; un bitmap con canal alfa se renderiza como un
 rectángulo negro. La _secuencia_ de diálogos sólo es extensible mediante
 fragmentos WiX — que es justamente como existe el checkbox opt-in de `.cslmap`.
 
-**Windows / NSIS (EXE).** Un bitmap de cabecera de 150×57, uno de panel lateral
-de 164×314, un `.ico` de instalador, la lista de idiomas y el selector. NSIS
-instala por usuario (`installMode: "currentUser"`): Vellum escribe dentro de su
-prefijo de instalación y en los directorios de datos del usuario, así que pedir
-permisos de administrador sólo compraría un prompt de UAC. El MSI se queda por
-máquina, que es lo que espera quien despliega un MSI.
+**Windows / NSIS (EXE).** Es el instalador público. Su template versionado se
+basa en Tauri 2.10.3 y reduce el flujo a identidad Vellum, **Install Vellum**,
+progreso y **Open Vellum**. Conserva `/S`, actualización y desinstalación de
+Tauri, y se instala por usuario (`installMode: "currentUser"`) sin UAC. El MSI
+se mantiene como alternativa para despliegues gestionados; su opt-in de
+`.cslmap` no se replica automáticamente en NSIS.
 
 **macOS / DMG.** Una imagen de fondo, el tamaño de la ventana y la posición de
 la app y del alias de Aplicaciones. Esa es toda la superficie — no hay flujo de
@@ -140,3 +138,8 @@ No se modifica nada fuera del prefijo de instalación ni se declara ninguna
 dependencia que instale software de terceros. Desinstalar quita la aplicación y
 la asociación; los mapas, los temas de terceros y las preferencias viven en los
 directorios de datos del usuario y sobreviven.
+
+El template NSIS de Vellum no es un hook: es código de empaquetado revisado. El
+guardrail verifica que conserve instalación por usuario, `/S`, actualización,
+uninstaller y apertura final. La decisión y su coste de mantenimiento están en
+el [ADR 0002](../adr/0002-nsis-public-windows-installer.md).

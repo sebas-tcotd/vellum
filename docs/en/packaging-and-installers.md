@@ -11,19 +11,17 @@ verifies and what a person has to open.
 
 ## What a release produces
 
-| Platform | Artifact                       | Where the identity shows up                                                               | Signing today                                           |
-| -------- | ------------------------------ | ----------------------------------------------------------------------------------------- | ------------------------------------------------------- |
-| Windows  | `.msi` (WiX) — **recommended** | Publisher in Add/Remove Programs, banner and dialog artwork, the opt-in `.cslmap` dialog. | Authenticode **only when a certificate is configured**. |
-| Windows  | `.exe` (NSIS)                  | Header and sidebar artwork, installer icon, per-user install, language selector.          | Same certificate, same conditional.                     |
-| macOS    | `.dmg`                         | The volume window: background, window size, app and Applications positions.               | **Never signed or notarised.** The gate stays `false`.  |
-| Linux    | `.deb`, `.rpm`                 | The `.desktop` entry: name, comment, icon, category.                                      | No equivalent publisher signature exists for these.     |
-| Linux    | `.AppImage`                    | Nothing beyond the embedded icon and binary name.                                         | Same.                                                   |
+| Platform | Artifact                        | Where the identity shows up                                                 | Signing today                                           |
+| -------- | ------------------------------- | --------------------------------------------------------------------------- | ------------------------------------------------------- |
+| Windows  | `.exe` (NSIS) — **recommended** | One-click per-user installation, progress, and a final Vellum launch.       | Authenticode **only when a certificate is configured**. |
+| Windows  | `.msi` (WiX) — alternative      | Publisher in Add/Remove Programs, banner, and opt-in `.cslmap` dialog.      | Same conditional.                                       |
+| macOS    | `.dmg`                          | The volume window: background, window size, app and Applications positions. | **Never signed or notarised.** The gate stays `false`.  |
+| Linux    | `.deb`, `.rpm`                  | The `.desktop` entry: name, comment, icon, category.                        | No equivalent publisher signature exists for these.     |
+| Linux    | `.AppImage`                     | Nothing beyond the embedded icon and binary name.                           | Same.                                                   |
 
-`finalize-release` hard-requires only the `.msi`, the `.dmg`, the `.AppImage`
-and `latest.json`; the `.exe`, the `.deb` and the `.rpm` are enforced later and
-incidentally, when the release body looks for an asset matching each extension.
-So one of those three going missing fails late rather than at the gate — worth
-knowing before reading a green preflight as proof all six shipped. Unsigned
+`finalize-release` requires the NSIS `.exe`, `.msi`, `.dmg`, `.AppImage`, and
+`latest.json`. The generic Windows updater key (`windows-x86_64`) resolves to
+the EXE; explicit MSI and NSIS keys remain for existing installations. Unsigned
 builds keep the warning that Story 1.8 put in the release
 notes and in `signing-evidence.md` — installer artwork does not soften it, and
 a prettier installer is not evidence of provenance.
@@ -63,12 +61,12 @@ an alpha channel renders as a black rectangle. The dialog _sequence_ is
 extensible only through WiX fragments — which is exactly how the opt-in
 `.cslmap` checkbox exists.
 
-**Windows / NSIS (EXE).** A 150×57 header bitmap, a 164×314 sidebar bitmap, an
-installer `.ico`, the language list and the language selector. NSIS installs
-per user (`installMode: "currentUser"`): Vellum writes inside its install
-prefix and the user's own data directories, so asking for administrator rights
-would buy a UAC prompt and nothing else. The MSI stays per machine, which is
-what anyone deploying an MSI expects.
+**Windows / NSIS (EXE).** This is the public installer. Its versioned template
+is based on Tauri 2.10.3 and reduces the flow to Vellum identity, **Install
+Vellum**, progress, and **Open Vellum**. It retains Tauri's `/S`, update, and
+uninstall behavior, and installs per user (`installMode: "currentUser"`) without
+UAC. MSI remains the managed-deployment alternative; its `.cslmap` opt-in is not
+automatically replicated in NSIS.
 
 **macOS / DMG.** A background image, the window size, and the position of the
 app and of the Applications alias. That is the entire surface — there is no
@@ -140,3 +138,8 @@ Nothing outside the install prefix is modified, and no dependency that installs
 third-party software is declared. Uninstalling removes the application and the
 association; maps, third-party themes and preferences live in the user's own
 data directories and survive.
+
+Vellum's NSIS template is not a hook: it is reviewed packaging code. The
+guardrail checks that it retains per-user install, `/S`, updating, uninstall,
+and final launch. Its maintenance cost and decision are recorded in
+[ADR 0002](../adr/0002-nsis-public-windows-installer.md).
