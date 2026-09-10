@@ -225,6 +225,7 @@ export class MapLibreRenderer implements IRenderer {
       releasesDemProtocol = true,
       pixelRatio,
       maxZoom = 18,
+      fadeDuration,
     } = options;
     this.style = style;
     this.releasesDemProtocol = releasesDemProtocol;
@@ -243,6 +244,7 @@ export class MapLibreRenderer implements IRenderer {
       canvasContextAttributes: { preserveDrawingBuffer },
       style: createBaseStyle(initialColors),
       ...(pixelRatio === undefined ? {} : { pixelRatio }),
+      ...(fadeDuration === undefined ? {} : { fadeDuration }),
     });
 
     this.layerManager = new MapLayerManager(this.map, initialColors);
@@ -468,6 +470,7 @@ export class MapLibreRenderer implements IRenderer {
         new MapLibreRenderer(container, exportStyle, {
           preserveDrawingBuffer: true,
           releasesDemProtocol: false,
+          fadeDuration: 0,
         }),
     );
   }
@@ -727,6 +730,7 @@ export function captureExportSnapshotPng(
       new MapLibreRenderer(container, exportStyle, {
         preserveDrawingBuffer: true,
         releasesDemProtocol: false,
+        fadeDuration: 0,
       }),
   );
 }

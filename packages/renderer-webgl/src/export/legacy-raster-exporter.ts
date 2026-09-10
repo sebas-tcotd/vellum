@@ -41,6 +41,7 @@ export class LegacyRasterExporter implements RasterExportPort {
             preserveDrawingBuffer: true,
             releasesDemProtocol: false,
             maxZoom: LEGACY_EXPORT_MAX_ZOOM,
+            fadeDuration: 0,
           }),
       ),
   ) {

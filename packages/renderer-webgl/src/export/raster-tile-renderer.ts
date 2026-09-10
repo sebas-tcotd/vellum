@@ -40,6 +40,7 @@ export class RasterTileRenderer {
       releasesDemProtocol: false,
       pixelRatio: TILE_PIXEL_RATIO,
       maxZoom: TILE_MAX_ZOOM,
+      fadeDuration: 0,
     });
   }
 

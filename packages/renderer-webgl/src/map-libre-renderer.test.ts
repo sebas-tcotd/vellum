@@ -394,6 +394,7 @@ describe('MapLibreRenderer', () => {
       2,
       expect.objectContaining({
         canvasContextAttributes: { preserveDrawingBuffer: true },
+        fadeDuration: 0,
       }),
     );
     expect(mockMap.once).toHaveBeenCalledWith('idle', expect.any(Function));

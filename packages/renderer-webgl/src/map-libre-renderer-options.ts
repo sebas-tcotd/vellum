@@ -13,4 +13,11 @@ export interface MapLibreRendererOptions {
   pixelRatio?: number;
   /** Maximum MapLibre zoom allowed by this surface. */
   maxZoom?: number;
+  /**
+   * Symbol fade duration in ms (MapLibre default 300). Export surfaces pass `0`:
+   * a still image has no use for a fade, and on a slow GPU each frame re-places
+   * symbols and restarts the fade, so `placementDirty` never clears and `idle`
+   * never fires.
+   */
+  fadeDuration?: number;
 }
