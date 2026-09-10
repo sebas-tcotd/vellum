@@ -148,6 +148,9 @@ export function describeIdleBlockers(map: maplibregl.Map): string {
   const internals = map as unknown as {
     _styleDirty?: boolean;
     _sourcesDirty?: boolean;
+    _placementDirty?: boolean;
+    _repaint?: boolean;
+    painter?: { renderToTexture?: { needsFollowUpFrame?: boolean } };
     style?: {
       _loaded?: boolean;
       _updatedSources?: Record<string, unknown>;
@@ -159,6 +162,13 @@ export function describeIdleBlockers(map: maplibregl.Map): string {
   const blockers: string[] = [];
   if (internals._styleDirty) blockers.push('styleDirty');
   if (internals._sourcesDirty) blockers.push('sourcesDirty');
+  // The other three flags MapLibre's `_render` checks before it will fire `idle`
+  // (maplibre-gl 6.9): without them a map that keeps repainting reads as settled.
+  if (internals._placementDirty) blockers.push('placementDirty');
+  if (internals._repaint) blockers.push('repaint');
+  if (internals.painter?.renderToTexture?.needsFollowUpFrame) {
+    blockers.push('renderToTextureFollowUp');
+  }
   if (map.isMoving()) blockers.push('moving');
   if (!style) blockers.push('noStyle');
   if (style?._loaded === false) blockers.push('styleNotLoaded');
