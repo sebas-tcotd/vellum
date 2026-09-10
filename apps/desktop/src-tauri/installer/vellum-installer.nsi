@@ -270,7 +270,11 @@ Function .onInit
   ${EndIf}
   !insertmacro SetContext
   !if "${DISPLAYLANGUAGESELECTOR}" == "true"
-    !insertmacro MUI_LANGDLL_DISPLAY
+    ; A silent run (our own bootstrap included) has no user to answer this
+    ; dialog: MUI_LANGDLL_DISPLAY would otherwise block forever on /S.
+    ${IfNot} ${Silent}
+      !insertmacro MUI_LANGDLL_DISPLAY
+    ${EndIf}
   !endif
   Call RestorePreviousInstallLocation
 FunctionEnd
