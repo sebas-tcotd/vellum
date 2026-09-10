@@ -70,6 +70,11 @@ export function classifyPaths(inputPaths) {
     if (file.startsWith('apps/desktop/src-tauri/')) {
       enable(flags, 'rust', 'frontend', 'e2e', 'compile');
       if (/(?:Cargo\.toml|Cargo\.lock)$/.test(file)) flags.dependencies = true;
+      // Los temas built-in viven bajo src-tauri porque se empaquetan como recursos de
+      // Tauri, pero lo único que los valida contra el schema publicado es un test de
+      // Vitest en @vellum/theme-engine. Sin marcar `js`, js-quality se salta y un tema
+      // roto pasa CI en verde.
+      if (file.endsWith('.vellumstyle')) flags.js = true;
       continue;
     }
 

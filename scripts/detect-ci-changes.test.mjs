@@ -110,6 +110,20 @@ describe('clasificación de cambios de CI', () => {
     });
   });
 
+  it('rutea un tema built-in también a js (el schema solo lo valida Vitest)', () => {
+    expect(
+      classifyPaths([
+        'apps/desktop/src-tauri/resources/themes/day.vellumstyle',
+      ]),
+    ).toMatchObject({
+      js: true,
+      rust: true,
+      frontend: true,
+      e2e: true,
+      compile: true,
+    });
+  });
+
   it('falla cerrado para rutas nuevas desconocidas', () => {
     expect(classifyPaths(['tooling/new-system/config.toml'])).toEqual(
       all(true),

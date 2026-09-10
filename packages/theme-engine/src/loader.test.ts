@@ -32,7 +32,12 @@ describe('loadThemes', () => {
     expect(themes.map((t) => t.id)).toEqual(['day', 'classic']);
     expect(themes[1]?.source).toBe('user');
     expect(warnings).toEqual([
-      { themeId: 'broken', themeName: 'Broken', field: 'water' },
+      {
+        themeId: 'broken',
+        themeName: 'Broken',
+        field: 'water',
+        rule: 'color-token',
+      },
       { themeId: 'garbage', themeName: 'garbage', field: 'JSON' },
     ]);
   });
@@ -46,7 +51,7 @@ describe('loadThemes', () => {
   it('falls back themeName to the file id when the raw JSON is a top-level array', () => {
     const { warnings } = loadThemes([rawFile('weird', '[1,2,3]')]);
     expect(warnings).toEqual([
-      { themeId: 'weird', themeName: 'weird', field: 'name' },
+      { themeId: 'weird', themeName: 'weird', field: 'name', rule: 'required' },
     ]);
   });
 

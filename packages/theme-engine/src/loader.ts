@@ -1,6 +1,9 @@
 import type { RawThemeFile, ThemeSource, VellumStyle } from '@vellum/core';
 import { migrateTheme } from './schema-migration';
-import { validateVellumStyle } from './validators/theme';
+import {
+  validateVellumStyle,
+  type ThemeValidationRule,
+} from './validators/theme';
 
 /** A validated theme plus the identifying metadata from its source file. */
 export type LoadedTheme = VellumStyle & {
@@ -26,6 +29,10 @@ export interface ThemeWarning {
   /** The field path that failed validation, `'JSON'` for a parse failure, or
    * `LOAD_FAILED_FIELD` when the IPC call to fetch themes itself failed. */
   field: string;
+  /** Which contract rule `field` broke, when the failure came from validation. Absent for
+   * parse failures and for `LOAD_FAILED_FIELD`. Purely informational for external tooling —
+   * the UI renders `field` alone. */
+  rule?: ThemeValidationRule;
 }
 
 /** `ThemeWarning.field` sentinel for when the `load_themes` IPC call itself fails
@@ -81,6 +88,7 @@ export function loadThemes(rawFiles: RawThemeFile[]): LoadThemesResult {
         themeId: file.id,
         themeName: readThemeName(parsed) ?? file.id,
         field: result.error,
+        rule: result.rule,
       });
       continue;
     }
