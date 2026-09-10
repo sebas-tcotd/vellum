@@ -495,13 +495,22 @@ export class MapLibreRenderer implements IRenderer {
       const startedAt = performance.now();
       let renders = 0;
       let dataEvents = 0;
+      // Who keeps re-dirtying the sources: `dataType:sourceId:sourceDataType`.
+      const dataBySource = new Map<string, number>();
       let lastRenderAt = startedAt;
       const onRender = (): void => {
         renders += 1;
         lastRenderAt = performance.now();
       };
-      const onData = (): void => {
+      const onData = (event: unknown): void => {
         dataEvents += 1;
+        const e = event as {
+          dataType?: string;
+          sourceId?: string;
+          sourceDataType?: string;
+        };
+        const key = `${e.dataType ?? '?'}:${e.sourceId ?? '-'}:${e.sourceDataType ?? '-'}`;
+        dataBySource.set(key, (dataBySource.get(key) ?? 0) + 1);
       };
       const stopCounting = (): void => {
         this.map.off('render', onRender);
@@ -516,11 +525,17 @@ export class MapLibreRenderer implements IRenderer {
         this.map.off('idle', finish);
         stopCounting();
         const now = performance.now();
+        const topData = [...dataBySource]
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 6)
+          .map(([key, count]) => `${key}×${count}`)
+          .join(' ');
         reject(
           new Error(
             `PNG map render timed out (${describeIdleBlockers(this.map)}; ` +
               `${renders} renders, ${dataEvents} data events, ` +
-              `last render ${Math.round(now - lastRenderAt)}ms ago)`,
+              `last render ${Math.round(now - lastRenderAt)}ms ago; ` +
+              `data: ${topData || 'none'})`,
           ),
         );
       }, EXPORT_CAPTURE_TIMEOUT_MS);
