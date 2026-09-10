@@ -512,13 +512,15 @@ function checkPlatformConfig(root, config, copy) {
     'installer/nsis-header.bmp',
     'installer/vellum-splash.bmp',
   ]) {
-    if (!Array.isArray(bundle.resources) || !bundle.resources.includes(resource)) {
-    violations.push({
-      file: CONFIG_FILE,
-      rule: 'installer-artwork-reference',
-      detail:
-        `bundle.resources must include "${resource}" so the custom NSIS page can extract its artwork before the first page is shown.`,
-    });
+    if (
+      !Array.isArray(bundle.resources) ||
+      !bundle.resources.includes(resource)
+    ) {
+      violations.push({
+        file: CONFIG_FILE,
+        rule: 'installer-artwork-reference',
+        detail: `bundle.resources must include "${resource}" so the custom NSIS page can extract its artwork before the first page is shown.`,
+      });
     }
   }
 
