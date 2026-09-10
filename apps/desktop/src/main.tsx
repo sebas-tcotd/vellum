@@ -21,6 +21,7 @@ import {
   LegacyRasterExporter,
   MapLibreRenderer,
   probeCapabilities,
+  setMapWorkerUrl,
   TiledRasterExporter,
 } from '@vellum/renderer-webgl';
 // CSS global importado aquí (entry point de Vite) para que los @font-face con
@@ -30,6 +31,13 @@ import '@vellum/ui/globals.css';
 // MapLibre GL JS default styles — must be imported at the app entry point.
 // Without this, the map renders without base UI styles (attribution, controls).
 import 'maplibre-gl/dist/maplibre-gl.css';
+// MapLibre 6 loads its worker as a separate ES module, resolved against the
+// bundle's own URL — a sibling file no bundler emits, so the request 404s and
+// every source stays unloaded forever (blank map, exports that never settle).
+// `?worker&url` makes Vite emit the worker as a real asset and hands back its
+// URL; this is the only place in the repo the bundler can do that, since the
+// renderer package is compiled by `tsc`.
+import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { getCurrentWindow } from '@tauri-apps/api/window';
@@ -59,6 +67,9 @@ import {
   RasterBenchmarkRunner,
   type RasterBenchmarkRoute,
 } from './export/raster-benchmark-runner';
+
+// Before any map exists: the worker pool is built on first use and never rebuilt.
+setMapWorkerUrl(maplibreWorkerUrl);
 
 const win = getCurrentWindow();
 // Single, composition-root-only OS detection point for the whole app (story
