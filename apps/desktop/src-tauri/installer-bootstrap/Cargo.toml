@@ -1,0 +1,18 @@
+[workspace]
+# Deliberately standalone, not a member of the root workspace: this is a
+# throwaway spike, not something the main build/CI should compile every time.
+
+[package]
+name = "installer-bootstrap"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Spike: a thin wry/tao shell that renders the installer splash and drives the existing NSIS installer silently underneath."
+
+[[bin]]
+name = "installer-bootstrap"
+path = "src/main.rs"
+
+[dependencies]
+wry = "0.48"
+tao = "0.31"
