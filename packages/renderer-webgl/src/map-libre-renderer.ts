@@ -113,6 +113,48 @@ function raiseWorkerCount(): void {
 }
 
 /**
+ * Names what is still keeping MapLibre from firing `idle`.
+ *
+ * @remarks
+ * A bare "render timed out" says nothing about which of the four independent
+ * conditions behind `map.loaded()` never settled, and the export surface is
+ * torn down before anyone can inspect it. Reading the internals is the only
+ * way to answer that from a timeout message.
+ * @internal Exported for its unit test only.
+ */
+export function describeIdleBlockers(map: maplibregl.Map): string {
+  // ponytail: reaches into MapLibre internals on purpose — this runs only on
+  // the timeout path, and a wrong guess here costs a full CI round trip.
+  const internals = map as unknown as {
+    _styleDirty?: boolean;
+    _sourcesDirty?: boolean;
+    style?: {
+      _loaded?: boolean;
+      _updatedSources?: Record<string, unknown>;
+      tileManagers?: Record<string, { loaded(): boolean }>;
+      imageManager?: { isLoaded(): boolean };
+    };
+  };
+  const style = internals.style;
+  const blockers: string[] = [];
+  if (internals._styleDirty) blockers.push('styleDirty');
+  if (internals._sourcesDirty) blockers.push('sourcesDirty');
+  if (map.isMoving()) blockers.push('moving');
+  if (!style) blockers.push('noStyle');
+  if (style?._loaded === false) blockers.push('styleNotLoaded');
+  for (const id of Object.keys(style?._updatedSources ?? {})) {
+    blockers.push(`updatedSource:${id}`);
+  }
+  for (const [id, manager] of Object.entries(style?.tileManagers ?? {})) {
+    if (!manager.loaded()) blockers.push(`sourceNotLoaded:${id}`);
+  }
+  if (style?.imageManager && !style.imageManager.isLoaded()) {
+    blockers.push('imagesNotLoaded');
+  }
+  return blockers.length > 0 ? blockers.join(', ') : 'no blocker reported';
+}
+
+/**
  * GPU-accelerated renderer that converts `CityData` to MapLibre GL JS sources
  * and layers. Implements the `IRenderer` port defined in `@vellum/core`.
  */
@@ -408,7 +450,11 @@ export class MapLibreRenderer implements IRenderer {
       };
       const timeout = setTimeout(() => {
         this.map.off('idle', finish);
-        reject(new Error('PNG map render timed out'));
+        reject(
+          new Error(
+            `PNG map render timed out (${describeIdleBlockers(this.map)})`,
+          ),
+        );
       }, EXPORT_CAPTURE_TIMEOUT_MS);
       this.map.once('idle', finish);
       this.map.triggerRepaint();

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Mock } from 'vitest';
 import * as maplibregl from 'maplibre-gl';
-import { MapLibreRenderer } from './map-libre-renderer';
+import { describeIdleBlockers, MapLibreRenderer } from './map-libre-renderer';
 import { makeCityData } from '@vellum/core/testing';
 import type {
   ExportRequest,
@@ -2048,5 +2048,48 @@ describe('MapLibreRenderer', () => {
         TRANSIT_DIM_FACTOR,
       );
     });
+  });
+});
+
+describe('describeIdleBlockers', () => {
+  const fakeMap = (overrides: Record<string, unknown> = {}) =>
+    ({
+      isMoving: () => false,
+      style: {
+        _loaded: true,
+        _updatedSources: {},
+        tileManagers: {},
+        imageManager: { isLoaded: () => true },
+      },
+      ...overrides,
+    }) as unknown as maplibregl.Map;
+
+  it('names every condition that is holding the export surface open', () => {
+    const blockers = describeIdleBlockers(
+      fakeMap({
+        _sourcesDirty: true,
+        isMoving: () => true,
+        style: {
+          _loaded: false,
+          _updatedSources: { roads: {} },
+          tileManagers: {
+            roads: { loaded: () => false },
+            water: { loaded: () => true },
+          },
+          imageManager: { isLoaded: () => false },
+        },
+      }),
+    );
+
+    expect(blockers).toBe(
+      'sourcesDirty, moving, styleNotLoaded, updatedSource:roads, ' +
+        'sourceNotLoaded:roads, imagesNotLoaded',
+    );
+  });
+
+  // A settled map that still never fired `idle` is a different bug from a
+  // stuck source, and the message has to be able to say so.
+  it('says so when nothing it can see explains the timeout', () => {
+    expect(describeIdleBlockers(fakeMap())).toBe('no blocker reported');
   });
 });
