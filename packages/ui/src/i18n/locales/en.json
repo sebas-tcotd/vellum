@@ -181,9 +181,15 @@
     "partialLoad": "Some elements (DLC or mods) displayed in simplified form.",
     "partialDataWarning": "Map partially loaded. Some sections could not be read.",
     "tabHint": "Tab · focus mode",
-    "invalidTheme": "{{themeName}}.vellumstyle is not valid: field {{field}} not recognized",
-    "invalidThemeJson": "{{themeName}}.vellumstyle is not valid: malformed JSON",
-    "themeLoadFailed": "Failed to load themes — no visual themes available"
+    "invalidTheme": "{{file}} is not valid: field {{field}} {{reason}}",
+    "invalidThemeJson": "{{file}} is not valid: malformed JSON",
+    "themeLoadFailed": "Failed to load themes — no visual themes available",
+    "themeRule": {
+      "required": "is missing",
+      "type": "has the wrong type",
+      "color-token": "is not a valid color (use #rrggbb or hsl(...))",
+      "unknown": "does not match the schema"
+    }
   },
   "common": {
     "cancel": "Cancel",

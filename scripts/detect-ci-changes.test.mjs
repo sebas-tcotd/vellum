@@ -44,6 +44,18 @@ describe('clasificación de cambios de CI', () => {
     );
   });
 
+  it('activa solo JS para la referencia del schema .vellumstyle', () => {
+    for (const doc of [
+      'docs/en/vellumstyle-schema.md',
+      'docs/es/vellumstyle-schema.md',
+    ]) {
+      expect(classifyPaths([doc]), doc).toEqual({ ...all(false), js: true });
+    }
+    expect(classifyPaths(['docs/en/vellumstyle-schema-draft.md'])).toEqual(
+      all(false),
+    );
+  });
+
   it('ejecuta todo ante cambios globales o de workflows', () => {
     expect(classifyPaths(['pnpm-lock.yaml'])).toEqual(all(true));
     expect(classifyPaths(['.github/workflows/ci.yml'])).toEqual(all(true));

@@ -30,6 +30,8 @@ const ROOT_WIDE_FILES = new Set([
 const DOCUMENTATION_PATHS =
   /^(?:docs\/|README(?:\.|$)|CHANGELOG\.md$|LICENSE$)/;
 
+const VELLUMSTYLE_CONTRACT_DOCS = /^docs\/(?:en|es)\/vellumstyle-schema\.md$/;
+
 function flagsWith(value) {
   return Object.fromEntries(CI_CATEGORIES.map((category) => [category, value]));
 }
@@ -47,6 +49,14 @@ export function classifyPaths(inputPaths) {
 
     if (file.startsWith('.github/') || ROOT_WIDE_FILES.has(file)) {
       Object.assign(flags, flagsWith(true));
+      continue;
+    }
+
+    // La referencia del `.vellumstyle` es contrato, no prosa: un test de Vitest en
+    // @vellum/theme-engine valida sus ejemplos JSON, su tabla de reglas y la versión del
+    // título. Sin marcar `js`, un doc desincronizado pasaría CI en verde.
+    if (VELLUMSTYLE_CONTRACT_DOCS.test(file)) {
+      flags.js = true;
       continue;
     }
 

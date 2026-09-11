@@ -1,7 +1,10 @@
 // @vellum/theme-engine — carga, validación y aplicación de temas .vellumstyle
 export type { VellumStyle, ThemeMetadata, ThemeSource } from '@vellum/core';
 export { isColorToken, isHexColor, isHslColor } from './validators/color';
-export { validateVellumStyle } from './validators/theme';
+export {
+  validateVellumStyle,
+  THEME_VALIDATION_RULES,
+} from './validators/theme';
 export type {
   ValidateThemeResult,
   ThemeValidationRule,
@@ -12,7 +15,7 @@ export {
   VELLUMSTYLE_SCHEMA_ID,
 } from './json-schema';
 export type { JsonSchemaNode } from './json-schema';
-export { migrateTheme } from './schema-migration';
+export { migrateTheme, CURRENT_SCHEMA_VERSION } from './schema-migration';
 export { loadThemes } from './loader';
 export type { LoadedTheme, ThemeWarning, LoadThemesResult } from './loader';
 export { LOAD_FAILED_FIELD } from './loader';

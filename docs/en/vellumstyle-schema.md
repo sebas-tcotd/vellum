@@ -89,22 +89,52 @@ versions of Vellum, even after the schema evolves (NFR11). This is enforced by t
 mechanisms working together:
 
 - **`schemaVersion` migration.** A file should declare a `schemaVersion` (Vellum assumes
-  `1` when the key is absent, so a legacy file still loads). Vellum runs it
-  through a migration step before validating it; each past schema version has its own
-  migration path to the current shape, so an old file is upgraded in memory rather than
-  rejected.
+  `1` when the key is absent, so a legacy file still loads). Vellum runs it through a
+  migration step before validating it, which fills in every top-level group the file
+  omits; an old file is upgraded in memory rather than rejected, and the file on disk is
+  never rewritten.
 - **Unknown fields are ignored, not rejected** (see [Extension points](#extension-points)).
   This means a future Vellum version can add new optional fields to the schema without
   breaking files written before those fields existed, and a file written for a newer schema
   that happens to be loaded by an older Vellum build still loads — the older build simply
   ignores fields it doesn't understand.
 
+### Supported versions and evolution policy
+
+The current schema version is **1**. This is what Vellum does with each value of
+`schemaVersion`:
+
+| `schemaVersion` in the file                                                                  | Behavior                                                                                                      |
+| -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| absent (or not a number)                                                                     | **Legacy.** Treated as `1` and loaded like any v1 file.                                                       |
+| `1` (also `0` or `1.5`, see [Machine-readable schema](#machine-readable-schema-json-schema)) | **Current.** Every omitted top-level group is filled from the built-in defaults, then the file is validated.  |
+| greater than the current version                                                             | **Best-effort.** Loaded exactly like a current file; any color it really lacks is still caught by validation. |
+
+How the schema is allowed to change:
+
+- **New fields are optional, with a default.** Everything added since the first public
+  version (`mapFrame`, `contourLine`, `grid`, `parkAreas`) is a new top-level group that
+  Vellum fills in when a file omits it, so files written before it existed load unchanged.
+- **Removing a field requires a deprecation period of one major version.** A removed field
+  is still accepted — ignored as an [extension point](#extension-points) — and a file that
+  still carries it keeps loading. That is how `roads.*.industrial` and
+  `roads.rail.{tram,monorail}` were retired.
+- **Files from a newer schema load best-effort**, as described in the table.
+
+This guarantee is pinned by versioned fixtures in
+[`packages/theme-engine/fixtures`](../../packages/theme-engine/fixtures): the `classic`
+theme exactly as published on 2026-07-22 (`v1/`), the same file without `schemaVersion`
+(`legacy/`), and invalid files with their expected diagnostic (`invalid/`). On every CI
+run each fixture goes through the JSON Schema, the migration, the validator and the loader
+in the same test, which also checks the JSON examples and the rule table in this document.
+
 ### `schemaVersion` is an integer, not a semver string
 
-`schemaVersion` starts at `1` and is a **plain integer**, not a `"major.minor.patch"`
-string. Every built-in theme ships `"schemaVersion": 1`. Future breaking changes to the
-schema increment this integer (`2`, `3`, ...); Vellum's migration step has a `case` branch
-per past version. There is no separate minor/patch tracking — additive, non-breaking
+`schemaVersion` starts at `1` and should be a **plain integer**, not a
+`"major.minor.patch"` string (other numbers such as `0` or `1.5` still load, as described
+above, but a file should declare an integer). Every built-in theme ships
+`"schemaVersion": 1`. Future breaking changes to the schema increment this integer (`2`, `3`, ...); a bump adds an explicit migration branch
+for the previous version. There is no separate minor/patch tracking — additive, non-breaking
 changes (new optional fields) don't require a `schemaVersion` bump at all, since old files
 without those fields keep validating under the same version thanks to the extension-point
 rule above.
@@ -221,10 +251,24 @@ walks the expected shape and checks that every color leaf is present and matches
   block from a built-in theme and edit the one leaf.
 
 If **any single field** ends up missing or malformed, the **entire file** is skipped (not
-just that field) and a warning names the exact offending path, e.g.:
+just that field) and a warning names the file, the exact offending path and the rule it
+broke, e.g.:
 
-> `day.vellumstyle is not valid: field roads.highway.generic.fill not recognized`
+> `day.vellumstyle is not valid: field roads.highway.generic.fill is not a valid color (use #rrggbb or hsl(...))`
 > (the exact wording depends on the user's locale)
+
+Unknown fields never cause this warning. The rules a warning can report:
+
+| Rule          | Meaning                                                                                                      | Example                                             |
+| ------------- | ------------------------------------------------------------------------------------------------------------ | --------------------------------------------------- |
+| `required`    | A field is absent: `name` (or an empty `name`), or a key inside a group you provided.                        | a `roads` group without `highway` → `roads.highway` |
+| `type`        | A field has the wrong shape: a root that is not an object, an array where a group goes, a non-string `name`. | a file containing `[]` → `root`                     |
+| `color-token` | A color leaf is present but is neither `HexColor` nor `HslColor`.                                            | `"water": "rojo"` → `water`                         |
+
+If a user theme that overrides a built-in (same filename) is invalid, it is skipped and the
+built-in theme stays available. Your saved theme selection is not rewritten: Vellum falls
+back to another theme for the session only, and your theme is picked again once the file
+is fixed.
 
 Valid themes in the same directory still load normally — one broken file never blocks the
 others.
@@ -289,5 +333,5 @@ fields that are easy to overlook; it is not a standalone valid theme file:
    the display label on the pill.
 
 If your file uses the same filename (id) as a built-in theme (e.g. `day.vellumstyle`),
-your version silently takes precedence over the built-in one — this lets you override a
-built-in theme without any special configuration.
+your version silently takes precedence over the built-in one (as long as it is valid) —
+this lets you override a built-in theme without any special configuration.

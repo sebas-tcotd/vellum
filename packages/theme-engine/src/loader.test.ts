@@ -51,7 +51,18 @@ describe('loadThemes', () => {
   it('falls back themeName to the file id when the raw JSON is a top-level array', () => {
     const { warnings } = loadThemes([rawFile('weird', '[1,2,3]')]);
     expect(warnings).toEqual([
-      { themeId: 'weird', themeName: 'weird', field: 'name', rule: 'required' },
+      { themeId: 'weird', themeName: 'weird', field: 'root', rule: 'type' },
+    ]);
+  });
+
+  it('reports a non-object root (string, null) as root/type, not a missing name', () => {
+    const { warnings } = loadThemes([
+      rawFile('texto', '"x"'),
+      rawFile('nulo', 'null'),
+    ]);
+    expect(warnings).toEqual([
+      { themeId: 'texto', themeName: 'texto', field: 'root', rule: 'type' },
+      { themeId: 'nulo', themeName: 'nulo', field: 'root', rule: 'type' },
     ]);
   });
 

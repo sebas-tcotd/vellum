@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_RENDER_STYLE_PARAMS } from './default-style';
-import { migrateTheme } from './schema-migration';
+import { CURRENT_SCHEMA_VERSION, migrateTheme } from './schema-migration';
 import { validateVellumStyle } from './validators/theme';
 
 describe('migrateTheme', () => {
@@ -53,4 +53,44 @@ describe('migrateTheme', () => {
       });
     },
   );
+
+  it('the current schema version is 1 (bumping it is a contract change)', () => {
+    expect(CURRENT_SCHEMA_VERSION).toBe(1);
+  });
+
+  it('legacy branch: no schemaVersion → stamped 1 and omitted groups filled', () => {
+    const result = migrateTheme({ name: 'Legacy' });
+    expect(result.schemaVersion).toBe(1);
+    expect(result.grid).toEqual(DEFAULT_RENDER_STYLE_PARAMS.grid);
+    expect(result.roads).toEqual(DEFAULT_RENDER_STYLE_PARAMS.roads);
+  });
+
+  it('keeps a declared version at or below the current one (0, 1.5 still load)', () => {
+    expect(migrateTheme({ name: 'x', schemaVersion: 0 }).schemaVersion).toBe(0);
+    expect(migrateTheme({ name: 'x', schemaVersion: 1.5 }).schemaVersion).toBe(
+      1.5,
+    );
+  });
+
+  it('future branch: a newer schemaVersion is kept and loaded best-effort', () => {
+    const raw = { name: 'Future', schemaVersion: 7, futureGroup: { a: 1 } };
+    const result = migrateTheme(raw);
+    expect(result.schemaVersion).toBe(7);
+    expect(result).toMatchObject({ futureGroup: { a: 1 } });
+    expect(result.water).toBe(DEFAULT_RENDER_STYLE_PARAMS.water);
+    expect(validateVellumStyle(result).valid).toBe(true);
+  });
+
+  it('never mutates its input, in any branch', () => {
+    for (const raw of [
+      { name: 'Legacy' },
+      { name: 'Current', schemaVersion: 1, roads: { _x: 1 } },
+      { name: 'Future', schemaVersion: 9 },
+    ]) {
+      const snapshot = structuredClone(raw);
+      const result = migrateTheme(raw);
+      expect(raw).toEqual(snapshot);
+      expect(result).not.toBe(raw);
+    }
+  });
 });

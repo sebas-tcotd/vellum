@@ -13,6 +13,15 @@
       "dependsOn": ["^build"],
       "outputs": []
     },
+    "@vellum/theme-engine#test": {
+      "dependsOn": ["^build"],
+      "outputs": [],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/docs/*/vellumstyle-schema.md",
+        "$TURBO_ROOT$/apps/desktop/src-tauri/resources/themes/*.vellumstyle"
+      ]
+    },
     "lint": {
       "dependsOn": ["^build"]
     },
