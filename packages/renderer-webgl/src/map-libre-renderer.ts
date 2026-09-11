@@ -148,6 +148,9 @@ export function describeIdleBlockers(map: maplibregl.Map): string {
   const internals = map as unknown as {
     _styleDirty?: boolean;
     _sourcesDirty?: boolean;
+    _placementDirty?: boolean;
+    _repaint?: boolean;
+    painter?: { renderToTexture?: { needsFollowUpFrame?: boolean } };
     style?: {
       _loaded?: boolean;
       _updatedSources?: Record<string, unknown>;
@@ -159,6 +162,13 @@ export function describeIdleBlockers(map: maplibregl.Map): string {
   const blockers: string[] = [];
   if (internals._styleDirty) blockers.push('styleDirty');
   if (internals._sourcesDirty) blockers.push('sourcesDirty');
+  // The other three flags MapLibre's `_render` checks before it will fire `idle`
+  // (maplibre-gl 6.9): without them a map that keeps repainting reads as settled.
+  if (internals._placementDirty) blockers.push('placementDirty');
+  if (internals._repaint) blockers.push('repaint');
+  if (internals.painter?.renderToTexture?.needsFollowUpFrame) {
+    blockers.push('renderToTextureFollowUp');
+  }
   if (map.isMoving()) blockers.push('moving');
   if (!style) blockers.push('noStyle');
   if (style?._loaded === false) blockers.push('styleNotLoaded');
@@ -215,6 +225,7 @@ export class MapLibreRenderer implements IRenderer {
       releasesDemProtocol = true,
       pixelRatio,
       maxZoom = 18,
+      fadeDuration,
     } = options;
     this.style = style;
     this.releasesDemProtocol = releasesDemProtocol;
@@ -233,6 +244,7 @@ export class MapLibreRenderer implements IRenderer {
       canvasContextAttributes: { preserveDrawingBuffer },
       style: createBaseStyle(initialColors),
       ...(pixelRatio === undefined ? {} : { pixelRatio }),
+      ...(fadeDuration === undefined ? {} : { fadeDuration }),
     });
 
     this.layerManager = new MapLayerManager(this.map, initialColors);
@@ -458,6 +470,7 @@ export class MapLibreRenderer implements IRenderer {
         new MapLibreRenderer(container, exportStyle, {
           preserveDrawingBuffer: true,
           releasesDemProtocol: false,
+          fadeDuration: 0,
         }),
     );
   }
@@ -476,18 +489,58 @@ export class MapLibreRenderer implements IRenderer {
   async waitForIdle(): Promise<void> {
     await this.sourceManager.whenWatermarkReady();
     return new Promise((resolve, reject) => {
+      // ponytail: frame/data counters only feed the timeout message. They tell
+      // "something keeps calling `_update()` every frame" (many renders, many
+      // data events) apart from "frames stopped" (few renders, long silence).
+      const startedAt = performance.now();
+      let renders = 0;
+      let dataEvents = 0;
+      // Who keeps re-dirtying the sources: `dataType:sourceId:sourceDataType`.
+      const dataBySource = new Map<string, number>();
+      let lastRenderAt = startedAt;
+      const onRender = (): void => {
+        renders += 1;
+        lastRenderAt = performance.now();
+      };
+      const onData = (event: unknown): void => {
+        dataEvents += 1;
+        const e = event as {
+          dataType?: string;
+          sourceId?: string;
+          sourceDataType?: string;
+        };
+        const key = `${e.dataType ?? '?'}:${e.sourceId ?? '-'}:${e.sourceDataType ?? '-'}`;
+        dataBySource.set(key, (dataBySource.get(key) ?? 0) + 1);
+      };
+      const stopCounting = (): void => {
+        this.map.off('render', onRender);
+        this.map.off('data', onData);
+      };
       const finish = (): void => {
         clearTimeout(timeout);
+        stopCounting();
         resolve();
       };
       const timeout = setTimeout(() => {
         this.map.off('idle', finish);
+        stopCounting();
+        const now = performance.now();
+        const topData = [...dataBySource]
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 6)
+          .map(([key, count]) => `${key}×${count}`)
+          .join(' ');
         reject(
           new Error(
-            `PNG map render timed out (${describeIdleBlockers(this.map)})`,
+            `PNG map render timed out (${describeIdleBlockers(this.map)}; ` +
+              `${renders} renders, ${dataEvents} data events, ` +
+              `last render ${Math.round(now - lastRenderAt)}ms ago; ` +
+              `data: ${topData || 'none'})`,
           ),
         );
       }, EXPORT_CAPTURE_TIMEOUT_MS);
+      this.map.on('render', onRender);
+      this.map.on('data', onData);
       this.map.once('idle', finish);
       this.map.triggerRepaint();
     });
@@ -717,6 +770,7 @@ export function captureExportSnapshotPng(
       new MapLibreRenderer(container, exportStyle, {
         preserveDrawingBuffer: true,
         releasesDemProtocol: false,
+        fadeDuration: 0,
       }),
   );
 }

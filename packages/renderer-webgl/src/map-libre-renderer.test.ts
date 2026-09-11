@@ -394,6 +394,7 @@ describe('MapLibreRenderer', () => {
       2,
       expect.objectContaining({
         canvasContextAttributes: { preserveDrawingBuffer: true },
+        fadeDuration: 0,
       }),
     );
     expect(mockMap.once).toHaveBeenCalledWith('idle', expect.any(Function));
@@ -2068,6 +2069,9 @@ describe('describeIdleBlockers', () => {
     const blockers = describeIdleBlockers(
       fakeMap({
         _sourcesDirty: true,
+        _placementDirty: true,
+        _repaint: true,
+        painter: { renderToTexture: { needsFollowUpFrame: true } },
         isMoving: () => true,
         style: {
           _loaded: false,
@@ -2082,7 +2086,8 @@ describe('describeIdleBlockers', () => {
     );
 
     expect(blockers).toBe(
-      'sourcesDirty, moving, styleNotLoaded, updatedSource:roads, ' +
+      'sourcesDirty, placementDirty, repaint, renderToTextureFollowUp, ' +
+        'moving, styleNotLoaded, updatedSource:roads, ' +
         'sourceNotLoaded:roads(sourceLoading), imagesNotLoaded',
     );
   });

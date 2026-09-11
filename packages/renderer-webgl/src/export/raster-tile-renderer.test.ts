@@ -226,6 +226,7 @@ describe('RasterTileRenderer', () => {
         canvasContextAttributes: { preserveDrawingBuffer: true },
         pixelRatio: 1,
         maxZoom: 24,
+        fadeDuration: 0,
       }),
     );
     const container = [...document.body.children].find(
