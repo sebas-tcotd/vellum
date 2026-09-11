@@ -2,6 +2,44 @@
 
 All notable changes to Vellum will be documented here.
 
+## [0.9.0](https://github.com/sebas-tcotd/vellum/compare/v0.8.0...v0.9.0) (2026-09-11)
+
+
+### Features
+
+* **installer-bootstrap:** add packaging script pairing the bootstrap with the NSIS build ([b6f1d0b](https://github.com/sebas-tcotd/vellum/commit/b6f1d0b375e5e94484bf47dd774a1418e3c1e022))
+* **installer-bootstrap:** scaffold a wry/tao bootstrap spike for the installer UI ([3a84b62](https://github.com/sebas-tcotd/vellum/commit/3a84b629601e7540e1b66e79a648636981c2a0ef))
+* **renderer:** agregar nuevos blockers en describeIdleBlockers para mejorar la detección de estado ([ce1e517](https://github.com/sebas-tcotd/vellum/commit/ce1e517f110801f4ae2e22b76f7026dcd764f300))
+* **theme-engine:** mantener themes compatibles mientras Vellum evoluciona ([385e315](https://github.com/sebas-tcotd/vellum/commit/385e3150ba591e8002a0a56bb58a8286c3446bb8))
+* **theme-engine:** mantener themes compatibles mientras Vellum evoluciona ([af42f7e](https://github.com/sebas-tcotd/vellum/commit/af42f7e48ce9bd6ee23decdd441024284f8b318f))
+* **theme-engine:** publicar el contrato JSON oficial de .vellumstyle ([b3def00](https://github.com/sebas-tcotd/vellum/commit/b3def00ded16bfd1d6263ebc7fdff49ec0d89fb8))
+* **theme-engine:** publicar el contrato JSON oficial de .vellumstyle ([c0ec862](https://github.com/sebas-tcotd/vellum/commit/c0ec862a7b07c0eb25af4c1896ed919454ee399d))
+* transition to NSIS as the recommended Windows installer ([93de12e](https://github.com/sebas-tcotd/vellum/commit/93de12ecf2d9fbcc70811385bb0ef57e9ffcb190))
+* **windows:** add splash screen for installation ([b243460](https://github.com/sebas-tcotd/vellum/commit/b243460003e8227caf05531bfca77672b351315d))
+
+
+### Bug Fixes
+
+* **ci:** exclude dormant installer-bootstrap crate from change detection ([24c82b5](https://github.com/sebas-tcotd/vellum/commit/24c82b5f4076469c6afef57b810980b3bfac419c))
+* **ci:** forzar la reinstalación de cargo-deny sobre el binario cacheado por rust-cache ([ad83b3c](https://github.com/sebas-tcotd/vellum/commit/ad83b3c9790be2d566668bf0c6ecc8d1fa492e95))
+* **deps:** cerrar los advisories que sí se pueden cerrar ([cfb80ff](https://github.com/sebas-tcotd/vellum/commit/cfb80ff4f66a76750e9a100e40ef7a770780d07f))
+* **export:** esperar el watermark antes de capturar el PNG ([77d1fdf](https://github.com/sebas-tcotd/vellum/commit/77d1fdfa475e2b9c1c84d7924a15bef5cf7d8606))
+* **renderer:** apuntar MapLibre 6 a su worker empaquetado ([8f73152](https://github.com/sebas-tcotd/vellum/commit/8f73152d41178cc52cd8bbbfb27810de7484c633))
+* **renderer:** desactivar el fade de símbolos en las superficies de exportación ([09ee78c](https://github.com/sebas-tcotd/vellum/commit/09ee78cc0d4c0d50ab4a779c0335a9d278370be4))
+* **renderer:** estabilizar el export PNG en CI (fade de símbolos y timeout) ([a5c6c14](https://github.com/sebas-tcotd/vellum/commit/a5c6c1447a1e9ad93776aa1892a76d70f38b1bcf))
+* **renderer:** subir el timeout de captura del export PNG a 30 s ([1cf6aad](https://github.com/sebas-tcotd/vellum/commit/1cf6aad4b1a257604dd95a800e404785e49410a4))
+* **security:** actualizar maplibre-gl a 6.x y cargo-deny a 0.20.2 ([6e96281](https://github.com/sebas-tcotd/vellum/commit/6e96281209a43661551b7ba38bef484e2c5d4bb2))
+* **security:** actualizar maplibre-gl a 6.x y cargo-deny a 0.20.2 ([054aec3](https://github.com/sebas-tcotd/vellum/commit/054aec3e7df950d05c6cd7f3de96f5a35c6a497e))
+* **security:** actualizar quick-xml, plist, crossbeam-epoch y fastrand ([88b69c7](https://github.com/sebas-tcotd/vellum/commit/88b69c7e92e410ce1999d3bc7b0581050b4bac72))
+* **style:** improve installer styles ([7c0231d](https://github.com/sebas-tcotd/vellum/commit/7c0231df4c05c2dc2241d7ef49578d1e34342075))
+* **windows:** improve layout of nsi ([edcdf48](https://github.com/sebas-tcotd/vellum/commit/edcdf48d02da26767a6419344e318316adb86736))
+* **windows:** skip language selector dialog during silent NSIS installs ([68becae](https://github.com/sebas-tcotd/vellum/commit/68becae82782024e31d2d000d024d6c23cc87b22))
+
+
+### Reverts
+
+* **deps:** sacar la subida masiva de dependencias del fix del watermark ([fbd3711](https://github.com/sebas-tcotd/vellum/commit/fbd3711cf50e87fbcbe116c6f84643d2b8b3b94c))
+
 ## [0.8.0](https://github.com/sebas-tcotd/vellum/compare/v0.7.0...v0.8.0) (2026-09-09)
 
 
