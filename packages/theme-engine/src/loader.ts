@@ -30,8 +30,8 @@ export interface ThemeWarning {
    * `LOAD_FAILED_FIELD` when the IPC call to fetch themes itself failed. */
   field: string;
   /** Which contract rule `field` broke, when the failure came from validation. Absent for
-   * parse failures and for `LOAD_FAILED_FIELD`. Purely informational for external tooling —
-   * the UI renders `field` alone. */
+   * parse failures and for `LOAD_FAILED_FIELD`. The UI localizes it into the toast so the
+   * author sees which rule was broken, not just where. */
   rule?: ThemeValidationRule;
 }
 
@@ -80,6 +80,21 @@ export function loadThemes(rawFiles: RawThemeFile[]): LoadThemesResult {
       parsed = JSON.parse(file.rawJson);
     } catch {
       warnings.push({ themeId: file.id, themeName: file.id, field: 'JSON' });
+      continue;
+    }
+    // A non-object root has no theme shape at all — report it as such instead of letting
+    // the migration turn it into `{}` and surface as a missing `name`.
+    if (
+      typeof parsed !== 'object' ||
+      parsed === null ||
+      Array.isArray(parsed)
+    ) {
+      warnings.push({
+        themeId: file.id,
+        themeName: file.id,
+        field: 'root',
+        rule: 'type',
+      });
       continue;
     }
     const result = validateVellumStyle(migrateTheme(parsed));

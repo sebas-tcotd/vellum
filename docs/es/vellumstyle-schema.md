@@ -93,10 +93,10 @@ Vellum, incluso después de que el schema evolucione (NFR11). Esto se garantiza 
 dos mecanismos que trabajan juntos:
 
 - **Migración por `schemaVersion`.** Un archivo debería declarar un `schemaVersion` (Vellum
-  asume `1` si la clave falta, así que un archivo legacy igual carga). Vellum
-  lo pasa por un paso de migración antes de validarlo; cada versión anterior del schema
-  tiene su propia ruta de migración hacia el shape actual, así que un archivo antiguo se
-  actualiza en memoria en vez de ser rechazado.
+  asume `1` si la clave falta, así que un archivo legacy igual carga). Vellum lo pasa por
+  un paso de migración antes de validarlo, que rellena cada grupo de primer nivel que el
+  archivo omita; un archivo antiguo se actualiza en memoria en vez de ser rechazado, y el
+  archivo en disco nunca se reescribe.
 - **Los campos desconocidos se ignoran, no se rechazan** (ver
   [Puntos de extensión](#puntos-de-extensión)). Esto significa que una versión futura de Vellum
   puede añadir campos opcionales nuevos al schema sin romper archivos escritos antes de que
@@ -104,12 +104,43 @@ dos mecanismos que trabajan juntos:
   cargándose en una versión más antigua de Vellum también carga — la versión antigua
   simplemente ignora los campos que no reconoce.
 
+### Versiones soportadas y política de evolución
+
+La versión actual del schema es **1**. Esto es lo que Vellum hace con cada valor de
+`schemaVersion`:
+
+| `schemaVersion` en el archivo                                                                          | Comportamiento                                                                                                                   |
+| ------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| ausente (o no numérico)                                                                                | **Legacy.** Se trata como `1` y carga como cualquier archivo v1.                                                                 |
+| `1` (también `0` o `1.5`, ver [Schema legible por máquinas](#schema-legible-por-máquinas-json-schema)) | **Actual.** Cada grupo de primer nivel omitido se rellena con los valores por defecto y luego se valida.                         |
+| mayor que la versión actual                                                                            | **Best-effort.** Carga exactamente como un archivo actual; cualquier color que realmente falte lo sigue atrapando la validación. |
+
+Cómo puede cambiar el schema:
+
+- **Los campos nuevos son opcionales, con valor por defecto.** Todo lo añadido desde la
+  primera versión pública (`mapFrame`, `contourLine`, `grid`, `parkAreas`) es un grupo
+  nuevo de primer nivel que Vellum rellena si el archivo lo omite, así que los archivos
+  escritos antes cargan sin cambios.
+- **Eliminar un campo requiere una deprecación de una versión mayor.** Un campo eliminado
+  se sigue aceptando — se ignora como [punto de extensión](#puntos-de-extensión) — y un
+  archivo que todavía lo trae sigue cargando. Así se retiraron `roads.*.industrial` y
+  `roads.rail.{tram,monorail}`.
+- **Los archivos de un schema más nuevo cargan best-effort**, como indica la tabla.
+
+Esta garantía está fijada con fixtures versionados en
+[`packages/theme-engine/fixtures`](../../packages/theme-engine/fixtures): el tema `classic`
+tal como se publicó el 2026-07-22 (`v1/`), el mismo archivo sin `schemaVersion`
+(`legacy/`) y archivos inválidos con su diagnóstico esperado (`invalid/`). En cada corrida
+de CI cada fixture pasa por el JSON Schema, la migración, el validador y el loader en el
+mismo test, que además verifica los ejemplos JSON y la tabla de reglas de este documento.
+
 ### `schemaVersion` es un entero, no un string semver
 
-`schemaVersion` empieza en `1` y es un **entero plano**, no un string
-`"major.minor.patch"`. Todos los temas built-in incluyen `"schemaVersion": 1`. Cambios
-disruptivos futuros del schema incrementan este entero (`2`, `3`, ...); el paso de
-migración de Vellum tiene una rama `case` por cada versión pasada. No hay un rastreo
+`schemaVersion` empieza en `1` y debería ser un **entero plano**, no un string
+`"major.minor.patch"` (otros números como `0` o `1.5` igual cargan, como se describe
+arriba, pero un archivo debería declarar un entero). Todos los temas built-in incluyen `"schemaVersion": 1`. Cambios
+disruptivos futuros del schema incrementan este entero (`2`, `3`, ...); un incremento
+añade una rama de migración explícita para la versión anterior. No hay un rastreo
 separado de minor/patch — cambios aditivos y no disruptivos (campos opcionales nuevos) no
 requieren incrementar `schemaVersion` en absoluto, ya que archivos antiguos sin esos campos
 siguen validando bajo la misma versión gracias a la regla de extension points de arriba.
@@ -228,9 +259,24 @@ vs. grupo parcial**:
   completo de un tema built-in y edita esa única hoja.
 
 Si **un solo campo** termina ausente o malformado, **todo el archivo** se salta (no solo ese
-campo) y una advertencia nombra el path exacto del problema, por ejemplo:
+campo) y una advertencia nombra el archivo, el path exacto del problema y la regla que
+rompió, por ejemplo:
 
-> `day.vellumstyle no es válido: campo roads.highway.generic.fill no reconocido`
+> `day.vellumstyle no es válido: el campo roads.highway.generic.fill no es un color válido (usa #rrggbb o hsl(...))`
+> (la redacción exacta depende del idioma del usuario)
+
+Los campos desconocidos nunca causan esta advertencia. Las reglas que puede reportar:
+
+| Regla         | Significado                                                                                                       | Ejemplo                                          |
+| ------------- | ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| `required`    | Falta un campo: `name` (o un `name` vacío), o una clave dentro de un grupo que sí incluiste.                      | un grupo `roads` sin `highway` → `roads.highway` |
+| `type`        | Un campo tiene la forma equivocada: una raíz que no es objeto, un arreglo donde va un grupo, un `name` no string. | un archivo que contiene `[]` → `root`            |
+| `color-token` | Una hoja de color está presente pero no es ni `HexColor` ni `HslColor`.                                           | `"water": "rojo"` → `water`                      |
+
+Si un tema de usuario que sobrescribe un built-in (mismo nombre de archivo) es inválido, se
+omite y el tema built-in sigue disponible. Tu selección de tema guardada no se reescribe:
+Vellum usa otro tema solo durante la sesión, y el tuyo vuelve a elegirse en cuanto el
+archivo esté corregido.
 
 Los temas válidos en el mismo directorio siguen cargando normalmente — un archivo roto
 nunca bloquea a los demás.
@@ -296,5 +342,6 @@ destaca campos fáciles de omitir y no es un archivo de tema válido por sí sol
    etiqueta visible en el pill.
 
 Si tu archivo usa el mismo nombre de archivo (id) que un tema built-in (p. ej.
-`day.vellumstyle`), tu versión toma precedencia silenciosamente sobre la built-in — esto te
-permite sobrescribir un tema built-in sin ninguna configuración especial.
+`day.vellumstyle`), tu versión toma precedencia silenciosamente sobre la built-in (siempre
+que sea válida) — esto te permite sobrescribir un tema built-in sin ninguna configuración
+especial.

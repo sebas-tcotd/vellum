@@ -14,7 +14,17 @@ import { isColorToken } from './color';
  *   `schemaVersion`, non-object root).
  * - `'color-token'` — the field is present but is not a well-formed `ColorToken`.
  */
-export type ThemeValidationRule = 'type' | 'required' | 'color-token';
+export type ThemeValidationRule = (typeof THEME_VALIDATION_RULES)[number];
+
+/**
+ * Every rule id `validateVellumStyle` can report, as a runtime constant so the UI (i18n
+ * keys) and the docs (diagnostic table) can be checked against it.
+ */
+export const THEME_VALIDATION_RULES = [
+  'required',
+  'type',
+  'color-token',
+] as const;
 
 /**
  * Result of validating a raw `.vellumstyle` object.

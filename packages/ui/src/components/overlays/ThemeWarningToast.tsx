@@ -39,10 +39,14 @@ export function ThemeWarningToast({
           {warning.field === LOAD_FAILED_FIELD
             ? t('toasts.themeLoadFailed')
             : warning.field === 'JSON'
-              ? t('toasts.invalidThemeJson', { themeName: warning.themeName })
+              ? t('toasts.invalidThemeJson', {
+                  file: `${warning.themeId}.vellumstyle`,
+                })
               : t('toasts.invalidTheme', {
-                  themeName: warning.themeName,
+                  // The file on disk, not the display name: it is what the author opens to fix.
+                  file: `${warning.themeId}.vellumstyle`,
                   field: warning.field,
+                  reason: t(`toasts.themeRule.${warning.rule ?? 'unknown'}`),
                 })}
         </span>
       ))}

@@ -93,6 +93,19 @@ describe('vellum-store — persistencia de preferencias (Story 7.2)', () => {
     expect(useVellumStore.getState().autoUpdateEnabled).toBe(true);
     expect(persistPreferenceMock).not.toHaveBeenCalled();
   });
+
+  it('setAvailableThemes cae al primer tema sin reescribir selectedTheme cuando el activo falta', () => {
+    // Un tema de usuario inválido se omite: el fallback es de sesión, la preferencia
+    // persistida no se toca (el archivo arreglado vuelve a quedar activo al reiniciar).
+    useVellumStore.setState({ activeTheme: 'mi-tema-roto' });
+    const themes = [{ id: 'day' }, { id: 'classic' }] as Parameters<
+      ReturnType<typeof useVellumStore.getState>['setAvailableThemes']
+    >[0];
+    useVellumStore.getState().setAvailableThemes(themes);
+
+    expect(useVellumStore.getState().activeTheme).toBe('day');
+    expect(persistPreferenceMock).not.toHaveBeenCalled();
+  });
 });
 
 describe('vellum-store — setUpdateInfo (Story 7.4)', () => {
