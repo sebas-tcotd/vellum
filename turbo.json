@@ -19,6 +19,8 @@
       "inputs": [
         "$TURBO_DEFAULT$",
         "$TURBO_ROOT$/docs/*/vellumstyle-schema.md",
+        "$TURBO_ROOT$/docs/*/creating-themes.md",
+        "$TURBO_ROOT$/packages/ui/src/i18n/locales/*.json",
         "$TURBO_ROOT$/apps/desktop/src-tauri/resources/themes/*.vellumstyle"
       ]
     },

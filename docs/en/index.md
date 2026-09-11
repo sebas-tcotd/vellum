@@ -28,12 +28,13 @@ top of each index to switch without losing your place.
 
 ## Rendering and formats
 
-| Document                                                      | What it explains                                                                |
-| ------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| [Transit rendering algorithm](transit-rendering-algorithm.md) | The path-based model used to keep transit lines continuous and visually stable. |
-| [District rendering](district-rendering.md)                   | Why `.cslmap` districts are annotations rather than reconstructed polygons.     |
-| [Forest rendering](forest-rendering.md)                       | The density-overlay approach for the forest data in `.cslmap`.                  |
-| [`.vellumstyle` schema](vellumstyle-schema.md)                | The public v1 format for custom themes.                                         |
+| Document                                                      | What it explains                                                                      |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| [Transit rendering algorithm](transit-rendering-algorithm.md) | The path-based model used to keep transit lines continuous and visually stable.       |
+| [District rendering](district-rendering.md)                   | Why `.cslmap` districts are annotations rather than reconstructed polygons.           |
+| [Forest rendering](forest-rendering.md)                       | The density-overlay approach for the forest data in `.cslmap`.                        |
+| [`.vellumstyle` schema](vellumstyle-schema.md)                | The public v1 format for custom themes.                                               |
+| [Creating and debugging a theme](creating-themes.md)          | Walkthrough from an official example to the selector, and how to fix each diagnostic. |
 
 ## Architecture Decision Records
 

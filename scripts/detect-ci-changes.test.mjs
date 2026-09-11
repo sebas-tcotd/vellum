@@ -44,16 +44,19 @@ describe('clasificación de cambios de CI', () => {
     );
   });
 
-  it('activa solo JS para la referencia del schema .vellumstyle', () => {
+  it('activa solo JS para la referencia del schema .vellumstyle y la guía de temas', () => {
     for (const doc of [
       'docs/en/vellumstyle-schema.md',
       'docs/es/vellumstyle-schema.md',
+      'docs/en/creating-themes.md',
+      'docs/es/creating-themes.md',
     ]) {
       expect(classifyPaths([doc]), doc).toEqual({ ...all(false), js: true });
     }
     expect(classifyPaths(['docs/en/vellumstyle-schema-draft.md'])).toEqual(
       all(false),
     );
+    expect(classifyPaths(['docs/fr/creating-themes.md'])).toEqual(all(false));
   });
 
   it('ejecuta todo ante cambios globales o de workflows', () => {
