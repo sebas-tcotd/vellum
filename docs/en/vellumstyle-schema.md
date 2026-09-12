@@ -7,7 +7,9 @@ loads any additional `.vellumstyle` files a user installs (see
 ["Installing a theme"](#installing-a-theme) below).
 
 This document is the public, stable reference for modders and theme authors. It describes
-the **actual current behavior of the app** — not aspirational or planned behavior.
+the **actual current behavior of the app** — not aspirational or planned behavior. For a
+step-by-step walkthrough — from copying an example to reading a diagnostic toast — see
+[Creating and debugging a theme](creating-themes.md).
 
 ## Machine-readable schema (JSON Schema)
 
@@ -286,34 +288,16 @@ unrecognized field, without any extra syntax.
 
 ## Complete example
 
-The canonical complete example is the built-in **Day** theme in
-[`apps/desktop/src-tauri/resources/themes/day.vellumstyle`](../../apps/desktop/src-tauri/resources/themes/day.vellumstyle).
-It is kept as a source file rather than duplicated here so the reference cannot drift
-from the theme that ships with the app. The following illustrative fragment highlights
-fields that are easy to overlook; it is not a standalone valid theme file:
-
-```jsonc
-{
-  "schemaVersion": 1,
-  "name": "My theme",
-  "mapFrame": "#e5dcc8",
-  "contourLine": "#aa9e86",
-  "grid": {
-    "color": "#7d705f",
-    "opacity": 0.18,
-    "width": 1,
-    "dasharray": [4, 4],
-  },
-  "parkAreas": {
-    "generic": "#aeb58f",
-    "university": "#c5b58c",
-    "tradeSchool": "#b99480",
-    "industry": "#9b8b9f",
-    "forestry": "#8f9c7f",
-  },
-  // Include the remaining required RenderStyleParams fields from the Day theme.
-}
-```
+The official examples live in
+[`packages/theme-engine/examples`](../../packages/theme-engine/examples):
+[`complete.vellumstyle`](../../packages/theme-engine/examples/complete.vellumstyle)
+declares every group (with the values of the built-in **Day** theme) and
+[`minimal.vellumstyle`](../../packages/theme-engine/examples/minimal.vellumstyle) is a
+small, useful starting theme that overrides a few top-level colors. Both declare
+`$schema`, and whenever the theme engine, its examples or these docs change, CI checks that
+they pass the JSON Schema, load without warnings and use only keys from this contract, so they cannot drift
+from it. [Creating and debugging a theme](creating-themes.md) walks through editing and
+installing one of them.
 
 ## Installing a theme
 

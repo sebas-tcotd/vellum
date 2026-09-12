@@ -8,7 +8,8 @@ instale (ver [«Instalación de un tema»](#instalación-de-un-tema) más abajo)
 
 Este documento es la referencia pública y estable para modders y creadores de temas.
 Describe el **comportamiento real y actual de la app** — no un comportamiento aspiracional
-o planeado.
+o planeado. Para un recorrido paso a paso — de copiar un ejemplo a leer un toast de
+diagnóstico — consulta [Crear y depurar un tema](creating-themes.md).
 
 ## Schema legible por máquinas (JSON Schema)
 
@@ -295,34 +296,16 @@ campo no reconocido, sin sintaxis adicional.
 
 ## Ejemplo completo
 
-El ejemplo canónico completo es el tema built-in **Day** en
-[`apps/desktop/src-tauri/resources/themes/day.vellumstyle`](../../apps/desktop/src-tauri/resources/themes/day.vellumstyle).
-Se mantiene como archivo fuente en vez de duplicarse aquí, para que la referencia no
-se desvíe del tema que realmente incluye la app. El siguiente fragmento ilustrativo
-destaca campos fáciles de omitir y no es un archivo de tema válido por sí solo:
-
-```jsonc
-{
-  "schemaVersion": 1,
-  "name": "My theme",
-  "mapFrame": "#e5dcc8",
-  "contourLine": "#aa9e86",
-  "grid": {
-    "color": "#7d705f",
-    "opacity": 0.18,
-    "width": 1,
-    "dasharray": [4, 4],
-  },
-  "parkAreas": {
-    "generic": "#aeb58f",
-    "university": "#c5b58c",
-    "tradeSchool": "#b99480",
-    "industry": "#9b8b9f",
-    "forestry": "#8f9c7f",
-  },
-  // Incluye los demás campos requeridos de RenderStyleParams a partir del tema Day.
-}
-```
+Los ejemplos oficiales viven en
+[`packages/theme-engine/examples`](../../packages/theme-engine/examples):
+[`complete.vellumstyle`](../../packages/theme-engine/examples/complete.vellumstyle)
+declara todos los grupos (con los valores del tema built-in **Day**) y
+[`minimal.vellumstyle`](../../packages/theme-engine/examples/minimal.vellumstyle) es un
+tema de partida pequeño y útil que cambia unos pocos colores de nivel superior. Ambos
+declaran `$schema`, y cada vez que cambian el motor de temas, sus ejemplos o estos docs, CI
+verifica que pasan el JSON Schema, cargan sin avisos y usan solo claves de este contrato, así que no pueden
+desviarse de él. [Crear y depurar un tema](creating-themes.md) explica cómo editar e
+instalar uno de ellos.
 
 ## Instalación de un tema
 
