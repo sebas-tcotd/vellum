@@ -36,6 +36,12 @@ top of each index to switch without losing your place.
 | [`.vellumstyle` schema](vellumstyle-schema.md)                | The public v1 format for custom themes.                                               |
 | [Creating and debugging a theme](creating-themes.md)          | Walkthrough from an official example to the selector, and how to fix each diagnostic. |
 
+## Product decisions
+
+| Document                                    | What it explains                                                                              |
+| ------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| [Feedback decisions](feedback-decisions.md) | What community feedback was adopted, deferred, discarded or blocked by missing data, and why. |
+
 ## Architecture Decision Records
 
 Accepted decisions live in `docs/adr/`, one file per decision, four-digit

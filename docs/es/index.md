@@ -36,6 +36,12 @@ cambiar de idioma sin perder el contexto.
 | [Schema `.vellumstyle`](vellumstyle-schema.md)                         | El formato público v1 para crear temas personalizados.                           |
 | [Crear y depurar un tema](creating-themes.md)                          | Recorrido de un ejemplo oficial al selector, y cómo corregir cada diagnóstico.   |
 
+## Decisiones de producto
+
+| Documento                                       | Qué explica                                                                                                                     |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| [Decisiones de feedback](feedback-decisions.md) | Qué propuestas de la comunidad se adoptaron, se difirieron, se descartaron o quedaron bloqueadas por falta de datos, y por qué. |
+
 ## Registros de decisiones de arquitectura (ADR)
 
 Las decisiones aceptadas viven en `docs/adr/`, un archivo por decisión y

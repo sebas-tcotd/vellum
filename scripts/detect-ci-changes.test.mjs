@@ -44,12 +44,14 @@ describe('clasificación de cambios de CI', () => {
     );
   });
 
-  it('activa solo JS para la referencia del schema .vellumstyle y la guía de temas', () => {
+  it('activa solo JS para los documentos con guardrail propio', () => {
     for (const doc of [
       'docs/en/vellumstyle-schema.md',
       'docs/es/vellumstyle-schema.md',
       'docs/en/creating-themes.md',
       'docs/es/creating-themes.md',
+      'docs/en/feedback-decisions.md',
+      'docs/es/feedback-decisions.md',
     ]) {
       expect(classifyPaths([doc]), doc).toEqual({ ...all(false), js: true });
     }
