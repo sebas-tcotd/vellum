@@ -1,0 +1,184 @@
+{
+  "$schema": "https://raw.githubusercontent.com/sebas-tcotd/vellum/main/packages/theme-engine/vellumstyle.schema.json",
+  "schemaVersion": 1,
+  "name": "My complete theme",
+  "mapBackground": "#ede5d2",
+  "mapFrame": "#e5dcc8",
+  "terrain": {
+    "base": "#ede5d2",
+    "low": "#b8b994",
+    "mid": "#d9d1b8",
+    "high": "#c3af8d"
+  },
+  "contourLine": "#aa9e86",
+  "water": "#8fb6b2",
+  "forests": "#8f9c7f",
+  "transitBackground": "#3b4050",
+  "roads": {
+    "highway": {
+      "generic": {
+        "fill": "#8a7056",
+        "casing": "#654d3a"
+      }
+    },
+    "largeArterial": {
+      "generic": {
+        "fill": "#957359",
+        "casing": "#765840"
+      }
+    },
+    "mediumArterial": {
+      "generic": {
+        "fill": "#a98668",
+        "casing": "#87684f"
+      }
+    },
+    "local": {
+      "generic": {
+        "fill": "#c7b79d",
+        "casing": "#967e63"
+      },
+      "gravel": {
+        "fill": "#c2b292",
+        "casing": "#9e896e"
+      }
+    },
+    "pedestrian": {
+      "path": {
+        "fill": "#9e8870",
+        "casing": "#796650"
+      },
+      "way": {
+        "fill": "#b2a088",
+        "casing": "#8e7962"
+      },
+      "street": {
+        "fill": "#9e8870",
+        "casing": "#796650"
+      }
+    },
+    "rail": {
+      "train": {
+        "fill": "#e7e0cf",
+        "casing": "#554d46"
+      },
+      "metro": {
+        "fill": "#e7e0cf",
+        "casing": "#66718f"
+      }
+    },
+    "ferry": {
+      "fill": "#638f91",
+      "casing": "#638f91"
+    }
+  },
+  "buildings": {
+    "residential": {
+      "low": {
+        "fill": "#d2c7b0",
+        "stroke": "#a89b84"
+      },
+      "high": {
+        "fill": "#c5b79c",
+        "stroke": "#988a71"
+      },
+      "selfSufficient": {
+        "fill": "#c4cdb0",
+        "stroke": "#97a589"
+      }
+    },
+    "commercial": {
+      "low": {
+        "fill": "#d5c0aa",
+        "stroke": "#a68d78"
+      },
+      "high": {
+        "fill": "#c7af96",
+        "stroke": "#977b66"
+      },
+      "leisure": {
+        "fill": "#d0c0b7",
+        "stroke": "#a28f84"
+      },
+      "tourism": {
+        "fill": "#d4c3a0",
+        "stroke": "#a79672"
+      },
+      "organic": {
+        "fill": "#b5c2a7",
+        "stroke": "#8e9f80"
+      }
+    },
+    "office": {
+      "generic": {
+        "fill": "#b3bdc0",
+        "stroke": "#87949a"
+      },
+      "tech": {
+        "fill": "#a0b1b8",
+        "stroke": "#778b92"
+      },
+      "financial": {
+        "fill": "#889aa1",
+        "stroke": "#63777f"
+      }
+    },
+    "industry": {
+      "generic": {
+        "fill": "#c9b87f",
+        "stroke": "#a08e5c"
+      },
+      "forestry": {
+        "fill": "#abb38e",
+        "stroke": "#87986c"
+      },
+      "ore": {
+        "fill": "#ad9880",
+        "stroke": "#8e795f"
+      },
+      "oil": {
+        "fill": "#8d8775",
+        "stroke": "#6e695c"
+      },
+      "farming": {
+        "fill": "#bcae7d",
+        "stroke": "#92855d"
+      }
+    },
+    "civic": {
+      "publicTransport": {
+        "fill": "#a9b7b5",
+        "stroke": "#819694"
+      },
+      "education": {
+        "fill": "#afbdad",
+        "stroke": "#869b84"
+      },
+      "services": {
+        "fill": "#c1a99d",
+        "stroke": "#9c8175"
+      }
+    },
+    "none": {
+      "fill": "#c8bca7",
+      "stroke": "#9f907b"
+    }
+  },
+  "districts": {
+    "fill": "#b49b68",
+    "label": "#5b5043"
+  },
+  "grid": {
+    "color": "#7d705f",
+    "opacity": 0.18,
+    "width": 1,
+    "dasharray": [4, 4]
+  },
+  "parkAreas": {
+    "generic": "#aeb58f",
+    "university": "#c5b58c",
+    "tradeSchool": "#b99480",
+    "industry": "#9b8b9f",
+    "forestry": "#8f9c7f"
+  }
+}

@@ -34,6 +34,7 @@ cambiar de idioma sin perder el contexto.
 | [Renderizado de distritos](district-rendering.md)                      | Por qué los distritos de `.cslmap` son anotaciones y no polígonos reconstruidos. |
 | [Renderizado de bosques](forest-rendering.md)                          | El enfoque de overlay de densidad para los datos forestales de `.cslmap`.        |
 | [Schema `.vellumstyle`](vellumstyle-schema.md)                         | El formato público v1 para crear temas personalizados.                           |
+| [Crear y depurar un tema](creating-themes.md)                          | Recorrido de un ejemplo oficial al selector, y cómo corregir cada diagnóstico.   |
 
 ## Registros de decisiones de arquitectura (ADR)
 

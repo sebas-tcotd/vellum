@@ -1,0 +1,8 @@
+{
+  "$schema": "https://raw.githubusercontent.com/sebas-tcotd/vellum/main/packages/theme-engine/vellumstyle.schema.json",
+  "schemaVersion": 1,
+  "name": "My minimal theme",
+  "mapBackground": "#efe8d8",
+  "water": "#5f9ea0",
+  "forests": "#6f8f5f"
+}
