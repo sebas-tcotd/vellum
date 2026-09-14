@@ -1,3 +1,4 @@
+/** Pure shape construction helpers for station geometry. */
 import type { CsPoint } from '../../../coordinate-transform';
 import { add, scale } from './vector';
 

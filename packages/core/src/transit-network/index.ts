@@ -3,7 +3,7 @@
  *
  * @remarks
  * ADR-0001 D6 designates this module as the single home for transit-network
- * semantics. {@link deriveTransitNetwork} chains the three pure stages that
+ * semantics. {@link deriveTransitNetwork} chains the four pure stages that
  * used to be reachable only through the MapLibre adapter:
  *
  * 1. {@link buildTransitLineGraph} — corridors, bundles (Lemma 4.1), junction
@@ -11,10 +11,8 @@
  * 2. {@link computeLineOrder} — MLNCM-S line ordering (§3).
  * 3. {@link extractUniqueStops} / {@link groupStopsByProximity} — stop and
  *    transfer semantics.
- *
- * Render geometry (corridor trims, Bézier inner connections, station capsules)
- * is deliberately **not** here: that stays in `@vellum/renderer-webgl`, which
- * consumes this projection.
+ * 4. {@link buildRenderGeometry} — trimmed corridors, resolved slots, inner
+ *    connectors and station capsules.
  *
  * Pure and deterministic: no MapLibre, no React, no Tauri, no `@vellum/*`
  * imports, and no caching — the same `CityData` always derives the same
@@ -34,10 +32,12 @@ import type {
 import { buildTransitLineGraph } from './line-graph';
 import { computeLineOrder } from './ordering';
 import { extractUniqueStops, groupStopsByProximity } from './stops';
+import { buildRenderGeometry } from './render-geometry';
 
 export { buildTransitLineGraph, continuationKey } from './line-graph';
 export { computeLineOrder, scoreConfiguration } from './ordering';
 export { MODE_PRIORITY } from './ordering/constants';
+export * from './render-geometry';
 export {
   extractUniqueStops,
   groupStopsByProximity,
@@ -66,7 +66,7 @@ export function deriveTransitNetwork(
   const stops = extractUniqueStops(cityData);
   const transferCandidates = groupStopsByProximity(stops);
 
-  return Object.freeze({
+  const network = {
     lines: withLineAttributes(graph.lines, extensions),
     edges: graph.edges,
     nodes: graph.nodes,
@@ -81,6 +81,11 @@ export function deriveTransitNetwork(
     stats,
     stops,
     transferCandidates,
+  };
+
+  return Object.freeze({
+    ...network,
+    renderGeometry: buildRenderGeometry(network),
   });
 }
 

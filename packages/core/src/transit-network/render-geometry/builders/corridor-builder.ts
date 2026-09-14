@@ -5,14 +5,13 @@
  * static distance derived from the widest incident bundle.
  */
 
-import type { TransitNetwork } from '@vellum/core';
 import { MAX_TRIM_FRACTION, NODE_PAD_M, SLOT_M } from '../config';
-import type { CorridorGeometry } from '../types';
+import type { CorridorGeometry, RenderGeometryNetwork } from '../types';
 import { cutEnd, cutStart, pathLength } from '../utils/path';
 
 /** Trims every corridor edge's centerline back from its junction nodes. */
 export function buildCorridors(
-  network: TransitNetwork,
+  network: RenderGeometryNetwork,
 ): Map<string, CorridorGeometry> {
   const corridors = new Map<string, CorridorGeometry>();
   const { lineOrder } = network;
@@ -39,14 +38,24 @@ export function buildCorridors(
     path = cutEnd(path, trimB);
 
     if (path.length < 2) continue;
-    corridors.set(eid, { edgeId: eid, path, lineIds });
+    corridors.set(eid, {
+      edgeId: eid,
+      path,
+      slots: lineIds.map((lineId, position) => ({
+        lineId,
+        offsetIndex: slotOffsetIndex(position, lineIds.length),
+      })),
+    });
   }
 
   return corridors;
 }
 
 /** Half of the widest incident bundle at the node, plus padding. */
-function trimDistanceAt(network: TransitNetwork, nodeId: string): number {
+function trimDistanceAt(
+  network: RenderGeometryNetwork,
+  nodeId: string,
+): number {
   const node = network.nodes.get(nodeId);
   if (node === undefined || node.edgeIds.length < 2) return 0;
 
@@ -57,4 +66,9 @@ function trimDistanceAt(network: TransitNetwork, nodeId: string): number {
   }
 
   return NODE_PAD_M + maxWidth / 2;
+}
+
+/** Canonical offset formula shared by live rendering, export and geometry. */
+export function slotOffsetIndex(position: number, slotCount: number): number {
+  return position - (slotCount - 1) / 2;
 }

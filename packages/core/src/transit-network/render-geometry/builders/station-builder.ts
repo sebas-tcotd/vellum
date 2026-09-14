@@ -7,8 +7,11 @@
  * there.
  */
 
-import type { CityData, TransitTransferCandidate } from '@vellum/core';
 import type { CsPoint } from '../../../coordinate-transform';
+import type {
+  TransitStopEntry,
+  TransitTransferCandidate,
+} from '../../../types/transit-network';
 import {
   SLOT_M,
   STATION_ACROSS_MARGIN_M,
@@ -16,14 +19,21 @@ import {
   STATION_HALF_THICKNESS_M,
 } from '../config';
 import type {
-  Bucket,
   CorridorGeometry,
+  RenderGeometryNetwork,
   StationGeometry,
   StationLineInfo,
-  StopEntry,
 } from '../types';
 import { roundedRectRing } from '../utils/shape';
 import { add, projectOnPath, rightOf, scale, unit } from '../utils/vector';
+
+/** Internal station projection state; never part of the public core surface. */
+interface Bucket {
+  corridor: CorridorGeometry;
+  point: CsPoint;
+  dir: CsPoint;
+  lineIds: string[];
+}
 
 /**
  * Builds station markers from the network's transfer candidates (already
@@ -31,20 +41,22 @@ import { add, projectOnPath, rightOf, scale, unit } from '../utils/vector';
  * corridor.
  */
 export function buildStations(
-  cityData: CityData,
+  network: RenderGeometryNetwork,
   corridors: Map<string, CorridorGeometry>,
   transferCandidates: readonly TransitTransferCandidate[],
 ): StationGeometry[] {
-  const lineInfoMap = createLineInfoMap(cityData);
+  const lineInfoMap = createLineInfoMap(network);
 
   return transferCandidates.flatMap((group) =>
     createStationPolygonsForGroup(group, corridors, lineInfoMap),
   );
 }
 
-function createLineInfoMap(cityData: CityData): Map<string, StationLineInfo> {
+function createLineInfoMap(
+  network: RenderGeometryNetwork,
+): Map<string, StationLineInfo> {
   return new Map(
-    cityData.transitLines.map((l) => [
+    [...network.lines.values()].map((l) => [
       l.id,
       { name: l.name, color: l.color, mode: l.mode },
     ]),
@@ -52,10 +64,12 @@ function createLineInfoMap(cityData: CityData): Map<string, StationLineInfo> {
 }
 
 function createStationPolygonsForGroup(
-  group: readonly StopEntry[],
+  group: readonly TransitStopEntry[],
   corridors: Map<string, CorridorGeometry>,
   lineInfoMap: Map<string, StationLineInfo>,
 ): StationGeometry[] {
+  if (group.length === 0) return [];
+
   const centroid = calculateCentroid(group);
   const groupLineIds = [...new Set(group.map((e) => e.lineId))].sort();
   const buckets = partitionLinesToCorridors(groupLineIds, centroid, corridors);
@@ -79,7 +93,7 @@ function createStationPolygonsForGroup(
   return stations;
 }
 
-function calculateCentroid(group: readonly StopEntry[]): CsPoint {
+function calculateCentroid(group: readonly TransitStopEntry[]): CsPoint {
   const sum = group.reduce((acc, e) => add(acc, e.position), { x: 0, z: 0 });
   return scale(sum, 1 / group.length);
 }
@@ -104,7 +118,8 @@ function partitionLinesToCorridors(
 
     for (const eid of [...corridors.keys()].sort()) {
       const corridor = corridors.get(eid);
-      if (!corridor || !corridor.lineIds.includes(lineId)) continue;
+      if (!corridor || !corridor.slots.some((slot) => slot.lineId === lineId))
+        continue;
 
       const proj = projectOnPath(centroid, corridor.path);
       if (proj && proj.dist < bestDist) {
@@ -131,11 +146,12 @@ function partitionLinesToCorridors(
  * (same convention as the rendered line-offset: p − (n−1)/2).
  */
 function calculateSlotOffsets(bucket: Bucket): number[] {
-  const total = bucket.corridor.lineIds.length;
   return bucket.lineIds
-    .map((l) => bucket.corridor.lineIds.indexOf(l))
-    .filter((i) => i >= 0)
-    .map((i) => i - (total - 1) / 2);
+    .map((lineId) =>
+      bucket.corridor.slots.find((slot) => slot.lineId === lineId),
+    )
+    .filter((slot) => slot !== undefined)
+    .map((slot) => slot.offsetIndex);
 }
 
 /**

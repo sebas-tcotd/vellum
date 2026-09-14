@@ -11,12 +11,13 @@
  *
  * `TransitNetwork` is a *projection*: `CityData` stays the canonical city
  * model and this is derived from it on demand, never persisted as a second
- * model. Render geometry (trims, capsules, Béziers) is deliberately **not**
- * here — that stays in the adapter.
+ * model. Render geometry (trims, capsules, Béziers and resolved slots) is part
+ * of that projection so every adapter consumes one canonical result.
  */
 
 import type { CsPoint } from '../coordinate-transform';
 import type { TransitMode } from './city-data';
+import type { TransitRenderGeometry } from '../transit-network/render-geometry';
 
 // ─── Line graph ──────────────────────────────────────────────────────────────
 
@@ -299,4 +300,7 @@ export interface TransitNetwork {
 
   /** Proximity-grouped stops: the transfer candidates. */
   readonly transferCandidates: readonly TransitTransferCandidate[];
+
+  /** Canonical world-space LOOM geometry shared by live and export adapters. */
+  readonly renderGeometry: TransitRenderGeometry;
 }

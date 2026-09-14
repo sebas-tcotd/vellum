@@ -3,19 +3,19 @@
  * `TransitNetwork` projection once via `deriveTransitNetwork` (`@vellum/core`
  * — line graph, MLNCM-S ordering, stop/transfer semantics), builds the render
  * geometry from it (trims, inner connections, stations), and converts the
- * result to GeoJSON. See `@vellum/core`'s `transit-network` module and
- * `../../transit/render-geometry` for the methodology references.
+ * result to GeoJSON. See `@vellum/core`'s canonical `transit-network` module
+ * for the methodology references.
  */
 
-import type { CityData, TransitNetwork } from '@vellum/core';
-import { deriveTransitNetwork } from '@vellum/core';
+import {
+  deriveTransitNetwork,
+  type CityData,
+  type ConnectorGeometry,
+  type CorridorGeometry,
+  type StationGeometry,
+  type TransitNetwork,
+} from '@vellum/core';
 import { csToGeoArray } from '../../coordinate-transform';
-import type {
-  ConnectorGeometry,
-  CorridorGeometry,
-  StationGeometry,
-} from '../../transit/render-geometry';
-import { buildRenderGeometry } from '../../transit/render-geometry';
 import type {
   StationDotFeature,
   TransitFeature,
@@ -34,7 +34,7 @@ import { calculatePolygonCentroid } from '../utils/geometry.helpers';
  */
 export function buildTransitRenderData(cityData: CityData): TransitRenderData {
   const network = deriveTransitNetwork(cityData);
-  const geometry = buildRenderGeometry(network, cityData);
+  const geometry = network.renderGeometry;
 
   return {
     lines: {
@@ -73,8 +73,8 @@ export function buildTransitGeoJson(
 
 /**
  * Builds the station-polygon FeatureCollection (paper §5.4 adapted to CSLMap:
- * proximity-grouped stops rendered as rotated rectangles across their
- * corridor's full bundle width).
+ * proximity-grouped stops rendered as rotated rectangles across only the
+ * corridor slots whose lines actually stop there).
  *
  * @remarks
  * Thin wrapper over {@link buildTransitRenderData}; prefer that function when
@@ -89,7 +89,7 @@ export function buildTransitStopsGeoJson(
 // ─── Internal Helpers ────────────────────────────────────────────────────────
 
 function createLineFeatures(
-  corridors: CorridorGeometry[],
+  corridors: readonly CorridorGeometry[],
   network: TransitNetwork,
 ): TransitFeature[] {
   const features: TransitFeature[] = [];
@@ -98,10 +98,8 @@ function createLineFeatures(
     const coordinates: [number, number][] = corridor.path.map((pt) =>
       csToGeoArray(pt),
     );
-    const n = corridor.lineIds.length;
-
-    for (let p = 0; p < n; p++) {
-      const info = network.lines.get(corridor.lineIds[p]);
+    for (const slot of corridor.slots) {
+      const info = network.lines.get(slot.lineId);
       if (!info) continue;
 
       features.push({
@@ -111,7 +109,7 @@ function createLineFeatures(
           id: info.id,
           color: info.color,
           mode: info.mode,
-          offsetIdx: p - (n - 1) / 2, // SLAP: Formula para el offset de MapLibre
+          offsetIdx: slot.offsetIndex,
         },
       });
     }
@@ -120,7 +118,7 @@ function createLineFeatures(
 }
 
 function createConnectorFeatures(
-  connectors: ConnectorGeometry[],
+  connectors: readonly ConnectorGeometry[],
   network: TransitNetwork,
 ): TransitFeature[] {
   return connectors.flatMap((conn) => {
@@ -146,7 +144,7 @@ function createConnectorFeatures(
 }
 
 function createStationFeatures(
-  stations: StationGeometry[],
+  stations: readonly StationGeometry[],
 ): TransitStopFeature[] {
   return stations.map((station) => ({
     type: 'Feature' as const,
@@ -164,7 +162,7 @@ function createStationFeatures(
 }
 
 function createStationDotFeatures(
-  stations: StationGeometry[],
+  stations: readonly StationGeometry[],
 ): StationDotFeature[] {
   return stations.map((station) => {
     const centroid = calculatePolygonCentroid(station.polygon.slice(0, -1));
