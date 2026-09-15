@@ -970,7 +970,7 @@ describe('MapLibreRenderer', () => {
       mockMap.getLayer.mockReturnValue({ id: 'any' } as unknown as undefined);
 
       renderer.setLayerOptions({
-        transit: { visibleModes: [] },
+        transit: { visibleModes: [], showConfirmedTransfers: true },
         buildings: { visibleCategories: [], colorByCategory: false },
         districts: { showNameOnMap: true, showParkAreas: false },
         terrain: {
@@ -1003,7 +1003,7 @@ describe('MapLibreRenderer', () => {
       mockMap.getLayer.mockReturnValue({ id: 'any' } as unknown as undefined);
 
       renderer.setLayerOptions({
-        transit: { visibleModes: [] },
+        transit: { visibleModes: [], showConfirmedTransfers: true },
         buildings: { visibleCategories: [], colorByCategory: false },
         districts: { showNameOnMap: false, showParkAreas: true },
         terrain: {
@@ -1033,7 +1033,7 @@ describe('MapLibreRenderer', () => {
         activeLayers: ALL_LAYERS_VISIBLE,
       });
       renderer.setLayerOptions({
-        transit: { visibleModes: [] },
+        transit: { visibleModes: [], showConfirmedTransfers: true },
         buildings: { visibleCategories: [], colorByCategory: false },
         districts: { showNameOnMap: true, showParkAreas: true },
         terrain: {
@@ -1171,7 +1171,7 @@ describe('MapLibreRenderer', () => {
       // Toggling any option (here: contour lines) re-runs setOptions, which
       // must not reset the relief back to full opacity while dimming holds.
       renderer.setLayerOptions({
-        transit: { visibleModes: [] },
+        transit: { visibleModes: [], showConfirmedTransfers: true },
         buildings: { visibleCategories: [], colorByCategory: false },
         districts: { showNameOnMap: false, showParkAreas: false },
         terrain: {

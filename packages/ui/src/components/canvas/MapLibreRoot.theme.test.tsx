@@ -33,7 +33,7 @@ vi.mock('../../store/vellum-store', () => ({
       activeTheme: mockActiveTheme,
       transitDimmingEnabled: mockTransitDimmingEnabled,
       layerOptions: {
-        transit: { visibleModes: [] },
+        transit: { visibleModes: [], showConfirmedTransfers: true },
         buildings: { visibleCategories: [] },
         districts: { showNameOnMap: false, showParkAreas: false },
         terrain: {

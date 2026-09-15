@@ -238,11 +238,22 @@ presentes en el grupo:
   modos distintos que participan del grupo— más una `confidence` de
   `'confirmed'` o `'unconfirmed'`.
 - `confidence` es `'confirmed'` **si y solo si** el grupo abarca dos o más
-  `lineId` distintos. Un grupo con una sola línea es `'unconfirmed'` y nunca
-  se presenta como transferencia, sin importar cuán cerca esté de otra parada.
+  **modos** de transporte distintos (p. ej. bus + tren). Dos o más líneas del
+  _mismo_ modo compartiendo parada no confirman una transferencia — esa
+  situación ya se distingue visualmente con la cápsula multi-línea existente.
+  Un grupo de un solo modo (una línea, o varias del mismo modo) es
+  `'unconfirmed'` y nunca se presenta como transferencia, sin importar cuán
+  cerca esté de otra parada.
 - Nada de la agrupación por proximidad se infiere estadísticamente — el
   criterio solo lee `TransitStopEntry.lineId` y `LineInfo.mode`, ambos datos
   de `.cslmap` ya verificados.
+- El criterio no distingue si la parada coincide con un edificio de
+  intercambio real del juego (p. ej. `Ferry and Bus Exchange Stop`,
+  `Multiplatform Train Station`): ese dato existe en el `.cslmap` para
+  edificios (`icls`/`subsrv`/`name` en `<Buil>`), pero hoy no hay ningún cruce
+  entre paradas de tránsito y edificios en el pipeline. Diferido hacia el
+  trabajo de extracción de datos crudos del juego (Épico 5) — ver
+  `deferred-work.md`.
 
 `buildStations` anota cada `StationGeometry` con `confirmedTransfer`
 (`candidate.confidence === 'confirmed'`), y el builder de GeoJSON deriva una

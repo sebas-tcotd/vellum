@@ -154,6 +154,11 @@ export class MapLayerManager {
     for (const id of LAYER_ID_MAP.transit) {
       this.setFilterIfExists(id, transitFilter);
     }
+    this.setLayoutIfExists(
+      'transit-transfer-marker',
+      'visibility',
+      options.transit.showConfirmedTransfers ? 'visible' : 'none',
+    );
 
     const buildingsFilter = [
       'in',

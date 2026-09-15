@@ -456,7 +456,42 @@ describe('buildRenderGeometry — stations (§5.4 rounded markers)', () => {
       'A',
       'B',
     ]);
-    // Two distinct lines sharing this station: a confirmed transfer.
+    // Two lines of the same mode: still a capsule, but not a confirmed
+    // transfer — that's reserved for a real cross-mode connection.
+    expect(geometry.stations[0].confirmedTransfer).toBe(false);
+  });
+
+  it('confirms a transfer when the shared station spans two distinct modes', () => {
+    const lineA = makeTransitLine({
+      id: 'A',
+      name: 'A',
+      mode: 'Bus',
+      route: [{ segmentIds: ['seg-1'] }],
+      stops: [
+        { id: 'sa', mode: 'Bus', position: { x: 50, y: 0, z: 2 }, name: '' },
+      ],
+    });
+    const lineB = makeTransitLine({
+      id: 'B',
+      name: 'B',
+      mode: 'Train',
+      route: [{ segmentIds: ['seg-1'] }],
+      stops: [
+        {
+          id: 'sb',
+          mode: 'Train',
+          position: { x: 50 + STATION_MERGE_THRESHOLD_M / 2, y: 0, z: 2 },
+          name: '',
+        },
+      ],
+    });
+    const city = makeCityData({
+      roadNodes: [node('node-a', 0, 0), node('node-b', 200, 0)],
+      roadSegments: [seg('seg-1', 'node-a', 'node-b')],
+      transitLines: [lineA, lineB],
+    });
+    const { geometry } = buildGeom(city);
+    expect(geometry.stations).toHaveLength(1);
     expect(geometry.stations[0].confirmedTransfer).toBe(true);
   });
 });

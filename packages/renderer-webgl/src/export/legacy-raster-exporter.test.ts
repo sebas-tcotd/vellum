@@ -25,7 +25,7 @@ function makeSnapshot(surface = { width: 800, height: 600 }): ExportSnapshot {
       districts: true,
     },
     layerOptions: {
-      transit: { visibleModes: ['Bus'] },
+      transit: { visibleModes: ['Bus'], showConfirmedTransfers: true },
       buildings: { visibleCategories: ['residential'], colorByCategory: false },
       districts: { showNameOnMap: false, showParkAreas: false },
       terrain: {

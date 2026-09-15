@@ -286,9 +286,10 @@ describe('buildCartographicScene', () => {
   });
 
   it('emits a themed confirmed-transfer marker matching the live layer, in parity with it', () => {
-    // Two lines sharing a stop within STATION_MERGE_THRESHOLD_M: a confirmed
-    // transfer, per the same core criterion the live `transit-transfer-marker`
-    // layer consumes (`network.renderGeometry.stations[].confirmedTransfer`).
+    // Two distinct modes sharing a stop within STATION_MERGE_THRESHOLD_M: a
+    // confirmed transfer, per the same core criterion the live
+    // `transit-transfer-marker` layer consumes
+    // (`network.renderGeometry.stations[].confirmedTransfer`).
     const city = makeCityData({
       roadNodes: [
         { id: 'n1', position: { x: -1000, y: 50, z: 0 } },
@@ -304,6 +305,7 @@ describe('buildCartographicScene', () => {
       transitLines: [
         makeTransitLine({
           id: 'line-a',
+          mode: 'Bus',
           route: [{ segmentIds: ['seg-transit'] }],
           stops: [
             {
@@ -316,11 +318,12 @@ describe('buildCartographicScene', () => {
         }),
         makeTransitLine({
           id: 'line-b',
+          mode: 'Train',
           route: [{ segmentIds: ['seg-transit'] }],
           stops: [
             {
               id: 'stop-b',
-              mode: 'Bus',
+              mode: 'Train',
               position: { x: 5, y: 0, z: 0 },
               name: '',
             },

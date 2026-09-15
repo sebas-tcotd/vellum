@@ -178,7 +178,7 @@ describe('deriveTransitNetwork — transfer candidates', () => {
     });
   }
 
-  it('merges stops of different lines within the threshold into one candidate', () => {
+  it('merges stops of different lines within the threshold into one candidate, but does not confirm a same-mode transfer', () => {
     const network = deriveTransitNetwork(
       twoLineStopCity(STATION_MERGE_THRESHOLD_M),
     );
@@ -188,7 +188,9 @@ describe('deriveTransitNetwork — transfer candidates', () => {
     expect(candidate!.stops.map((e) => e.lineId).sort()).toEqual(['A', 'B']);
     expect(candidate!.lineIds).toEqual(['A', 'B']);
     expect(candidate!.modes).toEqual(['Bus']);
-    expect(candidate!.confidence).toBe('confirmed');
+    // Two lines of the same mode already read as a multi-line capsule;
+    // 'confirmed' is reserved for a real cross-mode transfer.
+    expect(candidate!.confidence).toBe('unconfirmed');
   });
 
   it('keeps stops beyond the threshold as separate single-line candidates', () => {
@@ -200,7 +202,7 @@ describe('deriveTransitNetwork — transfer candidates', () => {
     for (const candidate of network.transferCandidates) {
       expect(candidate.stops).toHaveLength(1);
       expect(candidate.lineIds).toHaveLength(1);
-      // Always: a stop with a single lineId/mode never marks as a transfer.
+      // Always: a stop with a single mode never marks as a transfer.
       expect(candidate.confidence).toBe('unconfirmed');
     }
   });
@@ -267,8 +269,10 @@ describe('deriveTransitNetwork — transfer candidates', () => {
 
     expect(() => groupStopsByProximity(entries, lines)).not.toThrow();
     expect(candidate!.lineIds).toEqual(['GHOST', 'KNOWN']);
+    // Only one mode actually resolves — not a confirmed transfer, and the
+    // unresolved lineId must never be counted as a second, fabricated mode.
     expect(candidate!.modes).toEqual(['Bus']);
-    expect(candidate!.confidence).toBe('confirmed');
+    expect(candidate!.confidence).toBe('unconfirmed');
   });
 });
 

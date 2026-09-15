@@ -60,8 +60,8 @@ export function extractUniqueStops(cityData: CityData): TransitStopEntry[] {
  * @remarks
  * The grouping itself — the `STATION_MERGE_THRESHOLD_M` geometric threshold —
  * is unchanged from Story 1.5: this only *derives* which groups are evidenced
- * transfers from data already on the group (distinct `lineId`s) and the
- * line map's `mode`, never by widening or narrowing what counts as a group.
+ * transfers from data already on the group — distinct transit `mode`s via the
+ * line map — never by widening or narrowing what counts as a group.
  *
  * @param entries - Deduplicated stop entries, in deterministic order.
  * @param lines - Per-line metadata (for `mode`), keyed by line id — the same
@@ -99,8 +99,14 @@ export function groupStopsByProximity(
 /**
  * Derives the typed candidate from a raw proximity group: the distinct
  * lines/modes participating, and the confidence criterion (`'confirmed'` iff
- * two or more distinct `lineId`s are present — never inferred from anything
- * beyond that).
+ * two or more distinct transit *modes* are present — never inferred from
+ * anything beyond that).
+ *
+ * @remarks
+ * Two or more lines of the *same* mode sharing a stop is not, by itself,
+ * confirmation of a real transfer point: the existing capsule marker already
+ * distinguishes a multi-line stop visually. `confirmed` is reserved for a
+ * stop that actually connects different kinds of service (e.g. bus + train).
  */
 function toTransferCandidate(
   group: readonly TransitStopEntry[],
@@ -119,6 +125,6 @@ function toTransferCandidate(
     stops: group,
     lineIds,
     modes,
-    confidence: lineIds.length >= 2 ? 'confirmed' : 'unconfirmed',
+    confidence: modes.length >= 2 ? 'confirmed' : 'unconfirmed',
   };
 }

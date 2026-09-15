@@ -473,24 +473,26 @@ describe('buildTransitRenderData — connectors and stations', () => {
     expect(lines.map((l) => l.name).sort()).toEqual(['A', 'B']);
   });
 
-  it('includes a confirmed transfer (≥2 lines) in transferMarkers', () => {
-    const mkStop = (id: string, x: number) => ({
+  it('includes a confirmed transfer (≥2 modes) in transferMarkers', () => {
+    const mkStop = (id: string, x: number, mode: 'Bus' | 'Train') => ({
       id,
-      mode: 'Bus' as const,
+      mode,
       position: { x, y: 0, z: 5 },
       name: '',
     });
     const lineA = makeTransitLine({
       id: 'line-a',
       name: 'A',
+      mode: 'Bus',
       route: [makePathSeg(['seg-1'])],
-      stops: [mkStop('stop-a', 50)],
+      stops: [mkStop('stop-a', 50, 'Bus')],
     });
     const lineB = makeTransitLine({
       id: 'line-b',
       name: 'B',
+      mode: 'Train',
       route: [makePathSeg(['seg-1'])],
-      stops: [mkStop('stop-b', 60)], // within the 48 m threshold
+      stops: [mkStop('stop-b', 60, 'Train')], // within the 48 m threshold
     });
     const city = makeCityData({
       roadNodes: [NODE_A, NODE_B],
@@ -503,6 +505,38 @@ describe('buildTransitRenderData — connectors and stations', () => {
     expect(data.transferMarkers.features[0]!.properties.id).toBe(
       data.stationDots.features[0]!.properties.id,
     );
+  });
+
+  it('excludes a same-mode multi-line stop from transferMarkers (capsule, not a confirmed transfer)', () => {
+    const mkStop = (id: string, x: number) => ({
+      id,
+      mode: 'Bus' as const,
+      position: { x, y: 0, z: 5 },
+      name: '',
+    });
+    const lineA = makeTransitLine({
+      id: 'line-a',
+      name: 'A',
+      mode: 'Bus',
+      route: [makePathSeg(['seg-1'])],
+      stops: [mkStop('stop-a', 50)],
+    });
+    const lineB = makeTransitLine({
+      id: 'line-b',
+      name: 'B',
+      mode: 'Bus',
+      route: [makePathSeg(['seg-1'])],
+      stops: [mkStop('stop-b', 60)], // within the 48 m threshold
+    });
+    const city = makeCityData({
+      roadNodes: [NODE_A, NODE_B],
+      roadSegments: [SEG_1],
+      transitLines: [lineA, lineB],
+    });
+
+    const data = buildTransitRenderData(city);
+    expect(data.stationDots.features).toHaveLength(1);
+    expect(data.transferMarkers.features).toHaveLength(0);
   });
 
   it('excludes a single-line stop from transferMarkers (never fabricates a transfer)', () => {

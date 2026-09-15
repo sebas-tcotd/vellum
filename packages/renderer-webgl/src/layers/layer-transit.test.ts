@@ -115,7 +115,7 @@ describe('addTransitLayers — contrato MapLibre', () => {
 });
 
 describe('addTransitLayers — marcador de transferencia confirmada', () => {
-  function twoLineStopCity() {
+  function twoLineStopCity(modeB: 'Bus' | 'Train' = 'Train') {
     return makeCityData({
       roadNodes: [
         { id: 'a', position: { x: 0, y: 0, z: 0 } },
@@ -127,6 +127,7 @@ describe('addTransitLayers — marcador de transferencia confirmada', () => {
       transitLines: [
         makeTransitLine({
           id: 'A',
+          mode: 'Bus',
           route: [{ segmentIds: ['s'] }],
           stops: [
             {
@@ -139,11 +140,12 @@ describe('addTransitLayers — marcador de transferencia confirmada', () => {
         }),
         makeTransitLine({
           id: 'B',
+          mode: modeB,
           route: [{ segmentIds: ['s'] }],
           stops: [
             {
               id: 'stop-b',
-              mode: 'Bus',
+              mode: modeB,
               position: { x: 5, y: 0, z: 0 },
               name: '',
             },
@@ -153,9 +155,9 @@ describe('addTransitLayers — marcador de transferencia confirmada', () => {
     });
   }
 
-  it('solo incluye transferencias confirmadas (≥2 líneas) en el source dedicado', () => {
+  it('solo incluye transferencias confirmadas (≥2 modos) en el source dedicado', () => {
     const recorder = recordingMap();
-    addTransitLayers(recorder.map, twoLineStopCity(), TEST_COLORS);
+    addTransitLayers(recorder.map, twoLineStopCity('Train'), TEST_COLORS);
 
     const [, source] = recorder.sources.find(
       ([id]) => id === 'transit-transfer-markers',
@@ -167,6 +169,17 @@ describe('addTransitLayers — marcador de transferencia confirmada', () => {
   it('no produce marcadores de transferencia cuando ninguna parada es compartida', () => {
     const recorder = recordingMap();
     addTransitLayers(recorder.map, transitCity(), TEST_COLORS);
+
+    const [, source] = recorder.sources.find(
+      ([id]) => id === 'transit-transfer-markers',
+    )!;
+    const data = (source as { data: { features: unknown[] } }).data;
+    expect(data.features).toHaveLength(0);
+  });
+
+  it('no confirma la transferencia cuando las líneas compartidas son del mismo modo', () => {
+    const recorder = recordingMap();
+    addTransitLayers(recorder.map, twoLineStopCity('Bus'), TEST_COLORS);
 
     const [, source] = recorder.sources.find(
       ([id]) => id === 'transit-transfer-markers',

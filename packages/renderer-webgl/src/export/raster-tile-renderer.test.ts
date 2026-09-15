@@ -153,7 +153,7 @@ function makeSnapshot(): ExportSnapshot {
     style: MOCK_STYLE,
     activeLayers: makeLayerVisibility(),
     layerOptions: {
-      transit: { visibleModes: ['Bus'] },
+      transit: { visibleModes: ['Bus'], showConfirmedTransfers: true },
       buildings: { visibleCategories: ['residential'], colorByCategory: false },
       districts: { showNameOnMap: false, showParkAreas: false },
       terrain: {
