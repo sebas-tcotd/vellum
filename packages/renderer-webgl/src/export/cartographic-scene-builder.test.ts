@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_LAYER_OPTIONS,
   SCENE_LAYER_ORDER,
+  SLOT_M,
   projectScenePoint,
   type CartographicScene,
   type ExportSnapshotBase,
@@ -249,6 +250,39 @@ describe('buildCartographicScene', () => {
     });
     expect(transit[0]!.stroke).not.toHaveProperty('opacity');
     expect(transit[0]!.stroke).not.toHaveProperty('dashPx');
+  });
+
+  it('bakes the same canonical slot spacing into export paths', () => {
+    const base = transitCity('Bus');
+    const city = makeCityData({
+      ...base,
+      transitLines: [
+        makeTransitLine({
+          id: 'line-a',
+          route: [{ segmentIds: ['seg-transit'] }],
+        }),
+        makeTransitLine({
+          id: 'line-b',
+          route: [{ segmentIds: ['seg-transit'] }],
+        }),
+      ],
+    });
+
+    const transit = layerEntities(build(city), 'transit');
+    expect(transit).toHaveLength(2);
+    const firstPoints = transit.map(
+      (entity) =>
+        (
+          entity.geometry as {
+            kind: 'path';
+            points: { x: number; z: number }[];
+          }
+        ).points[0],
+    );
+    expect(Math.abs(firstPoints[1]!.z - firstPoints[0]!.z)).toBeCloseTo(
+      SLOT_M,
+      10,
+    );
   });
 
   it.each([

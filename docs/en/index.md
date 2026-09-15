@@ -52,6 +52,7 @@ that references it. The tree is language-neutral and shared by both indexes.
 | ----------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
 | [ADR-0001 — Rendering ownership](../adr/0001-rendering-ownership.md)                | The `IRenderer` port and its segregated ports, the admissible adapters, and the single composition root. |
 | [ADR-0002 — Public Windows installer](../adr/0002-nsis-public-windows-installer.md) | NSIS as Vellum's recommended Windows installer, with MSI retained as an alternative.                     |
+| [ADR-0004 — Canonical LOOM geometry](../adr/0004-canonicalizar-geometria-loom.md)   | Transit geometry, slots and stations belong to `@vellum/core`; WebGL only adapts them.                   |
 
 ## A note about source and history
 

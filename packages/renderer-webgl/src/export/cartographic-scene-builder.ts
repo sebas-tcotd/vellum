@@ -34,7 +34,9 @@ import {
   type SceneWarning,
   type SceneWarningCode,
   type TransitMode,
+  LINE_WIDTH_M,
   ROAD_WIDTH_STYLES,
+  SLOT_M,
 } from '@vellum/core';
 import { VELLUM_LOGO_SIZE, vellumLogoInnerSvg } from '../assets/vellum-logo';
 import { geoToCs } from '../coordinate-transform';
@@ -72,7 +74,6 @@ import {
 import { TRANSIT_DIM_FACTOR } from '../constants/layer.constants';
 import { buildSceneAnnotations } from './scene-annotations';
 import { resolveColors, type ResolvedColors } from '../style-adapter';
-import { LINE_WIDTH_M, SLOT_M } from '../transit/render-geometry';
 
 /** Everything the scene builder needs, plus the caller's cartographic policy. */
 export interface CartographicSceneInput {

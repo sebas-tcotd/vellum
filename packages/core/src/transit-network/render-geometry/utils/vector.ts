@@ -1,4 +1,4 @@
-/** Vector arithmetic helpers over `CsPoint` (world space). */
+/** Pure vector arithmetic helpers over `CsPoint` (world space). */
 
 import type { CsPoint } from '../../../coordinate-transform';
 
@@ -32,7 +32,7 @@ export function rightOf(d: CsPoint): CsPoint {
 /** Projects `p` onto a polyline; returns closest point, segment direction, and distance. */
 export function projectOnPath(
   p: CsPoint,
-  path: CsPoint[],
+  path: readonly Readonly<CsPoint>[],
 ): { point: CsPoint; dir: CsPoint; dist: number } | null {
   let best: { point: CsPoint; dir: CsPoint; dist: number } | null = null;
   for (let i = 1; i < path.length; i++) {

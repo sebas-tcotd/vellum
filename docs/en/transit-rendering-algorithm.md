@@ -29,13 +29,14 @@ the visual displacement on screen.
 
 ## Entry point
 
-`packages/renderer-webgl/src/geojson/builders/transit.builder.ts` orchestrates the
-pipeline through `buildTransitRenderData(cityData)`:
+`packages/core/src/transit-network/index.ts` orchestrates the pipeline through
+`deriveTransitNetwork(cityData)`:
 
 1. `buildTransitLineGraph` builds the topological representation.
 2. `computeLineOrder` optimizes bundle order.
 3. `buildRenderGeometry` computes trimmed corridors, connectors and stations.
-4. The builder converts world-space geometry `{ x, z }` to GeoJSON through
+4. Geometry is attached as `network.renderGeometry`; the `renderer-webgl`
+   adapter converts it from `{ x, z }` to GeoJSON through
    `csToGeoArray` —using Vellum's configured south-up CS1 orientation—and emits four
    `FeatureCollection` values:
    - `lines`: corridor centerlines with `offsetIdx`;
@@ -232,9 +233,9 @@ transit-stops-outline
 transit-stops-dot
 ```
 
-The same `buildTransitRenderData` output is reused by the cartographic export
-pipeline. Classification, ordering, connectors and stations are not reimplemented
-separately for PNG/SVG.
+The same `network.renderGeometry` feeds live-map GeoJSON and the cartographic
+export pipeline. Classification, ordering, slots, connectors and stations are
+not reimplemented separately for PNG/SVG.
 
 ## 5. Relationship to LOOM and justified deviations
 
@@ -260,15 +261,17 @@ of the LOOM binary or a translation of its GPL-3.0 C++ code.
 without this ordering pipeline. It was retired by
 [ADR-0001](../adr/0001-rendering-ownership.md) and no longer exists.
 
-The ADR names where transit derivation belongs, and Story 1.5 carried it out:
-the `TransitNetwork` projection lives in `@vellum/core`
+The ADR named where transit derivation belongs, and Story 1.5 moved the
+`TransitNetwork` projection to `@vellum/core`
 (`packages/core/src/types/transit-network.ts` for the vocabulary,
 `packages/core/src/transit-network/` for the derivation — `line-graph/`,
 `ordering/`, `stops.ts`), behind the single entry point
 `deriveTransitNetwork(cityData, extensions?)`, which returns a frozen
-projection. Render geometry stayed in the adapter:
-`packages/renderer-webgl/src/transit/render-geometry/` consumes the network and
-no longer regroups stops.
+projection. Story 3.2 completes that boundary through
+[ADR-0004](../adr/0004-canonicalizar-geometria-loom.md): `render-geometry/` now
+lives under `transit-network/`, resolves slots and stations from the network,
+and attaches its output to `network.renderGeometry`. WebGL only adapts that
+output to GeoJSON and MapLibre.
 
 ## 7. Validation and known limits
 
@@ -278,8 +281,11 @@ Coverage lives in:
 - `packages/core/src/transit-network/ordering.test.ts`;
 - `packages/core/src/transit-network/transit-network.test.ts` for the derived
   projection (stops, transfer candidates, extensions, freeze, determinism);
-- `packages/renderer-webgl/src/transit/render-geometry.test.ts`;
+- `packages/core/src/transit-network/render-geometry.test.ts`;
+- `packages/core/src/transit-network/loom-parity.test.ts`;
 - `packages/renderer-webgl/src/geojson.test.ts` for GeoJSON output.
+- `packages/renderer-webgl/src/layers/layer-transit.test.ts` for sources,
+  layers, z-order and offset calibration.
 
 Regression cases include the double-mirror crossing, determinism under input
 permutation, CW/CCW bundles, complex nodes, closed routes, stations covering only

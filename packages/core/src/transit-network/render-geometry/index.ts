@@ -29,11 +29,16 @@
  * MapLibre's positive `line-offset` direction.
  */
 
-import type { CityData, TransitNetwork } from '@vellum/core';
 import { buildConnectors } from './builders/connector-builder';
 import { buildCorridors } from './builders/corridor-builder';
 import { buildStations } from './builders/station-builder';
-import type { TransitRenderGeometry } from './types';
+import type { CsPoint } from '../../coordinate-transform';
+import type {
+  CorridorGeometry,
+  RenderGeometryNetwork,
+  StationGeometry,
+  TransitRenderGeometry,
+} from './types';
 
 export {
   BEZIER_ARM_FACTOR,
@@ -48,13 +53,13 @@ export {
   STATION_HALF_THICKNESS_M,
   STATION_MERGE_THRESHOLD_M,
 } from './config';
-export {
-  Bucket,
+export type {
   ConnectorGeometry,
   CorridorGeometry,
+  RenderGeometryNetwork,
   StationGeometry,
   StationLineInfo,
-  StopEntry,
+  TransitLineSlot,
   TransitRenderGeometry,
 } from './types';
 
@@ -62,14 +67,12 @@ export {
  * Builds all world-space render geometry for the transit layer group from the
  * derived transit network.
  *
- * @param network - The derived transit network from `deriveTransitNetwork`
- *   (`@vellum/core`): corridors, ordering, stops and transfer candidates.
- * @param cityData - Domain model (for line names and colors).
+ * @param network - The derived network fields needed for corridors, ordering,
+ *   line metadata, stops and transfer candidates.
  * @returns Corridors, inner connections, and station polygons.
  */
 export function buildRenderGeometry(
-  network: TransitNetwork,
-  cityData: CityData,
+  network: RenderGeometryNetwork,
 ): TransitRenderGeometry {
   // 1. Corridors: trim back from junction nodes.
   const corridors = buildCorridors(network);
@@ -82,14 +85,72 @@ export function buildRenderGeometry(
 
   // 3. Stations: the network's transfer candidates projected onto their corridor.
   const stations = buildStations(
-    cityData,
+    network,
     corridors,
     network.transferCandidates,
   );
 
-  return {
+  return freezeRenderGeometry({
     corridors: Array.from(corridors.values()),
     connectors,
     stations,
-  };
+  });
+}
+
+/**
+ * Clones and freezes the complete geometry boundary without changing the
+ * mutability policy of any pre-existing network collection.
+ */
+function freezeRenderGeometry(
+  geometry: TransitRenderGeometry,
+): TransitRenderGeometry {
+  const corridors = Object.freeze(
+    geometry.corridors.map((corridor) => freezeCorridor(corridor)),
+  );
+  const connectors = Object.freeze(
+    geometry.connectors.map((connector) =>
+      Object.freeze({
+        lineId: connector.lineId,
+        path: freezePoints(connector.path),
+      }),
+    ),
+  );
+  const stations = Object.freeze(
+    geometry.stations.map((station) => freezeStation(station)),
+  );
+
+  return Object.freeze({ corridors, connectors, stations });
+}
+
+function freezeCorridor(corridor: CorridorGeometry): CorridorGeometry {
+  return Object.freeze({
+    edgeId: corridor.edgeId,
+    path: freezePoints(corridor.path),
+    slots: Object.freeze(
+      corridor.slots.map((slot) =>
+        Object.freeze({
+          lineId: slot.lineId,
+          offsetIndex: slot.offsetIndex,
+        }),
+      ),
+    ),
+  });
+}
+
+function freezeStation(station: StationGeometry): StationGeometry {
+  return Object.freeze({
+    id: station.id,
+    polygon: freezePoints(station.polygon),
+    lines: Object.freeze(
+      station.lines.map((line) =>
+        Object.freeze({ name: line.name, color: line.color, mode: line.mode }),
+      ),
+    ),
+  });
+}
+
+function freezePoints(
+  points: readonly Readonly<CsPoint>[],
+): readonly Readonly<CsPoint>[] {
+  return Object.freeze(points.map((point) => Object.freeze({ ...point })));
 }

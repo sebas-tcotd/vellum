@@ -12,16 +12,8 @@ export const BEZIER_ARM_FACTOR = 0.4;
 export const BEZIER_SAMPLES = 8;
 export const MAX_TRIM_FRACTION = 0.4;
 
-/**
- * Stop-merge threshold, re-exported from `@vellum/core`.
- *
- * @remarks
- * The value itself is stop semantics, not render geometry, so it lives with
- * `deriveTransitNetwork` (ADR-0001 D6 / Story 1.5). It stays re-exported here
- * so the adapter's public surface — and `render-geometry.test.ts` — do not
- * change.
- */
-export { STATION_MERGE_THRESHOLD_M } from '@vellum/core';
+/** Stop semantics lives beside the canonical derivation. */
+export { STATION_MERGE_THRESHOLD_M } from '../stops';
 /**
  * Half-thickness of a station marker *along* its corridor, in world meters —
  * the capsule's short (minor) axis. The long axis runs *across* the corridor,

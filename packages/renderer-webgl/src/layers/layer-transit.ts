@@ -19,10 +19,9 @@
  * into a single stroke, which matches how geographic maps degrade).
  */
 
-import type { CityData } from '@vellum/core';
+import { LINE_WIDTH_M, SLOT_M, type CityData } from '@vellum/core';
 import * as maplibregl from 'maplibre-gl';
 import { buildTransitRenderData } from '../geojson';
-import { LINE_WIDTH_M, SLOT_M } from '../transit/render-geometry';
 import { addLayerIfAbsent, addSourceIfAbsent } from '../helpers';
 
 // Pixels per world meter at the equator for zoom 13 (512px tiles):

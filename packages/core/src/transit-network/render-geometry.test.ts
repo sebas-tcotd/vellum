@@ -1,11 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import {
-  makeCityData,
-  makeRoadSegment,
-  makeTransitLine,
-} from '@vellum/core/testing';
-import type { RoadNode } from '@vellum/core';
-import { deriveTransitNetwork } from '@vellum/core';
+import { makeCityData, makeRoadSegment, makeTransitLine } from '../testing';
+import type { RoadNode } from '../types/city-data';
+import { deriveTransitNetwork } from './index';
 import {
   buildRenderGeometry,
   SLOT_M,
@@ -42,7 +38,7 @@ function tJunctionCity() {
 
 function buildGeom(city: ReturnType<typeof makeCityData>) {
   const network = deriveTransitNetwork(city);
-  return { network, geometry: buildRenderGeometry(network, city) };
+  return { network, geometry: network.renderGeometry };
 }
 
 // ─── Complex-node regression suite (route-based continuations) ────────────────
@@ -204,7 +200,7 @@ describe('buildRenderGeometry — inner connections at complex nodes', () => {
       ],
     });
     const network = deriveTransitNetwork(city);
-    const geometry = buildRenderGeometry(network, city);
+    const geometry = network.renderGeometry;
     const surviving = new Set(geometry.corridors.map((c) => c.edgeId));
     const expected = network.transitions.filter(
       (t) => surviving.has(t.fromEdge) && surviving.has(t.toEdge),
@@ -460,3 +456,64 @@ describe('buildRenderGeometry — stations (§5.4 rounded markers)', () => {
     ]);
   });
 });
+
+describe('buildRenderGeometry — defensive boundary', () => {
+  it('ignores an empty transfer candidate without producing invalid geometry', () => {
+    const network = deriveTransitNetwork(
+      makeCityData({
+        roadNodes: [node('a', 0, 0), node('b', 100, 0)],
+        roadSegments: [seg('s', 'a', 'b')],
+        transitLines: [
+          makeTransitLine({ id: 'L', route: [{ segmentIds: ['s'] }] }),
+        ],
+      }),
+    );
+
+    expect(
+      buildRenderGeometry({ ...network, transferCandidates: [[]] }).stations,
+    ).toEqual([]);
+  });
+
+  it('freezes every array and object exposed by renderGeometry', () => {
+    const connectorGeometry =
+      deriveTransitNetwork(tJunctionCity()).renderGeometry;
+    const stationGeometry = deriveTransitNetwork(
+      makeCityData({
+        roadNodes: [node('a', 0, 0), node('b', 100, 0)],
+        roadSegments: [seg('s', 'a', 'b')],
+        transitLines: [
+          makeTransitLine({
+            id: 'L',
+            name: 'Línea',
+            route: [{ segmentIds: ['s'] }],
+            stops: [
+              {
+                id: 'stop',
+                mode: 'Bus',
+                position: { x: 50, y: 0, z: 0 },
+                name: 'Parada',
+              },
+            ],
+          }),
+        ],
+      }),
+    ).renderGeometry;
+
+    expectDeepFrozen(connectorGeometry);
+    expectDeepFrozen(stationGeometry);
+    expect(() =>
+      (connectorGeometry.corridors[0].slots as unknown as Array<unknown>).push(
+        {},
+      ),
+    ).toThrow(TypeError);
+  });
+});
+
+function expectDeepFrozen(value: unknown): void {
+  if (value === null || typeof value !== 'object') return;
+
+  expect(Object.isFrozen(value)).toBe(true);
+  for (const child of Object.values(value as Record<string, unknown>)) {
+    expectDeepFrozen(child);
+  }
+}

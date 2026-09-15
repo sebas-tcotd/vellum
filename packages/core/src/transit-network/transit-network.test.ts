@@ -56,6 +56,11 @@ describe('deriveTransitNetwork — empty city', () => {
     expect(network.transitions).toEqual([]);
     expect(network.stops).toEqual([]);
     expect(network.transferCandidates).toEqual([]);
+    expect(network.renderGeometry).toEqual({
+      corridors: [],
+      connectors: [],
+      stations: [],
+    });
     expect(Object.isFrozen(network)).toBe(true);
   });
 });

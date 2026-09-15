@@ -1,10 +1,10 @@
-/** Polyline measurement and trimming helpers (world space). */
+/** Pure polyline measurement and trimming helpers (world space). */
 
 import type { CsPoint } from '../../../coordinate-transform';
 import { norm, sub, add, scale, unit } from './vector';
 
 /** Total length of a polyline, in world meters. */
-export function pathLength(path: CsPoint[]): number {
+export function pathLength(path: readonly Readonly<CsPoint>[]): number {
   if (path.length < 2) return 0;
 
   let totalLength = 0;
@@ -18,8 +18,11 @@ export function pathLength(path: CsPoint[]): number {
 }
 
 /** Cuts `dist` world meters off the start of `path`. */
-export function cutStart(path: CsPoint[], distance: number): CsPoint[] {
-  if (distance <= 0) return path;
+export function cutStart(
+  path: readonly Readonly<CsPoint>[],
+  distance: number,
+): CsPoint[] {
+  if (distance <= 0) return [...path];
   if (path.length < 2) return [...path];
 
   let remainingDistance = distance;
@@ -43,12 +46,18 @@ export function cutStart(path: CsPoint[], distance: number): CsPoint[] {
 }
 
 /** Cuts `dist` world meters off the end of `path`. */
-export function cutEnd(path: CsPoint[], dist: number): CsPoint[] {
+export function cutEnd(
+  path: readonly Readonly<CsPoint>[],
+  dist: number,
+): CsPoint[] {
   return [...cutStart([...path].reverse(), dist)].reverse();
 }
 
 /** Travel direction (A→B) of the path at its start or end. */
-export function endDirection(path: CsPoint[], at: 'start' | 'end'): CsPoint {
+export function endDirection(
+  path: readonly Readonly<CsPoint>[],
+  at: 'start' | 'end',
+): CsPoint {
   if (path.length < 2) return { x: 1, z: 0 };
   return at === 'start'
     ? unit(sub(path[1], path[0]))

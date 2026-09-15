@@ -7,15 +7,18 @@
  */
 
 import type { CsPoint } from '../../../coordinate-transform';
-import type { TransitNetwork } from '@vellum/core';
 import { BEZIER_ARM_FACTOR, BEZIER_SAMPLES, SLOT_M } from '../config';
-import type { ConnectorGeometry, CorridorGeometry } from '../types';
+import type {
+  ConnectorGeometry,
+  CorridorGeometry,
+  RenderGeometryNetwork,
+} from '../types';
 import { cubicBezier, endDirection } from '../utils/path';
 import { add, norm, rightOf, scale, sub } from '../utils/vector';
 
 /** Builds one Bézier connector per route transition between two corridors. */
 export function buildConnectors(
-  network: TransitNetwork,
+  network: RenderGeometryNetwork,
   corridors: Map<string, CorridorGeometry>,
 ): ConnectorGeometry[] {
   const connectors: ConnectorGeometry[] = [];
@@ -25,8 +28,8 @@ export function buildConnectors(
     const cf = corridors.get(transition.toEdge);
     if (!ce || !cf) continue;
     if (
-      !ce.lineIds.includes(transition.lineId) ||
-      !cf.lineIds.includes(transition.lineId)
+      !ce.slots.some((slot) => slot.lineId === transition.lineId) ||
+      !cf.slots.some((slot) => slot.lineId === transition.lineId)
     )
       continue;
 
@@ -66,12 +69,12 @@ function portAt(
   lineId: string,
   at: 'start' | 'end',
 ): CsPoint {
-  const n = corridor.lineIds.length;
-  const p = corridor.lineIds.indexOf(lineId);
-  const offsetIdx = p - (n - 1) / 2;
+  const offsetIndex = corridor.slots.find(
+    (slot) => slot.lineId === lineId,
+  )?.offsetIndex;
   const anchor =
     at === 'start' ? corridor.path[0] : corridor.path[corridor.path.length - 1];
   const dir = endDirection(corridor.path, at);
 
-  return add(anchor, scale(rightOf(dir), offsetIdx * SLOT_M));
+  return add(anchor, scale(rightOf(dir), (offsetIndex ?? 0) * SLOT_M));
 }
