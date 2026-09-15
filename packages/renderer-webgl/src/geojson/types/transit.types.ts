@@ -84,4 +84,11 @@ export interface TransitRenderData {
    * clickable when zoomed out, where the world-locked capsule is sub-pixel.
    */
   stationDots: StationDotsFeatureCollection;
+  /**
+   * Center points of stations whose source transfer candidate is
+   * `'confirmed'` (two or more distinct lines) — a subset of {@link stationDots}.
+   * A single, themeable `circle` marker layer reads this collection to make
+   * confirmed transfers distinguishable, in both the live map and export.
+   */
+  transferMarkers: StationDotsFeatureCollection;
 }

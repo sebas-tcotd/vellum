@@ -197,6 +197,20 @@ export interface RenderStyleParams {
     /** Forestry area (Industries DLC). */
     forestry: ColorToken;
   };
+  /**
+   * Marker colors for a confirmed transit transfer (two or more distinct
+   * lines sharing a stop). Falls back to built-in defaults if not specified.
+   * @remarks
+   * Unlike the base station capsule (deliberately hardcoded, theme-independent
+   * black-on-white — see `layer-transit.ts`), the transfer marker itself is
+   * always themeable: it is new UI, not the pre-existing convention.
+   */
+  transferMarker?: {
+    /** Marker body/fill color. */
+    fill: ColorToken;
+    /** Marker outline/ring color. */
+    stroke: ColorToken;
+  };
 }
 
 /**

@@ -323,6 +323,16 @@ export class MapLayerManager {
     );
     this.setPaintIfExists('park-areas-labels', 'text-color', c.districtLabel);
     this.setPaintIfExists('park-areas-labels', 'text-halo-color', c.background);
+    this.setPaintIfExists(
+      'transit-transfer-marker',
+      'circle-color',
+      c.transferMarker.fill,
+    );
+    this.setPaintIfExists(
+      'transit-transfer-marker',
+      'circle-stroke-color',
+      c.transferMarker.stroke,
+    );
 
     this.setPaintIfExists('map-frame', 'line-color', c.mapFrame);
     this.setPaintIfExists('grid-layer', 'line-color', c.grid.line);

@@ -98,6 +98,13 @@ export interface ResolvedColors {
     /** Forestry area (Industries DLC). */
     forestry: string;
   };
+  /** Confirmed transit-transfer marker colors — drives `layer-transit.ts`'s themed marker. */
+  transferMarker: {
+    /** Marker body/fill color. */
+    fill: string;
+    /** Marker outline/ring color. */
+    stroke: string;
+  };
 }
 
 /** Derives the flat `ResolvedColors` lookup from a `RenderStyleParams` theme. */
@@ -165,6 +172,10 @@ export function resolveColors(style: RenderStyleParams): ResolvedColors {
       tradeSchool: style.parkAreas?.tradeSchool ?? '#d2938e',
       industry: style.parkAreas?.industry ?? '#a098b0',
       forestry: style.parkAreas?.forestry ?? '#14592a',
+    },
+    transferMarker: {
+      fill: style.transferMarker?.fill ?? '#f2b705',
+      stroke: style.transferMarker?.stroke ?? '#8a5a00',
     },
   };
 }

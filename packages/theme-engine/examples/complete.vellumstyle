@@ -180,5 +180,9 @@
     "tradeSchool": "#b99480",
     "industry": "#9b8b9f",
     "forestry": "#8f9c7f"
+  },
+  "transferMarker": {
+    "fill": "#d9a441",
+    "stroke": "#8a5a1f"
   }
 }

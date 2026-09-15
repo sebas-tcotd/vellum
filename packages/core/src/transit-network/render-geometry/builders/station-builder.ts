@@ -47,8 +47,8 @@ export function buildStations(
 ): StationGeometry[] {
   const lineInfoMap = createLineInfoMap(network);
 
-  return transferCandidates.flatMap((group) =>
-    createStationPolygonsForGroup(group, corridors, lineInfoMap),
+  return transferCandidates.flatMap((candidate) =>
+    createStationPolygonsForGroup(candidate, corridors, lineInfoMap),
   );
 }
 
@@ -64,15 +64,19 @@ function createLineInfoMap(
 }
 
 function createStationPolygonsForGroup(
-  group: readonly TransitStopEntry[],
+  candidate: TransitTransferCandidate,
   corridors: Map<string, CorridorGeometry>,
   lineInfoMap: Map<string, StationLineInfo>,
 ): StationGeometry[] {
+  const group = candidate.stops;
   if (group.length === 0) return [];
 
   const centroid = calculateCentroid(group);
-  const groupLineIds = [...new Set(group.map((e) => e.lineId))].sort();
-  const buckets = partitionLinesToCorridors(groupLineIds, centroid, corridors);
+  const buckets = partitionLinesToCorridors(
+    candidate.lineIds,
+    centroid,
+    corridors,
+  );
 
   const stations: StationGeometry[] = [];
 
@@ -87,6 +91,7 @@ function createStationPolygonsForGroup(
       id: `${group[0].stopId}:${bucket.corridor.edgeId}`,
       polygon,
       lines,
+      confirmedTransfer: candidate.confidence === 'confirmed',
     });
   }
 
@@ -106,7 +111,7 @@ function calculateCentroid(group: readonly TransitStopEntry[]): CsPoint {
  * never spans lines that merely pass through.
  */
 function partitionLinesToCorridors(
-  lineIds: string[],
+  lineIds: readonly string[],
   centroid: CsPoint,
   corridors: Map<string, CorridorGeometry>,
 ): Map<string, Bucket> {

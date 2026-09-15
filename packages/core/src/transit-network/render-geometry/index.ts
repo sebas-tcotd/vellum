@@ -146,6 +146,7 @@ function freezeStation(station: StationGeometry): StationGeometry {
         Object.freeze({ name: line.name, color: line.color, mode: line.mode }),
       ),
     ),
+    confirmedTransfer: station.confirmedTransfer,
   });
 }
 

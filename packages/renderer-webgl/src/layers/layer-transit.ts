@@ -23,6 +23,7 @@ import { LINE_WIDTH_M, SLOT_M, type CityData } from '@vellum/core';
 import * as maplibregl from 'maplibre-gl';
 import { buildTransitRenderData } from '../geojson';
 import { addLayerIfAbsent, addSourceIfAbsent } from '../helpers';
+import type { ResolvedColors } from '../style-adapter';
 
 // Pixels per world meter at the equator for zoom 13 (512px tiles):
 // 512 × 2^13 / 40075016.686
@@ -59,6 +60,17 @@ const Z_FADE_LO = 15.5;
 const Z_FADE_HI = 16.5;
 /** Minimum station-dot radius in px — keeps stops discoverable/clickable at overview. */
 export const STATION_DOT_MIN_PX = 3.4;
+
+// Confirmed-transfer marker (Story 3.3): a themeable ring around the station
+// center, distinct from the fixed black-on-white station convention above.
+// Unlike the capsule/dot cross-fade, this marker does not fade with zoom —
+// a confirmed transfer is equally relevant at every zoom level.
+/** Marker ring radius in px at overview zoom (z10), scaled like the station dot. */
+export const TRANSFER_MARKER_RADIUS_MIN_PX = STATION_DOT_MIN_PX + 3;
+/** Marker ring stroke width in px. */
+export const TRANSFER_MARKER_STROKE_PX = 2;
+/** Marker body fill opacity — low, so the ring reads without hiding the marker under it. */
+export const TRANSFER_MARKER_FILL_OPACITY = 0.25;
 
 /** Geographic exponential width expression scaled by `factor`, floored at `minPx`. */
 function scaledWidthExpression(
@@ -103,6 +115,7 @@ function fadeExpression(
 export function addTransitLayers(
   map: maplibregl.Map,
   cityData: CityData,
+  colors: Pick<ResolvedColors, 'transferMarker'>,
 ): void {
   const data = buildTransitRenderData(cityData);
 
@@ -118,6 +131,10 @@ export function addTransitLayers(
   addSourceIfAbsent(map, 'transit-stops-dots', {
     type: 'geojson',
     data: data.stationDots,
+  });
+  addSourceIfAbsent(map, 'transit-transfer-markers', {
+    type: 'geojson',
+    data: data.transferMarkers,
   });
 
   // Inner connections first (under the corridor lines): their geometry is
@@ -221,6 +238,33 @@ export function addTransitLayers(
       ] as unknown as maplibregl.ExpressionSpecification,
       'circle-opacity': fadeExpression(1, 0),
       'circle-stroke-opacity': fadeExpression(1, 0),
+    },
+  });
+
+  // Confirmed-transfer marker (Story 3.3): a themeable ring on top of every
+  // representation, sourced from the pre-filtered `transferMarkers`
+  // collection so the `transit` mode filter (`MapLayerManager.setOptions`)
+  // keeps applying uniformly without special-casing this layer id. Always
+  // visible — a confirmed transfer matters at overview and detail zoom alike.
+  addLayerIfAbsent(map, {
+    id: 'transit-transfer-marker',
+    type: 'circle',
+    source: 'transit-transfer-markers',
+    paint: {
+      'circle-radius': [
+        'interpolate',
+        ['linear'],
+        ['zoom'],
+        10,
+        TRANSFER_MARKER_RADIUS_MIN_PX,
+        16,
+        TRANSFER_MARKER_RADIUS_MIN_PX + 1,
+      ] as unknown as maplibregl.ExpressionSpecification,
+      'circle-color': colors.transferMarker.fill,
+      'circle-opacity': TRANSFER_MARKER_FILL_OPACITY,
+      'circle-stroke-color': colors.transferMarker.stroke,
+      'circle-stroke-width': TRANSFER_MARKER_STROKE_PX,
+      'circle-stroke-opacity': 1,
     },
   });
 }

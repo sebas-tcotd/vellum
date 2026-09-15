@@ -226,6 +226,36 @@ El hover consulta tanto la cápsula como el punto. Ambas representaciones llevan
 las mismas líneas en sus propiedades, de modo que el tooltip coincide con lo que
 el usuario ve.
 
+### 3.5 Transferencias confirmadas (Story 3.3)
+
+La agrupación geométrica de `groupStopsByProximity` (el umbral de `48 m` de
+arriba) no cambia — sigue decidiendo qué paradas pertenecen a la misma
+estación. Lo que agrega la Story 3.3 es un **criterio de confianza** tipado y
+explícito sobre esa agrupación, derivado únicamente de datos verificables ya
+presentes en el grupo:
+
+- Cada `TransitTransferCandidate` ahora trae `lineIds` y `modes` —las líneas y
+  modos distintos que participan del grupo— más una `confidence` de
+  `'confirmed'` o `'unconfirmed'`.
+- `confidence` es `'confirmed'` **si y solo si** el grupo abarca dos o más
+  `lineId` distintos. Un grupo con una sola línea es `'unconfirmed'` y nunca
+  se presenta como transferencia, sin importar cuán cerca esté de otra parada.
+- Nada de la agrupación por proximidad se infiere estadísticamente — el
+  criterio solo lee `TransitStopEntry.lineId` y `LineInfo.mode`, ambos datos
+  de `.cslmap` ya verificados.
+
+`buildStations` anota cada `StationGeometry` con `confirmedTransfer`
+(`candidate.confidence === 'confirmed'`), y el builder de GeoJSON deriva una
+colección `transferMarkers` —el subconjunto de puntos centrales de estación
+cuyo candidato de origen está confirmado—. Una única capa `circle` tematizable,
+`transit-transfer-marker`, renderiza esa colección como un anillo distinguible
+de la convención fija blanco-y-negro de las estaciones; a diferencia del
+cross-fade cápsula/punto, no se desvanece con el zoom. Sus colores vienen de
+`RenderStyleParams.transferMarker` (grupo opcional, estilo `parkAreas` — no
+requiere bump de versión de schema). El pipeline de exportación cartográfica
+consume la misma colección `transferMarkers` y los mismos colores resueltos,
+así que el PNG/SVG coincide exactamente con el mapa vivo.
+
 ## 4. Capas MapLibre y export
 
 El grupo de tránsito se registra en este orden:
@@ -236,6 +266,7 @@ transit-line
 transit-stops
 transit-stops-outline
 transit-stops-dot
+transit-transfer-marker
 ```
 
 La misma `network.renderGeometry` alimenta el GeoJSON del mapa vivo y el

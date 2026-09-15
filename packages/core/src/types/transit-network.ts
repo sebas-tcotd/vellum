@@ -225,12 +225,40 @@ export interface TransitStopEntry {
 }
 
 /**
- * A group of stop entries within {@link STATION_MERGE_THRESHOLD_M} of each
- * other — the domain notion of "one station". A candidate spanning entries of
- * more than one line is a transfer point; a single-line candidate is a plain
- * stop.
+ * Confidence that a proximity-grouped stop candidate is a real, evidenced
+ * transfer point rather than an incidental placement.
+ *
+ * @remarks
+ * Derived *only* from verifiable data already on the group's
+ * {@link TransitStopEntry}/{@link LineInfo} — `lineId` and `mode` — never from
+ * statistical inference. `'confirmed'` means the group spans two or more
+ * distinct `lineId`s; a group with a single participating line is
+ * `'unconfirmed'` and must never be presented as a transfer.
  */
-export type TransitTransferCandidate = readonly TransitStopEntry[];
+export type TransferConfidence = 'confirmed' | 'unconfirmed';
+
+/**
+ * A group of stop entries within {@link STATION_MERGE_THRESHOLD_M} of each
+ * other — the domain notion of "one station" — annotated with the lines and
+ * modes actually participating and an explicit confidence criterion.
+ *
+ * @remarks
+ * Grouping itself stays purely geometric (unchanged from Story 1.5); this
+ * type only adds the typed, derived signal of whether the group is evidenced
+ * as a real transfer. A candidate spanning entries of more than one line is
+ * `'confirmed'`; a single-line candidate is `'unconfirmed'` and renders as a
+ * plain stop, never as a transfer marker.
+ */
+export interface TransitTransferCandidate {
+  /** Stop entries in the proximity group, in the same order they were grouped. */
+  readonly stops: readonly TransitStopEntry[];
+  /** Distinct line ids participating in this group, sorted for determinism. */
+  readonly lineIds: readonly string[];
+  /** Distinct transit modes participating in this group, sorted for determinism. */
+  readonly modes: readonly TransitMode[];
+  /** `'confirmed'` when `lineIds.length >= 2`; `'unconfirmed'` otherwise. */
+  readonly confidence: TransferConfidence;
+}
 
 // ─── The projection ──────────────────────────────────────────────────────────
 

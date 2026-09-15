@@ -347,6 +347,8 @@ describe('buildRenderGeometry — stations (§5.4 rounded markers)', () => {
     expect(geometry.stations).toHaveLength(1);
     const station = geometry.stations[0];
     expect(station.lines.map((l) => l.name)).toEqual(['B']);
+    // A single-line stop is never a confirmed transfer.
+    expect(station.confirmedTransfer).toBe(false);
 
     // Perpendicular (across-corridor, z) extent of the marker.
     const zs = station.polygon.map((p) => p.z);
@@ -454,6 +456,8 @@ describe('buildRenderGeometry — stations (§5.4 rounded markers)', () => {
       'A',
       'B',
     ]);
+    // Two distinct lines sharing this station: a confirmed transfer.
+    expect(geometry.stations[0].confirmedTransfer).toBe(true);
   });
 });
 
@@ -470,7 +474,12 @@ describe('buildRenderGeometry — defensive boundary', () => {
     );
 
     expect(
-      buildRenderGeometry({ ...network, transferCandidates: [[]] }).stations,
+      buildRenderGeometry({
+        ...network,
+        transferCandidates: [
+          { stops: [], lineIds: [], modes: [], confidence: 'unconfirmed' },
+        ],
+      }).stations,
     ).toEqual([]);
   });
 

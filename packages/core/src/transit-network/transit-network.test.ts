@@ -2,7 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { makeCityData, makeRoadSegment, makeTransitLine } from '../testing';
 import type { CityData, RoadNode, TransitStop } from '../types/city-data';
 import { deriveTransitNetwork } from './index';
-import { STATION_MERGE_THRESHOLD_M } from './stops';
+import { groupStopsByProximity, STATION_MERGE_THRESHOLD_M } from './stops';
+import type { LineInfo, TransitStopEntry } from '../types/transit-network';
 
 function node(id: string, x: number, z: number): RoadNode {
   return { id, position: { x, y: 0, z } };
@@ -183,10 +184,11 @@ describe('deriveTransitNetwork — transfer candidates', () => {
     );
 
     expect(network.transferCandidates).toHaveLength(1);
-    expect(network.transferCandidates[0].map((e) => e.lineId).sort()).toEqual([
-      'A',
-      'B',
-    ]);
+    const [candidate] = network.transferCandidates;
+    expect(candidate!.stops.map((e) => e.lineId).sort()).toEqual(['A', 'B']);
+    expect(candidate!.lineIds).toEqual(['A', 'B']);
+    expect(candidate!.modes).toEqual(['Bus']);
+    expect(candidate!.confidence).toBe('confirmed');
   });
 
   it('keeps stops beyond the threshold as separate single-line candidates', () => {
@@ -196,8 +198,77 @@ describe('deriveTransitNetwork — transfer candidates', () => {
 
     expect(network.transferCandidates).toHaveLength(2);
     for (const candidate of network.transferCandidates) {
-      expect(candidate).toHaveLength(1);
+      expect(candidate.stops).toHaveLength(1);
+      expect(candidate.lineIds).toHaveLength(1);
+      // Always: a stop with a single lineId/mode never marks as a transfer.
+      expect(candidate.confidence).toBe('unconfirmed');
     }
+  });
+
+  it('confirms a transfer across two distinct modes sharing a stop', () => {
+    const city = makeCityData({
+      roadNodes: [node('node-a', 0, 0), node('node-b', 500, 0)],
+      roadSegments: [seg('seg-1', 'node-a', 'node-b')],
+      transitLines: [
+        makeTransitLine({
+          id: 'BUS',
+          mode: 'Bus',
+          route: [{ segmentIds: ['seg-1'] }],
+          stops: [stop('bus-stop', 0, 0)],
+        }),
+        makeTransitLine({
+          id: 'TRAIN',
+          mode: 'Train',
+          route: [{ segmentIds: ['seg-1'] }],
+          stops: [stop('train-stop', 5, 0)],
+        }),
+      ],
+    });
+
+    const network = deriveTransitNetwork(city);
+
+    expect(network.transferCandidates).toHaveLength(1);
+    const [candidate] = network.transferCandidates;
+    expect(candidate!.confidence).toBe('confirmed');
+    expect(candidate!.modes).toEqual(['Bus', 'Train']);
+  });
+
+  it('does not fabricate a transfer for a single stop with no nearby lines', () => {
+    const network = deriveTransitNetwork(
+      makeCityData({
+        roadNodes: [node('node-a', 0, 0), node('node-b', 500, 0)],
+        roadSegments: [seg('seg-1', 'node-a', 'node-b')],
+        transitLines: [
+          makeTransitLine({
+            id: 'ONLY',
+            route: [{ segmentIds: ['seg-1'] }],
+            stops: [stop('only-stop', 0, 0)],
+          }),
+        ],
+      }),
+    );
+
+    expect(network.transferCandidates).toHaveLength(1);
+    expect(network.transferCandidates[0]!.confidence).toBe('unconfirmed');
+  });
+
+  it('excludes a lineId with no entry in the lines map from modes, without throwing or fabricating one', () => {
+    const entries: TransitStopEntry[] = [
+      { stopId: 'stop-known', position: { x: 0, z: 0 }, lineId: 'KNOWN' },
+      { stopId: 'stop-ghost', position: { x: 5, z: 0 }, lineId: 'GHOST' },
+    ];
+    // `GHOST` is deliberately absent from the lines map — e.g. a line that
+    // referenced a stop but was itself dropped upstream.
+    const lines = new Map<string, LineInfo>([
+      ['KNOWN', { id: 'KNOWN', name: 'Known', color: '#fff', mode: 'Bus' }],
+    ]);
+
+    const [candidate] = groupStopsByProximity(entries, lines);
+
+    expect(() => groupStopsByProximity(entries, lines)).not.toThrow();
+    expect(candidate!.lineIds).toEqual(['GHOST', 'KNOWN']);
+    expect(candidate!.modes).toEqual(['Bus']);
+    expect(candidate!.confidence).toBe('confirmed');
   });
 });
 

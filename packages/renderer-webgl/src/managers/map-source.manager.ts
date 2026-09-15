@@ -104,7 +104,9 @@ export class MapSourceManager {
     );
     await step('service-icons', () => addServiceIconsLayer(this.map));
     await step('roads', () => addRoadsLayer(this.map, cityData, this.colors));
-    await step('transit', () => addTransitLayers(this.map, cityData));
+    await step('transit', () =>
+      addTransitLayers(this.map, cityData, this.colors),
+    );
     // Sits above every other data layer but below districts/park-areas, per product request.
     await step('grid', () =>
       addGridLayer(this.map, cityData, this.colors.grid),

@@ -17,8 +17,9 @@
  *    line is a transfer candidate.
  */
 
-import type { CityData } from '../types/city-data';
+import type { CityData, TransitMode } from '../types/city-data';
 import type {
+  LineInfo,
   TransitStopEntry,
   TransitTransferCandidate,
 } from '../types/transit-network';
@@ -52,9 +53,23 @@ export function extractUniqueStops(cityData: CityData): TransitStopEntry[] {
   return entries;
 }
 
-/** Greedy proximity grouping (deterministic: entries are in sorted order). */
+/**
+ * Greedy proximity grouping (deterministic: entries are in sorted order),
+ * annotated with the typed confidence criterion.
+ *
+ * @remarks
+ * The grouping itself — the `STATION_MERGE_THRESHOLD_M` geometric threshold —
+ * is unchanged from Story 1.5: this only *derives* which groups are evidenced
+ * transfers from data already on the group (distinct `lineId`s) and the
+ * line map's `mode`, never by widening or narrowing what counts as a group.
+ *
+ * @param entries - Deduplicated stop entries, in deterministic order.
+ * @param lines - Per-line metadata (for `mode`), keyed by line id — the same
+ *   map `buildTransitLineGraph` produces.
+ */
 export function groupStopsByProximity(
   entries: readonly TransitStopEntry[],
+  lines: ReadonlyMap<string, LineInfo>,
 ): TransitTransferCandidate[] {
   const groupedIndices = new Set<number>();
   const groups: TransitStopEntry[][] = [];
@@ -78,5 +93,32 @@ export function groupStopsByProximity(
     }
     groups.push(currentGroup);
   }
-  return groups;
+  return groups.map((group) => toTransferCandidate(group, lines));
+}
+
+/**
+ * Derives the typed candidate from a raw proximity group: the distinct
+ * lines/modes participating, and the confidence criterion (`'confirmed'` iff
+ * two or more distinct `lineId`s are present — never inferred from anything
+ * beyond that).
+ */
+function toTransferCandidate(
+  group: readonly TransitStopEntry[],
+  lines: ReadonlyMap<string, LineInfo>,
+): TransitTransferCandidate {
+  const lineIds = [...new Set(group.map((e) => e.lineId))].sort();
+  const modes = [
+    ...new Set(
+      lineIds
+        .map((id) => lines.get(id)?.mode)
+        .filter((mode): mode is TransitMode => mode !== undefined),
+    ),
+  ].sort();
+
+  return {
+    stops: group,
+    lineIds,
+    modes,
+    confidence: lineIds.length >= 2 ? 'confirmed' : 'unconfirmed',
+  };
 }
