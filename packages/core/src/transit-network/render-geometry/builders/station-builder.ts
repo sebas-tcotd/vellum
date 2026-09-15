@@ -91,7 +91,7 @@ function createStationPolygonsForGroup(
       id: `${group[0].stopId}:${bucket.corridor.edgeId}`,
       polygon,
       lines,
-      confirmedTransfer: candidate.confidence === 'confirmed',
+      confirmedTransfer: hasConfirmedTransferEvidence(lines),
     });
   }
 
@@ -197,4 +197,22 @@ function resolveLineInfo(
     .sort()
     .map((id) => lineInfoMap.get(id))
     .filter((l): l is StationLineInfo => l !== undefined);
+}
+
+/**
+ * Whether THIS station fragment — not the candidate it was split from —
+ * actually shows two or more distinct modes.
+ *
+ * @remarks
+ * A candidate can span multiple corridors (e.g. several parallel platforms at
+ * one complex): `partitionLinesToCorridors` splits it into one marker per
+ * corridor, each showing only the lines that stop there. Using
+ * `candidate.confidence` directly would mark every one of those fragments as
+ * a confirmed transfer even when a given fragment is a single line on its
+ * own corridor, with no visible second mode next to it — the ring would
+ * point at nothing. Recomputing the criterion from `lines` (this fragment's
+ * own stopping lines) keeps the marker honest about what's actually there.
+ */
+function hasConfirmedTransferEvidence(lines: StationLineInfo[]): boolean {
+  return new Set(lines.map((l) => l.mode)).size >= 2;
 }
