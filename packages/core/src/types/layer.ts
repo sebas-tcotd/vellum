@@ -101,8 +101,16 @@ export const BUILDING_SERVICE_CATEGORIES: BuildingServiceCategory[] = [
  * alone.
  */
 export interface LayerOptions {
-  /** Transit lines/stops whose `mode` is not in this list are hidden. */
-  transit: { visibleModes: TransitMode[] };
+  transit: {
+    /** Transit lines/stops whose `mode` is not in this list are hidden. */
+    visibleModes: TransitMode[];
+    /**
+     * Whether the confirmed-transfer marker (`transit-transfer-marker`) is
+     * visible. Independent of `visibleModes` — a confirmed transfer can span
+     * modes the user has otherwise hidden.
+     */
+    showConfirmedTransfers: boolean;
+  };
   buildings: {
     /** Buildings whose zoning category is not in this list are hidden. */
     visibleCategories: BuildingServiceCategory[];
@@ -155,7 +163,7 @@ export const LAYERS_WITH_ADVANCED_OPTIONS = new Set<LayerName>([
 
 /** `LayerOptions` with every mode/category visible, RICO coloring off, district markers (not names) shown, and all terrain sub-layers on — the app's starting state. */
 export const DEFAULT_LAYER_OPTIONS: LayerOptions = {
-  transit: { visibleModes: [...TRANSIT_MODES] },
+  transit: { visibleModes: [...TRANSIT_MODES], showConfirmedTransfers: true },
   buildings: {
     visibleCategories: [...BUILDING_SERVICE_CATEGORIES],
     colorByCategory: false,

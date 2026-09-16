@@ -87,4 +87,8 @@ export const DEFAULT_RENDER_STYLE_PARAMS: RenderStyleParams = {
     industry: '#a098b0',
     forestry: '#14592a',
   },
+  transferMarker: {
+    fill: '#f2b705',
+    stroke: '#8a5a00',
+  },
 };

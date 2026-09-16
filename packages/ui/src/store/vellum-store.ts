@@ -134,6 +134,9 @@ interface VellumStore {
   /** Adds/removes a transit mode from `layerOptions.transit.visibleModes`. */
   toggleTransitMode: (mode: TransitMode) => void;
 
+  /** Shows or hides the confirmed-transfer marker, independent of the mode filter. */
+  setTransitShowConfirmedTransfers: (enabled: boolean) => void;
+
   /** Adds/removes a building zoning category from `layerOptions.buildings.visibleCategories`. */
   toggleBuildingCategory: (category: BuildingServiceCategory) => void;
 
@@ -299,10 +302,21 @@ export const useVellumStore = create<VellumStore>((set, get) => ({
       return {
         layerOptions: {
           ...state.layerOptions,
-          transit: { visibleModes: nextModes },
+          transit: { ...state.layerOptions.transit, visibleModes: nextModes },
         },
       };
     }),
+
+  setTransitShowConfirmedTransfers: (enabled) =>
+    set((state) => ({
+      layerOptions: {
+        ...state.layerOptions,
+        transit: {
+          ...state.layerOptions.transit,
+          showConfirmedTransfers: enabled,
+        },
+      },
+    })),
 
   toggleBuildingCategory: (category) =>
     set((state) => {

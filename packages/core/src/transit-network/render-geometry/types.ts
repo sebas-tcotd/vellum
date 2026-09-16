@@ -62,6 +62,13 @@ export interface StationGeometry {
   readonly polygon: readonly Readonly<CsPoint>[];
   /** Lines that stop here (exactly those the marker spans). */
   readonly lines: readonly StationLineInfo[];
+  /**
+   * Whether this station's source transfer candidate is a `'confirmed'`
+   * transfer (two or more distinct lines), per
+   * {@link TransitTransferCandidate.confidence}. `false` for a plain,
+   * single-line stop — never rendered as a transfer marker.
+   */
+  readonly confirmedTransfer: boolean;
 }
 
 /** Complete render geometry for the transit layer group. */

@@ -64,7 +64,7 @@ export function deriveTransitNetwork(
   const { bundleOrder, lineOrder, stats } = computeLineOrder(graph);
 
   const stops = extractUniqueStops(cityData);
-  const transferCandidates = groupStopsByProximity(stops);
+  const transferCandidates = groupStopsByProximity(stops, graph.lines);
 
   const network = {
     lines: withLineAttributes(graph.lines, extensions),

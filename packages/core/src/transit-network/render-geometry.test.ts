@@ -347,6 +347,8 @@ describe('buildRenderGeometry — stations (§5.4 rounded markers)', () => {
     expect(geometry.stations).toHaveLength(1);
     const station = geometry.stations[0];
     expect(station.lines.map((l) => l.name)).toEqual(['B']);
+    // A single-line stop is never a confirmed transfer.
+    expect(station.confirmedTransfer).toBe(false);
 
     // Perpendicular (across-corridor, z) extent of the marker.
     const zs = station.polygon.map((p) => p.z);
@@ -454,6 +456,103 @@ describe('buildRenderGeometry — stations (§5.4 rounded markers)', () => {
       'A',
       'B',
     ]);
+    // Two lines of the same mode: still a capsule, but not a confirmed
+    // transfer — that's reserved for a real cross-mode connection.
+    expect(geometry.stations[0].confirmedTransfer).toBe(false);
+  });
+
+  it('confirms a transfer when the shared station spans two distinct modes', () => {
+    const lineA = makeTransitLine({
+      id: 'A',
+      name: 'A',
+      mode: 'Bus',
+      route: [{ segmentIds: ['seg-1'] }],
+      stops: [
+        { id: 'sa', mode: 'Bus', position: { x: 50, y: 0, z: 2 }, name: '' },
+      ],
+    });
+    const lineB = makeTransitLine({
+      id: 'B',
+      name: 'B',
+      mode: 'Train',
+      route: [{ segmentIds: ['seg-1'] }],
+      stops: [
+        {
+          id: 'sb',
+          mode: 'Train',
+          position: { x: 50 + STATION_MERGE_THRESHOLD_M / 2, y: 0, z: 2 },
+          name: '',
+        },
+      ],
+    });
+    const city = makeCityData({
+      roadNodes: [node('node-a', 0, 0), node('node-b', 200, 0)],
+      roadSegments: [seg('seg-1', 'node-a', 'node-b')],
+      transitLines: [lineA, lineB],
+    });
+    const { geometry } = buildGeom(city);
+    expect(geometry.stations).toHaveLength(1);
+    expect(geometry.stations[0].confirmedTransfer).toBe(true);
+  });
+
+  it('REGRESSION: a same-mode fragment on its own corridor is not confirmed just because a sibling fragment (same group) is', () => {
+    // Two parallel corridors close enough to merge into one proximity group:
+    // corridor A carries a lone Train line; corridor B carries a Metro line
+    // and a second Train line together. The group as a whole spans two modes
+    // (confirmed), but that must not bleed into corridor A's fragment, which
+    // by itself is a single Train line with no visible second mode.
+    const trainOnly = makeTransitLine({
+      id: 'train-only',
+      name: 'Train Only',
+      mode: 'Train',
+      route: [{ segmentIds: ['seg-a'] }],
+      stops: [
+        { id: 's1', mode: 'Train', position: { x: 50, y: 0, z: 0 }, name: '' },
+      ],
+    });
+    const metroMixed = makeTransitLine({
+      id: 'metro-mixed',
+      name: 'Metro Mixed',
+      mode: 'Metro',
+      route: [{ segmentIds: ['seg-b'] }],
+      stops: [
+        { id: 's2', mode: 'Metro', position: { x: 50, y: 0, z: 10 }, name: '' },
+      ],
+    });
+    const trainMixed = makeTransitLine({
+      id: 'train-mixed',
+      name: 'Train Mixed',
+      mode: 'Train',
+      route: [{ segmentIds: ['seg-b'] }],
+      stops: [
+        { id: 's3', mode: 'Train', position: { x: 52, y: 0, z: 10 }, name: '' },
+      ],
+    });
+    const city = makeCityData({
+      roadNodes: [
+        node('a1', 0, 0),
+        node('a2', 200, 0),
+        node('b1', 0, 10),
+        node('b2', 200, 10),
+      ],
+      roadSegments: [seg('seg-a', 'a1', 'a2'), seg('seg-b', 'b1', 'b2')],
+      transitLines: [trainOnly, metroMixed, trainMixed],
+    });
+
+    const { network, geometry } = buildGeom(city);
+    // Sanity: the whole group is confirmed at the candidate level (2 modes).
+    const candidate = network.transferCandidates.find(
+      (c) => c.lineIds.length === 3,
+    );
+    expect(candidate?.confidence).toBe('confirmed');
+
+    expect(geometry.stations).toHaveLength(2);
+    const soloTrainStation = geometry.stations.find(
+      (s) => s.lines.length === 1 && s.lines[0]?.name === 'Train Only',
+    );
+    const mixedStation = geometry.stations.find((s) => s.lines.length === 2);
+    expect(soloTrainStation?.confirmedTransfer).toBe(false);
+    expect(mixedStation?.confirmedTransfer).toBe(true);
   });
 });
 
@@ -470,7 +569,12 @@ describe('buildRenderGeometry — defensive boundary', () => {
     );
 
     expect(
-      buildRenderGeometry({ ...network, transferCandidates: [[]] }).stations,
+      buildRenderGeometry({
+        ...network,
+        transferCandidates: [
+          { stops: [], lineIds: [], modes: [], confidence: 'unconfirmed' },
+        ],
+      }).stations,
     ).toEqual([]);
   });
 

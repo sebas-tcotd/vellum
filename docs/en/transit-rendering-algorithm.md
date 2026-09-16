@@ -221,6 +221,44 @@ representation:
 Hover queries both the capsule and the dot. Both representations carry the same
 line properties, so the tooltip matches what the user sees.
 
+### 3.5 Confirmed transfers (Story 3.3)
+
+`groupStopsByProximity`'s geometric grouping (the `48 m` threshold above) is
+unchanged — it decides which stops belong to the same station. What Story 3.3
+adds is a typed, explicit **confidence criterion** on top of that grouping,
+derived only from verifiable data already on the group:
+
+- Each `TransitTransferCandidate` now carries `lineIds` and `modes` — the
+  distinct lines/modes participating in the group — plus a `confidence` of
+  `'confirmed'` or `'unconfirmed'`.
+- `confidence` is `'confirmed'` **iff** the group spans two or more distinct
+  transit **modes** (e.g. bus + train). Two or more lines of the _same_ mode
+  sharing a stop does not confirm a transfer — that's already distinguished
+  visually by the existing multi-line capsule. A single-mode group (one line,
+  or several of the same mode) is `'unconfirmed'` and is never presented as a
+  transfer, no matter how close it sits to another stop.
+- Nothing about proximity grouping is inferred statistically — the criterion
+  only reads `TransitStopEntry.lineId` and `LineInfo.mode`, both already
+  verified `.cslmap` data.
+- The criterion doesn't check whether the stop coincides with a real in-game
+  exchange building (e.g. `Ferry and Bus Exchange Stop`, `Multiplatform Train
+Station`): that data exists in `.cslmap` for buildings (`icls`/`subsrv`/
+  `name` on `<Buil>`), but there is no join today between transit stops and
+  buildings anywhere in the pipeline. Deferred to the Epic 5 raw game-data
+  extraction work — see `deferred-work.md`.
+
+`buildStations` annotates each `StationGeometry` with `confirmedTransfer`
+(`candidate.confidence === 'confirmed'`), and the GeoJSON builder derives a
+`transferMarkers` collection — the subset of station center points whose
+source candidate is confirmed. A single themeable `circle` layer,
+`transit-transfer-marker`, renders that collection as a ring distinguishable
+from the fixed black-on-white station convention; unlike the capsule/dot
+cross-fade, it does not fade with zoom. Its colors come from
+`RenderStyleParams.transferMarker` (optional, `parkAreas`-style group — no
+schema version bump needed). The cartographic export pipeline consumes the
+same `transferMarkers` collection and the same resolved colors, so PNG/SVG
+output matches the live map exactly.
+
 ## 4. MapLibre layers and export
 
 The transit group is registered in this order:
@@ -231,6 +269,7 @@ transit-line
 transit-stops
 transit-stops-outline
 transit-stops-dot
+transit-transfer-marker
 ```
 
 The same `network.renderGeometry` feeds live-map GeoJSON and the cartographic

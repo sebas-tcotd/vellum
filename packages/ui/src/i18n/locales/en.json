@@ -71,7 +71,8 @@
     "showColorRelief": "Color relief",
     "showHillshade": "Hillshade",
     "showGrid": "Projection grid",
-    "buildingZones": "Building zones (RICO)"
+    "buildingZones": "Building zones (RICO)",
+    "showConfirmedTransfers": "Show confirmed transfers"
   },
   "export": {
     "title": "Export Map",

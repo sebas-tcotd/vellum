@@ -24,6 +24,9 @@ export function LayerDetailPanel({ layer, onBack }: LayerDetailPanelProps) {
   const { t } = useTranslation();
   const layerOptions = useVellumStore((s) => s.layerOptions);
   const toggleTransitMode = useVellumStore((s) => s.toggleTransitMode);
+  const setTransitShowConfirmedTransfers = useVellumStore(
+    (s) => s.setTransitShowConfirmedTransfers,
+  );
   const toggleBuildingCategory = useVellumStore(
     (s) => s.toggleBuildingCategory,
   );
@@ -69,6 +72,8 @@ export function LayerDetailPanel({ layer, onBack }: LayerDetailPanelProps) {
         layer={layer}
         visibleModes={layerOptions.transit.visibleModes}
         onToggleMode={toggleTransitMode}
+        showConfirmedTransfers={layerOptions.transit.showConfirmedTransfers}
+        onToggleShowConfirmedTransfers={setTransitShowConfirmedTransfers}
         visibleCategories={layerOptions.buildings.visibleCategories}
         onToggleCategory={toggleBuildingCategory}
         colorByCategory={layerOptions.buildings.colorByCategory}

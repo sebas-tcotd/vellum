@@ -154,6 +154,11 @@ export class MapLayerManager {
     for (const id of LAYER_ID_MAP.transit) {
       this.setFilterIfExists(id, transitFilter);
     }
+    this.setLayoutIfExists(
+      'transit-transfer-marker',
+      'visibility',
+      options.transit.showConfirmedTransfers ? 'visible' : 'none',
+    );
 
     const buildingsFilter = [
       'in',
@@ -323,6 +328,16 @@ export class MapLayerManager {
     );
     this.setPaintIfExists('park-areas-labels', 'text-color', c.districtLabel);
     this.setPaintIfExists('park-areas-labels', 'text-halo-color', c.background);
+    this.setPaintIfExists(
+      'transit-transfer-marker',
+      'circle-color',
+      c.transferMarker.fill,
+    );
+    this.setPaintIfExists(
+      'transit-transfer-marker',
+      'circle-stroke-color',
+      c.transferMarker.stroke,
+    );
 
     this.setPaintIfExists('map-frame', 'line-color', c.mapFrame);
     this.setPaintIfExists('grid-layer', 'line-color', c.grid.line);

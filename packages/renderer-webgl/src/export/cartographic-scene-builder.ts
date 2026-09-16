@@ -61,6 +61,9 @@ import {
   STATION_FILL,
   STATION_STROKE,
   STATION_STROKE_MIN_PX,
+  TRANSFER_MARKER_FILL_OPACITY,
+  TRANSFER_MARKER_RADIUS_MIN_PX,
+  TRANSFER_MARKER_STROKE_PX,
   TRANSIT_LINE_MIN_PX,
 } from '../layers/layer-transit';
 import {
@@ -520,6 +523,31 @@ function buildTransitEntities(context: LayerContext): SceneEntity[] {
       },
       fill: { color: STATION_FILL },
       stroke: { color: STATION_STROKE, widthPx: STATION_STROKE_MIN_PX },
+    });
+  }
+
+  // Confirmed-transfer markers: same pre-filtered collection and themed
+  // colors the live map's `transit-transfer-marker` layer uses, so PNG/SVG
+  // export shows exactly the same distinguishable ring the interactive map
+  // does (paridad live/export required by the spec).
+  for (const feature of data.transferMarkers.features) {
+    if (!visibleModes.has(feature.properties.mode)) continue;
+    const [lng, lat] = feature.geometry.coordinates;
+    entities.push({
+      id: `${ID_PREFIX.transit}-transfer-${feature.properties.id}`,
+      geometry: {
+        kind: 'circle',
+        center: geoToCs({ lng, lat }),
+        radiusPx: TRANSFER_MARKER_RADIUS_MIN_PX,
+      },
+      fill: {
+        color: colors.transferMarker.fill,
+        opacity: TRANSFER_MARKER_FILL_OPACITY,
+      },
+      stroke: {
+        color: colors.transferMarker.stroke,
+        widthPx: TRANSFER_MARKER_STROKE_PX,
+      },
     });
   }
 

@@ -285,6 +285,86 @@ describe('buildCartographicScene', () => {
     );
   });
 
+  it('emits a themed confirmed-transfer marker matching the live layer, in parity with it', () => {
+    // Two distinct modes sharing a stop within STATION_MERGE_THRESHOLD_M: a
+    // confirmed transfer, per the same core criterion the live
+    // `transit-transfer-marker` layer consumes
+    // (`network.renderGeometry.stations[].confirmedTransfer`).
+    const city = makeCityData({
+      roadNodes: [
+        { id: 'n1', position: { x: -1000, y: 50, z: 0 } },
+        { id: 'n2', position: { x: 1000, y: 50, z: 0 } },
+      ],
+      roadSegments: [
+        makeRoadSegment({
+          id: 'seg-transit',
+          startNodeId: 'n1',
+          endNodeId: 'n2',
+        }),
+      ],
+      transitLines: [
+        makeTransitLine({
+          id: 'line-a',
+          mode: 'Bus',
+          route: [{ segmentIds: ['seg-transit'] }],
+          stops: [
+            {
+              id: 'stop-a',
+              mode: 'Bus',
+              position: { x: 0, y: 0, z: 0 },
+              name: '',
+            },
+          ],
+        }),
+        makeTransitLine({
+          id: 'line-b',
+          mode: 'Train',
+          route: [{ segmentIds: ['seg-transit'] }],
+          stops: [
+            {
+              id: 'stop-b',
+              mode: 'Train',
+              position: { x: 5, y: 0, z: 0 },
+              name: '',
+            },
+          ],
+        }),
+      ],
+    });
+
+    const transit = layerEntities(build(city), 'transit');
+    const transferEntity = transit.find((e) => e.id.includes('-transfer-'));
+    expect(transferEntity).toBeDefined();
+    // Themed colors, not the fixed black-on-white station convention.
+    expect(transferEntity!.fill?.color).toBe('#f2b705');
+    expect(transferEntity!.stroke?.color).toBe('#8a5a00');
+  });
+
+  it('never fabricates a transfer marker for a single-line stop', () => {
+    const city = transitCity('Bus');
+    const withStop = makeCityData({
+      ...city,
+      transitLines: [
+        makeTransitLine({
+          id: 'line-solo',
+          mode: 'Bus',
+          route: [{ segmentIds: ['seg-transit'] }],
+          stops: [
+            {
+              id: 'stop-solo',
+              mode: 'Bus',
+              position: { x: 0, y: 0, z: 0 },
+              name: '',
+            },
+          ],
+        }),
+      ],
+    });
+
+    const transit = layerEntities(build(withStop), 'transit');
+    expect(transit.some((e) => e.id.includes('-transfer-'))).toBe(false);
+  });
+
   it.each([
     'Electricity Wire',
     'Airplane Path',

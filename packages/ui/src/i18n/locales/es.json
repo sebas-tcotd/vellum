@@ -71,7 +71,8 @@
     "showColorRelief": "Relieve hipsométrico",
     "showHillshade": "Sombreado del relieve",
     "showGrid": "Cuadrícula de proyección",
-    "buildingZones": "Zonas de edificios (RICO)"
+    "buildingZones": "Zonas de edificios (RICO)",
+    "showConfirmedTransfers": "Mostrar transferencias confirmadas"
   },
   "export": {
     "title": "Exportar mapa",

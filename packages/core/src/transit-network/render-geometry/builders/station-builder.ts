@@ -47,8 +47,8 @@ export function buildStations(
 ): StationGeometry[] {
   const lineInfoMap = createLineInfoMap(network);
 
-  return transferCandidates.flatMap((group) =>
-    createStationPolygonsForGroup(group, corridors, lineInfoMap),
+  return transferCandidates.flatMap((candidate) =>
+    createStationPolygonsForGroup(candidate, corridors, lineInfoMap),
   );
 }
 
@@ -64,15 +64,19 @@ function createLineInfoMap(
 }
 
 function createStationPolygonsForGroup(
-  group: readonly TransitStopEntry[],
+  candidate: TransitTransferCandidate,
   corridors: Map<string, CorridorGeometry>,
   lineInfoMap: Map<string, StationLineInfo>,
 ): StationGeometry[] {
+  const group = candidate.stops;
   if (group.length === 0) return [];
 
   const centroid = calculateCentroid(group);
-  const groupLineIds = [...new Set(group.map((e) => e.lineId))].sort();
-  const buckets = partitionLinesToCorridors(groupLineIds, centroid, corridors);
+  const buckets = partitionLinesToCorridors(
+    candidate.lineIds,
+    centroid,
+    corridors,
+  );
 
   const stations: StationGeometry[] = [];
 
@@ -87,6 +91,7 @@ function createStationPolygonsForGroup(
       id: `${group[0].stopId}:${bucket.corridor.edgeId}`,
       polygon,
       lines,
+      confirmedTransfer: hasConfirmedTransferEvidence(lines),
     });
   }
 
@@ -106,7 +111,7 @@ function calculateCentroid(group: readonly TransitStopEntry[]): CsPoint {
  * never spans lines that merely pass through.
  */
 function partitionLinesToCorridors(
-  lineIds: string[],
+  lineIds: readonly string[],
   centroid: CsPoint,
   corridors: Map<string, CorridorGeometry>,
 ): Map<string, Bucket> {
@@ -192,4 +197,22 @@ function resolveLineInfo(
     .sort()
     .map((id) => lineInfoMap.get(id))
     .filter((l): l is StationLineInfo => l !== undefined);
+}
+
+/**
+ * Whether THIS station fragment — not the candidate it was split from —
+ * actually shows two or more distinct modes.
+ *
+ * @remarks
+ * A candidate can span multiple corridors (e.g. several parallel platforms at
+ * one complex): `partitionLinesToCorridors` splits it into one marker per
+ * corridor, each showing only the lines that stop there. Using
+ * `candidate.confidence` directly would mark every one of those fragments as
+ * a confirmed transfer even when a given fragment is a single line on its
+ * own corridor, with no visible second mode next to it — the ring would
+ * point at nothing. Recomputing the criterion from `lines` (this fragment's
+ * own stopping lines) keeps the marker honest about what's actually there.
+ */
+function hasConfirmedTransferEvidence(lines: StationLineInfo[]): boolean {
+  return new Set(lines.map((l) => l.mode)).size >= 2;
 }

@@ -671,6 +671,20 @@
         "industry",
         "forestry"
       ]
+    },
+    "transferMarker": {
+      "type": "object",
+      "properties": {
+        "fill": {
+          "$ref": "#/$defs/colorToken",
+          "default": "#f2b705"
+        },
+        "stroke": {
+          "$ref": "#/$defs/colorToken",
+          "default": "#8a5a00"
+        }
+      },
+      "required": ["fill", "stroke"]
     }
   },
   "required": ["name"]
