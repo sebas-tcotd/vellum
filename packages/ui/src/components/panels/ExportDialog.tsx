@@ -5,6 +5,7 @@ import type {
   ExportFormat,
   ExportExtent,
   ExportPresentationOptions,
+  ExportPreviewOptions,
   ExportPreviewSnapshot,
   ExportTargetLongEdge,
   LayerName,
@@ -12,6 +13,7 @@ import type {
 } from '@vellum/core';
 import {
   exportScaleForFormat,
+  resolveFullMapFraming,
   resolveFullMapOutputSurface,
   vellumLogoDataUri,
 } from '@vellum/core';
@@ -84,6 +86,26 @@ export interface ExportDialogProps {
   transitLabels?: ExportTransitLegendItem[];
   /** Prevents submission while a future exporter is active. */
   isExporting?: boolean;
+  /**
+   * Whether a preview render is in flight.
+   *
+   * @remarks
+   * A preview is a real render on a disposable export surface, so it is not
+   * instantaneous. Without this the dialog keeps showing the previous image
+   * after the user changes area or background, which reads as "nothing
+   * happened" rather than "working on it".
+   */
+  isPreviewLoading?: boolean;
+  /**
+   * Asks for a preview of the composition now configured.
+   *
+   * @remarks
+   * Fired once when the dialog opens — with the composition it restores —
+   * and afterwards only when the area or the background actually changes.
+   * Those are the two choices that alter what is drawn. Optional so a host
+   * with no renderer attached still renders a dialog.
+   */
+  onPreviewOptionsChange?: (options: ExportPreviewOptions) => void;
   /** Receives all controlled-open state changes, including Escape. */
   onOpenChange: (open: boolean) => void;
   /** Receives a sanitized, typed configuration without invoking IPC. */
@@ -379,12 +401,25 @@ function outputDimensions(
   if (area === 'viewport') {
     if (!preview || format === 'svg') return null;
     const scale = exportScaleForFormat(format);
-    return { width: preview.width * scale, height: preview.height * scale };
+    // `viewportSurface`, never the preview image's own `width`/`height`: the
+    // preview is rendered small on purpose, so reading its size here announced
+    // "720 × 480 px" for a file that came out 1200 × 800.
+    return {
+      width: preview.viewportSurface.width * scale,
+      height: preview.viewportSurface.height * scale,
+    };
   }
   const extentWidth = bounds.maxX - bounds.minX;
   const extentHeight = bounds.maxZ - bounds.minZ;
   if (extentWidth <= 0 || extentHeight <= 0) return null;
-  return resolveFullMapOutputSurface(bounds, targetLongEdge);
+  // A vector document draws no map frame, so `buildSvgExportSnapshot` sizes it
+  // from the bare extent; reserving the frame's margin here would report a
+  // taller document than the `.svg` actually declares.
+  return format === 'svg'
+    ? resolveFullMapOutputSurface(bounds, targetLongEdge)
+    : // The raster route does reserve it, and the readout has to agree with the
+      // file on the short edge once that margin widens the extent.
+      resolveFullMapFraming(bounds, targetLongEdge).surface;
 }
 
 function OutputDimensions({
@@ -621,6 +656,7 @@ function ExportPreview({
   visibleLayerNames = EMPTY_LAYERS,
   transitLabels = EMPTY_TRANSIT_LABELS,
   counts,
+  isLoading = false,
 }: Pick<
   ExportDialogProps,
   | 'preview'
@@ -634,8 +670,13 @@ function ExportPreview({
   format: ExportFormat;
   background: ExportBackground;
   presentation: ExportPresentationOptions;
+  isLoading?: boolean;
 }) {
   const { t } = useTranslation();
+  // The capture itself carries the chosen background now, so this only shows
+  // where the capture does not: the checkerboard behind a transparent PNG, and
+  // the empty frame before the first preview arrives. It is no longer a tint
+  // over an opaque image pretending to be a background change.
   const backgroundClass =
     background === 'dark'
       ? 'bg-slate-950 text-white'
@@ -647,6 +688,8 @@ function ExportPreview({
       data-testid="export-preview"
       data-format={format}
       data-background={background}
+      data-preview-loading={isLoading ? 'true' : undefined}
+      aria-busy={isLoading || undefined}
       role="img"
       aria-label={t('export.preview')}
       className={cn(
@@ -659,12 +702,23 @@ function ExportPreview({
           src={preview.dataUrl}
           alt=""
           className="h-full w-full object-cover"
-          style={{ opacity: background === 'transparent' ? 0.78 : 0.9 }}
           draggable={false}
         />
       ) : (
         <div className="flex h-full items-center justify-center text-xs opacity-60">
-          {t('export.previewUnavailable')}
+          {t(isLoading ? 'export.previewLoading' : 'export.previewUnavailable')}
+        </div>
+      )}
+      {isLoading && preview && (
+        // Over the previous image rather than instead of it: the old
+        // composition is still the closest thing to the answer while the new
+        // one renders, and replacing it would make the dialog flicker empty on
+        // every radio click.
+        <div
+          data-testid="export-preview-loading"
+          className="absolute inset-0 flex items-center justify-center bg-background/60 text-xs font-semibold"
+        >
+          {t('export.previewLoading')}
         </div>
       )}
       <PreviewIdentity
@@ -816,6 +870,12 @@ export function ExportDialog(props: ExportDialogProps) {
   );
   const [presentation, setPresentationState] = useState(initialPresentation);
 
+  // Held in a ref so the open effect below can call it without listing it as a
+  // dependency: a host that rebuilds the callback each render would otherwise
+  // re-request a preview on every parent render.
+  const onPreviewOptionsChangeRef = useRef(props.onPreviewOptionsChange);
+  onPreviewOptionsChangeRef.current = props.onPreviewOptionsChange;
+
   useEffect(() => {
     if (!props.open) return;
     setFileName(initialFileName(props.cityName));
@@ -825,6 +885,15 @@ export function ExportDialog(props: ExportDialogProps) {
     setTargetLongEdge(6000);
     setBackground(props.defaultBackground);
     setPresentationState(initialPresentation());
+    // The composition the dialog opens with is the one it has just restored,
+    // so the dialog — not the workflow — is what knows it. Asking for the
+    // first preview from here is what keeps it a real `ExportSnapshot` render
+    // of these exact options instead of a cheaper read of the live canvas
+    // that could already disagree with the file.
+    onPreviewOptionsChangeRef.current?.({
+      area: 'viewport',
+      background: props.defaultBackground,
+    });
   }, [props.cityName, props.defaultBackground, props.open]);
 
   const sanitizedFileName = useMemo(
@@ -841,12 +910,36 @@ export function ExportDialog(props: ExportDialogProps) {
   // withdrawn while it lasts instead of failing after the user commits.
   const svgUnavailable =
     props.preview !== null &&
-    Math.abs(normalizeBearing(props.preview.bearingDegrees)) >
+    // The *live* camera, not the captured composition's: a full-map preview is
+    // always rendered north-up, so reading its bearing would silently re-offer
+    // SVG on a rotated map — and `createSvgExportSnapshot` captures the real
+    // rotated camera for full-map too, then rejects it after the user commits.
+    Math.abs(normalizeBearing(props.preview.liveBearingDegrees)) >
       BEARING_EPSILON_DEG;
   const svgUnavailableReason = t('errors.SvgExportUnsupportedCamera');
   useEffect(() => {
     if (svgUnavailable && format === 'svg') setFormat('png-1x');
   }, [svgUnavailable, format]);
+
+  /**
+   * Asks the host for a preview of a composition the user has just chosen.
+   *
+   * @remarks
+   * Driven from the two `onChange` handlers rather than an effect on `[area,
+   * background]`: the open-reset effect below rewrites both, so an effect
+   * would also fire for the values the dialog restores on open — a second
+   * render of the composition the host has just captured.
+   */
+  const requestPreview = (
+    nextArea: ExportArea,
+    nextBackground: ExportBackground,
+  ): void => {
+    if (nextArea === area && nextBackground === background) return;
+    onPreviewOptionsChangeRef.current?.({
+      area: nextArea,
+      background: nextBackground,
+    });
+  };
 
   const handleExport = () => {
     if (!sanitizedFileName || props.isExporting) return;
@@ -901,6 +994,7 @@ export function ExportDialog(props: ExportDialogProps) {
                 ? { transitLabels: props.transitLabels }
                 : {})}
               counts={props.counts}
+              isLoading={props.isPreviewLoading ?? false}
             />
             <PresentationControls
               presentation={presentation}
@@ -951,6 +1045,7 @@ export function ExportDialog(props: ExportDialogProps) {
               value={area}
               choices={AREA_CHOICES}
               onChange={(nextArea) => {
+                requestPreview(nextArea, background);
                 setArea(nextArea);
                 if (nextArea === 'full-map') {
                   viewportFormatRef.current = format;
@@ -979,7 +1074,10 @@ export function ExportDialog(props: ExportDialogProps) {
               name="export-background"
               value={background}
               choices={BACKGROUND_CHOICES}
-              onChange={setBackground}
+              onChange={(nextBackground) => {
+                requestPreview(area, nextBackground);
+                setBackground(nextBackground);
+              }}
             />
           </div>
         </div>

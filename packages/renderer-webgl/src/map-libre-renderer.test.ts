@@ -1,7 +1,8 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { Mock } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Mock, MockInstance } from 'vitest';
 import * as maplibregl from 'maplibre-gl';
 import { describeIdleBlockers, MapLibreRenderer } from './map-libre-renderer';
+import { zoomForWorldUnitsPerPixel } from './export/output-density';
 import { makeCityData } from '@vellum/core/testing';
 import type {
   ExportRequest,
@@ -520,11 +521,16 @@ describe('MapLibreRenderer', () => {
     expect(viewport?.extent.minX).toBeGreaterThan(-8640);
     expect(viewport?.extent.maxX).toBeLessThan(8640);
     expect(viewport?.extent).not.toEqual(fullMap?.extent);
+    // The full-map extent is the city bounds grown by the decorative frame's
+    // own footprint — equally on every side — so MapLibre has somewhere to
+    // paint the outer half of the stroke and its shadow.
+    const margin = (fullMap?.extent.maxX ?? 0) - 8640;
+    expect(margin).toBeGreaterThan(0);
     expect(fullMap?.extent).toEqual({
-      minX: -8640,
-      maxX: 8640,
-      minZ: -8640,
-      maxZ: 8640,
+      minX: -8640 - margin,
+      maxX: 8640 + margin,
+      minZ: -8640 - margin,
+      maxZ: 8640 + margin,
     });
   });
 
@@ -621,7 +627,10 @@ describe('MapLibreRenderer', () => {
       targetLongEdge: 12000,
     });
 
-    expect(fullMap?.surface).toEqual({ width: 12000, height: 10667 });
+    // 10684, not the bare 18000:16000 ratio's 10667: the frame margin is added
+    // to both axes, which brings the padded extent slightly closer to square.
+    // The long edge stays exactly what the user asked for.
+    expect(fullMap?.surface).toEqual({ width: 12000, height: 10684 });
     expect(Number.isSafeInteger(fullMap?.surface.width)).toBe(true);
     expect(Number.isSafeInteger(fullMap?.surface.height)).toBe(true);
   });
@@ -755,82 +764,282 @@ describe('MapLibreRenderer', () => {
     expect(mockMap.remove).toHaveBeenCalledOnce();
   });
 
-  it('captures the current viewport during an on-demand render frame', async () => {
-    const renderer = makeRenderer();
-    await renderer.render(
-      makeCityData({
-        districts: [
-          {
-            id: 'district-1',
-            name: 'Centro',
-            position: { x: 0, y: 0, z: 0 },
-          },
-        ],
-      }),
-      { activeLayers: ALL_LAYERS_VISIBLE },
-    );
-    const toDataURL = vi.fn(() => 'data:image/png;base64,viewport');
-    mockMap.getCanvas.mockReturnValue({
-      style: { cursor: '' },
-      toDataURL,
-      clientWidth: 1_000,
-      clientHeight: 1_000,
-      width: 1_000,
-      height: 1_000,
-    } as unknown as { style: { cursor: string } });
-    mockMap.once.mockImplementation((_event: string, callback: () => void) => {
-      callback();
+  describe('capturePreview', () => {
+    // The disposable export surface a preview renders on needs a real GPU.
+    // Stubbing the capture keeps these tests about *which snapshot* the
+    // renderer hands it, which is the part this suite owns. Restored after
+    // each test so the two suites that exercise the real static still do.
+    let mockCaptureSnapshotPng: MockInstance<
+      typeof MapLibreRenderer.captureSnapshotPng
+    >;
+
+    beforeEach(() => {
+      mockCaptureSnapshotPng = vi
+        .spyOn(MapLibreRenderer, 'captureSnapshotPng')
+        .mockResolvedValue(new Uint8Array());
+      // A preview snapshot is sized from the live canvas, so the suite's
+      // default size-less canvas would make every capture bail before it ever
+      // reached the export surface.
+      mockMap.getCanvas.mockReturnValue({
+        style: { cursor: '' },
+        clientWidth: 1_000,
+        clientHeight: 1_000,
+        width: 1_000,
+        height: 1_000,
+      } as never);
     });
 
-    await expect(renderer.capturePreview()).resolves.toEqual({
-      dataUrl: 'data:image/png;base64,viewport',
-      width: 1000,
-      height: 1000,
-      bearingDegrees: 25,
-      scale: expect.objectContaining({
-        distanceMeters: expect.any(Number),
-        widthPercent: expect.any(Number),
-      }),
-      annotations: [
-        expect.objectContaining({
+    afterEach(() => {
+      mockCaptureSnapshotPng.mockRestore();
+    });
+
+    it('builds every preview from an export snapshot, never from the live canvas', async () => {
+      const renderer = makeRenderer();
+      await renderer.render(
+        makeCityData({
+          districts: [
+            {
+              id: 'district-1',
+              name: 'Centro',
+              position: { x: 0, y: 0, z: 0 },
+            },
+          ],
+        }),
+        { activeLayers: ALL_LAYERS_VISIBLE },
+      );
+      const toDataURL = vi.fn(() => 'data:image/png;base64,live-canvas');
+      mockMap.getCanvas.mockReturnValue({
+        style: { cursor: '' },
+        toDataURL,
+        clientWidth: 1_000,
+        clientHeight: 1_000,
+        width: 1_000,
+        height: 1_000,
+      } as unknown as { style: { cursor: string } });
+      const capture = mockCaptureSnapshotPng.mockResolvedValue(
+        Uint8Array.from([137, 80, 78, 71]),
+      );
+
+      const preview = await renderer.capturePreview({
+        area: 'full-map',
+        background: 'dark',
+      });
+
+      // The image comes from the disposable export surface, so what the dialog
+      // shows is the same snapshot the exporter would write.
+      const [snapshot, options] = capture.mock.calls[0]!;
+      expect(snapshot.request.background).toBe('dark');
+      expect(snapshot.extent.maxX).toBeGreaterThan(8640);
+      expect(options).toMatchObject({ area: 'full-map', background: 'dark' });
+      expect(preview?.dataUrl).toBe(`data:image/png;base64,${btoa('\x89PNG')}`);
+      expect(preview?.width).toBe(snapshot.surface.width);
+      expect(preview?.annotations).toEqual([
+        expect.objectContaining({ id: 'district-1', kind: 'district' }),
+      ]);
+      // No live-canvas fallback survives: a preview that skipped the snapshot is
+      // exactly the drift this contract exists to prevent.
+      expect(toDataURL).not.toHaveBeenCalled();
+    });
+
+    it('reports the document a viewport export writes, not the preview image', async () => {
+      const renderer = makeRenderer();
+      await renderer.render(makeCityData(), {
+        activeLayers: ALL_LAYERS_VISIBLE,
+      });
+      mockMap.getCanvas.mockReturnValue({
+        style: { cursor: '' },
+        clientWidth: 1_200,
+        clientHeight: 800,
+        width: 1_200,
+        height: 800,
+      } as never);
+
+      const preview = await renderer.capturePreview({
+        area: 'viewport',
+        background: 'white',
+      });
+
+      // The two are deliberately different numbers: the image is rendered
+      // small, the file is the canvas's own size. Reporting the image's size
+      // as the document's is what made the dialog announce 720 x 480 for a
+      // file that came out 1200 x 800.
+      expect(preview?.width).toBe(720);
+      expect(preview?.viewportSurface).toEqual({ width: 1_200, height: 800 });
+    });
+
+    it('frames a full-map preview on the snapshot camera, not the city bounds', async () => {
+      const renderer = makeRenderer();
+      await renderer.render(makeCityData(), {
+        activeLayers: ALL_LAYERS_VISIBLE,
+      });
+
+      await renderer.capturePreview({ area: 'full-map', background: 'white' });
+
+      const [snapshot, options] = mockCaptureSnapshotPng.mock.calls[0]!;
+      // Without this the capture surface falls back to `fitToCityBounds`,
+      // which frames the bare bounds with its own padding and knows nothing
+      // about the margin the framing reserved — so the preview would crop the
+      // map frame the file keeps whole.
+      expect(options.frameOnSnapshotCamera).toBe(true);
+      expect(snapshot.camera.bearing).toBe(0);
+      expect(snapshot.camera.pitch).toBe(0);
+      const worldUnitsPerPixel =
+        (snapshot.extent.maxX - snapshot.extent.minX) / snapshot.surface.width;
+      expect(snapshot.camera.zoom).toBeCloseTo(
+        zoomForWorldUnitsPerPixel(worldUnitsPerPixel),
+        6,
+      );
+    });
+
+    it('keeps the live bearing for SVG gating even on a north-up full-map preview', async () => {
+      const renderer = makeRenderer();
+      await renderer.render(makeCityData(), {
+        activeLayers: ALL_LAYERS_VISIBLE,
+      });
+
+      const preview = await renderer.capturePreview({
+        area: 'full-map',
+        background: 'white',
+      });
+
+      // The image is north-up, so the orientation indicator must read 0 — but
+      // the vector exporter still judges the rotated live camera, so the
+      // dialog needs that separately or it re-offers SVG it cannot deliver.
+      expect(preview?.bearingDegrees).toBe(0);
+      expect(preview?.liveBearingDegrees).toBe(25);
+    });
+
+    it('projects a viewport preview through the live map, not through its extent', async () => {
+      const renderer = makeRenderer();
+      await renderer.render(
+        makeCityData({
+          districts: [
+            {
+              id: 'district-1',
+              name: 'Centro',
+              position: { x: 0, y: 0, z: 0 },
+            },
+          ],
+        }),
+        { activeLayers: ALL_LAYERS_VISIBLE },
+      );
+
+      const preview = await renderer.capturePreview({
+        area: 'viewport',
+        background: 'white',
+      });
+
+      // MapLibre's own projection is the only thing that places labels
+      // correctly once the user has rotated or tilted the map; the extent is a
+      // north-up bounding box and would put them somewhere else entirely.
+      expect(mockMap.project).toHaveBeenCalled();
+      expect(preview?.annotations).toEqual([
+        {
           id: 'district-1',
           name: 'Centro',
           kind: 'district',
-        }),
-      ],
-    });
-    expect(mockMap.once).toHaveBeenCalledWith('render', expect.any(Function));
-    expect(mockMap.triggerRepaint).toHaveBeenCalledOnce();
-    expect(toDataURL).toHaveBeenCalledWith('image/png');
-  });
-
-  it('returns null when preview capture is requested before city render', async () => {
-    const renderer = makeRenderer();
-
-    await expect(renderer.capturePreview()).resolves.toBeNull();
-    expect(mockMap.triggerRepaint).not.toHaveBeenCalled();
-  });
-
-  it('resolves an in-flight preview capture when the renderer is disposed', async () => {
-    const renderer = makeRenderer();
-    await renderer.render(makeCityData(), { activeLayers: ALL_LAYERS_VISIBLE });
-    mockMap.once.mockImplementation(() => undefined);
-
-    const capture = renderer.capturePreview();
-    renderer.dispose();
-
-    await expect(capture).resolves.toBeNull();
-  });
-
-  it('returns null when requesting the capture frame throws', async () => {
-    const renderer = makeRenderer();
-    await renderer.render(makeCityData(), { activeLayers: ALL_LAYERS_VISIBLE });
-    mockMap.once.mockImplementation(() => undefined);
-    mockMap.triggerRepaint.mockImplementationOnce(() => {
-      throw new Error('map removed');
+          // (lng 0 + 0.08) * 3200 = 256 of 1000 px across; y is pinned at 500.
+          xPercent: 25.6,
+          yPercent: 50,
+        },
+      ]);
+      expect(preview?.scale.distanceMeters).toBeGreaterThan(0);
+      expect(preview?.bearingDegrees).toBe(25);
     });
 
-    await expect(renderer.capturePreview()).resolves.toBeNull();
+    it('carries a neutral presentation into the preview request', async () => {
+      const renderer = makeRenderer();
+      await renderer.render(makeCityData(), {
+        activeLayers: ALL_LAYERS_VISIBLE,
+      });
+
+      await renderer.capturePreview({ area: 'viewport', background: 'white' });
+
+      // The dialog draws marginalia itself, over the image. A render that also
+      // baked it in would show every legend twice.
+      const [snapshot] = mockCaptureSnapshotPng.mock.calls[0]!;
+      expect(Object.values(snapshot.request.presentation)).toEqual(
+        Object.values(snapshot.request.presentation).map(() => false),
+      );
+    });
+
+    it('returns null when preview capture is requested before city render', async () => {
+      const renderer = makeRenderer();
+
+      await expect(
+        renderer.capturePreview({ area: 'viewport', background: 'white' }),
+      ).resolves.toBeNull();
+      expect(mockCaptureSnapshotPng).not.toHaveBeenCalled();
+    });
+
+    it('aborts an in-flight preview capture when the renderer is disposed', async () => {
+      const renderer = makeRenderer();
+      await renderer.render(makeCityData(), {
+        activeLayers: ALL_LAYERS_VISIBLE,
+      });
+      let captureSignal: AbortSignal | undefined;
+      mockCaptureSnapshotPng.mockImplementation(
+        (_snapshot, _options, signal: AbortSignal) => {
+          captureSignal = signal;
+          return new Promise((_resolve, reject) => {
+            signal.addEventListener('abort', () =>
+              reject(new Error('aborted')),
+            );
+          });
+        },
+      );
+
+      const capture = renderer.capturePreview({
+        area: 'viewport',
+        background: 'white',
+      });
+      renderer.dispose();
+
+      await expect(capture).resolves.toBeNull();
+      expect(captureSignal?.aborted).toBe(true);
+    });
+
+    it('supersedes a pending preview instead of racing a second export surface', async () => {
+      const renderer = makeRenderer();
+      await renderer.render(makeCityData(), {
+        activeLayers: ALL_LAYERS_VISIBLE,
+      });
+      const signals: AbortSignal[] = [];
+      mockCaptureSnapshotPng.mockImplementation(
+        (_snapshot, _options, signal: AbortSignal) => {
+          signals.push(signal);
+          return new Promise((_resolve, reject) => {
+            signal.addEventListener('abort', () =>
+              reject(new Error('aborted')),
+            );
+          });
+        },
+      );
+
+      const first = renderer.capturePreview({
+        area: 'viewport',
+        background: 'white',
+      });
+      renderer.capturePreview({ area: 'full-map', background: 'dark' });
+
+      // AD-15 wants one export surface at a time; the newer request tears the
+      // older one down rather than letting both render.
+      await expect(first).resolves.toBeNull();
+      expect(signals[0]!.aborted).toBe(true);
+      expect(signals[1]!.aborted).toBe(false);
+    });
+
+    it('returns null when the export capture fails', async () => {
+      const renderer = makeRenderer();
+      await renderer.render(makeCityData(), {
+        activeLayers: ALL_LAYERS_VISIBLE,
+      });
+      mockCaptureSnapshotPng.mockRejectedValue(new Error('GPU unavailable'));
+
+      await expect(
+        renderer.capturePreview({ area: 'viewport', background: 'white' }),
+      ).resolves.toBeNull();
+    });
   });
 
   it('setLayerVisibility calls setLayoutProperty for each matching layer ID', async () => {

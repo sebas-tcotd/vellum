@@ -2,20 +2,38 @@ import type {
   CityData,
   ExportPreviewAnnotation,
   ExportPreviewScale,
-  ExportPreviewSnapshot,
 } from '@vellum/core';
 import * as maplibregl from 'maplibre-gl';
 import { csToGeo, geoToCs } from '../coordinate-transform';
 
 const SCALE_SAMPLE_PIXELS = 100;
-const SCALE_TARGET_PIXELS = 80;
+/** Target on-screen length of the graphic scale bar, in preview pixels. */
+export const SCALE_TARGET_PIXELS = 80;
 
-/** Builds a preview snapshot from the current MapLibre surface and city data. */
-export function buildPreviewSnapshot(
+/** Everything a preview overlays on its image, projected through the live map. */
+export interface PreviewProjection {
+  /** Projection-derived graphic scale. */
+  scale: ExportPreviewScale;
+  /** District and park labels, as percentages of the frame. */
+  annotations: ExportPreviewAnnotation[];
+}
+
+/**
+ * Projects the overlay geometry of a viewport preview through the live map.
+ *
+ * @remarks
+ * Reused by the export-path preview for `area: 'viewport'`, whose camera *is*
+ * the live camera: MapLibre's own projection handles a rotated or tilted view,
+ * which linear extent arithmetic cannot. Read-only — nothing here moves the map.
+ *
+ * @param map - The live interactive map.
+ * @param cityData - City model whose districts and parks are labelled.
+ * @returns The projected overlay, or `null` when the surface is unusable.
+ */
+export function buildPreviewProjection(
   map: maplibregl.Map,
   cityData: CityData | null,
-  bearingDegrees: number,
-): ExportPreviewSnapshot | null {
+): PreviewProjection | null {
   const canvas = map.getCanvas();
   const width = canvas.clientWidth || canvas.width;
   const height = canvas.clientHeight || canvas.height;
@@ -23,10 +41,6 @@ export function buildPreviewSnapshot(
   const scale = buildPreviewScale(map, width, height);
   if (!scale) return null;
   return {
-    dataUrl: canvas.toDataURL('image/png'),
-    width,
-    height,
-    bearingDegrees,
     scale,
     annotations: buildPreviewAnnotations(map, cityData, width, height),
   };
@@ -84,7 +98,13 @@ function buildPreviewAnnotations(
   });
 }
 
-function niceScaleDistance(distance: number): number {
+/**
+ * Rounds a raw distance to a human-readable 1/2/5 × 10^n scale-bar length.
+ *
+ * @param distance - Raw world distance the bar would cover.
+ * @returns The rounded distance in CS1 metres.
+ */
+export function niceScaleDistance(distance: number): number {
   const magnitude = 10 ** Math.floor(Math.log10(distance));
   const normalized = distance / magnitude;
   const multiplier = normalized >= 5 ? 5 : normalized >= 2 ? 2 : 1;

@@ -23,6 +23,7 @@ import {
   LAYER_NAMES,
   type CityData,
   type ExportCamera,
+  type ExportPreviewOptions,
   type ExportPreviewSnapshot,
   type ExportBackground,
   type ExportRequest,
@@ -36,10 +37,7 @@ import {
   type RenderStyleParams,
 } from '@vellum/core';
 import * as maplibregl from 'maplibre-gl';
-import {
-  captureCanvasOnNextRender,
-  captureOnNextRender,
-} from './capture/map-render-capture';
+import { captureCanvasOnNextRender } from './capture/map-render-capture';
 import {
   captureExportSnapshotPng as captureExportSnapshotPngImpl,
   captureSnapshotPng as captureSnapshotPngImpl,
@@ -63,7 +61,11 @@ import type { MapLibreRendererOptions } from './map-libre-renderer-options';
 import { unregisterDemProtocol } from './sources/dem-protocol';
 import { releaseTemporaryWebGlContext } from './sources/webgl-context';
 import { resolveColors } from './style-adapter';
-import { buildPreviewSnapshot as buildPreviewSnapshotImpl } from './preview/preview-snapshot';
+import {
+  buildPreviewExportSnapshot,
+  toPreviewSnapshot,
+} from './preview/preview-export-capture';
+import { buildPreviewProjection } from './preview/preview-snapshot';
 import type {
   ServiceIconLegendState,
   TooltipInfo,
@@ -75,11 +77,6 @@ export type {
   TooltipInfo,
   ViewportBounds,
 } from './types/renderer.types';
-
-// Safe to keep generous: the caller no longer blocks the dialog's open on
-// this promise (see `useExportWorkflow.handleOpenExport`), so a slow capture
-// costs a delayed dimensions readout, not a delayed dialog.
-const PREVIEW_CAPTURE_TIMEOUT_MS = 5_000;
 
 /**
  * Upper bound on MapLibre's worker pool.
@@ -346,28 +343,25 @@ export class MapLibreRenderer implements IRenderer {
   }
 
   /**
-   * Captures the current viewport during a single on-demand render frame.
+   * Renders the requested export composition at preview size.
    *
    * @remarks
-   * MapLibre keeps `preserveDrawingBuffer` disabled globally for performance.
-   * Reading inside the next `render` event captures the completed WebGL frame
-   * without changing that context option or maintaining a second renderer.
+   * There is deliberately no second, cheaper path that reads the live canvas.
+   * A preview taken off the interactive surface is framed on the current
+   * viewport and painted with the theme's own background, so it can differ
+   * from the file for the very composition the dialog is describing — and it
+   * differed most at the moment the dialog opens, when the user has changed
+   * nothing and trusts it most. Every preview now comes from an
+   * {@link ExportSnapshot}, the same immutable input the exporters consume.
    *
-   * @returns A viewport snapshot, or `null` when no city is loaded or capture fails.
+   * @param options - Composition the preview must reproduce.
+   * @returns The preview, or `null` when no city is loaded or the capture fails.
    */
-  capturePreview(): Promise<ExportPreviewSnapshot | null> {
+  capturePreview(
+    options: ExportPreviewOptions,
+  ): Promise<ExportPreviewSnapshot | null> {
     if (!this.cityData) return Promise.resolve(null);
-    const capture = captureOnNextRender(
-      this.map,
-      PREVIEW_CAPTURE_TIMEOUT_MS,
-      () => this.buildPreviewSnapshot(),
-      () => null,
-    );
-    this.pendingPreviewCaptures.add(capture.cancel);
-    void capture.promise.finally(() =>
-      this.pendingPreviewCaptures.delete(capture.cancel),
-    );
-    return capture.promise;
+    return this.capturePreviewThroughExport(options);
   }
 
   /** Captures all export inputs without exposing the MapLibre instance. */
@@ -564,12 +558,82 @@ export class MapLibreRenderer implements IRenderer {
     if (!this.releasesDemProtocol) releaseTemporaryWebGlContext(canvas);
   }
 
-  private buildPreviewSnapshot(): ExportPreviewSnapshot | null {
-    return buildPreviewSnapshotImpl(
-      this.map,
-      this.cityData,
-      this.navigationManager.getBearing(),
-    );
+  /**
+   * Renders the pending export's composition at preview size.
+   *
+   * @remarks
+   * Goes through {@link MapLibreRenderer.captureSnapshotPng} — the same
+   * disposable surface the exporters use — rather than re-tinting the live
+   * canvas: a different area needs a different camera and a different
+   * background needs a different paint property, and neither may touch the map
+   * the user is still looking at.
+   *
+   * The capture is registered in `pendingPreviewCaptures` so `dispose()` and a
+   * superseding request both abort it; a caller that has already moved on
+   * simply discards the resolved value.
+   */
+  private async capturePreviewThroughExport(
+    options: ExportPreviewOptions,
+  ): Promise<ExportPreviewSnapshot | null> {
+    if (!this.cityData || !this.activeLayers) return null;
+    // A superseded preview is a disposable WebGL surface still rendering for a
+    // composition nobody will see. AD-15 wants one export surface at a time, so
+    // the new request tears the old one down rather than racing it.
+    for (const cancel of [...this.pendingPreviewCaptures]) cancel();
+    const snapshot = buildPreviewExportSnapshot({
+      map: this.map,
+      cityData: this.cityData,
+      style: this.style,
+      activeLayers: this.activeLayers,
+      layerOptions: this.layerOptions,
+      transitDimming: this.transitDimming,
+      watermarkVisible: this.watermarkVisible,
+      options,
+    });
+    if (!snapshot) return null;
+    const canvas = this.map.getCanvas();
+    const source = {
+      // The document a viewport export writes, which is the live canvas's own
+      // CSS size — not the deliberately smaller image rendered below.
+      viewportSurface: {
+        width: canvas.clientWidth || canvas.width,
+        height: canvas.clientHeight || canvas.height,
+      },
+      liveBearingDegrees: this.navigationManager.getBearing(),
+      // A viewport preview shares the live camera, so MapLibre's own projection
+      // places its overlays — linear extent arithmetic would misplace them the
+      // moment the user has rotated or tilted the map.
+      projection:
+        options.area === 'viewport'
+          ? buildPreviewProjection(this.map, this.cityData)
+          : null,
+    };
+
+    const controller = new AbortController();
+    const cancel = (): void => controller.abort();
+    this.pendingPreviewCaptures.add(cancel);
+    try {
+      const bytes = await MapLibreRenderer.captureSnapshotPng(
+        snapshot,
+        {
+          scale: 1,
+          area: options.area,
+          background: options.background,
+          // The preview is one surface, so it needs the snapshot's camera even
+          // for full-map — otherwise the renderer fits the bare city bounds and
+          // drops the frame margin the snapshot reserved.
+          frameOnSnapshotCamera: true,
+        },
+        controller.signal,
+      );
+      return toPreviewSnapshot(snapshot, bytes, source);
+    } catch {
+      // A preview that cannot be produced is not an export failure: the dialog
+      // keeps the image it already has rather than blanking or erroring.
+      return null;
+    } finally {
+      this.pendingPreviewCaptures.delete(cancel);
+    }
   }
 
   // ─── Layer API Delegation ───────────────────────────────────────────────

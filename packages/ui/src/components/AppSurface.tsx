@@ -231,7 +231,9 @@ export function AppSurface({
               name: line.name,
             }))}
             isExporting={exportWorkflow.isExporting}
+            isPreviewLoading={exportWorkflow.isPreviewCapturing}
             onOpenChange={exportWorkflow.setIsExportDialogOpen}
+            onPreviewOptionsChange={exportWorkflow.handleRecapturePreview}
             onExport={exportWorkflow.handleExport}
           />
         )}

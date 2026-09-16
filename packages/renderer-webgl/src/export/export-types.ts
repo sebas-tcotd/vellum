@@ -8,4 +8,20 @@ export interface PngExportOptions {
   area: ExportArea;
   /** Background treatment applied by the isolated export surface. */
   background: ExportBackground;
+  /**
+   * Frames the surface on `snapshot.camera` even for a `full-map` capture.
+   *
+   * @remarks
+   * A full-map *file* never needs this: the tiled path derives a camera per
+   * tile from `snapshot.extent`, and the legacy single-surface path is left on
+   * the renderer's own `fitToCityBounds`, which is the behaviour its goldens
+   * were measured against.
+   *
+   * A full-map *preview* does. It is a single surface too, and `fitToCityBounds`
+   * frames the raw city bounds with its own padding — it has never heard of the
+   * margin `resolveFullMapFraming` reserves for the map frame, so the preview
+   * would show a different crop from the file and could still clip the frame
+   * this story exists to keep whole.
+   */
+  frameOnSnapshotCamera?: boolean;
 }

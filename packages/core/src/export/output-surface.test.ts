@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { resolveFullMapOutputSurface } from './output-surface';
+import { mapFrameMarginPixels } from './map-frame-metrics';
+import { zoomForWorldUnitsPerPixel } from './output-density';
+import {
+  resolveFullMapFraming,
+  resolveFullMapOutputSurface,
+} from './output-surface';
 import type { ExportSnapshot } from '../types/export-pipeline';
 
 /**
@@ -78,5 +83,93 @@ describe('resolveFullMapOutputSurface', () => {
     expect(
       resolveFullMapOutputSurface(extentOf(2000, 1000), undefined),
     ).toEqual({ width: 0, height: 1 });
+  });
+});
+
+describe('resolveFullMapFraming', () => {
+  it('crece el extent por igual en los cuatro lados', () => {
+    const content = extentOf(17_280, 17_280);
+    const { extent, marginWorldUnits } = resolveFullMapFraming(content, 6000);
+
+    expect(marginWorldUnits).toBeGreaterThan(0);
+    expect(extent).toEqual({
+      minX: content.minX - marginWorldUnits,
+      maxX: content.maxX + marginWorldUnits,
+      minZ: content.minZ - marginWorldUnits,
+      maxZ: content.maxZ + marginWorldUnits,
+    });
+  });
+
+  it('reserva exactamente el margen del marco evaluado en el zoom de exportación', () => {
+    const { extent, surface, marginWorldUnits } = resolveFullMapFraming(
+      extentOf(17_280, 17_280),
+      6000,
+    );
+
+    const worldUnitsPerPixel = (extent.maxX - extent.minX) / surface.width;
+    const zoom = zoomForWorldUnitsPerPixel(worldUnitsPerPixel);
+    // El punto fijo converge: el margen en píxeles de salida es el que la
+    // rampa del marco pide en el zoom que ese mismo margen produce.
+    expect(marginWorldUnits / worldUnitsPerPixel).toBeCloseTo(
+      mapFrameMarginPixels(zoom),
+      2,
+    );
+  });
+
+  it('conserva el lado largo pedido por el usuario', () => {
+    for (const longEdge of [6000, 12_000, 16_000, 20_000] as const) {
+      const { surface } = resolveFullMapFraming(
+        extentOf(18_000, 16_000),
+        longEdge,
+      );
+      expect(Math.max(surface.width, surface.height)).toBe(longEdge);
+    }
+  });
+
+  it('el margen sigue al zoom: más resolución da más píxeles de marco y menos mundo reservado', () => {
+    const content = extentOf(17_280, 17_280);
+    const low = resolveFullMapFraming(content, 6000);
+    const high = resolveFullMapFraming(content, 20_000);
+
+    const marginPixels = (framing: typeof low): number =>
+      framing.marginWorldUnits /
+      ((framing.extent.maxX - framing.extent.minX) / framing.surface.width);
+
+    // Un documento más denso es un zoom más alto, y la rampa del marco dibuja
+    // un trazo más grueso ahí: un margen fijo sobraría aquí o faltaría allá.
+    expect(marginPixels(high)).toBeGreaterThan(marginPixels(low));
+    // Aun así cada píxel cubre menos mundo, así que el margen recorta menos
+    // ciudad cuanto mayor es la resolución pedida.
+    expect(high.marginWorldUnits).toBeLessThan(low.marginWorldUnits);
+  });
+
+  it('acerca al cuadrado el aspect ratio de un extent apaisado', () => {
+    const content = extentOf(18_000, 16_000);
+    const bare = resolveFullMapOutputSurface(content, 12_000);
+    const { surface } = resolveFullMapFraming(content, 12_000);
+
+    expect(surface.width).toBe(bare.width);
+    expect(surface.height).toBeGreaterThan(bare.height);
+  });
+
+  it('devuelve el extent intacto cuando no hay densidad que evaluar', () => {
+    const content = extentOf(2000, 1000);
+    // Sin targetLongEdge ni canvas el lado largo es 0: no hay zoom de
+    // exportación del que derivar un margen, así que no se inventa ninguno.
+    const { extent, marginWorldUnits } = resolveFullMapFraming(
+      content,
+      undefined,
+    );
+    expect(marginWorldUnits).toBe(0);
+    expect(extent).toEqual(content);
+  });
+
+  it('devuelve el extent intacto cuando el contenido es degenerado', () => {
+    const degenerate = { minX: 0, maxX: 0, minZ: 0, maxZ: 0 };
+    expect(resolveFullMapFraming(degenerate, 6000)).toEqual({
+      extent: degenerate,
+      surface: expect.anything(),
+      marginWorldUnits: 0,
+    });
   });
 });

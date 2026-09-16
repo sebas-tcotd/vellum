@@ -22,6 +22,7 @@ import { useShellSession, type ActiveModal } from './shell/shell-session';
 import './i18n/types';
 
 import type {
+  ExportPreviewOptions,
   ExportPreviewSnapshot,
   ExportRequest,
   ExportSnapshot,
@@ -139,7 +140,8 @@ export function App({
   const rotateByRef = useRef<((delta: number) => void) | null>(null);
   const resetBearingRef = useRef<(() => void) | null>(null);
   const previewCaptureRef = useRef<
-    (() => Promise<ExportPreviewSnapshot | null>) | null
+    | ((options: ExportPreviewOptions) => Promise<ExportPreviewSnapshot | null>)
+    | null
   >(null);
   const ownedSnapshotCaptureRef = useRef<
     ((request: ExportRequest) => ExportSnapshot | null) | null

@@ -1,5 +1,6 @@
 import { useEffect, type RefObject } from 'react';
 import type {
+  ExportPreviewOptions,
   ExportPreviewSnapshot,
   ExportRequest,
   ExportSnapshot,
@@ -17,7 +18,12 @@ interface RendererCommandRefs {
   rotateByRef?: RefObject<((delta: number) => void) | null> | undefined;
   resetBearingRef?: RefObject<(() => void) | null> | undefined;
   previewCaptureRef?:
-    | RefObject<(() => Promise<ExportPreviewSnapshot | null>) | null>
+    | RefObject<
+        | ((
+            options: ExportPreviewOptions,
+          ) => Promise<ExportPreviewSnapshot | null>)
+        | null
+      >
     | undefined;
   snapshotCaptureRef?:
     | RefObject<((request: ExportRequest) => ExportSnapshot | null) | null>
@@ -105,8 +111,8 @@ export function useRendererCommandRefs(
 
   useEffect(() => {
     if (!previewCaptureRef) return;
-    previewCaptureRef.current = () =>
-      rendererRef.current?.capturePreview() ?? Promise.resolve(null);
+    previewCaptureRef.current = (options) =>
+      rendererRef.current?.capturePreview(options) ?? Promise.resolve(null);
     return () => {
       previewCaptureRef.current = null;
     };

@@ -1,4 +1,5 @@
 import type {
+  ExportPreviewOptions,
   ExportPreviewSnapshot,
   ExportRequest,
   ExportSnapshot,
@@ -92,9 +93,10 @@ export interface MapLibreRootProps {
   subscribeServiceIconLegendRef?: React.RefObject<
     ((callback: (state: ServiceIconLegendState) => void) => () => void) | null
   >;
-  /** Ref populated with an on-demand viewport preview capture callback. */
+  /** Ref populated with an on-demand export preview capture callback. */
   previewCaptureRef?: React.RefObject<
-    (() => Promise<ExportPreviewSnapshot | null>) | null
+    | ((options: ExportPreviewOptions) => Promise<ExportPreviewSnapshot | null>)
+    | null
   >;
   /** Ref populated with a pure export snapshot callback. */
   snapshotCaptureRef?: React.RefObject<

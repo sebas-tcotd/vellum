@@ -3,6 +3,7 @@ import type { ParseKeys } from 'i18next';
 import type {
   CityData,
   ExportDialogOptions,
+  ExportPreviewOptions,
   ExportPreviewSnapshot,
   ExportProgress,
   ExportProgressCallback,
@@ -242,7 +243,8 @@ export interface UseExportWorkflowParams {
   svgExporter?: SvgExportPort | undefined;
   exportCancelHandlerRef?: ExportCancelHandlerRef | undefined;
   previewCaptureRef: React.RefObject<
-    (() => Promise<ExportPreviewSnapshot | null>) | null
+    | ((options: ExportPreviewOptions) => Promise<ExportPreviewSnapshot | null>)
+    | null
   >;
   snapshotCaptureRef: React.RefObject<
     ((request: ExportRequest) => ExportSnapshot | null) | null
@@ -314,6 +316,20 @@ export function useExportWorkflow({
   const isExportingPropRef = useRef(isExportingProp);
   isExportingPropRef.current = isExportingProp;
   const previewCapturePendingRef = useRef(false);
+  // The rendered mirror of `previewCapturePendingRef`. A preview is now a full
+  // WebGL render on a disposable surface, so it takes long enough that the
+  // dialog has to say it is working — the ref alone never re-renders anything.
+  const [isPreviewCapturing, setIsPreviewCapturing] = useState(false);
+  /**
+   * Monotonic id of the newest preview capture that was asked for.
+   *
+   * @remarks
+   * A capture can outlive the choice that started it — the user switches
+   * option again, or closes the dialog, while a render is still in flight.
+   * Bumping this is how those results are abandoned instead of landing on top
+   * of a composition nobody is looking at any more.
+   */
+  const previewRequestIdRef = useRef(0);
 
   /**
    * Cancels any active export before this render commits — never after,
@@ -363,6 +379,83 @@ export function useExportWorkflow({
     setExportPreview(null);
   }, [loadingState]);
 
+  // Closing the dialog abandons whatever preview was still rendering: its
+  // result describes a configuration that is no longer on screen, and the next
+  // open starts from a blank preview anyway.
+  useEffect(() => {
+    if (isExportDialogOpen) return;
+    previewRequestIdRef.current += 1;
+    previewCapturePendingRef.current = false;
+    setIsPreviewCapturing(false);
+  }, [isExportDialogOpen]);
+
+  /**
+   * Runs one preview capture and applies it only if it is still the current one.
+   *
+   * @remarks
+   * The single capture path for every preview the dialog ever shows — the
+   * first one it asks for on open, and each recapture the user's choices
+   * trigger. Both go through `previewCaptureRef` with the composition they
+   * mean, so neither can end up describing something the file would not.
+   *
+   * Staleness is decided by request identity, not by the promise that
+   * resolves first: each call claims the next id, and a result whose id is no
+   * longer current belongs to a composition the user has already left behind.
+   */
+  const runPreviewCapture = useCallback(
+    (options: ExportPreviewOptions): void => {
+      if (
+        cityData === null ||
+        loadingState === 'loading' ||
+        isExportingRef.current
+      ) {
+        return;
+      }
+      const requestId = previewRequestIdRef.current + 1;
+      previewRequestIdRef.current = requestId;
+      previewCapturePendingRef.current = true;
+      setIsPreviewCapturing(true);
+      void (previewCaptureRef.current?.(options) ?? Promise.resolve(null))
+        .then((preview) => {
+          if (previewRequestIdRef.current !== requestId) return;
+          // An export starting outside this dialog invalidates it outright —
+          // AD-15 allows only one live export while the DEM protocol is
+          // global, so the config UI this promise would otherwise populate
+          // must not stay up. The cityData/loadingState effects above already
+          // close the dialog for their own triggers; this is the equivalent
+          // for `isExportingProp`, which has none.
+          if (isExportingPropRef.current) {
+            setIsExportDialogOpen(false);
+            setExportPreview(null);
+            return;
+          }
+          const currentState = useVellumStore.getState();
+          if (
+            currentState.cityData !== cityData ||
+            currentState.loadingState === 'loading'
+          ) {
+            return;
+          }
+          // A capture that could not be produced keeps whatever the dialog is
+          // already showing: blanking it would tell the user their map is
+          // gone, when all that failed is a render of it. On open there is
+          // nothing to keep, and `ExportPreview` already says so.
+          if (preview === null) return;
+          setExportPreview(preview);
+        })
+        .finally(() => {
+          // Only the newest request may lower the flag: a superseded capture
+          // resolving late would otherwise clear the indicator while the one
+          // the user is waiting for is still rendering.
+          if (previewRequestIdRef.current === requestId) {
+            previewCapturePendingRef.current = false;
+            setIsPreviewCapturing(false);
+          }
+        });
+    },
+    [cityData, loadingState, previewCaptureRef],
+  );
+
   const handleOpenExport = useCallback((): void => {
     if (
       cityData === null ||
@@ -372,39 +465,34 @@ export function useExportWorkflow({
     ) {
       return;
     }
-    // The dialog opens immediately with no preview; `OutputDimensions`
-    // already renders nothing until `preview` arrives (same as it does for
-    // svg/full-map today), so a slow capture delays the dimensions readout,
-    // never the dialog itself.
+    // The dialog opens immediately with no preview and asks for one itself,
+    // through `handleRecapturePreview`, as soon as it has settled the
+    // composition it opens with. Capturing from here instead would mean
+    // guessing that composition — the dialog owns `area`/`background`, and a
+    // guess is exactly how the preview and the file drift apart.
+    // `OutputDimensions` already renders nothing until `preview` arrives, so a
+    // slow capture delays the dimensions readout, never the dialog itself.
     setExportPreview(null);
     setIsExportDialogOpen(true);
-    previewCapturePendingRef.current = true;
-    void (previewCaptureRef.current?.() ?? Promise.resolve(null))
-      .then((preview) => {
-        // An export starting outside this dialog invalidates it outright —
-        // AD-15 allows only one live export while the DEM protocol is
-        // global, so the config UI this promise would otherwise populate
-        // must not stay up. The cityData/loadingState effects above already
-        // close the dialog for their own triggers; this is the equivalent
-        // for `isExportingProp`, which has none.
-        if (isExportingPropRef.current) {
-          setIsExportDialogOpen(false);
-          setExportPreview(null);
-          return;
-        }
-        const currentState = useVellumStore.getState();
-        if (
-          currentState.cityData !== cityData ||
-          currentState.loadingState === 'loading'
-        ) {
-          return;
-        }
-        setExportPreview(preview);
-      })
-      .finally(() => {
-        previewCapturePendingRef.current = false;
-      });
-  }, [cityData, loadingState, previewCaptureRef]);
+  }, [cityData, loadingState]);
+
+  /**
+   * Captures the preview for the composition the dialog now describes.
+   *
+   * @remarks
+   * Called by `ExportDialog` when it opens, and afterwards when — and only
+   * when — the area or the background actually changes. Everything else the
+   * dialog can change (density, filename, presentation toggles) leaves the
+   * captured image identical, so re-rendering for those would cost a WebGL
+   * surface per click.
+   */
+  const handleRecapturePreview = useCallback(
+    (options: ExportPreviewOptions): void => {
+      if (!isExportDialogOpen) return;
+      runPreviewCapture(options);
+    },
+    [isExportDialogOpen, runPreviewCapture],
+  );
 
   const handleExport = useCallback(
     async (options: ExportDialogOptions): Promise<void> => {
@@ -459,6 +547,9 @@ export function useExportWorkflow({
       // return, and React only re-renders after this tick. A second click
       // dispatched before that render must see the guard already closed.
       isExportingRef.current = true;
+      // The real export owns the disposable surface from here on; a preview
+      // render still in flight must not land on the dialog it is replacing.
+      previewRequestIdRef.current += 1;
       setExportPhase('exporting');
       let resolvePending: (() => void) | undefined;
       pendingExportRef.current = new Promise((resolve) => {
@@ -566,6 +657,7 @@ export function useExportWorkflow({
 
   return {
     isExporting,
+    isPreviewCapturing,
     isExportDialogOpen,
     setIsExportDialogOpen,
     exportPreview,
@@ -577,6 +669,7 @@ export function useExportWorkflow({
     exportWarnings,
     handleCancelExport,
     handleOpenExport,
+    handleRecapturePreview,
     handleExport,
   };
 }

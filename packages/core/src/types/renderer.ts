@@ -1,5 +1,8 @@
 import type { CityData } from './city-data';
-import type { ExportPreviewSnapshot } from './export-presentation';
+import type {
+  ExportPreviewOptions,
+  ExportPreviewSnapshot,
+} from './export-presentation';
 import type {
   ExportRequest,
   ExportSnapshot,
@@ -214,8 +217,22 @@ export interface MapSubscriptionsPort {
  * depends on the export destination.
  */
 export interface MapCapturePort {
-  /** Captures a low-resolution preview of the current viewport, or `null` if the surface is unusable. */
-  capturePreview(): Promise<ExportPreviewSnapshot | null>;
+  /**
+   * Captures a preview of the composition the export dialog describes.
+   *
+   * @remarks
+   * `options` is required, not optional, and that is the contract: every
+   * preview — including the first one, the instant the dialog opens — is
+   * rendered from the same immutable {@link ExportSnapshot} the exporters
+   * consume. There is no cheaper live-canvas variant to fall back to, because
+   * a preview that did not come from a snapshot can disagree with the file.
+   *
+   * @param options - Composition the preview must reproduce.
+   * @returns The preview, or `null` if the map cannot currently produce one.
+   */
+  capturePreview(
+    options: ExportPreviewOptions,
+  ): Promise<ExportPreviewSnapshot | null>;
   /**
    * Captures an immutable raster export snapshot.
    * @param request - The requested area, density and presentation options.
