@@ -1,3 +1,9 @@
+import {
+  MAP_FRAME_SHADOW_BLUR_STOPS,
+  MAP_FRAME_SHADOW_OFFSET,
+  MAP_FRAME_WIDTH_STOPS,
+  type ZoomStop,
+} from '@vellum/core';
 import type * as maplibregl from 'maplibre-gl';
 import { FRAME_LAYER_IDS } from '../constants/layer.constants';
 import { buildWorldExtentGeoJson } from '../geojson';
@@ -9,45 +15,43 @@ const FRAME_LAYER_ID = FRAME_LAYER_IDS[1];
 
 const SOURCE_ID = 'world-extent-source';
 
-const SHADOW_OFFSET: [number, number] = [0, 4];
 const SHADOW_COLOR = '#4A4035';
 const SHADOW_OPACITY = 0.2;
 
-const FRAME_WIDTH_EXPR: maplibregl.ExpressionSpecification = [
-  'interpolate',
-  ['linear'],
-  ['zoom'],
-  6,
-  6,
-  10,
-  12,
-  12,
-  20,
-  14,
-  38,
-  16,
-  72,
-  18,
-  130,
+/**
+ * Builds the MapLibre paint expression for a zoom ramp declared in the domain.
+ *
+ * @remarks
+ * The stop tables live in `@vellum/core` because the export framing math and
+ * the export dialog both need them and cannot import this adapter (ADR-0001).
+ * Generating the expression here — instead of writing the numbers twice —
+ * keeps this layer the only place that decides *how* the frame is painted
+ * while the geometry it is painted with exists exactly once.
+ */
+function zoomRampExpression(
+  stops: readonly ZoomStop[],
+): maplibregl.ExpressionSpecification {
+  return [
+    'interpolate',
+    ['linear'],
+    ['zoom'],
+    ...stops.flatMap((stop) => [stop.zoom, stop.value]),
+  ] as maplibregl.ExpressionSpecification;
+}
+
+/** Viewport-anchored shadow translation, re-exported from its domain source. */
+export const SHADOW_OFFSET: [number, number] = [
+  MAP_FRAME_SHADOW_OFFSET[0],
+  MAP_FRAME_SHADOW_OFFSET[1],
 ];
 
-const SHADOW_BLUR_EXPR: maplibregl.ExpressionSpecification = [
-  'interpolate',
-  ['linear'],
-  ['zoom'],
-  6,
-  3.6,
-  10,
-  7.2,
-  12,
-  12,
-  14,
-  22.8,
-  16,
-  43.2,
-  18,
-  78,
-];
+/** Frame stroke width ramp actually painted by {@link addMapFrameLayer}. */
+export const FRAME_WIDTH_EXPR: maplibregl.ExpressionSpecification =
+  zoomRampExpression(MAP_FRAME_WIDTH_STOPS);
+
+/** Frame shadow blur ramp actually painted by {@link addMapFrameLayer}. */
+export const SHADOW_BLUR_EXPR: maplibregl.ExpressionSpecification =
+  zoomRampExpression(MAP_FRAME_SHADOW_BLUR_STOPS);
 
 /**
  * Adds a decorative map frame and its drop shadow as the topmost MapLibre layers.

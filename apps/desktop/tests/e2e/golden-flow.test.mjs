@@ -236,15 +236,13 @@ describe('golden cartographic flow', () => {
     await waitForMapReady(browser);
     await captureConsoleErrors(browser);
 
-    // A viewport export announces its size only once the renderer hands the
-    // dialog a preview snapshot, and that capture resolves on MapLibre's next
-    // `render` event within `PREVIEW_CAPTURE_TIMEOUT_MS`
-    // (`map-libre-renderer.ts`). A settled map emits no `render` at all, so on
-    // a slow host the capture can expire and the dialog shows no dimensions —
-    // which is a real product fragility, tracked separately, not something
-    // this flow should silently absorb. Nudging a resize guarantees the frame
-    // the capture is waiting for, so the assertions below are about the
-    // export, not about who won that race.
+    // A viewport export announces its size from `preview.viewportSurface`, the
+    // live canvas's CSS size, so the dialog needs the map to have settled on
+    // one. The preview itself no longer races the live map's next `render`
+    // event — since Story 3.4 it is an offscreen render of an `ExportSnapshot`
+    // — but this resize still pins the canvas size that readout is taken from,
+    // so the assertions below are about the export rather than about a
+    // mid-layout measurement.
     await browser.execute(() => window.dispatchEvent(new Event('resize')));
 
     // Stage: the export dialog.

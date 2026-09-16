@@ -79,6 +79,7 @@
     "description": "Configure the current map before export.",
     "preview": "Export preview",
     "previewUnavailable": "Map preview unavailable",
+    "previewLoading": "Rendering preview…",
     "format": "Format",
     "format_png1x": "PNG 1×",
     "format_png2x": "PNG 2×",

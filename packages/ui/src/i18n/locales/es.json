@@ -79,6 +79,7 @@
     "description": "Configura el mapa actual antes de exportarlo.",
     "preview": "Preview de exportación",
     "previewUnavailable": "Preview del mapa no disponible",
+    "previewLoading": "Generando preview…",
     "format": "Formato",
     "format_png1x": "PNG 1×",
     "format_png2x": "PNG 2×",

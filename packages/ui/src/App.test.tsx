@@ -49,7 +49,9 @@ const mockPreviewCapture = vi.hoisted(() =>
     dataUrl: 'data:image/png;base64,viewport',
     width: 640,
     height: 480,
+    viewportSurface: { width: 640, height: 480 },
     bearingDegrees: 0,
+    liveBearingDegrees: 0,
     scale: { distanceMeters: 500, widthPercent: 20 },
     annotations: [],
   }),
@@ -244,7 +246,9 @@ beforeEach(() => {
     dataUrl: 'data:image/png;base64,viewport',
     width: 640,
     height: 480,
+    viewportSurface: { width: 640, height: 480 },
     bearingDegrees: 0,
+    liveBearingDegrees: 0,
     scale: { distanceMeters: 500, widthPercent: 20 },
     annotations: [],
   });
@@ -907,7 +911,15 @@ describe('App — ExportDialog (Story 6.1)', () => {
       view = render(<App />);
     });
     const options = vi.mocked(useKeyboardShortcuts).mock.lastCall?.[0];
-    const opening = options?.onOpenExport?.();
+    // Opening mounts the dialog, which is what asks for the first capture —
+    // the promise above is that capture, still pending.
+    await act(async () => {
+      options?.onOpenExport?.();
+    });
+    expect(mockPreviewCapture).toHaveBeenCalledWith({
+      area: 'viewport',
+      background: 'white',
+    });
 
     await act(async () => {
       view?.rerender(<App isExporting />);
@@ -917,11 +929,12 @@ describe('App — ExportDialog (Story 6.1)', () => {
         dataUrl: 'data:image/png;base64,late',
         width: 640,
         height: 480,
+        viewportSurface: { width: 640, height: 480 },
         bearingDegrees: 0,
+        liveBearingDegrees: 0,
         scale: { distanceMeters: 500, widthPercent: 20 },
         annotations: [],
       });
-      await opening;
     });
 
     expect(screen.queryByLabelText('export.fileName')).toBeNull();

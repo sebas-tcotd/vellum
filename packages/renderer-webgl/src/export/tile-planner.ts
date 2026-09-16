@@ -35,7 +35,7 @@ export function planTiles(
   if (!limits) return reject('gpu');
   const side = chooseUsefulSide(width, height, limits, signal);
   if (!side) return reject('dimensions');
-  const renderExtent = fitAspect(snapshot.extent, width / height);
+  const renderExtent = fitExtentToAspect(snapshot.extent, width / height);
   const worldUnitsPerPixel = (renderExtent.maxX - renderExtent.minX) / width;
   const zoom = zoomForWorldUnitsPerPixel(worldUnitsPerPixel);
   const tiles = makeTiles(
@@ -163,7 +163,23 @@ function expand(
   };
 }
 
-function fitAspect(extent: ExportExtent, aspect: number): ExportExtent {
+/**
+ * Grows an extent on its short axis until it matches the surface's aspect ratio.
+ *
+ * @remarks
+ * A document maps its extent edge to edge, so whatever the extent does not
+ * cover on one axis the surface pads with background. Shared with the preview
+ * capture: a preview framed on the raw extent would show a different crop from
+ * the file the same snapshot produces.
+ *
+ * @param extent - The world rectangle the document must contain.
+ * @param aspect - Surface width divided by surface height.
+ * @returns The extent actually rendered.
+ */
+export function fitExtentToAspect(
+  extent: ExportExtent,
+  aspect: number,
+): ExportExtent {
   const width = extent.maxX - extent.minX;
   const height = extent.maxZ - extent.minZ;
   if (width / height < aspect) {

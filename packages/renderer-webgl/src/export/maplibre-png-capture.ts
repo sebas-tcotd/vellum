@@ -57,7 +57,7 @@ export async function captureSnapshotPng(
     exportRenderer.setTransitDimming(snapshot.transitDimming);
     exportRenderer.setLayerOptions(snapshot.layerOptions);
     exportRenderer.setWatermarkVisibility(snapshot.watermarkVisible);
-    if (options.area === 'viewport') {
+    if (options.area === 'viewport' || options.frameOnSnapshotCamera) {
       exportRenderer.setCamera(snapshot.camera);
     }
     exportRenderer.applyExportBackground(options.background);

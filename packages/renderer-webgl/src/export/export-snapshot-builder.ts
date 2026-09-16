@@ -2,6 +2,7 @@ import {
   createExportSnapshot,
   createSvgExportSnapshot,
   exportScaleForRequest,
+  resolveFullMapFraming,
   resolveFullMapOutputSurface,
   type CityData,
   type ExportArea,
@@ -45,22 +46,27 @@ export function buildExportSnapshot(
   const baseHeight = canvas.clientHeight;
   if (!isUsableSurface(baseWidth, baseHeight)) return null;
 
-  const extent = resolveExportExtent(
+  const contentExtent = resolveExportExtent(
     input.map,
     input.cityData,
     input.request.area,
   );
-  if (!extent) return null;
+  if (!contentExtent) return null;
 
-  const surface =
+  // A full-map document maps its extent edge to edge onto its surface, so the
+  // extent has to carry the decorative frame's own footprint or MapLibre paints
+  // the outer half of the stroke — and all of its shadow — outside the image.
+  const framing =
     input.request.area === 'full-map'
-      ? resolveFullMapOutputSurface(
-          extent,
+      ? resolveFullMapFraming(
+          contentExtent,
           input.request.targetLongEdge,
           baseWidth,
           baseHeight,
         )
-      : { width: baseWidth, height: baseHeight };
+      : null;
+  const extent = framing?.extent ?? contentExtent;
+  const surface = framing?.surface ?? { width: baseWidth, height: baseHeight };
   const scale = exportScaleForRequest(input.request);
 
   const camera = getCurrentCamera(input.map);
@@ -103,6 +109,10 @@ export function buildSvgExportSnapshot(
 
   // Vector output has no raster density to apply — `targetLongEdge` (or the
   // canvas, for a viewport export) *is* the final document size.
+  //
+  // No frame margin here, deliberately: `buildCartographicScene` emits no map
+  // frame, so reserving room for one would inset the vector document by a band
+  // of empty background that nothing ever draws into.
   const surface =
     input.request.area === 'full-map'
       ? resolveFullMapOutputSurface(
@@ -148,7 +158,8 @@ function isUsableSurface(width: number, height: number): boolean {
   );
 }
 
-function resolveExportExtent(
+/** Resolves the world rectangle an export of `area` covers, or `null` if unavailable. */
+export function resolveExportExtent(
   map: maplibregl.Map,
   cityData: CityData,
   area: ExportArea,

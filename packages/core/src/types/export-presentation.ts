@@ -1,8 +1,25 @@
 import type {
+  ExportArea,
   ExportBackground,
   ExportFormat,
   ExportTargetLongEdge,
 } from '../ipc-contract';
+
+/**
+ * The pending export's composition, as a preview capture must reproduce it.
+ *
+ * @remarks
+ * Deliberately only the two options that change *what is drawn* rather than
+ * how the dialog decorates it. Density, filename and presentation toggles
+ * never alter the captured image, so asking the renderer to re-render for
+ * them would burn a second WebGL surface for an identical result.
+ */
+export interface ExportPreviewOptions {
+  /** Spatial area the preview must frame. */
+  readonly area: ExportArea;
+  /** Background treatment the preview must actually paint. */
+  readonly background: ExportBackground;
+}
 
 /** A map annotation projected into preview-relative coordinates. */
 export interface ExportPreviewAnnotation {
@@ -26,16 +43,58 @@ export interface ExportPreviewScale {
   widthPercent: number;
 }
 
+/** Pixel dimensions of a rendered document. */
+export interface ExportPreviewSurface {
+  /** Width in logical pixels. */
+  width: number;
+  /** Height in logical pixels. */
+  height: number;
+}
+
 /** Immutable snapshot of the current renderer viewport for export configuration. */
 export interface ExportPreviewSnapshot {
-  /** Captured viewport encoded as a PNG data URL. */
+  /** Captured composition encoded as a PNG data URL. */
   dataUrl: string;
-  /** Captured viewport width in logical pixels. */
+  /** Width of the preview *image*, in logical pixels. */
   width: number;
-  /** Captured viewport height in logical pixels. */
+  /** Height of the preview *image*, in logical pixels. */
   height: number;
-  /** Clockwise map bearing in degrees at capture time. */
+  /**
+   * Document a `viewport` export of this composition produces at density 1.
+   *
+   * @remarks
+   * Deliberately separate from {@link ExportPreviewSnapshot.width}: the preview
+   * image is rendered small on purpose, and the two were the same number only
+   * while the preview was a straight read of the live canvas. Conflating them
+   * made the dialog announce the preview's own size as the file's — a 1200×800
+   * window reported "720 × 480 px" for a file that came out 1200×800.
+   *
+   * This is the live canvas's CSS size, which is exactly what a viewport export
+   * renders at before its density multiplier. A `full-map` document is sized by
+   * `targetLongEdge` instead, which the dialog owns and can change without
+   * recapturing, so it resolves that one itself.
+   */
+  viewportSurface: ExportPreviewSurface;
+  /**
+   * Clockwise bearing of the captured composition, in degrees.
+   *
+   * @remarks
+   * Zero for a `full-map` capture, which is always rendered north-up — this is
+   * what the preview's orientation indicator must follow, because it describes
+   * the image on screen.
+   */
   bearingDegrees: number;
+  /**
+   * Clockwise bearing of the live interactive camera, in degrees.
+   *
+   * @remarks
+   * What an SVG export is judged against: `createSvgExportSnapshot` captures
+   * the live camera verbatim for *both* areas, so a rotated map makes the
+   * vector route unavailable even for `full-map`. Reading
+   * {@link ExportPreviewSnapshot.bearingDegrees} instead would re-offer SVG the
+   * moment the user picked full-map, only for the exporter to reject it.
+   */
+  liveBearingDegrees: number;
   /** Projection-derived graphic scale at capture time. */
   scale: ExportPreviewScale;
   /** District and park labels projected at capture time. */

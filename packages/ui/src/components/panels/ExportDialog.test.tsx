@@ -27,12 +27,17 @@ vi.mock('@vellum/core', async (importOriginal) => {
 
 const onOpenChange = vi.fn();
 const onExport = vi.fn();
+const onPreviewOptionsChange = vi.fn();
 
 const preview = {
+  // Deliberately unlike `viewportSurface`: the preview image is rendered small
+  // on purpose, and the dialog must never announce *its* size as the file's.
   dataUrl: 'data:image/png;base64,preview',
   width: 640,
   height: 480,
+  viewportSurface: { width: 1200, height: 800 },
   bearingDegrees: 35,
+  liveBearingDegrees: 35,
   scale: { distanceMeters: 500, widthPercent: 24 },
   annotations: [
     {
@@ -83,6 +88,7 @@ const defaultProps: ExportDialogProps = {
   visibleLayerNames: ['terrain', 'roads'],
   transitLabels: [{ id: 'line-1', mode: 'Metro', name: 'Circular' }],
   onOpenChange,
+  onPreviewOptionsChange,
   onExport,
 };
 
@@ -293,6 +299,88 @@ describe('ExportDialog', () => {
     ).not.toBeInTheDocument();
   });
 
+  it('anuncia el tamaño real del archivo en viewport, no el de la imagen de preview', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    // El canvas vivo mide 1200x800 y la imagen de preview 640x480. El archivo
+    // que se escribe es el primero; leer el segundo hacía que el diálogo
+    // anunciara "720 × 480 px" para un PNG que salía 1200x800.
+    expect(screen.getByTestId('export-output-dimensions')).toHaveTextContent(
+      `${(1200).toLocaleString()} × ${(800).toLocaleString()} px · ~1 MB`,
+    );
+
+    await user.click(screen.getByLabelText('export.format_png2x'));
+    expect(screen.getByTestId('export-output-dimensions')).toHaveTextContent(
+      `${(2400).toLocaleString()} × ${(1600).toLocaleString()} px · ~4 MB`,
+    );
+
+    await user.click(screen.getByLabelText('export.format_png4x'));
+    expect(screen.getByTestId('export-output-dimensions')).toHaveTextContent(
+      `${(4800).toLocaleString()} × ${(3200).toLocaleString()} px · ~17 MB`,
+    );
+  });
+
+  it('no anuncia dimensiones para un viewport en SVG ni sin preview', () => {
+    const { rerender } = renderDialog();
+    rerender(<ExportDialog {...defaultProps} preview={null} />);
+    expect(screen.queryByTestId('export-output-dimensions')).toBeNull();
+  });
+
+  it('descuenta el margen de marco para un full-map en SVG', async () => {
+    const user = userEvent.setup();
+    renderDialog({
+      fullMapBounds: { minX: -9000, maxX: 9000, minZ: -8000, maxZ: 8000 },
+      // Norte arriba, para que la ruta vectorial esté disponible.
+      preview: { ...preview, liveBearingDegrees: 0 },
+    });
+
+    await user.click(screen.getByLabelText('export.area_fullMap'));
+    // Raster: el extent crece con el margen del marco, así que el lado corto
+    // sube de 5333 a 5346.
+    expect(screen.getByTestId('export-output-dimensions')).toHaveTextContent(
+      `${(6000).toLocaleString()} × ${(5346).toLocaleString()} px`,
+    );
+
+    await user.click(screen.getByLabelText('export.format_svg'));
+    // El documento vectorial no dibuja marco, así que `buildSvgExportSnapshot`
+    // no reserva margen: reportar el número raster describiría otro archivo.
+    expect(screen.getByTestId('export-output-dimensions')).toHaveTextContent(
+      `${(6000).toLocaleString()} × ${(5333).toLocaleString()} px`,
+    );
+  });
+
+  it('retira SVG con el mapa rotado aunque el área sea full-map', async () => {
+    const user = userEvent.setup();
+    renderDialog({
+      preview: { ...preview, bearingDegrees: 0, liveBearingDegrees: 35 },
+    });
+
+    // La preview de full-map se renderiza siempre al norte, así que su propio
+    // bearing es 0; el exportador vectorial juzga la cámara viva, que sigue
+    // rotada. Leer el primero volvía a ofrecer SVG para rechazarlo después.
+    await user.click(screen.getByLabelText('export.area_fullMap'));
+    expect(screen.getByLabelText('export.format_svg')).toBeDisabled();
+  });
+
+  it('señala que hay una preview renderizándose sin borrar la anterior', () => {
+    const { rerender } = renderDialog();
+    expect(screen.queryByTestId('export-preview-loading')).toBeNull();
+
+    rerender(<ExportDialog {...defaultProps} isPreviewLoading />);
+
+    // La imagen previa sigue visible: es lo más parecido a la respuesta
+    // mientras la nueva se renderiza, y vaciarla haría parpadear el diálogo.
+    expect(screen.getByTestId('export-preview-loading')).toBeInTheDocument();
+    expect(
+      screen.getByTestId('export-preview').querySelector('img'),
+    ).toHaveAttribute('src', 'data:image/png;base64,preview');
+    expect(screen.getByTestId('export-preview')).toHaveAttribute(
+      'aria-busy',
+      'true',
+    );
+  });
+
   it('formatea el preview con el idioma seleccionado en la app', async () => {
     const user = userEvent.setup();
     mockI18n.language = 'es';
@@ -330,14 +418,82 @@ describe('ExportDialog', () => {
     );
   });
 
-  it('hace visible el fondo seleccionado bajo la captura opaca', async () => {
+  it('muestra la captura tal cual, sin atenuarla para simular el fondo', async () => {
     const user = userEvent.setup();
     renderDialog();
     const image = screen.getByTestId('export-preview').querySelector('img');
 
-    expect(image).toHaveStyle({ opacity: '0.9' });
+    // La captura ya trae el fondo real; bajarle la opacidad para dejar
+    // asomar un color CSS sería fingir una diferencia que el archivo no tiene.
+    // Se asserta la AUSENCIA de opacidad inline, no un valor concreto: un
+    // `not.toHaveStyle({ opacity: '0.9' })` pasaría igual con un 0.7 nuevo.
+    expect(image?.style.opacity).toBe('');
     await user.click(screen.getByLabelText('export.background_transparent'));
-    expect(image).toHaveStyle({ opacity: '0.78' });
+    expect(image?.style.opacity).toBe('');
+  });
+
+  it('pide la primera preview al abrirse, con la composición que restaura', () => {
+    const { rerender } = renderDialog({ open: false });
+    expect(onPreviewOptionsChange).not.toHaveBeenCalled();
+
+    rerender(<ExportDialog {...defaultProps} open />);
+
+    // La preview inicial también nace de un `ExportSnapshot`: el diálogo pide
+    // exactamente las opciones que acaba de restaurar, en lugar de heredar una
+    // lectura del canvas vivo que ya podría diferir del archivo.
+    expect(onPreviewOptionsChange).toHaveBeenCalledExactlyOnceWith({
+      area: 'viewport',
+      background: 'white',
+    });
+  });
+
+  it('la apertura respeta el fondo derivado del tema activo', () => {
+    const { rerender } = renderDialog({
+      open: false,
+      defaultBackground: 'dark',
+    });
+    rerender(<ExportDialog {...defaultProps} defaultBackground="dark" open />);
+
+    expect(onPreviewOptionsChange).toHaveBeenCalledExactlyOnceWith({
+      area: 'viewport',
+      background: 'dark',
+    });
+  });
+
+  it('pide una recaptura al cambiar el área y al cambiar el fondo', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+    // La captura de apertura ya se pidió al montar con `open`.
+    expect(onPreviewOptionsChange).toHaveBeenCalledTimes(1);
+
+    await user.click(screen.getByLabelText('export.area_fullMap'));
+    expect(onPreviewOptionsChange).toHaveBeenLastCalledWith({
+      area: 'full-map',
+      background: 'white',
+    });
+
+    await user.click(screen.getByLabelText('export.background_transparent'));
+    expect(onPreviewOptionsChange).toHaveBeenLastCalledWith({
+      area: 'full-map',
+      background: 'transparent',
+    });
+    expect(onPreviewOptionsChange).toHaveBeenCalledTimes(3);
+  });
+
+  it('no pide recaptura por opciones que no cambian lo dibujado', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+    onPreviewOptionsChange.mockClear();
+
+    // Densidad, resolución, nombre de archivo y marginalia decoran el diálogo;
+    // ninguna cambia la imagen capturada, así que no justifican un render.
+    await user.click(screen.getByLabelText('export.format_png2x'));
+    await user.click(screen.getByLabelText('export.element_scaleBar'));
+    expect(onPreviewOptionsChange).not.toHaveBeenCalled();
+
+    // Reelegir el área que ya estaba activa tampoco es un cambio.
+    await user.click(screen.getByLabelText('export.area_viewport'));
+    expect(onPreviewOptionsChange).not.toHaveBeenCalled();
   });
 
   it('proyecta anotaciones por id y muestra el asset real del logo', async () => {
@@ -386,10 +542,11 @@ describe('ExportDialog', () => {
 
   it('evita combinaciones de escala imposibles al seleccionar SVG', async () => {
     const user = userEvent.setup();
-    // El preview por defecto está rotado 35°, que ahora deshabilita SVG:
+    // La cámara viva del preview por defecto está rotada 35°, que deshabilita
+    // SVG:
     // este caso prueba la lógica de escala, no la elegibilidad de cámara.
     renderDialog({
-      preview: { ...defaultProps.preview!, bearingDegrees: 0 },
+      preview: { ...defaultProps.preview!, liveBearingDegrees: 0 },
     });
 
     await user.click(screen.getByLabelText('export.format_svg'));
@@ -406,7 +563,7 @@ describe('ExportDialog', () => {
     // AC 19: una ruta no elegible vuelve a estado deshabilitado, en vez de
     // dejarse elegir y fallar recién al confirmar la exportación.
     renderDialog({
-      preview: { ...defaultProps.preview!, bearingDegrees: 35 },
+      preview: { ...defaultProps.preview!, liveBearingDegrees: 35 },
     });
 
     const svg = screen.getByLabelText('export.format_svg');
@@ -425,7 +582,7 @@ describe('ExportDialog', () => {
 
   it('vuelve a ofrecer SVG cuando la cámara regresa a norte arriba', () => {
     renderDialog({
-      preview: { ...defaultProps.preview!, bearingDegrees: 0 },
+      preview: { ...defaultProps.preview!, liveBearingDegrees: 0 },
     });
     expect(screen.getByLabelText('export.format_svg')).toBeEnabled();
   });
