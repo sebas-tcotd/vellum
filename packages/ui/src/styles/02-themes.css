@@ -155,6 +155,9 @@
 
 /* App.tsx sets data-appearance from the active map theme, not the OS. */
 [data-appearance='dark'] {
+  /* Native form controls (radios, checkboxes, scrollbars) follow this, not the
+     tokens below; without it WebKit paints unchecked controls with a white fill. */
+  color-scheme: dark;
   --color-bg: #16161f;
   --color-background: #16161f;
   --color-text: #e9e7e2;
