@@ -9,7 +9,11 @@ import type {
   SvgTextChunk,
 } from '@vellum/core';
 import { createSvgExportSnapshot, DEFAULT_LAYER_OPTIONS } from '@vellum/core';
-import { makeCityData } from '@vellum/core/testing';
+import {
+  makeCityData,
+  makeMarginaliaLabels,
+  makePresentationOptions,
+} from '@vellum/core/testing';
 import { buildCartographicScene } from '@vellum/renderer-webgl';
 import { SvgExportCapabilityError, SvgExporter } from './svg-exporter';
 import { runSvgSerialization } from './svg-serialization-driver';
@@ -70,7 +74,7 @@ const STYLE = {
 } as never;
 
 const LAYER_OPTIONS = DEFAULT_LAYER_OPTIONS;
-const PRESENTATION = {} as SvgExportSnapshot['request']['presentation'];
+const PRESENTATION = makePresentationOptions();
 
 function snapshot(
   overrides: {
@@ -111,6 +115,7 @@ function snapshot(
       background: 'white',
       fileName: 'testville',
       presentation: PRESENTATION,
+      labels: makeMarginaliaLabels(),
     },
   });
 }
@@ -286,6 +291,33 @@ describe('SvgExporter streaming', () => {
     expect(sink.chunks.map((chunk) => chunk.text).join('')).toMatch(
       /^<\?xml[\s\S]*<\/svg>$/,
     );
+  });
+
+  it('writes the snapshot marginalia into the document as vectors', async () => {
+    const fake = createFakeWorker();
+    const exporter = makeExporter({
+      createWorker: (() => fake.handle) as never,
+      sink,
+    });
+    const base = snapshot();
+    const withMarginalia = createSvgExportSnapshot({
+      ...base,
+      request: {
+        ...base.request,
+        presentation: makePresentationOptions({
+          showCityName: true,
+          showScaleBar: true,
+          corner: 'bottom-right',
+        }),
+      },
+    });
+
+    await exporter.export(withMarginalia);
+
+    const xml = sink.chunks.map((chunk) => chunk.text).join('');
+    expect(xml).toContain('<g id="vellum-marginalia"');
+    expect(xml).toContain('>TEST CITY</text>');
+    expect(xml).not.toContain('<image');
   });
 
   it('numbers chunks strictly increasing from zero', async () => {

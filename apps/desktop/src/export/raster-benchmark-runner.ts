@@ -1,4 +1,6 @@
 import {
+  NEUTRAL_MARGINALIA_LABELS,
+  NEUTRAL_PRESENTATION_OPTIONS,
   type CapabilityReport,
   type ExportArea,
   type ExportBackground,
@@ -310,7 +312,8 @@ export class RasterBenchmarkRunner {
       fileName: `benchmark-${fixture}-${phase}-${repeat + 1}-${area}-${format}${
         targetLongEdge ? `-${targetLongEdge}` : ''
       }-${background}`,
-      presentation: emptyPresentation(),
+      presentation: NEUTRAL_PRESENTATION_OPTIONS,
+      labels: NEUTRAL_MARGINALIA_LABELS,
     };
     const resolvedTargetLongEdge = targetLongEdge ?? 6000;
     const request: ExportRequest =
@@ -391,24 +394,6 @@ function scaleFor(format: (typeof FORMATS)[number]): 1 | 2 | 4 {
   if (format === 'png-1x') return 1;
   if (format === 'png-2x') return 2;
   return 4;
-}
-
-function emptyPresentation(): ExportRequest['presentation'] {
-  return {
-    showCityName: false,
-    showVellumLogo: false,
-    showSourceFile: false,
-    showGeneratedAt: false,
-    showDistrictNames: false,
-    showParkNames: false,
-    showLayerLegend: false,
-    showRoadLegend: false,
-    showTransitLegend: false,
-    showElevationLegend: false,
-    showScaleBar: false,
-    showOrientation: false,
-    showSummary: false,
-  };
 }
 
 function readHeapBytes(): number | RasterBenchmarkUnknown {

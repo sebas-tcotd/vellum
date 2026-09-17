@@ -31,13 +31,13 @@ describe('ExportStatusOverlay — advertencias de exportación parcial', () => {
       <ExportStatusOverlay
         {...IDLE}
         exportResult={RESULT}
-        exportWarnings={['exportWarnings.svgUnsupportedPresentation']}
+        exportWarnings={['exportWarnings.svgEmptyLayer']}
       />,
     );
 
     expect(screen.getByText('export.successToast')).toBeInTheDocument();
     expect(
-      screen.getByText('exportWarnings.svgUnsupportedPresentation'),
+      screen.getByText('exportWarnings.svgEmptyLayer'),
     ).toBeInTheDocument();
   });
 
@@ -45,9 +45,7 @@ describe('ExportStatusOverlay — advertencias de exportación parcial', () => {
     render(<ExportStatusOverlay {...IDLE} exportResult={RESULT} />);
 
     expect(screen.getByText('export.successToast')).toBeInTheDocument();
-    expect(
-      screen.queryByText('exportWarnings.svgUnsupportedPresentation'),
-    ).toBeNull();
+    expect(screen.queryByText('exportWarnings.svgEmptyLayer')).toBeNull();
   });
 
   it('renderiza cada advertencia como su propia clave, sin concatenarlas', () => {
@@ -79,13 +77,13 @@ describe('ExportStatusOverlay — advertencias de exportación parcial', () => {
       <ExportStatusOverlay
         {...IDLE}
         exportError={error}
-        exportWarnings={['exportWarnings.svgUnsupportedPresentation']}
+        exportWarnings={['exportWarnings.svgEmptyLayer']}
       />,
     );
 
     expect(screen.getByRole('alert')).toBeInTheDocument();
     expect(
-      screen.getByText('exportWarnings.svgUnsupportedPresentation'),
+      screen.getByText('exportWarnings.svgEmptyLayer'),
     ).toBeInTheDocument();
   });
 
@@ -97,13 +95,11 @@ describe('ExportStatusOverlay — advertencias de exportación parcial', () => {
         {...IDLE}
         isExporting
         exportPhase="exporting"
-        exportWarnings={['exportWarnings.svgUnsupportedPresentation']}
+        exportWarnings={['exportWarnings.svgEmptyLayer']}
       />,
     );
 
-    expect(
-      screen.queryByText('exportWarnings.svgUnsupportedPresentation'),
-    ).toBeNull();
+    expect(screen.queryByText('exportWarnings.svgEmptyLayer')).toBeNull();
   });
 });
 
@@ -115,21 +111,19 @@ describe('ExportStatusOverlay — desaparición de toasts', () => {
         <ExportStatusOverlay
           {...IDLE}
           exportResult={RESULT}
-          exportWarnings={['exportWarnings.svgUnsupportedPresentation']}
+          exportWarnings={['exportWarnings.svgEmptyLayer']}
         />,
       );
 
       expect(
-        screen.getByText('exportWarnings.svgUnsupportedPresentation'),
+        screen.getByText('exportWarnings.svgEmptyLayer'),
       ).toBeInTheDocument();
 
       act(() => {
         vi.advanceTimersByTime(3000);
       });
 
-      expect(
-        screen.queryByText('exportWarnings.svgUnsupportedPresentation'),
-      ).toBeNull();
+      expect(screen.queryByText('exportWarnings.svgEmptyLayer')).toBeNull();
     } finally {
       vi.useRealTimers();
     }

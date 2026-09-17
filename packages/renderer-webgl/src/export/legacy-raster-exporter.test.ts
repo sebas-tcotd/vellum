@@ -1,12 +1,18 @@
 import {
   createExportSnapshot,
+  NEUTRAL_MARGINALIA_LABELS,
   type ExportSession,
   type ExportSink,
   type ExportSnapshot,
   type ExportReceipt,
   type RasterTileChunk,
 } from '@vellum/core';
-import { makeCityData } from '@vellum/core/testing';
+import {
+  makeCityData,
+  makeMarginaliaLabels,
+  makePresentationOptions,
+  makeRenderStyle,
+} from '@vellum/core/testing';
 import { describe, expect, it, vi } from 'vitest';
 import { LegacyRasterExporter } from './legacy-raster-exporter';
 
@@ -14,7 +20,7 @@ function makeSnapshot(surface = { width: 800, height: 600 }): ExportSnapshot {
   return createExportSnapshot({
     snapshotId: 'snapshot-test',
     cityData: makeCityData(),
-    style: { terrain: { base: '#000000' } } as never,
+    style: makeRenderStyle(),
     activeLayers: {
       terrain: true,
       basemap: true,
@@ -47,19 +53,17 @@ function makeSnapshot(surface = { width: 800, height: 600 }): ExportSnapshot {
       fileName: 'snapshot',
       presentation: {
         showCityName: false,
-        showVellumLogo: false,
-        showSourceFile: false,
-        showGeneratedAt: false,
-        showDistrictNames: false,
-        showParkNames: false,
-        showLayerLegend: false,
         showRoadLegend: false,
         showTransitLegend: false,
         showElevationLegend: false,
         showScaleBar: false,
         showOrientation: false,
         showSummary: false,
+        showSourceNote: false,
+        author: '',
+        corner: 'bottom-left',
       },
+      labels: NEUTRAL_MARGINALIA_LABELS,
     },
   });
 }
@@ -104,7 +108,12 @@ describe('LegacyRasterExporter', () => {
     expect(capture).toHaveBeenCalledOnce();
     expect(capture).toHaveBeenCalledWith(
       expect.anything(),
-      { scale: 2, area: 'viewport', background: 'transparent' },
+      {
+        scale: 2,
+        area: 'viewport',
+        background: 'transparent',
+        marginalia: null,
+      },
       expect.any(AbortSignal),
     );
     expect(sink.begin).toHaveBeenCalledWith(
@@ -145,9 +154,60 @@ describe('LegacyRasterExporter', () => {
 
     expect(capture).toHaveBeenCalledWith(
       expect.anything(),
-      { scale: 1, area: 'full-map', background: 'transparent' },
+      {
+        scale: 1,
+        area: 'full-map',
+        background: 'transparent',
+        marginalia: null,
+      },
       expect.any(AbortSignal),
     );
+  });
+
+  it('pinta la marginalia del snapshot sobre la captura antes de codificarla, con la fuente ya cargada', async () => {
+    const order: string[] = [];
+    const loadFont = vi.fn(async () => {
+      order.push('font');
+      return true;
+    });
+    const capture = vi.fn(async () => {
+      order.push('capture');
+      return new Uint8Array([1]);
+    });
+    const base = makeSnapshot();
+    const snapshot = createExportSnapshot({
+      ...base,
+      request: {
+        ...base.request,
+        presentation: makePresentationOptions({
+          showCityName: true,
+          corner: 'top-right',
+        }),
+        labels: makeMarginaliaLabels(),
+      },
+    });
+    const exporter = new LegacyRasterExporter(capture, loadFont);
+
+    await exporter.export(snapshot, makeSink(), new AbortController().signal);
+
+    expect(order).toEqual(['font', 'capture']);
+    const options = capture.mock.calls[0]![1 as never] as {
+      marginalia: {
+        rect: unknown;
+        layout: { bounds: { x: number }; surface: unknown };
+      };
+    };
+    expect(options.marginalia.rect).toEqual({
+      x: 0,
+      y: 0,
+      width: 800,
+      height: 600,
+    });
+    expect(options.marginalia.layout.surface).toEqual({
+      width: 800,
+      height: 600,
+    });
+    expect(options.marginalia.layout.bounds.x).toBeGreaterThan(400);
   });
 
   it('rechaza una superficie por encima de 64M píxeles antes de capturar', async () => {

@@ -6,7 +6,10 @@ import type {
 } from '../ipc-contract';
 import type { LayerOptions, LayerVisibility } from './layer';
 import type { RenderStyleParams } from './theme';
-import type { ExportPresentationOptions } from './export-presentation';
+import type {
+  ExportPresentationOptions,
+  MarginaliaLabels,
+} from './export-presentation';
 
 /** Raster density supported by the export pipeline. */
 export type ExportScale = 1 | 2 | 4;
@@ -101,6 +104,8 @@ interface ExportRequestBase {
   readonly fileName: string;
   /** Cartographic presentation options resolved at capture time. */
   readonly presentation: Readonly<ExportPresentationOptions>;
+  /** Localized marginalia text, resolved by the UI before capture. */
+  readonly labels: MarginaliaLabels;
 }
 
 /** Raster request for the current viewport, preserving density semantics. */
@@ -132,6 +137,8 @@ interface SvgExportRequestBase {
   readonly fileName: string;
   /** Cartographic presentation options resolved at capture time. */
   readonly presentation: Readonly<ExportPresentationOptions>;
+  /** Localized marginalia text, resolved by the UI before capture. */
+  readonly labels: MarginaliaLabels;
 }
 
 /** Vector request for the current viewport, whose size the canvas fixes. */

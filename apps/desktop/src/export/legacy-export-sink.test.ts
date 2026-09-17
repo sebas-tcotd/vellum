@@ -12,6 +12,7 @@ const request = {
   background: 'transparent',
   fileName: 'my-map',
   presentation: {} as ExportRequest['presentation'],
+  labels: {} as ExportRequest['labels'],
 } satisfies ExportRequest;
 
 const metadata = {
@@ -70,6 +71,7 @@ describe('LegacyExportSink', () => {
       background: 'transparent',
       fileName: 'my-map',
       presentation: {} as ExportRequest['presentation'],
+      labels: {} as ExportRequest['labels'],
     } satisfies ExportRequest;
     const fullMapMetadata = {
       ...metadata,

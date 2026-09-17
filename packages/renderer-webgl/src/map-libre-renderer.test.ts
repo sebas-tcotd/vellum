@@ -4,6 +4,10 @@ import * as maplibregl from 'maplibre-gl';
 import { describeIdleBlockers, MapLibreRenderer } from './map-libre-renderer';
 import { zoomForWorldUnitsPerPixel } from './export/output-density';
 import { makeCityData } from '@vellum/core/testing';
+import {
+  NEUTRAL_MARGINALIA_LABELS,
+  NEUTRAL_PRESENTATION_OPTIONS,
+} from '@vellum/core';
 import type {
   ExportRequest,
   RenderStyleParams,
@@ -87,6 +91,15 @@ vi.mock('maplibre-gl', () => ({
 
 // jsdom has neither OffscreenCanvas nor createImageBitmap; the DEM protocol is
 // exercised by its own unit test instead of through the renderer.
+const marginaliaRaster = vi.hoisted(() => ({
+  encodeCanvasWithMarginalia: vi.fn(async () => new Uint8Array([7, 7, 7])),
+}));
+
+vi.mock('./export/marginalia-raster', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./export/marginalia-raster')>()),
+  ...marginaliaRaster,
+}));
+
 vi.mock('./sources/dem-protocol', async (importOriginal) => ({
   ...(await importOriginal<typeof import('./sources/dem-protocol')>()),
   registerDemProtocol: vi.fn(async () => undefined),
@@ -191,19 +204,17 @@ const baseSnapshotRequest = {
   fileName: 'baseline',
   presentation: {
     showCityName: true,
-    showVellumLogo: false,
-    showSourceFile: false,
-    showGeneratedAt: false,
-    showDistrictNames: true,
-    showParkNames: false,
-    showLayerLegend: true,
     showRoadLegend: true,
     showTransitLegend: true,
     showElevationLegend: true,
     showScaleBar: true,
     showOrientation: true,
     showSummary: false,
+    showSourceNote: false,
+    author: '',
+    corner: 'bottom-left',
   },
+  labels: NEUTRAL_MARGINALIA_LABELS,
 } as const satisfies ExportRequest;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -401,6 +412,53 @@ describe('MapLibreRenderer', () => {
     expect(mockMap.once).toHaveBeenCalledWith('idle', expect.any(Function));
   });
 
+  it('con marginalia, compone el frame con encodeCanvasWithMarginalia y devuelve esos bytes', async () => {
+    const canvas = {
+      style: { cursor: '' },
+      clientWidth: 640,
+      clientHeight: 480,
+      width: 640,
+      height: 480,
+      toBlob: (callback: (blob: Blob | null) => void) =>
+        callback(new Blob([new Uint8Array([137, 80, 78, 71])])),
+    };
+    mockMap.getCanvas.mockReturnValue(canvas as never);
+    mockMap.once.mockImplementation((_event: string, callback: () => void) => {
+      callback();
+    });
+    const renderer = makeRenderer();
+    await renderer.render(makeCityData(), { activeLayers: ALL_LAYERS_VISIBLE });
+    const snapshot = renderer.createExportSnapshot(baseSnapshotRequest);
+    if (!snapshot) throw new Error('expected a snapshot');
+    const overlay = {
+      layout: {
+        surface: { width: 640, height: 480 },
+        unit: 4.8,
+        primitives: [],
+        bounds: { x: 0, y: 0, width: 10, height: 10 },
+        omitted: [],
+      },
+      rect: { x: 0, y: 0, width: 640, height: 480 },
+    };
+
+    await expect(
+      MapLibreRenderer.captureSnapshotPng(
+        snapshot,
+        {
+          scale: 1,
+          area: 'full-map',
+          background: 'white',
+          marginalia: overlay,
+        },
+        new AbortController().signal,
+      ),
+    ).resolves.toEqual(new Uint8Array([7, 7, 7]));
+    expect(marginaliaRaster.encodeCanvasWithMarginalia).toHaveBeenCalledWith(
+      canvas,
+      overlay,
+    );
+  });
+
   it('rechaza exportaciones que exceden el límite de memoria antes de crear una superficie temporal', async () => {
     mockMap.getCanvas.mockReturnValue({
       style: { cursor: '' },
@@ -445,19 +503,17 @@ describe('MapLibreRenderer', () => {
       fileName: 'baseline',
       presentation: {
         showCityName: true,
-        showVellumLogo: false,
-        showSourceFile: false,
-        showGeneratedAt: false,
-        showDistrictNames: true,
-        showParkNames: false,
-        showLayerLegend: true,
         showRoadLegend: true,
         showTransitLegend: true,
         showElevationLegend: true,
         showScaleBar: true,
         showOrientation: true,
         showSummary: false,
+        showSourceNote: false,
+        author: '',
+        corner: 'bottom-left',
       },
+      labels: NEUTRAL_MARGINALIA_LABELS,
     });
 
     expect(snapshot).toMatchObject({
@@ -833,9 +889,9 @@ describe('MapLibreRenderer', () => {
       expect(options).toMatchObject({ area: 'full-map', background: 'dark' });
       expect(preview?.dataUrl).toBe(`data:image/png;base64,${btoa('\x89PNG')}`);
       expect(preview?.width).toBe(snapshot.surface.width);
-      expect(preview?.annotations).toEqual([
-        expect.objectContaining({ id: 'district-1', kind: 'district' }),
-      ]);
+      // The dialog lays the marginalia out from the captured theme and layers.
+      expect(preview?.style).toEqual(snapshot.style);
+      expect(preview?.activeLayers).toEqual(snapshot.activeLayers);
       // No live-canvas fallback survives: a preview that skipped the snapshot is
       // exactly the drift this contract exists to prevent.
       expect(toDataURL).not.toHaveBeenCalled();
@@ -909,41 +965,23 @@ describe('MapLibreRenderer', () => {
       expect(preview?.liveBearingDegrees).toBe(25);
     });
 
-    it('projects a viewport preview through the live map, not through its extent', async () => {
+    it('reports the live pitch and density a viewport export renders at', async () => {
       const renderer = makeRenderer();
-      await renderer.render(
-        makeCityData({
-          districts: [
-            {
-              id: 'district-1',
-              name: 'Centro',
-              position: { x: 0, y: 0, z: 0 },
-            },
-          ],
-        }),
-        { activeLayers: ALL_LAYERS_VISIBLE },
-      );
+      await renderer.render(makeCityData(), {
+        activeLayers: ALL_LAYERS_VISIBLE,
+      });
 
       const preview = await renderer.capturePreview({
         area: 'viewport',
         background: 'white',
       });
 
-      // MapLibre's own projection is the only thing that places labels
-      // correctly once the user has rotated or tilted the map; the extent is a
-      // north-up bounding box and would put them somewhere else entirely.
-      expect(mockMap.project).toHaveBeenCalled();
-      expect(preview?.annotations).toEqual([
-        {
-          id: 'district-1',
-          name: 'Centro',
-          kind: 'district',
-          // (lng 0 + 0.08) * 3200 = 256 of 1000 px across; y is pinned at 500.
-          xPercent: 25.6,
-          yPercent: 50,
-        },
-      ]);
-      expect(preview?.scale.distanceMeters).toBeGreaterThan(0);
+      // A tilted camera has no constant scale, and the scale bar sizes itself
+      // from the live density rather than from the smaller preview image.
+      expect(preview?.livePitchDegrees).toBe(3);
+      expect(
+        zoomForWorldUnitsPerPixel(preview!.viewportWorldUnitsPerPixel),
+      ).toBeCloseTo(12, 6);
       expect(preview?.bearingDegrees).toBe(25);
     });
 
@@ -957,10 +995,11 @@ describe('MapLibreRenderer', () => {
 
       // The dialog draws marginalia itself, over the image. A render that also
       // baked it in would show every legend twice.
-      const [snapshot] = mockCaptureSnapshotPng.mock.calls[0]!;
-      expect(Object.values(snapshot.request.presentation)).toEqual(
-        Object.values(snapshot.request.presentation).map(() => false),
+      const [snapshot, captureOptions] = mockCaptureSnapshotPng.mock.calls[0]!;
+      expect(snapshot.request.presentation).toEqual(
+        NEUTRAL_PRESENTATION_OPTIONS,
       );
+      expect(captureOptions.marginalia).toBeUndefined();
     });
 
     it('returns null when preview capture is requested before city render', async () => {

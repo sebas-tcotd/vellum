@@ -4,8 +4,9 @@ import type {
   ExportSnapshot,
   RasterExportPort,
 } from '@vellum/core';
-import { exportScaleForRequest } from '@vellum/core';
+import { exportScaleForRequest, layoutSnapshotMarginalia } from '@vellum/core';
 import { captureExportSnapshotPng } from './maplibre-png-capture';
+import { loadMarginaliaFont, marginaliaOverlayFor } from './marginalia-raster';
 import type { PngExportOptions } from './export-types';
 import { MapLibreRenderer } from '../map-libre-renderer';
 
@@ -24,11 +25,13 @@ export class LegacyRasterExporter implements RasterExportPort {
   readonly mode = 'legacy-png' as const;
 
   private readonly capture: SnapshotCapture;
+  private readonly loadFont: () => Promise<boolean>;
 
   /**
    * Creates an adapter with the production MapLibre capture or a test capture.
    *
    * @param capture - Optional isolated-surface capture implementation.
+   * @param loadFont - Waits for the marginalia face; injectable for tests.
    */
   constructor(
     capture: SnapshotCapture = (snapshot, options, signal) =>
@@ -44,8 +47,10 @@ export class LegacyRasterExporter implements RasterExportPort {
             fadeDuration: 0,
           }),
       ),
+    loadFont: () => Promise<boolean> = loadMarginaliaFont,
   ) {
     this.capture = capture;
+    this.loadFont = loadFont;
   }
 
   /** Returns the explicit single-surface eligibility decision for a snapshot. */
@@ -90,10 +95,16 @@ export class LegacyRasterExporter implements RasterExportPort {
     let finishStarted = false;
     try {
       throwIfAborted(signal);
+      const marginalia = marginaliaOverlayFor(
+        layoutSnapshotMarginalia(snapshot),
+      );
+      if (marginalia) await this.loadFont();
+      throwIfAborted(signal);
       const captureOptions: PngExportOptions = {
         scale: exportScaleForRequest(snapshot.request),
         area: snapshot.request.area,
         background: snapshot.request.background,
+        marginalia,
       };
       const encodedPng = await this.capture(snapshot, captureOptions, signal);
       throwIfAborted(signal);

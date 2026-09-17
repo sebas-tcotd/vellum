@@ -17,6 +17,7 @@ const metadata: ExportBeginMetadata = {
     background: 'white',
     fileName: 'map',
     presentation: {} as ExportBeginMetadata['request']['presentation'],
+    labels: {} as ExportBeginMetadata['request']['labels'],
   },
   outputWidth: 800,
   outputHeight: 600,

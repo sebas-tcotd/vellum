@@ -1,4 +1,8 @@
 import type * as maplibregl from 'maplibre-gl';
+import {
+  encodeCanvasWithMarginalia,
+  type MarginaliaOverlay,
+} from '../export/marginalia-raster';
 
 /** Handle for a capture that can be cancelled during renderer disposal. */
 export interface PendingMapCapture<T> {
@@ -56,15 +60,25 @@ export function captureOnNextRender<T>(
   return { promise, cancel: () => finish() };
 }
 
-/** Encodes the next rendered WebGL frame as PNG bytes. */
+/**
+ * Encodes the next rendered WebGL frame as PNG bytes.
+ *
+ * @remarks
+ * With an overlay, the marginalia is painted over a copy of the frame before
+ * it is encoded, so the bytes that leave here already carry it.
+ */
 export function captureCanvasOnNextRender(
   map: maplibregl.Map,
   timeoutMs: number,
+  overlay: MarginaliaOverlay | null = null,
 ): Promise<Uint8Array> {
   return captureOnNextRender(
     map,
     timeoutMs,
-    () => canvasToPngBytes(map.getCanvas()),
+    () =>
+      overlay
+        ? encodeCanvasWithMarginalia(map.getCanvas(), overlay)
+        : canvasToPngBytes(map.getCanvas()),
     (cause) => {
       if (cause instanceof Error) throw cause;
       throw new Error('PNG capture timed out');

@@ -5,11 +5,7 @@ import {
   Suspense,
   useState,
 } from 'react';
-import {
-  IPC_COMMANDS,
-  type LayerName,
-  type ServiceIconLegendState,
-} from '@vellum/core';
+import { IPC_COMMANDS, type ServiceIconLegendState } from '@vellum/core';
 import type { MapLibreRootProps } from './canvas/MapLibreRoot';
 import { MapViewport } from './viewport/MapViewport';
 import { EmptyState } from './empty-state/EmptyState';
@@ -76,7 +72,6 @@ export function AppSurface({
 }: AppSurfaceProps) {
   const { invoke, openExternalUrl } = usePlatformServices();
   const cityData = useVellumStore((state) => state.cityData);
-  const activeLayers = useVellumStore((state) => state.activeLayers);
   const activeTheme = useVellumStore((state) => state.activeTheme);
   const loadingState = useVellumStore((state) => state.loadingState);
   const loadingError = useVellumStore((state) => state.loadingError);
@@ -194,42 +189,13 @@ export function AppSurface({
         {cityData !== null && (
           <ExportDialog
             open={exportWorkflow.isExportDialogOpen}
-            cityName={cityData.cityName}
-            fileName={cityData.fileName}
-            generatedAt={cityData.generatedAt}
+            cityData={cityData}
             defaultBackground={
               activeTheme === 'night' || activeTheme === 'transit'
                 ? 'dark'
                 : 'white'
             }
             preview={exportWorkflow.exportPreview}
-            fullMapBounds={cityData.bounds}
-            availability={{
-              districts: cityData.districts.length > 0,
-              parks: cityData.parkAreas.length > 0,
-              roads: cityData.roadSegments.length > 0,
-              transit: cityData.transitLines.length > 0,
-              elevation: cityData.contourLines?.length > 0,
-            }}
-            counts={{
-              roads: cityData.roadSegments.length,
-              buildings: cityData.buildings.length,
-              districts: cityData.districts.length,
-              parks: cityData.parkAreas.length,
-              transitLines: cityData.transitLines.length,
-              transitStops: cityData.transitLines.reduce(
-                (total, line) => total + line.stops.length,
-                0,
-              ),
-            }}
-            visibleLayerNames={Object.entries(activeLayers)
-              .filter(([, visible]) => visible)
-              .map(([layer]) => layer as LayerName)}
-            transitLabels={cityData.transitLines.map((line) => ({
-              id: line.id,
-              mode: line.mode,
-              name: line.name,
-            }))}
             isExporting={exportWorkflow.isExporting}
             isPreviewLoading={exportWorkflow.isPreviewCapturing}
             onOpenChange={exportWorkflow.setIsExportDialogOpen}

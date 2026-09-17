@@ -1,6 +1,7 @@
 import {
   DEFAULT_LAYER_OPTIONS,
   LAYER_NAMES,
+  NEUTRAL_PRESENTATION_OPTIONS,
   type LayerVisibility,
   type RenderStyleParams,
 } from '@vellum/core';
@@ -12,8 +13,6 @@ import {
   PREVIEW_LONG_EDGE_PX,
   buildPreviewExportSnapshot,
   pngBytesToDataUrl,
-  previewAnnotationsFromSnapshot,
-  previewScaleFromSnapshot,
   toPreviewSnapshot,
 } from './preview-export-capture';
 
@@ -106,21 +105,7 @@ describe('buildPreviewExportSnapshot', () => {
 
     // The dialog draws legends and identity over the image itself; a render
     // that also contained them would show every one of them twice.
-    expect(snapshot.request.presentation).toEqual({
-      showCityName: false,
-      showVellumLogo: false,
-      showSourceFile: false,
-      showGeneratedAt: false,
-      showDistrictNames: false,
-      showParkNames: false,
-      showLayerLegend: false,
-      showRoadLegend: false,
-      showTransitLegend: false,
-      showElevationLegend: false,
-      showScaleBar: false,
-      showOrientation: false,
-      showSummary: false,
-    });
+    expect(snapshot.request.presentation).toEqual(NEUTRAL_PRESENTATION_OPTIONS);
   });
 
   it('keeps the live camera and downscales the canvas for a viewport preview', () => {
@@ -171,75 +156,12 @@ describe('buildPreviewExportSnapshot', () => {
   });
 });
 
-describe('previewScaleFromSnapshot', () => {
-  it('derives the bar from the snapshot density, not from the live camera', () => {
-    const snapshot = buildPreviewExportSnapshot(
-      buildInput({ area: 'full-map', background: 'white' }),
-    )!;
-
-    const scale = previewScaleFromSnapshot(snapshot)!;
-    const metresPerPixel =
-      (snapshot.extent.maxX - snapshot.extent.minX) / snapshot.surface.width;
-    expect(scale.widthPercent).toBeCloseTo(
-      (scale.distanceMeters / metresPerPixel / snapshot.surface.width) * 100,
-      10,
-    );
-    expect(scale.distanceMeters).toBeGreaterThan(0);
-  });
-});
-
-describe('previewAnnotationsFromSnapshot', () => {
-  it('projects labels linearly onto the extent, with Y descending from maxZ', () => {
-    const cityData = makeCityData({
-      districts: [
-        {
-          id: 'district-1',
-          name: 'Centro',
-          position: { x: 0, z: 0 },
-        },
-      ] as never,
-      parkAreas: [
-        {
-          id: 'park-1',
-          name: 'Norte',
-          position: { x: 0, z: 8640 },
-        },
-      ] as never,
-    });
-    const snapshot = buildPreviewExportSnapshot({
-      ...buildInput({ area: 'full-map', background: 'white' }),
-      cityData,
-    })!;
-
-    const annotations = previewAnnotationsFromSnapshot(snapshot);
-    const centro = annotations.find((item) => item.id === 'district-1');
-    const norte = annotations.find((item) => item.id === 'park-1');
-
-    expect(centro).toMatchObject({ xPercent: 50, yPercent: 50 });
-    // Increasing Z is the top of the image, so a northern park sits above
-    // the centre rather than below it.
-    expect(norte!.yPercent).toBeLessThan(50);
-  });
-
-  it('drops labels the frame does not contain', () => {
-    const cityData = makeCityData({
-      districts: [
-        { id: 'far', name: 'Lejos', position: { x: 90_000, z: 0 } },
-      ] as never,
-    });
-    const snapshot = buildPreviewExportSnapshot({
-      ...buildInput({ area: 'full-map', background: 'white' }),
-      cityData,
-    })!;
-
-    expect(previewAnnotationsFromSnapshot(snapshot)).toEqual([]);
-  });
-});
-
 describe('toPreviewSnapshot', () => {
   const SOURCE = {
     viewportSurface: { width: 1440, height: 900 },
     liveBearingDegrees: 42,
+    livePitchDegrees: 12,
+    viewportWorldUnitsPerPixel: 3.5,
   };
 
   it('reports the preview image and the viewport document separately', () => {
@@ -247,10 +169,11 @@ describe('toPreviewSnapshot', () => {
       buildInput({ area: 'viewport', background: 'white' }),
     )!;
 
-    const preview = toPreviewSnapshot(snapshot, Uint8Array.from([1, 2, 3]), {
-      ...SOURCE,
-      projection: null,
-    })!;
+    const preview = toPreviewSnapshot(
+      snapshot,
+      Uint8Array.from([1, 2, 3]),
+      SOURCE,
+    );
 
     expect(preview.width).toBe(snapshot.surface.width);
     expect(preview.viewportSurface).toEqual({ width: 1440, height: 900 });
@@ -261,55 +184,24 @@ describe('toPreviewSnapshot', () => {
       buildInput({ area: 'full-map', background: 'white' }),
     )!;
 
-    const preview = toPreviewSnapshot(snapshot, new Uint8Array(), SOURCE)!;
+    const preview = toPreviewSnapshot(snapshot, new Uint8Array(), SOURCE);
 
     expect(preview.bearingDegrees).toBe(0);
     expect(preview.liveBearingDegrees).toBe(42);
   });
 
-  it('prefers the live projection over the extent when one is supplied', () => {
+  it('carries what the dialog needs to lay out the marginalia', () => {
     const snapshot = buildPreviewExportSnapshot(
       buildInput({ area: 'viewport', background: 'white' }),
     )!;
-    const projection = {
-      scale: { distanceMeters: 250, widthPercent: 17 },
-      annotations: [
-        {
-          id: 'district-1',
-          name: 'Centro',
-          kind: 'district' as const,
-          xPercent: 12,
-          yPercent: 34,
-        },
-      ],
-    };
 
-    const preview = toPreviewSnapshot(snapshot, new Uint8Array(), {
-      ...SOURCE,
-      projection,
-    })!;
+    const preview = toPreviewSnapshot(snapshot, new Uint8Array(), SOURCE);
 
-    expect(preview.scale).toEqual(projection.scale);
-    expect(preview.annotations).toEqual(projection.annotations);
-  });
-
-  it('returns null when the snapshot has no usable density', () => {
-    const snapshot = buildPreviewExportSnapshot(
-      buildInput({ area: 'viewport', background: 'white' }),
-    )!;
-    const degenerate = {
-      ...snapshot,
-      extent: { minX: 0, maxX: 0, minZ: 0, maxZ: 0 },
-    };
-
-    // A zero-width extent yields no metres per pixel, so there is no honest
-    // scale bar to draw — better no preview than one with a meaningless scale.
-    expect(
-      toPreviewSnapshot(degenerate, new Uint8Array(), {
-        ...SOURCE,
-        projection: null,
-      }),
-    ).toBeNull();
+    expect(preview.livePitchDegrees).toBe(12);
+    expect(preview.viewportWorldUnitsPerPixel).toBe(3.5);
+    expect(preview.style).toEqual(snapshot.style);
+    expect(preview.activeLayers).toEqual(snapshot.activeLayers);
+    expect(preview.layerOptions).toEqual(snapshot.layerOptions);
   });
 });
 

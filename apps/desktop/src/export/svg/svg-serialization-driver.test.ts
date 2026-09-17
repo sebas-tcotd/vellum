@@ -32,6 +32,7 @@ const SCENE: CartographicScene = {
     },
   ],
   emblem: null,
+  marginalia: null,
   warnings: [{ code: 'degenerate-geometry', count: 3 }],
 };
 

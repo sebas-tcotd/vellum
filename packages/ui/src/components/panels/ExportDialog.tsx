@@ -1,23 +1,36 @@
 import type {
+  CityData,
   ExportArea,
   ExportBackground,
   ExportDialogOptions,
   ExportFormat,
-  ExportExtent,
   ExportPresentationOptions,
   ExportPreviewOptions,
   ExportPreviewSnapshot,
   ExportTargetLongEdge,
-  LayerName,
-  TransitMode,
+  MarginaliaAvailability,
+  MarginaliaBlockId,
+  MarginaliaCorner,
+  MarginaliaFrame,
+  MarginaliaLabels,
+  MarginaliaLayout,
+  MarginaliaUnavailableReason,
 } from '@vellum/core';
 import {
+  composeMarginalia,
+  DEFAULT_LAYER_OPTIONS,
   exportScaleForFormat,
+  LAYER_NAMES,
+  MARGINALIA_AUTHOR_MAX_LENGTH,
+  MARGINALIA_CORNERS,
+  MARGINALIA_FONT_FAMILY,
+  marginaliaAvailability,
+  paintMarginalia,
   resolveFullMapFraming,
   resolveFullMapOutputSurface,
-  vellumLogoDataUri,
+  resolveMarginaliaFrame,
 } from '@vellum/core';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../../lib/button';
 import {
@@ -29,61 +42,25 @@ import {
   DialogTitle,
 } from '../../lib/dialog';
 import { cn } from '../../lib/utils';
-
-/** Describes which optional cartographic content exists for the loaded map. */
-export interface ExportContentAvailability {
-  /** Whether district annotations can be generated. */
-  districts: boolean;
-  /** Whether park-area annotations can be generated. */
-  parks: boolean;
-  /** Whether a road hierarchy legend can be generated. */
-  roads: boolean;
-  /** Whether a transit legend can be generated. */
-  transit: boolean;
-  /** Whether an elevation legend can be generated. */
-  elevation: boolean;
-}
-
-/** Collection counts derived from immutable `CityData`. */
-export interface ExportContentCounts {
-  /** Physical road-segment count. */
-  roads: number;
-  /** Building count. */
-  buildings: number;
-  /** District count. */
-  districts: number;
-  /** Park-area count. */
-  parks: number;
-  /** Transit-line count. */
-  transitLines: number;
-  /** Transit-stop count. */
-  transitStops: number;
-}
+import { resolveMarginaliaLabels } from './export-marginalia-labels';
 
 /** Props for the controlled export-configuration dialog. */
 export interface ExportDialogProps {
   /** Whether the Radix dialog is open. */
   open: boolean;
-  /** City name used for identity and the initial filename. */
-  cityName: string;
-  /** Source `.cslmap` filename. */
-  fileName: string;
-  /** Source generation timestamp, when available. */
-  generatedAt: string;
+  /**
+   * Loaded city: name, file, date, bounds and every count the marginalia shows.
+   *
+   * @remarks
+   * The dialog lays the marginalia out from the same data the exporter will
+   * read out of the snapshot, so the preview cannot promise content the file
+   * lacks.
+   */
+  cityData: CityData;
   /** Background derived from the current visual theme. */
   defaultBackground: ExportBackground;
   /** Captured MapLibre viewport and its projection-derived metadata. */
   preview: ExportPreviewSnapshot | null;
-  /** Full city extent used to calculate target-resolution dimensions. */
-  fullMapBounds: Pick<ExportExtent, 'minX' | 'maxX' | 'minZ' | 'maxZ'>;
-  /** Optional-content availability derived from the loaded city. */
-  availability: ExportContentAvailability;
-  /** Collection counts derived from the loaded city. */
-  counts: ExportContentCounts;
-  /** Visible-layer labels rendered in the preview legend. */
-  visibleLayerNames?: LayerName[];
-  /** Transit line or mode labels rendered in the preview legend. */
-  transitLabels?: ExportTransitLegendItem[];
   /** Prevents submission while a future exporter is active. */
   isExporting?: boolean;
   /**
@@ -112,16 +89,6 @@ export interface ExportDialogProps {
   onExport: (options: ExportDialogOptions) => Promise<void>;
 }
 
-/** A transit line entry rendered in the localized export legend. */
-export interface ExportTransitLegendItem {
-  /** Stable transit-line identifier. */
-  id: string;
-  /** Parsed transit mode used to select the localized label. */
-  mode: TransitMode;
-  /** User-defined transit-line name. */
-  name: string;
-}
-
 type ExportChoiceKey =
   | 'export.format_png1x'
   | 'export.format_png2x'
@@ -142,7 +109,11 @@ type ExportChoiceKey =
   | 'export.area_fullMap'
   | 'export.background_white'
   | 'export.background_dark'
-  | 'export.background_transparent';
+  | 'export.background_transparent'
+  | 'export.corner_topLeft'
+  | 'export.corner_topRight'
+  | 'export.corner_bottomLeft'
+  | 'export.corner_bottomRight';
 
 interface Choice<T extends string> {
   value: T;
@@ -170,7 +141,8 @@ interface ResolutionChoice {
 interface PresentationToggleProps {
   label: string;
   checked: boolean;
-  disabled?: boolean;
+  /** Localized reason the element cannot be drawn; disables the control. */
+  unavailableReason?: string | undefined;
   onChange: (checked: boolean) => void;
 }
 
@@ -248,6 +220,27 @@ const RESOLUTION_CHOICES: ResolutionChoice[] = [
   },
 ];
 
+const BLOCK_LABELS = {
+  identity: 'export.block_identity',
+  'road-legend': 'export.block_roadLegend',
+  'transit-legend': 'export.block_transitLegend',
+  'elevation-legend': 'export.block_elevationLegend',
+  aids: 'export.block_aids',
+  summary: 'export.block_summary',
+  'source-note': 'export.block_sourceNote',
+} as const satisfies Record<MarginaliaBlockId, string>;
+
+const CORNER_LABELS: Record<MarginaliaCorner, ExportChoiceKey> = {
+  'top-left': 'export.corner_topLeft',
+  'top-right': 'export.corner_topRight',
+  'bottom-left': 'export.corner_bottomLeft',
+  'bottom-right': 'export.corner_bottomRight',
+};
+
+const CORNER_CHOICES: Choice<MarginaliaCorner>[] = MARGINALIA_CORNERS.map(
+  (corner) => ({ value: corner, label: CORNER_LABELS[corner] }),
+);
+
 const AREA_CHOICES: Choice<ExportArea>[] = [
   { value: 'viewport', label: 'export.area_viewport' },
   { value: 'full-map', label: 'export.area_fullMap' },
@@ -266,15 +259,10 @@ function normalizeBearing(degrees: number): number {
   return wrapped > 180 ? wrapped - 360 : wrapped;
 }
 
-const EMPTY_LAYERS: LayerName[] = [];
-const EMPTY_TRANSIT_LABELS: ExportTransitLegendItem[] = [];
 const WINDOWS_RESERVED_NAME = /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])$/i;
-const ROAD_LEGEND_ENTRIES = [
-  { key: 'road-highway', label: 'export.legend_road_highway' },
-  { key: 'road-arterial', label: 'export.legend_road_arterial' },
-  { key: 'road-local', label: 'export.legend_road_local' },
-  { key: 'road-rail', label: 'export.legend_road_rail' },
-] as const;
+const ALL_LAYERS_VISIBLE = Object.fromEntries(
+  LAYER_NAMES.map((layer) => [layer, true]),
+) as ExportPreviewSnapshot['activeLayers'];
 
 /** Removes path characters, reserved punctuation, and known export extensions. */
 export function sanitizeExportFileName(value: string): string {
@@ -290,18 +278,15 @@ export function sanitizeExportFileName(value: string): string {
 function initialPresentation(): ExportPresentationOptions {
   return {
     showCityName: true,
-    showVellumLogo: false,
-    showSourceFile: false,
-    showGeneratedAt: false,
-    showDistrictNames: false,
-    showParkNames: false,
-    showLayerLegend: false,
     showRoadLegend: false,
     showTransitLegend: false,
     showElevationLegend: false,
     showScaleBar: false,
     showOrientation: false,
     showSummary: false,
+    showSourceNote: false,
+    author: '',
+    corner: 'bottom-left',
   };
 }
 
@@ -391,12 +376,14 @@ function formatPixels(value: number, locale?: string): string {
   return value.toLocaleString(locale);
 }
 
+type CityBounds = Pick<CityData['bounds'], 'minX' | 'maxX' | 'minZ' | 'maxZ'>;
+
 function outputDimensions(
   area: ExportArea,
   format: ExportFormat,
   targetLongEdge: ExportTargetLongEdge,
   preview: ExportPreviewSnapshot | null,
-  bounds: ExportDialogProps['fullMapBounds'],
+  bounds: CityBounds,
 ): { width: number; height: number } | null {
   if (area === 'viewport') {
     if (!preview || format === 'svg') return null;
@@ -422,6 +409,58 @@ function outputDimensions(
       resolveFullMapFraming(bounds, targetLongEdge).surface;
 }
 
+/**
+ * Resolves the document the export will write, as the marginalia sees it.
+ *
+ * @remarks
+ * Mirrors the snapshot builders exactly — viewport surface times density, the
+ * framed full-map raster, the unframed full-map SVG — so the layout painted
+ * over the preview is the file's own layout, scaled down, never one computed
+ * for the preview image.
+ */
+function marginaliaFrameFor(
+  area: ExportArea,
+  format: ExportFormat,
+  targetLongEdge: ExportTargetLongEdge,
+  preview: ExportPreviewSnapshot | null,
+  bounds: CityBounds,
+): MarginaliaFrame | null {
+  if (!preview) return null;
+  if (area === 'viewport') {
+    const density = format === 'svg' ? 1 : exportScaleForFormat(format);
+    return resolveMarginaliaFrame({
+      area,
+      format,
+      surface: {
+        width: preview.viewportSurface.width * density,
+        height: preview.viewportSurface.height * density,
+      },
+      extent: bounds,
+      viewportWorldUnitsPerPixel: preview.viewportWorldUnitsPerPixel,
+      camera: {
+        bearing: preview.liveBearingDegrees,
+        pitch: preview.livePitchDegrees,
+      },
+    });
+  }
+  if (bounds.maxX <= bounds.minX || bounds.maxZ <= bounds.minZ) return null;
+  const framing =
+    format === 'svg'
+      ? {
+          extent: bounds,
+          surface: resolveFullMapOutputSurface(bounds, targetLongEdge),
+        }
+      : resolveFullMapFraming(bounds, targetLongEdge);
+  return resolveMarginaliaFrame({
+    area,
+    format,
+    surface: framing.surface,
+    extent: framing.extent,
+    viewportWorldUnitsPerPixel: 0,
+    camera: { bearing: 0, pitch: 0 },
+  });
+}
+
 function OutputDimensions({
   area,
   format,
@@ -433,7 +472,7 @@ function OutputDimensions({
   format: ExportFormat;
   targetLongEdge: ExportTargetLongEdge;
   preview: ExportPreviewSnapshot | null;
-  bounds: ExportDialogProps['fullMapBounds'];
+  bounds: CityBounds;
 }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? i18n.language;
@@ -464,225 +503,165 @@ function OutputDimensions({
 function PresentationToggle({
   label,
   checked,
-  disabled,
+  unavailableReason,
   onChange,
 }: PresentationToggleProps) {
+  const disabled = unavailableReason !== undefined;
   return (
-    <label className="flex items-center gap-2 text-xs">
+    <label className="flex items-start gap-2 text-xs" title={unavailableReason}>
       <input
         type="checkbox"
-        checked={checked}
+        aria-label={label}
+        className="mt-0.5"
+        checked={checked && !disabled}
         disabled={disabled}
         onChange={(event) => onChange(event.currentTarget.checked)}
       />
-      <span className={disabled ? 'opacity-50' : undefined}>{label}</span>
+      <span className="flex flex-col">
+        <span className={disabled ? 'opacity-50' : undefined}>{label}</span>
+        {disabled && (
+          <span className="text-[10px] opacity-60">{unavailableReason}</span>
+        )}
+      </span>
     </label>
   );
 }
 
-function PreviewIdentity({
-  presentation,
-  cityName,
-  fileName,
-  generatedAt,
-}: Pick<ExportDialogProps, 'cityName' | 'fileName' | 'generatedAt'> & {
-  presentation: ExportPresentationOptions;
+/**
+ * Paints the final surface's marginalia layout over the preview image.
+ *
+ * @remarks
+ * No HTML overlay and no layout of its own: the canvas receives the layout
+ * computed for the file and scales it by `canvas width / surface width`, with
+ * the same painter the PNG routes use.
+ */
+function MarginaliaPreviewCanvas({
+  layout,
+}: {
+  layout: MarginaliaLayout | null;
 }) {
-  if (
-    !presentation.showCityName &&
-    !presentation.showVellumLogo &&
-    !presentation.showSourceFile &&
-    !presentation.showGeneratedAt
-  ) {
-    return null;
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [size, setSize] = useState({ width: 0, height: 0 });
+
+  useLayoutEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return undefined;
+    const measure = (): void => {
+      const rect = canvas.getBoundingClientRect();
+      setSize((current) =>
+        current.width === rect.width && current.height === rect.height
+          ? current
+          : { width: rect.width, height: rect.height },
+      );
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(canvas);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return undefined;
+    let cancelled = false;
+    const paint = (): void => {
+      if (cancelled) return;
+      const ratio = window.devicePixelRatio || 1;
+      canvas.width = Math.max(0, Math.round(size.width * ratio));
+      canvas.height = Math.max(0, Math.round(size.height * ratio));
+      if (!layout || canvas.width === 0 || canvas.height === 0) return;
+      let ctx: CanvasRenderingContext2D | null = null;
+      try {
+        ctx = canvas.getContext('2d');
+      } catch {
+        ctx = null;
+      }
+      if (!ctx) return;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      paintMarginalia(ctx, layout, {
+        offsetX: 0,
+        offsetY: 0,
+        scale: canvas.width / layout.surface.width,
+      });
+    };
+    // A canvas draws with the fallback face while DM Mono is still loading, and
+    // would keep that until the next repaint.
+    const fonts = typeof document === 'undefined' ? undefined : document.fonts;
+    if (layout && fonts?.load) {
+      fonts.load(`16px ${MARGINALIA_FONT_FAMILY}`).then(paint, paint);
+    } else {
+      paint();
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [layout, size]);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      aria-hidden="true"
+      data-testid="export-preview-marginalia"
+      data-primitives={layout?.primitives.length ?? 0}
+      className="pointer-events-none absolute inset-0 h-full w-full"
+    />
+  );
+}
+
+/**
+ * Proportions of the preview frame.
+ *
+ * @remarks
+ * The image is drawn `object-fill`, so the frame must share the image's own
+ * proportions or it is stretched. The final document's aspect is used only
+ * when it matches the image's within {@link ASPECT_TOLERANCE} — the usual
+ * case, since the preview is a scaled render of that document — which lets
+ * the marginalia canvas map onto it with one uniform scale. A mismatch (a
+ * stale capture while the area changes, or rounding on a tiny preview) falls
+ * back to the image rather than distorting it.
+ */
+function previewAspect(
+  preview: ExportPreviewSnapshot | null,
+  layout: MarginaliaLayout | null,
+): string | undefined {
+  if (!preview || preview.width <= 0 || preview.height <= 0) return undefined;
+  const image = preview.width / preview.height;
+  if (layout && layout.surface.height > 0) {
+    const document = layout.surface.width / layout.surface.height;
+    if (Math.abs(document - image) <= ASPECT_TOLERANCE) {
+      return `${layout.surface.width} / ${layout.surface.height}`;
+    }
   }
-  return (
-    <div className="absolute left-3 top-3 max-w-[55%] rounded bg-background/85 p-2 text-[10px] shadow">
-      {presentation.showCityName && <strong>{cityName}</strong>}
-      {presentation.showVellumLogo && (
-        <img
-          src={vellumLogoDataUri()}
-          alt=""
-          aria-hidden="true"
-          className="mt-1 h-8 w-8"
-        />
-      )}
-      {presentation.showSourceFile && <div>{fileName}</div>}
-      {presentation.showGeneratedAt && <div>{generatedAt}</div>}
-    </div>
-  );
+  return `${preview.width} / ${preview.height}`;
 }
 
-function PreviewAnnotations({
-  presentation,
-  preview,
-}: {
-  presentation: ExportPresentationOptions;
-  preview: ExportPreviewSnapshot | null;
-}) {
-  const annotations =
-    preview?.annotations.filter(
-      (annotation) =>
-        (annotation.kind === 'district' && presentation.showDistrictNames) ||
-        (annotation.kind === 'park' && presentation.showParkNames),
-    ) ?? [];
-  if (annotations.length === 0) return null;
-  return (
-    <div className="pointer-events-none absolute inset-0 text-[9px] font-semibold text-white drop-shadow">
-      {annotations.map((annotation) => (
-        <span
-          key={`${annotation.kind}-${annotation.id}`}
-          className="absolute -translate-x-1/2 -translate-y-1/2"
-          style={{
-            left: `${annotation.xPercent}%`,
-            top: `${annotation.yPercent}%`,
-          }}
-        >
-          {annotation.name}
-        </span>
-      ))}
-    </div>
-  );
-}
-
-function PreviewLegends({
-  presentation,
-  visibleLayerNames,
-  transitLabels,
-}: {
-  presentation: ExportPresentationOptions;
-  visibleLayerNames: LayerName[];
-  transitLabels: ExportTransitLegendItem[];
-}) {
-  const { t } = useTranslation();
-  const entries = [
-    ...(presentation.showLayerLegend
-      ? visibleLayerNames.map((layer) => ({
-          key: `layer-${layer}`,
-          label: t(`layers.${layer}`),
-        }))
-      : []),
-    ...(presentation.showRoadLegend
-      ? ROAD_LEGEND_ENTRIES.map((entry) => ({
-          key: entry.key,
-          label: t(entry.label),
-        }))
-      : []),
-    ...(presentation.showTransitLegend
-      ? transitLabels.map((line) => ({
-          key: `transit-${line.id}`,
-          label: `${t(`transitModes.${line.mode}`)}: ${line.name}`,
-        }))
-      : []),
-    ...(presentation.showElevationLegend
-      ? [
-          {
-            key: 'elevation-contours',
-            label: t('export.legend_elevationContours'),
-          },
-          { key: 'elevation-low', label: t('export.legend_elevationLow') },
-          { key: 'elevation-high', label: t('export.legend_elevationHigh') },
-        ]
-      : []),
-  ];
-  if (entries.length === 0) return null;
-  return (
-    <div className="absolute right-3 top-3 max-w-[35%] rounded bg-background/85 p-2 text-[9px] shadow">
-      {entries.slice(0, 12).map((entry) => (
-        <div key={entry.key}>{entry.label}</div>
-      ))}
-    </div>
-  );
-}
-
-function PreviewAids({
-  presentation,
-  counts,
-  preview,
-}: {
-  presentation: ExportPresentationOptions;
-  counts: ExportContentCounts;
-  preview: ExportPreviewSnapshot | null;
-}) {
-  const { t } = useTranslation();
-  const scale = preview?.scale;
-  const scaleLabel =
-    scale && scale.distanceMeters >= 1_000
-      ? `${scale.distanceMeters / 1_000} km`
-      : `${scale?.distanceMeters ?? 0} m`;
-  return (
-    <>
-      {presentation.showScaleBar && scale && (
-        <div
-          data-testid="export-preview-scale"
-          className="absolute bottom-3 left-3 border-b-2 border-current text-center text-[9px]"
-          style={{ width: `${scale.widthPercent}%` }}
-        >
-          {scaleLabel}
-        </div>
-      )}
-      {presentation.showOrientation && preview && (
-        <div
-          data-testid="export-preview-orientation"
-          data-bearing={preview.bearingDegrees}
-          className="absolute bottom-3 right-3 text-xs font-bold"
-          style={{ transform: `rotate(${-preview.bearingDegrees}deg)` }}
-        >
-          ↑ N
-        </div>
-      )}
-      {presentation.showSummary && (
-        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded bg-background/85 px-2 py-1 text-[8px]">
-          {counts.roads} {t('export.summary_roads')} · {counts.buildings}{' '}
-          {t('export.summary_buildings')} · {counts.districts}{' '}
-          {t('export.summary_districts')} · {counts.parks}{' '}
-          {t('export.summary_parks')} · {counts.transitLines}{' '}
-          {t('export.summary_lines')} · {counts.transitStops}{' '}
-          {t('export.summary_stops')}
-        </div>
-      )}
-    </>
-  );
-}
+/** Largest aspect-ratio difference treated as the same proportions. */
+const ASPECT_TOLERANCE = 1e-3;
 
 function ExportPreview({
   format,
   background,
   preview,
-  presentation,
-  cityName,
-  fileName,
-  generatedAt,
-  visibleLayerNames = EMPTY_LAYERS,
-  transitLabels = EMPTY_TRANSIT_LABELS,
-  counts,
+  layout,
   isLoading = false,
-}: Pick<
-  ExportDialogProps,
-  | 'preview'
-  | 'cityName'
-  | 'fileName'
-  | 'generatedAt'
-  | 'visibleLayerNames'
-  | 'transitLabels'
-  | 'counts'
-> & {
+}: {
   format: ExportFormat;
   background: ExportBackground;
-  presentation: ExportPresentationOptions;
+  preview: ExportPreviewSnapshot | null;
+  layout: MarginaliaLayout | null;
   isLoading?: boolean;
 }) {
   const { t } = useTranslation();
   // The capture itself carries the chosen background now, so this only shows
   // where the capture does not: the checkerboard behind a transparent PNG, and
-  // the empty frame before the first preview arrives. It is no longer a tint
-  // over an opaque image pretending to be a background change.
+  // the empty frame before the first preview arrives.
   const backgroundClass =
     background === 'dark'
       ? 'bg-slate-950 text-white'
       : background === 'white'
         ? 'bg-white text-slate-950'
         : 'bg-[repeating-conic-gradient(#d1d5db_0_25%,#fff_0_50%)_0_0/16px_16px] text-slate-950';
+  const aspect = previewAspect(preview, layout);
   return (
     <div
       data-testid="export-preview"
@@ -693,15 +672,17 @@ function ExportPreview({
       role="img"
       aria-label={t('export.preview')}
       className={cn(
-        'relative aspect-video overflow-hidden rounded-md border border-panel-border',
+        'relative overflow-hidden rounded-md border border-panel-border',
+        aspect ? undefined : 'aspect-video',
         backgroundClass,
       )}
+      style={aspect ? { aspectRatio: aspect } : undefined}
     >
       {preview ? (
         <img
           src={preview.dataUrl}
           alt=""
-          className="h-full w-full object-cover"
+          className="h-full w-full object-fill"
           draggable={false}
         />
       ) : (
@@ -709,6 +690,7 @@ function ExportPreview({
           {t(isLoading ? 'export.previewLoading' : 'export.previewUnavailable')}
         </div>
       )}
+      <MarginaliaPreviewCanvas layout={preview ? layout : null} />
       {isLoading && preview && (
         // Over the previous image rather than instead of it: the old
         // composition is still the closest thing to the answer while the new
@@ -721,23 +703,6 @@ function ExportPreview({
           {t('export.previewLoading')}
         </div>
       )}
-      <PreviewIdentity
-        presentation={presentation}
-        cityName={cityName}
-        fileName={fileName}
-        generatedAt={generatedAt}
-      />
-      <PreviewAnnotations presentation={presentation} preview={preview} />
-      <PreviewLegends
-        presentation={presentation}
-        visibleLayerNames={visibleLayerNames}
-        transitLabels={transitLabels}
-      />
-      <PreviewAids
-        presentation={presentation}
-        counts={counts}
-        preview={preview}
-      />
       <span className="absolute bottom-1 right-1 text-[8px]">
         {format === 'svg'
           ? t('export.scale_vector')
@@ -751,98 +716,115 @@ function ExportPreview({
   );
 }
 
+type PresentationToggleKey = {
+  [K in keyof ExportPresentationOptions]: ExportPresentationOptions[K] extends boolean
+    ? K
+    : never;
+}[keyof ExportPresentationOptions];
+
 function PresentationControls({
   presentation,
   availability,
-  setPresentation,
+  omitted,
+  onToggle,
+  onAuthorChange,
+  onCornerChange,
 }: {
   presentation: ExportPresentationOptions;
-  availability: ExportContentAvailability;
-  setPresentation: (
-    key: keyof ExportPresentationOptions,
-    checked: boolean,
-  ) => void;
+  availability: MarginaliaAvailability;
+  omitted: readonly MarginaliaBlockId[];
+  onToggle: (key: PresentationToggleKey, checked: boolean) => void;
+  onAuthorChange: (author: string) => void;
+  onCornerChange: (corner: MarginaliaCorner) => void;
 }) {
   const { t } = useTranslation();
-  const toggle = (
-    key: keyof ExportPresentationOptions,
-    label: string,
-    disabled = false,
-  ) => (
+  const reasonText = (
+    reason: MarginaliaUnavailableReason | null,
+  ): string | undefined =>
+    reason === 'no-data'
+      ? t('export.unavailable_noData')
+      : reason === 'layer-hidden'
+        ? t('export.unavailable_layerHidden')
+        : reason === 'camera-pitch'
+          ? t('export.unavailable_cameraPitch')
+          : undefined;
+  const toggle = (key: PresentationToggleKey, label: string) => (
     <PresentationToggle
       key={key}
       label={label}
       checked={presentation[key]}
-      disabled={disabled}
-      onChange={(checked) => setPresentation(key, checked)}
+      unavailableReason={reasonText(availability[key])}
+      onChange={(checked) => onToggle(key, checked)}
     />
+  );
+  const group = (title: string, children: React.ReactNode) => (
+    <div className="space-y-2">
+      <p className="text-[10px] font-semibold uppercase opacity-60">{title}</p>
+      <div className="grid grid-cols-2 gap-2">{children}</div>
+    </div>
   );
   return (
     <fieldset className="space-y-3 rounded-md border border-panel-border p-3">
       <legend className="px-1 text-xs font-semibold">
         {t('export.cartographicElements')}
       </legend>
-      <div className="space-y-2">
-        <p className="text-[10px] font-semibold uppercase opacity-60">
-          {t('export.group_identity')}
-        </p>
-        <div className="grid grid-cols-2 gap-2">
+      {group(
+        t('export.group_identity'),
+        <>
           {toggle('showCityName', t('export.element_cityName'))}
-          {toggle('showVellumLogo', t('export.element_logo'))}
-          {toggle('showSourceFile', t('export.element_sourceFile'))}
-          {toggle('showGeneratedAt', t('export.element_generatedAt'))}
-        </div>
-      </div>
-      <div className="space-y-2">
-        <p className="text-[10px] font-semibold uppercase opacity-60">
-          {t('export.group_annotations')}
-        </p>
-        <div className="grid grid-cols-2 gap-2">
-          {toggle(
-            'showDistrictNames',
-            t('export.element_districts'),
-            !availability.districts,
-          )}
-          {toggle(
-            'showParkNames',
-            t('export.element_parks'),
-            !availability.parks,
-          )}
-        </div>
-      </div>
-      <div className="space-y-2">
-        <p className="text-[10px] font-semibold uppercase opacity-60">
-          {t('export.group_legends')}
-        </p>
-        <div className="grid grid-cols-2 gap-2">
-          {toggle('showLayerLegend', t('export.element_layerLegend'))}
-          {toggle(
-            'showRoadLegend',
-            t('export.element_roadLegend'),
-            !availability.roads,
-          )}
-          {toggle(
-            'showTransitLegend',
-            t('export.element_transitLegend'),
-            !availability.transit,
-          )}
-          {toggle(
-            'showElevationLegend',
-            t('export.element_elevationLegend'),
-            !availability.elevation,
-          )}
-        </div>
-      </div>
-      <div className="space-y-2">
-        <p className="text-[10px] font-semibold uppercase opacity-60">
-          {t('export.group_aids')}
-        </p>
-        <div className="grid grid-cols-2 gap-2">
+          <label className="flex flex-col gap-1 text-xs">
+            <span>{t('export.element_author')}</span>
+            <input
+              value={presentation.author}
+              maxLength={MARGINALIA_AUTHOR_MAX_LENGTH}
+              placeholder={t('export.element_authorPlaceholder')}
+              onChange={(event) => onAuthorChange(event.currentTarget.value)}
+              className="h-7 w-full rounded-md border border-input bg-background px-2"
+            />
+          </label>
+        </>,
+      )}
+      {group(
+        t('export.group_legends'),
+        <>
+          {toggle('showRoadLegend', t('export.element_roadLegend'))}
+          {toggle('showTransitLegend', t('export.element_transitLegend'))}
+          {toggle('showElevationLegend', t('export.element_elevationLegend'))}
+        </>,
+      )}
+      {group(
+        t('export.group_aids'),
+        <>
           {toggle('showScaleBar', t('export.element_scaleBar'))}
           {toggle('showOrientation', t('export.element_orientation'))}
+        </>,
+      )}
+      {group(
+        t('export.group_information'),
+        <>
           {toggle('showSummary', t('export.element_summary'))}
-        </div>
-      </div>
+          {toggle('showSourceNote', t('export.element_sourceNote'))}
+        </>,
+      )}
+      <ChoiceGroup
+        legend={t('export.element_corner')}
+        name="export-corner"
+        value={presentation.corner}
+        choices={CORNER_CHOICES}
+        onChange={onCornerChange}
+      />
+      {omitted.length > 0 && (
+        <p
+          role="status"
+          data-testid="export-marginalia-omitted"
+          data-omitted={omitted.join(' ')}
+          className="text-[10px] opacity-80"
+        >
+          {t('export.marginaliaOmitted', {
+            blocks: omitted.map((id) => t(BLOCK_LABELS[id])).join(', '),
+          })}
+        </p>
+      )}
     </fieldset>
   );
 }
@@ -851,14 +833,16 @@ function PresentationControls({
  * Controlled export configuration dialog with a non-destructive map preview.
  *
  * @remarks
- * Story 6.1 prepares a typed callback only. The component never invokes Tauri
- * commands and never mutates renderer, camera, theme, layers, or `CityData`.
+ * The component never invokes Tauri commands and never mutates renderer,
+ * camera, theme, layers, or `CityData`.
  */
 export function ExportDialog(props: ExportDialogProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const locale = i18n.resolvedLanguage ?? i18n.language;
+  const { cityData } = props;
   const inputRef = useRef<HTMLInputElement>(null);
   const [fileName, setFileName] = useState(() =>
-    initialFileName(props.cityName),
+    initialFileName(cityData.cityName),
   );
   const [format, setFormat] = useState<ExportFormat>('png-1x');
   const viewportFormatRef = useRef<ExportFormat>('png-1x');
@@ -878,7 +862,7 @@ export function ExportDialog(props: ExportDialogProps) {
 
   useEffect(() => {
     if (!props.open) return;
-    setFileName(initialFileName(props.cityName));
+    setFileName(initialFileName(cityData.cityName));
     setFormat('png-1x');
     viewportFormatRef.current = 'png-1x';
     setArea('viewport');
@@ -894,17 +878,74 @@ export function ExportDialog(props: ExportDialogProps) {
       area: 'viewport',
       background: props.defaultBackground,
     });
-  }, [props.cityName, props.defaultBackground, props.open]);
+  }, [cityData.cityName, props.defaultBackground, props.open]);
 
   const sanitizedFileName = useMemo(
     () => sanitizeExportFileName(fileName),
     [fileName],
   );
-  const setPresentation = (
-    key: keyof ExportPresentationOptions,
-    checked: boolean,
+  const labels: MarginaliaLabels = useMemo(
+    () => resolveMarginaliaLabels(t, locale, cityData),
+    [t, locale, cityData],
+  );
+  const frame = useMemo(
+    () =>
+      marginaliaFrameFor(
+        area,
+        format,
+        targetLongEdge,
+        props.preview,
+        cityData.bounds,
+      ),
+    [area, format, targetLongEdge, props.preview, cityData.bounds],
+  );
+  const activeLayers = props.preview?.activeLayers ?? ALL_LAYERS_VISIBLE;
+  const layerOptions = props.preview?.layerOptions ?? DEFAULT_LAYER_OPTIONS;
+  const availability: MarginaliaAvailability = useMemo(() => {
+    const computed = marginaliaAvailability({
+      cityData,
+      activeLayers,
+      layerOptions,
+      camera: frame?.camera ?? { bearing: 0, pitch: 0 },
+      worldUnitsPerPixel: frame?.worldUnitsPerPixel ?? Number.NaN,
+    });
+    // Density and camera come from the capture: until a preview (and so a
+    // frame) exists, neither aid can be judged, so neither is offered.
+    if (frame) return computed;
+    return {
+      showCityName: computed.showCityName,
+      showRoadLegend: computed.showRoadLegend,
+      showTransitLegend: computed.showTransitLegend,
+      showElevationLegend: computed.showElevationLegend,
+      showScaleBar: 'no-data',
+      showOrientation: 'no-data',
+      showSummary: computed.showSummary,
+      showSourceNote: computed.showSourceNote,
+    };
+  }, [cityData, activeLayers, layerOptions, frame]);
+  const layout = useMemo(
+    () =>
+      frame && props.preview
+        ? composeMarginalia(
+            {
+              presentation,
+              labels,
+              style: props.preview.style,
+              cityData,
+              activeLayers: props.preview.activeLayers,
+              layerOptions: props.preview.layerOptions,
+            },
+            frame,
+          )
+        : null,
+    [frame, props.preview, presentation, labels, cityData],
+  );
+
+  const setPresentation = <K extends keyof ExportPresentationOptions>(
+    key: K,
+    value: ExportPresentationOptions[K],
   ) => {
-    setPresentationState((current) => ({ ...current, [key]: checked }));
+    setPresentationState((current) => ({ ...current, [key]: value }));
   };
   // A rotated capture cannot be projected top-down, so the vector route is
   // withdrawn while it lasts instead of failing after the user commits.
@@ -953,6 +994,7 @@ export function ExportDialog(props: ExportDialogProps) {
             background,
             fileName: sanitizedFileName,
             presentation,
+            labels,
           }
         : {
             format,
@@ -960,6 +1002,7 @@ export function ExportDialog(props: ExportDialogProps) {
             background,
             fileName: sanitizedFileName,
             presentation,
+            labels,
           },
     );
   };
@@ -983,23 +1026,16 @@ export function ExportDialog(props: ExportDialogProps) {
               format={format}
               background={background}
               preview={props.preview}
-              presentation={presentation}
-              cityName={props.cityName}
-              fileName={props.fileName}
-              generatedAt={props.generatedAt}
-              {...(props.visibleLayerNames
-                ? { visibleLayerNames: props.visibleLayerNames }
-                : {})}
-              {...(props.transitLabels
-                ? { transitLabels: props.transitLabels }
-                : {})}
-              counts={props.counts}
+              layout={layout}
               isLoading={props.isPreviewLoading ?? false}
             />
             <PresentationControls
               presentation={presentation}
-              availability={props.availability}
-              setPresentation={setPresentation}
+              availability={availability}
+              omitted={layout?.omitted ?? []}
+              onToggle={(key, checked) => setPresentation(key, checked)}
+              onAuthorChange={(author) => setPresentation('author', author)}
+              onCornerChange={(corner) => setPresentation('corner', corner)}
             />
           </div>
           <div className="space-y-4">
@@ -1067,7 +1103,7 @@ export function ExportDialog(props: ExportDialogProps) {
               format={format}
               targetLongEdge={targetLongEdge}
               preview={props.preview}
-              bounds={props.fullMapBounds}
+              bounds={cityData.bounds}
             />
             <ChoiceGroup
               legend={t('export.background')}

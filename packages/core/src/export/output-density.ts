@@ -33,3 +33,33 @@ export function zoomForWorldUnitsPerPixel(worldUnitsPerPixel: number): number {
         worldUnitsPerPixel),
   );
 }
+
+/**
+ * Inverse of {@link zoomForWorldUnitsPerPixel}: the density a zoom renders at.
+ *
+ * @param zoom - MapLibre zoom level.
+ * @returns CS1 world units covered by one output pixel at that zoom.
+ */
+export function worldUnitsPerPixelForZoom(zoom: number): number {
+  return (
+    360 /
+    (MAPLIBRE_TILE_SIZE_PX * (CS1_EXTENT_DEG / CS1_WORLD_SIZE) * 2 ** zoom)
+  );
+}
+
+/**
+ * Rounds a raw distance to a human-readable 1/2/5 × 10^n length, never above it.
+ *
+ * @remarks
+ * Moved here from the renderer's preview module so the marginalia layout can
+ * size its scale bar without importing the adapter (ADR-0001).
+ *
+ * @param distance - Raw world distance the bar may cover.
+ * @returns The rounded distance in CS1 metres.
+ */
+export function niceScaleDistance(distance: number): number {
+  const magnitude = 10 ** Math.floor(Math.log10(distance));
+  const normalized = distance / magnitude;
+  const multiplier = normalized >= 5 ? 5 : normalized >= 2 ? 2 : 1;
+  return multiplier * magnitude;
+}
