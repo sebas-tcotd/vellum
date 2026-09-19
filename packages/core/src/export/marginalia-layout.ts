@@ -8,8 +8,10 @@
  * the final surface. The dialog preview, both PNG routes and the SVG writer
  * paint the same {@link MarginaliaLayout} — the preview merely scales it down.
  *
- * Every length derives from the unit `u = min(width, height) / 100`, so a
- * 6000 px and a 12000 px document are the same composition at two scales.
+ * Every length derives from a fixed unit `u = (20 / 1.4) × density`, so the
+ * body text is always 20 logical px (1.25rem) and a 12000 px document keeps the
+ * letter size of a 6000 px one while having room for more content; only the
+ * 34 % / 60 % caps grow with the surface.
  * Text is measured with DM Mono's fixed 0.6 em advance rather than with a
  * font engine, which keeps the layout deterministic and DOM-free.
  */
@@ -91,8 +93,8 @@ const SCALE_LABEL_GAP_U = 0.3;
 const NORTH_ARROW_U = 3;
 const NORTH_BOX_U = 6.4;
 const AIDS_GAP_U = 2;
-/** Transit rows shown before the rest collapse into a "+N" row. */
-export const MARGINALIA_TRANSIT_MAX_ROWS = 8;
+/** Logical px of the body text (1.25rem); the unit is derived from it. */
+const BODY_LOGICAL_PX = 20;
 /** Tolerance, in degrees, for treating the camera as untilted. */
 const PITCH_EPSILON_DEG = 1e-6;
 
@@ -161,13 +163,21 @@ export interface MarginaliaTransitRow {
   readonly color: string;
 }
 
-/** Transit legend, capped at {@link MARGINALIA_TRANSIT_MAX_ROWS} rows. */
+/**
+ * Transit legend: every visible line, in legend order.
+ *
+ * @remarks
+ * How many rows are drawn is a layout decision — as many as the panel's
+ * height allows, then a "+N" row built from {@link more}.
+ */
 export interface MarginaliaTransitLegendContent {
   readonly id: 'transit-legend';
   readonly title: string;
   readonly rows: readonly MarginaliaTransitRow[];
-  /** Row announcing the omitted lines, or `null` when none were cut. */
-  readonly more: string | null;
+  /** Template of the row announcing the lines left out. */
+  readonly more: MarginaliaCountTemplate;
+  /** Digit-group separator for the "+N" count. */
+  readonly thousandsSeparator: string;
 }
 
 /** Hypsometric ramp legend. */
@@ -537,23 +547,15 @@ export function buildMarginaliaContent(
     availability.showTransitLegend === null
   ) {
     const lines = visibleTransitLines(cityData, inputs.layerOptions);
-    const shown = lines.slice(0, MARGINALIA_TRANSIT_MAX_ROWS);
-    const hidden = lines.length - shown.length;
     blocks.push({
       id: 'transit-legend',
       title: labels.transitLegendTitle,
-      rows: shown.map((line) => ({
+      rows: lines.map((line) => ({
         label: line.name.trim() || labels.transitModes[line.mode],
         color: HEX_COLOR.test(line.color) ? line.color : style.districts.label,
       })),
-      more:
-        hidden > 0
-          ? formatMarginaliaCount(
-              labels.transitMore,
-              hidden,
-              labels.thousandsSeparator,
-            )
-          : null,
+      more: labels.transitMore,
+      thousandsSeparator: labels.thousandsSeparator,
     });
   }
 
@@ -1064,13 +1066,15 @@ function measureRoadLegend(
 function measureTransitLegend(
   content: MarginaliaTransitLegendContent,
   context: BlockContext,
+  shownRows: number = content.rows.length,
 ): MeasuredBlock | null {
   const { u } = context;
+  const hidden = content.rows.length - shownRows;
   const swatchWidth = SWATCH_WIDTH_U * u;
   const rows: {
     label: string;
     swatch: ((x: number, cy: number) => MarginaliaPrimitive[]) | null;
-  }[] = content.rows.map((row) => ({
+  }[] = content.rows.slice(0, shownRows).map((row) => ({
     label: row.label,
     swatch: (x: number, cy: number): MarginaliaPrimitive[] => [
       {
@@ -1086,7 +1090,16 @@ function measureTransitLegend(
       },
     ],
   }));
-  if (content.more !== null) rows.push({ label: content.more, swatch: null });
+  if (hidden > 0) {
+    rows.push({
+      label: formatMarginaliaCount(
+        content.more,
+        hidden,
+        content.thousandsSeparator,
+      ),
+      swatch: null,
+    });
+  }
   return measureSwatchLegend('transit-legend', content.title, rows, context);
 }
 
@@ -1351,6 +1364,8 @@ const EMPTY_PRIMITIVES: readonly MarginaliaPrimitive[] = Object.freeze([]);
  * @param surface - Final output surface, in output pixels.
  * @param frameMarginPx - Output pixels the map frame reserves on every side.
  * @param corner - Corner the panel is anchored to.
+ * @param density - Output pixels per logical pixel (1 for full-map and SVG,
+ * the raster density for a viewport export); sizes the unit `u`.
  * @returns Primitives in output pixels, their bounds, and the blocks that did not fit.
  */
 export function layoutMarginalia(
@@ -1358,8 +1373,14 @@ export function layoutMarginalia(
   surface: { readonly width: number; readonly height: number },
   frameMarginPx: number,
   corner: MarginaliaCorner,
+  density = 1,
 ): MarginaliaLayout {
-  const u = Math.min(surface.width, surface.height) / 100;
+  // Fixed type size: body text (1.4u) is 20 logical px times the export's
+  // density, whatever the surface measures. A larger document keeps the same
+  // letters and gains room for more content.
+  const u =
+    (BODY_LOGICAL_PX / BODY_U) *
+    (Number.isFinite(density) && density > 0 ? density : 1);
   const requested = content.blocks.map((block) => block.id);
   const empty = (omitted: readonly MarginaliaBlockId[]): MarginaliaLayout => ({
     surface: { width: surface.width, height: surface.height },
@@ -1406,6 +1427,27 @@ export function layoutMarginalia(
     blocks.reduce((sum, block) => sum + block.height, 0) +
     Math.max(0, blocks.length - 1) * gap +
     2 * padding;
+  // The transit legend gives up rows before any block is dropped: it shows as
+  // many lines as the remaining height holds, then a "+N lines" row — which
+  // is measured too, so the row announcing the cut always fits.
+  const transitIndex = measured.findIndex(
+    (block) => block.id === 'transit-legend',
+  );
+  const transitContent = content.blocks.find(
+    (block): block is MarginaliaTransitLegendContent =>
+      block.id === 'transit-legend',
+  );
+  if (transitIndex >= 0 && transitContent) {
+    for (
+      let shown = transitContent.rows.length - 1;
+      shown >= 1 && panelHeightOf(measured) > maxPanelHeight;
+      shown -= 1
+    ) {
+      const trimmed = measureTransitLegend(transitContent, context, shown);
+      if (!trimmed) break;
+      measured[transitIndex] = trimmed;
+    }
+  }
   // Reverse hierarchy: the last block is the first to go.
   while (measured.length > 0 && panelHeightOf(measured) > maxPanelHeight) {
     omitted.push(measured.pop()!.id);
@@ -1494,6 +1536,11 @@ export interface MarginaliaFrame {
    * its safe inset is `2u` alone.
    */
   readonly hasMapFrame: boolean;
+  /**
+   * Output pixels per logical pixel: 1 for full-map and SVG, 1/2/4 for a
+   * viewport raster. Fixes the marginalia's type size.
+   */
+  readonly density: number;
 }
 
 /** What {@link resolveMarginaliaFrame} needs to know about an export. */
@@ -1533,6 +1580,10 @@ export function resolveMarginaliaFrame(
     surface: { width: surface.width, height: surface.height },
     worldUnitsPerPixel,
     hasMapFrame: input.format !== 'svg',
+    density:
+      input.area === 'full-map' || input.format === 'svg'
+        ? 1
+        : exportScaleForFormat(input.format),
     camera:
       input.area === 'full-map'
         ? { bearing: 0, pitch: 0 }
@@ -1610,5 +1661,6 @@ export function composeMarginalia(
     frame.surface,
     frameMarginPx,
     inputs.presentation.corner,
+    frame.density,
   );
 }

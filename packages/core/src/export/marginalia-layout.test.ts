@@ -21,7 +21,6 @@ import {
   resolveMarginaliaFrame,
   type MarginaliaContentInputs,
   type MarginaliaLayout,
-  type MarginaliaPrimitive,
   type MarginaliaText,
 } from './marginalia-layout';
 import { createExportSnapshot } from '../types/export-pipeline';
@@ -67,21 +66,8 @@ function texts(layout: MarginaliaLayout): string[] {
     .map((p) => p.text);
 }
 
-/** Every numeric field of a primitive, flattened in a stable order. */
-function numbers(primitive: MarginaliaPrimitive): number[] {
-  const out: number[] = [];
-  const visit = (value: unknown): void => {
-    if (typeof value === 'number') out.push(value);
-    else if (Array.isArray(value)) value.forEach(visit);
-    else if (value && typeof value === 'object')
-      Object.entries(value).forEach(([key, inner]) => {
-        // Opacity is a ratio, not a length.
-        if (key !== 'fillOpacity' && key !== 'offset') visit(inner);
-      });
-  };
-  visit(primitive);
-  return out;
-}
+/** Unit at density 1: body text (1.4u) is 20 px. */
+const U1 = 20 / 1.4;
 
 const ALL_ON = {
   showCityName: true,
@@ -96,7 +82,7 @@ const ALL_ON = {
 } as const;
 
 describe('layoutMarginalia — unidad y esquinas', () => {
-  it('viewport PNG 2x: u = 16 y el panel queda en la esquina inferior derecha', () => {
+  it('viewport PNG 2x: cuerpo de 40 px y panel en la esquina inferior derecha', () => {
     const content = buildMarginaliaContent(
       inputs({
         showCityName: true,
@@ -106,19 +92,25 @@ describe('layoutMarginalia — unidad y esquinas', () => {
       }),
     );
     const surface = { width: 2400, height: 1600 };
-    const layout = layoutMarginalia(content, surface, 40, 'bottom-right');
+    const layout = layoutMarginalia(content, surface, 40, 'bottom-right', 2);
 
-    expect(layout.unit).toBe(16);
+    const u = U1 * 2;
+    expect(layout.unit).toBeCloseTo(u);
+    // 1.25rem = 20 logical px × density 2.
+    const body = layout.primitives.find(
+      (p): p is MarginaliaText => p.kind === 'text' && p.text === 'Highway',
+    )!;
+    expect(body.fontSize).toBeCloseTo(40);
     const panel = layout.primitives[0]!;
     expect(panel.kind).toBe('rect');
     if (panel.kind !== 'rect') return;
-    const inset = 40 + 2 * 16;
+    const inset = 40 + 2 * u;
     expect(panel.x + panel.width).toBeCloseTo(2400 - inset);
     expect(panel.y + panel.height).toBeCloseTo(1600 - inset);
     expect(panel.fill).toBe('#f7f6f1');
     expect(panel.fillOpacity).toBe(0.9);
     expect(panel.stroke).toBe('#3b3a36');
-    expect(panel.strokeWidth).toBeCloseTo(0.15 * 16);
+    expect(panel.strokeWidth).toBeCloseTo(0.15 * u);
     expect(texts(layout)).toContain('PUERTO NUEVO');
     expect(layout.omitted).toEqual([]);
   });
@@ -138,19 +130,25 @@ describe('layoutMarginalia — unidad y esquinas', () => {
     );
     const panel = layout.primitives[0]!;
     if (panel.kind !== 'rect') throw new Error('panel expected');
-    const inset = 20;
+    const inset = 2 * U1;
     if (h === 'left') expect(panel.x).toBeCloseTo(inset);
     else expect(panel.x + panel.width).toBeCloseTo(1000 - inset);
     if (v === 'top') expect(panel.y).toBeCloseTo(inset);
     else expect(panel.y + panel.height).toBeCloseTo(1000 - inset);
   });
 
-  it('full-map 6000 vs 12000: el panel mide el doble y el inset sigue al margen real del marco', () => {
+  it('full-map 6000 vs 12000: mismo tamaño de texto; a 12000 caben igual o más bloques y filas', () => {
+    const cityData = makeCityData({
+      ...CITY,
+      transitLines: Array.from({ length: 200 }, (_, index) =>
+        makeTransitLine({ id: `l${index}`, name: `Line ${index + 1}` }),
+      ),
+    });
     const base = {
       presentation: makePresentationOptions({ ...ALL_ON, corner: 'top-left' }),
       labels: makeMarginaliaLabels(),
       style: makeRenderStyle(),
-      cityData: CITY,
+      cityData,
       activeLayers: makeLayerVisibility(),
       layerOptions: DEFAULT_LAYER_OPTIONS,
     };
@@ -167,69 +165,29 @@ describe('layoutMarginalia — unidad y esquinas', () => {
     const at6000 = composeMarginalia(base, frameFor(6000));
     const at12000 = composeMarginalia(base, frameFor(12000));
 
-    expect(texts(at12000)).toEqual(texts(at6000));
-    const panel = (layout: MarginaliaLayout) => {
-      const rect = layout.primitives[0]!;
-      if (rect.kind !== 'rect') throw new Error('panel expected');
-      return rect;
-    };
-    expect(panel(at12000).width).toBeCloseTo(panel(at6000).width * 2, 6);
-    expect(panel(at12000).height).toBeCloseTo(panel(at6000).height * 2, 6);
-    // The inset is the frame margin at each document's own zoom plus 2u —
-    // the frame ramp is not linear in zoom, so it is not simply doubled.
+    const sizes = (layout: MarginaliaLayout) =>
+      layout.primitives
+        .filter((p): p is MarginaliaText => p.kind === 'text')
+        .map((p) => p.fontSize);
+    expect(at6000.unit).toBeCloseTo(U1);
+    expect(at12000.unit).toBeCloseTo(U1);
+    expect(new Set(sizes(at12000))).toEqual(new Set(sizes(at6000)));
+    expect(at12000.omitted.length).toBeLessThanOrEqual(at6000.omitted.length);
+    const lines = (layout: MarginaliaLayout) =>
+      texts(layout).filter((text) => /^Line \d+$/.test(text)).length;
+    expect(lines(at12000)).toBeGreaterThanOrEqual(lines(at6000));
+    // The inset is each document's own frame margin plus 2u.
     for (const [layout, side] of [
       [at6000, 6000],
       [at12000, 12000],
     ] as const) {
+      const panel = layout.primitives[0]!;
+      if (panel.kind !== 'rect') throw new Error('panel expected');
       const margin = mapFrameMarginPixels(
         zoomForWorldUnitsPerPixel(frameFor(side).worldUnitsPerPixel),
       );
-      expect(panel(layout).x).toBeCloseTo(margin + 2 * layout.unit, 6);
+      expect(panel.x).toBeCloseTo(margin + 2 * U1, 6);
     }
-    // Inner geometry, relative to the panel corner, is exactly twice as large.
-    const relative = (layout: MarginaliaLayout) =>
-      layout.primitives.map((primitive) => {
-        const origin = panel(layout);
-        return numbers(
-          primitive.kind === 'text'
-            ? {
-                ...primitive,
-                x: primitive.x - origin.x,
-                y: primitive.y - origin.y,
-              }
-            : primitive,
-        );
-      });
-    const small = relative(at6000);
-    const large = relative(at12000);
-    small.forEach((values, index) => {
-      if (at6000.primitives[index]!.kind !== 'text') return;
-      values.forEach((value, i) =>
-        expect(large[index]![i]).toBeCloseTo(value * 2, 6),
-      );
-    });
-  });
-
-  it('con layoutMarginalia y márgenes proporcionales todo difiere por el factor 2', () => {
-    const at6000 = layoutMarginalia(
-      buildMarginaliaContent(inputs(ALL_ON, { worldUnitsPerPixel: 4 })),
-      { width: 6000, height: 6000 },
-      30,
-      'top-right',
-    );
-    const at12000 = layoutMarginalia(
-      buildMarginaliaContent(inputs(ALL_ON, { worldUnitsPerPixel: 2 })),
-      { width: 12000, height: 12000 },
-      60,
-      'top-right',
-    );
-    expect(at12000.primitives).toHaveLength(at6000.primitives.length);
-    at6000.primitives.forEach((primitive, index) => {
-      const scaled = numbers(at12000.primitives[index]!);
-      numbers(primitive).forEach((value, i) =>
-        expect(scaled[i]).toBeCloseTo(value * 2, 6),
-      );
-    });
   });
 
   it('nunca usa píxeles fijos: todo el texto es múltiplo de u', () => {
@@ -267,7 +225,7 @@ describe('buildMarginaliaContent', () => {
     expect(block.rows[1]!.weight).toBeLessThan(block.rows[0]!.weight);
   });
 
-  it('tránsito denso: 8 filas y luego "+32 lines"', () => {
+  it('tránsito denso: tantas filas como quepan y luego "+N lines"; más superficie, más filas', () => {
     const cityData = makeCityData({
       transitLines: Array.from({ length: 40 }, (_, index) =>
         makeTransitLine({
@@ -282,16 +240,37 @@ describe('buildMarginaliaContent', () => {
     );
     const block = content.blocks.find((b) => b.id === 'transit-legend');
     if (block?.id !== 'transit-legend') throw new Error('transit expected');
-    expect(block.rows).toHaveLength(8);
+    expect(block.rows).toHaveLength(40);
     expect(block.rows[0]).toEqual({ label: 'Line 1', color: '#123456' });
-    expect(block.more).toBe('+32 lines');
-    const layout = layoutMarginalia(
+
+    const shownAt = (height: number) => {
+      const layout = layoutMarginalia(
+        content,
+        { width: 3000, height },
+        0,
+        'top-left',
+      );
+      const shown = texts(layout).filter((t) => /^Line \d+$/.test(t)).length;
+      const panel = layout.primitives[0]!;
+      if (panel.kind !== 'rect') throw new Error('panel expected');
+      // The "+N" row is part of the panel, inside the 60 % cap.
+      expect(texts(layout)).toContain(`+${40 - shown} lines`);
+      expect(panel.height).toBeLessThanOrEqual(height * 0.6 + 1e-9);
+      return shown;
+    };
+    const small = shownAt(800);
+    const large = shownAt(1400);
+    expect(small).toBeGreaterThan(0);
+    expect(small).toBeLessThan(40);
+    expect(large).toBeGreaterThan(small);
+    // With room for everything there is no "+N" row at all.
+    const roomy = layoutMarginalia(
       content,
-      { width: 4000, height: 4000 },
+      { width: 3000, height: 6000 },
       0,
       'top-left',
     );
-    expect(texts(layout)).toContain('+32 lines');
+    expect(texts(roomy).some((t) => t.startsWith('+'))).toBe(false);
   });
 
   it('capa inactiva: el bloque vial se omite y la disponibilidad lo explica', () => {
@@ -533,8 +512,8 @@ describe('layoutMarginalia — zona segura y omisiones', () => {
     expect(layout.bounds).not.toBeNull();
     const panel = layout.primitives[0]!;
     if (panel.kind !== 'rect') throw new Error('panel expected');
-    expect(panel.height).toBeLessThanOrEqual(700 - 2 * (150 + 14) + 1e-9);
-    expect(panel.y + panel.height).toBeCloseTo(700 - 150 - 14);
+    expect(panel.height).toBeLessThanOrEqual(700 - 2 * (150 + 2 * U1) + 1e-9);
+    expect(panel.y + panel.height).toBeCloseTo(700 - 150 - 2 * U1);
     expect(panel.width).toBeLessThanOrEqual(8000 * 0.34 + 1e-9);
   });
 

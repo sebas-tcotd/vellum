@@ -316,7 +316,9 @@ describe('SvgExporter streaming', () => {
 
     const xml = sink.chunks.map((chunk) => chunk.text).join('');
     expect(xml).toContain('<g id="vellum-marginalia"');
-    expect(xml).toContain('>TEST CITY</text>');
+    // At a fixed 20 px body size an 800 px-wide document cuts the title with
+    // a visible ellipsis rather than shrinking it.
+    expect(xml).toMatch(/>TEST C[^<]*<\/text>/);
     expect(xml).not.toContain('<image');
   });
 
