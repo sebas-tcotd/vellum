@@ -121,6 +121,7 @@ export function AppSurface({
               mapProps={mapProps}
               commands={commands}
               isCleanView={isCleanMode}
+              viewMode={shell.state.viewMode}
               mapInset={mapInset}
               subscribeServiceIconLegendRef={subscribeServiceIconLegendRef}
               iconLegendToggleRef={iconLegendToggleRef}

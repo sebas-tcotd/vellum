@@ -462,3 +462,71 @@
   display: block;
   height: var(--shell-titlebar-inset);
 }
+
+/* ─── Schematic view (Epic 4) ────────────────────────────────────────────
+   An independent surface over the (hidden, still mounted) map. Solid
+   background, no geographic layers; content colors come from the network,
+   never from shell tokens. */
+.schematic-view {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--shell-overlay-inset);
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+.schematic-view__diagram {
+  width: 100%;
+  height: 100%;
+}
+
+.schematic-view__segments polyline {
+  fill: none;
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.schematic-view__stations circle {
+  fill: var(--color-bg);
+  stroke: var(--color-text);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.schematic-view__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  max-width: 28rem;
+  text-align: center;
+}
+
+.schematic-view__empty-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.schematic-view__empty-body {
+  color: var(--color-text-subtle);
+}
+
+.schematic-view__back {
+  padding: 6px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--shell-radius-interactive);
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+
+.schematic-view__back:focus-visible {
+  outline: 2px solid var(--shell-focus);
+  outline-offset: 2px;
+}

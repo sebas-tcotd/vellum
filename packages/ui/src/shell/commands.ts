@@ -19,6 +19,7 @@ export type CommandId =
   | 'view.resetNorth'
   | 'view.rotate'
   | 'view.cleanView'
+  | 'view.schematic'
   | 'view.sidebar'
   | 'view.mapSymbols'
   | 'view.mapBounds'
@@ -37,6 +38,7 @@ export interface CommandPayloads {
   'view.resetNorth': void;
   'view.rotate': number;
   'view.cleanView': void;
+  'view.schematic': void;
   'view.sidebar': void;
   'view.mapSymbols': void;
   'view.mapBounds': void;
@@ -87,6 +89,8 @@ export interface CommandDeps {
   availableThemeIds: readonly string[];
   /** Toggles Clean view. Owned by `ShellSession`, injected so this stays view-free. */
   toggleCleanView: (invoker?: string) => void;
+  /** Switches between the geographic map and the schematic view (`ShellSession`). */
+  toggleSchematicView: () => void;
   /** Collapses the sidebar to its rail, or restores it. */
   toggleSidebar: () => void;
   /** Opens (or closes, if already open) one layer's detail context. */
@@ -120,6 +124,7 @@ export function useDesktopCommands(deps: CommandDeps): CommandRegistry {
     transitDimmingEnabled,
     availableThemeIds,
     toggleCleanView,
+    toggleSchematicView,
     toggleSidebar,
     toggleLayerDetail,
     hasMap,
@@ -179,6 +184,12 @@ export function useDesktopCommands(deps: CommandDeps): CommandRegistry {
         cleanViewReason,
         (_payload, invoker) => toggleCleanView(invoker),
       ),
+      // Same availability as Clean view: needs a city, no load, no modal.
+      'view.schematic': make(
+        'view.schematic',
+        cleanViewReason,
+        toggleSchematicView,
+      ),
       'view.mapSymbols': make('view.mapSymbols', mapReason, toggleIconLegend),
       // Showing and hiding the sidebar is a first-class command, not just a
       // button on the sidebar itself — the platform expects a View-menu route
@@ -215,6 +226,7 @@ export function useDesktopCommands(deps: CommandDeps): CommandRegistry {
     setActiveTheme,
     setTransitDimmingEnabled,
     toggleCleanView,
+    toggleSchematicView,
     toggleIconLegend,
     toggleLayer,
     toggleSidebar,

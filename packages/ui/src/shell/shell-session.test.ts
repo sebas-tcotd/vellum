@@ -216,3 +216,46 @@ describe('escape ladder', () => {
     expect(shellSessionReducer(state, { type: 'escape' })).toBe(state);
   });
 });
+
+describe('view mode', () => {
+  it('starts geographic and toggles round-trip', () => {
+    const state = base();
+    expect(state.viewMode).toBe('geographic');
+    const schematic = shellSessionReducer(state, { type: 'viewMode/toggle' });
+    expect(schematic.viewMode).toBe('schematic');
+    const back = shellSessionReducer(schematic, { type: 'viewMode/toggle' });
+    expect(back.viewMode).toBe('geographic');
+  });
+
+  it('cannot toggle under a blocking surface', () => {
+    const state = base({ activeModal: 'about' });
+    expect(shellSessionReducer(state, { type: 'viewMode/toggle' })).toBe(state);
+  });
+
+  it('resets to geographic, and is a no-op when already there', () => {
+    const state = base({ viewMode: 'schematic' });
+    expect(
+      shellSessionReducer(state, { type: 'viewMode/reset' }).viewMode,
+    ).toBe('geographic');
+    const geo = base();
+    expect(shellSessionReducer(geo, { type: 'viewMode/reset' })).toBe(geo);
+  });
+});
+
+describe('escape ladder — schematic view', () => {
+  it('returns from the schematic view to the geographic map', () => {
+    const state = base({ viewMode: 'schematic' });
+    expect(shellSessionReducer(state, { type: 'escape' }).viewMode).toBe(
+      'geographic',
+    );
+  });
+
+  it('leaves Clean view before the schematic view, and yields to a modal', () => {
+    const both = base({ viewMode: 'schematic', cleanView: true });
+    const first = shellSessionReducer(both, { type: 'escape' });
+    expect(first.cleanView).toBe(false);
+    expect(first.viewMode).toBe('schematic');
+    const modal = base({ viewMode: 'schematic', activeModal: 'about' });
+    expect(shellSessionReducer(modal, { type: 'escape' })).toBe(modal);
+  });
+});

@@ -236,6 +236,12 @@ export function App({
     if (cityData !== null) shellDispatch({ type: 'cleanView/exit' });
   }, [cityData, shellDispatch]);
 
+  // Any change of city — loaded, replaced or closed — lands on the geographic
+  // map (Story 4.1): the schematic mode is ephemeral and never carries over.
+  useEffect(() => {
+    shellDispatch({ type: 'viewMode/reset' });
+  }, [cityData, shellDispatch]);
+
   const handleFitToScreen = useCallback(
     () => fitToScreenRef.current?.(),
     [fitToScreenRef],
@@ -248,6 +254,10 @@ export function App({
         type: 'cleanView/toggle',
         ...(invoker !== undefined ? { invoker } : {}),
       }),
+    [shellDispatch],
+  );
+  const handleToggleSchematicView = useCallback(
+    () => shellDispatch({ type: 'viewMode/toggle' }),
     [shellDispatch],
   );
   const handleToggleNavigationMode = useCallback(
@@ -350,6 +360,7 @@ export function App({
     transitDimmingEnabled,
     availableThemeIds,
     toggleCleanView: handleHidePanel,
+    toggleSchematicView: handleToggleSchematicView,
     toggleSidebar: handleToggleSidebar,
     toggleLayerDetail: handleOpenAdvancedOptions,
     hasMap: cityData !== null,

@@ -226,6 +226,15 @@
     "cancel": "Cancel",
     "close": "Close"
   },
+  "schematic": {
+    "open": "Schematic view",
+    "back": "Back to map",
+    "region": "Transit network schematic",
+    "emptyTitle": "No transit to draw",
+    "emptyBody": "This city has no transit lines with a route, so there is no network to show.",
+    "viewSwitch": "Map view",
+    "summary": "Transit network with {{lines}} lines and {{stations}} stations."
+  },
   "a11y": {
     "mapCanvas": "City map canvas",
     "minimap": "Navigation minimap",

@@ -34,12 +34,16 @@ const mapProps = {
   },
 } as unknown as MapLibreRootProps;
 
-function renderViewport() {
+function renderViewport(
+  viewMode: 'geographic' | 'schematic' = 'geographic',
+  isCleanView = false,
+) {
   return render(
     <MapViewport
       mapProps={mapProps}
       commands={commands}
-      isCleanView={false}
+      isCleanView={isCleanView}
+      viewMode={viewMode}
       subscribeServiceIconLegendRef={{ current: null }}
       iconLegendToggleRef={{ current: null }}
     />,
@@ -100,5 +104,84 @@ describe('map readiness signal', () => {
       'data-map-state',
       'loading',
     );
+  });
+});
+
+describe('schematic view mode', () => {
+  it('keeps the map mounted but hidden, and shows the schematic surface', () => {
+    useVellumStore.setState({ cityData: someCity, loadingState: 'idle' });
+
+    renderViewport('schematic');
+
+    const wrapper = screen.getByTestId('canvas-wrapper');
+    expect(screen.getByTestId('maplibre-root')).toBeInTheDocument();
+    expect(wrapper).toHaveStyle({ visibility: 'hidden' });
+    expect(wrapper).toHaveAttribute('aria-hidden', 'true');
+    expect(wrapper).toHaveAttribute('inert');
+    expect(screen.getByTestId('schematic-view')).toBeInTheDocument();
+    expect(screen.getByTestId('schematic-toggle')).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+  });
+
+  it('shows the map and no schematic surface in geographic mode', () => {
+    useVellumStore.setState({ cityData: someCity, loadingState: 'idle' });
+
+    renderViewport('geographic');
+
+    const wrapper = screen.getByTestId('canvas-wrapper');
+    expect(wrapper).not.toHaveAttribute('aria-hidden');
+    expect(wrapper).not.toHaveAttribute('inert');
+    expect(screen.queryByTestId('schematic-view')).toBeNull();
+    expect(screen.getByTestId('schematic-toggle')).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
+  });
+});
+
+describe('schematic view — clean view and focus', () => {
+  it('keeps the toggle visible in schematic mode even under Clean view', () => {
+    useVellumStore.setState({ cityData: someCity, loadingState: 'idle' });
+
+    renderViewport('schematic', true);
+
+    expect(screen.getByTestId('schematic-toggle')).toBeInTheDocument();
+  });
+
+  it('hides the toggle under Clean view on the geographic map', () => {
+    useVellumStore.setState({ cityData: someCity, loadingState: 'idle' });
+
+    renderViewport('geographic', true);
+
+    expect(screen.queryByTestId('schematic-toggle')).toBeNull();
+  });
+
+  it('moves focus into the schematic region and back to the toggle', () => {
+    useVellumStore.setState({ cityData: someCity, loadingState: 'idle' });
+    // An enabled toggle: a disabled button cannot take focus.
+    const enabled = new Proxy(
+      {},
+      {
+        get: (_t, id: string) => ({ id, canExecute: true, execute: () => {} }),
+      },
+    ) as CommandRegistry;
+    const props = {
+      mapProps,
+      commands: enabled,
+      isCleanView: false,
+      subscribeServiceIconLegendRef: { current: null },
+      iconLegendToggleRef: { current: null },
+    };
+    const { rerender } = render(
+      <MapViewport {...props} viewMode="geographic" />,
+    );
+
+    rerender(<MapViewport {...props} viewMode="schematic" />);
+    expect(screen.getByTestId('schematic-view')).toHaveFocus();
+
+    rerender(<MapViewport {...props} viewMode="geographic" />);
+    expect(screen.getByTestId('schematic-toggle')).toHaveFocus();
   });
 });
