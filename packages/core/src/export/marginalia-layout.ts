@@ -8,8 +8,8 @@
  * the final surface. The dialog preview, both PNG routes and the SVG writer
  * paint the same {@link MarginaliaLayout} — the preview merely scales it down.
  *
- * Every length derives from a fixed unit `u = (20 / 1.4) × density`, so the
- * body text is always 20 logical px (1.25rem) and a 12000 px document keeps the
+ * Every length derives from a fixed unit `u = 20 / 1.4` output px, so the
+ * body text is always 20 px (1.25rem) at any density and a 12000 px document keeps the
  * letter size of a 6000 px one while having room for more content; only the
  * 34 % / 60 % caps grow with the surface.
  * Text is measured with DM Mono's fixed 0.6 em advance rather than with a
@@ -1364,8 +1364,6 @@ const EMPTY_PRIMITIVES: readonly MarginaliaPrimitive[] = Object.freeze([]);
  * @param surface - Final output surface, in output pixels.
  * @param frameMarginPx - Output pixels the map frame reserves on every side.
  * @param corner - Corner the panel is anchored to.
- * @param density - Output pixels per logical pixel (1 for full-map and SVG,
- * the raster density for a viewport export); sizes the unit `u`.
  * @returns Primitives in output pixels, their bounds, and the blocks that did not fit.
  */
 export function layoutMarginalia(
@@ -1373,14 +1371,11 @@ export function layoutMarginalia(
   surface: { readonly width: number; readonly height: number },
   frameMarginPx: number,
   corner: MarginaliaCorner,
-  density = 1,
 ): MarginaliaLayout {
-  // Fixed type size: body text (1.4u) is 20 logical px times the export's
-  // density, whatever the surface measures. A larger document keeps the same
-  // letters and gains room for more content.
-  const u =
-    (BODY_LOGICAL_PX / BODY_U) *
-    (Number.isFinite(density) && density > 0 ? density : 1);
+  // Fixed type size: body text (1.4u) is 20 output px whatever the surface or
+  // density. A 2x/4x or larger document keeps the same letters and gains room
+  // for more content.
+  const u = BODY_LOGICAL_PX / BODY_U;
   const requested = content.blocks.map((block) => block.id);
   const empty = (omitted: readonly MarginaliaBlockId[]): MarginaliaLayout => ({
     surface: { width: surface.width, height: surface.height },
@@ -1661,6 +1656,5 @@ export function composeMarginalia(
     frame.surface,
     frameMarginPx,
     inputs.presentation.corner,
-    frame.density,
   );
 }

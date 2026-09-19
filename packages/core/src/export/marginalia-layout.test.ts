@@ -82,7 +82,7 @@ const ALL_ON = {
 } as const;
 
 describe('layoutMarginalia — unidad y esquinas', () => {
-  it('viewport PNG 2x: cuerpo de 40 px y panel en la esquina inferior derecha', () => {
+  it('viewport PNG 2x: cuerpo de 20 px (sin densidad) y panel en la esquina inferior derecha', () => {
     const content = buildMarginaliaContent(
       inputs({
         showCityName: true,
@@ -92,15 +92,15 @@ describe('layoutMarginalia — unidad y esquinas', () => {
       }),
     );
     const surface = { width: 2400, height: 1600 };
-    const layout = layoutMarginalia(content, surface, 40, 'bottom-right', 2);
+    const layout = layoutMarginalia(content, surface, 40, 'bottom-right');
 
-    const u = U1 * 2;
+    const u = U1;
     expect(layout.unit).toBeCloseTo(u);
-    // 1.25rem = 20 logical px × density 2.
+    // 1.25rem = 20 px regardless of the 2x density.
     const body = layout.primitives.find(
       (p): p is MarginaliaText => p.kind === 'text' && p.text === 'Highway',
     )!;
-    expect(body.fontSize).toBeCloseTo(40);
+    expect(body.fontSize).toBeCloseTo(20);
     const panel = layout.primitives[0]!;
     expect(panel.kind).toBe('rect');
     if (panel.kind !== 'rect') return;
