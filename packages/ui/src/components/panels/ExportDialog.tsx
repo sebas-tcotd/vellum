@@ -1047,6 +1047,7 @@ export function ExportDialog(props: ExportDialogProps) {
                 onChange={(event) => setFileName(event.currentTarget.value)}
                 onBlur={() => setFileName(sanitizedFileName)}
                 aria-label={t('export.fileName')}
+                data-testid="export-file-name"
                 className="h-9 w-full rounded-md border border-input bg-background px-3 font-normal"
               />
             </label>
