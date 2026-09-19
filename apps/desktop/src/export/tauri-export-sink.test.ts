@@ -15,6 +15,7 @@ const request = {
   background: 'white',
   fileName: 'big-map',
   presentation: {} as ExportRequest['presentation'],
+  labels: {} as ExportRequest['labels'],
 } satisfies ExportRequest;
 
 const metadata = {

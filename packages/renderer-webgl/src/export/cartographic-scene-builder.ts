@@ -25,6 +25,7 @@ import {
   type ExportExtent,
   type ExportSnapshotBase,
   type LayerVisibility,
+  type MarginaliaLayout,
   type RenderStyleParams,
   type SceneEmblem,
   type SceneEntity,
@@ -105,6 +106,14 @@ export interface CartographicSceneInput {
    * make the border scale with the tier instead of with the scale.
    */
   readonly roadCasingAddPx: number;
+  /**
+   * Marginalia laid out for this document, from `layoutSnapshotMarginalia`.
+   *
+   * @remarks
+   * Supplied by the exporter, which holds the request the layout reads;
+   * omitted means none.
+   */
+  readonly marginalia?: MarginaliaLayout | null;
 }
 
 /** Identifier prefix per layer, keeping generated ids collision-free. */
@@ -209,6 +218,10 @@ export function buildCartographicScene(
     emblem: snapshot.watermarkVisible
       ? buildEmblem(snapshot.surface.width, snapshot.surface.height)
       : null,
+    marginalia:
+      input.marginalia && input.marginalia.primitives.length > 0
+        ? input.marginalia
+        : null,
     warnings: warnings.collect(),
   };
 }

@@ -18,14 +18,11 @@
  * `DEM_ENCODING` in `sources/dem-protocol.ts`.
  */
 
-import type { TerrainDem } from '@vellum/core';
+import { reliefDomain, type TerrainDem } from '@vellum/core';
 import type * as maplibregl from 'maplibre-gl';
-import { demPadElevation, demRampFloor } from '../sources/dem-protocol';
+import { demPadElevation } from '../sources/dem-protocol';
 import type { ResolvedColors } from '../style-adapter';
 import { adjustLightness, mixColorTokens } from './color-mix';
-
-/** Smallest ramp domain accepted, in raw units, so a flat map never yields a zero-width interpolation. */
-const MIN_DOMAIN_RAW = 64;
 
 /**
  * Fraction each contour anchor is pulled toward black or white before it is
@@ -118,26 +115,6 @@ export function buildContourColorRamp(
     max,
     anchor(terrain.high),
   ] as unknown as maplibregl.ExpressionSpecification;
-}
-
-/**
- * The ramp's three anchor elevations, in raw game units.
- *
- * @remarks
- * Shared so the GPU expression above and the literal resolver below cannot
- * drift onto different domains — the whole point of colouring an exported
- * contour is that it lands on the colour the map would have painted there.
- */
-function reliefDomain(dem: TerrainDem): {
-  min: number;
-  mid: number;
-  max: number;
-} {
-  // Floored so the transparent out-of-map sentinel one unit below always stays inside
-  // the encodable (unsigned) range — see `demRampFloor`.
-  const min = demRampFloor(dem.elevMin);
-  const max = Math.max(dem.elevMax, min + MIN_DOMAIN_RAW);
-  return { min, mid: (min + max) / 2, max };
 }
 
 /**

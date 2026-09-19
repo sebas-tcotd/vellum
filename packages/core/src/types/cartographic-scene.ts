@@ -15,6 +15,7 @@
  * remain separate upstream — a scene only ever reads already-derived geometry.
  */
 
+import type { MarginaliaLayout } from '../export/marginalia-layout';
 import type { ExportExtent } from './export-pipeline';
 
 /** A point in CS1 world space; `z` grows southward, as in the domain model. */
@@ -427,6 +428,15 @@ export interface CartographicScene {
    * hiding every layer must still leave it visible.
    */
   readonly emblem: SceneEmblem | null;
+  /**
+   * Cartographic marginalia in output pixels, or `null` when none was requested.
+   *
+   * @remarks
+   * The same layout the PNG routes paint, so a writer emits it as vector
+   * primitives — rectangles, lines, paths and editable text — outside the
+   * map's clip. Never rasterized.
+   */
+  readonly marginalia: MarginaliaLayout | null;
   /** Aggregated fallbacks applied while building the scene. */
   readonly warnings: readonly SceneWarning[];
 }

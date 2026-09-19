@@ -48,51 +48,6 @@ export const SVG_UNSUPPORTED_CAMERA_REASON = 'svg-unsupported-camera';
 export const SVG_UNSUPPORTED_AREA_REASON = 'svg-unsupported-area';
 
 /**
- * Presentation options the SVG writer emits no output for.
- *
- * @remarks
- * `ExportPresentationOptions` is shared with the raster route. The request
- * still *carries* every option — dropping them would lose the user's
- * configuration — but the exporter must never behave as though it applied one
- * it cannot, so an enabled key here produces a localized warning instead.
- *
- * **Deliberately absent:** `showVellumLogo`, `showDistrictNames` and
- * `showParkNames`. 6.3B gave the exporter real output for all three — the
- * emblem via `SceneEmblem`, the names via `buildSceneAnnotations`. Listing
- * them here told the user the document lacked annotations it visibly
- * contained. What the exporter does *not* do is take those decisions from this
- * dialog: it draws the names whenever the districts layer is visible and the
- * emblem whenever the watermark is. That coupling is intentional and out of
- * scope here; it means an unusual combination (names requested, districts
- * layer hidden) still goes unwarned.
- *
- * `showCityName` stays listed on purpose. The name reaches the document only
- * as `<title>` metadata — good for a screen reader and a browser tab, but the
- * user asked for a caption on the map, and there is none.
- */
-const SVG_UNSUPPORTED_PRESENTATION_KEYS = [
-  'showCityName',
-  'showSourceFile',
-  'showGeneratedAt',
-  'showLayerLegend',
-  'showRoadLegend',
-  'showTransitLegend',
-  'showElevationLegend',
-  'showScaleBar',
-  'showOrientation',
-  'showSummary',
-] as const;
-
-/** Lists the enabled presentation options an SVG export will not render. */
-export function unsupportedSvgPresentationOptions(
-  presentation: SvgExportRequest['presentation'],
-): string[] {
-  return SVG_UNSUPPORTED_PRESENTATION_KEYS.filter(
-    (key) => presentation[key] === true,
-  );
-}
-
-/**
  * Capability sentinels that are expected outcomes, not bugs.
  *
  * @remarks
@@ -121,12 +76,11 @@ function buildExportRequest(
     background: options.background,
     fileName: options.fileName,
     presentation: options.presentation,
+    // Resolved by the dialog in the active language: core lays these strings
+    // out verbatim on every route, and never translates anything itself.
+    labels: options.labels,
   } as const;
 
-  // Presentation is carried verbatim so the user's configuration round-trips.
-  // The SVG writer renders only part of it, and takes those decisions from the
-  // layer toggles rather than from here — `unsupportedSvgPresentationOptions`
-  // names the rest so nothing ever looks applied when it was not.
   if (options.format === 'svg') {
     return options.area === 'full-map'
       ? {
@@ -521,14 +475,9 @@ export function useExportWorkflow({
       setExportCancelled(false);
       setExportResult(null);
       setExportProgress(null);
-      // AC 14/15: whatever the MVP cannot render is named up front, as i18n
-      // keys, so an omission is never published as an unqualified success.
-      setExportWarnings(
-        isSvg &&
-          unsupportedSvgPresentationOptions(request.presentation).length > 0
-          ? ['exportWarnings.svgUnsupportedPresentation']
-          : [],
-      );
+      // Every presentation option now reaches both routes, so an export starts
+      // with no pre-announced omission.
+      setExportWarnings([]);
       timedOutRef.current = false;
       // The one terminal, localized outcome for anything the AbortSignal
       // covers — a thrown AbortError, or a promise that raced to success

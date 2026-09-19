@@ -4,7 +4,11 @@ import type {
   ExportSink,
   ExportSnapshot,
 } from '@vellum/core';
-import { makeCityData } from '@vellum/core/testing';
+import {
+  NEUTRAL_MARGINALIA_LABELS,
+  NEUTRAL_PRESENTATION_OPTIONS,
+} from '@vellum/core';
+import { makeCityData, makeRenderStyle } from '@vellum/core/testing';
 import { LegacyRasterExporter } from '@vellum/renderer-webgl';
 import { describe, expect, it, vi } from 'vitest';
 import { ExportCoordinator } from './export-coordinator';
@@ -25,7 +29,7 @@ function snapshot(): ExportSnapshot {
   return {
     snapshotId: 'benchmark',
     cityData: makeCityData({ fileName: 'altavento.cslmap' }),
-    style: {} as never,
+    style: makeRenderStyle(),
     activeLayers: {
       terrain: true,
       basemap: true,
@@ -46,7 +50,8 @@ function snapshot(): ExportSnapshot {
       area: 'viewport',
       background: 'white',
       fileName: 'benchmark',
-      presentation: {} as never,
+      presentation: NEUTRAL_PRESENTATION_OPTIONS,
+      labels: NEUTRAL_MARGINALIA_LABELS,
     },
   };
 }

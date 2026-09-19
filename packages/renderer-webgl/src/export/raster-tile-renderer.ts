@@ -1,8 +1,11 @@
-import type {
-  ExportSnapshot,
-  RenderStyleParams,
-  TilePlanTile,
+import {
+  layoutSnapshotMarginalia,
+  type ExportSnapshot,
+  type MarginaliaLayout,
+  type RenderStyleParams,
+  type TilePlanTile,
 } from '@vellum/core';
+import { loadMarginaliaFont, marginaliaOverlayFor } from './marginalia-raster';
 import { MapLibreRenderer } from '../map-libre-renderer';
 
 /** Fixed physical pixel ratio every tiled capture requires — matches `TilePlan.pixelRatio`. */
@@ -24,6 +27,7 @@ export class RasterTileRenderer {
   private readonly container: HTMLDivElement;
   private readonly renderer: MapLibreRenderer;
   private configured = false;
+  private marginalia: MarginaliaLayout | null = null;
   private disposed = false;
 
   /**
@@ -68,12 +72,23 @@ export class RasterTileRenderer {
     this.renderer.setLayerOptions(snapshot.layerOptions);
     this.renderer.setWatermarkVisibility(snapshot.watermarkVisible);
     this.renderer.applyExportBackground(snapshot.request.background);
+    // Laid out once for the whole document; each tile paints only its share.
+    // Cleared first so a surface reused for another snapshot never paints the
+    // previous document's panel.
+    this.marginalia = null;
+    const marginalia = layoutSnapshotMarginalia(snapshot);
+    if (marginalia.bounds) {
+      await loadMarginaliaFont();
+      throwIfAborted(signal);
+      this.marginalia = marginalia;
+    }
     this.configured = true;
   }
 
   /**
    * Captures exactly one tile: resizes the hidden surface to `renderRect`, jumps to the
-   * tile's exact camera, waits for readiness, and encodes the frame as PNG bytes.
+   * tile's exact camera, waits for readiness, paints the part of the marginalia that
+   * falls inside `renderRect`, and encodes the frame as PNG bytes.
    *
    * @remarks
    * Bearing and pitch are rejected before anything is assigned or rendered. The plan
@@ -114,7 +129,11 @@ export class RasterTileRenderer {
     throwIfAborted(signal);
     await this.renderer.waitForIdle();
     throwIfAborted(signal);
-    const encodedPng = await this.renderer.captureCanvasBytes();
+    const encodedPng = await this.renderer.captureCanvasBytes(
+      this.marginalia
+        ? marginaliaOverlayFor(this.marginalia, tile.renderRect)
+        : null,
+    );
     throwIfAborted(signal);
     return encodedPng;
   }

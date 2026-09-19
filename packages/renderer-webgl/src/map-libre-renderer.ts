@@ -35,6 +35,7 @@ import {
   type LayerOptions,
   type RenderParams,
   type RenderStyleParams,
+  worldUnitsPerPixelForZoom,
 } from '@vellum/core';
 import * as maplibregl from 'maplibre-gl';
 import { captureCanvasOnNextRender } from './capture/map-render-capture';
@@ -44,6 +45,7 @@ import {
   EXPORT_CAPTURE_TIMEOUT_MS,
 } from './export/maplibre-png-capture';
 import type { PngExportOptions } from './export/export-types';
+import type { MarginaliaOverlay } from './export/marginalia-raster';
 import {
   buildExportSnapshot,
   buildSvgExportSnapshot,
@@ -65,7 +67,6 @@ import {
   buildPreviewExportSnapshot,
   toPreviewSnapshot,
 } from './preview/preview-export-capture';
-import { buildPreviewProjection } from './preview/preview-snapshot';
 import type {
   ServiceIconLegendState,
   TooltipInfo,
@@ -544,8 +545,14 @@ export class MapLibreRenderer implements IRenderer {
    * Captures an encoded PNG after the temporary renderer has become idle.
    * @internal Bounded export API — used by disposable export surfaces only.
    */
-  captureCanvasBytes(): Promise<Uint8Array> {
-    return captureCanvasOnNextRender(this.map, EXPORT_CAPTURE_TIMEOUT_MS);
+  captureCanvasBytes(
+    overlay: MarginaliaOverlay | null = null,
+  ): Promise<Uint8Array> {
+    return captureCanvasOnNextRender(
+      this.map,
+      EXPORT_CAPTURE_TIMEOUT_MS,
+      overlay,
+    );
   }
 
   /** Removes the MapLibre map and releases all GPU resources. */
@@ -600,13 +607,10 @@ export class MapLibreRenderer implements IRenderer {
         height: canvas.clientHeight || canvas.height,
       },
       liveBearingDegrees: this.navigationManager.getBearing(),
-      // A viewport preview shares the live camera, so MapLibre's own projection
-      // places its overlays — linear extent arithmetic would misplace them the
-      // moment the user has rotated or tilted the map.
-      projection:
-        options.area === 'viewport'
-          ? buildPreviewProjection(this.map, this.cityData)
-          : null,
+      livePitchDegrees: this.map.getPitch(),
+      // What a viewport export renders at density 1; the dialog lays the
+      // marginalia out on the final surface from it, not on this preview.
+      viewportWorldUnitsPerPixel: worldUnitsPerPixelForZoom(this.map.getZoom()),
     };
 
     const controller = new AbortController();

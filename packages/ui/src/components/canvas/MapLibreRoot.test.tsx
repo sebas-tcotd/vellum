@@ -5,15 +5,9 @@ import { createRendererHarness } from '../../testing/test-renderer';
 import { createPlatformServicesHarness } from '../../testing/test-platform-services';
 
 const mockCapturePreview = vi.hoisted(() =>
-  vi.fn().mockResolvedValue({
-    dataUrl: 'data:image/png;base64,viewport',
-    width: 640,
-    height: 480,
-    viewportSurface: { width: 640, height: 480 },
-    bearingDegrees: 0,
-    liveBearingDegrees: 0,
-    scale: { distanceMeters: 500, widthPercent: 20 },
-    annotations: [],
+  vi.fn(async () => {
+    const { makeExportPreviewSnapshot } = await import('@vellum/core/testing');
+    return makeExportPreviewSnapshot();
   }),
 );
 const mockResize = vi.hoisted(() => vi.fn());
