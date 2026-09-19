@@ -4,6 +4,10 @@ import type {
   ExportFormat,
   ExportTargetLongEdge,
 } from '../ipc-contract';
+import type { RoadTier } from '../road-classification';
+import type { TransitMode } from './city-data';
+import type { LayerOptions, LayerVisibility } from './layer';
+import type { RenderStyleParams } from './theme';
 
 /**
  * The pending export's composition, as a preview capture must reproduce it.
@@ -19,28 +23,6 @@ export interface ExportPreviewOptions {
   readonly area: ExportArea;
   /** Background treatment the preview must actually paint. */
   readonly background: ExportBackground;
-}
-
-/** A map annotation projected into preview-relative coordinates. */
-export interface ExportPreviewAnnotation {
-  /** Stable domain identifier used for rendering keys. */
-  id: string;
-  /** User-visible district or park-area name. */
-  name: string;
-  /** Domain collection that owns the annotation. */
-  kind: 'district' | 'park';
-  /** Horizontal position as a percentage of the captured viewport width. */
-  xPercent: number;
-  /** Vertical position as a percentage of the captured viewport height. */
-  yPercent: number;
-}
-
-/** Projection-derived graphic scale rendered over an export preview. */
-export interface ExportPreviewScale {
-  /** Real-world distance represented by the scale bar, in CS1 metres. */
-  distanceMeters: number;
-  /** Scale-bar width as a percentage of the captured viewport. */
-  widthPercent: number;
 }
 
 /** Pixel dimensions of a rendered document. */
@@ -95,57 +77,141 @@ export interface ExportPreviewSnapshot {
    * moment the user picked full-map, only for the exporter to reject it.
    */
   liveBearingDegrees: number;
-  /** Projection-derived graphic scale at capture time. */
-  scale: ExportPreviewScale;
-  /** District and park labels projected at capture time. */
-  annotations: ExportPreviewAnnotation[];
+  /**
+   * Pitch of the live interactive camera, in degrees.
+   *
+   * @remarks
+   * A `viewport` export renders the live camera verbatim, so a tilted view has
+   * no constant ground scale and the marginalia must not offer a scale bar.
+   */
+  livePitchDegrees: number;
+  /**
+   * CS1 world units covered by one CSS pixel of the live camera.
+   *
+   * @remarks
+   * What a `viewport` export renders at density 1. The dialog divides it by
+   * the chosen density to lay out the marginalia on the final surface, never
+   * on the preview image, so the scale bar and the frame inset it derives are
+   * the file's own.
+   */
+  viewportWorldUnitsPerPixel: number;
+  /** Theme captured with the preview; the marginalia draws with its colours. */
+  style: Readonly<RenderStyleParams>;
+  /** Layer visibility captured with the preview. */
+  activeLayers: Readonly<LayerVisibility>;
+  /** Per-layer options captured with the preview. */
+  layerOptions: Readonly<LayerOptions>;
 }
 
+/** Corner of the output surface the marginalia panel is anchored to. */
+export type MarginaliaCorner =
+  | 'top-left'
+  | 'top-right'
+  | 'bottom-left'
+  | 'bottom-right';
+
+/** Every corner, in the order the dialog offers them. */
+export const MARGINALIA_CORNERS: readonly MarginaliaCorner[] = Object.freeze([
+  'top-left',
+  'top-right',
+  'bottom-left',
+  'bottom-right',
+]);
+
+/** Longest author credit, in characters, after trimming. */
+export const MARGINALIA_AUTHOR_MAX_LENGTH = 60;
+
 /**
- * Optional cartographic content rendered around an exported map.
+ * Cartographic marginalia drawn inside an exported map.
  *
  * @remarks
- * This presentation model is intentionally separate from the current IPC
- * payload. Stories 6.2 and 6.3 can serialize it for PNG and SVG together when
- * both the TypeScript and Rust contracts are updated in sync.
+ * The same options drive the dialog preview, both PNG routes and the SVG
+ * writer: `layoutMarginalia` turns them into one set of output-pixel
+ * primitives that every destination paints. Nothing here is decoration only
+ * the dialog shows.
  */
 export interface ExportPresentationOptions {
-  /** Shows the city name in the identity block. */
+  /** Shows the city name as the panel's title. */
   showCityName: boolean;
-  /** Shows the Vellum brand mark in the identity block. */
-  showVellumLogo: boolean;
-  /** Shows the source `.cslmap` filename when available. */
-  showSourceFile: boolean;
-  /** Shows the source generation timestamp when available. */
-  showGeneratedAt: boolean;
-  /** Shows district-name annotations when districts are available. */
-  showDistrictNames: boolean;
-  /** Shows park-area-name annotations when park areas are available. */
-  showParkNames: boolean;
-  /** Shows a legend containing the currently visible map layers. */
-  showLayerLegend: boolean;
-  /** Shows the road hierarchy legend when road data is available. */
+  /** Shows the road hierarchy legend for the tiers present in the city. */
   showRoadLegend: boolean;
-  /** Shows transit modes and lines when transit data is available. */
+  /** Shows transit lines with their in-game colours. */
   showTransitLegend: boolean;
-  /** Shows an elevation legend when terrain elevation is available. */
+  /** Shows the hypsometric ramp with the DEM's elevation range. */
   showElevationLegend: boolean;
-  /** Shows a projection-derived graphic scale. */
+  /** Shows a graphic scale; never drawn for a tilted camera. */
   showScaleBar: boolean;
-  /** Shows a north-orientation indicator. */
+  /** Shows a north arrow following the camera bearing. */
   showOrientation: boolean;
   /** Shows collection counts derived from the loaded city data. */
   showSummary: boolean;
+  /** Shows the source file, generation date and data-limits note. */
+  showSourceNote: boolean;
+  /**
+   * Author credit typed by the user.
+   *
+   * @remarks
+   * Trimmed and cut to {@link MARGINALIA_AUTHOR_MAX_LENGTH} characters by the
+   * layout; an empty credit draws no line.
+   */
+  author: string;
+  /** Corner the panel is anchored to. */
+  corner: MarginaliaCorner;
 }
 
 /**
- * Complete UI configuration prepared for the future PNG and SVG exporters.
+ * A count phrase in its singular and plural form.
  *
  * @remarks
- * `presentation` is not part of the Story 6.1 IPC contract. Consumers must not
- * pass this object to `export_png` or `export_svg` until the synchronized
- * TypeScript/Rust contract work in Stories 6.2 and 6.3.
+ * Both carry a literal `{count}` placeholder. Localization stays in the UI:
+ * core only picks the form and substitutes the number.
  */
+export interface MarginaliaCountTemplate {
+  /** Phrase used when the count is exactly one. */
+  readonly one: string;
+  /** Phrase used for every other count. */
+  readonly other: string;
+}
+
+/**
+ * Localized text the marginalia needs, resolved by the UI before export.
+ *
+ * @remarks
+ * Plain data so it survives the snapshot's deep copy and the SVG worker's
+ * structured clone. Core never translates; it only lays these strings out.
+ */
+export interface MarginaliaLabels {
+  /** Header of the road legend. */
+  readonly roadLegendTitle: string;
+  /** Display name per road tier. */
+  readonly roadTiers: Readonly<Record<RoadTier, string>>;
+  /** Header of the transit legend. */
+  readonly transitLegendTitle: string;
+  /** Display name per transit mode, used when a line has no name. */
+  readonly transitModes: Readonly<Record<TransitMode, string>>;
+  /** Row announcing the lines left out of the transit legend. */
+  readonly transitMore: MarginaliaCountTemplate;
+  /** Header of the elevation legend. */
+  readonly elevationLegendTitle: string;
+  /** Collection counts shown by the summary block. */
+  readonly summary: {
+    readonly roads: MarginaliaCountTemplate;
+    readonly buildings: MarginaliaCountTemplate;
+    readonly districts: MarginaliaCountTemplate;
+    readonly parks: MarginaliaCountTemplate;
+    readonly lines: MarginaliaCountTemplate;
+    readonly stops: MarginaliaCountTemplate;
+  };
+  /** Localized generation date; empty when the source has none. */
+  readonly sourceDate: string;
+  /** Fixed sentence stating where the data comes from and its limits. */
+  readonly sourceStatement: string;
+  /** Letter drawn beside the north arrow. */
+  readonly north: string;
+  /** Digit-group separator for counts, e.g. `,` or `.`. */
+  readonly thousandsSeparator: string;
+}
+
 interface ExportDialogOptionsBase {
   /** Output format and raster scale. */
   format: ExportFormat;
@@ -155,6 +221,8 @@ interface ExportDialogOptionsBase {
   fileName: string;
   /** Shared cartographic presentation configuration. */
   presentation: ExportPresentationOptions;
+  /** Localized marginalia text, resolved by the dialog. */
+  labels: MarginaliaLabels;
 }
 
 /** Export dialog configuration for the current viewport. */
@@ -189,3 +257,70 @@ export interface FullMapExportDialogOptions extends Omit<
 export type ExportDialogOptions =
   | ViewportExportDialogOptions
   | FullMapExportDialogOptions;
+
+const NO_COUNT: MarginaliaCountTemplate = Object.freeze({ one: '', other: '' });
+
+/**
+ * Presentation that draws no marginalia at all.
+ *
+ * @remarks
+ * For captures that are not user documents — the dialog's own preview render,
+ * which the dialog decorates itself, and the benchmark harness.
+ */
+export const NEUTRAL_PRESENTATION_OPTIONS: Readonly<ExportPresentationOptions> =
+  Object.freeze({
+    showCityName: false,
+    showRoadLegend: false,
+    showTransitLegend: false,
+    showElevationLegend: false,
+    showScaleBar: false,
+    showOrientation: false,
+    showSummary: false,
+    showSourceNote: false,
+    author: '',
+    corner: 'bottom-left',
+  });
+
+/** Empty labels to pair with {@link NEUTRAL_PRESENTATION_OPTIONS}. */
+export const NEUTRAL_MARGINALIA_LABELS: MarginaliaLabels = Object.freeze({
+  roadLegendTitle: '',
+  roadTiers: Object.freeze({
+    highway: '',
+    train: '',
+    metro: '',
+    largeArterial: '',
+    mediumArterial: '',
+    local: '',
+    gravel: '',
+    pedestrian: '',
+    pedestrianStreet: '',
+    pedestrianWay: '',
+  }),
+  transitLegendTitle: '',
+  transitModes: Object.freeze({
+    Bus: '',
+    Tram: '',
+    Train: '',
+    Metro: '',
+    CableCar: '',
+    Monorail: '',
+    Ferry: '',
+    Blimp: '',
+    Trolleybus: '',
+    Unknown: '',
+  }),
+  transitMore: NO_COUNT,
+  elevationLegendTitle: '',
+  summary: Object.freeze({
+    roads: NO_COUNT,
+    buildings: NO_COUNT,
+    districts: NO_COUNT,
+    parks: NO_COUNT,
+    lines: NO_COUNT,
+    stops: NO_COUNT,
+  }),
+  sourceDate: '',
+  sourceStatement: '',
+  north: '',
+  thousandsSeparator: '',
+});

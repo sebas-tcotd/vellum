@@ -17,16 +17,15 @@
 
 import {
   createExportSnapshot,
+  NEUTRAL_MARGINALIA_LABELS,
+  NEUTRAL_PRESENTATION_OPTIONS,
   resolveFullMapFraming,
   zoomForWorldUnitsPerPixel,
   type CityData,
   type ExportCamera,
-  type ExportPreviewAnnotation,
   type ExportPreviewOptions,
-  type ExportPreviewScale,
   type ExportPreviewSnapshot,
   type ExportPreviewSurface,
-  type ExportRequest,
   type ExportExtent,
   type ExportSnapshot,
   type LayerOptions,
@@ -40,11 +39,6 @@ import {
   resolveExportExtent,
 } from '../export/export-snapshot-builder';
 import { fitExtentToAspect } from '../export/tile-planner';
-import {
-  niceScaleDistance,
-  SCALE_TARGET_PIXELS,
-  type PreviewProjection,
-} from './preview-snapshot';
 
 /**
  * Long edge of a preview render, in logical pixels.
@@ -55,23 +49,6 @@ import {
  * fraction of a second rather than a visible stall on every radio click.
  */
 export const PREVIEW_LONG_EDGE_PX = 720;
-
-/** Presentation is decoration the dialog draws itself; the render carries none. */
-const NEUTRAL_PRESENTATION: ExportRequest['presentation'] = {
-  showCityName: false,
-  showVellumLogo: false,
-  showSourceFile: false,
-  showGeneratedAt: false,
-  showDistrictNames: false,
-  showParkNames: false,
-  showLayerLegend: false,
-  showRoadLegend: false,
-  showTransitLegend: false,
-  showElevationLegend: false,
-  showScaleBar: false,
-  showOrientation: false,
-  showSummary: false,
-};
 
 /** Live state a preview render needs, mirroring the export snapshot's inputs. */
 export interface PreviewExportSnapshotInput {
@@ -127,7 +104,10 @@ export function buildPreviewExportSnapshot(
   const shared = {
     background,
     fileName: 'preview',
-    presentation: NEUTRAL_PRESENTATION,
+    // The dialog paints the marginalia over this image itself, from the
+    // layout of the final surface; baking it in here would draw it twice.
+    presentation: NEUTRAL_PRESENTATION_OPTIONS,
+    labels: NEUTRAL_MARGINALIA_LABELS,
   } as const;
   return createExportSnapshot({
     cityData: input.cityData,
@@ -163,75 +143,6 @@ export function buildPreviewExportSnapshot(
   });
 }
 
-/**
- * Derives the graphic scale from a snapshot's own geometry.
- *
- * @remarks
- * Pure arithmetic over extent and surface — no live map. A full-map preview
- * frames an area the interactive camera is not looking at, so projecting
- * through the live map would describe the wrong picture.
- *
- * @param snapshot - The preview snapshot being rendered.
- * @returns The scale bar, or `null` when the density is degenerate.
- */
-export function previewScaleFromSnapshot(
-  snapshot: ExportSnapshot,
-): ExportPreviewScale | null {
-  const metresPerPixel =
-    (snapshot.extent.maxX - snapshot.extent.minX) / snapshot.surface.width;
-  if (!Number.isFinite(metresPerPixel) || metresPerPixel <= 0) return null;
-  const distanceMeters = niceScaleDistance(
-    metresPerPixel * SCALE_TARGET_PIXELS,
-  );
-  return {
-    distanceMeters,
-    widthPercent:
-      (distanceMeters / metresPerPixel / snapshot.surface.width) * 100,
-  };
-}
-
-/**
- * Projects district and park labels into the snapshot's extent.
- *
- * @remarks
- * Valid because a full-map snapshot is always axis-aligned (bearing and pitch
- * are neutralized above) and its extent maps linearly onto its surface.
- * Y descends from `maxZ`, matching how the tiled renderer lays rows out.
- *
- * @param snapshot - The preview snapshot being rendered.
- * @returns Labels inside the frame, as percentages of the preview.
- */
-export function previewAnnotationsFromSnapshot(
-  snapshot: ExportSnapshot,
-): ExportPreviewAnnotation[] {
-  const { minX, maxX, minZ, maxZ } = snapshot.extent;
-  const width = maxX - minX;
-  const depth = maxZ - minZ;
-  if (width <= 0 || depth <= 0) return [];
-  const labels = [
-    ...snapshot.cityData.districts.map((district) => ({
-      id: district.id,
-      name: district.name,
-      kind: 'district' as const,
-      position: district.position,
-    })),
-    ...snapshot.cityData.parkAreas.map((park) => ({
-      id: park.id,
-      name: park.name,
-      kind: 'park' as const,
-      position: park.position,
-    })),
-  ];
-  return labels.flatMap(({ id, name, kind, position }) => {
-    const xPercent = ((position.x - minX) / width) * 100;
-    const yPercent = ((maxZ - position.z) / depth) * 100;
-    if (xPercent < 0 || xPercent > 100 || yPercent < 0 || yPercent > 100) {
-      return [];
-    }
-    return [{ id, name, kind, xPercent, yPercent }];
-  });
-}
-
 /** What the preview still has to report about the map it was taken from. */
 export interface PreviewSourceContext {
   /**
@@ -244,16 +155,10 @@ export interface PreviewSourceContext {
   viewportSurface: ExportPreviewSurface;
   /** Clockwise bearing of the live interactive camera, in degrees. */
   liveBearingDegrees: number;
-  /**
-   * Overlay geometry projected through the live map.
-   *
-   * @remarks
-   * Supplied for a viewport preview, whose camera is the live camera and may be
-   * rotated or tilted — MapLibre's projection handles that, linear extent
-   * arithmetic does not. Omitted for a north-up full-map preview, whose overlay
-   * comes from the snapshot's own extent.
-   */
-  projection?: PreviewProjection | null;
+  /** Pitch of the live interactive camera, in degrees. */
+  livePitchDegrees: number;
+  /** CS1 world units per CSS pixel of the live camera. */
+  viewportWorldUnitsPerPixel: number;
 }
 
 /**
@@ -263,15 +168,14 @@ export interface PreviewSourceContext {
  * @param pngBytes - Encoded PNG captured on the disposable export surface.
  * @param source - What the live map still has to contribute; see
  * {@link PreviewSourceContext}.
- * @returns The preview, or `null` when the snapshot has no usable density.
+ * @returns The preview, carrying what the dialog needs to lay out the
+ * marginalia on the final surface.
  */
 export function toPreviewSnapshot(
   snapshot: ExportSnapshot,
   pngBytes: Uint8Array,
   source: PreviewSourceContext,
-): ExportPreviewSnapshot | null {
-  const scale = source.projection?.scale ?? previewScaleFromSnapshot(snapshot);
-  if (!scale) return null;
+): ExportPreviewSnapshot {
   return {
     dataUrl: pngBytesToDataUrl(pngBytes),
     width: snapshot.surface.width,
@@ -279,10 +183,11 @@ export function toPreviewSnapshot(
     viewportSurface: source.viewportSurface,
     bearingDegrees: snapshot.camera.bearing,
     liveBearingDegrees: source.liveBearingDegrees,
-    scale,
-    annotations:
-      source.projection?.annotations ??
-      previewAnnotationsFromSnapshot(snapshot),
+    livePitchDegrees: source.livePitchDegrees,
+    viewportWorldUnitsPerPixel: source.viewportWorldUnitsPerPixel,
+    style: snapshot.style,
+    activeLayers: snapshot.activeLayers,
+    layerOptions: snapshot.layerOptions,
   };
 }
 

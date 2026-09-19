@@ -14,9 +14,12 @@
  */
 
 import {
+  MARGINALIA_FONT_FAMILY,
   projectScenePoint,
   SVG_CHUNK_TARGET_BYTES,
   type CartographicScene,
+  type MarginaliaPrimitive,
+  type MarginaliaText,
   type SceneEntity,
   type SceneFill,
   type SceneGeometry,
@@ -100,6 +103,7 @@ function* documentFragments(
   yield '</g>\n';
 
   yield* emblemFragments(scene.emblem);
+  yield* marginaliaFragments(scene.marginalia);
 
   yield '</svg>';
 }
@@ -173,6 +177,125 @@ function* emblemFragments(
   )} ${number(emblem.yPx)}) scale(${number(scale)})">\n`;
   yield emblem.svgMarkup;
   yield '\n</g>\n';
+}
+
+/** Id of the group holding the cartographic marginalia. */
+const MARGINALIA_GROUP_ID = 'vellum-marginalia';
+
+/**
+ * Emits the marginalia panel as editable vector elements.
+ *
+ * @remarks
+ * Outside the map's clip group, like the emblem: it is document furniture, not
+ * cartography, and a designer must be able to move or delete it without
+ * digging through map layers. Every primitive becomes a real `rect`, `line`,
+ * `path` or `text` — the ramp is a `linearGradient` — so nothing is rasterized
+ * and the text stays selectable. Same layout the PNG routes paint.
+ */
+function* marginaliaFragments(
+  marginalia: CartographicScene['marginalia'],
+): Generator<string, void, undefined> {
+  if (!marginalia || marginalia.primitives.length === 0) return;
+  yield `<g id="${MARGINALIA_GROUP_ID}" font-family="${attribute(
+    MARGINALIA_FONT_FAMILY,
+  )}">\n`;
+  let ramps = 0;
+  for (const primitive of marginalia.primitives) {
+    if (primitive.kind === 'ramp') {
+      ramps += 1;
+      yield marginaliaRamp(primitive, `${MARGINALIA_GROUP_ID}-ramp-${ramps}`);
+      continue;
+    }
+    yield marginaliaElement(primitive);
+  }
+  yield '</g>\n';
+}
+
+function marginaliaRamp(
+  ramp: Extract<MarginaliaPrimitive, { kind: 'ramp' }>,
+  id: string,
+): string {
+  const stops = ramp.stops
+    .map(
+      (stop) =>
+        `<stop offset="${number(stop.offset)}" stop-color="${attribute(stop.color)}"/>`,
+    )
+    .join('');
+  return (
+    `<defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="0">${stops}` +
+    `</linearGradient></defs><rect data-block="${ramp.block}" ` +
+    `x="${number(ramp.x)}" y="${number(ramp.y)}" width="${number(ramp.width)}" ` +
+    `height="${number(ramp.height)}" fill="url(#${id})"/>\n`
+  );
+}
+
+function marginaliaElement(
+  primitive: Exclude<MarginaliaPrimitive, { kind: 'ramp' }>,
+): string {
+  const block = ` data-block="${primitive.block}"`;
+  switch (primitive.kind) {
+    case 'rect': {
+      const fill =
+        primitive.fill === undefined
+          ? ' fill="none"'
+          : ` fill="${attribute(primitive.fill)}"` +
+            (primitive.fillOpacity === undefined
+              ? ''
+              : ` fill-opacity="${number(primitive.fillOpacity)}"`);
+      const stroke =
+        primitive.stroke === undefined || !primitive.strokeWidth
+          ? ''
+          : ` stroke="${attribute(primitive.stroke)}" stroke-width="${number(
+              primitive.strokeWidth,
+            )}"`;
+      return (
+        `<rect${block} x="${number(primitive.x)}" y="${number(primitive.y)}" ` +
+        `width="${number(primitive.width)}" height="${number(primitive.height)}"` +
+        `${fill}${stroke}/>\n`
+      );
+    }
+    case 'line':
+      return (
+        `<line${block} x1="${number(primitive.x1)}" y1="${number(primitive.y1)}" ` +
+        `x2="${number(primitive.x2)}" y2="${number(primitive.y2)}" ` +
+        `stroke="${attribute(primitive.stroke)}" ` +
+        `stroke-width="${number(primitive.strokeWidth)}" ` +
+        `stroke-linecap="${primitive.lineCap}"/>\n`
+      );
+    case 'path': {
+      const d = primitive.points
+        .map(
+          ([x, y], index) =>
+            `${index === 0 ? 'M' : 'L'}${number(x)} ${number(y)}`,
+        )
+        .join(' ');
+      return `<path${block} d="${d} Z" fill="${attribute(primitive.fill)}"/>\n`;
+    }
+    case 'text':
+      return marginaliaText(primitive, block);
+  }
+}
+
+/** A text run with its halo underneath, mirroring the map labels. */
+function marginaliaText(text: MarginaliaText, block: string): string {
+  const common =
+    `x="${number(text.x)}" y="${number(text.y)}" ` +
+    `text-anchor="${text.anchor}" font-size="${number(text.fontSize)}"` +
+    (text.letterSpacing > 0
+      ? ` letter-spacing="${number(text.letterSpacing)}"`
+      : '');
+  const content = attribute(text.text);
+  const halo =
+    text.halo.width > 0
+      ? `<text ${common} fill="${attribute(text.halo.color)}" ` +
+        `stroke="${attribute(text.halo.color)}" ` +
+        `stroke-width="${number(text.halo.width)}" stroke-linejoin="round" ` +
+        `aria-hidden="true">${content}</text>`
+      : '';
+  return (
+    `<g${block}>${halo}<text ${common} fill="${attribute(text.fill)}">` +
+    `${content}</text></g>\n`
+  );
 }
 
 /**

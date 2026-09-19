@@ -7,6 +7,7 @@ import type {
   RenderStyleParams,
 } from '@vellum/core';
 import type { PngExportOptions } from './export-types';
+import type { MarginaliaOverlay } from './marginalia-raster';
 
 /**
  * Timeout used while waiting for an isolated MapLibre surface to become idle.
@@ -27,7 +28,7 @@ interface PngExportRenderer {
   setCamera(camera: ExportCamera): void;
   applyExportBackground(background: PngExportOptions['background']): void;
   waitForIdle(): Promise<void>;
-  captureCanvasBytes(): Promise<Uint8Array>;
+  captureCanvasBytes(overlay?: MarginaliaOverlay | null): Promise<Uint8Array>;
   dispose(): void;
 }
 
@@ -64,7 +65,7 @@ export async function captureSnapshotPng(
     throwIfAborted(signal);
     await exportRenderer.waitForIdle();
     throwIfAborted(signal);
-    return await exportRenderer.captureCanvasBytes();
+    return await exportRenderer.captureCanvasBytes(options.marginalia ?? null);
   } finally {
     exportRenderer.dispose();
     container.remove();

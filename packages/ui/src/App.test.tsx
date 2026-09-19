@@ -1,3 +1,4 @@
+import { makeExportPreviewSnapshot } from '@vellum/core/testing';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import userEvent from '@testing-library/user-event';
 import type {
@@ -45,15 +46,9 @@ function App(props: Omit<AppProps, 'createRenderer'>) {
 }
 
 const mockPreviewCapture = vi.hoisted(() =>
-  vi.fn().mockResolvedValue({
-    dataUrl: 'data:image/png;base64,viewport',
-    width: 640,
-    height: 480,
-    viewportSurface: { width: 640, height: 480 },
-    bearingDegrees: 0,
-    liveBearingDegrees: 0,
-    scale: { distanceMeters: 500, widthPercent: 20 },
-    annotations: [],
+  vi.fn(async () => {
+    const { makeExportPreviewSnapshot } = await import('@vellum/core/testing');
+    return makeExportPreviewSnapshot();
   }),
 );
 
@@ -242,16 +237,9 @@ beforeEach(() => {
   shell.reset();
   rendererHarness.reset();
   mockPreviewCapture.mockReset();
-  mockPreviewCapture.mockResolvedValue({
-    dataUrl: 'data:image/png;base64,viewport',
-    width: 640,
-    height: 480,
-    viewportSurface: { width: 640, height: 480 },
-    bearingDegrees: 0,
-    liveBearingDegrees: 0,
-    scale: { distanceMeters: 500, widthPercent: 20 },
-    annotations: [],
-  });
+  mockPreviewCapture.mockResolvedValue(
+    makeExportPreviewSnapshot({ dataUrl: 'data:image/png;base64,viewport' }),
+  );
   vi.mocked(mockRasterExporter.capabilities).mockClear();
   vi.mocked(mockRasterExporter.export).mockClear();
   mockInvoke.mockResolvedValue(null);
@@ -925,16 +913,9 @@ describe('App — ExportDialog (Story 6.1)', () => {
       view?.rerender(<App isExporting />);
     });
     await act(async () => {
-      resolveCapture?.({
-        dataUrl: 'data:image/png;base64,late',
-        width: 640,
-        height: 480,
-        viewportSurface: { width: 640, height: 480 },
-        bearingDegrees: 0,
-        liveBearingDegrees: 0,
-        scale: { distanceMeters: 500, widthPercent: 20 },
-        annotations: [],
-      });
+      resolveCapture?.(
+        makeExportPreviewSnapshot({ dataUrl: 'data:image/png;base64,late' }),
+      );
     });
 
     expect(screen.queryByLabelText('export.fileName')).toBeNull();
@@ -1500,95 +1481,23 @@ describe('App — estado de exportación (Story 6.4)', () => {
   });
 });
 
-describe('App — exportación parcial y advertencias (Story 6.4)', () => {
-  it('acompaña el éxito con la advertencia de lo que el SVG no dibujó', async () => {
-    // El archivo existe, pero no es el que se configuró. Sin este aviso la
-    // omisión sólo se descubre abriendo el SVG y buscando lo que falta.
+describe('App — marginalia en SVG (Story 3.5)', () => {
+  it('exporta SVG con marginalia sin anunciar opciones no aplicadas', async () => {
+    // El SVG ya dibuja toda la marginalia como vector: no queda ninguna opción
+    // de presentación que advertir como omitida.
     const user = userEvent.setup();
     useVellumStore.getState().setCityData(mockCityData);
 
     await act(async () => {
       render(<App svgExporter={mockSvgExporter} />);
     });
-    await startSvgExport(user, ['export.element_scaleBar']);
+    await startSvgExport(user, ['export.element_summary']);
 
     await waitFor(() => {
       expect(screen.getByText('export.successToast')).toBeInTheDocument();
     });
-    expect(
-      screen.getByText('exportWarnings.svgUnsupportedPresentation'),
-    ).toBeInTheDocument();
-  });
-
-  it('no advierte nada cuando el SVG sí dibuja todo lo pedido', async () => {
-    // Los nombres de distrito son justo el caso que 6.3B implementó: avisar
-    // aquí contradiría el documento que el usuario tiene delante.
-    const user = userEvent.setup();
-    useVellumStore.getState().setCityData({
-      ...mockCityData,
-      districts: [
-        { id: 'd1', name: 'Centro', cells: [] },
-      ] as unknown as (typeof mockCityData)['districts'],
-    });
-
-    await act(async () => {
-      render(<App svgExporter={mockSvgExporter} />);
-    });
-    await startSvgExport(user, [
-      'export.element_cityName',
-      'export.element_districts',
-    ]);
-
-    await waitFor(() => {
-      expect(screen.getByText('export.successToast')).toBeInTheDocument();
-    });
-    expect(
-      screen.queryByText('exportWarnings.svgUnsupportedPresentation'),
-    ).toBeNull();
-  });
-
-  it('no muestra la advertencia mientras la exportación sigue corriendo', async () => {
-    const user = userEvent.setup();
-    useVellumStore.getState().setCityData(mockCityData);
-    vi.mocked(mockSvgExporter.export).mockImplementationOnce(
-      () => new Promise(() => undefined),
-    );
-
-    await act(async () => {
-      render(<App svgExporter={mockSvgExporter} />);
-    });
-    await startSvgExport(user, ['export.element_scaleBar']);
-
-    expect(
-      screen.queryByText('exportWarnings.svgUnsupportedPresentation'),
-    ).toBeNull();
-  });
-
-  it('descarta la advertencia anterior al arrancar una exportación nueva', async () => {
-    // Una advertencia que sobrevive a la operación que la produjo describe un
-    // archivo que ya no es el último exportado.
-    const user = userEvent.setup();
-    useVellumStore.getState().setCityData(mockCityData);
-
-    await act(async () => {
-      render(<App svgExporter={mockSvgExporter} />);
-    });
-    await startSvgExport(user, ['export.element_scaleBar']);
-    await waitFor(() => {
-      expect(
-        screen.getByText('exportWarnings.svgUnsupportedPresentation'),
-      ).toBeInTheDocument();
-    });
-
-    // Segunda vuelta: el diálogo se remonta con sus defaults (escala apagada,
-    // nombre de ciudad encendido), así que basta apagar el nombre para que no
-    // quede nada sin representar y la advertencia previa deba desaparecer.
-    await startSvgExport(user, ['export.element_cityName']);
-    await waitFor(() => {
-      expect(
-        screen.queryByText('exportWarnings.svgUnsupportedPresentation'),
-      ).toBeNull();
-    });
+    expect(screen.queryByRole('status', { name: /exportWarnings/ })).toBeNull();
+    expect(screen.queryByText(/exportWarnings\./)).toBeNull();
   });
 });
 

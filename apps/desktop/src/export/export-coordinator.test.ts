@@ -1,12 +1,14 @@
 import {
   createExportSnapshot,
+  NEUTRAL_MARGINALIA_LABELS,
+  NEUTRAL_PRESENTATION_OPTIONS,
   type CapabilityReport,
   type ExportRequest,
   type ExportSink,
   type ExportSnapshot,
   type RasterExportPort,
 } from '@vellum/core';
-import { makeCityData } from '@vellum/core/testing';
+import { makeCityData, makeRenderStyle } from '@vellum/core/testing';
 import {
   LegacyRasterExporter,
   TiledExportCapabilityError,
@@ -35,8 +37,9 @@ const request = {
   targetLongEdge: 6000,
   background: 'white',
   fileName: 'map',
-  presentation: {} as ExportRequest['presentation'],
-} satisfies ExportRequest;
+  presentation: NEUTRAL_PRESENTATION_OPTIONS,
+  labels: NEUTRAL_MARGINALIA_LABELS,
+} as const satisfies ExportRequest;
 
 function snapshot(
   surface = { width: 400, height: 300 },
@@ -45,7 +48,7 @@ function snapshot(
   return createExportSnapshot({
     snapshotId: 'snapshot-coordinator',
     cityData: makeCityData(),
-    style: { terrain: { base: '#000000' } } as never,
+    style: makeRenderStyle(),
     activeLayers: {
       terrain: true,
       basemap: true,

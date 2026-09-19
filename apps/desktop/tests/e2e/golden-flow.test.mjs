@@ -100,9 +100,7 @@ async function openExportDialog(browser) {
 async function setFileName(browser, name) {
   await browser.execute((value) => {
     const dialog = document.querySelector('[role="dialog"]');
-    // The one labelled input in the dialog; every other control is a radio or
-    // a checkbox.
-    const input = dialog?.querySelector('input[aria-label]');
+    const input = dialog?.querySelector('[data-testid="export-file-name"]');
     if (!input) throw new Error('file-name input not found in the dialog');
     // React owns this input's value; assigning `.value` directly is invisible
     // to it, so the change goes through the native setter plus a real event.

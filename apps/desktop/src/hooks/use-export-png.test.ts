@@ -1,7 +1,7 @@
 import { renderHook } from '@testing-library/react';
 import { invoke } from '@tauri-apps/api/core';
 import { describe, expect, it, vi } from 'vitest';
-import { IPC_COMMANDS } from '@vellum/core';
+import { IPC_COMMANDS, NEUTRAL_MARGINALIA_LABELS } from '@vellum/core';
 import { useExportPng } from './use-export-png';
 
 vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn() }));
@@ -23,19 +23,17 @@ describe('useExportPng', () => {
           fileName: 'map',
           presentation: {
             showCityName: false,
-            showVellumLogo: false,
-            showSourceFile: false,
-            showGeneratedAt: false,
-            showDistrictNames: false,
-            showParkNames: false,
-            showLayerLegend: false,
             showRoadLegend: false,
             showTransitLegend: false,
             showElevationLegend: false,
             showScaleBar: false,
             showOrientation: false,
             showSummary: false,
+            showSourceNote: false,
+            author: '',
+            corner: 'bottom-left',
           },
+          labels: NEUTRAL_MARGINALIA_LABELS,
         },
         new Uint8Array([137, 80, 78, 71]),
       ),
@@ -59,6 +57,7 @@ describe('useExportPng', () => {
           background: 'white',
           fileName: 'map',
           presentation: {} as never,
+          labels: {} as never,
         },
         new Uint8Array(),
       ),

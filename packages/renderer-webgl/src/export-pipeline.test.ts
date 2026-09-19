@@ -1,6 +1,7 @@
 import {
   createExportSnapshot,
   evaluateTiledCapability,
+  NEUTRAL_MARGINALIA_LABELS,
   type CapabilityReport,
   type ExportSnapshotInput,
   type RenderStyleParams,
@@ -49,19 +50,17 @@ function snapshotInput(): ExportSnapshotInput {
       fileName: 'baseline',
       presentation: {
         showCityName: true,
-        showVellumLogo: true,
-        showSourceFile: false,
-        showGeneratedAt: false,
-        showDistrictNames: true,
-        showParkNames: false,
-        showLayerLegend: true,
         showRoadLegend: true,
         showTransitLegend: false,
         showElevationLegend: true,
         showScaleBar: true,
         showOrientation: true,
         showSummary: false,
+        showSourceNote: false,
+        author: '',
+        corner: 'bottom-left',
       },
+      labels: NEUTRAL_MARGINALIA_LABELS,
     },
   };
 }

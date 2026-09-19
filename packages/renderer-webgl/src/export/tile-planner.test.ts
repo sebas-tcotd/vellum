@@ -36,6 +36,7 @@ function snapshot(width: number, height: number): ExportSnapshot {
       background: 'white',
       fileName: 'test',
       presentation: {} as ExportSnapshot['request']['presentation'],
+      labels: {} as ExportSnapshot['request']['labels'],
     },
   };
 }

@@ -1,6 +1,19 @@
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen } from '../../test-utils';
+import { render, screen, waitFor } from '../../test-utils';
+import {
+  composeMarginalia,
+  paintMarginalia,
+  resolveFullMapFraming,
+  resolveFullMapOutputSurface,
+  resolveMarginaliaFrame,
+} from '@vellum/core';
+import {
+  makeCityData,
+  makeExportPreviewSnapshot,
+  makeRoadSegment,
+  makeTransitLine,
+} from '@vellum/core/testing';
 import { ExportDialog, type ExportDialogProps } from './ExportDialog';
 import en from '../../i18n/locales/en.json';
 import es from '../../i18n/locales/es.json';
@@ -10,9 +23,11 @@ const mockI18n = vi.hoisted(() => ({
   resolvedLanguage: 'en',
 }));
 
+const tMock = vi.hoisted(() => vi.fn((key: string) => key));
+
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string) => key,
+    t: tMock,
     i18n: mockI18n,
   }),
 }));
@@ -21,7 +36,8 @@ vi.mock('@vellum/core', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@vellum/core')>();
   return {
     ...actual,
-    vellumLogoDataUri: () => 'data:image/svg+xml;base64,vellum-logo',
+    composeMarginalia: vi.fn(actual.composeMarginalia),
+    paintMarginalia: vi.fn(actual.paintMarginalia),
   };
 });
 
@@ -29,7 +45,7 @@ const onOpenChange = vi.fn();
 const onExport = vi.fn();
 const onPreviewOptionsChange = vi.fn();
 
-const preview = {
+const preview = makeExportPreviewSnapshot({
   // Deliberately unlike `viewportSurface`: the preview image is rendered small
   // on purpose, and the dialog must never announce *its* size as the file's.
   dataUrl: 'data:image/png;base64,preview',
@@ -38,55 +54,24 @@ const preview = {
   viewportSurface: { width: 1200, height: 800 },
   bearingDegrees: 35,
   liveBearingDegrees: 35,
-  scale: { distanceMeters: 500, widthPercent: 24 },
-  annotations: [
-    {
-      id: 'district-1',
-      name: 'Centro',
-      kind: 'district' as const,
-      xPercent: 25,
-      yPercent: 40,
-    },
-    {
-      id: 'park-1',
-      name: 'Centro',
-      kind: 'park' as const,
-      xPercent: 70,
-      yPercent: 60,
-    },
-  ],
-};
+});
 
-const defaultProps: ExportDialogProps = {
-  open: true,
+const cityData = makeCityData({
   cityName: 'Altavento',
   fileName: 'altavento.cslmap',
   generatedAt: '2026-07-27T12:00:00Z',
+  roadSegments: [
+    makeRoadSegment({ id: 'r1', itemClass: 'Highway' }),
+    makeRoadSegment({ id: 'r2', itemClass: 'Small Road' }),
+  ],
+  transitLines: [makeTransitLine({ mode: 'Metro', name: 'Circular' })],
+});
+
+const defaultProps: ExportDialogProps = {
+  open: true,
+  cityData,
   defaultBackground: 'white',
   preview,
-  fullMapBounds: {
-    minX: -8640,
-    maxX: 8640,
-    minZ: -8640,
-    maxZ: 8640,
-  },
-  availability: {
-    districts: true,
-    parks: true,
-    roads: true,
-    transit: true,
-    elevation: true,
-  },
-  counts: {
-    roads: 14,
-    buildings: 22,
-    districts: 3,
-    parks: 2,
-    transitLines: 4,
-    transitStops: 8,
-  },
-  visibleLayerNames: ['terrain', 'roads'],
-  transitLabels: [{ id: 'line-1', mode: 'Metro', name: 'Circular' }],
   onOpenChange,
   onPreviewOptionsChange,
   onExport,
@@ -119,7 +104,9 @@ describe('ExportDialog', () => {
     const user = userEvent.setup();
     renderDialog();
 
-    await user.click(screen.getByLabelText('export.element_logo'));
+    await user.click(screen.getByLabelText('export.element_summary'));
+    await user.type(screen.getByLabelText('export.element_author'), 'Ana');
+    await user.click(screen.getByLabelText('export.corner_topRight'));
     await user.click(
       screen.getByRole('button', { name: 'export.exportButton' }),
     );
@@ -130,11 +117,36 @@ describe('ExportDialog', () => {
         area: 'viewport',
         background: 'white',
         fileName: 'Altavento',
-        presentation: expect.objectContaining({
+        presentation: {
           showCityName: true,
-          showVellumLogo: true,
+          showRoadLegend: false,
+          showTransitLegend: false,
+          showElevationLegend: false,
+          showScaleBar: false,
+          showOrientation: false,
+          showSummary: true,
+          showSourceNote: false,
+          author: 'Ana',
+          corner: 'top-right',
+        },
+        // Resolved here, in the active language; core never translates.
+        labels: expect.objectContaining({
+          north: 'export.marginalia_north',
+          roadLegendTitle: 'export.legend_roadsTitle',
+          transitMore: {
+            one: 'export.legend_transitMoreOne',
+            other: 'export.legend_transitMoreOther',
+          },
         }),
       }),
+    );
+  });
+
+  it('limita el autor a 60 caracteres', () => {
+    renderDialog();
+    expect(screen.getByLabelText('export.element_author')).toHaveAttribute(
+      'maxLength',
+      '60',
     );
   });
 
@@ -228,7 +240,8 @@ describe('ExportDialog', () => {
     await user.click(screen.getByLabelText('export.format_png4x'));
     await user.click(screen.getByLabelText('export.area_fullMap'));
     await user.click(screen.getByLabelText('export.background_dark'));
-    await user.click(screen.getByLabelText('export.element_logo'));
+    await user.click(screen.getByLabelText('export.element_summary'));
+    await user.click(screen.getByLabelText('export.corner_topLeft'));
 
     rerender(<ExportDialog {...defaultProps} open={false} />);
     rerender(<ExportDialog {...defaultProps} open />);
@@ -236,27 +249,26 @@ describe('ExportDialog', () => {
     expect(screen.getByLabelText('export.format_png1x')).toBeChecked();
     expect(screen.getByLabelText('export.area_viewport')).toBeChecked();
     expect(screen.getByLabelText('export.background_white')).toBeChecked();
-    expect(screen.getByLabelText('export.element_logo')).not.toBeChecked();
+    expect(screen.getByLabelText('export.element_summary')).not.toBeChecked();
+    expect(screen.getByLabelText('export.corner_bottomLeft')).toBeChecked();
   });
 
   it('actualiza inmediatamente la presentación del preview', async () => {
     const user = userEvent.setup();
     renderDialog();
-    const preview = screen.getByTestId('export-preview');
+    const previewFrame = screen.getByTestId('export-preview');
+    const canvas = screen.getByTestId('export-preview-marginalia');
+    const before = Number(canvas.getAttribute('data-primitives'));
 
     await user.click(screen.getByLabelText('export.format_png4x'));
     await user.click(screen.getByLabelText('export.background_transparent'));
     await user.click(screen.getByLabelText('export.element_orientation'));
 
-    expect(preview).toHaveAttribute('data-format', 'png-4x');
-    expect(preview).toHaveAttribute('data-background', 'transparent');
-    expect(screen.getByTestId('export-preview-orientation')).toHaveAttribute(
-      'data-bearing',
-      '35',
+    expect(previewFrame).toHaveAttribute('data-format', 'png-4x');
+    expect(previewFrame).toHaveAttribute('data-background', 'transparent');
+    expect(Number(canvas.getAttribute('data-primitives'))).toBeGreaterThan(
+      before,
     );
-    expect(
-      screen.queryByTestId('export-preview-scale'),
-    ).not.toBeInTheDocument();
   });
 
   it('muestra presets de resolución para mapa completo y recalcula dimensiones', async () => {
@@ -330,7 +342,16 @@ describe('ExportDialog', () => {
   it('descuenta el margen de marco para un full-map en SVG', async () => {
     const user = userEvent.setup();
     renderDialog({
-      fullMapBounds: { minX: -9000, maxX: 9000, minZ: -8000, maxZ: 8000 },
+      cityData: {
+        ...cityData,
+        bounds: {
+          minX: -9000,
+          maxX: 9000,
+          minZ: -8000,
+          maxZ: 8000,
+          seaLevel: 40,
+        },
+      },
       // Norte arriba, para que la ruta vectorial esté disponible.
       preview: { ...preview, liveBearingDegrees: 0 },
     });
@@ -489,6 +510,8 @@ describe('ExportDialog', () => {
     // ninguna cambia la imagen capturada, así que no justifican un render.
     await user.click(screen.getByLabelText('export.format_png2x'));
     await user.click(screen.getByLabelText('export.element_scaleBar'));
+    await user.type(screen.getByLabelText('export.element_author'), 'Ana');
+    await user.click(screen.getByLabelText('export.corner_topRight'));
     expect(onPreviewOptionsChange).not.toHaveBeenCalled();
 
     // Reelegir el área que ya estaba activa tampoco es un cambio.
@@ -496,48 +519,71 @@ describe('ExportDialog', () => {
     expect(onPreviewOptionsChange).not.toHaveBeenCalled();
   });
 
-  it('proyecta anotaciones por id y muestra el asset real del logo', async () => {
+  it('pinta el layout de la superficie final escalado, no un layout propio', async () => {
     const user = userEvent.setup();
+    const getContext = vi
+      .spyOn(HTMLCanvasElement.prototype, 'getContext')
+      .mockReturnValue(
+        new Proxy(
+          {},
+          {
+            get: (_target, key) =>
+              key === 'createLinearGradient'
+                ? () => ({ addColorStop: () => undefined })
+                : () => undefined,
+            set: () => true,
+          },
+        ) as unknown as CanvasRenderingContext2D,
+      );
+    const rect = vi
+      .spyOn(HTMLCanvasElement.prototype, 'getBoundingClientRect')
+      .mockReturnValue({ width: 480, height: 320 } as DOMRect);
     renderDialog();
 
-    await user.click(screen.getByLabelText('export.element_districts'));
-    await user.click(screen.getByLabelText('export.element_parks'));
-    await user.click(screen.getByLabelText('export.element_logo'));
+    await user.click(screen.getByLabelText('export.format_png2x'));
+    await user.click(screen.getByLabelText('export.element_scaleBar'));
 
-    const labels = screen.getAllByText('Centro');
-    expect(labels).toHaveLength(2);
-    expect(labels[0]).toHaveStyle({ left: '25%', top: '40%' });
-    expect(labels[1]).toHaveStyle({ left: '70%', top: '60%' });
-    expect(
-      screen.getByTestId('export-preview').querySelector('img[aria-hidden]'),
-    ).toHaveAttribute('src', 'data:image/svg+xml;base64,vellum-logo');
+    // Viewport 1200×800 at 2x: the layout is the 2400×1600 file's.
+    const [, frame] = vi.mocked(composeMarginalia).mock.lastCall!;
+    expect(frame.surface).toEqual({ width: 2400, height: 1600 });
+    expect(frame.worldUnitsPerPixel).toBeCloseTo(2);
+    await waitFor(() => {
+      const [, layout, transform] = vi.mocked(paintMarginalia).mock.lastCall!;
+      expect(layout.surface).toEqual({ width: 2400, height: 1600 });
+      expect(transform.scale).toBeCloseTo(
+        (480 * (window.devicePixelRatio || 1)) / 2400,
+      );
+    });
+    getContext.mockRestore();
+    rect.mockRestore();
   });
 
-  it('presenta escala, orientación y leyendas derivadas y localizadas', async () => {
+  it('avisa cuando la marginalia no cabe y se omiten bloques', async () => {
     const user = userEvent.setup();
-    renderDialog();
-
-    await user.click(screen.getByLabelText('export.element_scaleBar'));
-    await user.click(screen.getByLabelText('export.element_orientation'));
-    await user.click(screen.getByLabelText('export.element_layerLegend'));
-    await user.click(screen.getByLabelText('export.element_roadLegend'));
-    await user.click(screen.getByLabelText('export.element_transitLegend'));
-    await user.click(screen.getByLabelText('export.element_elevationLegend'));
-
-    expect(screen.getByTestId('export-preview-scale')).toHaveTextContent(
-      '500 m',
-    );
-    expect(screen.getByTestId('export-preview-scale')).toHaveStyle({
-      width: '24%',
+    renderDialog({
+      preview: {
+        ...preview,
+        liveBearingDegrees: 0,
+        viewportSurface: { width: 200, height: 40 },
+      },
     });
-    expect(screen.getByText('layers.terrain')).toBeInTheDocument();
-    expect(screen.getByText('export.legend_road_highway')).toBeInTheDocument();
-    expect(
-      screen.getByText('transitModes.Metro: Circular'),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText('export.legend_elevationContours'),
-    ).toBeInTheDocument();
+    for (const label of [
+      'export.element_roadLegend',
+      'export.element_transitLegend',
+      'export.element_elevationLegend',
+      'export.element_scaleBar',
+      'export.element_summary',
+      'export.element_sourceNote',
+    ]) {
+      await user.click(screen.getByLabelText(label));
+    }
+
+    const warning = screen.getByTestId('export-marginalia-omitted');
+    expect(warning.getAttribute('data-omitted')).toContain('source-note');
+    // The notice names what was dropped, in the active language.
+    expect(tMock).toHaveBeenCalledWith('export.marginaliaOmitted', {
+      blocks: expect.stringContaining('export.block_sourceNote'),
+    });
   });
 
   it('evita combinaciones de escala imposibles al seleccionar SVG', async () => {
@@ -587,26 +633,121 @@ describe('ExportDialog', () => {
     expect(screen.getByLabelText('export.format_svg')).toBeEnabled();
   });
 
-  it('deshabilita opciones cuyos datos no están disponibles', () => {
+  it('deshabilita con motivo lo que el mapa no puede respaldar', async () => {
+    const user = userEvent.setup();
     renderDialog({
-      availability: {
-        districts: false,
-        parks: false,
-        roads: true,
-        transit: false,
-        elevation: false,
+      cityData: { ...cityData, transitLines: [] },
+      preview: {
+        ...preview,
+        livePitchDegrees: 30,
+        activeLayers: { ...preview.activeLayers, roads: false },
       },
     });
 
-    expect(screen.getByLabelText('export.element_districts')).toBeDisabled();
-    expect(screen.getByLabelText('export.element_parks')).toBeDisabled();
+    const road = screen.getByLabelText('export.element_roadLegend');
+    expect(road).toBeDisabled();
+    expect(road.closest('label')).toHaveAttribute(
+      'title',
+      'export.unavailable_layerHidden',
+    );
     expect(
       screen.getByLabelText('export.element_transitLegend'),
     ).toBeDisabled();
     expect(
+      screen.getByLabelText('export.element_transitLegend').closest('label'),
+    ).toHaveAttribute('title', 'export.unavailable_noData');
+    const scale = screen.getByLabelText('export.element_scaleBar');
+    expect(scale).toBeDisabled();
+    expect(scale.closest('label')).toHaveTextContent(
+      'export.unavailable_cameraPitch',
+    );
+    expect(
       screen.getByLabelText('export.element_elevationLegend'),
-    ).toBeDisabled();
+    ).toBeEnabled();
+
+    // Full-map is always rendered flat, so the scale bar comes back.
+    await user.click(screen.getByLabelText('export.area_fullMap'));
+    expect(screen.getByLabelText('export.element_scaleBar')).toBeEnabled();
   });
+});
+
+describe('ExportDialog — revisión 3.5', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('sin preview, escala y orientación quedan no disponibles', () => {
+    renderDialog({ preview: null });
+    for (const label of [
+      'export.element_scaleBar',
+      'export.element_orientation',
+    ]) {
+      const input = screen.getByLabelText(label);
+      expect(input).toBeDisabled();
+      expect(input.closest('label')).toHaveAttribute(
+        'title',
+        'export.unavailable_noData',
+      );
+    }
+  });
+
+  it('no deforma la imagen: usa el aspecto del documento solo si coincide con el de la imagen', async () => {
+    const user = userEvent.setup();
+    // Image 720×480 (1.5) matches the 1200×800 document.
+    const { rerender } = renderDialog({
+      preview: { ...preview, width: 720, height: 480, liveBearingDegrees: 0 },
+    });
+    expect(screen.getByTestId('export-preview').style.aspectRatio).toBe(
+      '1200 / 800',
+    );
+
+    // A stale 640×480 image (1.333) keeps its own proportions.
+    rerender(<ExportDialog {...defaultProps} />);
+    expect(screen.getByTestId('export-preview').style.aspectRatio).toBe(
+      '640 / 480',
+    );
+    await user.click(screen.getByLabelText('export.format_png2x'));
+    expect(screen.getByTestId('export-preview').style.aspectRatio).toBe(
+      '640 / 480',
+    );
+  });
+
+  it.each(['png-1x', 'svg'] as const)(
+    'full-map %s: el frame es el de las funciones de encuadre del exportador',
+    async (format) => {
+      const user = userEvent.setup();
+      renderDialog({ preview: { ...preview, liveBearingDegrees: 0 } });
+
+      await user.click(screen.getByLabelText('export.area_fullMap'));
+      if (format === 'svg') {
+        await user.click(screen.getByLabelText('export.format_svg'));
+      }
+      await user.click(
+        screen.getByRole('radio', { name: /export\.resolution_high/ }),
+      );
+
+      const { bounds } = cityData;
+      const framing =
+        format === 'svg'
+          ? {
+              extent: bounds,
+              surface: resolveFullMapOutputSurface(bounds, 12000),
+            }
+          : resolveFullMapFraming(bounds, 12000);
+      const expected = resolveMarginaliaFrame({
+        area: 'full-map',
+        format,
+        surface: framing.surface,
+        extent: framing.extent,
+        viewportWorldUnitsPerPixel: 0,
+        camera: { bearing: 0, pitch: 0 },
+      });
+      const [, frame] = vi.mocked(composeMarginalia).mock.lastCall!;
+      expect(frame).toEqual(expected);
+      // The vector document has no map frame, so no frame margin either.
+      expect(frame.hasMapFrame).toBe(format !== 'svg');
+    },
+  );
 });
 
 describe('ExportDialog translations', () => {

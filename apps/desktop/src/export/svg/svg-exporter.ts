@@ -19,12 +19,14 @@
 
 import {
   evaluateSvgCapability,
+  layoutSnapshotMarginalia,
   SVG_CHUNK_TARGET_BYTES,
   type CartographicScene,
   type ExportProgress,
   type ExportProgressCallback,
   type ExportReceipt,
   type ExportSession,
+  type MarginaliaLayout,
   type SceneWarning,
   type SvgCapabilityDecision,
   type SvgExportPort,
@@ -68,6 +70,7 @@ export type CartographicSceneBuilder = (input: {
   readonly background: SvgExportSnapshot['request']['background'];
   readonly roadWidthFactor: number;
   readonly roadCasingAddPx: number;
+  readonly marginalia?: MarginaliaLayout | null;
 }) => CartographicScene;
 
 /** Everything the exporter needs wired from the composition root. */
@@ -180,6 +183,7 @@ export class SvgExporter implements SvgExportPort {
       background: snapshot.request.background,
       roadWidthFactor: policy.roadWidthFactor,
       roadCasingAddPx: policy.roadCasingAddPx,
+      marginalia: layoutSnapshotMarginalia(snapshot),
     });
     throwIfAborted(signal);
 

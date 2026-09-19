@@ -1,12 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   createExportSnapshot,
+  NEUTRAL_MARGINALIA_LABELS,
   type ExportSnapshot,
   type RenderStyleParams,
   type RoadCategoryColors,
   type TilePlanTile,
 } from '@vellum/core';
-import { makeCityData, makeLayerVisibility } from '@vellum/core/testing';
+import {
+  makeCityData,
+  makeLayerVisibility,
+  makeMarginaliaLabels,
+  makePresentationOptions,
+} from '@vellum/core/testing';
 import { RasterTileRenderer } from './raster-tile-renderer';
 
 function roadColors(fill: string, casing: string): RoadCategoryColors {
@@ -138,6 +144,16 @@ vi.mock('maplibre-gl', () => ({
   getWorkerCount: vi.fn(() => 4),
 }));
 
+const marginaliaRaster = vi.hoisted(() => ({
+  encodeCanvasWithMarginalia: vi.fn(async () => new Uint8Array([9, 9])),
+  loadMarginaliaFont: vi.fn(async () => true),
+}));
+
+vi.mock('./marginalia-raster', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./marginalia-raster')>()),
+  ...marginaliaRaster,
+}));
+
 vi.mock('../sources/dem-protocol', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../sources/dem-protocol')>()),
   registerDemProtocol: vi.fn(async () => undefined),
@@ -146,8 +162,10 @@ vi.mock('../sources/dem-protocol', async (importOriginal) => ({
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
 
-function makeSnapshot(): ExportSnapshot {
-  return createExportSnapshot({
+function makeSnapshot(
+  request: Partial<ExportSnapshot['request']> = {},
+): ExportSnapshot {
+  const snapshot = createExportSnapshot({
     snapshotId: 'tile-render-test',
     cityData: makeCityData(),
     style: MOCK_STYLE,
@@ -176,20 +194,22 @@ function makeSnapshot(): ExportSnapshot {
       fileName: 'tiled',
       presentation: {
         showCityName: false,
-        showVellumLogo: false,
-        showSourceFile: false,
-        showGeneratedAt: false,
-        showDistrictNames: false,
-        showParkNames: false,
-        showLayerLegend: false,
         showRoadLegend: false,
         showTransitLegend: false,
         showElevationLegend: false,
         showScaleBar: false,
         showOrientation: false,
         showSummary: false,
+        showSourceNote: false,
+        author: '',
+        corner: 'bottom-left',
       },
+      labels: NEUTRAL_MARGINALIA_LABELS,
     },
+  });
+  return createExportSnapshot({
+    ...snapshot,
+    request: { ...snapshot.request, ...request } as ExportSnapshot['request'],
   });
 }
 
@@ -298,6 +318,55 @@ describe('RasterTileRenderer', () => {
     expect(mockMap.off).toHaveBeenCalledWith('moveend', expect.any(Function));
     expect(mockMap.setMaxBounds).toHaveBeenCalledWith(undefined);
     expect(mockMap.setMinZoom).toHaveBeenCalledWith(0);
+    renderer.dispose();
+  });
+
+  it('pinta en cada tile solo la parte de la marginalia que cae en su renderRect', async () => {
+    const renderer = new RasterTileRenderer(MOCK_STYLE);
+    const signal = new AbortController().signal;
+    await renderer.configure(
+      makeSnapshot({
+        presentation: makePresentationOptions({
+          showCityName: true,
+          corner: 'top-left',
+        }),
+        labels: makeMarginaliaLabels(),
+      }),
+      signal,
+    );
+    expect(marginaliaRaster.loadMarginaliaFont).toHaveBeenCalledOnce();
+
+    const inside = await renderer.captureTile(
+      makeTile({ renderRect: { x: 0, y: 0, width: 640, height: 480 } }),
+      signal,
+    );
+    expect(inside).toEqual(new Uint8Array([9, 9]));
+    const [canvas, overlay] = marginaliaRaster.encodeCanvasWithMarginalia.mock
+      .calls[0]! as unknown as [
+      unknown,
+      { rect: unknown; layout: { surface: unknown } },
+    ];
+    expect(canvas).toBe(mockMap.getCanvas.mock.results.at(-1)?.value);
+    expect(overlay.rect).toEqual({ x: 0, y: 0, width: 640, height: 480 });
+    expect(overlay.layout.surface).toEqual({ width: 2048, height: 2048 });
+
+    // A tile far from the panel encodes the plain frame.
+    const outside = await renderer.captureTile(
+      makeTile({ renderRect: { x: 1600, y: 1600, width: 448, height: 448 } }),
+      signal,
+    );
+    expect(outside).toEqual(new Uint8Array([137, 80, 78, 71]));
+    expect(marginaliaRaster.encodeCanvasWithMarginalia).toHaveBeenCalledOnce();
+    renderer.dispose();
+  });
+
+  it('sin marginalia no espera fuentes ni recompone el frame', async () => {
+    const renderer = new RasterTileRenderer(MOCK_STYLE);
+    const signal = new AbortController().signal;
+    await renderer.configure(makeSnapshot(), signal);
+    await renderer.captureTile(makeTile(), signal);
+    expect(marginaliaRaster.loadMarginaliaFont).not.toHaveBeenCalled();
+    expect(marginaliaRaster.encodeCanvasWithMarginalia).not.toHaveBeenCalled();
     renderer.dispose();
   });
 
