@@ -2,6 +2,57 @@
 
 All notable changes to Vellum will be documented here.
 
+## [0.9.0](https://github.com/sebas-tcotd/vellum/compare/v0.8.0...v0.9.0) (2026-09-19)
+
+
+### Features
+
+* **core,renderer-webgl,theme-engine:** tipar y renderizar transferencias de tránsito confirmadas ([48fd7e5](https://github.com/sebas-tcotd/vellum/commit/48fd7e5d634cfa980ee96cc6dc8103ec7931774b))
+* **core,renderer-webgl,ui:** reimplementar la marginalia cartográfica (Story 3.5) ([bb7d3bb](https://github.com/sebas-tcotd/vellum/commit/bb7d3bb09258dcbbaecc6e318f0c6df373407b6f))
+* **core,renderer-webgl,ui:** reimplementar la marginalia cartográfica nativa en PNG y SVG ([787ecbd](https://github.com/sebas-tcotd/vellum/commit/787ecbdfa9a91aad6603f2c3903ba9868a1e2763))
+* **core:** fijar la tipografía de la marginalia a 1.25rem por densidad ([032b9d5](https://github.com/sebas-tcotd/vellum/commit/032b9d517a8b5ffffdc92f026af2dcb8fe3b6884))
+* **docs:** registrar decisiones de feedback de comunidad de forma trazable ([e57e8df](https://github.com/sebas-tcotd/vellum/commit/e57e8df3219c95632fd2a4ed0ce3074e59e16aad))
+* **docs:** registrar decisiones de feedback de comunidad de forma trazable ([37e498a](https://github.com/sebas-tcotd/vellum/commit/37e498af506e2b8efd327bd6cd83ebfcd95daeed))
+* **installer-bootstrap:** add packaging script pairing the bootstrap with the NSIS build ([b6f1d0b](https://github.com/sebas-tcotd/vellum/commit/b6f1d0b375e5e94484bf47dd774a1418e3c1e022))
+* **installer-bootstrap:** scaffold a wry/tao bootstrap spike for the installer UI ([3a84b62](https://github.com/sebas-tcotd/vellum/commit/3a84b629601e7540e1b66e79a648636981c2a0ef))
+* **renderer:** agregar nuevos blockers en describeIdleBlockers para mejorar la detección de estado ([ce1e517](https://github.com/sebas-tcotd/vellum/commit/ce1e517f110801f4ae2e22b76f7026dcd764f300))
+* **theme-engine:** mantener themes compatibles mientras Vellum evoluciona ([385e315](https://github.com/sebas-tcotd/vellum/commit/385e3150ba591e8002a0a56bb58a8286c3446bb8))
+* **theme-engine:** mantener themes compatibles mientras Vellum evoluciona ([af42f7e](https://github.com/sebas-tcotd/vellum/commit/af42f7e48ce9bd6ee23decdd441024284f8b318f))
+* **theme-engine:** publicar el contrato JSON oficial de .vellumstyle ([b3def00](https://github.com/sebas-tcotd/vellum/commit/b3def00ded16bfd1d6263ebc7fdff49ec0d89fb8))
+* **theme-engine:** publicar el contrato JSON oficial de .vellumstyle ([c0ec862](https://github.com/sebas-tcotd/vellum/commit/c0ec862a7b07c0eb25af4c1896ed919454ee399d))
+* transition to NSIS as the recommended Windows installer ([93de12e](https://github.com/sebas-tcotd/vellum/commit/93de12ecf2d9fbcc70811385bb0ef57e9ffcb190))
+* **windows:** add splash screen for installation ([b243460](https://github.com/sebas-tcotd/vellum/commit/b243460003e8227caf05531bfca77672b351315d))
+
+
+### Bug Fixes
+
+* **ci:** exclude dormant installer-bootstrap crate from change detection ([24c82b5](https://github.com/sebas-tcotd/vellum/commit/24c82b5f4076469c6afef57b810980b3bfac419c))
+* **ci:** forzar la reinstalación de cargo-deny sobre el binario cacheado por rust-cache ([ad83b3c](https://github.com/sebas-tcotd/vellum/commit/ad83b3c9790be2d566668bf0c6ecc8d1fa492e95))
+* **core,renderer-webgl,ui:** confirmar transferencias por modo distinto, no por línea ([b01da59](https://github.com/sebas-tcotd/vellum/commit/b01da59d18ee288da97c97d3a7d3f2882fd816d1))
+* **core,renderer-webgl,ui:** exportar correctamente la composición base ([23eac2d](https://github.com/sebas-tcotd/vellum/commit/23eac2d2af63b48112dea9347d127a4885340a0b))
+* **core:** calcular confirmedTransfer por fragmento de corredor, no por candidato ([8c0cca1](https://github.com/sebas-tcotd/vellum/commit/8c0cca19e521309a0bed9ddc858f7afbd9e92638))
+* **core:** no multiplicar la tipografía de la marginalia por la densidad ([79b676b](https://github.com/sebas-tcotd/vellum/commit/79b676ba1392db8138c49c4ad01cd91410414a82))
+* **deps:** cerrar los advisories que sí se pueden cerrar ([cfb80ff](https://github.com/sebas-tcotd/vellum/commit/cfb80ff4f66a76750e9a100e40ef7a770780d07f))
+* **export:** esperar el watermark antes de capturar el PNG ([77d1fdf](https://github.com/sebas-tcotd/vellum/commit/77d1fdfa475e2b9c1c84d7924a15bef5cf7d8606))
+* **export:** exportar correctamente la composición base (Story 3.4) ([e3e4c64](https://github.com/sebas-tcotd/vellum/commit/e3e4c6485a08b13adf86b6966543b7d16a24d2b2))
+* **renderer:** apuntar MapLibre 6 a su worker empaquetado ([8f73152](https://github.com/sebas-tcotd/vellum/commit/8f73152d41178cc52cd8bbbfb27810de7484c633))
+* **renderer:** desactivar el fade de símbolos en las superficies de exportación ([09ee78c](https://github.com/sebas-tcotd/vellum/commit/09ee78cc0d4c0d50ab4a779c0335a9d278370be4))
+* **renderer:** estabilizar el export PNG en CI (fade de símbolos y timeout) ([a5c6c14](https://github.com/sebas-tcotd/vellum/commit/a5c6c1447a1e9ad93776aa1892a76d70f38b1bcf))
+* **renderer:** subir el timeout de captura del export PNG a 30 s ([1cf6aad](https://github.com/sebas-tcotd/vellum/commit/1cf6aad4b1a257604dd95a800e404785e49410a4))
+* **security:** actualizar maplibre-gl a 6.x y cargo-deny a 0.20.2 ([6e96281](https://github.com/sebas-tcotd/vellum/commit/6e96281209a43661551b7ba38bef484e2c5d4bb2))
+* **security:** actualizar maplibre-gl a 6.x y cargo-deny a 0.20.2 ([054aec3](https://github.com/sebas-tcotd/vellum/commit/054aec3e7df950d05c6cd7f3de96f5a35c6a497e))
+* **security:** actualizar quick-xml, plist, crossbeam-epoch y fastrand ([88b69c7](https://github.com/sebas-tcotd/vellum/commit/88b69c7e92e410ce1999d3bc7b0581050b4bac72))
+* **style:** improve installer styles ([7c0231d](https://github.com/sebas-tcotd/vellum/commit/7c0231df4c05c2dc2241d7ef49578d1e34342075))
+* **ui:** declarar color-scheme oscuro para que los controles nativos sigan el tema ([f70b860](https://github.com/sebas-tcotd/vellum/commit/f70b86039aa0abf5f0a0cff8015900478975a129))
+* **ui:** make native radios and checkboxes follow the dark theme ([0a339e1](https://github.com/sebas-tcotd/vellum/commit/0a339e1bd6c94e022cdcc821bba859fa306554b8))
+* **windows:** improve layout of nsi ([edcdf48](https://github.com/sebas-tcotd/vellum/commit/edcdf48d02da26767a6419344e318316adb86736))
+* **windows:** skip language selector dialog during silent NSIS installs ([68becae](https://github.com/sebas-tcotd/vellum/commit/68becae82782024e31d2d000d024d6c23cc87b22))
+
+
+### Reverts
+
+* **deps:** sacar la subida masiva de dependencias del fix del watermark ([fbd3711](https://github.com/sebas-tcotd/vellum/commit/fbd3711cf50e87fbcbe116c6f84643d2b8b3b94c))
+
 ## [0.8.0](https://github.com/sebas-tcotd/vellum/compare/v0.7.0...v0.8.0) (2026-09-09)
 
 
