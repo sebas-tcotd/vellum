@@ -13,6 +13,13 @@
  * outside the runner's isolation. Timing uses `performance.now()` — `Date.now()`
  * has 1 ms granularity, which cannot say anything useful about a 1500 ms budget.
  *
+ * The `ctr*` columns are the same measurements over the corridor **centerlines**
+ * rather than the drawn strokes. They are what makes the Story 4.3b report able to
+ * say which half of that change moved a number: a centerline figure answers to the
+ * routing alone (grid, costs, placement) and is directly comparable to the
+ * pre-4.3b table, where a stroke *was* the centerline; the gap between the two
+ * columns is what the rendering stage added.
+ *
  * The table is printed with `console.log`, which vitest intercepts by default;
  * `vitest run --disableConsoleIntercept <this file>` shows it. The gates
  * themselves run and fail either way — seeing the numbers is for regenerating
@@ -131,6 +138,20 @@ describe('schematic layout gates', () => {
           ).toMatchObject({ passed: true });
         });
 
+        it('hides no line of a shared corridor under another', () => {
+          expect(metrics.overlappingCorridorStrokes).toEqual([]);
+          expect(
+            report.gates.find((g) => g.id === 'legibility/corridorSeparation'),
+          ).toMatchObject({ passed: true });
+        });
+
+        it('places every station on a corridor its own lines ride', () => {
+          expect(metrics.stationsOffOwnCorridor).toEqual([]);
+          expect(
+            report.gates.find((g) => g.id === 'legibility/stationOwnCorridor'),
+          ).toMatchObject({ passed: true });
+        });
+
         it('routes every corridor without falling back', () => {
           expect(metrics.fallbackRoutes).toBe(0);
           expect(metrics.routedEdges).toBeGreaterThan(0);
@@ -164,8 +185,11 @@ describe('schematic layout gates', () => {
         'corridors',
         'stations',
         'vertices',
+        'ctrVertices',
         'crossings',
+        'ctrCrossings',
         'length',
+        'ctrLength',
         'displacement',
         'minStationDist',
         'tightPairs',
@@ -191,8 +215,11 @@ describe('schematic layout gates', () => {
             String(row.metrics.routedEdges),
             String(row.metrics.stationCount),
             String(row.metrics.vertexCount),
+            String(row.metrics.corridorVertexCount),
             String(row.metrics.crossings),
+            String(row.metrics.corridorCrossings),
             row.metrics.totalLength.toFixed(1),
+            row.metrics.corridorLength.toFixed(1),
             row.metrics.relativeDisplacement.toFixed(4),
             row.metrics.minStationDistance.toFixed(1),
             String(row.metrics.tightStationPairs),

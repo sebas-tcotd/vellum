@@ -1,32 +1,54 @@
-/** Pure vector arithmetic helpers over `CsPoint` (world space). */
+/**
+ * Pure vector arithmetic over `CsPoint` (world space), adapted from the
+ * frame-agnostic `../../geometry-kit`.
+ *
+ * @remarks
+ * The kit offers both perpendiculars and refuses to name either one "right",
+ * because the answer depends on the frame. Here the frame is the rendered map
+ * (`x` east, `z` north), so right of travel is {@link perpCW} — the direction a
+ * positive MapLibre `line-offset` moves a line. The schematic view draws on the
+ * vertically mirrored SVG frame and therefore uses the *other* perpendicular
+ * for the same visual hand; see `../../schematic/offset.ts`.
+ */
 
 import type { CsPoint } from '../../../coordinate-transform';
+import {
+  perpCW,
+  projectOnPolyline,
+  vAdd,
+  vNorm,
+  vScale,
+  vSub,
+  vUnit,
+  type Vec2,
+} from '../../geometry-kit';
+
+const toVec = (p: CsPoint): Vec2 => [p.x, p.z];
+const toCs = (v: Vec2): CsPoint => ({ x: v[0], z: v[1] });
 
 export function sub(a: CsPoint, b: CsPoint): CsPoint {
-  return { x: a.x - b.x, z: a.z - b.z };
+  return toCs(vSub(toVec(a), toVec(b)));
 }
 
 export function add(a: CsPoint, b: CsPoint): CsPoint {
-  return { x: a.x + b.x, z: a.z + b.z };
+  return toCs(vAdd(toVec(a), toVec(b)));
 }
 
 export function scale(a: CsPoint, s: number): CsPoint {
-  return { x: a.x * s, z: a.z * s };
+  return toCs(vScale(toVec(a), s));
 }
 
 export function norm(a: CsPoint): number {
-  return Math.hypot(a.x, a.z);
+  return vNorm(toVec(a));
 }
 
 export function unit(a: CsPoint): CsPoint {
-  const n = norm(a);
-  return n > 0 ? { x: a.x / n, z: a.z / n } : { x: 1, z: 0 };
+  return toCs(vUnit(toVec(a)));
 }
 
 /** Right of travel direction `d` in the rendered frame (matches MapLibre `line-offset` > 0). */
 export function rightOf(d: CsPoint): CsPoint {
-  const u = unit(d);
-  return { x: u.z, z: -u.x };
+  return toCs(perpCW(toVec(d)));
 }
 
 /** Projects `p` onto a polyline; returns closest point, segment direction, and distance. */
@@ -34,22 +56,8 @@ export function projectOnPath(
   p: CsPoint,
   path: readonly Readonly<CsPoint>[],
 ): { point: CsPoint; dir: CsPoint; dist: number } | null {
-  let best: { point: CsPoint; dir: CsPoint; dist: number } | null = null;
-  for (let i = 1; i < path.length; i++) {
-    const a = path[i - 1];
-    const b = path[i];
-    const ab = sub(b, a);
-    const len2 = ab.x * ab.x + ab.z * ab.z;
-    if (len2 === 0) continue;
-    const t = Math.max(
-      0,
-      Math.min(1, ((p.x - a.x) * ab.x + (p.z - a.z) * ab.z) / len2),
-    );
-    const point = add(a, scale(ab, t));
-    const dist = norm(sub(p, point));
-    if (best === null || dist < best.dist) {
-      best = { point, dir: ab, dist };
-    }
-  }
-  return best;
+  const hit = projectOnPolyline(toVec(p), path.map(toVec));
+  return hit === null
+    ? null
+    : { point: toCs(hit.point), dir: toCs(hit.dir), dist: hit.dist };
 }

@@ -1,6 +1,10 @@
+import { SCHEMATIC_LINE_WIDTH, type SchematicPoint } from '@vellum/core';
 import { forwardRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { SchematicNetworkModel } from '../../hooks/use-schematic-network';
+
+const pointsAttribute = (points: readonly SchematicPoint[]): string =>
+  points.map((p) => `${p.x},${p.y}`).join(' ');
 
 export interface SchematicViewProps {
   /**
@@ -32,6 +36,18 @@ export interface SchematicViewProps {
  *
  * Station *labels* are deliberately absent: placing them is the layout
  * strategy's job (Story 4.4), not this surface's.
+ *
+ * The geometry is the layout's, down to the stroke width. `strokeWidth` is set
+ * here from {@link SCHEMATIC_LINE_WIDTH} rather than in CSS because the layout's
+ * per-line offsets are in **viewBox units**: a width in screen pixels (which is
+ * what `vector-effect: non-scaling-stroke` gave) cannot agree with them at any
+ * zoom, so parallel lines would either overlap or leave a gap depending on the
+ * window. Station fill and outline are fixed black-on-white in both themes, the
+ * same convention and the same reason as the geographic map's marker layer: it is
+ * LOOM's, not the theme's, and one datum must not be drawn two ways.
+ *
+ * Drawing order matches the map's layer order — inner connections, then lines,
+ * then stations — so a joint reads as passing behind the strokes it joins.
  */
 export const SchematicView = forwardRef<HTMLElement, SchematicViewProps>(
   function SchematicView(
@@ -105,6 +121,23 @@ export const SchematicView = forwardRef<HTMLElement, SchematicViewProps>(
               preserveAspectRatio="xMidYMid meet"
               aria-hidden="true"
             >
+              <g className="schematic-view__connectors">
+                {layout.connectors.map((connector, index) => (
+                  <polyline
+                    key={`${connector.lineId}:${index}`}
+                    data-line-id={connector.lineId}
+                    className={
+                      hoveredLineId !== null &&
+                      connector.lineId !== hoveredLineId
+                        ? 'schematic-view__dimmed'
+                        : undefined
+                    }
+                    points={pointsAttribute(connector.points)}
+                    stroke={connector.color}
+                    strokeWidth={SCHEMATIC_LINE_WIDTH}
+                  />
+                ))}
+              </g>
               <g className="schematic-view__segments">
                 {layout.segments.map((segment, index) => (
                   <polyline
@@ -115,20 +148,18 @@ export const SchematicView = forwardRef<HTMLElement, SchematicViewProps>(
                         ? 'schematic-view__dimmed'
                         : undefined
                     }
-                    points={segment.points
-                      .map((p) => `${p.x},${p.y}`)
-                      .join(' ')}
+                    points={pointsAttribute(segment.points)}
                     stroke={segment.color}
+                    strokeWidth={SCHEMATIC_LINE_WIDTH}
                   />
                 ))}
               </g>
               <g className="schematic-view__stations">
                 {layout.stations.map((station) => (
-                  <circle
+                  <polygon
                     key={station.id}
-                    cx={station.x}
-                    cy={station.y}
-                    r={4}
+                    data-station-id={station.id}
+                    points={pointsAttribute(station.shape)}
                     // Station membership is what `lineIds` is for: a stop the
                     // highlighted line does not call at recedes with the rest.
                     className={

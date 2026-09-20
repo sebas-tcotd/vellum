@@ -10,9 +10,9 @@ import {
 } from './city-data-factory';
 
 /**
- * The three sizes the spike's evidence needs (Epic 4): a minimal network, a
- * dense one with shared corridors, and one whose interest is transfers between
- * modes.
+ * The four shapes the spike's evidence needs (Epic 4): a minimal network, a
+ * dense one with shared corridors, one whose interest is transfers between
+ * modes, and one with a real geometric crossing.
  *
  * @remarks
  * Built from the existing factories with explicit coordinates: core has no
@@ -20,7 +20,7 @@ import {
  * positions are deterministic and represent no real city, so no invented data
  * is ever presented as coming from the game.
  */
-export type TransitFixtureId = 'simple' | 'dense' | 'transfer';
+export type TransitFixtureId = 'simple' | 'dense' | 'transfer' | 'crossing';
 
 const node = (id: string, x: number, z: number): RoadNode => ({
   id,
@@ -209,7 +209,66 @@ export function transferTransitCity(): CityData {
   });
 }
 
-/** The three fixtures, in the order the report lists them. */
+/**
+ * Crossing network: two corridors that genuinely intersect in the plane without
+ * sharing a node, plus a third line doubling one of them.
+ *
+ * @remarks
+ * The one thing the other three fixtures cannot produce. Their corridors only
+ * ever meet at shared nodes, and a shared endpoint is not a crossing — so the
+ * crossings metric was reported on every run without a single fixture ever
+ * exercising a non-zero value, which is a measurement nobody had checked. Two
+ * diagonals over separate road segments (a flyover, as far as the road graph is
+ * concerned: no junction where they pass) cross exactly once in the geographic
+ * baseline, and what each schematic geometry does with that crossing is the
+ * comparative evidence Story 4.4 reads.
+ */
+export function crossingTransitCity(): CityData {
+  return makeCityData({
+    cityName: 'Fixture Crossing',
+    roadNodes: [
+      node('a0', 0, 0),
+      node('a1', 1200, 1200),
+      node('b0', 0, 1200),
+      node('b1', 1200, 0),
+    ],
+    roadSegments: [
+      makeRoadSegment({ id: 'up', startNodeId: 'a0', endNodeId: 'a1' }),
+      makeRoadSegment({ id: 'down', startNodeId: 'b0', endNodeId: 'b1' }),
+    ],
+    transitLines: [
+      makeTransitLine({
+        id: 'X1',
+        name: 'Rising diagonal',
+        mode: 'Bus',
+        color: '#e6194b',
+        stops: [stop('c0', 0, 0), stop('c1', 1200, 1200)],
+        route: [{ segmentIds: ['up'] }],
+      }),
+      makeTransitLine({
+        id: 'X2',
+        name: 'Falling diagonal',
+        mode: 'Tram',
+        color: '#4363d8',
+        stops: [stop('c2', 0, 1200, 'Tram'), stop('c3', 1200, 0, 'Tram')],
+        route: [{ segmentIds: ['down'] }],
+      }),
+      makeTransitLine({
+        id: 'X3',
+        // Doubles the rising diagonal, so the crossing is between a two-line
+        // corridor and a single-line one — the case where offsets and crossings
+        // interact.
+        name: 'Rising express',
+        mode: 'Bus',
+        color: '#3cb44b',
+        stops: [stop('c0', 0, 0), stop('c1', 1200, 1200)],
+        route: [{ segmentIds: ['up'] }],
+      }),
+    ],
+  });
+}
+
+/** The four fixtures, in the order the report lists them. */
 export const TRANSIT_FIXTURES: readonly {
   readonly id: TransitFixtureId;
   readonly build: () => CityData;
@@ -217,6 +276,7 @@ export const TRANSIT_FIXTURES: readonly {
   { id: 'simple' as const, build: simpleTransitCity },
   { id: 'dense' as const, build: denseTransitCity },
   { id: 'transfer' as const, build: transferTransitCity },
+  { id: 'crossing' as const, build: crossingTransitCity },
 ]);
 
 /**

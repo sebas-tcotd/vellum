@@ -8,17 +8,26 @@
  * geometry, so topology is preserved trivially — which is exactly why it is
  * the yardstick every other strategy is measured with, and the default the
  * shell falls back to.
+ *
+ * Story 4.3b routed it through the same rendering stage as the two grid
+ * strategies. It still invents no *placement*: the corridors it hands over are
+ * the game's own polylines. But the drawing rules — parallel slots, node trims,
+ * inner connections, station capsules — now apply to all three geometries, so
+ * the default view is not the one view that reads differently from the map.
  */
 
 import type { CsPoint } from '../../coordinate-transform';
 import type { TransitNetwork } from '../../types/transit-network';
+import { projectOnPolyline, type Vec2 } from '../geometry-kit';
 import { byString, type SchematicLayout } from './contract';
 import {
+  arcFractionOf,
+  corridorSlots,
   emptySchematicLayout,
   finalizeSchematicLayout,
   toPlane,
-  type RawSchematicSegment,
-  type RawSchematicStation,
+  type RawSchematicCorridor,
+  type RawSchematicStop,
 } from './grid-layout';
 
 const isFinitePoint = (p: CsPoint): boolean =>
@@ -37,35 +46,43 @@ export const geographicSchematicLayout = (
     .filter((e) => e.path.length >= 2)
     .sort((a, b) => byString(a.id, b.id));
 
-  const raw: {
-    lineId: string;
-    color: string;
-    path: CsPoint[];
-  }[] = [];
+  const corridors: RawSchematicCorridor[] = [];
+  const worldPathOf = new Map<string, readonly CsPoint[]>();
+  // The same path in the kit's own vocabulary, built once per corridor. Stop
+  // assignment probes every candidate corridor for every stop, so rebuilding these
+  // arrays inside that loop made the conversion, not the projection, the cost.
+  const probePathOf = new Map<string, Vec2[]>();
   for (const edge of edges) {
+    // Non-finite coordinates would poison the bounds; a corridor needs 2 points.
+    const worldPath = edge.path.filter(isFinitePoint);
+    if (worldPath.length < 2) continue;
     const lineIds = new Set<string>();
     for (const bundleId of edge.bundleIds) {
       for (const lineId of network.bundles.get(bundleId)?.lineIds ?? []) {
-        lineIds.add(lineId);
+        if (network.lines.has(lineId)) lineIds.add(lineId);
       }
     }
-    for (const lineId of [...lineIds].sort(byString)) {
-      const line = network.lines.get(lineId);
-      if (!line) continue;
-      raw.push({
-        lineId,
-        color: line.color,
-        path: edge.path.filter(isFinitePoint),
-      });
-    }
+    if (lineIds.size === 0) continue;
+    worldPathOf.set(edge.id, worldPath);
+    probePathOf.set(
+      edge.id,
+      worldPath.map((p) => [p.x, p.z] as Vec2),
+    );
+    corridors.push({
+      edgeId: edge.id,
+      nodeA: edge.nodeA,
+      nodeB: edge.nodeB,
+      points: worldPath.map(toPlane),
+      slots: corridorSlots(network.lineOrder.get(edge.id), [...lineIds]),
+    });
   }
-  // Non-finite coordinates would poison the bounds; a stroke needs 2 points.
-  const drawable = raw.filter((r) => r.path.length >= 2);
-  if (drawable.length === 0) return emptySchematicLayout();
+  if (corridors.length === 0) return emptySchematicLayout();
 
   // Only stops of lines that actually draw something: no orphan stations,
   // and they never stretch the bounds.
-  const drawnLines = new Set(drawable.map((r) => r.lineId));
+  const drawnLines = new Set(
+    corridors.flatMap((c) => c.slots.map((slot) => slot.lineId)),
+  );
   const stopsById = new Map<
     string,
     { position: CsPoint | null; lineIds: Set<string> }
@@ -93,24 +110,47 @@ export const geographicSchematicLayout = (
     });
   }
   // A stop no entry could place has no symbol to draw.
-  const stations: RawSchematicStation[] = [...stopsById.entries()]
+  const stops: RawSchematicStop[] = [...stopsById.entries()]
     .flatMap(([id, entry]) =>
       entry.position === null
         ? []
         : [{ id, position: entry.position, lineIds: entry.lineIds }],
     )
     .sort((a, b) => byString(a.id, b.id))
-    .map((stop) => ({
-      id: stop.id,
-      point: toPlane(stop.position),
-      lineIds: [...stop.lineIds].sort(byString),
-    }));
+    .map((stop) => {
+      // Same rule as the grid strategies: the corridor is chosen among the ones
+      // the stop's *own* lines ride, so a symbol never lands on a stroke of a
+      // service the data never recorded there.
+      const own = corridors.filter((corridor) =>
+        corridor.slots.some((slot) => stop.lineIds.has(slot.lineId)),
+      );
+      const candidates = own.length > 0 ? own : corridors;
+      let bestEdgeId = candidates[0].edgeId;
+      let bestDistance = Infinity;
+      const probe: Vec2 = [stop.position.x, stop.position.z];
+      for (const corridor of candidates) {
+        const hit = projectOnPolyline(
+          probe,
+          probePathOf.get(corridor.edgeId) ?? [],
+        );
+        if (hit !== null && hit.dist < bestDistance) {
+          bestDistance = hit.dist;
+          bestEdgeId = corridor.edgeId;
+        }
+      }
+      return {
+        id: stop.id,
+        edgeId: bestEdgeId,
+        fraction: arcFractionOf(
+          [...(worldPathOf.get(bestEdgeId) ?? [])],
+          stop.position,
+        ),
+        lineIds: [...stop.lineIds].sort(byString),
+      };
+    });
 
-  const segments: RawSchematicSegment[] = drawable.map((r) => ({
-    lineId: r.lineId,
-    color: r.color,
-    points: r.path.map(toPlane),
-  }));
-
-  return finalizeSchematicLayout(segments, stations).layout;
+  return finalizeSchematicLayout(corridors, stops, {
+    transitions: network.transitions,
+    lines: network.lines,
+  }).layout;
 };

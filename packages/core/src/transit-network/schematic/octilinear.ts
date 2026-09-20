@@ -154,10 +154,28 @@ export function isOctilinearConformant(layout: SchematicLayout): boolean {
   return octilinearViolations(layout).length === 0;
 }
 
-/** Every stroke step that breaks the 45° grammar, as `lineId#step` labels. */
+/**
+ * Every step that breaks the 45° grammar, as `label#step`.
+ *
+ * @remarks
+ * Both the corridor centerlines the strategy placed **and** the strokes the
+ * rendering stage drew from them. The stricter of the two claims is the second
+ * one, and octilinear geometry can make it: a parallel offset keeps a step's
+ * direction, and the bevel a sharp join falls back to runs perpendicular to a
+ * step whose direction is a multiple of 45°, which is another multiple of 45°.
+ * The inner connections are exempt, and deliberately so — LOOM §5 has a joint
+ * be an arc so the grid does not have to bend to it.
+ */
 export function octilinearViolations(layout: SchematicLayout): string[] {
   const bad: string[] = [];
-  for (const segment of layout.segments) {
+  const walks: {
+    label: string;
+    points: readonly { x: number; y: number }[];
+  }[] = [
+    ...layout.corridors.map((c) => ({ label: c.edgeId, points: c.points })),
+    ...layout.segments.map((s) => ({ label: s.lineId, points: s.points })),
+  ];
+  for (const segment of walks) {
     for (let i = 1; i < segment.points.length; i++) {
       const dx = segment.points[i].x - segment.points[i - 1].x;
       const dy = segment.points[i].y - segment.points[i - 1].y;
@@ -168,7 +186,7 @@ export function octilinearViolations(layout: SchematicLayout): string[] {
         Math.abs(dx) / reach <= OCTILINEAR_EPSILON ||
         Math.abs(dy) / reach <= OCTILINEAR_EPSILON;
       const diagonal = Math.abs(Math.abs(dx) - Math.abs(dy)) / reach <= 1e-6;
-      if (!axial && !diagonal) bad.push(`${segment.lineId}#${i}`);
+      if (!axial && !diagonal) bad.push(`${segment.label}#${i}`);
     }
   }
   return bad;

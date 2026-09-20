@@ -17,17 +17,32 @@
 
 import { CS1_LAT_SIGN, type CsPoint } from '../../coordinate-transform';
 import type {
+  CorridorTransition,
   LineGraphEdge,
+  LineInfo,
   TransitNetwork,
 } from '../../types/transit-network';
+import { slotOffsetIndex } from '../geometry-kit';
 import { projectOnPath } from '../render-geometry/utils/vector';
 import {
   byString,
   SCHEMATIC_MARGIN,
+  schematicDrawingReach,
   SCHEMATIC_VIEWBOX_SIZE,
+  type SchematicCorridor,
   type SchematicLayout,
   type SchematicPoint,
+  type SchematicSegment,
+  type SchematicSlot,
+  type SchematicStation,
 } from './contract';
+import { turnAngle } from './offset';
+import {
+  renderSchematic,
+  type NodeExtent,
+  type PlacedCorridor,
+  type PlacedStop,
+} from './render';
 
 // ─── Plane space ─────────────────────────────────────────────────────────────
 
@@ -96,13 +111,58 @@ export type GridFactory = (seeds: readonly SchematicPoint[]) => GridBase;
  * than parameters: a layout has to be reproducible from the network alone.
  */
 export const GRID_ROUTER = {
-  /** Paid once per change of direction: straight corridors read better. */
-  turnPenalty: 0.9,
+  /**
+   * Bend cost by the *included* angle of the two steps, named the way `octi`
+   * §2.1–2.2 names it: 180° is a straight continuation, 90° a right-angle
+   * elbow, 0° a full reversal.
+   *
+   * @remarks
+   * `octi` requires `c180 ≤ c135 ≤ c90 ≤ c45`, and requires it for a concrete
+   * reason: with a *flat* penalty — one price for any change of direction — two
+   * cheap 45° bends can cost less than the single straight step they replace, so
+   * the router prefers a staircase to a straight run. That is exactly what the
+   * diagonals of the previous grid produced. Ordered costs make a straight step
+   * free and every detour strictly dearer, so a straight corridor can never be
+   * undercut. `./grid-layout.test.ts` asserts the ordering rather than trusting
+   * these literals.
+   */
+  turnCost: {
+    /** Included 180°: dead straight. Free, and it has to be. */
+    straight: 0,
+    /** Included 135°: a 45° bend, the octilinear diagram's own idiom. */
+    bend45: 0.6,
+    /** Included 90°: a right-angle elbow. */
+    bend90: 1.6,
+    /** Included 45°: a hairpin-ish 135° bend. */
+    bend135: 4,
+    /** Included 0°: doubling back on itself. Never what a reader wants. */
+    reverse: 12,
+  },
   /** Paid for reusing a cell another corridor already occupies. */
   occupancyPenalty: 2.5,
   /** Hard cap on A* expansions per edge before the fallback takes over. */
   searchBudget: 60000,
 } as const;
+
+/**
+ * The graded bend cost of turning by `deviation` radians away from straight
+ * ahead, as a multiple of the step's own length.
+ *
+ * @remarks
+ * Snapped to the nearest 45° bucket rather than interpolated: both grids step in
+ * multiples of 45° (the orthoradial one approximately, since its arc steps
+ * subtend a ring-dependent angle), and a continuous cost would make the
+ * ordering the papers specify depend on floating-point noise.
+ */
+export function bendCost(deviation: number): number {
+  const degrees = (Math.abs(deviation) * 180) / Math.PI;
+  const { turnCost } = GRID_ROUTER;
+  if (degrees <= 22.5) return turnCost.straight;
+  if (degrees <= 67.5) return turnCost.bend45;
+  if (degrees <= 112.5) return turnCost.bend90;
+  if (degrees <= 157.5) return turnCost.bend135;
+  return turnCost.reverse;
+}
 
 // ─── A* over a grid ──────────────────────────────────────────────────────────
 
@@ -181,6 +241,18 @@ export function routeOnGrid(
   const stateOf = (cell: number, dir: number): number => cell * dirSlots + dir;
   const best = new Map<number, number>();
   const cameFrom = new Map<number, number>();
+  // The cell each state was *entered from* when its best-known cost was recorded.
+  //
+  // The bend cost is an angle, so it has to be read off real positions rather than
+  // off the direction *index*, which only ever supports "same or different" — the
+  // flat penalty this replaces. Reading the predecessor back out of `cameFrom` at
+  // pop time was wrong: `cameFrom` is overwritten every time a cheaper `g` turns
+  // up, so a state could be priced against a predecessor that no longer belongs to
+  // its best path. Storing the entry cell alongside the cost keeps the two in step
+  // by construction. A closed set then guarantees each state is expanded once,
+  // which is what makes the pairing final rather than merely current.
+  const enteredFrom = new Map<number, number>();
+  const closed = new Set<number>();
   const open = new Heap();
   const startState = stateOf(from, 0);
   best.set(startState, 0);
@@ -190,10 +262,14 @@ export function routeOnGrid(
   while (open.size > 0) {
     if (++expansions > GRID_ROUTER.searchBudget) return null;
     const state = open.pop();
+    if (closed.has(state)) continue;
+    closed.add(state);
     const cell = Math.floor(state / dirSlots);
-    const dir = (state % dirSlots) - 1;
     const g = best.get(state);
     if (g === undefined) continue;
+    const entryCell = enteredFrom.get(state);
+    const previousPoint =
+      entryCell === undefined ? null : grid.point(entryCell);
     if (cell === to) {
       const path: number[] = [];
       let cursor: number | undefined = state;
@@ -219,18 +295,23 @@ export function routeOnGrid(
       }
       if (step.cell !== to && blocked.has(step.cell)) continue;
       let cost = step.cost;
-      if (dir >= 0 && step.dir !== dir) {
-        cost += GRID_ROUTER.turnPenalty * step.cost;
+      if (previousPoint !== null) {
+        cost +=
+          bendCost(
+            turnAngle(previousPoint, grid.point(cell), grid.point(step.cell)),
+          ) * step.cost;
       }
       if (occupied.has(step.cell)) {
         cost += GRID_ROUTER.occupancyPenalty * step.cost;
       }
       const next = stateOf(step.cell, step.dir + 1);
+      if (closed.has(next)) continue;
       const tentative = g + cost;
       const known = best.get(next);
       if (known !== undefined && known <= tentative) continue;
       best.set(next, tentative);
       cameFrom.set(next, state);
+      enteredFrom.set(next, cell);
       open.push(tentative + dist(grid.point(step.cell), target), next);
     }
   }
@@ -281,6 +362,13 @@ export interface SchematicLayoutDiagnostics {
   readonly relocatedNodes: number;
   /** Edges that produced at least one stroke. */
   readonly routedEdges: number;
+  /**
+   * Stops pulled out of a node's free area onto the drawn stroke — see
+   * {@link SchematicRenderOutput.stationsClampedToNodeArea}. Recorded for every
+   * layout the finaliser produced, the geographic one included: it is a fact about
+   * the drawing, not about the routing.
+   */
+  readonly stationsClampedToNodeArea: number;
   /** Maps a pre-normalisation plane point into the layout's final viewBox. */
   readonly project: (p: SchematicPoint) => SchematicPoint;
 }
@@ -296,18 +384,36 @@ export function schematicLayoutDiagnostics(
 
 // ─── Finalisation ────────────────────────────────────────────────────────────
 
-/** A stroke before normalisation: plane coordinates, already ordered. */
-export interface RawSchematicSegment {
-  readonly lineId: string;
-  readonly color: string;
+/**
+ * A corridor a strategy placed, in plane coordinates, before normalisation.
+ *
+ * @remarks
+ * This — not a list of strokes — is what a strategy now hands over. A stroke per
+ * `(corridor, line)` sharing one polyline cannot be offset afterwards, because
+ * the offset needs the corridor's slot count and order; see `./contract.ts`.
+ */
+export interface RawSchematicCorridor {
+  readonly edgeId: string;
+  readonly nodeA: string;
+  readonly nodeB: string;
+  /** Centerline in plane coordinates, oriented nodeA → nodeB. */
   readonly points: readonly SchematicPoint[];
+  readonly slots: readonly SchematicSlot[];
 }
 
-/** A station before normalisation. */
-export interface RawSchematicStation {
+/** A stop a strategy placed on a corridor, before normalisation. */
+export interface RawSchematicStop {
   readonly id: string;
-  readonly point: SchematicPoint;
+  readonly edgeId: string;
+  /** Arc fraction along that corridor's centerline. */
+  readonly fraction: number;
   readonly lineIds: readonly string[];
+}
+
+/** The network facts the rendering stage needs, gathered once per layout. */
+export interface SchematicRenderContext {
+  readonly transitions: readonly CorridorTransition[];
+  readonly lines: ReadonlyMap<string, LineInfo>;
 }
 
 /** The empty layout: what every strategy returns when there is nothing to draw. */
@@ -317,26 +423,83 @@ export function emptySchematicLayout(): SchematicLayout {
       width: SCHEMATIC_VIEWBOX_SIZE,
       height: SCHEMATIC_VIEWBOX_SIZE,
     }),
+    corridors: Object.freeze([]),
     segments: Object.freeze([]),
+    connectors: Object.freeze([]),
     stations: Object.freeze([]),
   });
 }
 
 /**
- * Normalises plane geometry into the fixed square viewBox, preserving aspect
- * ratio, and deep-freezes the result.
+ * The slots of one corridor: the MLNCM-S line order, expressed as the canonical
+ * signed offset indices of ADR-0004.
  *
  * @remarks
- * Extracted verbatim from `geographicSchematicLayout`, which still produces
- * byte-identical output through it. The scale is a single uniform factor, so
- * every angle a strategy drew survives normalisation — that is what lets an
- * octilinear grammar be asserted on the *final* coordinates.
+ * The order comes from `network.lineOrder`, which is what Story 3.2 already
+ * optimised for the map — the diagram must not invent a second one, or the same
+ * bundle would read left-to-right differently in the two views. Lines the
+ * ordering does not mention (it is keyed by corridor, and a corridor can carry a
+ * line the ordering never scored) are appended in id order so every drawn line
+ * still gets a slot instead of silently collapsing onto index 0.
+ */
+export function corridorSlots(
+  lineOrder: readonly string[] | undefined,
+  drawableLineIds: readonly string[],
+): SchematicSlot[] {
+  const drawable = new Set(drawableLineIds);
+  const ordered = (lineOrder ?? []).filter((lineId) => drawable.has(lineId));
+  const seen = new Set(ordered);
+  for (const lineId of [...drawableLineIds].sort(byString)) {
+    if (!seen.has(lineId)) ordered.push(lineId);
+  }
+  return ordered.map((lineId, position) => ({
+    lineId,
+    offsetIndex: slotOffsetIndex(position, ordered.length),
+  }));
+}
+
+/** Degree and widest incident bundle per node, over the corridors actually drawn. */
+function nodeExtents(
+  corridors: readonly RawSchematicCorridor[],
+): Map<string, NodeExtent> {
+  const extents = new Map<string, { degree: number; maxSlotCount: number }>();
+  const touch = (nodeId: string, slotCount: number): void => {
+    const current = extents.get(nodeId);
+    if (current === undefined) {
+      extents.set(nodeId, { degree: 1, maxSlotCount: slotCount });
+      return;
+    }
+    current.degree++;
+    current.maxSlotCount = Math.max(current.maxSlotCount, slotCount);
+  };
+  for (const corridor of corridors) {
+    touch(corridor.nodeA, corridor.slots.length);
+    // A ring touches its node once, exactly as `LineGraphNode.edgeIds` records it.
+    if (corridor.nodeB !== corridor.nodeA) {
+      touch(corridor.nodeB, corridor.slots.length);
+    }
+  }
+  return extents;
+}
+
+/**
+ * Normalises placed corridors into the fixed square viewBox, runs the shared
+ * rendering stage over them, and deep-freezes the result.
+ *
+ * @remarks
+ * Normalisation comes **first** and drawing second, and the order is the whole
+ * point. The scale is a single uniform factor, so every angle a strategy drew
+ * survives it — which is what lets an octilinear grammar be asserted on the
+ * final coordinates. The offsets, trims and capsules are then applied in viewBox
+ * units, so they are the same size in every city instead of shrinking with the
+ * network.
  *
  * @returns The frozen layout, plus the projection it used (for diagnostics).
  */
 export function finalizeSchematicLayout(
-  segments: readonly RawSchematicSegment[],
-  stations: readonly RawSchematicStation[],
+  corridors: readonly RawSchematicCorridor[],
+  stops: readonly RawSchematicStop[],
+  context: SchematicRenderContext,
 ): {
   layout: SchematicLayout;
   project: (p: SchematicPoint) => SchematicPoint;
@@ -351,8 +514,7 @@ export function finalizeSchematicLayout(
     if (p.y < minY) minY = p.y;
     if (p.y > maxY) maxY = p.y;
   };
-  for (const s of segments) s.points.forEach(extend);
-  for (const s of stations) extend(s.point);
+  for (const corridor of corridors) corridor.points.forEach(extend);
   // Nothing to bound: `minX` is still Infinity, and every projected coordinate
   // would come out NaN. An exported function has to survive being called with
   // nothing, and the empty layout is what "nothing to draw" already means.
@@ -361,46 +523,110 @@ export function finalizeSchematicLayout(
     return { layout, project: (p) => Object.freeze({ x: p.x, y: p.y }) };
   }
 
-  const inner = SCHEMATIC_VIEWBOX_SIZE - 2 * SCHEMATIC_MARGIN;
+  // The margin has to cover what the *drawing* stage will add outside the
+  // centerlines, not just look tidy: the outermost slot of the widest bundle and
+  // the reach of a station symbol are applied after this projection, in viewBox
+  // units, so a fixed margin lets a loaded corridor on the edge of the network
+  // draw its outer lines past the viewBox — where the SVG clips them without any
+  // number in the layout ever leaving `bounds`.
+  const maxSlotCount = corridors.reduce(
+    (widest, corridor) => Math.max(widest, corridor.slots.length),
+    0,
+  );
+  const margin = SCHEMATIC_MARGIN + schematicDrawingReach(maxSlotCount);
+  const inner = Math.max(1, SCHEMATIC_VIEWBOX_SIZE - 2 * margin);
   const spanX = maxX - minX;
   const spanY = maxY - minY;
   const span = Math.max(spanX, spanY);
   const scale = span > 0 ? inner / span : 1;
   // Centre the network inside the square viewBox.
-  const offX = SCHEMATIC_MARGIN + (inner - spanX * scale) / 2;
-  const offY = SCHEMATIC_MARGIN + (inner - spanY * scale) / 2;
+  const offX = margin + (inner - spanX * scale) / 2;
+  const offY = margin + (inner - spanY * scale) / 2;
   const project = (p: SchematicPoint): SchematicPoint =>
     Object.freeze({
       x: offX + (p.x - minX) * scale,
       y: offY + (p.y - minY) * scale,
     });
 
+  const placed: PlacedCorridor[] = corridors.map((corridor) => ({
+    edgeId: corridor.edgeId,
+    nodeA: corridor.nodeA,
+    nodeB: corridor.nodeB,
+    points: corridor.points.map(project),
+    slots: corridor.slots,
+  }));
+  const placedStops: PlacedStop[] = stops.map((stop) => ({
+    id: stop.id,
+    edgeId: stop.edgeId,
+    fraction: stop.fraction,
+    lineIds: stop.lineIds,
+  }));
+
+  const drawn = renderSchematic({
+    corridors: placed,
+    stops: placedStops,
+    transitions: context.transitions,
+    lines: context.lines,
+    nodes: nodeExtents(corridors),
+  });
+
   const layout = Object.freeze({
     bounds: Object.freeze({
       width: SCHEMATIC_VIEWBOX_SIZE,
       height: SCHEMATIC_VIEWBOX_SIZE,
     }),
-    segments: Object.freeze(
-      segments.map((s) =>
-        Object.freeze({
-          lineId: s.lineId,
-          color: s.color,
-          points: Object.freeze(s.points.map(project)),
-        }),
-      ),
-    ),
-    stations: Object.freeze(
-      stations.map((s) =>
-        Object.freeze({
-          id: s.id,
-          ...project(s.point),
-          lineIds: Object.freeze([...s.lineIds]),
-        }),
-      ),
-    ),
+    corridors: Object.freeze(drawn.corridors.map(freezeCorridor)),
+    segments: Object.freeze(drawn.segments.map(freezeSegment)),
+    connectors: Object.freeze(drawn.connectors.map(freezeSegment)),
+    stations: Object.freeze(drawn.stations.map(freezeStation)),
+  });
+  // Facts about the drawing, recorded for every layout the finaliser produced —
+  // the geographic one too. A grid strategy overwrites this with its own routing
+  // facts on the way out.
+  diagnostics.set(layout, {
+    fallbackRoutes: 0,
+    relocatedNodes: 0,
+    routedEdges: corridors.length,
+    stationsClampedToNodeArea: drawn.stationsClampedToNodeArea,
+    project,
   });
   return { layout, project };
 }
+
+const freezePoints = (
+  points: readonly SchematicPoint[],
+): readonly SchematicPoint[] =>
+  Object.freeze(points.map((p) => Object.freeze({ x: p.x, y: p.y })));
+
+const freezeSegment = (segment: SchematicSegment): SchematicSegment =>
+  Object.freeze({
+    lineId: segment.lineId,
+    color: segment.color,
+    edgeId: segment.edgeId,
+    points: freezePoints(segment.points),
+  });
+
+const freezeCorridor = (corridor: SchematicCorridor): SchematicCorridor =>
+  Object.freeze({
+    edgeId: corridor.edgeId,
+    points: freezePoints(corridor.points),
+    slots: Object.freeze(
+      corridor.slots.map((slot) =>
+        Object.freeze({ lineId: slot.lineId, offsetIndex: slot.offsetIndex }),
+      ),
+    ),
+  });
+
+const freezeStation = (station: SchematicStation): SchematicStation =>
+  Object.freeze({
+    id: station.id,
+    x: station.x,
+    y: station.y,
+    edgeId: station.edgeId,
+    lineIds: Object.freeze([...station.lineIds]),
+    shape: freezePoints(station.shape),
+    confirmedTransfer: station.confirmedTransfer,
+  });
 
 // ─── The shared planner ──────────────────────────────────────────────────────
 
@@ -452,29 +678,15 @@ function arcTable(points: readonly SchematicPoint[]): {
   return { cum, total: cum[cum.length - 1] };
 }
 
-/** The point at a given arc fraction of a polyline. */
-function pointAtFraction(
-  points: readonly SchematicPoint[],
-  fraction: number,
-): SchematicPoint {
-  const { cum, total } = arcTable(points);
-  if (total <= 0) return points[0];
-  const want = Math.min(total, Math.max(0, fraction * total));
-  for (let i = 1; i < points.length; i++) {
-    if (cum[i] >= want) {
-      const span = cum[i] - cum[i - 1];
-      const t = span > 0 ? (want - cum[i - 1]) / span : 0;
-      return {
-        x: points[i - 1].x + (points[i].x - points[i - 1].x) * t,
-        y: points[i - 1].y + (points[i].y - points[i - 1].y) * t,
-      };
-    }
-  }
-  return points[points.length - 1];
-}
-
-/** Arc fraction of a point known to lie on `path` (world space). */
-function arcFractionOf(path: readonly CsPoint[], point: CsPoint): number {
+/**
+ * Arc fraction of the point of `path` closest to `point`, measured in plane
+ * space (world space in, fraction out). Shared with the geographic strategy so
+ * both place a stop by the same rule.
+ */
+export function arcFractionOf(
+  path: readonly CsPoint[],
+  point: CsPoint,
+): number {
   const plane = path.map(toPlane);
   const { cum, total } = arcTable(plane);
   if (total <= 0) return 0;
@@ -640,22 +852,26 @@ export function gridSchematicLayout(
     );
   }
 
-  // ── Strokes, in the geographic strategy's own order: edge id, then line id.
-  const segments: RawSchematicSegment[] = [];
-  for (const d of drawable) {
-    const points = routeByEdgeId.get(d.edge.id) as SchematicPoint[];
-    for (const lineId of d.lineIds) {
-      const line = network.lines.get(lineId);
-      if (!line) continue;
-      segments.push({ lineId, color: line.color, points });
-    }
+  // ── Corridors with slots, in the canonical order: edge id. The slots come
+  // from the network's own `lineOrder`, so the diagram lays a bundle out
+  // left-to-right exactly as the map does.
+  const corridors: RawSchematicCorridor[] = drawable.map((d) => ({
+    edgeId: d.edge.id,
+    nodeA: d.edge.nodeA,
+    nodeB: d.edge.nodeB,
+    points: routeByEdgeId.get(d.edge.id) as SchematicPoint[],
+    slots: corridorSlots(network.lineOrder.get(d.edge.id), d.lineIds),
+  }));
+  if (corridors.every((c) => c.slots.length === 0)) {
+    return emptySchematicLayout();
   }
-  if (segments.length === 0) return emptySchematicLayout();
 
   // ── Stops. Deduplicated by `stopId` exactly as the geographic strategy does:
   // the first usable position wins, but membership accumulates, so a station
   // shared by several lines survives any one of them being hidden.
-  const drawnLines = new Set(segments.map((s) => s.lineId));
+  const drawnLines = new Set(
+    corridors.flatMap((c) => c.slots.map((slot) => slot.lineId)),
+  );
   const stopsById = new Map<
     string,
     { position: CsPoint | null; lineIds: Set<string> }
@@ -676,7 +892,7 @@ export function gridSchematicLayout(
     });
   }
 
-  const stations: RawSchematicStation[] = [...stopsById.entries()]
+  const stops: RawSchematicStop[] = [...stopsById.entries()]
     .flatMap(([id, entry]) =>
       entry.position === null
         ? []
@@ -708,21 +924,25 @@ export function gridSchematicLayout(
         }
       }
       const edge = bestEdge ?? candidates[0];
-      const route = routeByEdgeId.get(edge.edge.id) as SchematicPoint[];
-      const fraction =
-        bestEdge === null ? 0 : arcFractionOf(edge.worldPath, stop.position);
       return {
         id: stop.id,
-        point: pointAtFraction(route, fraction),
+        edgeId: edge.edge.id,
+        fraction:
+          bestEdge === null ? 0 : arcFractionOf(edge.worldPath, stop.position),
         lineIds: [...stop.lineIds].sort(byString),
       };
     });
 
-  const { layout, project } = finalizeSchematicLayout(segments, stations);
+  const { layout, project } = finalizeSchematicLayout(corridors, stops, {
+    transitions: network.transitions,
+    lines: network.lines,
+  });
   diagnostics.set(layout, {
     fallbackRoutes,
     relocatedNodes,
     routedEdges: drawable.length,
+    stationsClampedToNodeArea:
+      schematicLayoutDiagnostics(layout)?.stationsClampedToNodeArea ?? 0,
     project,
   });
   return layout;

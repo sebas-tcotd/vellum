@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { makeCityData, makeRoadSegment, makeTransitLine } from '../../testing';
+import {
+  makeCityData,
+  transitFixture,
+  makeRoadSegment,
+  makeTransitLine,
+} from '../../testing';
 import type { CityData, RoadNode, TransitStop } from '../../types/city-data';
 import { deriveTransitNetwork } from '../index';
 import {
@@ -209,6 +214,26 @@ describe('SchematicStation.lineIds', () => {
 describe('filterSchematicLayout', () => {
   const base = (): ReturnType<typeof geographicSchematicLayout> =>
     geographicSchematicLayout(deriveTransitNetwork(city()));
+
+  // Los conectores también se filtran, y sin esto nadie lo miraba: sustituir el
+  // filtro por `layout.connectors` dejaba los cinco tests pasando, porque
+  // `isSchematicLayoutEmpty` sólo mira segmentos. El síntoma sería un arco del
+  // color de una línea oculta sobre un nudo cuyos trazos ya no están.
+  it('drops the joints of the lines it hides', () => {
+    const full = geographicSchematicLayout(
+      deriveTransitNetwork(transitFixture('dense')),
+    );
+    const lineIds = new Set(full.connectors.map((c) => c.lineId));
+    expect(lineIds.size).toBeGreaterThan(1);
+    const visible = full.connectors[0].lineId;
+
+    const filtered = filterSchematicLayout(full, [visible]);
+    expect(filtered.connectors.length).toBeGreaterThan(0);
+    expect(filtered.connectors.every((c) => c.lineId === visible)).toBe(true);
+    expect(filtered.connectors.length).toBeLessThan(full.connectors.length);
+
+    expect(filterSchematicLayout(full, []).connectors).toEqual([]);
+  });
 
   it('keeps bounds and coordinates identical, recomputing nothing', () => {
     const full = base();

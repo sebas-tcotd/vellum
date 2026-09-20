@@ -257,8 +257,14 @@ describe('AppSurface — a layout id draws the geometry it names', () => {
     });
   });
 
+  // Scoped to the stroke group: since Story 4.3b the diagram also draws one
+  // polyline per inner connection, and those are not `segments`.
   const drawnPoints = (): string[] =>
-    [...screen.getByTestId('schematic-diagram').querySelectorAll('polyline')]
+    [
+      ...screen
+        .getByTestId('schematic-diagram')
+        .querySelectorAll('.schematic-view__segments polyline'),
+    ]
       .map((node) => node.getAttribute('points') ?? '')
       .sort();
 

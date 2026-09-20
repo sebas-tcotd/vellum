@@ -110,7 +110,9 @@ function emptyModeSet(): ReadonlySet<TransitMode> {
 
 const EMPTY_LAYOUT: SchematicLayout = Object.freeze({
   bounds: Object.freeze({ width: 0, height: 0 }),
+  corridors: Object.freeze([]),
   segments: Object.freeze([]),
+  connectors: Object.freeze([]),
   stations: Object.freeze([]),
 });
 

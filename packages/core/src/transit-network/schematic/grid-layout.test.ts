@@ -9,13 +9,15 @@ import type { CityData, RoadNode, TransitStop } from '../../types/city-data';
 import { deriveTransitNetwork } from '../index';
 import { geographicSchematicLayout } from './geographic';
 import {
+  bendCost,
   finalizeSchematicLayout,
+  GRID_ROUTER,
   gridSchematicLayout,
   routeOnGrid,
   schematicLayoutDiagnostics,
   type GridBase,
 } from './grid-layout';
-import { SCHEMATIC_VIEWBOX_SIZE } from './contract';
+import { SCHEMATIC_VIEWBOX_SIZE, type SchematicLayout } from './contract';
 import {
   evaluateSchematicGates,
   measureSchematicLayout,
@@ -83,10 +85,23 @@ describe('grid layout machinery', () => {
   });
 
   it('records no diagnostics for a layout it did not produce', () => {
+    // Since 4.3b every strategy — the geographic one included — goes through the
+    // same placement and drawing pipeline, so all three carry diagnostics. What
+    // must still answer `null` is a layout this module never placed: the
+    // diagnostics hang off the object identity, so an outside layout (or a
+    // projection of one) can never be handed invented routing numbers.
     const network = deriveTransitNetwork(transitFixture('simple'));
-    expect(schematicLayoutDiagnostics(geographicSchematicLayout(network))).toBe(
-      null,
-    );
+    const produced = geographicSchematicLayout(network);
+    expect(schematicLayoutDiagnostics(produced)).not.toBe(null);
+
+    const handMade: SchematicLayout = {
+      bounds: produced.bounds,
+      corridors: produced.corridors,
+      segments: produced.segments,
+      connectors: produced.connectors,
+      stations: produced.stations,
+    };
+    expect(schematicLayoutDiagnostics(handMade)).toBe(null);
   });
 });
 
@@ -203,8 +218,13 @@ describe('guards', () => {
     // Exported, so it can be called with nothing. Without the guard `minX` stays
     // Infinity and every projected coordinate comes out NaN — a layout of NaNs
     // renders as an invisible diagram with no error anywhere.
-    const { layout, project } = finalizeSchematicLayout([], []);
+    const { layout, project } = finalizeSchematicLayout([], [], {
+      transitions: [],
+      lines: new Map(),
+    });
+    expect(layout.corridors).toEqual([]);
     expect(layout.segments).toEqual([]);
+    expect(layout.connectors).toEqual([]);
     expect(layout.stations).toEqual([]);
     expect(layout.bounds.width).toBe(SCHEMATIC_VIEWBOX_SIZE);
     const p = project({ x: 3, y: 4 });
@@ -252,5 +272,63 @@ describe('guards', () => {
     expect(() => routeOnGrid(badDir, from, to, new Set(), new Set())).toThrow(
       /SCHEMATIC_GRID_BAD_DIRECTION/,
     );
+  });
+});
+
+describe('graded bend cost', () => {
+  it('orders the costs the way `octi` §2.1–2.2 requires', () => {
+    // `c180 ≤ c135 ≤ c90 ≤ c45`, stated on the constants themselves. Reordering
+    // two of them — the change that reintroduces the staircase — fails here
+    // before any geometry is drawn.
+    const { turnCost } = GRID_ROUTER;
+    expect(turnCost.straight).toBe(0);
+    expect(turnCost.straight).toBeLessThanOrEqual(turnCost.bend45);
+    expect(turnCost.bend45).toBeLessThanOrEqual(turnCost.bend90);
+    expect(turnCost.bend90).toBeLessThanOrEqual(turnCost.bend135);
+    expect(turnCost.bend135).toBeLessThanOrEqual(turnCost.reverse);
+  });
+
+  it.each([
+    [0, GRID_ROUTER.turnCost.straight],
+    [45, GRID_ROUTER.turnCost.bend45],
+    [90, GRID_ROUTER.turnCost.bend90],
+    [135, GRID_ROUTER.turnCost.bend135],
+    [180, GRID_ROUTER.turnCost.reverse],
+  ])('prices a %s° deviation by its own bucket', (degrees, expected) => {
+    expect(bendCost((degrees * Math.PI) / 180)).toBe(expected);
+    expect(bendCost((-degrees * Math.PI) / 180)).toBe(expected);
+  });
+
+  /**
+   * The defect the flat penalty caused, stated as geometry.
+   *
+   * @remarks
+   * Two nodes on an exact diagonal of the grid. A single straight diagonal run
+   * and a staircase of alternating E/SE steps cover the same ground; with one
+   * flat price per change of direction, the staircase's extra bends were cheap
+   * enough that A* would take it, and the diagram grew the visible sawtooth. With
+   * graded costs a straight step is free and every bend is not, so the straight
+   * run cannot be undercut.
+   */
+  it('does not replace a straight diagonal run with an equivalent staircase', () => {
+    const grid = createOctilinearGrid([
+      { x: 0, y: 0 },
+      { x: 1000, y: 1000 },
+    ]);
+    const from = grid.snap({ x: 0, y: 0 });
+    const to = grid.snap({ x: 1000, y: 1000 });
+    const route = routeOnGrid(grid, from, to, new Set(), new Set());
+    expect(route).not.toBeNull();
+    const cells = route as number[];
+    // Every step has the same heading: the route never turns at all.
+    const headings = new Set<string>();
+    for (let i = 1; i < cells.length; i++) {
+      const a = grid.point(cells[i - 1]);
+      const b = grid.point(cells[i]);
+      headings.add(
+        `${Math.sign(Math.round(b.x - a.x))}:${Math.sign(Math.round(b.y - a.y))}`,
+      );
+    }
+    expect([...headings]).toHaveLength(1);
   });
 });

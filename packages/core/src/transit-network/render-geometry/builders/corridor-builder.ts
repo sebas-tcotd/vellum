@@ -5,6 +5,7 @@
  * static distance derived from the widest incident bundle.
  */
 
+import { slotOffsetIndex } from '../../geometry-kit';
 import { MAX_TRIM_FRACTION, NODE_PAD_M, SLOT_M } from '../config';
 import type { CorridorGeometry, RenderGeometryNetwork } from '../types';
 import { cutEnd, cutStart, pathLength } from '../utils/path';
@@ -68,7 +69,9 @@ function trimDistanceAt(
   return NODE_PAD_M + maxWidth / 2;
 }
 
-/** Canonical offset formula shared by live rendering, export and geometry. */
-export function slotOffsetIndex(position: number, slotCount: number): number {
-  return position - (slotCount - 1) / 2;
-}
+/**
+ * The canonical offset formula (ADR-0004), re-exported from the shared
+ * `../../geometry-kit` so the schematic view can apply the very same one in
+ * viewBox units instead of restating it.
+ */
+export { slotOffsetIndex };

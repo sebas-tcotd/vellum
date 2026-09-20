@@ -487,18 +487,24 @@
   height: 100%;
 }
 
-.schematic-view__segments polyline {
+/* No `stroke-width` and no `vector-effect` here on purpose (Story 4.3b). The
+   layout offsets each line of a corridor into its own slot, measured in viewBox
+   units, so the width has to be in the same units or the parallel lines will not
+   fill their slots — `non-scaling-stroke` made it screen pixels, which agree with
+   a viewBox offset at exactly one window size. `SchematicView` sets the width
+   from the layout's own constant instead. */
+.schematic-view__segments polyline,
+.schematic-view__connectors polyline {
   fill: none;
-  stroke-width: 4;
   stroke-linecap: round;
   stroke-linejoin: round;
-  vector-effect: non-scaling-stroke;
 }
 
 /* Hovering a legend row answers "which one is that?" by holding the rest
    back, rather than by recolouring the line being asked about. */
 .schematic-view__segments polyline,
-.schematic-view__stations circle {
+.schematic-view__connectors polyline,
+.schematic-view__stations polygon {
   transition: opacity 120ms ease;
 }
 
@@ -506,11 +512,16 @@
   opacity: 0.18;
 }
 
-.schematic-view__stations circle {
-  fill: var(--color-bg);
-  stroke: var(--color-text);
-  stroke-width: 1.5;
-  vector-effect: non-scaling-stroke;
+/* Fixed black on white in both themes, not theme tokens. This is LOOM's station
+   convention (paper §5.4 / Fig. 10) and the geographic map's marker layer already
+   hard-codes the same two values with the same rationale: the identical datum
+   cannot be drawn one way on the map and another in the diagram. The previous
+   circle inverted with the theme, which made a station read as a hole in dark
+   mode. Stroke width is in viewBox units for the same reason as the lines. */
+.schematic-view__stations polygon {
+  fill: #ffffff;
+  stroke: #111111;
+  stroke-width: 1.2;
 }
 
 .schematic-view__empty {

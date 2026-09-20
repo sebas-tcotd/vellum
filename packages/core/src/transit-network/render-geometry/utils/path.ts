@@ -1,20 +1,28 @@
 /** Pure polyline measurement and trimming helpers (world space). */
 
 import type { CsPoint } from '../../../coordinate-transform';
-import { norm, sub, add, scale, unit } from './vector';
+import {
+  cubicBezier as cubicBezierVec2,
+  cutEnd as cutEndVec2,
+  cutStart as cutStartVec2,
+  polylineLength,
+  type Vec2,
+} from '../../geometry-kit';
+import { sub, unit } from './vector';
 
-/** Total length of a polyline, in world meters. */
+const toVec = (p: CsPoint): Vec2 => [p.x, p.z];
+const toCs = (v: Vec2): CsPoint => ({ x: v[0], z: v[1] });
+
+/**
+ * Total length of a polyline, in world meters.
+ *
+ * @remarks
+ * Measurement and trimming are frame-agnostic, so they live once in
+ * `../../geometry-kit` and the schematic view reuses them in viewBox units
+ * (Story 4.3b). These wrappers only change the vocabulary.
+ */
 export function pathLength(path: readonly Readonly<CsPoint>[]): number {
-  if (path.length < 2) return 0;
-
-  let totalLength = 0;
-
-  for (let i = 1; i < path.length; i++) {
-    const segmentVector = sub(path[i], path[i - 1]);
-    totalLength += norm(segmentVector);
-  }
-
-  return totalLength;
+  return polylineLength(path.map(toVec));
 }
 
 /** Cuts `dist` world meters off the start of `path`. */
@@ -22,27 +30,7 @@ export function cutStart(
   path: readonly Readonly<CsPoint>[],
   distance: number,
 ): CsPoint[] {
-  if (distance <= 0) return [...path];
-  if (path.length < 2) return [...path];
-
-  let remainingDistance = distance;
-
-  for (let i = 1; i < path.length; i++) {
-    const startPoint = path[i - 1];
-    const endPoint = path[i];
-    const segmentVector = sub(endPoint, startPoint);
-    const segmentLength = norm(segmentVector);
-
-    if (segmentLength > remainingDistance) {
-      const t = remainingDistance / segmentLength;
-      const cutPoint = add(startPoint, scale(segmentVector, t));
-
-      return [cutPoint, ...path.slice(i)];
-    }
-
-    remainingDistance -= segmentLength;
-  }
-  return [path[path.length - 1]];
+  return cutStartVec2(path.map(toVec), distance).map(toCs);
 }
 
 /** Cuts `dist` world meters off the end of `path`. */
@@ -50,7 +38,7 @@ export function cutEnd(
   path: readonly Readonly<CsPoint>[],
   dist: number,
 ): CsPoint[] {
-  return [...cutStart([...path].reverse(), dist)].reverse();
+  return cutEndVec2(path.map(toVec), dist).map(toCs);
 }
 
 /** Travel direction (A→B) of the path at its start or end. */
@@ -71,29 +59,11 @@ export function cubicBezier(
   p3: CsPoint,
   samples: number,
 ): CsPoint[] {
-  const points: CsPoint[] = [];
-
-  for (let i = 0; i <= samples; i++) {
-    const t = i / samples;
-    const u = 1 - t;
-
-    const x = calculateCubicBezierCoordinate(p0.x, p1.x, p2.x, p3.x, t, u);
-    const z = calculateCubicBezierCoordinate(p0.z, p1.z, p2.z, p3.z, t, u);
-
-    points.push({ x, z });
-  }
-
-  return points;
-}
-
-function calculateCubicBezierCoordinate(
-  a: number,
-  b: number,
-  c: number,
-  d: number,
-  t: number,
-  u: number,
-): number {
-  // Fórmula de Bézier cúbica: (1-t)³·a + 3(1-t)²t·b + 3(1-t)t²·c + t³·d
-  return u * u * u * a + 3 * u * u * t * b + 3 * u * t * t * c + t * t * t * d;
+  return cubicBezierVec2(
+    toVec(p0),
+    toVec(p1),
+    toVec(p2),
+    toVec(p3),
+    samples,
+  ).map(toCs);
 }

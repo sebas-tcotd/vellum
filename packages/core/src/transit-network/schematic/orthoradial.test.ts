@@ -4,10 +4,12 @@ import { deriveTransitNetwork } from '../index';
 import { geographicSchematicLayout } from './geographic';
 import {
   createOrthoradialGrid,
+  ORTHORADIAL_GRID,
   orthoradialConformance,
   orthoradialConformanceOf,
   orthoradialLayoutWithCentre,
   orthoradialSchematicLayout,
+  spokesAtRing,
 } from './orthoradial';
 
 describe('orthoradialSchematicLayout', () => {
@@ -55,8 +57,8 @@ describe('orthoradialSchematicLayout', () => {
   it('handles a node on the centre without breaking the grammar', () => {
     const network = deriveTransitNetwork(transitFixture('transfer'));
     const { layout, centre } = orthoradialLayoutWithCentre(network);
-    const touchesCentre = layout.segments.some((segment) =>
-      segment.points.some(
+    const touchesCentre = layout.corridors.some((corridor) =>
+      corridor.points.some(
         (p) => Math.hypot(p.x - centre.x, p.y - centre.y) < 1e-6,
       ),
     );
@@ -108,5 +110,91 @@ describe('orthoradialSchematicLayout', () => {
     expect(centre.x).toBeLessThanOrEqual(layout.bounds.width);
     expect(centre.y).toBeGreaterThanOrEqual(0);
     expect(centre.y).toBeLessThanOrEqual(layout.bounds.height);
+  });
+});
+
+describe('pseudo-orthoradial ring density (SSTD §5.2)', () => {
+  it('doubles the spokes whenever the radius doubles', () => {
+    // The property the paper names the grid for. A constant spoke count — what
+    // this grid had before — crowds the centre and empties the outside, and the
+    // assertion that catches a regression to it is this one.
+    for (let ring = 1; ring <= 8; ring++) {
+      expect(spokesAtRing(2 * ring)).toBe(2 * spokesAtRing(ring));
+    }
+    expect(spokesAtRing(1)).toBe(ORTHORADIAL_GRID.baseSpokes);
+    // Every count stays a multiple of the base, so every inner ray has an aligned
+    // ray outside it and a radial step is exactly radial.
+    for (let ring = 1; ring <= 16; ring++) {
+      expect(spokesAtRing(ring) % ORTHORADIAL_GRID.baseSpokes).toBe(0);
+    }
+  });
+
+  it('keeps neighbouring cells a comparable distance apart at every radius', () => {
+    // The consequence that matters to a reader: with a fixed count the outer
+    // rings' neighbours drift apart without bound. Here the spacing stays inside
+    // a factor of two of the innermost ring's, everywhere.
+    const grid = createOrthoradialGrid(
+      Array.from({ length: 40 }, (_, i) => ({
+        x: Math.cos(i) * 500,
+        y: Math.sin(i) * 500,
+      })),
+    );
+    const spacings: number[] = [];
+    for (let cell = 1; cell < grid.cellCount; cell++) {
+      const here = grid.point(cell);
+      // The two arc neighbours are the last two steps a ring cell reports.
+      const arcs = grid.neighbors(cell).slice(-2);
+      for (const step of arcs) {
+        const there = grid.point(step.cell);
+        spacings.push(Math.hypot(there.x - here.x, there.y - here.y));
+      }
+    }
+    expect(spacings.length).toBeGreaterThan(0);
+    const min = Math.min(...spacings);
+    const max = Math.max(...spacings);
+    expect(min).toBeGreaterThan(0);
+    expect(max / min).toBeLessThanOrEqual(2);
+  });
+
+  it('keeps one centre cell, and every ring reachable, with the counts doubling', () => {
+    const grid = createOrthoradialGrid([
+      { x: 0, y: 0 },
+      { x: 400, y: 0 },
+      { x: 0, y: 400 },
+    ]);
+    // One centre, and it is nobody else's position.
+    const centre = grid.point(0);
+    for (let cell = 1; cell < grid.cellCount; cell++) {
+      expect(
+        Math.hypot(
+          grid.point(cell).x - centre.x,
+          grid.point(cell).y - centre.y,
+        ),
+      ).toBeGreaterThan(1e-9);
+    }
+    // A cell on an odd spoke of a doubled ring has no inward step of its own
+    // (it would not be radial), but the conformant fallback still reaches the
+    // centre from it.
+    for (let cell = 1; cell < grid.cellCount; cell++) {
+      const walk = grid.lineTo(cell, 0);
+      expect(walk[0]).toBe(cell);
+      expect(walk[walk.length - 1]).toBe(0);
+      // And back out again.
+      const out = grid.lineTo(0, cell);
+      expect(out[out.length - 1]).toBe(cell);
+    }
+  });
+
+  it('degenerates gracefully to the minimum ring count for one seed', () => {
+    // A single node: the grid still has to have a step length, a centre, and
+    // enough cells for the router to walk on.
+    const grid = createOrthoradialGrid([{ x: 7, y: -3 }]);
+    expect(grid.cellCount).toBeGreaterThan(1);
+    expect(grid.point(0)).toEqual({ x: 7, y: -3 });
+    expect(grid.snap({ x: 7, y: -3 })).toBe(0);
+    for (let cell = 0; cell < grid.cellCount; cell++) {
+      const p = grid.point(cell);
+      expect(Number.isFinite(p.x) && Number.isFinite(p.y)).toBe(true);
+    }
   });
 });

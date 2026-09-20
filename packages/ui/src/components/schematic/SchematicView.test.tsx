@@ -4,8 +4,9 @@ import {
   makeCityData,
   makeRoadSegment,
   makeTransitLine,
+  transitFixture,
 } from '@vellum/core/testing';
-import type { TransitMode } from '@vellum/core';
+import { SCHEMATIC_LINE_WIDTH, type TransitMode } from '@vellum/core';
 import { cleanup, render, screen } from '../../test-utils';
 import { SchematicView } from './SchematicView';
 import {
@@ -61,7 +62,9 @@ describe('SchematicView', () => {
     const lines = container.querySelectorAll('polyline');
     expect(lines).toHaveLength(1);
     expect(lines[0]).toHaveAttribute('stroke', '#ff0000');
-    expect(container.querySelectorAll('circle')).toHaveLength(1);
+    // One closed ring per stop: a capsule across its corridor, or a circle when
+    // only one line stops there. Story 4.3b replaced the fixed-radius `circle`.
+    expect(container.querySelectorAll('polygon')).toHaveLength(1);
     expect(screen.getByTestId('schematic-summary')).toHaveTextContent(
       'schematic.summary',
     );
@@ -195,7 +198,7 @@ describe('SchematicView — hovering a legend row', () => {
     );
 
     // L2 calls only at `shared`, so `only1` recedes along with L1's stroke.
-    expect(dimmed(container).sort()).toEqual(['circle', 'polyline']);
+    expect(dimmed(container).sort()).toEqual(['polygon', 'polyline']);
   });
 
   it('dims nothing when the pointer is not on a legend row', () => {
@@ -207,5 +210,104 @@ describe('SchematicView — hovering a legend row', () => {
       />,
     );
     expect(dimmed(container)).toEqual([]);
+  });
+});
+
+describe('SchematicView — geometry comes from the layout, not from CSS', () => {
+  it("draws strokes in the layout's own units, so slots and width agree", () => {
+    // The unit bug Story 4.3b closed: the offsets between two lines of a corridor
+    // are viewBox units, and the old stylesheet set the width in *screen pixels*
+    // (`vector-effect: non-scaling-stroke`). The two only agree at one window
+    // size, so parallel lines overlapped or gapped depending on the window. The
+    // width is set from the layout's constant, so it cannot drift again.
+    const { container } = render(
+      <SchematicView
+        model={modelFor()}
+        onBack={() => {}}
+        onShowAllModes={() => {}}
+      />,
+    );
+    const stroke = container.querySelector(
+      '.schematic-view__segments polyline',
+    );
+    expect(stroke).toHaveAttribute(
+      'stroke-width',
+      String(SCHEMATIC_LINE_WIDTH),
+    );
+    expect(stroke?.getAttribute('vector-effect')).toBeNull();
+  });
+
+  it('draws each station as the ring the layout computed', () => {
+    const model = modelFor();
+    const { container } = render(
+      <SchematicView
+        model={model}
+        onBack={() => {}}
+        onShowAllModes={() => {}}
+      />,
+    );
+    const polygons = [...container.querySelectorAll('polygon')];
+    expect(polygons).toHaveLength(model.layout.stations.length);
+    // Point for point the layout's shape: the view draws, it does not decide.
+    polygons.forEach((polygon, index) => {
+      expect(polygon.getAttribute('points')).toBe(
+        model.layout.stations[index].shape
+          .map((point) => `${point.x},${point.y}`)
+          .join(' '),
+      );
+      // A fixed radius would have been the same number for every station; this is
+      // the capsule geometry, so it has many vertices.
+      expect(polygon.getAttribute('points')?.split(' ').length).toBeGreaterThan(
+        4,
+      );
+    });
+  });
+});
+
+// Story 4.3b, hueco cerrado en revisión: como los trazos se recortan en cada
+// nudo, las juntas las puentean los conectores. Borrar entero el grupo de
+// conectores dejaba toda la suite verde —los conteos de polyline de este archivo
+// usan ciudades sin transiciones y AppSurface acotó su consulta al grupo de
+// segmentos— así que un diagrama con todas las juntas abiertas pasaba.
+describe('SchematicView — inner connections', () => {
+  const junctionCity = transitFixture('simple');
+
+  const modelOf = () => {
+    const { result } = renderHook(() =>
+      useSchematicNetwork({ cityData: junctionCity, hiddenModes: [] }),
+    );
+    return result.current;
+  };
+
+  it('draws one polyline per connector, with its points and colour', () => {
+    const model = modelOf();
+    expect(model.layout.connectors.length).toBeGreaterThan(0);
+    render(<SchematicView model={model} onBack={() => {}} />);
+
+    const drawn = [
+      ...document.querySelectorAll('.schematic-view__connectors polyline'),
+    ];
+    expect(drawn).toHaveLength(model.layout.connectors.length);
+    expect(drawn.map((node) => node.getAttribute('points'))).toEqual(
+      model.layout.connectors.map((connector) =>
+        connector.points.map((p) => `${p.x},${p.y}`).join(' '),
+      ),
+    );
+    expect(drawn.map((node) => node.getAttribute('stroke'))).toEqual(
+      model.layout.connectors.map((connector) => connector.color),
+    );
+  });
+
+  it('gives the joints the same width as the strokes they join', () => {
+    const model = modelOf();
+    render(<SchematicView model={model} onBack={() => {}} />);
+    const connector = document.querySelector(
+      '.schematic-view__connectors polyline',
+    );
+    // If this fell back to CSS the joint would be a hairline, because 4.3b moved
+    // the width out of the stylesheet and into viewBox units.
+    expect(connector?.getAttribute('stroke-width')).toBe(
+      String(SCHEMATIC_LINE_WIDTH),
+    );
   });
 });

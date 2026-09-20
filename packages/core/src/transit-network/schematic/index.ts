@@ -16,16 +16,27 @@
  */
 
 export {
+  isFilteredSchematicLayout,
+  SCHEMATIC_LINE_SPACING,
+  SCHEMATIC_LINE_WIDTH,
+  SCHEMATIC_LONE_STOP_IS_CIRCLE,
   SCHEMATIC_MARGIN,
+  SCHEMATIC_SLOT,
+  SCHEMATIC_STATION_ACROSS_MARGIN,
+  SCHEMATIC_STATION_CORNER_STEPS,
+  SCHEMATIC_STATION_HALF_THICKNESS,
   SCHEMATIC_VIEWBOX_SIZE,
+  schematicDrawingReach,
+  type SchematicCorridor,
   type SchematicLayout,
   type SchematicPoint,
   type SchematicSegment,
+  type SchematicSlot,
   type SchematicStation,
 } from './contract';
 
 import type { TransitNetwork } from '../../types/transit-network';
-import type { SchematicLayout } from './contract';
+import { markFilteredLayout, type SchematicLayout } from './contract';
 
 /** A pure, deterministic layout strategy. */
 export type SchematicLayoutStrategy = (
@@ -43,6 +54,15 @@ export {
   type GridStep,
   type SchematicLayoutDiagnostics,
 } from './grid-layout';
+
+// `./offset` and `./render` are *internal* stages, not a second public surface.
+// `contract.ts` argues the case for keeping this barrel to the layout contract,
+// and it applies to them: a caller outside core has a layout, and the layout
+// already carries the drawn geometry. Their own tests import them by path, which
+// is allowed inside core and forbidden from outside it (`eslint.config.mjs`), so
+// nothing is lost by not re-exporting `offsetPolyline`, `offsetTowards`,
+// `turnAngle`, `MITER_LIMIT`, `innerConnection`, `renderSchematic` or
+// `bendCost`/`spokesAtRing` here.
 
 export {
   createOctilinearGrid,
@@ -104,6 +124,7 @@ export function filterSchematicLayout(
       : new Set(visibleLineIds);
 
   const segments = layout.segments.filter((s) => visible.has(s.lineId));
+  const connectors = layout.connectors.filter((c) => visible.has(c.lineId));
   const stations = layout.stations.filter((s) =>
     s.lineIds.some((id) => visible.has(id)),
   );
@@ -111,14 +132,25 @@ export function filterSchematicLayout(
   // and reference-equality checks see no change at all.
   if (
     segments.length === layout.segments.length &&
+    connectors.length === layout.connectors.length &&
     stations.length === layout.stations.length
   ) {
     return layout;
   }
 
-  return Object.freeze({
-    bounds: layout.bounds,
-    segments: Object.freeze(segments),
-    stations: Object.freeze(stations),
-  });
+  // `corridors` is carried through untouched, and so are the slot offsets of a
+  // surviving stroke. Re-slotting a filtered corridor would move every line that
+  // is still visible, which is the one thing a filter must not do: the reader has
+  // to be able to read the same diagram with fewer lines on it.
+  // Tagged as a projection, so `measureSchematicLayout` refuses it instead of
+  // reporting every hidden line as a fidelity failure.
+  return markFilteredLayout(
+    Object.freeze({
+      bounds: layout.bounds,
+      corridors: layout.corridors,
+      segments: Object.freeze(segments),
+      connectors: Object.freeze(connectors),
+      stations: Object.freeze(stations),
+    }),
+  );
 }

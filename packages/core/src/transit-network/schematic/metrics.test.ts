@@ -54,7 +54,9 @@ describe('measureSchematicLayout', () => {
     const full = octilinearSchematicLayout(net);
     const mutilated: SchematicLayout = {
       bounds: full.bounds,
+      corridors: full.corridors,
       segments: full.segments.filter((s) => s.lineId !== 'D1'),
+      connectors: full.connectors,
       stations: full.stations.slice(1),
     };
     const { metrics } = measureSchematicLayout(net, mutilated);
@@ -75,7 +77,9 @@ describe('measureSchematicLayout', () => {
     const full = octilinearSchematicLayout(net);
     const changed: SchematicLayout = {
       bounds: full.bounds,
+      corridors: full.corridors,
       segments: full.segments,
+      connectors: full.connectors,
       stations: full.stations.map((s, i) =>
         i === 0 ? { ...s, lineIds: ['not-a-line'] } : s,
       ),
@@ -113,6 +117,8 @@ describe('evaluateSchematicGates', () => {
       'fidelity/membership',
       'legibility/stationSeparation',
       'legibility/stationOnRoute',
+      'legibility/stationOwnCorridor',
+      'legibility/corridorSeparation',
       'routing/fallbackShare',
       'performance/elapsed',
     ]);
@@ -124,7 +130,9 @@ describe('evaluateSchematicGates', () => {
     const full = octilinearSchematicLayout(net);
     const { metrics } = measureSchematicLayout(net, {
       bounds: full.bounds,
+      corridors: full.corridors,
       segments: full.segments.slice(1),
+      connectors: full.connectors,
       stations: full.stations,
     });
     const report = evaluateSchematicGates(metrics, 1);
@@ -168,24 +176,21 @@ describe('metrics that close a verification hole', () => {
   it('catches the right lines drawn on the wrong corridors', () => {
     const net = network();
     const full = octilinearSchematicLayout(net);
-    // Find two strokes of different corridors (different point arrays) and
-    // trade their geometry.
-    const first = full.segments[0];
-    const other = full.segments.find(
-      (s) =>
-        s.points[0].x !== first.points[0].x ||
-        s.points[0].y !== first.points[0].y,
-    );
-    expect(other).toBeDefined();
+    // Trade two corridors' centerlines. Every stroke, every line id, every
+    // station and every count survives — only which corridor sits where changes.
+    expect(full.corridors.length).toBeGreaterThan(1);
+    const [first, other] = full.corridors;
     const swapped: SchematicLayout = {
       bounds: full.bounds,
-      segments: full.segments.map((s) =>
-        s === first
-          ? { ...s, points: (other as typeof first).points }
-          : s === other
-            ? { ...s, points: first.points }
-            : s,
+      corridors: full.corridors.map((corridor) =>
+        corridor === first
+          ? { ...corridor, points: other.points }
+          : corridor === other
+            ? { ...corridor, points: first.points }
+            : corridor,
       ),
+      segments: full.segments,
+      connectors: full.connectors,
       stations: full.stations,
     };
     const { metrics } = measureSchematicLayout(net, swapped);
@@ -213,7 +218,9 @@ describe('metrics that close a verification hole', () => {
     expect(full.stations.length).toBeGreaterThan(0);
     const moved: SchematicLayout = {
       bounds: full.bounds,
+      corridors: full.corridors,
       segments: full.segments,
+      connectors: full.connectors,
       stations: full.stations.map((s, i) =>
         i === 0 ? { ...s, x: s.x + 40, y: s.y + 40 } : s,
       ),
@@ -258,10 +265,13 @@ describe('metrics that close a verification hole', () => {
     const net = deriveTransitNetwork(makeCityData({ transitLines: [] }));
     const selfCrossing: SchematicLayout = {
       bounds: { width: 1000, height: 1000 },
+      corridors: [],
+      connectors: [],
       segments: [
         {
           lineId: 'X',
           color: '#000000',
+          edgeId: 'x',
           points: [
             { x: 0, y: 0 },
             { x: 100, y: 0 },
@@ -279,10 +289,13 @@ describe('metrics that close a verification hole', () => {
     const net = deriveTransitNetwork(makeCityData({ transitLines: [] }));
     const bend: SchematicLayout = {
       bounds: { width: 1000, height: 1000 },
+      corridors: [],
+      connectors: [],
       segments: [
         {
           lineId: 'X',
           color: '#000000',
+          edgeId: 'x',
           points: [
             { x: 0, y: 0 },
             { x: 100, y: 0 },
@@ -293,5 +306,95 @@ describe('metrics that close a verification hole', () => {
       stations: [],
     };
     expect(measureSchematicLayout(net, bend).metrics.crossings).toBe(0);
+  });
+});
+
+describe('metrics over the drawn geometry (Story 4.3b)', () => {
+  it('counts the crossing the fourth fixture exists to produce', () => {
+    // Before the crossing fixture, `crossings` was reported on every run and
+    // never once observed non-zero: the three original fixtures only ever have
+    // corridors meeting at shared nodes, and a shared endpoint is not a crossing.
+    const net = deriveTransitNetwork(transitFixture('crossing'));
+    const { metrics } = measureSchematicLayout(
+      net,
+      geographicSchematicLayout(net),
+    );
+    expect(metrics.crossings).toBeGreaterThan(0);
+  });
+
+  it('finds no pair of strokes of one corridor merged, in any geometry', () => {
+    for (const fixtureId of [
+      'simple',
+      'dense',
+      'transfer',
+      'crossing',
+    ] as const) {
+      const net = deriveTransitNetwork(transitFixture(fixtureId));
+      for (const strategy of [
+        geographicSchematicLayout,
+        octilinearSchematicLayout,
+        orthoradialSchematicLayout,
+      ]) {
+        const { metrics } = measureSchematicLayout(net, strategy(net));
+        expect(metrics.overlappingCorridorStrokes).toEqual([]);
+        expect(metrics.stationsOffOwnCorridor).toEqual([]);
+      }
+    }
+  });
+
+  it('reports the strokes a corridor drew on top of each other', () => {
+    // What every layout looked like before the offset stage existed: one shared
+    // polyline per corridor, so all but the last line drawn was invisible. The
+    // metric that would have said so, said on that exact geometry.
+    const net = deriveTransitNetwork(transitFixture('dense'));
+    const full = geographicSchematicLayout(net);
+    const shared = full.corridors.find((c) => c.slots.length > 1);
+    expect(shared).toBeDefined();
+    const centerline = (shared as NonNullable<typeof shared>).points;
+    const lineIds = new Set(
+      (shared as NonNullable<typeof shared>).slots.map((slot) => slot.lineId),
+    );
+    const collapsed: SchematicLayout = {
+      ...full,
+      segments: full.segments.map((segment) =>
+        lineIds.has(segment.lineId)
+          ? { ...segment, points: centerline }
+          : segment,
+      ),
+    };
+    const { metrics } = measureSchematicLayout(net, collapsed);
+    expect(metrics.overlappingCorridorStrokes.length).toBeGreaterThan(0);
+    expect(
+      evaluateSchematicGates(metrics, 1).gates.find(
+        (g) => g.id === 'legibility/corridorSeparation',
+      ),
+    ).toMatchObject({ passed: false });
+  });
+
+  it('reports a station placed on a corridor none of its lines ride', () => {
+    const net = deriveTransitNetwork(transitFixture('dense'));
+    const full = octilinearSchematicLayout(net);
+    const station = full.stations[0];
+    const foreign = full.corridors.find(
+      (c) => !c.slots.some((slot) => station.lineIds.includes(slot.lineId)),
+    );
+    expect(foreign).toBeDefined();
+    const moved: SchematicLayout = {
+      ...full,
+      stations: full.stations.map((s, i) =>
+        i === 0
+          ? { ...s, edgeId: (foreign as NonNullable<typeof foreign>).edgeId }
+          : s,
+      ),
+    };
+    const { metrics } = measureSchematicLayout(net, moved);
+    expect(metrics.stationsOffOwnCorridor).toEqual([
+      `${station.id}|${(foreign as NonNullable<typeof foreign>).edgeId}`,
+    ]);
+    expect(
+      evaluateSchematicGates(metrics, 1).gates.find(
+        (g) => g.id === 'legibility/stationOwnCorridor',
+      ),
+    ).toMatchObject({ passed: false });
   });
 });

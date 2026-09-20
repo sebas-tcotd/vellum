@@ -36,11 +36,21 @@
 
 import type { TransitNetwork } from '../../types/transit-network';
 import {
+  distanceToPolyline as kitDistanceToPolyline,
+  projectOnPolyline,
+  type Vec2,
+} from '../geometry-kit';
+import {
   byString,
+  isFilteredSchematicLayout,
+  SCHEMATIC_LINE_WIDTH,
+  SCHEMATIC_SLOT,
   SCHEMATIC_VIEWBOX_SIZE,
+  type SchematicCorridor,
   type SchematicLayout,
   type SchematicPoint,
 } from './contract';
+import { offsetTowards } from './offset';
 import { geographicSchematicLayout } from './geographic';
 import { schematicLayoutDiagnostics } from './grid-layout';
 
@@ -54,6 +64,24 @@ export interface SchematicLayoutMetrics {
   readonly routedEdges: number;
   /** Vertices across every stroke — the diagram's drawing complexity. */
   readonly vertexCount: number;
+  /**
+   * Vertices across every corridor **centerline**: the same figure for the
+   * placement alone, before any drawing.
+   *
+   * @remarks
+   * Reported next to {@link vertexCount}, {@link totalLength} and
+   * {@link crossings} so a change in those can be attributed. A centerline figure
+   * moves only when the *routing* changes (a grid, a cost, a placement); the
+   * difference between it and the stroke figure is what the *rendering* stage
+   * added (offsets, node trims, miter joins). Without the pair, a report can say
+   * a number changed but not which of the two halves changed it — and Story 4.3b
+   * changed both at once.
+   */
+  readonly corridorVertexCount: number;
+  /** Total centerline length, in viewBox units: length before drawing. */
+  readonly corridorLength: number;
+  /** Proper crossings between corridor centerlines: crossings before drawing. */
+  readonly corridorCrossings: number;
   /**
    * `true` when the layout draws exactly the strokes the network calls for, on
    * the right corridors, with every junction still joined, and exactly the
@@ -103,11 +131,41 @@ export interface SchematicLayoutMetrics {
    *
    * @remarks
    * The counterpart of {@link minStationDistance}: separation says two symbols
-   * are distinguishable, this says each symbol is *on* the line it claims. A
-   * station re-placed at the wrong arc fraction, or assigned to a corridor none
-   * of its lines ride, shows up here and nowhere else.
+   * are distinguishable, this says each symbol is *on* the corridor it claims,
+   * at the arc fraction its stop sits at. A station re-placed at the wrong
+   * fraction shows up here and nowhere else.
+   *
+   * Measured against the corridor's **centerline**, with the symbol's own
+   * legitimate across-displacement subtracted. Since Story 4.3b a symbol is
+   * deliberately displaced across the corridor to the middle of the slots it
+   * spans — a stop served by one line of a three-line corridor sits on *that*
+   * line, a slot away from the centre — so the raw distance to the centerline is
+   * expected to be non-zero, and the residual after removing it is what says
+   * whether the placement is right.
    */
   readonly maxStationOffRoute: number;
+  /**
+   * Stations placed on a corridor that carries none of their own lines, as
+   * `stationId|edgeId`.
+   *
+   * @remarks
+   * The defect `maxStationOffRoute` cannot see: a symbol sitting neatly on a
+   * corridor that simply is not one its lines ride. It claims a service the data
+   * never recorded there, so it is exact and gated rather than measured.
+   */
+  readonly stationsOffOwnCorridor: readonly string[];
+  /**
+   * Pairs of strokes on one corridor that come closer than half a line width,
+   * as `edgeId|lineA|lineB`.
+   *
+   * @remarks
+   * The whole point of Story 4.3b: before it, every line of a corridor shared one
+   * polyline, so N−1 of them were invisible under the last one drawn and nothing
+   * in the metrics said so. Two distinct slots are a full {@link SCHEMATIC_SLOT}
+   * apart by construction, so anything in this list means the offset stage failed
+   * — a miter that folded back on itself, or two lines handed the same slot.
+   */
+  readonly overlappingCorridorStrokes: readonly string[];
   /** Corridors routed by the straight-on-grid fallback instead of A*. */
   readonly fallbackRoutes: number;
   /**
@@ -219,32 +277,77 @@ function crosses(
   );
 }
 
-/** Distance from `p` to the closest point of a polyline. */
+/**
+ * How close two strokes of one corridor may come, as a fraction of a line width,
+ * before they are counted as merged. Two distinct slots are a full
+ * {@link SCHEMATIC_SLOT} apart, so this is not a tuning knob — it is slack for
+ * the miter joins, an order of magnitude below the real spacing.
+ */
+const SCHEMATIC_OVERLAP_FRACTION = 0.5;
+
+/** Closest approach between two polylines. */
+function polylineDistance(
+  a: readonly SchematicPoint[],
+  b: readonly SchematicPoint[],
+): number {
+  let best = Infinity;
+  for (const p of a) best = Math.min(best, distanceToPolyline(p, b));
+  for (const p of b) best = Math.min(best, distanceToPolyline(p, a));
+  return best;
+}
+
+/**
+ * Proper intersections between pieces of a set of polylines.
+ *
+ * @remarks
+ * Only *adjacent* pieces of the same polyline are skipped: they share a vertex by
+ * construction, so they cannot properly cross. A line crossing itself, or two
+ * corridors of one line crossing, is a real crossing and is counted. Fixtures are
+ * small by design, so the quadratic sweep is exact and needs no spatial index to
+ * stay honest.
+ */
+function countCrossings(walks: readonly (readonly SchematicPoint[])[]): number {
+  const pieces: {
+    walk: number;
+    index: number;
+    a: SchematicPoint;
+    b: SchematicPoint;
+  }[] = [];
+  walks.forEach((points, walk) => {
+    for (let i = 1; i < points.length; i++) {
+      pieces.push({ walk, index: i, a: points[i - 1], b: points[i] });
+    }
+  });
+  let total = 0;
+  for (let i = 0; i < pieces.length; i++) {
+    for (let j = i + 1; j < pieces.length; j++) {
+      if (
+        pieces[i].walk === pieces[j].walk &&
+        Math.abs(pieces[i].index - pieces[j].index) === 1
+      ) {
+        continue;
+      }
+      if (crosses(pieces[i].a, pieces[i].b, pieces[j].a, pieces[j].b)) total++;
+    }
+  }
+  return total;
+}
+
+const toVec = (p: SchematicPoint): Vec2 => [p.x, p.y];
+
+/**
+ * Distance from `p` to the closest point of a polyline.
+ *
+ * @remarks
+ * A two-line adapter over `../geometry-kit`, not a fourth copy of the arithmetic.
+ * The kit exists precisely so that measuring, offsetting and rendering cannot
+ * drift apart over a rounding detail in one of them.
+ */
 function distanceToPolyline(
   p: SchematicPoint,
   points: readonly SchematicPoint[],
 ): number {
-  let best = Infinity;
-  for (let i = 1; i < points.length; i++) {
-    const a = points[i - 1];
-    const b = points[i];
-    const dx = b.x - a.x;
-    const dy = b.y - a.y;
-    const len2 = dx * dx + dy * dy;
-    const t =
-      len2 === 0
-        ? 0
-        : Math.max(
-            0,
-            Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2),
-          );
-    const d = Math.hypot(p.x - (a.x + dx * t), p.y - (a.y + dy * t));
-    if (d < best) best = d;
-  }
-  // A one-point stroke still has a position to be measured against.
-  return best === Infinity && points.length > 0
-    ? Math.hypot(p.x - points[0].x, p.y - points[0].y)
-    : best;
+  return kitDistanceToPolyline(toVec(p), points.map(toVec));
 }
 
 /**
@@ -269,31 +372,56 @@ export function measureSchematicLayout(
   network: TransitNetwork,
   layout: SchematicLayout,
 ): { metrics: SchematicLayoutMetrics; elapsedMs: number } {
+  // A visibility projection is not a layout to be measured, and every number here
+  // would be quietly wrong on one: fidelity would report each hidden line as
+  // missing, `routedEdges` would count corridors with no visible stroke and so
+  // deflate the fallback share, and `stationsOffOwnCorridor` would compare against
+  // slots of lines that are no longer drawn. Measure the base and filter for
+  // display; a plausible-looking wrong number is worse than an error.
+  if (isFilteredSchematicLayout(layout)) {
+    throw new Error(
+      'SCHEMATIC_METRICS_ON_FILTERED_LAYOUT: measure the base layout, not a visibility projection of it',
+    );
+  }
   const startedAt = performance.now();
   const base = geographicSchematicLayout(network);
 
-  // ── Stroke fidelity, keyed by corridor. Strategies emit in the canonical
-  // order, so index i of the layout is expected[i]; a mismatch at any index
-  // names the `(corridor, line)` pair that is not where it should be.
+  // ── Stroke fidelity, keyed by `edgeId|lineId` — the pair itself, taken off the
+  // stroke rather than inferred from its position in the array.
+  //
+  // This used to pair `expected[i]` against `layout.segments[i]`, which is only as
+  // good as two emission orders staying in step, and had the failure mode that
+  // matters: when they drifted, the mismatched pair was *skipped*, so the
+  // downstream corridor-separation check silently measured nothing and passed
+  // empty. A key cannot drift, and anything expected but absent is reported.
   const expected = expectedStrokes(network);
+  const strokeByKey = new Map<string, readonly SchematicPoint[]>();
+  for (const segment of layout.segments) {
+    if (segment.edgeId === null) continue;
+    const key = `${segment.edgeId}|${segment.lineId}`;
+    // First one wins: a duplicate key is a defect, and the count check below is
+    // what reports it.
+    if (!strokeByKey.has(key)) strokeByKey.set(key, segment.points);
+  }
   const missingSegments = expected
-    .filter(
-      (want, i) =>
-        layout.segments[i] === undefined ||
-        layout.segments[i].lineId !== want.lineId,
-    )
-    .map((want) => `${want.edgeId}|${want.lineId}`);
+    .map((want) => `${want.edgeId}|${want.lineId}`)
+    .filter((key) => !strokeByKey.has(key));
 
   // ── Junction coincidence: two corridors meeting at a node must still meet.
   // This is what a permutation of geometry between corridors breaks, and no
   // per-stroke check can see it.
-  const pointsOfEdge = new Map<string, readonly SchematicPoint[]>();
-  expected.forEach((want, i) => {
-    const segment = layout.segments[i];
-    if (segment !== undefined && !pointsOfEdge.has(want.edgeId)) {
-      pointsOfEdge.set(want.edgeId, segment.points);
-    }
-  });
+  //
+  // Read off the corridor **centerlines**, not the strokes. Since Story 4.3b a
+  // stroke is offset into its slot and trimmed back from the node to leave the
+  // free area an inner connection crosses, so two strokes that meet correctly no
+  // longer share a coordinate — while the centerlines they came from still do.
+  // The centerline is the only place this invariant is still stateable.
+  const corridorById = new Map<string, SchematicCorridor>(
+    layout.corridors.map((corridor) => [corridor.edgeId, corridor]),
+  );
+  const pointsOfEdge = new Map<string, readonly SchematicPoint[]>(
+    layout.corridors.map((corridor) => [corridor.edgeId, corridor.points]),
+  );
   const brokenJunctions: string[] = [];
   const endpointsOf = (
     points: readonly SchematicPoint[],
@@ -343,37 +471,20 @@ export function measureSchematicLayout(
     vertexCount += s.points.length;
     totalLength += lengthOf(s.points);
   }
-
-  // Crossings over every pair of stroke pieces. Fixtures are small by design,
-  // so the quadratic sweep is exact and needs no spatial index to stay honest.
-  // Only *adjacent* pieces of the same stroke are skipped: they share a vertex
-  // by construction, so they cannot properly cross. A line crossing itself, or
-  // two corridors of one line crossing, is a real crossing and is counted.
-  const pieces: {
-    stroke: number;
-    index: number;
-    a: SchematicPoint;
-    b: SchematicPoint;
-  }[] = [];
-  layout.segments.forEach((s, stroke) => {
-    for (let i = 1; i < s.points.length; i++) {
-      pieces.push({ stroke, index: i, a: s.points[i - 1], b: s.points[i] });
-    }
-  });
-  let crossings = 0;
-  for (let i = 0; i < pieces.length; i++) {
-    for (let j = i + 1; j < pieces.length; j++) {
-      if (
-        pieces[i].stroke === pieces[j].stroke &&
-        Math.abs(pieces[i].index - pieces[j].index) === 1
-      ) {
-        continue;
-      }
-      if (crosses(pieces[i].a, pieces[i].b, pieces[j].a, pieces[j].b)) {
-        crossings++;
-      }
-    }
+  let corridorVertexCount = 0;
+  let corridorLength = 0;
+  for (const corridor of layout.corridors) {
+    corridorVertexCount += corridor.points.length;
+    corridorLength += lengthOf(corridor.points);
   }
+
+  // Crossings twice: over the drawn strokes, and over the centerlines they were
+  // offset from. The pair is what lets a report say whether a change in the
+  // count came from the routing or from the drawing.
+  const crossings = countCrossings(layout.segments.map((s) => s.points));
+  const corridorCrossings = countCrossings(
+    layout.corridors.map((corridor) => corridor.points),
+  );
 
   let displacementSum = 0;
   let displacementCount = 0;
@@ -397,19 +508,96 @@ export function measureSchematicLayout(
     }
   }
 
-  // Every station must sit on a stroke of one of its own lines.
+  // Every station must sit on the corridor its stop was assigned to, at the arc
+  // fraction of that stop, **on the hand its slots are on** — and on a corridor at
+  // least one of its own lines rides. The failures are separate and reported
+  // separately.
+  //
+  // The across-displacement is compared **signed**. An unsigned comparison was the
+  // hole: a symbol displaced to the *wrong hand* is exactly as far from the
+  // centerline as a correct one, so it scored a residual of zero — and mirroring is
+  // the one mistake `./offset.ts` documents at length as the easy one to make. With
+  // a signed comparison a mirrored symbol scores twice its own offset.
   let maxStationOffRoute = 0;
+  const stationsOffOwnCorridor: string[] = [];
   for (const station of layout.stations) {
-    const own = layout.segments.filter((s) =>
-      station.lineIds.includes(s.lineId),
+    const corridor = corridorById.get(station.edgeId);
+    if (corridor === undefined) {
+      stationsOffOwnCorridor.push(`${station.id}|${station.edgeId}`);
+      continue;
+    }
+    const own = corridor.slots.filter((slot) =>
+      station.lineIds.includes(slot.lineId),
     );
-    // A station whose lines draw nothing has no stroke to be on; that is a
-    // membership defect, already reported as such, not an off-route distance.
-    if (own.length === 0) continue;
-    const best = Math.min(
-      ...own.map((s) => distanceToPolyline(station, s.points)),
+    if (own.length === 0) {
+      stationsOffOwnCorridor.push(`${station.id}|${station.edgeId}`);
+      continue;
+    }
+    // Where the rendering stage should have put it: the midpoint of the slots it
+    // spans, towards the hand `offsetTowards` names.
+    const offsets = own.map((slot) => slot.offsetIndex);
+    const expectedAcross =
+      ((Math.min(...offsets) + Math.max(...offsets)) / 2) * SCHEMATIC_SLOT;
+    const hit = projectOnPolyline(toVec(station), corridor.points.map(toVec));
+    if (hit === null) {
+      // A corridor with no measurable piece cannot place anything; the distance to
+      // its single vertex is the most that can honestly be said.
+      const residual = Math.abs(
+        distanceToPolyline(station, corridor.points) - Math.abs(expectedAcross),
+      );
+      if (residual > maxStationOffRoute) maxStationOffRoute = residual;
+      continue;
+    }
+    const hand = offsetTowards({ x: hit.dir[0], y: hit.dir[1] });
+    const actualAcross =
+      (station.x - hit.point[0]) * hand.x + (station.y - hit.point[1]) * hand.y;
+    // Two components: across the corridor (signed, above) and along it — whatever
+    // is left of the distance once the across part is accounted for, which is what
+    // a wrong arc fraction near an end shows up as.
+    const along = Math.sqrt(
+      Math.max(0, hit.dist * hit.dist - actualAcross * actualAcross),
     );
-    if (best > maxStationOffRoute) maxStationOffRoute = best;
+    const residual = Math.hypot(actualAcross - expectedAcross, along);
+    if (residual > maxStationOffRoute) maxStationOffRoute = residual;
+  }
+
+  // No two strokes of one corridor may merge: that is what the offset stage is
+  // for, and before it existed N−1 lines of every shared corridor were hidden.
+  // Grouped off the same keyed map as fidelity, so a stroke this check cannot find
+  // is a *reported* missing stroke rather than a pair it quietly skips.
+  const overlappingCorridorStrokes: string[] = [];
+  const strokesOfEdge = new Map<
+    string,
+    Map<string, readonly SchematicPoint[]>
+  >();
+  for (const want of expected) {
+    const points = strokeByKey.get(`${want.edgeId}|${want.lineId}`);
+    if (points === undefined) continue;
+    let byLine = strokesOfEdge.get(want.edgeId);
+    if (byLine === undefined) {
+      byLine = new Map();
+      strokesOfEdge.set(want.edgeId, byLine);
+    }
+    byLine.set(want.lineId, points);
+  }
+  for (const [edgeId, byLine] of [...strokesOfEdge.entries()].sort((a, b) =>
+    byString(a[0], b[0]),
+  )) {
+    const lineIds = [...byLine.keys()].sort(byString);
+    for (let i = 0; i < lineIds.length; i++) {
+      for (let j = i + 1; j < lineIds.length; j++) {
+        const a = byLine.get(lineIds[i]) as readonly SchematicPoint[];
+        const b = byLine.get(lineIds[j]) as readonly SchematicPoint[];
+        if (
+          polylineDistance(a, b) <
+          SCHEMATIC_LINE_WIDTH * SCHEMATIC_OVERLAP_FRACTION
+        ) {
+          overlappingCorridorStrokes.push(
+            `${edgeId}|${lineIds[i]}|${lineIds[j]}`,
+          );
+        }
+      }
+    }
   }
 
   const diag = schematicLayoutDiagnostics(layout);
@@ -417,8 +605,14 @@ export function measureSchematicLayout(
   const metrics: SchematicLayoutMetrics = Object.freeze({
     segmentCount: layout.segments.length,
     stationCount: layout.stations.length,
-    routedEdges: diag?.routedEdges ?? pointsOfEdge.size,
+    routedEdges:
+      layout.corridors.length > 0
+        ? layout.corridors.length
+        : (diag?.routedEdges ?? pointsOfEdge.size),
     vertexCount,
+    corridorVertexCount,
+    corridorLength,
+    corridorCrossings,
     topologyPreserved:
       missingSegments.length === 0 &&
       brokenJunctions.length === 0 &&
@@ -440,6 +634,8 @@ export function measureSchematicLayout(
       minStationDistance === Infinity ? 0 : minStationDistance,
     tightStationPairs,
     maxStationOffRoute,
+    stationsOffOwnCorridor: Object.freeze(stationsOffOwnCorridor),
+    overlappingCorridorStrokes: Object.freeze(overlappingCorridorStrokes),
     fallbackRoutes: diag?.fallbackRoutes ?? 0,
     relocatedNodes: diag?.relocatedNodes ?? 0,
   });
@@ -510,6 +706,16 @@ export function evaluateSchematicGates(
       detail: `max ${metrics.maxStationOffRoute.toFixed(3)} <= ${
         SCHEMATIC_GATES.stationOnRoute
       }`,
+    },
+    {
+      id: 'legibility/stationOwnCorridor',
+      passed: metrics.stationsOffOwnCorridor.length === 0,
+      detail: `off own corridor ${metrics.stationsOffOwnCorridor.length}`,
+    },
+    {
+      id: 'legibility/corridorSeparation',
+      passed: metrics.overlappingCorridorStrokes.length === 0,
+      detail: `merged stroke pairs ${metrics.overlappingCorridorStrokes.length}`,
     },
     {
       id: 'routing/fallbackShare',
