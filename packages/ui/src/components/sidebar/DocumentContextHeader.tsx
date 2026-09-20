@@ -6,6 +6,12 @@ export interface DocumentContextHeaderProps {
   fileName: string;
   collapsed: boolean;
   onToggleCollapsed: () => void;
+  /**
+   * Whether this view offers the collapse control at all. The schematic
+   * sidebar is the only home of its filters and legend, so it stays expanded
+   * and omits the button rather than offering a control that does nothing.
+   */
+  collapsible?: boolean;
 }
 
 /**
@@ -21,6 +27,7 @@ export function DocumentContextHeader({
   fileName,
   collapsed,
   onToggleCollapsed,
+  collapsible = true,
 }: DocumentContextHeaderProps) {
   const { t } = useTranslation();
   const CollapseIcon = collapsed ? PanelLeftOpen : PanelLeftClose;
@@ -41,17 +48,19 @@ export function DocumentContextHeader({
           </details>
         </div>
       )}
-      <button
-        type="button"
-        className="shell-icon-button"
-        data-focus-id="sidebar-collapse"
-        aria-expanded={!collapsed}
-        aria-label={collapsed ? t('sidebar.expand') : t('sidebar.collapse')}
-        title={collapsed ? t('sidebar.expand') : t('sidebar.collapse')}
-        onClick={onToggleCollapsed}
-      >
-        <CollapseIcon size={16} strokeWidth={1.5} aria-hidden="true" />
-      </button>
+      {collapsible && (
+        <button
+          type="button"
+          className="shell-icon-button"
+          data-focus-id="sidebar-collapse"
+          aria-expanded={!collapsed}
+          aria-label={collapsed ? t('sidebar.expand') : t('sidebar.collapse')}
+          title={collapsed ? t('sidebar.expand') : t('sidebar.collapse')}
+          onClick={onToggleCollapsed}
+        >
+          <CollapseIcon size={16} strokeWidth={1.5} aria-hidden="true" />
+        </button>
+      )}
     </div>
   );
 }

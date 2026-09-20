@@ -530,3 +530,129 @@
   outline: 2px solid var(--shell-focus);
   outline-offset: 2px;
 }
+
+/* ─── Schematic sidebar (Story 4.2) ──────────────────────────────────────
+   Legend and filters live beside the network, never over it. Line names come
+   from the city and can be arbitrarily long, so every label wraps instead of
+   widening the panel; the body's own vertical scroll handles the rest. */
+.schematic-panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding-bottom: 8px;
+}
+
+.schematic-panel__title {
+  margin: 0;
+  padding: 12px 12px 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.schematic-panel__summary,
+.schematic-panel__empty {
+  margin: 4px 0 0;
+  padding: 0 12px;
+  font-size: 12px;
+  color: var(--shell-text-muted);
+  overflow-wrap: anywhere;
+}
+
+.schematic-panel__section {
+  padding: 12px 0 4px;
+}
+
+.schematic-panel__heading {
+  margin: 0 0 6px;
+  padding: 0 12px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--shell-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.schematic-panel__switch-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 6px 12px;
+}
+
+.schematic-panel__switch-label {
+  min-width: 0;
+  font-size: 12px;
+  line-height: 1rem;
+  overflow-wrap: anywhere;
+}
+
+.schematic-panel__restore {
+  margin: 6px 12px 0;
+  padding: 4px 10px;
+  align-self: flex-start;
+  font-size: 12px;
+  color: inherit;
+  background: transparent;
+  border: 1px solid var(--shell-border);
+  border-radius: var(--shell-radius-interactive);
+  cursor: pointer;
+}
+
+.schematic-panel__restore:focus-visible {
+  outline: 2px solid var(--shell-focus);
+  outline-offset: 2px;
+}
+
+.schematic-panel__group {
+  margin-top: 4px;
+}
+
+.schematic-panel__group-title {
+  margin: 0;
+  padding: 6px 12px 2px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--shell-text-muted);
+}
+
+.schematic-panel__lines {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.schematic-panel__row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 8px;
+  min-width: 0;
+  padding: 3px 12px;
+}
+
+.schematic-panel__row-label {
+  min-width: 0;
+  font-size: 12px;
+  line-height: 1rem;
+  overflow-wrap: anywhere;
+}
+
+/* The stroke sample mirrors the diagram: a bar of the line's own colour, and
+   the station symbol drawn the same way the SVG draws it. */
+.schematic-panel__line-swatch {
+  width: 16px;
+  height: 4px;
+  margin-top: 6px;
+  border-radius: 2px;
+}
+
+.schematic-panel__stop-swatch {
+  width: 10px;
+  height: 10px;
+  margin-top: 3px;
+  background: var(--color-bg);
+  border: 1.5px solid var(--color-text);
+  border-radius: 50%;
+}

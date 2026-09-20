@@ -1,11 +1,17 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { renderHook } from '@testing-library/react';
 import {
   makeCityData,
   makeRoadSegment,
   makeTransitLine,
 } from '@vellum/core/testing';
+import type { TransitMode } from '@vellum/core';
 import { cleanup, render, screen } from '../../test-utils';
 import { SchematicView } from './SchematicView';
+import {
+  EMPTY_SCHEMATIC_MODEL,
+  useSchematicNetwork,
+} from '../../hooks/use-schematic-network';
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key }),
@@ -36,10 +42,18 @@ const transitCity = makeCityData({
   ],
 });
 
+const modelFor = (hiddenModes: TransitMode[] = []) =>
+  renderHook(() => useSchematicNetwork({ cityData: transitCity, hiddenModes }))
+    .result.current;
+
 describe('SchematicView', () => {
   it('draws one stroke per line segment and one symbol per stop', () => {
     const { container } = render(
-      <SchematicView cityData={transitCity} onBack={() => {}} />,
+      <SchematicView
+        model={modelFor()}
+        onBack={() => {}}
+        onShowAllModes={() => {}}
+      />,
     );
     expect(
       screen.getByRole('region', { name: 'schematic.region' }),
@@ -61,13 +75,31 @@ describe('SchematicView', () => {
     const errors = vi.spyOn(console, 'error');
     render(
       <SchematicView
-        cityData={makeCityData({ transitLines: [] })}
+        model={EMPTY_SCHEMATIC_MODEL}
         onBack={onBack}
+        onShowAllModes={() => {}}
       />,
     );
     expect(screen.getByText('schematic.emptyTitle')).toBeInTheDocument();
     screen.getByRole('button', { name: 'schematic.back' }).click();
     expect(onBack).toHaveBeenCalledTimes(1);
     expect(errors).not.toHaveBeenCalled();
+  });
+
+  it('distinguishes a filtered-empty network and offers the way back to it', () => {
+    const onShowAllModes = vi.fn();
+    const { container } = render(
+      <SchematicView
+        model={modelFor(['Bus'])}
+        onBack={() => {}}
+        onShowAllModes={onShowAllModes}
+      />,
+    );
+    // Not the "no transit" state: the network exists, the filter is hiding it.
+    expect(screen.queryByTestId('schematic-empty')).toBeNull();
+    expect(screen.getByTestId('schematic-filtered-empty')).toBeInTheDocument();
+    expect(container.querySelectorAll('polyline')).toHaveLength(0);
+    screen.getByRole('button', { name: 'schematic.showAllModes' }).click();
+    expect(onShowAllModes).toHaveBeenCalledTimes(1);
   });
 });

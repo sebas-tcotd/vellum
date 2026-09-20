@@ -233,7 +233,24 @@
     "emptyTitle": "No hay tránsito que dibujar",
     "emptyBody": "Esta ciudad no tiene líneas de tránsito con recorrido, así que no hay red que mostrar.",
     "viewSwitch": "Vista del mapa",
-    "summary": "Red de tránsito con {{lines}} líneas y {{stations}} estaciones."
+    "summary": "Red de tránsito con {{lines}} líneas y {{stations}} estaciones.",
+    "filteredTitle": "No se muestra ninguna línea",
+    "filteredBody": "Todos los modos de transporte disponibles están apagados, así que el diagrama no tiene nada que dibujar.",
+    "showAllModes": "Mostrar todos los modos"
+  },
+  "schematicSidebar": {
+    "title": "Red esquemática",
+    "visibleLines_one": "{{count}} línea visible",
+    "visibleLines_other": "{{count}} líneas visibles",
+    "modes": "Modos de transporte",
+    "showAllModes": "Mostrar todos los modos",
+    "legend": "Líneas visibles",
+    "unnamedLine": "Línea sin nombre",
+    "unknownMode": "Modo no identificado",
+    "key": "Clave",
+    "stop": "Parada",
+    "filteredEmpty": "No hay ningún modo encendido, así que no se dibuja ninguna línea.",
+    "noRoutes": "Esta ciudad no tiene líneas de tránsito con recorrido, así que no hay nada que filtrar."
   },
   "a11y": {
     "mapCanvas": "Canvas del mapa de ciudad",

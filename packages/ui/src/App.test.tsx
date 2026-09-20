@@ -1,4 +1,8 @@
-import { makeExportPreviewSnapshot } from '@vellum/core/testing';
+import {
+  makeExportPreviewSnapshot,
+  makeRoadSegment,
+  makeTransitLine,
+} from '@vellum/core/testing';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import userEvent from '@testing-library/user-event';
 import type {
@@ -1718,5 +1722,162 @@ describe('App — schematic view (Story 4.1)', () => {
       useVellumStore.getState().setCityData(null);
     });
     expect(screen.queryByTestId('schematic-view')).toBeNull();
+  });
+});
+
+describe('App — schematic sidebar (Story 4.2)', () => {
+  /** A city that actually draws two modes, one sharing a stop with the other. */
+  const transitCity = {
+    ...mockCityData,
+    cityName: 'Altavento',
+    roadNodes: [
+      { id: 'a', position: { x: 0, y: 0, z: 0 } },
+      { id: 'b', position: { x: 100, y: 0, z: 0 } },
+      { id: 'c', position: { x: 100, y: 0, z: 300 } },
+    ],
+    roadSegments: [
+      makeRoadSegment({ id: 's1', startNodeId: 'a', endNodeId: 'b' }),
+      makeRoadSegment({ id: 's2', startNodeId: 'b', endNodeId: 'c' }),
+    ],
+    transitLines: [
+      makeTransitLine({
+        id: 'L1',
+        name: 'Red line',
+        mode: 'Bus',
+        color: '#ff0000',
+        stops: [
+          { id: 'p1', mode: 'Bus', position: { x: 0, y: 0, z: 0 }, name: 'A' },
+        ],
+        route: [{ segmentIds: ['s1', 's2'] }],
+      }),
+      makeTransitLine({
+        id: 'L2',
+        name: 'Blue line',
+        mode: 'Tram',
+        color: '#0000ff',
+        route: [{ segmentIds: ['s1'] }],
+      }),
+    ],
+  };
+
+  async function openSchematic(city = transitCity) {
+    await act(async () => {
+      render(<App />);
+    });
+    act(() => {
+      useVellumStore.getState().setCityData(city);
+    });
+    await act(async () => {
+      shell.emit('vellum://menu-action', 'menu.schematic-view');
+    });
+  }
+
+  const strokeLineIds = () =>
+    [...document.querySelectorAll('polyline[data-line-id]')].map((node) =>
+      node.getAttribute('data-line-id'),
+    );
+
+  it('replaces the sidebar body with the schematic legend and filters', async () => {
+    await openSchematic();
+
+    expect(screen.getByTestId('schematic-sidebar')).toBeInTheDocument();
+    // The geographic body and its collapse control are not offered here.
+    expect(screen.queryByTestId('shell-map-style')).toBeNull();
+    expect(
+      document.querySelector('[data-focus-id="sidebar-collapse"]'),
+    ).toBeNull();
+    expect(screen.getByTestId('shell-sidebar')).toHaveAttribute(
+      'data-state',
+      'expanded',
+    );
+
+    // Legend and diagram describe the same two lines, by name and by colour.
+    expect(screen.getByText('Red line')).toBeInTheDocument();
+    expect(screen.getByText('Blue line')).toBeInTheDocument();
+    expect(new Set(strokeLineIds())).toEqual(new Set(['L1', 'L2']));
+  });
+
+  it('moves diagram and legend together without touching the map store', async () => {
+    const user = userEvent.setup();
+    await openSchematic();
+    const beforeLayers = useVellumStore.getState().layerOptions;
+    const beforeActive = useVellumStore.getState().activeLayers;
+
+    await user.click(screen.getByTestId('schematic-mode-Bus'));
+
+    expect(screen.queryByText('Red line')).toBeNull();
+    expect(screen.getByText('Blue line')).toBeInTheDocument();
+    expect(new Set(strokeLineIds())).toEqual(new Set(['L2']));
+    // The geographic transit filter is a different thing and stays untouched.
+    expect(useVellumStore.getState().layerOptions).toBe(beforeLayers);
+    expect(useVellumStore.getState().activeLayers).toBe(beforeActive);
+
+    // Hiding the rest explains itself and stays recoverable from both surfaces.
+    await user.click(screen.getByTestId('schematic-mode-Tram'));
+    expect(screen.getByTestId('schematic-filtered-empty')).toBeInTheDocument();
+    await user.click(screen.getByTestId('schematic-show-all-modes'));
+    expect(new Set(strokeLineIds())).toEqual(new Set(['L1', 'L2']));
+  });
+
+  it('keeps an open layer detail while away, and returns focus to the toggle', async () => {
+    const user = userEvent.setup();
+    await act(async () => {
+      render(<App />);
+    });
+    act(() => {
+      useVellumStore.getState().setCityData(transitCity);
+    });
+    await act(async () => {
+      shell.emit('vellum://menu-action', 'menu.open-advanced.transit');
+    });
+    const detailHeading = () =>
+      document.getElementById('shell-layer-detail-heading');
+    expect(detailHeading()).not.toBeNull();
+
+    await act(async () => {
+      shell.emit('vellum://menu-action', 'menu.schematic-view');
+    });
+    expect(detailHeading()).toBeNull();
+
+    await user.click(screen.getByTestId('schematic-toggle'));
+    // Same detail, same city, and focus back on the control that switched.
+    expect(detailHeading()).not.toBeNull();
+    expect(screen.getByTestId('schematic-toggle')).toHaveFocus();
+  });
+
+  it('leaves the native advanced options inert while it is on screen', async () => {
+    await openSchematic();
+    const before = useVellumStore.getState().layerOptions;
+
+    // This menu branch writes straight to the store, bypassing the command
+    // registry, so it needs its own guard — and the transit entry must not be
+    // silently reinterpreted as a schematic filter.
+    await act(async () => {
+      shell.emit('vellum://menu-action', 'menu.toggle-advanced.transit.Bus');
+    });
+    await act(async () => {
+      shell.emit('vellum://menu-action', 'menu.toggle-advanced.basemap.grid');
+    });
+
+    expect(useVellumStore.getState().layerOptions).toBe(before);
+    // And the schematic's own selection was not touched either.
+    expect(new Set(strokeLineIds())).toEqual(new Set(['L1', 'L2']));
+  });
+
+  it('starts a new city with every mode visible again', async () => {
+    const user = userEvent.setup();
+    await openSchematic();
+    await user.click(screen.getByTestId('schematic-mode-Bus'));
+    expect(new Set(strokeLineIds())).toEqual(new Set(['L2']));
+
+    act(() => {
+      useVellumStore
+        .getState()
+        .setCityData({ ...transitCity, cityName: 'Other City' });
+    });
+    await act(async () => {
+      shell.emit('vellum://menu-action', 'menu.schematic-view');
+    });
+    expect(new Set(strokeLineIds())).toEqual(new Set(['L1', 'L2']));
   });
 });

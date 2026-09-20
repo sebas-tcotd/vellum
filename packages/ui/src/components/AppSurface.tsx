@@ -3,9 +3,15 @@ import {
   type RefObject,
   type SetStateAction,
   Suspense,
+  useCallback,
+  useRef,
   useState,
 } from 'react';
-import { IPC_COMMANDS, type ServiceIconLegendState } from '@vellum/core';
+import {
+  IPC_COMMANDS,
+  type ServiceIconLegendState,
+  type TransitMode,
+} from '@vellum/core';
 import type { MapLibreRootProps } from './canvas/MapLibreRoot';
 import { MapViewport } from './viewport/MapViewport';
 import { EmptyState } from './empty-state/EmptyState';
@@ -24,6 +30,7 @@ import { MapAppearanceSidebar } from './sidebar/MapAppearanceSidebar';
 import type { CommandRegistry } from '../shell/commands';
 import type { ShellSession } from '../shell/shell-session';
 import type { useExportWorkflow } from '../hooks/use-export-workflow';
+import { useSchematicNetwork } from '../hooks/use-schematic-network';
 // Relativo a propósito: el alias `@/` del composition root apunta a
 // `packages/ui/src`, así que un `@/store/...` compilado a dist carga un SEGUNDO
 // módulo del store — el resto del paquete quedaría suscrito a otra instancia.
@@ -84,10 +91,39 @@ export function AppSurface({
   const autoUpdateEnabled = useVellumStore((state) => state.autoUpdateEnabled);
 
   const showEmptyState = cityData === null && loadingState !== 'loading';
+  const isSchematic = shell.state.viewMode === 'schematic';
+  const shellDispatch = shell.dispatch;
+
+  // The one model the schematic surface and its sidebar both read, derived at
+  // their common ancestor so a stroke and its legend row cannot disagree.
+  const schematicModel = useSchematicNetwork({
+    cityData,
+    hiddenModes: shell.state.schematic.hiddenModes,
+    enabled: isSchematic,
+  });
+  const toggleSchematicMode = useCallback(
+    (mode: TransitMode) =>
+      shellDispatch({ type: 'schematic/toggleMode', mode }),
+    [shellDispatch],
+  );
+  const showAllSchematicModes = useCallback(
+    () => shellDispatch({ type: 'schematic/showAllModes' }),
+    [shellDispatch],
+  );
+
   // How much of the map the sidebar covers, measured from the rendered element
   // so platform insets are included without this having to know about them.
   const [sidebarWidth, setSidebarWidth] = useState(0);
-  const mapInset = { left: cityData === null ? 0 : sidebarWidth };
+  // The geographic padding is renderer state MapLibre is subscribed to. While
+  // the schematic owns the screen it must keep the value the map was last
+  // framed with: widening the schematic sidebar is not a camera decision, and
+  // pushing it through would reframe a map nobody is looking at.
+  const geographicWidthRef = useRef(0);
+  if (!isSchematic) geographicWidthRef.current = sidebarWidth;
+  const mapInset = {
+    left: cityData === null ? 0 : geographicWidthRef.current,
+  };
+  const schematicInset = { left: cityData === null ? 0 : sidebarWidth };
   const showPartialParseDialog =
     loadingState === 'error' && loadingError?.type === 'PartialParse';
   const showErrorToast =
@@ -115,6 +151,9 @@ export function AppSurface({
                 commands={commands}
                 shell={shell}
                 onOccupiedWidthChange={setSidebarWidth}
+                schematicModel={schematicModel}
+                onToggleSchematicMode={toggleSchematicMode}
+                onShowAllSchematicModes={showAllSchematicModes}
               />
             )}
             <MapViewport
@@ -123,6 +162,9 @@ export function AppSurface({
               isCleanView={isCleanMode}
               viewMode={shell.state.viewMode}
               mapInset={mapInset}
+              schematicInset={schematicInset}
+              schematicModel={schematicModel}
+              onShowAllSchematicModes={showAllSchematicModes}
               subscribeServiceIconLegendRef={subscribeServiceIconLegendRef}
               iconLegendToggleRef={iconLegendToggleRef}
             />

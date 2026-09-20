@@ -1,6 +1,8 @@
 import { useEffect, useLayoutEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { LAYER_NAMES } from '@vellum/core';
+import { LAYER_NAMES, type TransitMode } from '@vellum/core';
+import { SchematicSidebarContent } from '../schematic/SchematicSidebarContent';
+import type { SchematicNetworkModel } from '../../hooks/use-schematic-network';
 import type { CommandRegistry } from '../../shell/commands';
 import type { ShellSession } from '../../shell/shell-session';
 import { LAYER_ICONS } from './layer-presentation';
@@ -22,6 +24,14 @@ export interface MapAppearanceSidebarProps {
    * there.
    */
   onOccupiedWidthChange?: (width: number) => void;
+  /**
+   * The shared schematic model. Present means the schematic surface owns the
+   * screen, and the body becomes its filters and legend instead of the map's
+   * appearance: the two views have nothing to say about each other.
+   */
+  schematicModel?: SchematicNetworkModel;
+  onToggleSchematicMode?: (mode: TransitMode) => void;
+  onShowAllSchematicModes?: () => void;
 }
 
 /**
@@ -39,10 +49,18 @@ export function MapAppearanceSidebar({
   commands,
   shell,
   onOccupiedWidthChange,
+  schematicModel,
+  onToggleSchematicMode,
+  onShowAllSchematicModes,
 }: MapAppearanceSidebarProps) {
   const { t } = useTranslation();
   const { state, dispatch } = shell;
-  const { collapsed, view, width } = state.sidebar;
+  const isSchematic = state.viewMode === 'schematic';
+  // The schematic keeps its own width and never collapses: its body is the
+  // only route to the filters and the legend, so a rail would strand them.
+  const collapsed = isSchematic ? false : state.sidebar.collapsed;
+  const { view } = state.sidebar;
+  const width = isSchematic ? state.schematic.width : state.sidebar.width;
   const sidebarRef = useRef<HTMLElement>(null);
   const focusBeforeCleanViewRef = useRef<HTMLElement | null>(null);
   const isCleanView = state.cleanView;
@@ -58,7 +76,7 @@ export function MapAppearanceSidebar({
     const observer = new ResizeObserver(report);
     observer.observe(sidebar);
     return () => observer.disconnect();
-  }, [onOccupiedWidthChange, isCleanView, collapsed, width]);
+  }, [onOccupiedWidthChange, isCleanView, collapsed, width, isSchematic]);
 
   // Clean view hides this subtree. Focus cannot be left inside a hidden tree,
   // so it is parked here and handed back on return — the behaviour the shell
@@ -93,7 +111,9 @@ export function MapAppearanceSidebar({
     const leftDetail =
       previousViewKind.current === 'detail' && view.kind === 'overview';
     previousViewKind.current = view.kind;
-    if (!leftDetail || isCleanView) return;
+    // While the schematic is up the geographic body is hidden, so there is no
+    // disclosure on screen to hand focus back to.
+    if (!leftDetail || isCleanView || isSchematic) return;
 
     const sidebar = sidebarRef.current;
     if (!sidebar) return;
@@ -106,7 +126,7 @@ export function MapAppearanceSidebar({
       invoker ?? sidebar.querySelector<HTMLElement>('#shell-map-style-heading')
     )?.focus();
     dispatch({ type: 'focus/consume' });
-  }, [view.kind, state.restoreFocus, isCleanView, dispatch]);
+  }, [view.kind, state.restoreFocus, isCleanView, isSchematic, dispatch]);
 
   return (
     <aside
@@ -114,8 +134,11 @@ export function MapAppearanceSidebar({
       className="shell-sidebar"
       data-testid="shell-sidebar"
       data-state={collapsed ? 'collapsed' : 'expanded'}
+      data-view={isSchematic ? 'schematic' : 'geographic'}
       style={collapsed ? undefined : { width }}
-      aria-label={t('a11y.mapAppearance')}
+      aria-label={
+        isSchematic ? t('schematicSidebar.title') : t('a11y.mapAppearance')
+      }
       hidden={isCleanView}
       aria-hidden={isCleanView ? true : undefined}
     >
@@ -123,12 +146,19 @@ export function MapAppearanceSidebar({
         cityName={cityName}
         fileName={fileName}
         collapsed={collapsed}
+        collapsible={!isSchematic}
         onToggleCollapsed={() =>
           dispatch({ type: 'sidebar/setCollapsed', collapsed: !collapsed })
         }
       />
       <div className="shell-sidebar__body">
-        {collapsed ? (
+        {isSchematic && schematicModel ? (
+          <SchematicSidebarContent
+            model={schematicModel}
+            onToggleMode={(mode) => onToggleSchematicMode?.(mode)}
+            onShowAllModes={() => onShowAllSchematicModes?.()}
+          />
+        ) : collapsed ? (
           <CompactLayerRail commands={commands} />
         ) : view.kind === 'overview' ? (
           <MapAppearanceOverview commands={commands} />
@@ -143,7 +173,11 @@ export function MapAppearanceSidebar({
         <SidebarResizeHandle
           width={width}
           onResize={(next) =>
-            dispatch({ type: 'sidebar/setWidth', width: next })
+            dispatch(
+              isSchematic
+                ? { type: 'schematic/setWidth', width: next }
+                : { type: 'sidebar/setWidth', width: next },
+            )
           }
         />
       )}
