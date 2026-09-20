@@ -12,6 +12,11 @@ export interface SchematicViewProps {
   onBack: () => void;
   /** Brings every switched-off mode back — the way out of an empty filter. */
   onShowAllModes: () => void;
+  /**
+   * The line the user is pointing at in the legend, or `null`. Everything else
+   * is held back while it is set; the highlighted line keeps its own colour.
+   */
+  hoveredLineId?: string | null;
 }
 
 /**
@@ -29,7 +34,10 @@ export interface SchematicViewProps {
  * strategy's job (Story 4.4), not this surface's.
  */
 export const SchematicView = forwardRef<HTMLElement, SchematicViewProps>(
-  function SchematicView({ model, onBack, onShowAllModes }, ref) {
+  function SchematicView(
+    { model, onBack, onShowAllModes, hoveredLineId = null },
+    ref,
+  ) {
     const { t } = useTranslation();
     const { layout, hasDrawableNetwork, isFilteredEmpty } = model;
 
@@ -102,6 +110,11 @@ export const SchematicView = forwardRef<HTMLElement, SchematicViewProps>(
                   <polyline
                     key={`${segment.lineId}:${index}`}
                     data-line-id={segment.lineId}
+                    className={
+                      hoveredLineId !== null && segment.lineId !== hoveredLineId
+                        ? 'schematic-view__dimmed'
+                        : undefined
+                    }
                     points={segment.points
                       .map((p) => `${p.x},${p.y}`)
                       .join(' ')}
@@ -116,6 +129,14 @@ export const SchematicView = forwardRef<HTMLElement, SchematicViewProps>(
                     cx={station.x}
                     cy={station.y}
                     r={4}
+                    // Station membership is what `lineIds` is for: a stop the
+                    // highlighted line does not call at recedes with the rest.
+                    className={
+                      hoveredLineId !== null &&
+                      !station.lineIds.includes(hoveredLineId)
+                        ? 'schematic-view__dimmed'
+                        : undefined
+                    }
                   />
                 ))}
               </g>

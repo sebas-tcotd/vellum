@@ -103,3 +103,109 @@ describe('SchematicView', () => {
     expect(onShowAllModes).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('SchematicView — hovering a legend row', () => {
+  const twoLineCity = makeCityData({
+    roadNodes: [
+      { id: 'a', position: { x: 0, y: 0, z: 0 } },
+      { id: 'b', position: { x: 100, y: 0, z: 0 } },
+      { id: 'c', position: { x: 100, y: 0, z: 100 } },
+    ],
+    roadSegments: [
+      makeRoadSegment({ id: 's1', startNodeId: 'a', endNodeId: 'b' }),
+      makeRoadSegment({ id: 's2', startNodeId: 'b', endNodeId: 'c' }),
+    ],
+    transitLines: [
+      makeTransitLine({
+        id: 'L1',
+        color: '#ff0000',
+        // `shared` is called at by both lines; `only1` by L1 alone.
+        stops: [
+          {
+            id: 'shared',
+            mode: 'Bus',
+            position: { x: 100, y: 0, z: 0 },
+            name: 'Shared',
+          },
+          {
+            id: 'only1',
+            mode: 'Bus',
+            position: { x: 0, y: 0, z: 0 },
+            name: 'Only 1',
+          },
+        ],
+        route: [{ segmentIds: ['s1'] }],
+      }),
+      makeTransitLine({
+        id: 'L2',
+        color: '#0000ff',
+        stops: [
+          {
+            id: 'shared',
+            mode: 'Tram',
+            position: { x: 100, y: 0, z: 0 },
+            name: 'Shared',
+          },
+        ],
+        route: [{ segmentIds: ['s2'] }],
+      }),
+    ],
+  });
+
+  const twoLineModel = () =>
+    renderHook(() =>
+      useSchematicNetwork({ cityData: twoLineCity, hiddenModes: [] }),
+    ).result.current;
+
+  const dimmed = (container: HTMLElement) =>
+    [...container.querySelectorAll('.schematic-view__dimmed')].map((el) =>
+      el.tagName.toLowerCase(),
+    );
+
+  it('holds every other stroke back, and keeps the stops the line calls at', () => {
+    const { container } = render(
+      <SchematicView
+        model={twoLineModel()}
+        onBack={() => {}}
+        onShowAllModes={() => {}}
+        hoveredLineId="L1"
+      />,
+    );
+
+    const strokes = [...container.querySelectorAll('polyline')];
+    expect(strokes).toHaveLength(2);
+    const hovered = strokes.find((s) => s.dataset.lineId === 'L1');
+    const other = strokes.find((s) => s.dataset.lineId === 'L2');
+    expect(hovered).not.toHaveClass('schematic-view__dimmed');
+    expect(other).toHaveClass('schematic-view__dimmed');
+
+    // A stop L1 shares with L2 stays bright: it is on the highlighted line.
+    // Exactly one thing recedes — L2's stroke — because both stops belong to L1.
+    expect(dimmed(container)).toEqual(['polyline']);
+  });
+
+  it('recedes a stop the highlighted line does not call at', () => {
+    const { container } = render(
+      <SchematicView
+        model={twoLineModel()}
+        onBack={() => {}}
+        onShowAllModes={() => {}}
+        hoveredLineId="L2"
+      />,
+    );
+
+    // L2 calls only at `shared`, so `only1` recedes along with L1's stroke.
+    expect(dimmed(container).sort()).toEqual(['circle', 'polyline']);
+  });
+
+  it('dims nothing when the pointer is not on a legend row', () => {
+    const { container } = render(
+      <SchematicView
+        model={twoLineModel()}
+        onBack={() => {}}
+        onShowAllModes={() => {}}
+      />,
+    );
+    expect(dimmed(container)).toEqual([]);
+  });
+});

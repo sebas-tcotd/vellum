@@ -30,6 +30,8 @@ export interface MapAppearanceSidebarProps {
    * appearance: the two views have nothing to say about each other.
    */
   schematicModel?: SchematicNetworkModel;
+  /** Reports the legend row the pointer is over, or `null` on the way out. */
+  onHoverSchematicLine?: (lineId: string | null) => void;
   onToggleSchematicMode?: (mode: TransitMode) => void;
   onShowAllSchematicModes?: () => void;
 }
@@ -50,6 +52,7 @@ export function MapAppearanceSidebar({
   shell,
   onOccupiedWidthChange,
   schematicModel,
+  onHoverSchematicLine,
   onToggleSchematicMode,
   onShowAllSchematicModes,
 }: MapAppearanceSidebarProps) {
@@ -157,6 +160,7 @@ export function MapAppearanceSidebar({
             model={schematicModel}
             onToggleMode={(mode) => onToggleSchematicMode?.(mode)}
             onShowAllModes={() => onShowAllSchematicModes?.()}
+            onHoverLine={(lineId) => onHoverSchematicLine?.(lineId)}
           />
         ) : collapsed ? (
           <CompactLayerRail commands={commands} />

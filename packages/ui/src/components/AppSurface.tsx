@@ -118,6 +118,11 @@ export function AppSurface({
   // the schematic owns the screen it must keep the value the map was last
   // framed with: widening the schematic sidebar is not a camera decision, and
   // pushing it through would reframe a map nobody is looking at.
+  // Pointing at a legend row is a question about the diagram, not a change to
+  // it: nothing here is persisted, and it resets when the pointer leaves.
+  const [hoveredSchematicLineId, setHoveredSchematicLineId] = useState<
+    string | null
+  >(null);
   const geographicWidthRef = useRef(0);
   if (!isSchematic) geographicWidthRef.current = sidebarWidth;
   const mapInset = {
@@ -154,6 +159,7 @@ export function AppSurface({
                 schematicModel={schematicModel}
                 onToggleSchematicMode={toggleSchematicMode}
                 onShowAllSchematicModes={showAllSchematicModes}
+                onHoverSchematicLine={setHoveredSchematicLineId}
               />
             )}
             <MapViewport
@@ -164,6 +170,7 @@ export function AppSurface({
               mapInset={mapInset}
               schematicInset={schematicInset}
               schematicModel={schematicModel}
+              hoveredSchematicLineId={hoveredSchematicLineId}
               onShowAllSchematicModes={showAllSchematicModes}
               subscribeServiceIconLegendRef={subscribeServiceIconLegendRef}
               iconLegendToggleRef={iconLegendToggleRef}

@@ -54,6 +54,8 @@ export interface MapViewportProps {
   };
   /** The shared model the schematic sidebar reads; see `useSchematicNetwork`. */
   schematicModel?: SchematicNetworkModel;
+  /** Legend row the pointer is over; holds every other stroke back. */
+  hoveredSchematicLineId?: string | null;
   /** Brings every switched-off schematic mode back. */
   onShowAllSchematicModes?: () => void;
   subscribeServiceIconLegendRef: React.RefObject<
@@ -81,6 +83,7 @@ export function MapViewport({
   mapInset,
   schematicInset,
   schematicModel = EMPTY_SCHEMATIC_MODEL,
+  hoveredSchematicLineId = null,
   onShowAllSchematicModes,
   subscribeServiceIconLegendRef,
   iconLegendToggleRef,
@@ -250,6 +253,7 @@ export function MapViewport({
               <SchematicView
                 ref={schematicRegionRef}
                 model={schematicModel}
+                hoveredLineId={hoveredSchematicLineId}
                 onBack={() => schematicCommand.execute()}
                 onShowAllModes={() => onShowAllSchematicModes?.()}
               />

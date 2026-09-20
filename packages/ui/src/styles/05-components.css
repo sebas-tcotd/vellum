@@ -435,7 +435,10 @@
 
 .shell-floating-button:hover:not(:disabled),
 .shell-camera-button:hover:not(:disabled) {
-  background: var(--shell-surface-popover);
+  /* Not a surface token: `--shell-surface-popover` is the sidebar's own colour
+     in every theme, so it reads as no change at all. A tint of the ink flips
+     with the theme on its own and stays visible in light and dark alike. */
+  background: color-mix(in srgb, currentColor 9%, transparent);
 }
 
 .shell-floating-button:disabled,
@@ -490,6 +493,17 @@
   stroke-linecap: round;
   stroke-linejoin: round;
   vector-effect: non-scaling-stroke;
+}
+
+/* Hovering a legend row answers "which one is that?" by holding the rest
+   back, rather than by recolouring the line being asked about. */
+.schematic-view__segments polyline,
+.schematic-view__stations circle {
+  transition: opacity 120ms ease;
+}
+
+.schematic-view__dimmed {
+  opacity: 0.18;
 }
 
 .schematic-view__stations circle {
@@ -562,6 +576,13 @@
   padding: 12px 0 4px;
 }
 
+/* Modes, legend and key are separate questions; a rule between them is
+   cheaper to scan than the whitespace alone. */
+.schematic-panel__section + .schematic-panel__section {
+  margin-top: 4px;
+  border-top: 1px solid var(--shell-separator);
+}
+
 .schematic-panel__heading {
   margin: 0 0 6px;
   padding: 0 12px;
@@ -629,7 +650,21 @@
   align-items: start;
   gap: 8px;
   min-width: 0;
-  padding: 3px 12px;
+  padding: 6px 12px;
+}
+
+/* Only line rows point at something in the diagram; the key's stop row does
+   not, so it gets no hover affordance promising a highlight it cannot give. */
+.schematic-panel__row--line {
+  cursor: default;
+  transition: background-color 120ms ease;
+}
+
+.schematic-panel__row--line:hover {
+  /* Not a surface token: `--shell-surface-popover` is the sidebar's own colour
+     in every theme, so it reads as no change at all. A tint of the ink flips
+     with the theme on its own and stays visible in light and dark alike. */
+  background: color-mix(in srgb, currentColor 9%, transparent);
 }
 
 .schematic-panel__row-label {

@@ -12,6 +12,8 @@ export interface SchematicSidebarContentProps {
   onToggleMode: (mode: TransitMode) => void;
   /** Brings every switched-off mode back. */
   onShowAllModes: () => void;
+  /** Reports the line the pointer is over, or `null` on the way out. */
+  onHoverLine?: (lineId: string | null) => void;
 }
 
 /**
@@ -29,10 +31,13 @@ export interface SchematicSidebarContentProps {
  * the tab order, which keeps the schematic's controls to the handful of mode
  * switches the user can actually reason about.
  */
+const noop = (): void => {};
+
 export function SchematicSidebarContent({
   model,
   onToggleMode,
   onShowAllModes,
+  onHoverLine = noop,
 }: SchematicSidebarContentProps) {
   const { t } = useTranslation();
   const {
@@ -133,6 +138,7 @@ export function SchematicSidebarContent({
                     key={line.lineId}
                     line={line}
                     fallback={t('schematicSidebar.unnamedLine')}
+                    onHover={onHoverLine}
                   />
                 ))}
               </ul>
@@ -184,14 +190,25 @@ function modeLabel(
 function LegendRow({
   line,
   fallback,
+  onHover,
 }: {
   line: SchematicLegendLine;
   fallback: string;
+  onHover: (lineId: string | null) => void;
 }) {
   // The colour never carries meaning on its own: the name and the mode group
   // it sits under say the same thing in words.
+  //
+  // Hover is an aid, not a way through: the row carries no filter, so pointing
+  // at it only holds the other strokes back. Nothing here is keyboard-only
+  // content, which is why the row still stays out of the tab order.
   return (
-    <li className="schematic-panel__row">
+    <li
+      className="schematic-panel__row schematic-panel__row--line"
+      data-line-id={line.lineId}
+      onPointerEnter={() => onHover(line.lineId)}
+      onPointerLeave={() => onHover(null)}
+    >
       <span
         className="schematic-panel__line-swatch"
         style={{ background: line.color }}
