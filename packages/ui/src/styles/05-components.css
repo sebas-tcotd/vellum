@@ -593,6 +593,82 @@
   letter-spacing: 0.06em;
 }
 
+/* ─── Schematic layout selector (Story 4.3) ──────────────────────────────
+   A radiogroup, because exactly one geometry is drawn at a time. No primitive
+   in `lib/` covers it, so the rows are native buttons with the ARIA roles and a
+   drawn mark; only shell tokens are used, so the selector follows the platform
+   chrome and never the map's palette. */
+.schematic-panel__layouts {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.schematic-panel__layout {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 6px 12px;
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+.schematic-panel__layout:hover {
+  background: color-mix(in srgb, currentColor 9%, transparent);
+}
+
+.schematic-panel__layout:focus-visible {
+  outline: 2px solid var(--shell-focus);
+  outline-offset: -2px;
+}
+
+/* The mark carries the state visually; `aria-checked` carries it in the
+   accessibility tree, so neither one is the only channel. */
+.schematic-panel__layout-mark {
+  width: 12px;
+  height: 12px;
+  border: 1.5px solid var(--shell-border);
+  border-radius: 50%;
+}
+
+/* `--shell-surface-selected` is the shell's existing "this one is chosen"
+   colour (the compact layer rail already paints with it), so the selector reads
+   as selected in every theme without introducing a token of its own. */
+.schematic-panel__layout[aria-checked='true'] .schematic-panel__layout-mark {
+  border-color: var(--shell-surface-selected);
+  box-shadow: inset 0 0 0 3px var(--shell-surface-selected);
+}
+
+.schematic-panel__layout[aria-checked='true'] .schematic-panel__layout-label {
+  font-weight: 600;
+}
+
+.schematic-panel__layout-label {
+  min-width: 0;
+  line-height: 1rem;
+  overflow-wrap: anywhere;
+}
+
+/* Said in words, not by colour alone: an unpublished layout has to look
+   unpublished to every reader. */
+.schematic-panel__layout-tag {
+  padding: 1px 6px;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--shell-text-muted);
+  border: 1px solid var(--shell-separator);
+  border-radius: var(--shell-radius-interactive);
+  white-space: nowrap;
+}
+
 .schematic-panel__switch-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;

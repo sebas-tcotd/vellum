@@ -100,3 +100,65 @@ describe('SchematicSidebarContent — recuento anunciado (i18n real)', () => {
     );
   });
 });
+
+describe('SchematicSidebarContent — selector de layout (i18n real)', () => {
+  beforeAll(async () => {
+    await initI18n();
+  });
+
+  afterEach(async () => {
+    cleanup();
+    await i18n.changeLanguage('en');
+  });
+
+  function renderSelector() {
+    return render(
+      <SchematicSidebarContent
+        model={modelOf([])}
+        onToggleMode={() => {}}
+        onShowAllModes={() => {}}
+        layoutId="geographic"
+        onSetLayout={() => {}}
+      />,
+    );
+  }
+
+  it('nombra cada geometría y su marca en los dos idiomas', async () => {
+    renderSelector();
+    expect(
+      screen.getByRole('radiogroup', { name: 'Diagram geometry' }),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId('schematic-layout-geographic')).toHaveTextContent(
+      'Geographic trace',
+    );
+    expect(screen.getByTestId('schematic-layout-octilinear')).toHaveTextContent(
+      'Octilinear',
+    );
+    // La marca es texto, no sólo color: se traduce como cualquier otra palabra.
+    expect(
+      screen.getByTestId('schematic-layout-orthoradial'),
+    ).toHaveTextContent('experimental');
+
+    cleanup();
+    await i18n.changeLanguage('es');
+    renderSelector();
+    expect(
+      screen.getByRole('radiogroup', { name: 'Geometría del diagrama' }),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId('schematic-layout-geographic')).toHaveTextContent(
+      'Trazado geográfico',
+    );
+    expect(screen.getByTestId('schematic-layout-octilinear')).toHaveTextContent(
+      'Octilineal',
+    );
+  });
+
+  it('no deja ninguna clave sin traducir en el selector', () => {
+    const { container } = renderSelector();
+    const section = container.querySelector(
+      '[data-testid="schematic-layout-section"]',
+    );
+    expect(section?.textContent).not.toContain('schematicLayouts.');
+    expect(section?.textContent).not.toContain('schematicSidebar.');
+  });
+});

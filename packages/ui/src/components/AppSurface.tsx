@@ -9,6 +9,10 @@ import {
 } from 'react';
 import {
   IPC_COMMANDS,
+  geographicSchematicLayout,
+  octilinearSchematicLayout,
+  orthoradialSchematicLayout,
+  type SchematicLayoutStrategy,
   type ServiceIconLegendState,
   type TransitMode,
 } from '@vellum/core';
@@ -28,7 +32,7 @@ import { PreferencesPanel } from './panels/PreferencesPanel';
 import { DesktopShell } from './shell';
 import { MapAppearanceSidebar } from './sidebar/MapAppearanceSidebar';
 import type { CommandRegistry } from '../shell/commands';
-import type { ShellSession } from '../shell/shell-session';
+import type { SchematicLayoutId, ShellSession } from '../shell/shell-session';
 import type { useExportWorkflow } from '../hooks/use-export-workflow';
 import { useSchematicNetwork } from '../hooks/use-schematic-network';
 // Relativo a propósito: el alias `@/` del composition root apunta a
@@ -36,6 +40,22 @@ import { useSchematicNetwork } from '../hooks/use-schematic-network';
 // módulo del store — el resto del paquete quedaría suscrito a otra instancia.
 import { useVellumStore } from '../store/vellum-store';
 import { usePlatformServices } from '../context/PlatformServicesContext';
+
+/**
+ * The one place a layout id becomes a strategy.
+ *
+ * @remarks
+ * Module-level and frozen on purpose: `useSchematicNetwork` caches per
+ * strategy *by identity*, so a map rebuilt on every render would hand it a
+ * fresh function each time and evict the layout it just computed.
+ */
+const SCHEMATIC_LAYOUT_STRATEGIES: Readonly<
+  Record<SchematicLayoutId, SchematicLayoutStrategy>
+> = Object.freeze({
+  geographic: geographicSchematicLayout,
+  octilinear: octilinearSchematicLayout,
+  orthoradial: orthoradialSchematicLayout,
+});
 
 interface AppSurfaceProps {
   mapProps: MapLibreRootProps;
@@ -96,9 +116,16 @@ export function AppSurface({
 
   // The one model the schematic surface and its sidebar both read, derived at
   // their common ancestor so a stroke and its legend row cannot disagree.
+  const schematicLayoutId = shell.state.schematic.layoutId;
   const schematicModel = useSchematicNetwork({
     cityData,
     hiddenModes: shell.state.schematic.hiddenModes,
+    // The record is exhaustive over `SchematicLayoutId`, but the id arrives from
+    // session state that a future migration could hand us something else; the
+    // geographic strategy is the honest fallback because it invents nothing.
+    strategy:
+      SCHEMATIC_LAYOUT_STRATEGIES[schematicLayoutId] ??
+      geographicSchematicLayout,
     enabled: isSchematic,
   });
   const toggleSchematicMode = useCallback(
@@ -108,6 +135,14 @@ export function AppSurface({
   );
   const showAllSchematicModes = useCallback(
     () => shellDispatch({ type: 'schematic/showAllModes' }),
+    [shellDispatch],
+  );
+  // Choosing a geometry is a question about the diagram only: it dispatches to
+  // the ephemeral session and never to `useVellumStore`, so no layer, theme or
+  // camera value the geographic map is subscribed to is written.
+  const setSchematicLayout = useCallback(
+    (layoutId: SchematicLayoutId) =>
+      shellDispatch({ type: 'schematic/setLayout', layoutId }),
     [shellDispatch],
   );
 
@@ -157,6 +192,8 @@ export function AppSurface({
                 shell={shell}
                 onOccupiedWidthChange={setSidebarWidth}
                 schematicModel={schematicModel}
+                schematicLayoutId={schematicLayoutId}
+                onSetSchematicLayout={setSchematicLayout}
                 onToggleSchematicMode={toggleSchematicMode}
                 onShowAllSchematicModes={showAllSchematicModes}
                 onHoverSchematicLine={setHoveredSchematicLineId}

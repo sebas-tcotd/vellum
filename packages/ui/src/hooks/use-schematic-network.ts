@@ -155,18 +155,26 @@ export function useSchematicNetwork({
   // The cache is a ref rather than a second memo because `enabled` is in the
   // dependency list: without it, closing the schematic would evict the layout
   // and re-deriving it would be the price of every return trip.
+  //
+  // One entry *per strategy*, invalidated wholesale by the document (Story
+  // 4.3): comparing layouts means going back and forth between them, and a
+  // single-entry cache would make every return trip pay for a full re-layout.
+  // The document is the invalidation key because the network — the expensive
+  // half — is a function of it alone.
   const cacheRef = useRef<{
     cityData: CityData;
-    strategy: SchematicLayoutStrategy;
-    value: SchematicBase;
+    byStrategy: Map<SchematicLayoutStrategy, SchematicBase>;
   } | null>(null);
 
   const base = useMemo<SchematicBase | null>(() => {
     if (cityData === null) return null;
-    const cached = cacheRef.current;
-    if (cached?.cityData === cityData && cached.strategy === strategy) {
-      return cached.value;
+    let cache = cacheRef.current;
+    if (cache === null || cache.cityData !== cityData) {
+      cache = { cityData, byStrategy: new Map() };
+      cacheRef.current = cache;
     }
+    const cached = cache.byStrategy.get(strategy);
+    if (cached !== undefined) return cached;
     if (!enabled) return null;
     const network = deriveTransitNetwork(cityData);
     const layout = strategy(network);
@@ -213,7 +221,7 @@ export function useSchematicNetwork({
         drawnModes.has(mode),
       ),
     };
-    cacheRef.current = { cityData, strategy, value };
+    cache.byStrategy.set(strategy, value);
     return value;
   }, [cityData, strategy, enabled]);
 

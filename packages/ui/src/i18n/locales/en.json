@@ -240,6 +240,8 @@
   },
   "schematicSidebar": {
     "title": "Schematic network",
+    "layout": "Diagram geometry",
+    "experimental": "experimental",
     "visibleLines_one": "{{count}} line visible",
     "visibleLines_other": "{{count}} lines visible",
     "modes": "Transport modes",
@@ -251,6 +253,11 @@
     "stop": "Stop",
     "filteredEmpty": "No mode is switched on, so no line is drawn.",
     "noRoutes": "This city has no transit lines with a route, so there is nothing to filter."
+  },
+  "schematicLayouts": {
+    "geographic": "Geographic trace",
+    "octilinear": "Octilinear",
+    "orthoradial": "Orthoradial"
   },
   "a11y": {
     "mapCanvas": "City map canvas",

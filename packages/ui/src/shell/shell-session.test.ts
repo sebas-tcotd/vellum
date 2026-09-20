@@ -430,3 +430,54 @@ describe('preserving the hidden geographic context', () => {
     expect(escaped.sidebar.view).toEqual({ kind: 'detail', layerId: 'roads' });
   });
 });
+
+describe('schematic layout (Story 4.3)', () => {
+  it('starts on the geographic layout, which is the only default', () => {
+    expect(initialShellSession(1440).schematic.layoutId).toBe('geographic');
+    expect(initialShellSession(900).schematic.layoutId).toBe('geographic');
+  });
+
+  it('switches layout without touching anything else', () => {
+    const filtered = shellSessionReducer(
+      shellSessionReducer(base(), { type: 'schematic/setWidth', width: 300 }),
+      { type: 'schematic/toggleMode', mode: 'Bus' },
+    );
+    const switched = shellSessionReducer(filtered, {
+      type: 'schematic/setLayout',
+      layoutId: 'octilinear',
+    });
+    expect(switched.schematic.layoutId).toBe('octilinear');
+    // Mode filters are semantic and the width is the sidebar's: neither is a
+    // property of the geometry, so comparing layouts must not disturb them.
+    expect(switched.schematic.hiddenModes).toEqual(['Bus']);
+    expect(switched.schematic.width).toBe(300);
+    expect(switched.sidebar).toBe(filtered.sidebar);
+    expect(switched.viewMode).toBe(filtered.viewMode);
+  });
+
+  it('returns the same state when the layout is already the chosen one', () => {
+    const state = shellSessionReducer(base(), {
+      type: 'schematic/setLayout',
+      layoutId: 'orthoradial',
+    });
+    expect(
+      shellSessionReducer(state, {
+        type: 'schematic/setLayout',
+        layoutId: 'orthoradial',
+      }),
+    ).toBe(state);
+  });
+
+  it('goes back to geographic when a new city resets the session', () => {
+    const state = shellSessionReducer(base(), {
+      type: 'schematic/setLayout',
+      layoutId: 'octilinear',
+    });
+    expect(
+      shellSessionReducer(state, {
+        type: 'schematic/reset',
+        windowWidth: 1440,
+      }).schematic.layoutId,
+    ).toBe('geographic');
+  });
+});

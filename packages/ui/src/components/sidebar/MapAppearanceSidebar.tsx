@@ -4,7 +4,10 @@ import { LAYER_NAMES, type TransitMode } from '@vellum/core';
 import { SchematicSidebarContent } from '../schematic/SchematicSidebarContent';
 import type { SchematicNetworkModel } from '../../hooks/use-schematic-network';
 import type { CommandRegistry } from '../../shell/commands';
-import type { ShellSession } from '../../shell/shell-session';
+import type {
+  SchematicLayoutId,
+  ShellSession,
+} from '../../shell/shell-session';
 import { LAYER_ICONS } from './layer-presentation';
 import { DocumentContextHeader } from './DocumentContextHeader';
 import { LayerDetailPanel } from './LayerDetailPanel';
@@ -34,6 +37,10 @@ export interface MapAppearanceSidebarProps {
   onHoverSchematicLine?: (lineId: string | null) => void;
   onToggleSchematicMode?: (mode: TransitMode) => void;
   onShowAllSchematicModes?: () => void;
+  /** Geometry the diagram is currently drawn with (Story 4.3). */
+  schematicLayoutId?: SchematicLayoutId;
+  /** Asks for a different schematic geometry. */
+  onSetSchematicLayout?: (layoutId: SchematicLayoutId) => void;
 }
 
 /**
@@ -55,6 +62,8 @@ export function MapAppearanceSidebar({
   onHoverSchematicLine,
   onToggleSchematicMode,
   onShowAllSchematicModes,
+  schematicLayoutId = 'geographic',
+  onSetSchematicLayout,
 }: MapAppearanceSidebarProps) {
   const { t } = useTranslation();
   const { state, dispatch } = shell;
@@ -161,6 +170,8 @@ export function MapAppearanceSidebar({
             onToggleMode={(mode) => onToggleSchematicMode?.(mode)}
             onShowAllModes={() => onShowAllSchematicModes?.()}
             onHoverLine={(lineId) => onHoverSchematicLine?.(lineId)}
+            layoutId={schematicLayoutId}
+            onSetLayout={(layoutId) => onSetSchematicLayout?.(layoutId)}
           />
         ) : collapsed ? (
           <CompactLayerRail commands={commands} />

@@ -1,0 +1,729 @@
+/**
+ * The shared machinery behind every *schematic* (non-geographic) layout of
+ * Story 4.3: one grid abstraction, one A* router, one node placement pass, one
+ * stop transfer pass and one finaliser.
+ *
+ * @remarks
+ * This is the LOOM/`octi` lesson (Bast, Brosi & Storandt): an octilinear
+ * layout is a routing problem on a grid graph with turn and occupancy
+ * penalties, and an orthoradial layout is *the same* problem on a different
+ * base grid. So A*, occupancy, turn cost, node relocation and stop transfer
+ * live here exactly once, and each strategy contributes only its
+ * {@link GridBase}.
+ *
+ * Everything is pure and deterministic: no ILP, no solver, no external
+ * dependency, and the same network always yields a deep-equal frozen layout.
+ */
+
+import { CS1_LAT_SIGN, type CsPoint } from '../../coordinate-transform';
+import type {
+  LineGraphEdge,
+  TransitNetwork,
+} from '../../types/transit-network';
+import { projectOnPath } from '../render-geometry/utils/vector';
+import {
+  byString,
+  SCHEMATIC_MARGIN,
+  SCHEMATIC_VIEWBOX_SIZE,
+  type SchematicLayout,
+  type SchematicPoint,
+} from './contract';
+
+// ─── Plane space ─────────────────────────────────────────────────────────────
+
+/**
+ * World → drawing plane, before normalisation into the viewBox. Identical to
+ * the geographic strategy's own vertical flip (`CS1_LAT_SIGN`: +1 means CS1
+ * south appears at the top), so both families of layouts share one frame.
+ */
+export function toPlane(p: CsPoint): SchematicPoint {
+  return { x: p.x, y: -CS1_LAT_SIGN * p.z };
+}
+
+const isFinitePoint = (p: CsPoint): boolean =>
+  Number.isFinite(p.x) && Number.isFinite(p.z);
+
+const dist = (a: SchematicPoint, b: SchematicPoint): number =>
+  Math.hypot(a.x - b.x, a.y - b.y);
+
+// ─── The grid abstraction ────────────────────────────────────────────────────
+
+/** One step from a cell to a neighbouring cell. */
+export interface GridStep {
+  /** The neighbouring cell. */
+  readonly cell: number;
+  /**
+   * Direction index of the step. Only ever compared for equality (turn
+   * penalty), so a grid may number its directions however it likes.
+   */
+  readonly dir: number;
+  /** Euclidean length of the step in plane units — also the A* step cost. */
+  readonly cost: number;
+}
+
+/**
+ * A base grid: the only thing a schematic strategy has to supply.
+ *
+ * @remarks
+ * Cells are plain integers in `[0, cellCount)`. Every path this module
+ * produces is a walk over {@link neighbors} or {@link lineTo}, so a grid whose
+ * steps obey a geometric grammar (multiples of 45°, arcs and radials, …) makes
+ * every route obey it too — conformance is structural, never checked after
+ * the fact.
+ */
+export interface GridBase {
+  readonly cellCount: number;
+  /** Plane position of a cell. */
+  point(cell: number): SchematicPoint;
+  /** Legal steps out of a cell, in a deterministic order. */
+  neighbors(cell: number): readonly GridStep[];
+  /** The cell closest to a plane position. */
+  snap(p: SchematicPoint): number;
+  /**
+   * A conformant cell path from `from` to `to` that ignores occupancy — the
+   * fallback used when A* runs out of budget, so an edge is never dropped.
+   */
+  lineTo(from: number, to: number): readonly number[];
+}
+
+/** Builds a grid that covers the given seed positions. */
+export type GridFactory = (seeds: readonly SchematicPoint[]) => GridBase;
+
+// ─── Router tuning ───────────────────────────────────────────────────────────
+
+/**
+ * Cost knobs, in multiples of one step's own length. Frozen constants rather
+ * than parameters: a layout has to be reproducible from the network alone.
+ */
+export const GRID_ROUTER = {
+  /** Paid once per change of direction: straight corridors read better. */
+  turnPenalty: 0.9,
+  /** Paid for reusing a cell another corridor already occupies. */
+  occupancyPenalty: 2.5,
+  /** Hard cap on A* expansions per edge before the fallback takes over. */
+  searchBudget: 60000,
+} as const;
+
+// ─── A* over a grid ──────────────────────────────────────────────────────────
+
+/** Minimal binary heap; the router is the only consumer. */
+class Heap {
+  private readonly keys: number[] = [];
+  private readonly values: number[] = [];
+
+  get size(): number {
+    return this.keys.length;
+  }
+
+  push(key: number, value: number): void {
+    this.keys.push(key);
+    this.values.push(value);
+    let i = this.keys.length - 1;
+    while (i > 0) {
+      const parent = (i - 1) >> 1;
+      if (this.keys[parent] <= this.keys[i]) break;
+      this.swap(parent, i);
+      i = parent;
+    }
+  }
+
+  pop(): number {
+    const top = this.values[0];
+    const lastKey = this.keys.pop() as number;
+    const lastValue = this.values.pop() as number;
+    if (this.keys.length > 0) {
+      this.keys[0] = lastKey;
+      this.values[0] = lastValue;
+      let i = 0;
+      for (;;) {
+        const l = 2 * i + 1;
+        const r = l + 1;
+        let best = i;
+        if (l < this.keys.length && this.keys[l] < this.keys[best]) best = l;
+        if (r < this.keys.length && this.keys[r] < this.keys[best]) best = r;
+        if (best === i) break;
+        this.swap(best, i);
+        i = best;
+      }
+    }
+    return top;
+  }
+
+  private swap(a: number, b: number): void {
+    const k = this.keys[a];
+    this.keys[a] = this.keys[b];
+    this.keys[b] = k;
+    const v = this.values[a];
+    this.values[a] = this.values[b];
+    this.values[b] = v;
+  }
+}
+
+/**
+ * Shortest conformant cell path from `from` to `to`, or `null` when the search
+ * budget is exhausted.
+ *
+ * @param blocked - Cells the route may not enter (other stations' cells).
+ * @param occupied - Cells another corridor already uses; allowed, but priced.
+ */
+export function routeOnGrid(
+  grid: GridBase,
+  from: number,
+  to: number,
+  blocked: ReadonlySet<number>,
+  occupied: ReadonlySet<number>,
+): number[] | null {
+  if (from === to) return [from];
+  const target = grid.point(to);
+  // State is (cell, incoming direction): the turn penalty is not Markovian in
+  // the cell alone. `dir = -1` is the start, which pays no turn.
+  const dirSlots = 16;
+  const stateOf = (cell: number, dir: number): number => cell * dirSlots + dir;
+  const best = new Map<number, number>();
+  const cameFrom = new Map<number, number>();
+  const open = new Heap();
+  const startState = stateOf(from, 0);
+  best.set(startState, 0);
+  open.push(dist(grid.point(from), target), startState);
+
+  let expansions = 0;
+  while (open.size > 0) {
+    if (++expansions > GRID_ROUTER.searchBudget) return null;
+    const state = open.pop();
+    const cell = Math.floor(state / dirSlots);
+    const dir = (state % dirSlots) - 1;
+    const g = best.get(state);
+    if (g === undefined) continue;
+    if (cell === to) {
+      const path: number[] = [];
+      let cursor: number | undefined = state;
+      while (cursor !== undefined) {
+        path.push(Math.floor(cursor / dirSlots));
+        cursor = cameFrom.get(cursor);
+      }
+      path.reverse();
+      return path;
+    }
+    for (const step of grid.neighbors(cell)) {
+      // The state id packs `dir + 1` into `dirSlots`. A direction outside that
+      // window would alias onto another cell's state, silently splicing two
+      // unrelated routes together — a corrupt path is worse than no path.
+      if (
+        !Number.isInteger(step.dir) ||
+        step.dir < 0 ||
+        step.dir >= dirSlots - 1
+      ) {
+        throw new Error(
+          `SCHEMATIC_GRID_BAD_DIRECTION: ${String(step.dir)} is outside [0, ${dirSlots - 2}]`,
+        );
+      }
+      if (step.cell !== to && blocked.has(step.cell)) continue;
+      let cost = step.cost;
+      if (dir >= 0 && step.dir !== dir) {
+        cost += GRID_ROUTER.turnPenalty * step.cost;
+      }
+      if (occupied.has(step.cell)) {
+        cost += GRID_ROUTER.occupancyPenalty * step.cost;
+      }
+      const next = stateOf(step.cell, step.dir + 1);
+      const tentative = g + cost;
+      const known = best.get(next);
+      if (known !== undefined && known <= tentative) continue;
+      best.set(next, tentative);
+      cameFrom.set(next, state);
+      open.push(tentative + dist(grid.point(step.cell), target), next);
+    }
+  }
+  return null;
+}
+
+/** Drops cells that only continue a straight run, keeping the drawn grammar. */
+function simplifyCellPath(grid: GridBase, cells: readonly number[]): number[] {
+  if (cells.length <= 2) return [...cells];
+  const kept: number[] = [cells[0]];
+  for (let i = 1; i < cells.length - 1; i++) {
+    const a = grid.point(cells[i - 1]);
+    const b = grid.point(cells[i]);
+    const c = grid.point(cells[i + 1]);
+    const cross = (b.x - a.x) * (c.y - b.y) - (b.y - a.y) * (c.x - b.x);
+    const scale = Math.max(1e-9, dist(a, b) * dist(b, c));
+    // Collinear *and* going the same way: a reversal has to stay a vertex.
+    const forward = (b.x - a.x) * (c.x - b.x) + (b.y - a.y) * (c.y - b.y) > 0;
+    if (Math.abs(cross) / scale > 1e-9 || !forward) kept.push(cells[i]);
+  }
+  kept.push(cells[cells.length - 1]);
+  return kept;
+}
+
+// ─── Diagnostics ─────────────────────────────────────────────────────────────
+
+/**
+ * Facts about how a layout was produced that do not belong in the drawn
+ * geometry: the metrics module reads them, the renderer never sees them.
+ *
+ * @remarks
+ * They are held in a `WeakMap` keyed by the layout *object*, so they attach to
+ * exactly the value a strategy returned and are collected with it. Two
+ * consequences matter to callers:
+ *
+ * - `filterSchematicLayout` builds a **new** object when it hides anything, and
+ *   that object carries no diagnostics. Metrics are only meaningful on the
+ *   unfiltered base layout anyway — a filtered view is a projection of it, not
+ *   a different layout — so measure the base and filter for display.
+ * - A layout that was serialised and revived loses them, and
+ *   {@link schematicLayoutDiagnostics} answers `null`. Callers treat that as
+ *   "not a grid layout", never as zero fallbacks.
+ */
+export interface SchematicLayoutDiagnostics {
+  /** Edges routed by the straight-on-grid fallback instead of A*. */
+  readonly fallbackRoutes: number;
+  /** Nodes moved off their snapped cell because it was already taken. */
+  readonly relocatedNodes: number;
+  /** Edges that produced at least one stroke. */
+  readonly routedEdges: number;
+  /** Maps a pre-normalisation plane point into the layout's final viewBox. */
+  readonly project: (p: SchematicPoint) => SchematicPoint;
+}
+
+const diagnostics = new WeakMap<SchematicLayout, SchematicLayoutDiagnostics>();
+
+/** Diagnostics recorded for a grid layout, or `null` for any other layout. */
+export function schematicLayoutDiagnostics(
+  layout: SchematicLayout,
+): SchematicLayoutDiagnostics | null {
+  return diagnostics.get(layout) ?? null;
+}
+
+// ─── Finalisation ────────────────────────────────────────────────────────────
+
+/** A stroke before normalisation: plane coordinates, already ordered. */
+export interface RawSchematicSegment {
+  readonly lineId: string;
+  readonly color: string;
+  readonly points: readonly SchematicPoint[];
+}
+
+/** A station before normalisation. */
+export interface RawSchematicStation {
+  readonly id: string;
+  readonly point: SchematicPoint;
+  readonly lineIds: readonly string[];
+}
+
+/** The empty layout: what every strategy returns when there is nothing to draw. */
+export function emptySchematicLayout(): SchematicLayout {
+  return Object.freeze({
+    bounds: Object.freeze({
+      width: SCHEMATIC_VIEWBOX_SIZE,
+      height: SCHEMATIC_VIEWBOX_SIZE,
+    }),
+    segments: Object.freeze([]),
+    stations: Object.freeze([]),
+  });
+}
+
+/**
+ * Normalises plane geometry into the fixed square viewBox, preserving aspect
+ * ratio, and deep-freezes the result.
+ *
+ * @remarks
+ * Extracted verbatim from `geographicSchematicLayout`, which still produces
+ * byte-identical output through it. The scale is a single uniform factor, so
+ * every angle a strategy drew survives normalisation — that is what lets an
+ * octilinear grammar be asserted on the *final* coordinates.
+ *
+ * @returns The frozen layout, plus the projection it used (for diagnostics).
+ */
+export function finalizeSchematicLayout(
+  segments: readonly RawSchematicSegment[],
+  stations: readonly RawSchematicStation[],
+): {
+  layout: SchematicLayout;
+  project: (p: SchematicPoint) => SchematicPoint;
+} {
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minY = Infinity;
+  let maxY = -Infinity;
+  const extend = (p: SchematicPoint): void => {
+    if (p.x < minX) minX = p.x;
+    if (p.x > maxX) maxX = p.x;
+    if (p.y < minY) minY = p.y;
+    if (p.y > maxY) maxY = p.y;
+  };
+  for (const s of segments) s.points.forEach(extend);
+  for (const s of stations) extend(s.point);
+  // Nothing to bound: `minX` is still Infinity, and every projected coordinate
+  // would come out NaN. An exported function has to survive being called with
+  // nothing, and the empty layout is what "nothing to draw" already means.
+  if (!Number.isFinite(minX)) {
+    const layout = emptySchematicLayout();
+    return { layout, project: (p) => Object.freeze({ x: p.x, y: p.y }) };
+  }
+
+  const inner = SCHEMATIC_VIEWBOX_SIZE - 2 * SCHEMATIC_MARGIN;
+  const spanX = maxX - minX;
+  const spanY = maxY - minY;
+  const span = Math.max(spanX, spanY);
+  const scale = span > 0 ? inner / span : 1;
+  // Centre the network inside the square viewBox.
+  const offX = SCHEMATIC_MARGIN + (inner - spanX * scale) / 2;
+  const offY = SCHEMATIC_MARGIN + (inner - spanY * scale) / 2;
+  const project = (p: SchematicPoint): SchematicPoint =>
+    Object.freeze({
+      x: offX + (p.x - minX) * scale,
+      y: offY + (p.y - minY) * scale,
+    });
+
+  const layout = Object.freeze({
+    bounds: Object.freeze({
+      width: SCHEMATIC_VIEWBOX_SIZE,
+      height: SCHEMATIC_VIEWBOX_SIZE,
+    }),
+    segments: Object.freeze(
+      segments.map((s) =>
+        Object.freeze({
+          lineId: s.lineId,
+          color: s.color,
+          points: Object.freeze(s.points.map(project)),
+        }),
+      ),
+    ),
+    stations: Object.freeze(
+      stations.map((s) =>
+        Object.freeze({
+          id: s.id,
+          ...project(s.point),
+          lineIds: Object.freeze([...s.lineIds]),
+        }),
+      ),
+    ),
+  });
+  return { layout, project };
+}
+
+// ─── The shared planner ──────────────────────────────────────────────────────
+
+interface DrawableEdge {
+  readonly edge: LineGraphEdge;
+  /** The edge's world path with non-finite points removed. */
+  readonly worldPath: readonly CsPoint[];
+  /** Lines that draw a stroke over this corridor, sorted. */
+  readonly lineIds: readonly string[];
+  /** Total member-line weight; the routing order's primary key. */
+  readonly weight: number;
+}
+
+/** Collects the exact `(edge, line)` strokes the geographic strategy draws. */
+function drawableEdges(network: TransitNetwork): DrawableEdge[] {
+  const result: DrawableEdge[] = [];
+  const edges = [...network.edges.values()]
+    .filter((e) => e.path.length >= 2)
+    .sort((a, b) => byString(a.id, b.id));
+  for (const edge of edges) {
+    const worldPath = edge.path.filter(isFinitePoint);
+    if (worldPath.length < 2) continue;
+    const lineIds = new Set<string>();
+    for (const bundleId of edge.bundleIds) {
+      for (const lineId of network.bundles.get(bundleId)?.lineIds ?? []) {
+        if (network.lines.has(lineId)) lineIds.add(lineId);
+      }
+    }
+    if (lineIds.size === 0) continue;
+    result.push({
+      edge,
+      worldPath,
+      lineIds: [...lineIds].sort(byString),
+      weight: lineIds.size,
+    });
+  }
+  return result;
+}
+
+/** Cumulative arc lengths of a polyline, and its total. */
+function arcTable(points: readonly SchematicPoint[]): {
+  cum: number[];
+  total: number;
+} {
+  const cum = [0];
+  for (let i = 1; i < points.length; i++) {
+    cum.push(cum[i - 1] + dist(points[i - 1], points[i]));
+  }
+  return { cum, total: cum[cum.length - 1] };
+}
+
+/** The point at a given arc fraction of a polyline. */
+function pointAtFraction(
+  points: readonly SchematicPoint[],
+  fraction: number,
+): SchematicPoint {
+  const { cum, total } = arcTable(points);
+  if (total <= 0) return points[0];
+  const want = Math.min(total, Math.max(0, fraction * total));
+  for (let i = 1; i < points.length; i++) {
+    if (cum[i] >= want) {
+      const span = cum[i] - cum[i - 1];
+      const t = span > 0 ? (want - cum[i - 1]) / span : 0;
+      return {
+        x: points[i - 1].x + (points[i].x - points[i - 1].x) * t,
+        y: points[i - 1].y + (points[i].y - points[i - 1].y) * t,
+      };
+    }
+  }
+  return points[points.length - 1];
+}
+
+/** Arc fraction of a point known to lie on `path` (world space). */
+function arcFractionOf(path: readonly CsPoint[], point: CsPoint): number {
+  const plane = path.map(toPlane);
+  const { cum, total } = arcTable(plane);
+  if (total <= 0) return 0;
+  const p = toPlane(point);
+  let bestD = Infinity;
+  let bestAt = 0;
+  for (let i = 1; i < plane.length; i++) {
+    const a = plane[i - 1];
+    const b = plane[i];
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const len2 = dx * dx + dy * dy;
+    if (len2 === 0) continue;
+    const t = Math.max(
+      0,
+      Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2),
+    );
+    const d = Math.hypot(p.x - (a.x + dx * t), p.y - (a.y + dy * t));
+    if (d < bestD) {
+      bestD = d;
+      bestAt = cum[i - 1] + Math.sqrt(len2) * t;
+    }
+  }
+  return bestAt / total;
+}
+
+/**
+ * Lays a network out by routing every corridor over a base grid.
+ *
+ * @remarks
+ * The one place a schematic geometry is decided. The steps are, in order:
+ *
+ * 1. Keep exactly the `(edge, line)` strokes the geographic strategy draws —
+ *    fidelity is a property of this list, not of the routing.
+ * 2. Seed the grid with the projected positions of the line graph's nodes.
+ * 3. Give every node its own free cell (deterministic relocation on collision).
+ * 4. Route corridors heaviest-first (then by edge id), so the busiest bundle
+ *    gets the straightest run and later ones pay the occupancy penalty.
+ * 5. Move every stop onto the same arc fraction of its corridor's new route,
+ *    which preserves stop order along a line by construction.
+ * 6. Normalise and freeze.
+ *
+ * @param network - The canonical topology. Its geographic geometry is read
+ *   only to seed positions and to place stops along a corridor.
+ * @param createGrid - The strategy's base grid.
+ */
+export function gridSchematicLayout(
+  network: TransitNetwork,
+  createGrid: GridFactory,
+): SchematicLayout {
+  const drawable = drawableEdges(network);
+  if (drawable.length === 0) return emptySchematicLayout();
+
+  // ── Node seeds. A node the graph places badly still gets a position: the
+  // corridor endpoint that touches it is the same point by construction.
+  const seedById = new Map<string, SchematicPoint>();
+  const seedFromEdge = (id: string, edge: DrawableEdge): void => {
+    if (seedById.has(id)) return;
+    const node = network.nodes.get(id);
+    if (node && isFinitePoint(node.position)) {
+      seedById.set(id, toPlane(node.position));
+      return;
+    }
+    const world =
+      edge.edge.nodeA === id
+        ? edge.worldPath[0]
+        : edge.worldPath[edge.worldPath.length - 1];
+    seedById.set(id, toPlane(world));
+  };
+  for (const d of drawable) {
+    seedFromEdge(d.edge.nodeA, d);
+    seedFromEdge(d.edge.nodeB, d);
+  }
+  const nodeIds = [...seedById.keys()].sort(byString);
+  const grid = createGrid(
+    nodeIds.map((id) => seedById.get(id) as SchematicPoint),
+  );
+
+  // ── One free cell per node. Ties break on cell index, so the choice is a
+  // function of the input and nothing else.
+  const cellOfNode = new Map<string, number>();
+  const nodeCells = new Set<number>();
+  let relocatedNodes = 0;
+  for (const id of nodeIds) {
+    const seed = seedById.get(id) as SchematicPoint;
+    let cell = grid.snap(seed);
+    if (nodeCells.has(cell)) {
+      relocatedNodes++;
+      let bestCell = -1;
+      let bestDist = Infinity;
+      for (let c = 0; c < grid.cellCount; c++) {
+        if (nodeCells.has(c)) continue;
+        const d = dist(grid.point(c), seed);
+        if (d < bestDist) {
+          bestDist = d;
+          bestCell = c;
+        }
+      }
+      // No free cell at all. Two nodes sharing one would draw a single symbol
+      // where the network has two stations, which is a lie about the data — so
+      // this fails loudly instead of degrading quietly. A grid this module
+      // builds always has more cells than seeds; reaching here means a
+      // `GridFactory` under-sized itself, and the factory is what must change.
+      if (bestCell < 0) {
+        throw new Error(
+          `SCHEMATIC_GRID_EXHAUSTED: ${grid.cellCount} cells cannot hold ${nodeIds.length} nodes`,
+        );
+      }
+      cell = bestCell;
+    }
+    nodeCells.add(cell);
+    cellOfNode.set(id, cell);
+  }
+
+  // ── Routing order: heaviest bundle first, then edge id.
+  const routingOrder = [...drawable].sort(
+    (a, b) => b.weight - a.weight || byString(a.edge.id, b.edge.id),
+  );
+  const occupied = new Set<number>();
+  const routeByEdgeId = new Map<string, SchematicPoint[]>();
+  let fallbackRoutes = 0;
+
+  for (const d of routingOrder) {
+    const from = cellOfNode.get(d.edge.nodeA) as number;
+    const to = cellOfNode.get(d.edge.nodeB) as number;
+    let cells: readonly number[];
+    if (from === to) {
+      // A ring corridor starts and ends at the same node: it needs a loop, not
+      // a path. Two steps out and a conformant walk back is the smallest one
+      // the grid can express.
+      const first = grid.neighbors(from)[0];
+      const second = first
+        ? grid.neighbors(first.cell).find((s) => s.cell !== from)
+        : undefined;
+      cells =
+        first && second
+          ? [
+              from,
+              ...grid.lineTo(from, first.cell).slice(1),
+              ...grid.lineTo(first.cell, second.cell).slice(1),
+              ...grid.lineTo(second.cell, from).slice(1),
+            ]
+          : [from, from];
+    } else {
+      const blocked = new Set(nodeCells);
+      blocked.delete(from);
+      blocked.delete(to);
+      const routed = routeOnGrid(grid, from, to, blocked, occupied);
+      if (routed === null) {
+        fallbackRoutes++;
+        cells = grid.lineTo(from, to);
+      } else {
+        cells = routed;
+      }
+    }
+    for (const c of cells) occupied.add(c);
+    const simplified = simplifyCellPath(grid, cells);
+    const points = simplified.map((c) => grid.point(c));
+    // A stroke needs two points even when the grammar collapsed the route.
+    routeByEdgeId.set(
+      d.edge.id,
+      points.length >= 2 ? points : [points[0], points[0]],
+    );
+  }
+
+  // ── Strokes, in the geographic strategy's own order: edge id, then line id.
+  const segments: RawSchematicSegment[] = [];
+  for (const d of drawable) {
+    const points = routeByEdgeId.get(d.edge.id) as SchematicPoint[];
+    for (const lineId of d.lineIds) {
+      const line = network.lines.get(lineId);
+      if (!line) continue;
+      segments.push({ lineId, color: line.color, points });
+    }
+  }
+  if (segments.length === 0) return emptySchematicLayout();
+
+  // ── Stops. Deduplicated by `stopId` exactly as the geographic strategy does:
+  // the first usable position wins, but membership accumulates, so a station
+  // shared by several lines survives any one of them being hidden.
+  const drawnLines = new Set(segments.map((s) => s.lineId));
+  const stopsById = new Map<
+    string,
+    { position: CsPoint | null; lineIds: Set<string> }
+  >();
+  for (const s of network.stops) {
+    if (!drawnLines.has(s.lineId)) continue;
+    const existing = stopsById.get(s.stopId);
+    if (existing) {
+      existing.lineIds.add(s.lineId);
+      if (existing.position === null && isFinitePoint(s.position)) {
+        existing.position = s.position;
+      }
+      continue;
+    }
+    stopsById.set(s.stopId, {
+      position: isFinitePoint(s.position) ? s.position : null,
+      lineIds: new Set([s.lineId]),
+    });
+  }
+
+  const stations: RawSchematicStation[] = [...stopsById.entries()]
+    .flatMap(([id, entry]) =>
+      entry.position === null
+        ? []
+        : [{ id, position: entry.position, lineIds: entry.lineIds }],
+    )
+    .sort((a, b) => byString(a.id, b.id))
+    .map((stop) => {
+      // Assign the stop to the corridor it really sits on, then re-place it at
+      // the same fraction of that corridor's new route.
+      //
+      // Only corridors of the stop's *own* lines are candidates. Nearest-overall
+      // would be wrong in exactly the case that matters: once the geometry has
+      // moved, the closest corridor in world space may carry none of the lines
+      // that call here, and the symbol would land on a stroke it does not
+      // belong to — a station claiming a service the data never recorded.
+      const ownEdges = drawable.filter((d) =>
+        d.lineIds.some((lineId) => stop.lineIds.has(lineId)),
+      );
+      // A stop whose lines draw nothing routable is not reachable from here:
+      // `drawnLines` already excluded that, so this is belt and braces.
+      const candidates = ownEdges.length > 0 ? ownEdges : drawable;
+      let bestEdge: DrawableEdge | null = null;
+      let bestDist = Infinity;
+      for (const d of candidates) {
+        const hit = projectOnPath(stop.position, d.worldPath);
+        if (hit !== null && hit.dist < bestDist) {
+          bestDist = hit.dist;
+          bestEdge = d;
+        }
+      }
+      const edge = bestEdge ?? candidates[0];
+      const route = routeByEdgeId.get(edge.edge.id) as SchematicPoint[];
+      const fraction =
+        bestEdge === null ? 0 : arcFractionOf(edge.worldPath, stop.position);
+      return {
+        id: stop.id,
+        point: pointAtFraction(route, fraction),
+        lineIds: [...stop.lineIds].sort(byString),
+      };
+    });
+
+  const { layout, project } = finalizeSchematicLayout(segments, stations);
+  diagnostics.set(layout, {
+    fallbackRoutes,
+    relocatedNodes,
+    routedEdges: drawable.length,
+    project,
+  });
+  return layout;
+}

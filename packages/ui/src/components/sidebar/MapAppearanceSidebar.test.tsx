@@ -5,11 +5,15 @@ import type { LayerName } from '@vellum/core';
 import { MapAppearanceSidebar } from './MapAppearanceSidebar';
 import { useVellumStore } from '../../store/vellum-store';
 import type { CommandRegistry } from '../../shell/commands';
-import { EMPTY_SCHEMATIC_MODEL } from '../../hooks/use-schematic-network';
+import {
+  EMPTY_SCHEMATIC_MODEL,
+  type SchematicNetworkModel,
+} from '../../hooks/use-schematic-network';
 import {
   initialShellSession,
   shellSessionReducer,
   SIDEBAR_WIDTH,
+  type SchematicLayoutId,
   type ShellSessionState,
 } from '../../shell/shell-session';
 
@@ -71,11 +75,15 @@ function Harness({
   initial,
   onOccupiedWidthChange,
   stateRef,
+  schematicModel = EMPTY_SCHEMATIC_MODEL,
+  onSetSchematicLayout,
 }: {
   initial?: Partial<ShellSessionState>;
   onOccupiedWidthChange?: (width: number) => void;
   /** Lets a test read the session the sidebar is actually driving. */
   stateRef?: { current: ShellSessionState | null };
+  schematicModel?: SchematicNetworkModel;
+  onSetSchematicLayout?: (layoutId: SchematicLayoutId) => void;
 }) {
   const [state, dispatch] = useReducer(shellSessionReducer, {
     ...initialShellSession(1440),
@@ -88,7 +96,9 @@ function Harness({
       fileName="altavento.cslmap"
       commands={makeCommands(dispatch)}
       shell={{ state, dispatch }}
-      schematicModel={EMPTY_SCHEMATIC_MODEL}
+      schematicModel={schematicModel}
+      schematicLayoutId={state.schematic.layoutId}
+      {...(onSetSchematicLayout ? { onSetSchematicLayout } : {})}
       {...(onOccupiedWidthChange ? { onOccupiedWidthChange } : {})}
     />
   );
@@ -394,7 +404,12 @@ describe('occupied width', () => {
 describe('width model — schematic view', () => {
   const schematicSession = (width: number): Partial<ShellSessionState> => ({
     viewMode: 'schematic',
-    schematic: { width, hiddenModes: [], widthBeforeNarrow: null },
+    schematic: {
+      width,
+      hiddenModes: [],
+      widthBeforeNarrow: null,
+      layoutId: 'geographic',
+    },
   });
 
   it('reflects and edits the schematic width, never the geographic one', () => {
@@ -426,5 +441,45 @@ describe('width model — schematic view', () => {
     ).toBeNull();
     // Still resizable: only the collapse affordance is withdrawn.
     expect(screen.getByTestId('sidebar-resize-handle')).toBeInTheDocument();
+  });
+});
+
+// Story 4.3, hueco cerrado en revisión: el paso de `schematicLayoutId` y
+// `onSetSchematicLayout` por el sidebar real no estaba observado por ningún
+// test, así que borrar cualquiera de los dos hacía desaparecer el selector de
+// la superficie de verdad sin que la suite se enterara.
+describe('schematic layout selector — through the real sidebar', () => {
+  const drawableModel: SchematicNetworkModel = {
+    ...EMPTY_SCHEMATIC_MODEL,
+    hasDrawableNetwork: true,
+    visibleLineCount: 1,
+  };
+
+  it('renders the radiogroup and forwards the chosen geometry', () => {
+    const onSetSchematicLayout = vi.fn();
+    render(
+      <Harness
+        initial={{
+          viewMode: 'schematic',
+          schematic: {
+            width: 300,
+            hiddenModes: [],
+            widthBeforeNarrow: null,
+            layoutId: 'geographic',
+          },
+        }}
+        schematicModel={drawableModel}
+        onSetSchematicLayout={onSetSchematicLayout}
+      />,
+    );
+
+    expect(screen.getByRole('radiogroup')).toBeInTheDocument();
+    expect(screen.getByTestId('schematic-layout-geographic')).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+
+    fireEvent.click(screen.getByTestId('schematic-layout-octilinear'));
+    expect(onSetSchematicLayout).toHaveBeenCalledWith('octilinear');
   });
 });

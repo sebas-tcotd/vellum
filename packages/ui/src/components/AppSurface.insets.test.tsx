@@ -4,7 +4,14 @@
 // redimensionar un panel que no es el suyo.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
-import { makeCityData } from '@vellum/core/testing';
+import { makeCityData, transitFixture } from '@vellum/core/testing';
+import {
+  deriveTransitNetwork,
+  geographicSchematicLayout,
+  octilinearSchematicLayout,
+  orthoradialSchematicLayout,
+  type SchematicLayoutStrategy,
+} from '@vellum/core';
 import { cleanup, render, screen, act } from '../test-utils';
 import { AppSurface } from './AppSurface';
 import { useShellSession } from '../shell/shell-session';
@@ -182,5 +189,110 @@ describe('AppSurface — schematic inset vs geographic padding', () => {
     // Back on the map, the last measurement is the one that counts.
     expect(screen.queryByTestId('schematic-view')).toBeNull();
     expect(rendererPaddingLeft()).toBe('240');
+  });
+});
+
+// Story 4.3: alternar geometría esquemática es una pregunta sobre el diagrama.
+// Sin este test, pasar el layout por el store o recomputar el inset geográfico
+// pasaría inadvertido y el mapa oculto se reencuadraría al comparar layouts.
+describe('AppSurface — switching schematic layout', () => {
+  it('redraws only the diagram and never reframes the hidden map', async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+
+    await user.click(screen.getByTestId('report-320'));
+    expect(rendererPaddingLeft()).toBe('320');
+    const storeBefore = useVellumStore.getState();
+
+    act(() => {
+      session.dispatch({ type: 'viewMode/toggle' });
+    });
+    await user.click(screen.getByTestId('report-240'));
+    act(() => {
+      session.dispatch({ type: 'schematic/setWidth', width: 300 });
+    });
+    viewportPaddingLeft.length = 0;
+
+    for (const layoutId of [
+      'octilinear',
+      'orthoradial',
+      'geographic',
+    ] as const) {
+      act(() => {
+        session.dispatch({ type: 'schematic/setLayout', layoutId });
+      });
+      expect(session.state.schematic.layoutId).toBe(layoutId);
+      // The diagram is still the only surface on screen, and it is one `<svg>`:
+      // two geometries can never be drawn at once.
+      expect(screen.getAllByTestId('schematic-view')).toHaveLength(1);
+      // Mode filters are semantic, not geometric, so they are shared on purpose.
+      expect(session.state.schematic.hiddenModes).toEqual([]);
+      expect(session.state.schematic.width).toBe(300);
+    }
+
+    // The renderer was never told a new padding, and nothing was written to the
+    // cartographic store — so no reframe and no reload on the way back.
+    expect(viewportPaddingLeft.filter((value) => value !== 320)).toEqual([]);
+    expect(rendererPaddingLeft()).toBe('320');
+    expect(useVellumStore.getState()).toBe(storeBefore);
+
+    act(() => {
+      session.dispatch({ type: 'viewMode/toggle' });
+    });
+    expect(rendererPaddingLeft()).toBe('240');
+  });
+});
+
+// Story 4.3, hueco cerrado en revisión: nada comprobaba que el id elegido
+// produjera la geometría que nombra. Con una ciudad sin tránsito las tres
+// estrategias devuelven el mismo layout vacío, así que mapear los tres ids a la
+// estrategia geográfica —o intercambiar octilinear y orthoradial— dejaba la
+// suite verde. Este test usa una red dibujable y compara los puntos realmente
+// pintados contra la salida de cada estrategia.
+describe('AppSurface — a layout id draws the geometry it names', () => {
+  beforeEach(() => {
+    useVellumStore.setState({
+      cityData: transitFixture('simple'),
+      loadingState: 'idle',
+    });
+  });
+
+  const drawnPoints = (): string[] =>
+    [...screen.getByTestId('schematic-diagram').querySelectorAll('polyline')]
+      .map((node) => node.getAttribute('points') ?? '')
+      .sort();
+
+  const expectedPoints = (strategy: SchematicLayoutStrategy): string[] =>
+    strategy(deriveTransitNetwork(transitFixture('simple')))
+      .segments.map((segment) =>
+        segment.points.map((p) => `${p.x},${p.y}`).join(' '),
+      )
+      .sort();
+
+  it('renders each strategy and never two geometries at once', () => {
+    render(<Harness />);
+    act(() => {
+      session.dispatch({ type: 'viewMode/toggle' });
+    });
+
+    const seen: string[][] = [];
+    for (const [layoutId, strategy] of [
+      ['geographic', geographicSchematicLayout],
+      ['octilinear', octilinearSchematicLayout],
+      ['orthoradial', orthoradialSchematicLayout],
+    ] as const) {
+      act(() => {
+        session.dispatch({ type: 'schematic/setLayout', layoutId });
+      });
+      const drawn = drawnPoints();
+      expect(drawn.length).toBeGreaterThan(0);
+      expect(drawn).toEqual(expectedPoints(strategy));
+      expect(screen.getAllByTestId('schematic-diagram')).toHaveLength(1);
+      seen.push(drawn);
+    }
+
+    // Three ids, three distinct drawings: a record wired to one strategy three
+    // times, or with two entries swapped, fails here.
+    expect(new Set(seen.map((points) => points.join('|'))).size).toBe(3);
   });
 });

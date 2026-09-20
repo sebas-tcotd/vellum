@@ -5,7 +5,10 @@ import {
   makeRoadSegment,
   makeTransitLine,
 } from '@vellum/core/testing';
-import { geographicSchematicLayout } from '@vellum/core';
+import {
+  geographicSchematicLayout,
+  octilinearSchematicLayout,
+} from '@vellum/core';
 import type { CityData, TransitMode } from '@vellum/core';
 import { useSchematicNetwork } from './use-schematic-network';
 
@@ -251,5 +254,68 @@ describe('useSchematicNetwork', () => {
     expect(empty.hiddenModes.size).toBe(0);
     // Still the same singleton for the next consumer.
     expect(modelOf(null).hiddenModes.size).toBe(0);
+  });
+
+  it('caches one layout per strategy, so going back costs nothing', () => {
+    // Comparing layouts means alternating between them. A single-entry cache
+    // would make every return trip re-derive the network *and* re-run a layout
+    // that had not changed at all.
+    const cityData = twoModeCity();
+    const geographic = vi.fn(geographicSchematicLayout);
+    const octilinear = vi.fn(octilinearSchematicLayout);
+    let strategy = geographic;
+    const { rerender } = renderHook(() =>
+      useSchematicNetwork({ cityData, hiddenModes: [], strategy }),
+    );
+    expect(geographic).toHaveBeenCalledTimes(1);
+
+    strategy = octilinear;
+    rerender();
+    expect(octilinear).toHaveBeenCalledTimes(1);
+
+    // Back and forth: both are already known.
+    for (const next of [geographic, octilinear, geographic]) {
+      strategy = next;
+      rerender();
+    }
+    expect(geographic).toHaveBeenCalledTimes(1);
+    expect(octilinear).toHaveBeenCalledTimes(1);
+  });
+
+  it('drops every cached layout when the document changes', () => {
+    const strategy = vi.fn(geographicSchematicLayout);
+    let cityData = twoModeCity();
+    const { rerender } = renderHook(() =>
+      useSchematicNetwork({ cityData, hiddenModes: [], strategy }),
+    );
+    expect(strategy).toHaveBeenCalledTimes(1);
+
+    // A new city is a new network: nothing measured on the old one survives.
+    cityData = twoModeCity({ cityName: 'Otra ciudad' });
+    rerender();
+    expect(strategy).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps each layout cached across a trip out of the schematic view', () => {
+    const cityData = twoModeCity();
+    const geographic = vi.fn(geographicSchematicLayout);
+    const octilinear = vi.fn(octilinearSchematicLayout);
+    let strategy = geographic;
+    let enabled = true;
+    const { rerender } = renderHook(() =>
+      useSchematicNetwork({ cityData, hiddenModes: [], strategy, enabled }),
+    );
+    strategy = octilinear;
+    rerender();
+
+    enabled = false;
+    rerender();
+    enabled = true;
+    strategy = geographic;
+    rerender();
+    strategy = octilinear;
+    rerender();
+    expect(geographic).toHaveBeenCalledTimes(1);
+    expect(octilinear).toHaveBeenCalledTimes(1);
   });
 });

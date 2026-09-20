@@ -240,6 +240,8 @@
   },
   "schematicSidebar": {
     "title": "Red esquemática",
+    "layout": "Geometría del diagrama",
+    "experimental": "experimental",
     "visibleLines_one": "{{count}} línea visible",
     "visibleLines_other": "{{count}} líneas visibles",
     "modes": "Modos de transporte",
@@ -251,6 +253,11 @@
     "stop": "Parada",
     "filteredEmpty": "No hay ningún modo encendido, así que no se dibuja ninguna línea.",
     "noRoutes": "Esta ciudad no tiene líneas de tránsito con recorrido, así que no hay nada que filtrar."
+  },
+  "schematicLayouts": {
+    "geographic": "Trazado geográfico",
+    "octilinear": "Octilineal",
+    "orthoradial": "Ortorradial"
   },
   "a11y": {
     "mapCanvas": "Canvas del mapa de ciudad",

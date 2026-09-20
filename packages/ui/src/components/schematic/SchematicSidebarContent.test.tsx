@@ -13,6 +13,7 @@ import {
   EMPTY_SCHEMATIC_MODEL,
   useSchematicNetwork,
 } from '../../hooks/use-schematic-network';
+import type { SchematicLayoutId } from '../../shell/shell-session';
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key }),
@@ -228,5 +229,138 @@ describe('SchematicSidebarContent', () => {
       />,
     );
     expect(screen.queryByText('schematicSidebar.stop')).toBeNull();
+  });
+});
+
+describe('SchematicSidebarContent — layout selector (Story 4.3)', () => {
+  const renderSelector = (
+    layoutId: SchematicLayoutId = 'geographic',
+    onSetLayout = vi.fn(),
+  ) => {
+    render(
+      <SchematicSidebarContent
+        model={modelOf(city())}
+        onToggleMode={() => {}}
+        onShowAllModes={() => {}}
+        layoutId={layoutId}
+        onSetLayout={onSetLayout}
+      />,
+    );
+    return onSetLayout;
+  };
+
+  it('offers exactly one selected geometry, as a radiogroup', () => {
+    renderSelector();
+    const group = screen.getByRole('radiogroup', {
+      name: 'schematicSidebar.layout',
+    });
+    const options = screen.getAllByRole('radio');
+    expect(options).toHaveLength(3);
+    expect(group).toContainElement(options[0]);
+    // Exclusivity is in the accessibility tree, not only in the drawing.
+    expect(
+      options.filter((o) => o.getAttribute('aria-checked') === 'true'),
+    ).toHaveLength(1);
+    expect(screen.getByTestId('schematic-layout-geographic')).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+  });
+
+  it('marks the layouts that have not been published yet', () => {
+    renderSelector();
+    for (const id of ['octilinear', 'orthoradial'] as const) {
+      expect(screen.getByTestId(`schematic-layout-${id}`)).toHaveTextContent(
+        'schematicSidebar.experimental',
+      );
+    }
+    // The default is not experimental, and says so by saying nothing.
+    expect(
+      screen.getByTestId('schematic-layout-geographic'),
+    ).not.toHaveTextContent('schematicSidebar.experimental');
+  });
+
+  it('asks for the layout the user clicked', async () => {
+    const user = userEvent.setup();
+    const onSetLayout = renderSelector();
+    await user.click(screen.getByTestId('schematic-layout-octilinear'));
+    expect(onSetLayout).toHaveBeenCalledWith('octilinear');
+  });
+
+  it('is one tab stop, and the arrows move the selection', async () => {
+    const user = userEvent.setup();
+    const onSetLayout = renderSelector('octilinear');
+    // Roving tab index: only the selected option is reachable by Tab.
+    expect(screen.getByTestId('schematic-layout-octilinear')).toHaveAttribute(
+      'tabindex',
+      '0',
+    );
+    expect(screen.getByTestId('schematic-layout-geographic')).toHaveAttribute(
+      'tabindex',
+      '-1',
+    );
+
+    screen.getByTestId('schematic-layout-octilinear').focus();
+    await user.keyboard('{ArrowDown}');
+    expect(onSetLayout).toHaveBeenLastCalledWith('orthoradial');
+    await user.keyboard('{ArrowUp}');
+    expect(onSetLayout).toHaveBeenLastCalledWith('geographic');
+    // Wrapping is what a radiogroup does, so the last option is never a trap.
+    onSetLayout.mockClear();
+    cleanup();
+    renderSelector('orthoradial', onSetLayout);
+    screen.getByTestId('schematic-layout-orthoradial').focus();
+    await user.keyboard('{ArrowRight}');
+    expect(onSetLayout).toHaveBeenLastCalledWith('geographic');
+  });
+
+  it('jumps to the first and last geometry with Home and End', async () => {
+    const user = userEvent.setup();
+    const onSetLayout = renderSelector('octilinear');
+    screen.getByTestId('schematic-layout-octilinear').focus();
+    await user.keyboard('{End}');
+    expect(onSetLayout).toHaveBeenLastCalledWith('orthoradial');
+    await user.keyboard('{Home}');
+    // Home is the way back to the published geometry without counting arrows.
+    expect(onSetLayout).toHaveBeenLastCalledWith('geographic');
+  });
+
+  it('activates the focused geometry with Space and with Enter', async () => {
+    const user = userEvent.setup();
+    const onSetLayout = renderSelector();
+    screen.getByTestId('schematic-layout-orthoradial').focus();
+    await user.keyboard(' ');
+    expect(onSetLayout).toHaveBeenLastCalledWith('orthoradial');
+    onSetLayout.mockClear();
+    screen.getByTestId('schematic-layout-octilinear').focus();
+    await user.keyboard('{Enter}');
+    expect(onSetLayout).toHaveBeenLastCalledWith('octilinear');
+  });
+
+  it('is not offered when there is no diagram to change', () => {
+    render(
+      <SchematicSidebarContent
+        model={EMPTY_SCHEMATIC_MODEL}
+        onToggleMode={() => {}}
+        onShowAllModes={() => {}}
+        layoutId="geographic"
+        onSetLayout={() => {}}
+      />,
+    );
+    // A city with no routes has no geometry: a geometry control there would
+    // promise a change that cannot happen.
+    expect(screen.queryByRole('radiogroup')).toBeNull();
+    expect(screen.getByTestId('schematic-no-routes')).toBeInTheDocument();
+  });
+
+  it('stays out of the way when no caller wires it', () => {
+    render(
+      <SchematicSidebarContent
+        model={modelOf(city())}
+        onToggleMode={() => {}}
+        onShowAllModes={() => {}}
+      />,
+    );
+    expect(screen.queryByRole('radiogroup')).toBeNull();
   });
 });
