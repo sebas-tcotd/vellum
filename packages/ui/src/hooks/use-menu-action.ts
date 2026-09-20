@@ -98,6 +98,9 @@ export function useMenuAction({
         case 'menu.clean-mode':
           commands['view.cleanView'].execute();
           return;
+        case 'menu.schematic-view':
+          commands['view.schematic'].execute();
+          return;
         case 'menu.toggle-sidebar':
           commands['view.sidebar'].execute();
           return;

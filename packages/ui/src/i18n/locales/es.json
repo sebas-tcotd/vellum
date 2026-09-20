@@ -226,6 +226,15 @@
     "cancel": "Cancelar",
     "close": "Cerrar"
   },
+  "schematic": {
+    "open": "Vista esquemática",
+    "back": "Volver al mapa",
+    "region": "Esquema de la red de tránsito",
+    "emptyTitle": "No hay tránsito que dibujar",
+    "emptyBody": "Esta ciudad no tiene líneas de tránsito con recorrido, así que no hay red que mostrar.",
+    "viewSwitch": "Vista del mapa",
+    "summary": "Red de tránsito con {{lines}} líneas y {{stations}} estaciones."
+  },
   "a11y": {
     "mapCanvas": "Canvas del mapa de ciudad",
     "minimap": "Minimapa de navegación",

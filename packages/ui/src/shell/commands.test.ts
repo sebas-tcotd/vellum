@@ -19,6 +19,7 @@ function deps(overrides: Partial<CommandDeps> = {}): CommandDeps {
     transitDimmingEnabled: false,
     availableThemeIds: ['day', 'transit'],
     toggleCleanView: vi.fn(),
+    toggleSchematicView: vi.fn(),
     toggleSidebar: vi.fn(),
     toggleLayerDetail: vi.fn(),
     hasMap: true,
@@ -127,5 +128,30 @@ describe('execution', () => {
     const { commands, deps: d } = build();
     commands['view.cleanView'].execute();
     expect(d.toggleCleanView).toHaveBeenCalledWith(undefined);
+  });
+});
+
+describe('view.schematic', () => {
+  it('is unavailable without a city and inert when invoked', () => {
+    const { commands, deps: d } = build({ hasMap: false });
+    expect(commands['view.schematic'].unavailableReason).toBe('no-map');
+    commands['view.schematic'].execute();
+    expect(d.toggleSchematicView).not.toHaveBeenCalled();
+  });
+
+  it('is blocked under a modal and during a load', () => {
+    expect(
+      build({ hasBlockingModal: true }).commands['view.schematic']
+        .unavailableReason,
+    ).toBe('modal');
+    expect(
+      build({ isLoading: true }).commands['view.schematic'].unavailableReason,
+    ).toBe('loading');
+  });
+
+  it('toggles the schematic view when available', () => {
+    const { commands, deps: d } = build();
+    commands['view.schematic'].execute();
+    expect(d.toggleSchematicView).toHaveBeenCalledTimes(1);
   });
 });

@@ -17,6 +17,9 @@ export type ActiveModal =
   | 'partialParse'
   | null;
 
+/** Which surface the viewport shows. `geographic` (MapLibre) is the default. */
+export type ViewMode = 'geographic' | 'schematic';
+
 /**
  * Sidebar width model from EXPERIENCE.md: 272 preferred, 240 min, 320 max,
  * 56 px compact rail. Resizing is only offered at >= 1280 px.
@@ -48,6 +51,11 @@ export interface ShellSessionState {
     view: SidebarView;
   };
   cleanView: boolean;
+  /**
+   * Geographic map or the independent schematic surface (Epic 4). Ephemeral:
+   * never persisted, and reset to `geographic` whenever a new city loads.
+   */
+  viewMode: ViewMode;
   activeModal: ActiveModal;
   /**
    * Pinned map entity. Always `null` until a keyboard-navigable selection
@@ -73,6 +81,8 @@ export type ShellSessionAction =
   | { type: 'sidebar/setWidth'; width: number }
   | { type: 'cleanView/toggle'; invoker?: string }
   | { type: 'cleanView/exit' }
+  | { type: 'viewMode/toggle' }
+  | { type: 'viewMode/reset' }
   | { type: 'modal/open'; modal: NonNullable<ActiveModal>; invoker?: string }
   | { type: 'modal/close' }
   | { type: 'focus/consume' }
@@ -89,6 +99,7 @@ export function initialShellSession(windowWidth: number): ShellSessionState {
       view: { kind: 'overview' },
     },
     cleanView: false,
+    viewMode: 'geographic',
     activeModal: null,
     pinnedEntity: null,
     restoreFocus: null,
@@ -203,6 +214,19 @@ export function shellSessionReducer(
     case 'cleanView/exit':
       return state.cleanView ? { ...state, cleanView: false } : state;
 
+    case 'viewMode/toggle':
+      // Like Clean view, the view cannot switch under a blocking surface.
+      if (state.activeModal !== null) return state;
+      return {
+        ...state,
+        viewMode: state.viewMode === 'schematic' ? 'geographic' : 'schematic',
+      };
+
+    case 'viewMode/reset':
+      return state.viewMode === 'geographic'
+        ? state
+        : { ...state, viewMode: 'geographic' };
+
     case 'modal/open':
       return {
         ...state,
@@ -233,6 +257,9 @@ export function shellSessionReducer(
         };
       }
       if (state.cleanView) return { ...state, cleanView: false };
+      if (state.viewMode === 'schematic') {
+        return { ...state, viewMode: 'geographic' };
+      }
       return state;
 
     default:

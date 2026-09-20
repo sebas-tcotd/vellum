@@ -38,6 +38,7 @@ export { buildTransitLineGraph, continuationKey } from './line-graph';
 export { computeLineOrder, scoreConfiguration } from './ordering';
 export { MODE_PRIORITY } from './ordering/constants';
 export * from './render-geometry';
+export * from './schematic';
 export {
   extractUniqueStops,
   groupStopsByProximity,

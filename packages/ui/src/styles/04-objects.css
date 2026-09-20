@@ -39,6 +39,13 @@
   pointer-events: auto;
 }
 
+.map-tools__document {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--shell-overlay-gap);
+}
+
 .map-tools__navigation {
   display: flex;
   flex-direction: column;

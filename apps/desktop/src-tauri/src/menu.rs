@@ -60,6 +60,7 @@ const MENU_ID_FIT_TO_SCREEN: &str = "menu.fit-to-screen";
 const MENU_ID_ZOOM_IN: &str = "menu.zoom-in";
 const MENU_ID_ZOOM_OUT: &str = "menu.zoom-out";
 const MENU_ID_CLEAN_MODE: &str = "menu.clean-mode";
+const MENU_ID_SCHEMATIC_VIEW: &str = "menu.schematic-view";
 const MENU_ID_TOGGLE_SIDEBAR: &str = "menu.toggle-sidebar";
 const MENU_ID_NAVIGATION_MODE: &str = "menu.navigation-mode";
 const MENU_ID_ICON_LEGEND: &str = "menu.icon-legend";
@@ -89,6 +90,7 @@ struct MenuLocale {
     zoom_in: &'static str,
     zoom_out: &'static str,
     clean_view: &'static str,
+    schematic_view: &'static str,
     sidebar: &'static str,
     navigation_mode: &'static str,
     map_symbols: &'static str,
@@ -119,6 +121,7 @@ fn menu_locale(language: &str) -> Result<MenuLocale, String> {
             zoom_in: "Zoom In",
             zoom_out: "Zoom Out",
             clean_view: "Clean View",
+            schematic_view: "Schematic View",
             sidebar: "Sidebar",
             navigation_mode: "Navigation Mode",
             map_symbols: "Map Symbols",
@@ -146,6 +149,7 @@ fn menu_locale(language: &str) -> Result<MenuLocale, String> {
             zoom_in: "Acercar",
             zoom_out: "Alejar",
             clean_view: "Vista limpia",
+            schematic_view: "Vista esquemática",
             sidebar: "Barra lateral",
             navigation_mode: "Modo de navegación",
             map_symbols: "Símbolos del mapa",
@@ -298,6 +302,8 @@ fn build_view_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> 
     // Names the user-facing result, per the UX writing contract. The action id
     // is unchanged, so shortcuts and handlers keep working.
     let clean_mode = custom_item(app, MENU_ID_CLEAN_MODE, "Clean View", Some("KeyH"))?;
+    // No accelerator on purpose: assigning one needs sign-off (collision risk).
+    let schematic_view = custom_item(app, MENU_ID_SCHEMATIC_VIEW, "Schematic View", None)?;
     // A noun that toggles, matching the other items in this menu. The label
     // cannot flip between Show and Hide without pushing shell state back into
     // Rust, which this migration deliberately avoids.
@@ -348,6 +354,7 @@ fn build_view_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> 
         .item(&rotate_right)
         .item(&reset_bearing)
         .separator()
+        .item(&schematic_view)
         .item(&overlays)
         .item(&layout)
         .item(&interaction)
@@ -642,6 +649,7 @@ pub fn update_menu_language(app_handle: AppHandle, language: String) -> Result<(
         (MENU_ID_ZOOM_IN, locale.zoom_in),
         (MENU_ID_ZOOM_OUT, locale.zoom_out),
         (MENU_ID_CLEAN_MODE, locale.clean_view),
+        (MENU_ID_SCHEMATIC_VIEW, locale.schematic_view),
         (MENU_ID_TOGGLE_SIDEBAR, locale.sidebar),
         (MENU_ID_NAVIGATION_MODE, locale.navigation_mode),
         (MENU_ID_ICON_LEGEND, locale.map_symbols),
@@ -775,6 +783,7 @@ mod tests {
             super::MENU_ID_ZOOM_IN,
             super::MENU_ID_ZOOM_OUT,
             super::MENU_ID_CLEAN_MODE,
+            super::MENU_ID_SCHEMATIC_VIEW,
             super::MENU_ID_TOGGLE_SIDEBAR,
             super::MENU_ID_NAVIGATION_MODE,
             super::MENU_ID_ICON_LEGEND,

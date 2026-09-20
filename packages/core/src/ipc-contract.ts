@@ -85,6 +85,7 @@ export type MenuAction =
   | 'menu.zoom-in'
   | 'menu.zoom-out'
   | 'menu.clean-mode'
+  | 'menu.schematic-view'
   | 'menu.toggle-sidebar'
   | 'menu.navigation-mode'
   | 'menu.icon-legend'

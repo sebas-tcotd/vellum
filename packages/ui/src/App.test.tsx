@@ -1688,3 +1688,35 @@ describe('App — sidebar routes and window adaptation', () => {
     expect(shortcuts()).toBeDefined();
   });
 });
+
+describe('App — schematic view (Story 4.1)', () => {
+  it('vuelve al mapa geográfico cuando cambia o se cierra la ciudad', async () => {
+    await act(async () => {
+      render(<App />);
+    });
+    act(() => {
+      useVellumStore.getState().setCityData(mockCityData);
+    });
+
+    await act(async () => {
+      shell.emit('vellum://menu-action', 'menu.schematic-view');
+    });
+    expect(screen.getByTestId('schematic-view')).toBeInTheDocument();
+
+    act(() => {
+      useVellumStore
+        .getState()
+        .setCityData({ ...mockCityData, cityName: 'Other City' });
+    });
+    expect(screen.queryByTestId('schematic-view')).toBeNull();
+
+    await act(async () => {
+      shell.emit('vellum://menu-action', 'menu.schematic-view');
+    });
+    expect(screen.getByTestId('schematic-view')).toBeInTheDocument();
+    act(() => {
+      useVellumStore.getState().setCityData(null);
+    });
+    expect(screen.queryByTestId('schematic-view')).toBeNull();
+  });
+});
