@@ -233,7 +233,24 @@
     "emptyTitle": "No transit to draw",
     "emptyBody": "This city has no transit lines with a route, so there is no network to show.",
     "viewSwitch": "Map view",
-    "summary": "Transit network with {{lines}} lines and {{stations}} stations."
+    "summary": "Transit network with {{lines}} lines and {{stations}} stations.",
+    "filteredTitle": "No lines shown",
+    "filteredBody": "Every available transport mode is switched off, so the diagram has nothing to draw.",
+    "showAllModes": "Show all modes"
+  },
+  "schematicSidebar": {
+    "title": "Schematic network",
+    "visibleLines_one": "{{count}} line visible",
+    "visibleLines_other": "{{count}} lines visible",
+    "modes": "Transport modes",
+    "showAllModes": "Show all modes",
+    "legend": "Visible lines",
+    "unnamedLine": "Unnamed line",
+    "unknownMode": "Unidentified mode",
+    "key": "Key",
+    "stop": "Stop",
+    "filteredEmpty": "No mode is switched on, so no line is drawn.",
+    "noRoutes": "This city has no transit lines with a route, so there is nothing to filter."
   },
   "a11y": {
     "mapCanvas": "City map canvas",

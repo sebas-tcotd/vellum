@@ -33,6 +33,14 @@ function isBuildingCategory(value: string): value is BuildingServiceCategory {
 
 interface UseMenuActionOptions {
   commands: CommandRegistry;
+  /**
+   * Whether the schematic surface owns the screen. The advanced options are
+   * the one branch below that bypasses the command registry, so it needs its
+   * own guard: without it a native menu checkmark would still reach the
+   * geographic store — and, for transit, would read as a schematic filter it
+   * is not. Filtering in this view goes through the contextual sidebar.
+   */
+  isSchematicView?: boolean;
 }
 
 /**
@@ -48,6 +56,7 @@ interface UseMenuActionOptions {
  */
 export function useMenuAction({
   commands,
+  isSchematicView = false,
 }: UseMenuActionOptions): (action: MenuAction) => void {
   const cityData = useVellumStore((state) => state.cityData);
   const layerOptions = useVellumStore((state) => state.layerOptions);
@@ -142,7 +151,7 @@ export function useMenuAction({
 
       const optionPrefix = 'menu.toggle-advanced.';
       if (action.startsWith(optionPrefix)) {
-        if (cityData === null) return;
+        if (cityData === null || isSchematicView) return;
         const [, , layer, option] = action.split('.');
         if (layer === 'terrain') {
           if (option === 'contour-lines') {
@@ -180,6 +189,7 @@ export function useMenuAction({
     [
       commands,
       cityData,
+      isSchematicView,
       layerOptions,
       setBasemapShowGrid,
       setBuildingColorByCategory,

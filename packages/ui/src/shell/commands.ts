@@ -49,7 +49,17 @@ export interface CommandPayloads {
 }
 
 /** Why a command is currently unavailable — surfaced as a disabled reason. */
-export type UnavailableReason = 'no-map' | 'loading' | 'exporting' | 'modal';
+export type UnavailableReason =
+  | 'no-map'
+  | 'loading'
+  | 'exporting'
+  | 'modal'
+  /**
+   * The schematic surface owns the screen. It has no camera, no layers and no
+   * geographic styling, so those actions have nothing to act on — and export
+   * would capture the hidden map rather than what is displayed.
+   */
+  | 'schematic';
 
 export interface Command<Id extends CommandId> {
   id: Id;
@@ -101,6 +111,8 @@ export interface CommandDeps {
   isExporting: boolean;
   /** Whether a blocking surface currently owns the screen. */
   hasBlockingModal: boolean;
+  /** Whether the schematic surface is the one on screen. */
+  isSchematicView: boolean;
 }
 
 /**
@@ -131,6 +143,7 @@ export function useDesktopCommands(deps: CommandDeps): CommandRegistry {
     isLoading,
     isExporting,
     hasBlockingModal,
+    isSchematicView,
   } = deps;
 
   return useMemo<CommandRegistry>(() => {
@@ -154,13 +167,23 @@ export function useDesktopCommands(deps: CommandDeps): CommandRegistry {
       },
     });
 
-    const mapReason = noMap;
+    // Every geographic action shares one reason, so the menu, the shortcuts
+    // and the shell cannot disagree about what applies in the schematic.
+    const schematic: UnavailableReason | null = isSchematicView
+      ? 'schematic'
+      : null;
+    const mapReason = noMap ?? schematic;
     // Clean view cannot start under a blocking surface (AD-7); the session
     // refuses it too, this just lets a surface show why.
     const cleanViewReason =
       noMap ?? (isLoading ? 'loading' : hasBlockingModal ? 'modal' : null);
+    // Export captures the geographic map. In the schematic that is a hidden
+    // surface different from what is on screen, so the action is withdrawn
+    // rather than quietly exporting something else.
     const exportReason =
-      noMap ?? (isLoading ? 'loading' : isExporting ? 'exporting' : null);
+      noMap ??
+      schematic ??
+      (isLoading ? 'loading' : isExporting ? 'exporting' : null);
 
     return {
       // Open stays available with no map — it is the only way out of that state.
@@ -194,7 +217,13 @@ export function useDesktopCommands(deps: CommandDeps): CommandRegistry {
       // Showing and hiding the sidebar is a first-class command, not just a
       // button on the sidebar itself — the platform expects a View-menu route
       // for it, and a collapsed sidebar hides its own toggle's context.
-      'view.sidebar': make('view.sidebar', cleanViewReason, toggleSidebar),
+      // The schematic sidebar stays expanded by design — it is the only place
+      // its filters and legend live — so collapsing is withdrawn there.
+      'view.sidebar': make(
+        'view.sidebar',
+        cleanViewReason ?? schematic,
+        toggleSidebar,
+      ),
       'view.mapBounds': make('view.mapBounds', mapReason, toggleNavigationMode),
       'layer.toggle': make('layer.toggle', mapReason, (layer) =>
         toggleLayer(layer),
@@ -205,10 +234,10 @@ export function useDesktopCommands(deps: CommandDeps): CommandRegistry {
       ),
       // Style choices persist independently of a loaded document, and the
       // Themes menu has always been reachable with no map. Keep it that way.
-      'style.set': make('style.set', null, (theme) => {
+      'style.set': make('style.set', schematic, (theme) => {
         if (availableThemeIds.includes(theme)) setActiveTheme(theme);
       }),
-      'style.transitDimming': make('style.transitDimming', null, () => {
+      'style.transitDimming': make('style.transitDimming', schematic, () => {
         setTransitDimmingEnabled(!transitDimmingEnabled);
       }),
     };
@@ -219,6 +248,7 @@ export function useDesktopCommands(deps: CommandDeps): CommandRegistry {
     hasMap,
     isExporting,
     isLoading,
+    isSchematicView,
     openExport,
     openFileDialog,
     resetBearing,

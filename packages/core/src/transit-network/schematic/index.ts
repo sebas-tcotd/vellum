@@ -31,6 +31,17 @@ export interface SchematicStation {
   readonly id: string;
   readonly x: number;
   readonly y: number;
+  /**
+   * Ids of every drawable line this station belongs to, sorted and immutable.
+   *
+   * @remarks
+   * Membership describes the *base* geometry: it is what lets a visibility
+   * projection ({@link filterSchematicLayout}) decide whether a station shared
+   * by several lines survives, without recomputing anything. A station is only
+   * ever recorded for lines that actually draw a stroke, so this is never
+   * empty in a layout produced by a strategy.
+   */
+  readonly lineIds: readonly string[];
 }
 
 /** Output of a schematic strategy, in a fixed viewBox `0 0 width height`. */
@@ -113,11 +124,40 @@ export const geographicSchematicLayout: SchematicLayoutStrategy = (network) => {
   // Only stops of lines that actually draw something: no orphan stations,
   // and they never stretch the bounds.
   const drawnLines = new Set(raw.map((r) => r.lineId));
-  const stopsById = new Map<string, { x: number; z: number }>();
+  const stopsById = new Map<
+    string,
+    { position: { x: number; z: number } | null; lineIds: Set<string> }
+  >();
   for (const s of network.stops) {
-    if (!drawnLines.has(s.lineId) || !isFinitePoint(s.position)) continue;
-    if (!stopsById.has(s.stopId)) stopsById.set(s.stopId, s.position);
+    if (!drawnLines.has(s.lineId)) continue;
+    // Deduplicating by `stopId` keeps the first usable position, but
+    // membership has to accumulate: a station shared by several lines must
+    // survive as long as any one of them stays visible. Position and
+    // membership are recorded independently on purpose — one entry of a
+    // shared stop having a broken coordinate says nothing about which lines
+    // call there, and dropping the whole entry would silently unlink that
+    // line, so the station would vanish the moment the other one is hidden.
+    const existing = stopsById.get(s.stopId);
+    if (existing) {
+      existing.lineIds.add(s.lineId);
+      if (existing.position === null && isFinitePoint(s.position)) {
+        existing.position = s.position;
+      }
+      continue;
+    }
+    stopsById.set(s.stopId, {
+      position: isFinitePoint(s.position) ? s.position : null,
+      lineIds: new Set([s.lineId]),
+    });
   }
+  // A stop no entry could place has no symbol to draw.
+  const placedStops = [...stopsById.entries()]
+    .flatMap(([id, entry]) =>
+      entry.position === null
+        ? []
+        : [{ id, position: entry.position, lineIds: entry.lineIds }],
+    )
+    .sort((a, b) => byString(a.id, b.id));
 
   // Screen-space vertical coordinate before scaling: y grows downward, so a
   // south-up map (+1) puts large z at the top.
@@ -135,7 +175,7 @@ export const geographicSchematicLayout: SchematicLayoutStrategy = (network) => {
     if (y > maxY) maxY = y;
   };
   for (const r of raw) r.path.forEach(extend);
-  for (const p of stopsById.values()) extend(p);
+  for (const s of placedStops) extend(s.position);
 
   const inner = SCHEMATIC_VIEWBOX_SIZE - 2 * SCHEMATIC_MARGIN;
   const spanX = maxX - minX;
@@ -158,9 +198,13 @@ export const geographicSchematicLayout: SchematicLayoutStrategy = (network) => {
       points: Object.freeze(r.path.map(project)),
     }),
   );
-  const stations = [...stopsById.entries()]
-    .sort(([a], [b]) => byString(a, b))
-    .map(([id, p]) => Object.freeze({ id, ...project(p) }));
+  const stations = placedStops.map((stop) =>
+    Object.freeze({
+      id: stop.id,
+      ...project(stop.position),
+      lineIds: Object.freeze([...stop.lineIds].sort(byString)),
+    }),
+  );
 
   return Object.freeze({
     bounds: Object.freeze({
@@ -171,3 +215,50 @@ export const geographicSchematicLayout: SchematicLayoutStrategy = (network) => {
     stations: Object.freeze(stations),
   });
 };
+
+/**
+ * Projects a layout onto a set of visible lines: a pure filter that keeps
+ * `bounds` and every surviving coordinate byte-identical.
+ *
+ * @remarks
+ * Visibility is applied *after* the layout, never before it. Filtering the
+ * network first would change the bounds and move every remaining station,
+ * which is exactly what a filter must not do — the reader has to be able to
+ * read the same map with fewer lines on it. A station survives while at least
+ * one of its {@link SchematicStation.lineIds} is visible, so a shared
+ * interchange stays put when only one of its lines is hidden.
+ *
+ * Ids the layout does not draw are ignored; the result is frozen and shares
+ * the input's frozen segment/station objects, so it is safe to memoise.
+ *
+ * @param layout - The base layout a strategy produced.
+ * @param visibleLineIds - Ids to keep. Anything else is dropped.
+ */
+export function filterSchematicLayout(
+  layout: SchematicLayout,
+  visibleLineIds: Iterable<string>,
+): SchematicLayout {
+  const visible =
+    visibleLineIds instanceof Set
+      ? (visibleLineIds as ReadonlySet<string>)
+      : new Set(visibleLineIds);
+
+  const segments = layout.segments.filter((s) => visible.has(s.lineId));
+  const stations = layout.stations.filter((s) =>
+    s.lineIds.some((id) => visible.has(id)),
+  );
+  // Nothing was hidden: hand back the very same layout so memoised consumers
+  // and reference-equality checks see no change at all.
+  if (
+    segments.length === layout.segments.length &&
+    stations.length === layout.stations.length
+  ) {
+    return layout;
+  }
+
+  return Object.freeze({
+    bounds: layout.bounds,
+    segments: Object.freeze(segments),
+    stations: Object.freeze(stations),
+  });
+}

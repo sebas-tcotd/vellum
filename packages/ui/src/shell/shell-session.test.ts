@@ -259,3 +259,174 @@ describe('escape ladder — schematic view', () => {
     expect(shellSessionReducer(modal, { type: 'escape' })).toBe(modal);
   });
 });
+
+describe('schematic selection (Story 4.2)', () => {
+  it('starts with every mode visible', () => {
+    expect(initialShellSession(1440).schematic.hiddenModes).toEqual([]);
+  });
+
+  it('toggles a mode off and back on', () => {
+    let state = shellSessionReducer(base(), {
+      type: 'schematic/toggleMode',
+      mode: 'Bus',
+    });
+    expect(state.schematic.hiddenModes).toEqual(['Bus']);
+    state = shellSessionReducer(state, {
+      type: 'schematic/toggleMode',
+      mode: 'Tram',
+    });
+    expect(state.schematic.hiddenModes).toEqual(['Bus', 'Tram']);
+    state = shellSessionReducer(state, {
+      type: 'schematic/toggleMode',
+      mode: 'Bus',
+    });
+    expect(state.schematic.hiddenModes).toEqual(['Tram']);
+  });
+
+  it('refuses to hide Unknown, which has no control to bring it back', () => {
+    const state = base();
+    expect(
+      shellSessionReducer(state, {
+        type: 'schematic/toggleMode',
+        mode: 'Unknown',
+      }),
+    ).toBe(state);
+  });
+
+  it('restores every mode at once, and resets with the city', () => {
+    const filtered = base({
+      schematic: {
+        width: 320,
+        hiddenModes: ['Bus'],
+        widthBeforeNarrow: null,
+      },
+    });
+    // "Show all" is about the selection and leaves the width alone.
+    const restored = shellSessionReducer(filtered, {
+      type: 'schematic/showAllModes',
+    });
+    expect(restored.schematic.hiddenModes).toEqual([]);
+    expect(restored.schematic.width).toBe(320);
+
+    // A new city resets the whole schematic context, width included, to what
+    // the current window would have started it with.
+    const reset = shellSessionReducer(filtered, {
+      type: 'schematic/reset',
+      windowWidth: 1440,
+    });
+    expect(reset.schematic.hiddenModes).toEqual([]);
+    expect(reset.schematic.width).toBe(SIDEBAR_WIDTH.preferred);
+    expect(
+      shellSessionReducer(filtered, {
+        type: 'schematic/reset',
+        windowWidth: 900,
+      }).schematic.width,
+    ).toBe(SIDEBAR_WIDTH.min);
+  });
+
+  it('keeps its own width, independent of the geographic sidebar', () => {
+    const state = shellSessionReducer(base(), {
+      type: 'schematic/setWidth',
+      width: 300,
+    });
+    expect(state.schematic.width).toBe(300);
+    expect(state.sidebar.width).toBe(SIDEBAR_WIDTH.preferred);
+    // Same clamping model as the geographic one.
+    expect(
+      shellSessionReducer(state, { type: 'schematic/setWidth', width: 9999 })
+        .schematic.width,
+    ).toBe(SIDEBAR_WIDTH.max);
+  });
+
+  it('does not let the geographic sidebar width leak into it', () => {
+    const state = shellSessionReducer(base(), {
+      type: 'sidebar/setWidth',
+      width: 310,
+    });
+    expect(state.schematic.width).toBe(SIDEBAR_WIDTH.preferred);
+  });
+});
+
+describe('preserving the hidden geographic context', () => {
+  it('keeps an open layer detail when the window narrows in the schematic', () => {
+    const withDetail = base({
+      viewMode: 'schematic',
+      sidebar: {
+        ...base().sidebar,
+        view: { kind: 'detail', layerId: 'transit' },
+      },
+    });
+    const resized = shellSessionReducer(withDetail, {
+      type: 'sidebar/viewportResized',
+      width: 1000,
+    });
+    expect(resized.sidebar.view).toEqual({
+      kind: 'detail',
+      layerId: 'transit',
+    });
+    // The schematic sidebar stays expanded but takes the narrow width.
+    expect(resized.schematic.width).toBe(SIDEBAR_WIDTH.min);
+  });
+
+  it('gives the schematic width back when there is room for it again', () => {
+    const wide = shellSessionReducer(base(), {
+      type: 'schematic/setWidth',
+      width: 320,
+    });
+    const narrow = shellSessionReducer(wide, {
+      type: 'sidebar/viewportResized',
+      width: 1000,
+    });
+    expect(narrow.schematic.width).toBe(SIDEBAR_WIDTH.min);
+
+    const roomy = shellSessionReducer(narrow, {
+      type: 'sidebar/viewportResized',
+      width: 1440,
+    });
+    expect(roomy.schematic.width).toBe(320);
+  });
+
+  it('keeps a width chosen while narrow, the way a deliberate collapse sticks', () => {
+    const narrow = shellSessionReducer(base(), {
+      type: 'sidebar/viewportResized',
+      width: 1000,
+    });
+    const chosen = shellSessionReducer(narrow, {
+      type: 'schematic/setWidth',
+      width: 260,
+    });
+    const roomy = shellSessionReducer(chosen, {
+      type: 'sidebar/viewportResized',
+      width: 1440,
+    });
+    expect(roomy.schematic.width).toBe(260);
+  });
+
+  it('still drops the detail when the window narrows on the map itself', () => {
+    const withDetail = base({
+      sidebar: {
+        ...base().sidebar,
+        view: { kind: 'detail', layerId: 'transit' },
+      },
+    });
+    expect(
+      shellSessionReducer(withDetail, {
+        type: 'sidebar/viewportResized',
+        width: 1000,
+      }).sidebar.view,
+    ).toEqual({ kind: 'overview' });
+  });
+
+  it('Escape leaves the schematic without closing the detail behind it', () => {
+    const state = base({
+      viewMode: 'schematic',
+      sidebar: {
+        ...base().sidebar,
+        view: { kind: 'detail', layerId: 'roads' },
+      },
+    });
+    const escaped = shellSessionReducer(state, { type: 'escape' });
+    expect(escaped.viewMode).toBe('geographic');
+    expect(escaped.sidebar.view).toEqual({ kind: 'detail', layerId: 'roads' });
+  });
+});

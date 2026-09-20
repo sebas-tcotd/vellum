@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { makeCityData, makeRoadSegment, makeTransitLine } from '../../testing';
 import type { CityData, RoadNode, TransitStop } from '../../types/city-data';
 import { deriveTransitNetwork } from '../index';
-import { geographicSchematicLayout, isSchematicLayoutEmpty } from './index';
+import {
+  filterSchematicLayout,
+  geographicSchematicLayout,
+  isSchematicLayoutEmpty,
+} from './index';
 
 const node = (id: string, x: number, z: number): RoadNode => ({
   id,
@@ -134,5 +138,128 @@ describe('geographicSchematicLayout — robustness', () => {
     ]) {
       expect(Number.isFinite(p.x) && Number.isFinite(p.y)).toBe(true);
     }
+  });
+});
+
+describe('SchematicStation.lineIds', () => {
+  it('accumulates every drawable line a deduplicated stop belongs to', () => {
+    const layout = geographicSchematicLayout(deriveTransitNetwork(city()));
+    const byId = new Map(layout.stations.map((s) => [s.id, s]));
+    // `p1` is served by both lines, `p2` only by L1.
+    expect(byId.get('p1')?.lineIds).toEqual(['L1', 'L2']);
+    expect(byId.get('p2')?.lineIds).toEqual(['L1']);
+    expect(Object.isFrozen(byId.get('p1')?.lineIds)).toBe(true);
+  });
+
+  it('records membership even when that entry has no usable position', () => {
+    // `p1` is served by both lines, but L2 reports it at a broken coordinate.
+    // The position L1 gave still places the station, and forgetting L2 here
+    // would make the station vanish as soon as L1 alone is hidden.
+    const base = city();
+    const withBadRepeat = makeCityData({
+      ...base,
+      transitLines: base.transitLines.map((l) =>
+        l.id === 'L2'
+          ? { ...l, stops: [stop('p1', Number.NaN, Number.NaN)] }
+          : l,
+      ),
+    });
+    const layout = geographicSchematicLayout(
+      deriveTransitNetwork(withBadRepeat),
+    );
+    const p1 = layout.stations.find((s) => s.id === 'p1');
+    expect(p1?.lineIds).toEqual(['L1', 'L2']);
+    expect(Number.isFinite(p1?.x) && Number.isFinite(p1?.y)).toBe(true);
+    // Hiding L1 keeps it: L2 still calls there.
+    expect(
+      filterSchematicLayout(layout, ['L2']).stations.map((s) => s.id),
+    ).toContain('p1');
+  });
+
+  it('drops a stop no entry could place at all', () => {
+    const base = city();
+    const unplaceable = makeCityData({
+      ...base,
+      transitLines: base.transitLines.map((l) =>
+        l.id === 'L2'
+          ? { ...l, stops: [stop('nowhere', Number.NaN, Infinity)] }
+          : l,
+      ),
+    });
+    const layout = geographicSchematicLayout(deriveTransitNetwork(unplaceable));
+    expect(layout.stations.map((s) => s.id)).not.toContain('nowhere');
+  });
+
+  it('never records a line that draws nothing', () => {
+    const base = city();
+    const withOrphan = makeCityData({
+      ...base,
+      transitLines: [
+        ...base.transitLines,
+        makeTransitLine({ id: 'L9', stops: [stop('p1', 0, 0)], route: [] }),
+      ],
+    });
+    const layout = geographicSchematicLayout(deriveTransitNetwork(withOrphan));
+    for (const station of layout.stations) {
+      expect(station.lineIds).not.toContain('L9');
+    }
+  });
+});
+
+describe('filterSchematicLayout', () => {
+  const base = (): ReturnType<typeof geographicSchematicLayout> =>
+    geographicSchematicLayout(deriveTransitNetwork(city()));
+
+  it('keeps bounds and coordinates identical, recomputing nothing', () => {
+    const full = base();
+    const filtered = filterSchematicLayout(full, ['L1']);
+    expect(filtered.bounds).toEqual(full.bounds);
+    for (const station of filtered.stations) {
+      const original = full.stations.find((s) => s.id === station.id);
+      expect({ x: station.x, y: station.y }).toEqual({
+        x: original?.x,
+        y: original?.y,
+      });
+    }
+    for (const segment of filtered.segments) {
+      expect(full.segments).toContain(segment);
+    }
+  });
+
+  it('drops the strokes and the exclusive stops of a hidden line', () => {
+    const full = base();
+    const filtered = filterSchematicLayout(full, ['L1']);
+    expect(filtered.segments.every((s) => s.lineId === 'L1')).toBe(true);
+    // `p1` is shared with L1 so it stays; nothing is exclusive to L2 here.
+    expect(filtered.stations.map((s) => s.id)).toEqual(['p1', 'p2']);
+
+    const onlyL2 = filterSchematicLayout(full, ['L2']);
+    expect(onlyL2.segments.every((s) => s.lineId === 'L2')).toBe(true);
+    // `p2` belongs to L1 alone and disappears with it.
+    expect(onlyL2.stations.map((s) => s.id)).toEqual(['p1']);
+  });
+
+  it('returns the same layout when nothing is hidden', () => {
+    const full = base();
+    expect(filterSchematicLayout(full, ['L1', 'L2'])).toBe(full);
+    // Unknown ids are simply ignored rather than treated as extra lines.
+    expect(filterSchematicLayout(full, ['L1', 'L2', 'nope'])).toBe(full);
+  });
+
+  it('yields an empty — but still bounded — layout when all lines are hidden', () => {
+    const full = base();
+    const none = filterSchematicLayout(full, []);
+    expect(isSchematicLayoutEmpty(none)).toBe(true);
+    expect(none.stations).toEqual([]);
+    expect(none.bounds).toEqual(full.bounds);
+    expect(Object.isFrozen(none)).toBe(true);
+  });
+
+  it('does not mutate the layout it projects', () => {
+    const full = base();
+    const before = JSON.stringify(full);
+    filterSchematicLayout(full, ['L1']);
+    filterSchematicLayout(full, []);
+    expect(JSON.stringify(full)).toBe(before);
   });
 });

@@ -1,4 +1,4 @@
-import type { LayerName } from '@vellum/core';
+import type { LayerName, TransitMode } from '@vellum/core';
 import { useReducer } from 'react';
 
 /**
@@ -52,6 +52,28 @@ export interface ShellSessionState {
   };
   cleanView: boolean;
   /**
+   * The schematic surface's own, ephemeral context (Story 4.2). It is kept
+   * apart from `sidebar` on purpose: the two views answer different questions,
+   * so neither the width the user gave one nor the body the other was showing
+   * may leak across. Reset when the city changes, never persisted.
+   */
+  schematic: {
+    /** Width of the schematic sidebar. Independent of the geographic one. */
+    width: number;
+    /**
+     * Width to restore when the window is wide enough again, or `null` when
+     * the current width was not imposed by a narrow window. This is the
+     * schematic's counterpart to `sidebar.autoCollapsed`: only a width the
+     * window took away is automatically handed back.
+     */
+    widthBeforeNarrow: number | null;
+    /**
+     * Modes switched off by the user. `'Unknown'` never appears here — it has
+     * no label and no control, so hiding it would be unrecoverable.
+     */
+    hiddenModes: readonly TransitMode[];
+  };
+  /**
    * Geographic map or the independent schematic surface (Epic 4). Ephemeral:
    * never persisted, and reset to `geographic` whenever a new city loads.
    */
@@ -83,6 +105,10 @@ export type ShellSessionAction =
   | { type: 'cleanView/exit' }
   | { type: 'viewMode/toggle' }
   | { type: 'viewMode/reset' }
+  | { type: 'schematic/toggleMode'; mode: TransitMode }
+  | { type: 'schematic/showAllModes' }
+  | { type: 'schematic/setWidth'; width: number }
+  | { type: 'schematic/reset'; windowWidth: number }
   | { type: 'modal/open'; modal: NonNullable<ActiveModal>; invoker?: string }
   | { type: 'modal/close' }
   | { type: 'focus/consume' }
@@ -99,10 +125,23 @@ export function initialShellSession(windowWidth: number): ShellSessionState {
       view: { kind: 'overview' },
     },
     cleanView: false,
+    schematic: initialSchematic(windowWidth),
     viewMode: 'geographic',
     activeModal: null,
     pinnedEntity: null,
     restoreFocus: null,
+  };
+}
+
+/** The schematic sidebar stays expanded, so it only has a width to choose. */
+function initialSchematic(windowWidth: number): ShellSessionState['schematic'] {
+  return {
+    width:
+      windowWidth < SIDEBAR_RESIZE_MIN_WINDOW
+        ? SIDEBAR_WIDTH.min
+        : SIDEBAR_WIDTH.preferred,
+    hiddenModes: [],
+    widthBeforeNarrow: null,
   };
 }
 
@@ -174,24 +213,52 @@ export function shellSessionReducer(
       // The platform convention is to give the sidebar back when there is room
       // for it again, and to get out of the way when there is not.
       const narrow = action.width < SIDEBAR_RESIZE_MIN_WINDOW;
+      // A narrow window caps the schematic sidebar rather than collapsing it:
+      // it stays expanded by design, and 240 px still leaves room to draw at
+      // the 900 px minimum. The cap is remembered so the same convention the
+      // geographic side honours through `autoCollapsed` applies here too —
+      // room taken away is given back, but a width the user chose while narrow
+      // is their decision and survives the window growing again.
+      const schematic: ShellSessionState['schematic'] = narrow
+        ? state.schematic.width > SIDEBAR_WIDTH.min
+          ? {
+              ...state.schematic,
+              width: SIDEBAR_WIDTH.min,
+              widthBeforeNarrow: state.schematic.width,
+            }
+          : state.schematic
+        : state.schematic.widthBeforeNarrow !== null
+          ? {
+              ...state.schematic,
+              width: state.schematic.widthBeforeNarrow,
+              widthBeforeNarrow: null,
+            }
+          : state.schematic;
+      const showingGeographic = state.viewMode === 'geographic';
       if (narrow && !state.sidebar.collapsed) {
         return {
           ...state,
+          schematic,
           sidebar: {
             ...state.sidebar,
             collapsed: true,
             autoCollapsed: true,
-            view: { kind: 'overview' },
+            // Resizing is not a decision about the geographic body. While the
+            // schematic owns the screen that body is only hidden, so dropping
+            // an open layer detail here would silently lose context the user
+            // expects to find again on the way back.
+            view: showingGeographic ? { kind: 'overview' } : state.sidebar.view,
           },
         };
       }
       if (!narrow && state.sidebar.collapsed && state.sidebar.autoCollapsed) {
         return {
           ...state,
+          schematic,
           sidebar: { ...state.sidebar, collapsed: false, autoCollapsed: false },
         };
       }
-      return state;
+      return schematic === state.schematic ? state : { ...state, schematic };
     }
 
     case 'sidebar/setWidth':
@@ -227,6 +294,43 @@ export function shellSessionReducer(
         ? state
         : { ...state, viewMode: 'geographic' };
 
+    case 'schematic/toggleMode': {
+      // `Unknown` is not offered as a control anywhere; refusing it here means
+      // no surface can hide it by accident.
+      if (action.mode === 'Unknown') return state;
+      const hidden = state.schematic.hiddenModes;
+      const next = hidden.includes(action.mode)
+        ? hidden.filter((mode) => mode !== action.mode)
+        : [...hidden, action.mode];
+      return { ...state, schematic: { ...state.schematic, hiddenModes: next } };
+    }
+
+    case 'schematic/showAllModes':
+      return state.schematic.hiddenModes.length === 0
+        ? state
+        : { ...state, schematic: { ...state.schematic, hiddenModes: [] } };
+
+    case 'schematic/setWidth':
+      // Choosing a width explicitly also clears the pending restore, exactly
+      // as `sidebar/setCollapsed` clears `autoCollapsed`.
+      return {
+        ...state,
+        schematic: {
+          ...state.schematic,
+          width: clampWidth(action.width),
+          widthBeforeNarrow: null,
+        },
+      };
+
+    case 'schematic/reset':
+      // A new city resets the whole schematic context, not just the filters:
+      // its width is as ephemeral as its selection, and the window it is
+      // reset for is the one currently on screen.
+      return {
+        ...state,
+        schematic: initialSchematic(action.windowWidth),
+      };
+
     case 'modal/open':
       return {
         ...state,
@@ -250,7 +354,13 @@ export function shellSessionReducer(
       // below is pinned entity, then layer detail, then Clean view.
       if (state.activeModal !== null) return state;
       if (state.pinnedEntity !== null) return { ...state, pinnedEntity: null };
-      if (state.sidebar.view.kind === 'detail') {
+      // Only the body actually on screen answers Escape. A layer detail left
+      // open behind the schematic is hidden, not offered, so it is not what
+      // the key is aimed at.
+      if (
+        state.viewMode === 'geographic' &&
+        state.sidebar.view.kind === 'detail'
+      ) {
         return {
           ...state,
           sidebar: { ...state.sidebar, view: { kind: 'overview' } },

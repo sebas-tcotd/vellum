@@ -5,9 +5,11 @@ import type { LayerName } from '@vellum/core';
 import { MapAppearanceSidebar } from './MapAppearanceSidebar';
 import { useVellumStore } from '../../store/vellum-store';
 import type { CommandRegistry } from '../../shell/commands';
+import { EMPTY_SCHEMATIC_MODEL } from '../../hooks/use-schematic-network';
 import {
   initialShellSession,
   shellSessionReducer,
+  SIDEBAR_WIDTH,
   type ShellSessionState,
 } from '../../shell/shell-session';
 
@@ -68,20 +70,25 @@ function makeCommands(
 function Harness({
   initial,
   onOccupiedWidthChange,
+  stateRef,
 }: {
   initial?: Partial<ShellSessionState>;
   onOccupiedWidthChange?: (width: number) => void;
+  /** Lets a test read the session the sidebar is actually driving. */
+  stateRef?: { current: ShellSessionState | null };
 }) {
   const [state, dispatch] = useReducer(shellSessionReducer, {
     ...initialShellSession(1440),
     ...initial,
   });
+  if (stateRef) stateRef.current = state;
   return (
     <MapAppearanceSidebar
       cityName="Altavento"
       fileName="altavento.cslmap"
       commands={makeCommands(dispatch)}
       shell={{ state, dispatch }}
+      schematicModel={EMPTY_SCHEMATIC_MODEL}
       {...(onOccupiedWidthChange ? { onOccupiedWidthChange } : {})}
     />
   );
@@ -381,5 +388,43 @@ describe('occupied width', () => {
       />,
     );
     expect(onOccupiedWidthChange).toHaveBeenCalledWith(0);
+  });
+});
+
+describe('width model — schematic view', () => {
+  const schematicSession = (width: number): Partial<ShellSessionState> => ({
+    viewMode: 'schematic',
+    schematic: { width, hiddenModes: [], widthBeforeNarrow: null },
+  });
+
+  it('reflects and edits the schematic width, never the geographic one', () => {
+    const stateRef: { current: ShellSessionState | null } = { current: null };
+    render(<Harness initial={schematicSession(300)} stateRef={stateRef} />);
+
+    // The handle shows the schematic's own width, not `sidebar.width`.
+    expect(screen.getByTestId('sidebar-resize-handle')).toHaveAttribute(
+      'aria-valuenow',
+      '300',
+    );
+
+    fireEvent.keyDown(screen.getByTestId('sidebar-resize-handle'), {
+      key: 'End',
+    });
+    expect(stateRef.current?.schematic.width).toBe(320);
+    // The map's sidebar keeps the width it was left at.
+    expect(stateRef.current?.sidebar.width).toBe(SIDEBAR_WIDTH.preferred);
+  });
+
+  it('stays expanded and offers no collapse control', () => {
+    render(<Harness initial={schematicSession(SIDEBAR_WIDTH.preferred)} />);
+    expect(screen.getByTestId('shell-sidebar')).toHaveAttribute(
+      'data-state',
+      'expanded',
+    );
+    expect(
+      document.querySelector('[data-focus-id="sidebar-collapse"]'),
+    ).toBeNull();
+    // Still resizable: only the collapse affordance is withdrawn.
+    expect(screen.getByTestId('sidebar-resize-handle')).toBeInTheDocument();
   });
 });

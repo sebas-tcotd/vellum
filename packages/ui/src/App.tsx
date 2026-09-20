@@ -133,6 +133,7 @@ export function App({
   );
   const shellDispatch = shell.dispatch;
   const isCleanMode = shell.state.cleanView;
+  const isSchematicView = shell.state.viewMode === 'schematic';
   const fitToScreenRef = useRef<(() => void) | null>(null);
   const zoomInRef = useRef<(() => void) | null>(null);
   const zoomOutRef = useRef<(() => void) | null>(null);
@@ -238,8 +239,15 @@ export function App({
 
   // Any change of city — loaded, replaced or closed — lands on the geographic
   // map (Story 4.1): the schematic mode is ephemeral and never carries over.
+  // Its filters go with it (Story 4.2): they name lines and modes of the city
+  // that is leaving, so carrying them over would hide parts of a new network
+  // the user never chose to hide.
   useEffect(() => {
     shellDispatch({ type: 'viewMode/reset' });
+    shellDispatch({
+      type: 'schematic/reset',
+      windowWidth: typeof window === 'undefined' ? 1440 : window.innerWidth,
+    });
   }, [cityData, shellDispatch]);
 
   const handleFitToScreen = useCallback(
@@ -367,9 +375,10 @@ export function App({
     isLoading: loadingState === 'loading',
     isExporting,
     hasBlockingModal: blockingModal !== null,
+    isSchematicView,
   });
 
-  const handleMenuAction = useMenuAction({ commands });
+  const handleMenuAction = useMenuAction({ commands, isSchematicView });
 
   // Shortcuts are a keymap, not a second policy: each one invokes the same
   // command the menu does, and the command's own `canExecute` decides whether

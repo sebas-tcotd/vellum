@@ -11,6 +11,10 @@ import { Minimap } from '../minimap/Minimap';
 import { MapTooltip } from '../overlays/MapTooltip';
 import { IconLegend } from '../panels/IconLegend';
 import { SchematicView } from '../schematic/SchematicView';
+import {
+  EMPTY_SCHEMATIC_MODEL,
+  type SchematicNetworkModel,
+} from '../../hooks/use-schematic-network';
 import type { CommandRegistry } from '../../shell/commands';
 import type { ViewMode } from '../../shell/shell-session';
 import { DEFAULT_RENDER_STYLE_PARAMS } from '@vellum/theme-engine';
@@ -36,6 +40,24 @@ export interface MapViewportProps {
    * to be told not to frame the city underneath it.
    */
   mapInset?: { left: number; top?: number; right?: number; bottom?: number };
+  /**
+   * Chrome the *schematic* diagram has to keep clear of. Deliberately separate
+   * from {@link mapInset}: the geographic padding is renderer state MapLibre is
+   * subscribed to, so resizing the schematic sidebar must not reframe a map
+   * nobody is looking at.
+   */
+  schematicInset?: {
+    left: number;
+    top?: number;
+    right?: number;
+    bottom?: number;
+  };
+  /** The shared model the schematic sidebar reads; see `useSchematicNetwork`. */
+  schematicModel?: SchematicNetworkModel;
+  /** Legend row the pointer is over; holds every other stroke back. */
+  hoveredSchematicLineId?: string | null;
+  /** Brings every switched-off schematic mode back. */
+  onShowAllSchematicModes?: () => void;
   subscribeServiceIconLegendRef: React.RefObject<
     ((callback: (state: ServiceIconLegendState) => void) => () => void) | null
   >;
@@ -59,6 +81,10 @@ export function MapViewport({
   isCleanView,
   viewMode = 'geographic',
   mapInset,
+  schematicInset,
+  schematicModel = EMPTY_SCHEMATIC_MODEL,
+  hoveredSchematicLineId = null,
+  onShowAllSchematicModes,
   subscribeServiceIconLegendRef,
   iconLegendToggleRef,
   children,
@@ -217,17 +243,19 @@ export function MapViewport({
           <div
             className="absolute inset-0"
             style={{
-              paddingTop: mapInset?.top ?? 0,
-              paddingRight: mapInset?.right ?? 0,
-              paddingBottom: mapInset?.bottom ?? 0,
-              paddingLeft: mapInset?.left ?? 0,
+              paddingTop: schematicInset?.top ?? 0,
+              paddingRight: schematicInset?.right ?? 0,
+              paddingBottom: schematicInset?.bottom ?? 0,
+              paddingLeft: schematicInset?.left ?? 0,
             }}
           >
             <div className="relative h-full w-full">
               <SchematicView
                 ref={schematicRegionRef}
-                cityData={cityData}
+                model={schematicModel}
+                hoveredLineId={hoveredSchematicLineId}
                 onBack={() => schematicCommand.execute()}
+                onShowAllModes={() => onShowAllSchematicModes?.()}
               />
             </div>
           </div>

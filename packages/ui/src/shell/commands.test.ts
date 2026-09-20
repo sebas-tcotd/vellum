@@ -26,6 +26,7 @@ function deps(overrides: Partial<CommandDeps> = {}): CommandDeps {
     isLoading: false,
     isExporting: false,
     hasBlockingModal: false,
+    isSchematicView: false,
     ...overrides,
   };
 }
@@ -153,5 +154,54 @@ describe('view.schematic', () => {
     const { commands, deps: d } = build();
     commands['view.schematic'].execute();
     expect(d.toggleSchematicView).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('the schematic surface withdraws what it cannot act on', () => {
+  const schematic = () => build({ isSchematicView: true }).commands;
+
+  it('withdraws camera, layers, symbols, bounds and styles', () => {
+    const commands = schematic();
+    for (const id of [
+      'view.fitCity',
+      'view.zoomIn',
+      'view.zoomOut',
+      'view.resetNorth',
+      'view.rotate',
+      'view.mapSymbols',
+      'view.mapBounds',
+      'layer.toggle',
+      'layer.detail',
+      'style.set',
+      'style.transitDimming',
+    ] as const) {
+      expect(commands[id].canExecute).toBe(false);
+      expect(commands[id].unavailableReason).toBe('schematic');
+    }
+  });
+
+  it('never reaches the handlers behind those commands', () => {
+    const { commands, deps: d } = build({ isSchematicView: true });
+    commands['view.fitCity'].execute();
+    commands['layer.toggle'].execute('transit');
+    commands['style.set'].execute('transit');
+    expect(d.fitToScreen).not.toHaveBeenCalled();
+    expect(d.toggleLayer).not.toHaveBeenCalled();
+    expect(d.setActiveTheme).not.toHaveBeenCalled();
+  });
+
+  it('withdraws export, which would capture the hidden geographic map', () => {
+    expect(schematic()['document.export'].unavailableReason).toBe('schematic');
+  });
+
+  it('withdraws collapsing the sidebar, the only home of its filters', () => {
+    expect(schematic()['view.sidebar'].unavailableReason).toBe('schematic');
+  });
+
+  it('keeps the way out, Clean view and opening a file', () => {
+    const commands = schematic();
+    expect(commands['view.schematic'].canExecute).toBe(true);
+    expect(commands['view.cleanView'].canExecute).toBe(true);
+    expect(commands['document.open'].canExecute).toBe(true);
   });
 });
