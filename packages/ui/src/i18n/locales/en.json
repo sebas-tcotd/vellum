@@ -236,7 +236,8 @@
     "summary": "Transit network with {{lines}} lines and {{stations}} stations.",
     "filteredTitle": "No lines shown",
     "filteredBody": "Every available transport mode is switched off, so the diagram has nothing to draw.",
-    "showAllModes": "Show all modes"
+    "showAllModes": "Show all modes",
+    "fit": "Fit diagram"
   },
   "schematicSidebar": {
     "title": "Schematic network",
@@ -258,6 +259,11 @@
     "geographic": "Geographic trace",
     "octilinear": "Octilinear",
     "orthoradial": "Orthoradial"
+  },
+  "schematicLayoutStatus": {
+    "deriving": "Preparing transit network…",
+    "laying-out": "Calculating diagram…",
+    "failed": "The diagram could not be calculated. The previous layout is still available."
   },
   "a11y": {
     "mapCanvas": "City map canvas",

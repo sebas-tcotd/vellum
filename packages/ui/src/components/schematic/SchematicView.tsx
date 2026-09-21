@@ -2,6 +2,7 @@ import { SCHEMATIC_LINE_WIDTH, type SchematicPoint } from '@vellum/core';
 import { forwardRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { SchematicNetworkModel } from '../../hooks/use-schematic-network';
+import { useSchematicCamera } from './use-schematic-camera';
 
 const pointsAttribute = (points: readonly SchematicPoint[]): string =>
   points.map((p) => `${p.x},${p.y}`).join(' ');
@@ -56,6 +57,10 @@ export const SchematicView = forwardRef<HTMLElement, SchematicViewProps>(
   ) {
     const { t } = useTranslation();
     const { layout, hasDrawableNetwork, isFilteredEmpty } = model;
+    const camera = useSchematicCamera(
+      layout.bounds.width,
+      layout.bounds.height,
+    );
 
     return (
       <section
@@ -117,9 +122,15 @@ export const SchematicView = forwardRef<HTMLElement, SchematicViewProps>(
             <svg
               className="schematic-view__diagram"
               data-testid="schematic-diagram"
-              viewBox={`0 0 ${layout.bounds.width} ${layout.bounds.height}`}
+              viewBox={`${camera.viewBox.x} ${camera.viewBox.y} ${camera.viewBox.width} ${camera.viewBox.height}`}
               preserveAspectRatio="xMidYMid meet"
               aria-hidden="true"
+              onWheel={camera.onWheel}
+              onPointerDown={camera.onPointerDown}
+              onPointerMove={camera.onPointerMove}
+              onPointerUp={camera.onPointerUp}
+              onPointerCancel={camera.onPointerCancel}
+              onLostPointerCapture={camera.onPointerCancel}
             >
               <g className="schematic-view__connectors">
                 {layout.connectors.map((connector, index) => (
@@ -172,6 +183,13 @@ export const SchematicView = forwardRef<HTMLElement, SchematicViewProps>(
                 ))}
               </g>
             </svg>
+            <button
+              type="button"
+              className="schematic-view__fit"
+              onClick={camera.fit}
+            >
+              {t('schematic.fit')}
+            </button>
           </>
         )}
       </section>

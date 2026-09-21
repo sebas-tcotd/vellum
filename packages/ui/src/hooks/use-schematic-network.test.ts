@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { renderHook } from '@testing-library/react';
+import { act, renderHook } from '@testing-library/react';
 import {
   makeCityData,
   makeRoadSegment,
@@ -11,6 +11,10 @@ import {
 } from '@vellum/core';
 import type { CityData, TransitMode } from '@vellum/core';
 import { useSchematicNetwork } from './use-schematic-network';
+import type {
+  SchematicLayoutClientPort,
+  SchematicLayoutWorkerEvent,
+} from './use-schematic-network';
 
 const node = (id: string, x: number, z: number) => ({
   id,
@@ -61,6 +65,54 @@ const modelOf = (cityData: CityData | null, hiddenModes: TransitMode[] = []) =>
     .current;
 
 describe('useSchematicNetwork', () => {
+  it('surfaces worker progress/error and keeps the prior layout while recalculating', () => {
+    const city = twoModeCity();
+    const baseline = modelOf(city).layout;
+    let emit!: (event: SchematicLayoutWorkerEvent) => void;
+    const client: SchematicLayoutClientPort = {
+      request: (_city, _layout, callback) => {
+        emit = callback;
+        return vi.fn();
+      },
+    };
+    const { result, rerender } = renderHook(
+      ({ layoutId }) =>
+        useSchematicNetwork({
+          cityData: city,
+          hiddenModes: [],
+          client,
+          layoutId,
+        }),
+      { initialProps: { layoutId: 'geographic' as const } },
+    );
+    act(() =>
+      emit({
+        type: 'progress',
+        requestId: 'a',
+        phase: 'laying-out',
+        completed: 1,
+        total: 2,
+      }),
+    );
+    expect(result.current.layoutProgress?.phase).toBe('laying-out');
+    act(() =>
+      emit({
+        type: 'complete',
+        requestId: 'a',
+        layout: baseline,
+        lines: [
+          { lineId: 'L1', color: '#ff0000', mode: 'Bus', name: 'Red line' },
+          { lineId: 'L2', color: '#0000ff', mode: 'Tram', name: 'Blue line' },
+        ],
+      }),
+    );
+    expect(result.current.layout.segments).toEqual(baseline.segments);
+    rerender({ layoutId: 'octilinear' });
+    expect(result.current.layout.segments).toEqual(baseline.segments);
+    act(() => emit({ type: 'error', requestId: 'b', reason: 'boom' }));
+    expect(result.current.layoutError).toBe(true);
+    expect(result.current.layout.segments).toEqual(baseline.segments);
+  });
   it('reports no drawable network without a city', () => {
     const model = modelOf(null);
     expect(model.hasDrawableNetwork).toBe(false);

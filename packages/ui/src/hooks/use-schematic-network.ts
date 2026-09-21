@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   TRANSIT_MODES,
   TOGGLABLE_TRANSIT_MODES,
@@ -11,6 +11,40 @@ import {
   type SchematicLayoutStrategy,
   type TransitMode,
 } from '@vellum/core';
+
+export type SchematicLayoutWorkerEvent =
+  | {
+      readonly type: 'progress';
+      readonly requestId: string;
+      readonly phase: 'deriving' | 'laying-out';
+      readonly completed: number;
+      readonly total: number;
+    }
+  | {
+      readonly type: 'complete';
+      readonly requestId: string;
+      readonly layout: SchematicLayout;
+      readonly lines: readonly {
+        readonly lineId: string;
+        readonly color: string;
+        readonly mode: TransitMode;
+        readonly name: string | null;
+      }[];
+    }
+  | {
+      readonly type: 'error';
+      readonly requestId: string;
+      readonly reason: string;
+    };
+
+/** Composition-root port; UI never names Worker, Vite, Tauri, or MapLibre. */
+export interface SchematicLayoutClientPort {
+  request(
+    cityData: CityData,
+    layout: 'geographic' | 'octilinear' | 'orthoradial',
+    onEvent: (event: SchematicLayoutWorkerEvent) => void,
+  ): () => void;
+}
 
 /** One legend row: a line that is actually drawn right now. */
 export interface SchematicLegendLine {
@@ -61,6 +95,13 @@ export interface SchematicNetworkModel {
   readonly visibleLineCount: number;
   /** Whether any station symbol is on screen, so the key can be earned. */
   readonly hasVisibleStations: boolean;
+  readonly layoutProgress: {
+    readonly phase: 'deriving' | 'laying-out';
+    readonly completed: number;
+    readonly total: number;
+  } | null;
+  readonly layoutError: boolean;
+  readonly cancelLayout: () => void;
 }
 
 export interface UseSchematicNetworkOptions {
@@ -79,6 +120,9 @@ export interface UseSchematicNetworkOptions {
    * leaving and re-entering the schematic costs nothing.
    */
   enabled?: boolean;
+  /** Optional desktop worker port. Omitted in isolated UI tests. */
+  client?: SchematicLayoutClientPort | undefined;
+  layoutId?: 'geographic' | 'octilinear' | 'orthoradial';
 }
 
 interface SchematicBase {
@@ -133,6 +177,9 @@ export const EMPTY_SCHEMATIC_MODEL: SchematicNetworkModel = Object.freeze({
   legend: Object.freeze([]),
   visibleLineCount: 0,
   hasVisibleStations: false,
+  layoutProgress: null,
+  layoutError: false,
+  cancelLayout: () => {},
 });
 
 /**
@@ -151,6 +198,8 @@ export function useSchematicNetwork({
   hiddenModes,
   strategy = geographicSchematicLayout,
   enabled = true,
+  client,
+  layoutId = 'geographic',
 }: UseSchematicNetworkOptions): SchematicNetworkModel {
   // Per document and strategy: the network, its base layout, and everything
   // that describes the *drawable* geometry regardless of what is selected.
@@ -168,7 +217,79 @@ export function useSchematicNetwork({
     byStrategy: Map<SchematicLayoutStrategy, SchematicBase>;
   } | null>(null);
 
+  const [workerBase, setWorkerBase] = useState<SchematicBase | null>(null);
+  const workerCache = useRef<WeakMap<CityData, Map<string, SchematicBase>>>(
+    new WeakMap(),
+  );
+  const [layoutProgress, setLayoutProgress] =
+    useState<SchematicNetworkModel['layoutProgress']>(null);
+  const [layoutError, setLayoutError] = useState(false);
+  const cancelRef = useRef<(() => void) | null>(null);
+  const cancelLayout = useCallback(() => {
+    cancelRef.current?.();
+    cancelRef.current = null;
+    setLayoutProgress(null);
+  }, []);
+  const cachedWorkerBase =
+    cityData === null
+      ? undefined
+      : workerCache.current.get(cityData)?.get(layoutId);
+  useEffect(() => {
+    if (!client || !cityData || !enabled || cachedWorkerBase) return;
+    let current = true;
+    setLayoutError(false);
+    setLayoutProgress({ phase: 'deriving', completed: 0, total: 2 });
+    let cancel: (() => void) | null = null;
+    try {
+      cancel = client.request(cityData, layoutId, (event) => {
+        if (!current) return;
+        if (event.type === 'progress') {
+          setLayoutProgress({
+            phase: event.phase,
+            completed: event.completed,
+            total: event.total,
+          });
+          return;
+        }
+        if (event.type === 'error') {
+          setLayoutError(true);
+          setLayoutProgress(null);
+          return;
+        }
+        const lines = [...event.lines].sort(
+          (a, b) =>
+            (a.name ?? '\uffff').localeCompare(b.name ?? '\uffff') ||
+            a.lineId.localeCompare(b.lineId),
+        );
+        const base = {
+          layout: event.layout,
+          lines,
+          availableModes: TOGGLABLE_TRANSIT_MODES.filter((mode) =>
+            lines.some((line) => line.mode === mode),
+          ),
+        };
+        const byLayout =
+          workerCache.current.get(cityData) ?? new Map<string, SchematicBase>();
+        byLayout.set(layoutId, base);
+        workerCache.current.set(cityData, byLayout);
+        setWorkerBase(base);
+        setLayoutProgress(null);
+      });
+    } catch {
+      setLayoutError(true);
+      setLayoutProgress(null);
+      return;
+    }
+    cancelRef.current = cancel;
+    return () => {
+      current = false;
+      cancel?.();
+      if (cancelRef.current === cancel) cancelRef.current = null;
+    };
+  }, [cityData, client, enabled, cachedWorkerBase, layoutId]);
+
   const base = useMemo<SchematicBase | null>(() => {
+    if (client) return cachedWorkerBase ?? workerBase;
     if (cityData === null) return null;
     let cache = cacheRef.current;
     if (cache === null || cache.cityData !== cityData) {
@@ -225,7 +346,7 @@ export function useSchematicNetwork({
     };
     cache.byStrategy.set(strategy, value);
     return value;
-  }, [cityData, strategy, enabled]);
+  }, [cityData, strategy, enabled, client, workerBase, cachedWorkerBase]);
 
   // The value-identity of `hiddenModes`: a fresh array with the same contents
   // must not count as a change and re-project a layout that did not move.
@@ -233,7 +354,12 @@ export function useSchematicNetwork({
 
   return useMemo<SchematicNetworkModel>(() => {
     if (base === null || isSchematicLayoutEmpty(base.layout)) {
-      return EMPTY_SCHEMATIC_MODEL;
+      return {
+        ...EMPTY_SCHEMATIC_MODEL,
+        layoutProgress,
+        layoutError,
+        cancelLayout,
+      };
     }
 
     // `Unknown` has no label and no switch, so it can never be hidden; only a
@@ -263,6 +389,9 @@ export function useSchematicNetwork({
       legend,
       visibleLineCount: visibleLines.length,
       hasVisibleStations: layout.stations.length > 0,
+      layoutProgress,
+      layoutError,
+      cancelLayout,
     };
     // DEPENDENCIES ARE INTENTIONALLY INCOMPLETE. `hiddenModes` is read above
     // but deliberately absent here: the caller holds the selection in a
@@ -274,5 +403,5 @@ export function useSchematicNetwork({
     // when the selection really changed" fails on. (No `eslint-disable` here:
     // this repo registers no `react-hooks` plugin, so naming that rule is
     // itself a lint error.)
-  }, [base, hiddenKey]);
+  }, [base, hiddenKey, layoutProgress, layoutError, cancelLayout]);
 }

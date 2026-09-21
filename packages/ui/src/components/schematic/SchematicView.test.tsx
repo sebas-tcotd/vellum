@@ -7,7 +7,7 @@ import {
   transitFixture,
 } from '@vellum/core/testing';
 import { SCHEMATIC_LINE_WIDTH, type TransitMode } from '@vellum/core';
-import { cleanup, render, screen } from '../../test-utils';
+import { cleanup, fireEvent, render, screen } from '../../test-utils';
 import { SchematicView } from './SchematicView';
 import {
   EMPTY_SCHEMATIC_MODEL,
@@ -48,6 +48,33 @@ const modelFor = (hiddenModes: TransitMode[] = []) =>
     .result.current;
 
 describe('SchematicView', () => {
+  it('zooms around the pointer, pans, and restores the fitted camera', () => {
+    render(
+      <SchematicView
+        model={modelFor()}
+        onBack={() => {}}
+        onShowAllModes={() => {}}
+      />,
+    );
+    const svg = screen.getByTestId('schematic-diagram');
+    vi.spyOn(svg, 'getBoundingClientRect').mockReturnValue({
+      left: 0,
+      top: 0,
+      width: 200,
+      height: 100,
+    } as DOMRect);
+    const fitted = svg.getAttribute('viewBox');
+    fireEvent.wheel(svg, { clientX: 150, clientY: 50, deltaY: -1 });
+    const zoomed = svg.getAttribute('viewBox');
+    expect(zoomed).not.toBe(fitted);
+    fireEvent.pointerDown(svg, { pointerId: 1, clientX: 100, clientY: 50 });
+    fireEvent.pointerMove(svg, { pointerId: 1, clientX: 120, clientY: 50 });
+    expect(svg.getAttribute('viewBox')).not.toBe(zoomed);
+    fireEvent.pointerUp(svg, { pointerId: 1 });
+    fireEvent.click(screen.getByRole('button', { name: 'schematic.fit' }));
+    expect(svg.getAttribute('viewBox')).toBe(fitted);
+  });
+
   it('draws one stroke per line segment and one symbol per stop', () => {
     const { container } = render(
       <SchematicView

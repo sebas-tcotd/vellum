@@ -236,7 +236,8 @@
     "summary": "Red de tránsito con {{lines}} líneas y {{stations}} estaciones.",
     "filteredTitle": "No se muestra ninguna línea",
     "filteredBody": "Todos los modos de transporte disponibles están apagados, así que el diagrama no tiene nada que dibujar.",
-    "showAllModes": "Mostrar todos los modos"
+    "showAllModes": "Mostrar todos los modos",
+    "fit": "Ajustar diagrama"
   },
   "schematicSidebar": {
     "title": "Red esquemática",
@@ -258,6 +259,11 @@
     "geographic": "Trazado geográfico",
     "octilinear": "Octilineal",
     "orthoradial": "Ortorradial"
+  },
+  "schematicLayoutStatus": {
+    "deriving": "Preparando la red de tránsito…",
+    "laying-out": "Calculando el diagrama…",
+    "failed": "No se pudo calcular el diagrama. El diseño anterior sigue disponible."
   },
   "a11y": {
     "mapCanvas": "Canvas del mapa de ciudad",

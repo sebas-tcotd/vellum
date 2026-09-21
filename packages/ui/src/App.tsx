@@ -1,6 +1,7 @@
 // packages/ui/src/App.tsx
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppSurface } from './components/AppSurface';
+import type { SchematicLayoutClientPort } from './hooks/use-schematic-network';
 import { initI18n } from './i18n/i18n-setup';
 import { loadPersistedPreferences } from './store/preferences-store';
 import { useKeyboardShortcuts } from './hooks/use-keyboard-shortcuts';
@@ -90,6 +91,8 @@ export interface AppProps {
   >;
   /** Executes the injected vector exporter; SVG stays unavailable without it. */
   svgExporter?: SvgExportPort;
+  /** Optional worker-backed schematic calculator supplied by the desktop root. */
+  schematicLayoutClient?: SchematicLayoutClientPort;
 }
 
 /**
@@ -120,6 +123,7 @@ export function App({
   exportCancelHandlerRef,
   exportSnapshotCaptureRef,
   svgExporter,
+  schematicLayoutClient,
 }: AppProps) {
   const { invoke } = usePlatformServices();
   const [i18nReady, setI18nReady] = useState(false);
@@ -528,6 +532,7 @@ export function App({
       isAboutOpen={isAboutOpen}
       setIsAboutOpen={setIsAboutOpen}
       version={version}
+      schematicLayoutClient={schematicLayoutClient}
       loadFilePartial={loadFilePartial}
       {...(onOpenExportFolder ? { onOpenExportFolder } : {})}
       onDlcDismiss={handleDlcDismiss}

@@ -27,6 +27,7 @@ import { ThemeWarningToast } from './overlays/ThemeWarningToast';
 import { UpdateToast } from './overlays/UpdateToast';
 import { AboutDialog } from './overlays/AboutDialog';
 import { ExportStatusOverlay } from './overlays/ExportStatusOverlay';
+import { SchematicLayoutStatusOverlay } from './overlays/SchematicLayoutStatusOverlay';
 import { ExportDialog } from './panels/ExportDialog';
 import { PreferencesPanel } from './panels/PreferencesPanel';
 import { DesktopShell } from './shell';
@@ -34,7 +35,10 @@ import { MapAppearanceSidebar } from './sidebar/MapAppearanceSidebar';
 import type { CommandRegistry } from '../shell/commands';
 import type { SchematicLayoutId, ShellSession } from '../shell/shell-session';
 import type { useExportWorkflow } from '../hooks/use-export-workflow';
-import { useSchematicNetwork } from '../hooks/use-schematic-network';
+import {
+  useSchematicNetwork,
+  type SchematicLayoutClientPort,
+} from '../hooks/use-schematic-network';
 // Relativo a propósito: el alias `@/` del composition root apunta a
 // `packages/ui/src`, así que un `@/store/...` compilado a dist carga un SEGUNDO
 // módulo del store — el resto del paquete quedaría suscrito a otra instancia.
@@ -76,6 +80,7 @@ interface AppSurfaceProps {
   onOpenExportFolder?: (folderPath: string) => Promise<void>;
   onDlcDismiss: () => void;
   onThemeWarningsDismiss: () => void;
+  schematicLayoutClient?: SchematicLayoutClientPort | undefined;
 }
 
 /** Renders the desktop map surface, chrome, dialogs, and transient overlays. */
@@ -96,6 +101,7 @@ export function AppSurface({
   onOpenExportFolder,
   onDlcDismiss,
   onThemeWarningsDismiss,
+  schematicLayoutClient,
 }: AppSurfaceProps) {
   const { invoke, openExternalUrl } = usePlatformServices();
   const cityData = useVellumStore((state) => state.cityData);
@@ -127,6 +133,8 @@ export function AppSurface({
       SCHEMATIC_LAYOUT_STRATEGIES[schematicLayoutId] ??
       geographicSchematicLayout,
     enabled: isSchematic,
+    client: schematicLayoutClient,
+    layoutId: schematicLayoutId,
   });
   const toggleSchematicMode = useCallback(
     (mode: TransitMode) =>
@@ -216,6 +224,13 @@ export function AppSurface({
         </DesktopShell>
         {showEmptyState && <EmptyState />}
         {loadingState === 'loading' && <ProgressBar />}
+        {isSchematic && (
+          <SchematicLayoutStatusOverlay
+            progress={schematicModel.layoutProgress}
+            failed={schematicModel.layoutError}
+            onCancel={schematicModel.cancelLayout}
+          />
+        )}
         {showPartialParseDialog && loadingError?.type === 'PartialParse' && (
           <PartialParseDialog
             error={loadingError}
