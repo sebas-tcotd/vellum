@@ -122,7 +122,22 @@ describe('geographicSchematicLayout — robustness', () => {
     const a = geographicSchematicLayout(deriveTransitNetwork(base));
     const b = geographicSchematicLayout(deriveTransitNetwork(withOrphan));
     expect(b.stations.map((s) => s.id)).not.toContain('orphan');
-    expect(b).toEqual(a);
+    // Presentation provenance intentionally retains source facts for semantic
+    // zoom. Assert the drawable contract here: an undrawable line must not
+    // change bounds or any geometry a reader can see.
+    expect({
+      bounds: b.bounds,
+      corridors: b.corridors,
+      segments: b.segments,
+      connectors: b.connectors,
+      stations: b.stations,
+    }).toEqual({
+      bounds: a.bounds,
+      corridors: a.corridors,
+      segments: a.segments,
+      connectors: a.connectors,
+      stations: a.stations,
+    });
   });
 
   it('ignores non-finite coordinates', () => {
