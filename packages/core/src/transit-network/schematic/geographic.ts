@@ -22,12 +22,12 @@ import { projectOnPolyline, type Vec2 } from '../geometry-kit';
 import { byString, type SchematicLayout } from './contract';
 import {
   arcFractionOf,
+  canonicalSchematicStops,
   corridorSlots,
   emptySchematicLayout,
   finalizeSchematicLayout,
   toPlane,
   type RawSchematicCorridor,
-  type RawSchematicStop,
 } from './grid-layout';
 
 const isFinitePoint = (p: CsPoint): boolean =>
@@ -83,12 +83,7 @@ export const geographicSchematicLayout = (
   const drawnLines = new Set(
     corridors.flatMap((c) => c.slots.map((slot) => slot.lineId)),
   );
-  const stopsById = new Map<
-    string,
-    { position: CsPoint | null; lineIds: Set<string> }
-  >();
-  for (const s of network.stops) {
-    if (!drawnLines.has(s.lineId)) continue;
+  const stops = [...canonicalSchematicStops(network, drawnLines)]
     // Deduplicating by `stopId` keeps the first usable position, but
     // membership has to accumulate: a station shared by several lines must
     // survive as long as any one of them stays visible. Position and
@@ -96,33 +91,14 @@ export const geographicSchematicLayout = (
     // shared stop having a broken coordinate says nothing about which lines
     // call there, and dropping the whole entry would silently unlink that
     // line, so the station would vanish the moment the other one is hidden.
-    const existing = stopsById.get(s.stopId);
-    if (existing) {
-      existing.lineIds.add(s.lineId);
-      if (existing.position === null && isFinitePoint(s.position)) {
-        existing.position = s.position;
-      }
-      continue;
-    }
-    stopsById.set(s.stopId, {
-      position: isFinitePoint(s.position) ? s.position : null,
-      lineIds: new Set([s.lineId]),
-    });
-  }
-  // A stop no entry could place has no symbol to draw.
-  const stops: RawSchematicStop[] = [...stopsById.entries()]
-    .flatMap(([id, entry]) =>
-      entry.position === null
-        ? []
-        : [{ id, position: entry.position, lineIds: entry.lineIds }],
-    )
     .sort((a, b) => byString(a.id, b.id))
     .map((stop) => {
       // Same rule as the grid strategies: the corridor is chosen among the ones
       // the stop's *own* lines ride, so a symbol never lands on a stroke of a
       // service the data never recorded there.
+      const stopLines = new Set(stop.lineIds);
       const own = corridors.filter((corridor) =>
-        corridor.slots.some((slot) => stop.lineIds.has(slot.lineId)),
+        corridor.slots.some((slot) => stopLines.has(slot.lineId)),
       );
       const candidates = own.length > 0 ? own : corridors;
       let bestEdgeId = candidates[0].edgeId;

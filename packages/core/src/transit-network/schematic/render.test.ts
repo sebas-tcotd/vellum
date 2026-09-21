@@ -16,7 +16,8 @@ import {
   type SchematicPoint,
 } from './contract';
 import { geographicSchematicLayout } from './geographic';
-import { toPlane } from './grid-layout';
+import { rematerializeSchematicLayout, toPlane } from './grid-layout';
+import { filterSchematicLayout } from './index';
 import { octilinearSchematicLayout } from './octilinear';
 import { innerConnection, SCHEMATIC_ARC_SAMPLES } from './render';
 import { turnAngle } from './offset';
@@ -59,6 +60,62 @@ function sharedCorridorCity(): CityData {
     ],
   });
 }
+
+describe('semantic presentation rematerialization', () => {
+  it('changes slot gaps and station capsules without moving strategic corridors', () => {
+    const layout = geographicSchematicLayout(
+      deriveTransitNetwork(sharedCorridorCity()),
+    );
+    const enlarged = rematerializeSchematicLayout(layout, 2);
+    expect(enlarged.corridors).toBe(layout.corridors);
+    expect(enlarged.segments[0]?.points).not.toEqual(
+      layout.segments[0]?.points,
+    );
+    expect(enlarged.stations[0]?.shape).not.toEqual(layout.stations[0]?.shape);
+  });
+
+  it('survives structured clone and does not restore filtered lines', () => {
+    const layout = geographicSchematicLayout(
+      deriveTransitNetwork(sharedCorridorCity()),
+    );
+    const cloned = structuredClone(layout);
+    const filtered = filterSchematicLayout(cloned, ['A']);
+    const zoomed = rematerializeSchematicLayout(filtered, 2);
+    expect(zoomed.segments.map((segment) => segment.lineId)).toEqual(['A']);
+    expect(
+      zoomed.stations.every((station) => station.lineIds.includes('A')),
+    ).toBe(true);
+  });
+});
+
+describe('canonical proximity stop groups', () => {
+  it('uses one station for distinct stop ids in the same transfer candidate', () => {
+    const city = makeCityData({
+      roadNodes: [node('a', 0, 0), node('b', 1000, 0)],
+      roadSegments: [
+        makeRoadSegment({ id: 'main', startNodeId: 'a', endNodeId: 'b' }),
+      ],
+      transitLines: [
+        makeTransitLine({
+          id: 'A',
+          stops: [stop('platform-a', 500, 0)],
+          route: [{ segmentIds: ['main'] }],
+        }),
+        makeTransitLine({
+          id: 'B',
+          stops: [stop('platform-b', 501, 0)],
+          route: [{ segmentIds: ['main'] }],
+        }),
+      ],
+    });
+    const network = deriveTransitNetwork(city);
+    expect(network.transferCandidates).toHaveLength(1);
+    expect(
+      network.transferCandidates[0]?.stops.map((entry) => entry.stopId).sort(),
+    ).toEqual(['platform-a', 'platform-b']);
+    expect(geographicSchematicLayout(network).stations).toHaveLength(1);
+  });
+});
 
 const STRATEGIES = [
   ['geographic', geographicSchematicLayout],

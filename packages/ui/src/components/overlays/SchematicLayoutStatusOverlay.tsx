@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 export function SchematicLayoutStatusOverlay({
   progress,
   failed,
+  diagnostic,
   onCancel,
 }: {
   progress: {
@@ -11,6 +12,10 @@ export function SchematicLayoutStatusOverlay({
     total: number;
   } | null;
   failed: boolean;
+  diagnostic?: {
+    readonly phase: 'deriving' | 'laying-out';
+    readonly code: string;
+  } | null;
   onCancel: () => void;
 }) {
   const { t } = useTranslation();
@@ -39,7 +44,20 @@ export function SchematicLayoutStatusOverlay({
       role="alert"
       className="absolute bottom-4 left-1/2 z-10 -translate-x-1/2 rounded bg-background px-4 py-2 text-xs shadow"
     >
-      {t('schematicLayoutStatus.failed')}
+      <span>{t('schematicLayoutStatus.failed')}</span>
+      {diagnostic ? (
+        <details className="mt-1">
+          <summary>{t('schematicLayoutStatus.details')}</summary>
+          <p>
+            {diagnostic.code === 'GRID_CAPACITY_EXCEEDED'
+              ? t('schematicLayoutStatus.GRID_CAPACITY_EXCEEDED')
+              : t('schematicLayoutStatus.LAYOUT_FAILED')}
+          </p>
+          <span data-testid="schematic-layout-diagnostic">
+            {diagnostic.code}
+          </span>
+        </details>
+      ) : null}
     </div>
   ) : null;
 }

@@ -34,6 +34,14 @@ offset por slot, recorte en los nodos, conectores y cápsulas de estación.
 Los slots y su orden siguen viniendo de `lineOrder` (MLNCM-S). El esquemático no
 decide ordenación ni recalcula offsets: aplica los que core ya resolvió.
 
+La cámara SVG no cambia la topología. En cambio, cuantiza su escala visual y
+vuelve a materializar desde los corredores estratégicos los offsets de slots,
+el recorte de nodo, conectores y cápsulas. Así anchura, hueco y marcador cambian
+juntos dentro de límites; `vector-effect: non-scaling-stroke` sólo corregiría el
+grosor y dejaría horneados los offsets y polígonos, por lo que no es suficiente.
+Las paradas parten de `TransitNetwork.transferCandidates`, la misma agrupación
+canónica que el mapa, y no de una deduplicación local por `stopId`.
+
 ## Consecuencias
 
 - Sigue habiendo **una sola** fórmula de offsets, en el kit. Lo que se duplicó
@@ -54,6 +62,9 @@ decide ordenación ni recalcula offsets: aplica los que core ya resolvió.
   sus puntos de control.
 - Cualquier cambio en el kit afecta a las dos vistas a la vez: por eso tiene un
   test de caracterización propio.
+- La rematerialización conserva los corredores y bounds y sólo recrea la
+  presentación derivada, por lo que no ejecuta el router ni el solver al mover
+  el puntero.
 
 ## Evidencia
 

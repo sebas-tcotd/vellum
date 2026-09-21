@@ -50,7 +50,15 @@ export class WorkerSchematicLayoutClient implements SchematicLayoutClient {
     };
     worker.onerror = (error) => {
       if (!closed) {
-        onEvent({ type: 'error', requestId, reason: String(error) });
+        onEvent({
+          type: 'error',
+          requestId,
+          // Browser worker errors do not expose the failed statement; do not
+          // assert a layout phase when derivation may have failed.
+          phase: 'deriving',
+          code: 'WORKER_FAILED',
+          reason: error instanceof Error ? error.message : 'Worker failed',
+        });
         close();
       }
     };

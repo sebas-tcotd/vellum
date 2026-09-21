@@ -1,5 +1,10 @@
-import { SCHEMATIC_LINE_WIDTH, type SchematicPoint } from '@vellum/core';
-import { forwardRef } from 'react';
+import {
+  rematerializeSchematicLayout,
+  SCHEMATIC_LINE_WIDTH,
+  type SchematicPoint,
+} from '@vellum/core';
+import { Maximize } from 'lucide-react';
+import { forwardRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { SchematicNetworkModel } from '../../hooks/use-schematic-network';
 import { useSchematicCamera } from './use-schematic-camera';
@@ -61,6 +66,10 @@ export const SchematicView = forwardRef<HTMLElement, SchematicViewProps>(
       layout.bounds.width,
       layout.bounds.height,
     );
+    const renderedLayout = useMemo(
+      () => rematerializeSchematicLayout(layout, camera.visualScale),
+      [layout, camera.visualScale],
+    );
 
     return (
       <section
@@ -116,7 +125,7 @@ export const SchematicView = forwardRef<HTMLElement, SchematicViewProps>(
             <p className="sr-only" data-testid="schematic-summary">
               {t('schematic.summary', {
                 lines: model.visibleLineCount,
-                stations: layout.stations.length,
+                stations: renderedLayout.stations.length,
               })}
             </p>
             <svg
@@ -133,7 +142,7 @@ export const SchematicView = forwardRef<HTMLElement, SchematicViewProps>(
               onLostPointerCapture={camera.onPointerCancel}
             >
               <g className="schematic-view__connectors">
-                {layout.connectors.map((connector, index) => (
+                {renderedLayout.connectors.map((connector, index) => (
                   <polyline
                     key={`${connector.lineId}:${index}`}
                     data-line-id={connector.lineId}
@@ -145,12 +154,12 @@ export const SchematicView = forwardRef<HTMLElement, SchematicViewProps>(
                     }
                     points={pointsAttribute(connector.points)}
                     stroke={connector.color}
-                    strokeWidth={SCHEMATIC_LINE_WIDTH}
+                    strokeWidth={SCHEMATIC_LINE_WIDTH * camera.visualScale}
                   />
                 ))}
               </g>
               <g className="schematic-view__segments">
-                {layout.segments.map((segment, index) => (
+                {renderedLayout.segments.map((segment, index) => (
                   <polyline
                     key={`${segment.lineId}:${index}`}
                     data-line-id={segment.lineId}
@@ -161,12 +170,12 @@ export const SchematicView = forwardRef<HTMLElement, SchematicViewProps>(
                     }
                     points={pointsAttribute(segment.points)}
                     stroke={segment.color}
-                    strokeWidth={SCHEMATIC_LINE_WIDTH}
+                    strokeWidth={SCHEMATIC_LINE_WIDTH * camera.visualScale}
                   />
                 ))}
               </g>
               <g className="schematic-view__stations">
-                {layout.stations.map((station) => (
+                {renderedLayout.stations.map((station) => (
                   <polygon
                     key={station.id}
                     data-station-id={station.id}
@@ -187,8 +196,10 @@ export const SchematicView = forwardRef<HTMLElement, SchematicViewProps>(
               type="button"
               className="schematic-view__fit"
               onClick={camera.fit}
+              aria-label={t('schematic.fit')}
+              title={t('schematic.fit')}
             >
-              {t('schematic.fit')}
+              <Maximize aria-hidden="true" />
             </button>
           </>
         )}

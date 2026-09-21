@@ -45,6 +45,10 @@ export interface SchematicLayoutComplete {
 export interface SchematicLayoutFailure {
   readonly type: 'error';
   readonly requestId: string;
+  /** Phase in which the request failed; never shown to end users verbatim. */
+  readonly phase: 'deriving' | 'laying-out';
+  /** Stable, safe-to-log classification of the failure. */
+  readonly code: string;
   /** Diagnostic only: clients must render localized generic copy. */
   readonly reason: string;
 }

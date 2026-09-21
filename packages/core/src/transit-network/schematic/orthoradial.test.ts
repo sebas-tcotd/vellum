@@ -114,6 +114,17 @@ describe('orthoradialSchematicLayout', () => {
 });
 
 describe('pseudo-orthoradial ring density (SSTD §5.2)', () => {
+  it('scales beyond the former 681-cell grid capacity within its hard limit', () => {
+    const grid = createOrthoradialGrid(
+      Array.from({ length: 682 }, (_, index) => ({
+        x: Math.cos(index) * 100,
+        y: Math.sin(index) * 100,
+      })),
+    );
+    expect(grid.cellCount).toBeGreaterThanOrEqual(682);
+    expect(grid.cellCount).toBeLessThanOrEqual(4096);
+  });
+
   it('doubles the spokes whenever the radius doubles', () => {
     // The property the paper names the grid for. A constant spoke count — what
     // this grid had before — crowds the centre and empties the outside, and the

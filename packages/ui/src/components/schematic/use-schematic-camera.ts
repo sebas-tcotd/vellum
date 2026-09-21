@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 export interface SchematicCamera {
   readonly viewBox: { x: number; y: number; width: number; height: number };
+  /** Quantized inverse zoom for presentation metrics, bounded to avoid extremes. */
+  readonly visualScale: number;
   readonly onWheel: (event: React.WheelEvent<SVGSVGElement>) => void;
   readonly onPointerDown: (event: React.PointerEvent<SVGSVGElement>) => void;
   readonly onPointerMove: (event: React.PointerEvent<SVGSVGElement>) => void;
@@ -11,6 +13,18 @@ export interface SchematicCamera {
 }
 
 type Box = SchematicCamera['viewBox'];
+const VISUAL_SCALE_MIN = 0.35;
+const VISUAL_SCALE_MAX = 3;
+const quantizeVisualScale = (base: Box, current: Box): number => {
+  const raw = Math.sqrt(
+    (current.width * current.height) / (base.width * base.height),
+  );
+  return (
+    Math.round(
+      Math.min(VISUAL_SCALE_MAX, Math.max(VISUAL_SCALE_MIN, raw)) * 8,
+    ) / 8
+  );
+};
 const padded = (width: number, height: number): Box => ({
   x: -width * 0.05,
   y: -height * 0.05,
@@ -99,6 +113,7 @@ export function useSchematicCamera(
   );
   return {
     viewBox,
+    visualScale: quantizeVisualScale(initial, viewBox),
     onWheel,
     onPointerDown,
     onPointerMove,

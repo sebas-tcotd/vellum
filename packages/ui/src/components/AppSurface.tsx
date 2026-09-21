@@ -228,6 +228,7 @@ export function AppSurface({
           <SchematicLayoutStatusOverlay
             progress={schematicModel.layoutProgress}
             failed={schematicModel.layoutError}
+            diagnostic={schematicModel.layoutDiagnostic}
             onCancel={schematicModel.cancelLayout}
           />
         )}

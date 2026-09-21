@@ -109,7 +109,15 @@ describe('useSchematicNetwork', () => {
     expect(result.current.layout.segments).toEqual(baseline.segments);
     rerender({ layoutId: 'octilinear' });
     expect(result.current.layout.segments).toEqual(baseline.segments);
-    act(() => emit({ type: 'error', requestId: 'b', reason: 'boom' }));
+    act(() =>
+      emit({
+        type: 'error',
+        requestId: 'b',
+        phase: 'laying-out',
+        code: 'LAYOUT_FAILED',
+        reason: 'boom',
+      }),
+    );
     expect(result.current.layoutError).toBe(true);
     expect(result.current.layout.segments).toEqual(baseline.segments);
   });

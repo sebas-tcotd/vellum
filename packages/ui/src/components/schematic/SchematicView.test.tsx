@@ -72,6 +72,10 @@ describe('SchematicView', () => {
     expect(svg.getAttribute('viewBox')).not.toBe(zoomed);
     fireEvent.pointerUp(svg, { pointerId: 1 });
     fireEvent.click(screen.getByRole('button', { name: 'schematic.fit' }));
+    const fit = screen.getByRole('button', { name: 'schematic.fit' });
+    expect(fit).toHaveAttribute('title', 'schematic.fit');
+    expect(fit).toHaveTextContent('');
+    expect(fit.querySelector('svg')).toBeInTheDocument();
     expect(svg.getAttribute('viewBox')).toBe(fitted);
   });
 

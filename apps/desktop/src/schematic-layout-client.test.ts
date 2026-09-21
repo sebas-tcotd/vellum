@@ -22,7 +22,13 @@ describe('WorkerSchematicLayoutClient', () => {
       .calls[0][0];
     cancel();
     worker.onmessage?.({
-      data: { type: 'error', requestId: request.requestId, reason: 'late' },
+      data: {
+        type: 'error',
+        requestId: request.requestId,
+        phase: 'laying-out',
+        code: 'LAYOUT_FAILED',
+        reason: 'late',
+      },
     } as MessageEvent);
     expect(terminate).toHaveBeenCalledOnce();
     expect(receive).not.toHaveBeenCalled();
@@ -50,7 +56,13 @@ describe('WorkerSchematicLayoutClient', () => {
         data:
           type === 'complete'
             ? { type, requestId: request.requestId, layout: {}, lines: [] }
-            : { type, requestId: request.requestId, reason: 'nope' },
+            : {
+                type,
+                requestId: request.requestId,
+                phase: 'laying-out',
+                code: 'LAYOUT_FAILED',
+                reason: 'nope',
+              },
       } as MessageEvent);
       expect(receive).toHaveBeenCalledOnce();
       expect(worker.onmessage).toBeNull();

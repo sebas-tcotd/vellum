@@ -41,17 +41,29 @@ export const ORTHORADIAL_GRID = {
   /** Spokes of ring 1. Every outer ring is this doubled some number of times. */
   baseSpokes: 8,
   minRings: 5,
-  maxRings: 16,
+  /** Hard presentation limit; the grid grows before it refuses a dense network. */
+  maxRings: 32,
   /** Free radius kept beyond the furthest seed, as a fraction of it. */
   padding: 0.18,
 } as const;
 
+function capacityAt(rings: number): number {
+  let capacity = 1;
+  for (let ring = 1; ring < rings; ring++) capacity += spokesAtRing(ring);
+  return capacity;
+}
+
 function ringsFor(seedCount: number): number {
-  const wanted = Math.ceil(Math.sqrt(Math.max(1, seedCount))) + 4;
-  return Math.min(
-    ORTHORADIAL_GRID.maxRings,
-    Math.max(ORTHORADIAL_GRID.minRings, wanted),
-  );
+  let rings = ORTHORADIAL_GRID.minRings;
+  while (rings < ORTHORADIAL_GRID.maxRings && capacityAt(rings) < seedCount) {
+    rings++;
+  }
+  if (capacityAt(rings) < seedCount) {
+    throw new Error(
+      `SCHEMATIC_GRID_EXHAUSTED: ${capacityAt(rings)} cells cannot hold ${seedCount} nodes`,
+    );
+  }
+  return rings;
 }
 
 /**

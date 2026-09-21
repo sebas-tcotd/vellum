@@ -105,6 +105,8 @@ export interface SchematicRenderInput {
   readonly transitions: readonly CorridorTransition[];
   readonly lines: ReadonlyMap<string, LineInfo>;
   readonly nodes: ReadonlyMap<string, NodeExtent>;
+  /** Presentation-only multiplier; never changes corridor centerlines. */
+  readonly presentationScale?: number;
 }
 
 /** The drawable output of the rendering stage, unfrozen. */
@@ -148,15 +150,19 @@ interface TrimmedCorridor {
 function trimDistanceAt(
   nodes: ReadonlyMap<string, NodeExtent>,
   nodeId: string,
+  scale: number,
 ): number {
   const node = nodes.get(nodeId);
   if (node === undefined || node.degree < 2) return 0;
-  return SCHEMATIC_NODE_PAD + (node.maxSlotCount * SCHEMATIC_SLOT) / 2;
+  return (
+    (SCHEMATIC_NODE_PAD + (node.maxSlotCount * SCHEMATIC_SLOT) / 2) * scale
+  );
 }
 
 function trimCorridor(
   placed: PlacedCorridor,
   nodes: ReadonlyMap<string, NodeExtent>,
+  scale: number,
 ): TrimmedCorridor {
   const path = placed.points.map(toVec);
   const total = polylineLength(path);
@@ -166,10 +172,10 @@ function trimCorridor(
   const ring = placed.nodeA === placed.nodeB;
   const trimA = ring
     ? 0
-    : Math.min(trimDistanceAt(nodes, placed.nodeA), maxTrim);
+    : Math.min(trimDistanceAt(nodes, placed.nodeA, scale), maxTrim);
   const trimB = ring
     ? 0
-    : Math.min(trimDistanceAt(nodes, placed.nodeB), maxTrim);
+    : Math.min(trimDistanceAt(nodes, placed.nodeB, scale), maxTrim);
   const cut = cutEnd(cutStart(path, trimA), trimB);
   // A trim that consumed the corridor leaves nothing to offset; the untrimmed
   // centerline still draws the stroke, which is better than dropping it — and
@@ -206,6 +212,7 @@ function portAt(
   corridor: TrimmedCorridor,
   offsetIndex: number,
   at: 'start' | 'end',
+  scale: number,
 ): SchematicPoint {
   const anchor =
     at === 'start'
@@ -220,8 +227,8 @@ function portAt(
       : endDirection(corridor.trimmed, 'end');
   const hand = offsetTowards(toPoint(travel));
   return {
-    x: anchor.x + hand.x * offsetIndex * SCHEMATIC_SLOT,
-    y: anchor.y + hand.y * offsetIndex * SCHEMATIC_SLOT,
+    x: anchor.x + hand.x * offsetIndex * SCHEMATIC_SLOT * scale,
+    y: anchor.y + hand.y * offsetIndex * SCHEMATIC_SLOT * scale,
   };
 }
 
@@ -344,9 +351,13 @@ function stoppingOffsets(
 export function renderSchematic(
   input: SchematicRenderInput,
 ): SchematicRenderOutput {
+  const requested = input.presentationScale ?? 1;
+  const scale = Number.isFinite(requested)
+    ? Math.min(3, Math.max(0.35, requested))
+    : 1;
   const trimmedById = new Map<string, TrimmedCorridor>();
   for (const placed of input.corridors) {
-    trimmedById.set(placed.edgeId, trimCorridor(placed, input.nodes));
+    trimmedById.set(placed.edgeId, trimCorridor(placed, input.nodes, scale));
   }
 
   // ── Steps 1 & 2: one offset, node-trimmed stroke per (corridor, line), in the
@@ -371,7 +382,7 @@ export function renderSchematic(
         edgeId: corridor.edgeId,
         points: offsetPolyline(
           trimmed.trimmed,
-          (offsetByLine.get(lineId) ?? 0) * SCHEMATIC_SLOT,
+          (offsetByLine.get(lineId) ?? 0) * SCHEMATIC_SLOT * scale,
         ),
       });
     }
@@ -395,8 +406,8 @@ export function renderSchematic(
     if (fromSlot === undefined || toSlot === undefined || line === undefined) {
       continue;
     }
-    const p = portAt(from, fromSlot.offsetIndex, transition.fromEnd);
-    const q = portAt(to, toSlot.offsetIndex, transition.toEnd);
+    const p = portAt(from, fromSlot.offsetIndex, transition.fromEnd, scale);
+    const q = portAt(to, toSlot.offsetIndex, transition.toEnd, scale);
     if (Math.hypot(q.x - p.x, q.y - p.y) < 1e-9) continue;
     // `endDirection` already points *out of* the corridor at either end: the
     // direction the connector leaves `p` along, and the one it must arrive at `q`
@@ -455,13 +466,16 @@ export function renderSchematic(
     const across = toVec(offsetTowards(toPoint(along)));
     const on = pointAtFraction(drawn, drawnFraction);
     const centre = [
-      on[0] + across[0] * ((minOffset + maxOffset) / 2) * SCHEMATIC_SLOT,
-      on[1] + across[1] * ((minOffset + maxOffset) / 2) * SCHEMATIC_SLOT,
+      on[0] +
+        across[0] * ((minOffset + maxOffset) / 2) * SCHEMATIC_SLOT * scale,
+      on[1] +
+        across[1] * ((minOffset + maxOffset) / 2) * SCHEMATIC_SLOT * scale,
     ] as Vec2;
     const halfAcross = Math.max(
-      ((maxOffset - minOffset) / 2) * SCHEMATIC_SLOT +
-        SCHEMATIC_STATION_ACROSS_MARGIN,
-      SCHEMATIC_STATION_HALF_THICKNESS,
+      (((maxOffset - minOffset) / 2) * SCHEMATIC_SLOT +
+        SCHEMATIC_STATION_ACROSS_MARGIN) *
+        scale,
+      SCHEMATIC_STATION_HALF_THICKNESS * scale,
     );
     const modes = new Set(
       stop.lineIds
@@ -478,7 +492,7 @@ export function renderSchematic(
         centre,
         along,
         across,
-        SCHEMATIC_STATION_HALF_THICKNESS,
+        SCHEMATIC_STATION_HALF_THICKNESS * scale,
         halfAcross,
         SCHEMATIC_STATION_CORNER_STEPS,
       ).map(toPoint),

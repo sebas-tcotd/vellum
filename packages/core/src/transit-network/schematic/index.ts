@@ -37,6 +37,7 @@ export {
 
 import type { TransitNetwork } from '../../types/transit-network';
 import { markFilteredLayout, type SchematicLayout } from './contract';
+import { inheritSchematicRenderInput } from './grid-layout';
 
 /** A pure, deterministic layout strategy. */
 export type SchematicLayoutStrategy = (
@@ -48,6 +49,7 @@ export { geographicSchematicLayout } from './geographic';
 export {
   GRID_ROUTER,
   routeOnGrid,
+  rematerializeSchematicLayout,
   schematicLayoutDiagnostics,
   type GridBase,
   type GridFactory,
@@ -145,12 +147,18 @@ export function filterSchematicLayout(
   // Tagged as a projection, so `measureSchematicLayout` refuses it instead of
   // reporting every hidden line as a fidelity failure.
   return markFilteredLayout(
-    Object.freeze({
-      bounds: layout.bounds,
-      corridors: layout.corridors,
-      segments: Object.freeze(segments),
-      connectors: Object.freeze(connectors),
-      stations: Object.freeze(stations),
-    }),
+    inheritSchematicRenderInput(
+      layout,
+      Object.freeze({
+        bounds: layout.bounds,
+        corridors: layout.corridors,
+        segments: Object.freeze(segments),
+        connectors: Object.freeze(connectors),
+        stations: Object.freeze(stations),
+        ...(layout.presentationInput === undefined
+          ? {}
+          : { presentationInput: layout.presentationInput }),
+      }),
+    ),
   );
 }

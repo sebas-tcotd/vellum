@@ -26,6 +26,7 @@ import { slotOffsetIndex } from '../geometry-kit';
 import { projectOnPath } from '../render-geometry/utils/vector';
 import {
   byString,
+  isFilteredSchematicLayout,
   SCHEMATIC_MARGIN,
   schematicDrawingReach,
   SCHEMATIC_VIEWBOX_SIZE,
@@ -42,6 +43,7 @@ import {
   type NodeExtent,
   type PlacedCorridor,
   type PlacedStop,
+  type SchematicRenderInput,
 } from './render';
 
 // ─── Plane space ─────────────────────────────────────────────────────────────
@@ -374,6 +376,7 @@ export interface SchematicLayoutDiagnostics {
 }
 
 const diagnostics = new WeakMap<SchematicLayout, SchematicLayoutDiagnostics>();
+const renderInputs = new WeakMap<SchematicLayout, SchematicRenderInput>();
 
 /** Diagnostics recorded for a grid layout, or `null` for any other layout. */
 export function schematicLayoutDiagnostics(
@@ -408,6 +411,58 @@ export interface RawSchematicStop {
   /** Arc fraction along that corridor's centerline. */
   readonly fraction: number;
   readonly lineIds: readonly string[];
+}
+
+/**
+ * Canonical stop groups shared by every schematic strategy.
+ *
+ * The map and diagram both start with `transferCandidates`; this deliberately
+ * does not re-run proximity grouping or introduce a second threshold.
+ */
+export function canonicalSchematicStops(
+  network: TransitNetwork,
+  drawnLines: ReadonlySet<string>,
+): readonly {
+  readonly id: string;
+  readonly position: CsPoint;
+  readonly lineIds: readonly string[];
+}[] {
+  return network.transferCandidates.flatMap((candidate) => {
+    const entries = candidate.stops.filter(
+      (stop) => drawnLines.has(stop.lineId) && isFinitePoint(stop.position),
+    );
+    // Grouping may retain an invalid-position stop, while its line membership
+    // is still semantically real. Read only the candidate's entries: global
+    // stopId lookup can merge an unrelated platform with a repeated id.
+    const lineIds = [
+      ...new Set(
+        [
+          ...candidate.lineIds,
+          ...candidate.stops.map((stop) => stop.lineId),
+        ].filter((lineId) => drawnLines.has(lineId)),
+      ),
+    ];
+    if (entries.length === 0 || lineIds.length === 0) return [];
+    const position = entries.reduce(
+      (sum, stop) => ({
+        x: sum.x + stop.position.x,
+        y: 0,
+        z: sum.z + stop.position.z,
+      }),
+      { x: 0, y: 0, z: 0 },
+    );
+    return [
+      {
+        id: [...entries.map((stop) => stop.stopId)].sort(byString)[0],
+        position: {
+          x: position.x / entries.length,
+          y: 0,
+          z: position.z / entries.length,
+        },
+        lineIds: [...lineIds].sort(byString),
+      },
+    ];
+  });
 }
 
 /** The network facts the rendering stage needs, gathered once per layout. */
@@ -562,13 +617,14 @@ export function finalizeSchematicLayout(
     lineIds: stop.lineIds,
   }));
 
-  const drawn = renderSchematic({
+  const renderInput: SchematicRenderInput = {
     corridors: placed,
     stops: placedStops,
     transitions: context.transitions,
     lines: context.lines,
     nodes: nodeExtents(corridors),
-  });
+  };
+  const drawn = renderSchematic(renderInput);
 
   const layout = Object.freeze({
     bounds: Object.freeze({
@@ -579,6 +635,7 @@ export function finalizeSchematicLayout(
     segments: Object.freeze(drawn.segments.map(freezeSegment)),
     connectors: Object.freeze(drawn.connectors.map(freezeSegment)),
     stations: Object.freeze(drawn.stations.map(freezeStation)),
+    presentationInput: renderInput,
   });
   // Facts about the drawing, recorded for every layout the finaliser produced —
   // the geographic one too. A grid strategy overwrites this with its own routing
@@ -590,7 +647,68 @@ export function finalizeSchematicLayout(
     stationsClampedToNodeArea: drawn.stationsClampedToNodeArea,
     project,
   });
+  renderInputs.set(layout, renderInput);
   return { layout, project };
+}
+
+/**
+ * Rebuilds only SVG presentation geometry for a quantized camera scale.
+ *
+ * Strategic corridors, routes and bounds are reused verbatim; only slots,
+ * node clearance and station capsules are materialized again.
+ */
+export function rematerializeSchematicLayout(
+  layout: SchematicLayout,
+  presentationScale: number,
+): SchematicLayout {
+  const input = layout.presentationInput ?? renderInputs.get(layout);
+  if (input === undefined || presentationScale === 1) return layout;
+  const drawn = renderSchematic({ ...input, presentationScale });
+  const visibleLines = isFilteredSchematicLayout(layout)
+    ? new Set(layout.segments.map((segment) => segment.lineId))
+    : null;
+  const rematerialized = Object.freeze({
+    bounds: layout.bounds,
+    corridors: layout.corridors,
+    segments: Object.freeze(
+      drawn.segments
+        .filter(
+          (segment) =>
+            visibleLines === null || visibleLines.has(segment.lineId),
+        )
+        .map(freezeSegment),
+    ),
+    connectors: Object.freeze(
+      drawn.connectors
+        .filter(
+          (segment) =>
+            visibleLines === null || visibleLines.has(segment.lineId),
+        )
+        .map(freezeSegment),
+    ),
+    stations: Object.freeze(
+      drawn.stations
+        .filter(
+          (station) =>
+            visibleLines === null ||
+            station.lineIds.some((lineId) => visibleLines.has(lineId)),
+        )
+        .map(freezeStation),
+    ),
+    presentationInput: input,
+  });
+  renderInputs.set(rematerialized, input);
+  return rematerialized;
+}
+
+/** @internal Carries render provenance through a visibility-only projection. */
+export function inheritSchematicRenderInput(
+  source: SchematicLayout,
+  projection: SchematicLayout,
+): SchematicLayout {
+  const input = renderInputs.get(source);
+  if (input !== undefined) renderInputs.set(projection, input);
+  return projection;
 }
 
 const freezePoints = (
@@ -872,32 +990,9 @@ export function gridSchematicLayout(
   const drawnLines = new Set(
     corridors.flatMap((c) => c.slots.map((slot) => slot.lineId)),
   );
-  const stopsById = new Map<
-    string,
-    { position: CsPoint | null; lineIds: Set<string> }
-  >();
-  for (const s of network.stops) {
-    if (!drawnLines.has(s.lineId)) continue;
-    const existing = stopsById.get(s.stopId);
-    if (existing) {
-      existing.lineIds.add(s.lineId);
-      if (existing.position === null && isFinitePoint(s.position)) {
-        existing.position = s.position;
-      }
-      continue;
-    }
-    stopsById.set(s.stopId, {
-      position: isFinitePoint(s.position) ? s.position : null,
-      lineIds: new Set([s.lineId]),
-    });
-  }
-
-  const stops: RawSchematicStop[] = [...stopsById.entries()]
-    .flatMap(([id, entry]) =>
-      entry.position === null
-        ? []
-        : [{ id, position: entry.position, lineIds: entry.lineIds }],
-    )
+  const stops: RawSchematicStop[] = [
+    ...canonicalSchematicStops(network, drawnLines),
+  ]
     .sort((a, b) => byString(a.id, b.id))
     .map((stop) => {
       // Assign the stop to the corridor it really sits on, then re-place it at
@@ -909,7 +1004,7 @@ export function gridSchematicLayout(
       // that call here, and the symbol would land on a stroke it does not
       // belong to — a station claiming a service the data never recorded.
       const ownEdges = drawable.filter((d) =>
-        d.lineIds.some((lineId) => stop.lineIds.has(lineId)),
+        d.lineIds.some((lineId) => stop.lineIds.includes(lineId)),
       );
       // A stop whose lines draw nothing routable is not reachable from here:
       // `drawnLines` already excluded that, so this is belt and braces.

@@ -34,6 +34,8 @@ export type SchematicLayoutWorkerEvent =
   | {
       readonly type: 'error';
       readonly requestId: string;
+      readonly phase: 'deriving' | 'laying-out';
+      readonly code: string;
       readonly reason: string;
     };
 
@@ -101,6 +103,11 @@ export interface SchematicNetworkModel {
     readonly total: number;
   } | null;
   readonly layoutError: boolean;
+  /** Safe diagnostic metadata for developer disclosure; never raw worker data. */
+  readonly layoutDiagnostic: {
+    readonly phase: 'deriving' | 'laying-out';
+    readonly code: string;
+  } | null;
   readonly cancelLayout: () => void;
 }
 
@@ -179,6 +186,7 @@ export const EMPTY_SCHEMATIC_MODEL: SchematicNetworkModel = Object.freeze({
   hasVisibleStations: false,
   layoutProgress: null,
   layoutError: false,
+  layoutDiagnostic: null,
   cancelLayout: () => {},
 });
 
@@ -224,6 +232,8 @@ export function useSchematicNetwork({
   const [layoutProgress, setLayoutProgress] =
     useState<SchematicNetworkModel['layoutProgress']>(null);
   const [layoutError, setLayoutError] = useState(false);
+  const [layoutDiagnostic, setLayoutDiagnostic] =
+    useState<SchematicNetworkModel['layoutDiagnostic']>(null);
   const cancelRef = useRef<(() => void) | null>(null);
   const cancelLayout = useCallback(() => {
     cancelRef.current?.();
@@ -238,6 +248,7 @@ export function useSchematicNetwork({
     if (!client || !cityData || !enabled || cachedWorkerBase) return;
     let current = true;
     setLayoutError(false);
+    setLayoutDiagnostic(null);
     setLayoutProgress({ phase: 'deriving', completed: 0, total: 2 });
     let cancel: (() => void) | null = null;
     try {
@@ -253,6 +264,7 @@ export function useSchematicNetwork({
         }
         if (event.type === 'error') {
           setLayoutError(true);
+          setLayoutDiagnostic({ phase: event.phase, code: event.code });
           setLayoutProgress(null);
           return;
         }
@@ -277,6 +289,7 @@ export function useSchematicNetwork({
       });
     } catch {
       setLayoutError(true);
+      setLayoutDiagnostic({ phase: 'deriving', code: 'CLIENT_FAILED' });
       setLayoutProgress(null);
       return;
     }
@@ -358,6 +371,7 @@ export function useSchematicNetwork({
         ...EMPTY_SCHEMATIC_MODEL,
         layoutProgress,
         layoutError,
+        layoutDiagnostic,
         cancelLayout,
       };
     }
@@ -391,6 +405,7 @@ export function useSchematicNetwork({
       hasVisibleStations: layout.stations.length > 0,
       layoutProgress,
       layoutError,
+      layoutDiagnostic,
       cancelLayout,
     };
     // DEPENDENCIES ARE INTENTIONALLY INCOMPLETE. `hiddenModes` is read above
@@ -403,5 +418,12 @@ export function useSchematicNetwork({
     // when the selection really changed" fails on. (No `eslint-disable` here:
     // this repo registers no `react-hooks` plugin, so naming that rule is
     // itself a lint error.)
-  }, [base, hiddenKey, layoutProgress, layoutError, cancelLayout]);
+  }, [
+    base,
+    hiddenKey,
+    layoutProgress,
+    layoutError,
+    layoutDiagnostic,
+    cancelLayout,
+  ]);
 }

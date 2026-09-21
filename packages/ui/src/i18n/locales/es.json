@@ -263,7 +263,10 @@
   "schematicLayoutStatus": {
     "deriving": "Preparando la red de tránsito…",
     "laying-out": "Calculando el diagrama…",
-    "failed": "No se pudo calcular el diagrama. El diseño anterior sigue disponible."
+    "failed": "No se pudo calcular el diagrama. El diseño anterior sigue disponible.",
+    "details": "Detalles técnicos",
+    "GRID_CAPACITY_EXCEEDED": "Este diseño es demasiado denso para la cuadrícula del diagrama. Prueba otro diseño o vuelve al diagrama anterior.",
+    "LAYOUT_FAILED": "No se pudo completar el diseño seleccionado. El diagrama anterior sigue disponible."
   },
   "a11y": {
     "mapCanvas": "Canvas del mapa de ciudad",

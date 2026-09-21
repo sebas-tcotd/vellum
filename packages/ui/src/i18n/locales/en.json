@@ -263,7 +263,10 @@
   "schematicLayoutStatus": {
     "deriving": "Preparing transit network…",
     "laying-out": "Calculating diagram…",
-    "failed": "The diagram could not be calculated. The previous layout is still available."
+    "failed": "The diagram could not be calculated. The previous layout is still available.",
+    "details": "Technical details",
+    "GRID_CAPACITY_EXCEEDED": "This layout is too dense for the diagram grid. Try another layout or return to the previous diagram.",
+    "LAYOUT_FAILED": "The selected layout could not be completed. The previous diagram remains available."
   },
   "a11y": {
     "mapCanvas": "City map canvas",

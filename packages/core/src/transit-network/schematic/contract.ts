@@ -26,6 +26,7 @@ import {
   STATION_CORNER_STEPS,
   STATION_HALF_THICKNESS_M,
 } from '../render-geometry/config';
+import type { SchematicRenderInput } from './render';
 
 /** A point in schematic (SVG user) space: x grows right, y grows down. */
 export interface SchematicPoint {
@@ -135,6 +136,8 @@ export interface SchematicLayout {
   /** Inner connections across a node's free area, one per line transition. */
   readonly connectors: readonly SchematicSegment[];
   readonly stations: readonly SchematicStation[];
+  /** Serializable source required to rematerialize presentation after a worker clone. */
+  readonly presentationInput?: SchematicRenderInput;
 }
 
 /**

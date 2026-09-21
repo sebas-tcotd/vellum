@@ -14,6 +14,26 @@ import type {
 const scope = self as unknown as DedicatedWorkerGlobalScope;
 let activeRequestId: string | null = null;
 
+/** Turns an unknown thrown value into a bounded diagnostic with no input data. */
+function failureDetails(error: unknown): { code: string; reason: string } {
+  const message =
+    error instanceof Error ? error.message : 'Unknown layout failure';
+  const capacity =
+    /^SCHEMATIC_GRID_EXHAUSTED: (\d+) cells cannot hold (\d+) nodes$/.exec(
+      message,
+    );
+  if (capacity) {
+    return {
+      code: 'GRID_CAPACITY_EXCEEDED',
+      reason: `Grid capacity ${capacity[1]} is below required nodes ${capacity[2]}`,
+    };
+  }
+  return {
+    code: 'LAYOUT_FAILED',
+    reason: 'The layout engine could not complete.',
+  };
+}
+
 const strategies = {
   geographic: geographicSchematicLayout,
   octilinear: octilinearSchematicLayout,
@@ -34,6 +54,7 @@ scope.onmessage = (event: MessageEvent<SchematicLayoutCommand>) => {
   }
   if (activeRequestId !== null) return;
   activeRequestId = command.requestId;
+  let phase: 'deriving' | 'laying-out' = 'deriving';
   try {
     emit({
       type: 'progress',
@@ -51,6 +72,7 @@ scope.onmessage = (event: MessageEvent<SchematicLayoutCommand>) => {
       completed: 1,
       total: 2,
     });
+    phase = 'laying-out';
     const layout = strategies[command.layout](network);
     if (activeRequestId === command.requestId) {
       const colors = new Map<string, string>();
@@ -67,10 +89,20 @@ scope.onmessage = (event: MessageEvent<SchematicLayoutCommand>) => {
     }
   } catch (error: unknown) {
     if (activeRequestId === command.requestId) {
+      const failure = failureDetails(error);
+      // Keep the complete safe diagnostic in developer tools while the UI gets
+      // localized copy only. No source data or stack is included.
+      console.error('Schematic layout failed', {
+        requestId: command.requestId,
+        layout: command.layout,
+        phase,
+        ...failure,
+      });
       emit({
         type: 'error',
         requestId: command.requestId,
-        reason: String(error),
+        phase,
+        ...failure,
       });
     }
   } finally {
