@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TransitMode } from '@vellum/core';
 import { Switch } from '../../lib/switch';
@@ -5,6 +6,11 @@ import type {
   SchematicLegendLine,
   SchematicNetworkModel,
 } from '../../hooks/use-schematic-network';
+import {
+  EXPERIMENTAL_SCHEMATIC_LAYOUTS,
+  SCHEMATIC_LAYOUT_IDS,
+  type SchematicLayoutId,
+} from '../../shell/shell-session';
 
 export interface SchematicSidebarContentProps {
   model: SchematicNetworkModel;
@@ -14,6 +20,10 @@ export interface SchematicSidebarContentProps {
   onShowAllModes: () => void;
   /** Reports the line the pointer is over, or `null` on the way out. */
   onHoverLine?: (lineId: string | null) => void;
+  /** Geometry the diagram is drawn with (Story 4.3). */
+  layoutId?: SchematicLayoutId;
+  /** Asks for a different geometry. Absent means the selector is not offered. */
+  onSetLayout?: (layoutId: SchematicLayoutId) => void;
 }
 
 /**
@@ -38,6 +48,8 @@ export function SchematicSidebarContent({
   onToggleMode,
   onShowAllModes,
   onHoverLine = noop,
+  layoutId = 'geographic',
+  onSetLayout,
 }: SchematicSidebarContentProps) {
   const { t } = useTranslation();
   const {
@@ -72,6 +84,15 @@ export function SchematicSidebarContent({
         <p className="schematic-panel__empty" data-testid="schematic-no-routes">
           {t('schematicSidebar.noRoutes')}
         </p>
+      )}
+
+      {onSetLayout !== undefined && hasDrawableNetwork && (
+        <LayoutRadioGroup
+          layoutId={layoutId}
+          onSetLayout={onSetLayout}
+          label={t('schematicSidebar.layout')}
+          experimentalLabel={t('schematicSidebar.experimental')}
+        />
       )}
 
       {availableModes.length > 0 && (
@@ -169,6 +190,137 @@ export function SchematicSidebarContent({
         </section>
       )}
     </div>
+  );
+}
+
+/**
+ * The geometry selector: three mutually exclusive layouts.
+ *
+ * @remarks
+ * A radiogroup, not three switches, because exactly one geometry is ever drawn
+ * — the diagram is a single `<svg>` fed by a single model, so "both at once" is
+ * not a state the surface can even express. `packages/ui/src/lib` has no
+ * radiogroup primitive, so this is the native ARIA pattern: one tab stop for
+ * the group, roving `tabIndex`, and arrow keys to move the selection, which is
+ * what a radiogroup is expected to do.
+ *
+ * The two grid layouts carry a visible `experimental` mark, in words rather
+ * than by colour alone. It is not decoration: Story 4.3's gates decide what is
+ * publishable, and until 4.4 publishes one, choosing these is choosing a spike.
+ *
+ * The group is named once. An `aria-label` on the `<section>`, a visible `<h3>`
+ * and an `aria-label` on the radiogroup would all carry the same words, so a
+ * screen reader would announce "Diagram geometry" three times before reaching
+ * the first option; instead the heading is the single name and the radiogroup
+ * points at it with `aria-labelledby`.
+ */
+function LayoutRadioGroup({
+  layoutId,
+  onSetLayout,
+  label,
+  experimentalLabel,
+}: {
+  layoutId: SchematicLayoutId;
+  onSetLayout: (layoutId: SchematicLayoutId) => void;
+  label: string;
+  experimentalLabel: string;
+}) {
+  const { t } = useTranslation();
+  const groupRef = useRef<HTMLDivElement>(null);
+  const headingId = 'schematic-layout-heading';
+
+  const focusOption = (next: SchematicLayoutId): void => {
+    // The moved-to option has to take focus with the selection, or the reader
+    // is told about a choice the keyboard no longer points at.
+    groupRef.current
+      ?.querySelector<HTMLButtonElement>(`[data-layout-id="${next}"]`)
+      ?.focus();
+  };
+
+  const select = (next: SchematicLayoutId): void => {
+    onSetLayout(next);
+    focusOption(next);
+  };
+
+  const move = (delta: number): void => {
+    const count = SCHEMATIC_LAYOUT_IDS.length;
+    // `indexOf` answers -1 for an id outside the list. Left alone, `-1 + delta`
+    // wraps to an arbitrary option and the arrows would jump somewhere the user
+    // cannot predict; clamping to the first option makes an unknown id behave
+    // like "nothing chosen yet".
+    const found = SCHEMATIC_LAYOUT_IDS.indexOf(layoutId);
+    const index = found >= 0 ? found : 0;
+    select(SCHEMATIC_LAYOUT_IDS[(index + delta + count) % count]);
+  };
+
+  return (
+    <section
+      className="schematic-panel__section"
+      data-testid="schematic-layout-section"
+    >
+      <h3 className="schematic-panel__heading" id={headingId}>
+        {label}
+      </h3>
+      <div
+        ref={groupRef}
+        role="radiogroup"
+        aria-labelledby={headingId}
+        className="schematic-panel__layouts"
+      >
+        {SCHEMATIC_LAYOUT_IDS.map((id) => {
+          const selected = id === layoutId;
+          const experimental = EXPERIMENTAL_SCHEMATIC_LAYOUTS.includes(id);
+          return (
+            <button
+              key={id}
+              type="button"
+              role="radio"
+              aria-checked={selected}
+              // Roving tab index: the group is one stop, the arrows do the rest.
+              tabIndex={selected ? 0 : -1}
+              data-layout-id={id}
+              data-testid={`schematic-layout-${id}`}
+              className="schematic-panel__layout"
+              onClick={() => onSetLayout(id)}
+              onKeyDown={(event) => {
+                if (event.key === 'ArrowDown' || event.key === 'ArrowRight') {
+                  event.preventDefault();
+                  move(1);
+                } else if (
+                  event.key === 'ArrowUp' ||
+                  event.key === 'ArrowLeft'
+                ) {
+                  event.preventDefault();
+                  move(-1);
+                } else if (event.key === 'Home') {
+                  // Part of the radiogroup contract, not a nicety: a keyboard
+                  // user who wants the published geometry back should not have
+                  // to count arrow presses.
+                  event.preventDefault();
+                  select(SCHEMATIC_LAYOUT_IDS[0]);
+                } else if (event.key === 'End') {
+                  event.preventDefault();
+                  select(SCHEMATIC_LAYOUT_IDS[SCHEMATIC_LAYOUT_IDS.length - 1]);
+                }
+              }}
+            >
+              <span
+                className="schematic-panel__layout-mark"
+                aria-hidden="true"
+              />
+              <span className="schematic-panel__layout-label">
+                {t(`schematicLayouts.${id}`)}
+              </span>
+              {experimental && (
+                <span className="schematic-panel__layout-tag">
+                  {experimentalLabel}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 

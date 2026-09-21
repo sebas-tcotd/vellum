@@ -1,6 +1,16 @@
-import { forwardRef } from 'react';
+import {
+  rematerializeSchematicLayout,
+  SCHEMATIC_LINE_WIDTH,
+  type SchematicPoint,
+} from '@vellum/core';
+import { Maximize } from 'lucide-react';
+import { forwardRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { SchematicNetworkModel } from '../../hooks/use-schematic-network';
+import { useSchematicCamera } from './use-schematic-camera';
+
+const pointsAttribute = (points: readonly SchematicPoint[]): string =>
+  points.map((p) => `${p.x},${p.y}`).join(' ');
 
 export interface SchematicViewProps {
   /**
@@ -32,6 +42,18 @@ export interface SchematicViewProps {
  *
  * Station *labels* are deliberately absent: placing them is the layout
  * strategy's job (Story 4.4), not this surface's.
+ *
+ * The geometry is the layout's, down to the stroke width. `strokeWidth` is set
+ * here from {@link SCHEMATIC_LINE_WIDTH} rather than in CSS because the layout's
+ * per-line offsets are in **viewBox units**: a width in screen pixels (which is
+ * what `vector-effect: non-scaling-stroke` gave) cannot agree with them at any
+ * zoom, so parallel lines would either overlap or leave a gap depending on the
+ * window. Station fill and outline are fixed black-on-white in both themes, the
+ * same convention and the same reason as the geographic map's marker layer: it is
+ * LOOM's, not the theme's, and one datum must not be drawn two ways.
+ *
+ * Drawing order matches the map's layer order — inner connections, then lines,
+ * then stations — so a joint reads as passing behind the strokes it joins.
  */
 export const SchematicView = forwardRef<HTMLElement, SchematicViewProps>(
   function SchematicView(
@@ -40,6 +62,14 @@ export const SchematicView = forwardRef<HTMLElement, SchematicViewProps>(
   ) {
     const { t } = useTranslation();
     const { layout, hasDrawableNetwork, isFilteredEmpty } = model;
+    const camera = useSchematicCamera(
+      layout.bounds.width,
+      layout.bounds.height,
+    );
+    const renderedLayout = useMemo(
+      () => rematerializeSchematicLayout(layout, camera.visualScale),
+      [layout, camera.visualScale],
+    );
 
     return (
       <section
@@ -95,18 +125,41 @@ export const SchematicView = forwardRef<HTMLElement, SchematicViewProps>(
             <p className="sr-only" data-testid="schematic-summary">
               {t('schematic.summary', {
                 lines: model.visibleLineCount,
-                stations: layout.stations.length,
+                stations: renderedLayout.stations.length,
               })}
             </p>
             <svg
               className="schematic-view__diagram"
               data-testid="schematic-diagram"
-              viewBox={`0 0 ${layout.bounds.width} ${layout.bounds.height}`}
+              viewBox={`${camera.viewBox.x} ${camera.viewBox.y} ${camera.viewBox.width} ${camera.viewBox.height}`}
               preserveAspectRatio="xMidYMid meet"
               aria-hidden="true"
+              onWheel={camera.onWheel}
+              onPointerDown={camera.onPointerDown}
+              onPointerMove={camera.onPointerMove}
+              onPointerUp={camera.onPointerUp}
+              onPointerCancel={camera.onPointerCancel}
+              onLostPointerCapture={camera.onPointerCancel}
             >
+              <g className="schematic-view__connectors">
+                {renderedLayout.connectors.map((connector, index) => (
+                  <polyline
+                    key={`${connector.lineId}:${index}`}
+                    data-line-id={connector.lineId}
+                    className={
+                      hoveredLineId !== null &&
+                      connector.lineId !== hoveredLineId
+                        ? 'schematic-view__dimmed'
+                        : undefined
+                    }
+                    points={pointsAttribute(connector.points)}
+                    stroke={connector.color}
+                    strokeWidth={SCHEMATIC_LINE_WIDTH * camera.visualScale}
+                  />
+                ))}
+              </g>
               <g className="schematic-view__segments">
-                {layout.segments.map((segment, index) => (
+                {renderedLayout.segments.map((segment, index) => (
                   <polyline
                     key={`${segment.lineId}:${index}`}
                     data-line-id={segment.lineId}
@@ -115,20 +168,18 @@ export const SchematicView = forwardRef<HTMLElement, SchematicViewProps>(
                         ? 'schematic-view__dimmed'
                         : undefined
                     }
-                    points={segment.points
-                      .map((p) => `${p.x},${p.y}`)
-                      .join(' ')}
+                    points={pointsAttribute(segment.points)}
                     stroke={segment.color}
+                    strokeWidth={SCHEMATIC_LINE_WIDTH * camera.visualScale}
                   />
                 ))}
               </g>
               <g className="schematic-view__stations">
-                {layout.stations.map((station) => (
-                  <circle
+                {renderedLayout.stations.map((station) => (
+                  <polygon
                     key={station.id}
-                    cx={station.x}
-                    cy={station.y}
-                    r={4}
+                    data-station-id={station.id}
+                    points={pointsAttribute(station.shape)}
                     // Station membership is what `lineIds` is for: a stop the
                     // highlighted line does not call at recedes with the rest.
                     className={
@@ -141,6 +192,15 @@ export const SchematicView = forwardRef<HTMLElement, SchematicViewProps>(
                 ))}
               </g>
             </svg>
+            <button
+              type="button"
+              className="schematic-view__fit"
+              onClick={camera.fit}
+              aria-label={t('schematic.fit')}
+              title={t('schematic.fit')}
+            >
+              <Maximize aria-hidden="true" />
+            </button>
           </>
         )}
       </section>

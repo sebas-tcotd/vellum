@@ -1,13 +1,20 @@
 import { describe, expect, it, vi } from 'vitest';
-import { renderHook } from '@testing-library/react';
+import { act, renderHook } from '@testing-library/react';
 import {
   makeCityData,
   makeRoadSegment,
   makeTransitLine,
 } from '@vellum/core/testing';
-import { geographicSchematicLayout } from '@vellum/core';
+import {
+  geographicSchematicLayout,
+  octilinearSchematicLayout,
+} from '@vellum/core';
 import type { CityData, TransitMode } from '@vellum/core';
 import { useSchematicNetwork } from './use-schematic-network';
+import type {
+  SchematicLayoutClientPort,
+  SchematicLayoutWorkerEvent,
+} from './use-schematic-network';
 
 const node = (id: string, x: number, z: number) => ({
   id,
@@ -58,6 +65,62 @@ const modelOf = (cityData: CityData | null, hiddenModes: TransitMode[] = []) =>
     .current;
 
 describe('useSchematicNetwork', () => {
+  it('surfaces worker progress/error and keeps the prior layout while recalculating', () => {
+    const city = twoModeCity();
+    const baseline = modelOf(city).layout;
+    let emit!: (event: SchematicLayoutWorkerEvent) => void;
+    const client: SchematicLayoutClientPort = {
+      request: (_city, _layout, callback) => {
+        emit = callback;
+        return vi.fn();
+      },
+    };
+    const { result, rerender } = renderHook(
+      ({ layoutId }) =>
+        useSchematicNetwork({
+          cityData: city,
+          hiddenModes: [],
+          client,
+          layoutId,
+        }),
+      { initialProps: { layoutId: 'geographic' as const } },
+    );
+    act(() =>
+      emit({
+        type: 'progress',
+        requestId: 'a',
+        phase: 'laying-out',
+        completed: 1,
+        total: 2,
+      }),
+    );
+    expect(result.current.layoutProgress?.phase).toBe('laying-out');
+    act(() =>
+      emit({
+        type: 'complete',
+        requestId: 'a',
+        layout: baseline,
+        lines: [
+          { lineId: 'L1', color: '#ff0000', mode: 'Bus', name: 'Red line' },
+          { lineId: 'L2', color: '#0000ff', mode: 'Tram', name: 'Blue line' },
+        ],
+      }),
+    );
+    expect(result.current.layout.segments).toEqual(baseline.segments);
+    rerender({ layoutId: 'octilinear' });
+    expect(result.current.layout.segments).toEqual(baseline.segments);
+    act(() =>
+      emit({
+        type: 'error',
+        requestId: 'b',
+        phase: 'laying-out',
+        code: 'LAYOUT_FAILED',
+        reason: 'boom',
+      }),
+    );
+    expect(result.current.layoutError).toBe(true);
+    expect(result.current.layout.segments).toEqual(baseline.segments);
+  });
   it('reports no drawable network without a city', () => {
     const model = modelOf(null);
     expect(model.hasDrawableNetwork).toBe(false);
@@ -251,5 +314,68 @@ describe('useSchematicNetwork', () => {
     expect(empty.hiddenModes.size).toBe(0);
     // Still the same singleton for the next consumer.
     expect(modelOf(null).hiddenModes.size).toBe(0);
+  });
+
+  it('caches one layout per strategy, so going back costs nothing', () => {
+    // Comparing layouts means alternating between them. A single-entry cache
+    // would make every return trip re-derive the network *and* re-run a layout
+    // that had not changed at all.
+    const cityData = twoModeCity();
+    const geographic = vi.fn(geographicSchematicLayout);
+    const octilinear = vi.fn(octilinearSchematicLayout);
+    let strategy = geographic;
+    const { rerender } = renderHook(() =>
+      useSchematicNetwork({ cityData, hiddenModes: [], strategy }),
+    );
+    expect(geographic).toHaveBeenCalledTimes(1);
+
+    strategy = octilinear;
+    rerender();
+    expect(octilinear).toHaveBeenCalledTimes(1);
+
+    // Back and forth: both are already known.
+    for (const next of [geographic, octilinear, geographic]) {
+      strategy = next;
+      rerender();
+    }
+    expect(geographic).toHaveBeenCalledTimes(1);
+    expect(octilinear).toHaveBeenCalledTimes(1);
+  });
+
+  it('drops every cached layout when the document changes', () => {
+    const strategy = vi.fn(geographicSchematicLayout);
+    let cityData = twoModeCity();
+    const { rerender } = renderHook(() =>
+      useSchematicNetwork({ cityData, hiddenModes: [], strategy }),
+    );
+    expect(strategy).toHaveBeenCalledTimes(1);
+
+    // A new city is a new network: nothing measured on the old one survives.
+    cityData = twoModeCity({ cityName: 'Otra ciudad' });
+    rerender();
+    expect(strategy).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps each layout cached across a trip out of the schematic view', () => {
+    const cityData = twoModeCity();
+    const geographic = vi.fn(geographicSchematicLayout);
+    const octilinear = vi.fn(octilinearSchematicLayout);
+    let strategy = geographic;
+    let enabled = true;
+    const { rerender } = renderHook(() =>
+      useSchematicNetwork({ cityData, hiddenModes: [], strategy, enabled }),
+    );
+    strategy = octilinear;
+    rerender();
+
+    enabled = false;
+    rerender();
+    enabled = true;
+    strategy = geographic;
+    rerender();
+    strategy = octilinear;
+    rerender();
+    expect(geographic).toHaveBeenCalledTimes(1);
+    expect(octilinear).toHaveBeenCalledTimes(1);
   });
 });

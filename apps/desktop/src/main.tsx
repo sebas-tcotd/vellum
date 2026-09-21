@@ -58,6 +58,14 @@ import {
 import { LegacyExportSink } from './export/legacy-export-sink';
 import { TauriExportSink } from './export/tauri-export-sink';
 import { SvgExporter, type SvgWorkerHandle } from './export/svg/svg-exporter';
+import {
+  WorkerSchematicLayoutClient,
+  type SchematicLayoutWorker,
+} from './schematic-layout-client';
+import type {
+  SchematicLayoutCommand,
+  SchematicLayoutEvent,
+} from './schematic-layout-protocol';
 import { TauriSvgExportSink } from './export/svg/tauri-svg-export-sink';
 import type {
   SvgWorkerCommand,
@@ -183,6 +191,25 @@ const svgExporter = new SvgExporter({
     // number by construction, so nothing here can carry user data.
     console.info('[App] SVG export metrics', metrics);
   },
+});
+const schematicLayoutClient = new WorkerSchematicLayoutClient(() => {
+  const worker = new Worker(
+    new URL('./schematic-layout-worker.ts', import.meta.url),
+    { type: 'module' },
+  );
+  const handle: SchematicLayoutWorker = {
+    postMessage: (message: SchematicLayoutCommand) =>
+      worker.postMessage(message),
+    onmessage: null,
+    onerror: null,
+    onmessageerror: null,
+    terminate: () => worker.terminate(),
+  };
+  worker.onmessage = (event: MessageEvent<SchematicLayoutEvent>) =>
+    handle.onmessage?.(event);
+  worker.onerror = (event) => handle.onerror?.(event);
+  worker.onmessageerror = (event) => handle.onmessageerror?.(event);
+  return handle;
 });
 let measuredCapability: CapabilityReport | null = null;
 const benchmarkSnapshotCaptureRef = React.createRef<
@@ -356,6 +383,7 @@ function AppShell() {
       loadFilePartial={loadFilePartial}
       rasterExporter={rasterExporter}
       svgExporter={svgExporter}
+      schematicLayoutClient={schematicLayoutClient}
       onOpenExportFolder={openExportFolder}
       exportCancelHandlerRef={exportCancelHandlerRef}
       exportSnapshotCaptureRef={benchmarkSnapshotCaptureRef}

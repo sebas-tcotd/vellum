@@ -236,10 +236,13 @@
     "summary": "Transit network with {{lines}} lines and {{stations}} stations.",
     "filteredTitle": "No lines shown",
     "filteredBody": "Every available transport mode is switched off, so the diagram has nothing to draw.",
-    "showAllModes": "Show all modes"
+    "showAllModes": "Show all modes",
+    "fit": "Fit diagram"
   },
   "schematicSidebar": {
     "title": "Schematic network",
+    "layout": "Diagram geometry",
+    "experimental": "experimental",
     "visibleLines_one": "{{count}} line visible",
     "visibleLines_other": "{{count}} lines visible",
     "modes": "Transport modes",
@@ -251,6 +254,19 @@
     "stop": "Stop",
     "filteredEmpty": "No mode is switched on, so no line is drawn.",
     "noRoutes": "This city has no transit lines with a route, so there is nothing to filter."
+  },
+  "schematicLayouts": {
+    "geographic": "Geographic trace",
+    "octilinear": "Octilinear",
+    "orthoradial": "Orthoradial"
+  },
+  "schematicLayoutStatus": {
+    "deriving": "Preparing transit network…",
+    "laying-out": "Calculating diagram…",
+    "failed": "The diagram could not be calculated. The previous layout is still available.",
+    "details": "Technical details",
+    "GRID_CAPACITY_EXCEEDED": "This layout is too dense for the diagram grid. Try another layout or return to the previous diagram.",
+    "LAYOUT_FAILED": "The selected layout could not be completed. The previous diagram remains available."
   },
   "a11y": {
     "mapCanvas": "City map canvas",

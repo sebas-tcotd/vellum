@@ -21,6 +21,34 @@ export type ActiveModal =
 export type ViewMode = 'geographic' | 'schematic';
 
 /**
+ * Which geometry the schematic diagram is drawn with (Story 4.3).
+ *
+ * @remarks
+ * `geographic` — the normalised real trace — is the default and the only one
+ * that invents nothing; the other two are the layouts Story 4.3 measures. One
+ * is drawn at a time, never two at once. Ephemeral like the rest of
+ * `schematic`: a new city goes back to `geographic`.
+ */
+export type SchematicLayoutId = 'geographic' | 'octilinear' | 'orthoradial';
+
+/** Layout ids in the order the selector offers them. */
+export const SCHEMATIC_LAYOUT_IDS = [
+  'geographic',
+  'octilinear',
+  'orthoradial',
+] as const satisfies readonly SchematicLayoutId[];
+
+/**
+ * Layouts that have not earned production quality yet (Story 4.3 gates). The
+ * selector marks them so choosing one is an informed decision, and the default
+ * never silently becomes one of them.
+ */
+export const EXPERIMENTAL_SCHEMATIC_LAYOUTS: readonly SchematicLayoutId[] = [
+  'octilinear',
+  'orthoradial',
+];
+
+/**
  * Sidebar width model from EXPERIENCE.md: 272 preferred, 240 min, 320 max,
  * 56 px compact rail. Resizing is only offered at >= 1280 px.
  */
@@ -72,6 +100,12 @@ export interface ShellSessionState {
      * no label and no control, so hiding it would be unrecoverable.
      */
     hiddenModes: readonly TransitMode[];
+    /**
+     * Geometry the diagram is drawn with. Semantic state, not cartographic:
+     * switching it redraws the diagram and touches nothing the geographic map
+     * is subscribed to, so the camera it was last framed with survives.
+     */
+    layoutId: SchematicLayoutId;
   };
   /**
    * Geographic map or the independent schematic surface (Epic 4). Ephemeral:
@@ -108,6 +142,7 @@ export type ShellSessionAction =
   | { type: 'schematic/toggleMode'; mode: TransitMode }
   | { type: 'schematic/showAllModes' }
   | { type: 'schematic/setWidth'; width: number }
+  | { type: 'schematic/setLayout'; layoutId: SchematicLayoutId }
   | { type: 'schematic/reset'; windowWidth: number }
   | { type: 'modal/open'; modal: NonNullable<ActiveModal>; invoker?: string }
   | { type: 'modal/close' }
@@ -142,6 +177,7 @@ function initialSchematic(windowWidth: number): ShellSessionState['schematic'] {
         : SIDEBAR_WIDTH.preferred,
     hiddenModes: [],
     widthBeforeNarrow: null,
+    layoutId: 'geographic',
   };
 }
 
@@ -321,6 +357,17 @@ export function shellSessionReducer(
           widthBeforeNarrow: null,
         },
       };
+
+    case 'schematic/setLayout':
+      // Identity early-return: re-picking the layout already on screen must not
+      // produce a new state object, or every consumer memoised on the session
+      // would recompute for a diagram that did not change.
+      return state.schematic.layoutId === action.layoutId
+        ? state
+        : {
+            ...state,
+            schematic: { ...state.schematic, layoutId: action.layoutId },
+          };
 
     case 'schematic/reset':
       // A new city resets the whole schematic context, not just the filters:

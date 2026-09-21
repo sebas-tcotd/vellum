@@ -1,6 +1,16 @@
-/** Pure shape construction helpers for station geometry. */
+/**
+ * `CsPoint` adapter over the shared, frame-agnostic shape helper.
+ *
+ * @remarks
+ * The corner arithmetic lives once in `../../geometry-kit` so the schematic view
+ * can build the same capsule in viewBox units (Story 4.3b). This file only
+ * changes the vocabulary; the numbers are the kit's, float for float.
+ */
 import type { CsPoint } from '../../../coordinate-transform';
-import { add, scale } from './vector';
+import { roundedRectRing as ringOfVec2, type Vec2 } from '../../geometry-kit';
+
+const toVec = (p: CsPoint): Vec2 => [p.x, p.z];
+const toCs = (v: Vec2): CsPoint => ({ x: v[0], z: v[1] });
 
 /**
  * A closed rounded-rectangle (stadium/capsule) ring in world space, centered at
@@ -17,34 +27,12 @@ export function roundedRectRing(
   halfAcross: number,
   stepsPerCorner: number,
 ): CsPoint[] {
-  const cornerRadius = Math.max(0, Math.min(halfAlong, halfAcross));
-  const innerAlong = halfAlong - cornerRadius;
-  const innerAcross = halfAcross - cornerRadius;
-
-  const toWorldSpace = (offsetAlong: number, offsetAcross: number): CsPoint => {
-    const alongVector = scale(along, offsetAlong);
-    const acrossVector = scale(across, offsetAcross);
-    return add(add(center, alongVector), acrossVector);
-  };
-
-  const HALF_PI = Math.PI / 2;
-  const corners = [
-    { centerU: innerAlong, centerV: innerAcross, startAngle: 0 },
-    { centerU: -innerAlong, centerV: innerAcross, startAngle: HALF_PI },
-    { centerU: -innerAlong, centerV: -innerAcross, startAngle: Math.PI },
-    { centerU: innerAlong, centerV: -innerAcross, startAngle: 3 * HALF_PI },
-  ];
-
-  const ring: CsPoint[] = [];
-  for (const corner of corners) {
-    for (let step = 0; step <= stepsPerCorner; step++) {
-      const angle = corner.startAngle + (step / stepsPerCorner) * HALF_PI;
-      const localU = corner.centerU + cornerRadius * Math.cos(angle);
-      const localV = corner.centerV + cornerRadius * Math.sin(angle);
-      ring.push(toWorldSpace(localU, localV));
-    }
-  }
-
-  ring.push(ring[0]);
-  return ring;
+  return ringOfVec2(
+    toVec(center),
+    toVec(along),
+    toVec(across),
+    halfAlong,
+    halfAcross,
+    stepsPerCorner,
+  ).map(toCs);
 }

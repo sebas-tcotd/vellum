@@ -236,10 +236,13 @@
     "summary": "Red de tránsito con {{lines}} líneas y {{stations}} estaciones.",
     "filteredTitle": "No se muestra ninguna línea",
     "filteredBody": "Todos los modos de transporte disponibles están apagados, así que el diagrama no tiene nada que dibujar.",
-    "showAllModes": "Mostrar todos los modos"
+    "showAllModes": "Mostrar todos los modos",
+    "fit": "Ajustar diagrama"
   },
   "schematicSidebar": {
     "title": "Red esquemática",
+    "layout": "Geometría del diagrama",
+    "experimental": "experimental",
     "visibleLines_one": "{{count}} línea visible",
     "visibleLines_other": "{{count}} líneas visibles",
     "modes": "Modos de transporte",
@@ -251,6 +254,19 @@
     "stop": "Parada",
     "filteredEmpty": "No hay ningún modo encendido, así que no se dibuja ninguna línea.",
     "noRoutes": "Esta ciudad no tiene líneas de tránsito con recorrido, así que no hay nada que filtrar."
+  },
+  "schematicLayouts": {
+    "geographic": "Trazado geográfico",
+    "octilinear": "Octilineal",
+    "orthoradial": "Ortorradial"
+  },
+  "schematicLayoutStatus": {
+    "deriving": "Preparando la red de tránsito…",
+    "laying-out": "Calculando el diagrama…",
+    "failed": "No se pudo calcular el diagrama. El diseño anterior sigue disponible.",
+    "details": "Detalles técnicos",
+    "GRID_CAPACITY_EXCEEDED": "Este diseño es demasiado denso para la cuadrícula del diagrama. Prueba otro diseño o vuelve al diagrama anterior.",
+    "LAYOUT_FAILED": "No se pudo completar el diseño seleccionado. El diagrama anterior sigue disponible."
   },
   "a11y": {
     "mapCanvas": "Canvas del mapa de ciudad",

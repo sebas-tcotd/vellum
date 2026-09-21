@@ -86,7 +86,14 @@ export function groupStopsByProximity(
       const dz = entries[j].position.z - entries[i].position.z;
       const distance = Math.hypot(dx, dz);
 
-      if (distance <= STATION_MERGE_THRESHOLD_M) {
+      // A repeated stop id is the source's explicit identity signal. Keep it
+      // with its candidate even if one duplicate has unusable coordinates;
+      // consumers can still use the valid sibling position without losing the
+      // line membership.
+      if (
+        entries[j].stopId === entries[i].stopId ||
+        distance <= STATION_MERGE_THRESHOLD_M
+      ) {
         currentGroup.push(entries[j]);
         groupedIndices.add(j);
       }
