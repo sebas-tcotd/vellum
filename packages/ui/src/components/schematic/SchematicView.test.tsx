@@ -104,6 +104,61 @@ describe('SchematicView', () => {
     expect(container.textContent).not.toContain('p1');
   });
 
+  it('recovers a real station name on focus without exposing its internal id', () => {
+    const { container } = render(
+      <SchematicView
+        model={modelFor()}
+        onBack={() => {}}
+        onShowAllModes={() => {}}
+      />,
+    );
+    const station = container.querySelector('polygon');
+    expect(station).toHaveAttribute('aria-label', 'A');
+    fireEvent.focus(station!);
+    expect(screen.getByTestId('schematic-station-detail')).toHaveTextContent(
+      'A',
+    );
+    expect(screen.queryByText('p1')).toBeNull();
+  });
+
+  it('rematerializes label text and halo with the quantized visual scale', () => {
+    const { container } = render(
+      <SchematicView
+        model={modelFor()}
+        onBack={() => {}}
+        onShowAllModes={() => {}}
+      />,
+    );
+    const svg = screen.getByTestId('schematic-diagram');
+    vi.spyOn(svg, 'getBoundingClientRect').mockReturnValue({
+      left: 0,
+      top: 0,
+      width: 200,
+      height: 100,
+    } as DOMRect);
+    const label = container.querySelector('text.schematic-view__label')!;
+    const before = label.getAttribute('font-size');
+    expect(label.getAttribute('transform')).toContain('rotate(0');
+    fireEvent.wheel(svg, { clientX: 100, clientY: 50, deltaY: -1 });
+    expect(label.getAttribute('font-size')).not.toBe(before);
+    expect(label.getAttribute('stroke-width')).toBeTruthy();
+  });
+
+  it('names a lone line in its own colour, and says nothing where lines share a corridor', () => {
+    const { container } = render(
+      <SchematicView
+        model={modelFor()}
+        onBack={() => {}}
+        onShowAllModes={() => {}}
+      />,
+    );
+    const label = container.querySelector('text.schematic-view__label--line')!;
+    // The line's own colour, not the text token: a name in the palette of the
+    // stroke it belongs to is what makes it readable without a leader line.
+    expect(label).toHaveAttribute('fill', '#ff0000');
+    expect(label.textContent).toBe('Test Line');
+  });
+
   it('shows an empty state with a way back when there is no transit', async () => {
     const onBack = vi.fn();
     const errors = vi.spyOn(console, 'error');

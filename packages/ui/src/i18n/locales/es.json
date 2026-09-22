@@ -237,7 +237,8 @@
     "filteredTitle": "No se muestra ninguna línea",
     "filteredBody": "Todos los modos de transporte disponibles están apagados, así que el diagrama no tiene nada que dibujar.",
     "showAllModes": "Mostrar todos los modos",
-    "fit": "Ajustar diagrama"
+    "fit": "Ajustar diagrama",
+    "details": "Detalles del diagrama"
   },
   "schematicSidebar": {
     "title": "Red esquemática",
@@ -253,7 +254,10 @@
     "key": "Clave",
     "stop": "Parada",
     "filteredEmpty": "No hay ningún modo encendido, así que no se dibuja ninguna línea.",
-    "noRoutes": "Esta ciudad no tiene líneas de tránsito con recorrido, así que no hay nada que filtrar."
+    "noRoutes": "Esta ciudad no tiene líneas de tránsito con recorrido, así que no hay nada que filtrar.",
+    "refitLayout": "Recalcular con las líneas visibles",
+    "refitLayoutHint": "Vuelve a trazar el diagrama para las líneas en pantalla. Ocultar un modo, por sí solo, deja cada línea donde está.",
+    "restoreLayout": "Volver a trazar toda la red"
   },
   "schematicLayouts": {
     "geographic": "Trazado geográfico",

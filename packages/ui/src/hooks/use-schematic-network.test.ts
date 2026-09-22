@@ -173,12 +173,46 @@ describe('useSchematicNetwork', () => {
     // `busOnly` is exclusive to the hidden line; `shared` survives.
     expect(hidden.layout.stations.map((s) => s.id)).toEqual(['shared']);
 
-    // Every surviving position is byte-identical to the unfiltered layout.
-    for (const station of hidden.layout.stations) {
-      const original = full.layout.stations.find((s) => s.id === station.id);
-      expect([station.x, station.y]).toEqual([original?.x, original?.y]);
+    // Every surviving *stroke* is byte-identical to the unfiltered layout: a
+    // line that stays must not move because another one was switched off.
+    for (const segment of hidden.layout.segments) {
+      const original = full.layout.segments.find(
+        (s) => s.lineId === segment.lineId && s.edgeId === segment.edgeId,
+      );
+      expect(segment.points).toEqual(original?.points);
     }
+    // A shared symbol does move, and has to: its capsule spans the slots of the
+    // lines calling there, so it shrinks onto the ones still being drawn.
+    const sharedBefore = full.layout.stations.find((s) => s.id === 'shared');
+    const sharedAfter = hidden.layout.stations.find((s) => s.id === 'shared');
+    expect(sharedBefore?.lineIds).toEqual(['L1', 'L2']);
+    expect(sharedAfter?.lineIds).toEqual(['L2']);
     expect(hidden.layout.bounds).toEqual(full.layout.bounds);
+  });
+
+  it('re-routes the geometry when asked to lay out only some lines', () => {
+    const cityData = twoModeCity();
+    const projected = renderHook(() =>
+      useSchematicNetwork({ cityData, hiddenModes: ['Bus'] }),
+    ).result.current;
+    const relaid = renderHook(() =>
+      useSchematicNetwork({
+        cityData,
+        hiddenModes: [],
+        relayoutLineIds: ['L2'],
+      }),
+    ).result.current;
+
+    // Both draw the same single line, but only one of them re-derived the
+    // network: a projection keeps the bus network's framing, a relayout fits
+    // the tram on its own, so the geometry is genuinely different.
+    expect(projected.visibleLineCount).toBe(1);
+    expect(relaid.visibleLineCount).toBe(1);
+    expect(relaid.relayoutLineIds).toEqual(['L2']);
+    expect(relaid.layout.segments.every((s) => s.lineId === 'L2')).toBe(true);
+    expect(relaid.layout.segments[0].points).not.toEqual(
+      projected.layout.segments[0].points,
+    );
   });
 
   it('separates an empty city from one its own filters emptied', () => {

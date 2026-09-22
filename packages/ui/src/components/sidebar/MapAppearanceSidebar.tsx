@@ -41,6 +41,9 @@ export interface MapAppearanceSidebarProps {
   schematicLayoutId?: SchematicLayoutId;
   /** Asks for a different schematic geometry. */
   onSetSchematicLayout?: (layoutId: SchematicLayoutId) => void;
+  schematicLayoutIds?: readonly SchematicLayoutId[];
+  /** Re-routes the diagram for the visible lines, or `null` for the whole network. */
+  onRelayoutSchematic?: (lineIds: readonly string[] | null) => void;
 }
 
 /**
@@ -64,6 +67,8 @@ export function MapAppearanceSidebar({
   onShowAllSchematicModes,
   schematicLayoutId = 'geographic',
   onSetSchematicLayout,
+  schematicLayoutIds,
+  onRelayoutSchematic,
 }: MapAppearanceSidebarProps) {
   const { t } = useTranslation();
   const { state, dispatch } = shell;
@@ -171,7 +176,11 @@ export function MapAppearanceSidebar({
             onShowAllModes={() => onShowAllSchematicModes?.()}
             onHoverLine={(lineId) => onHoverSchematicLine?.(lineId)}
             layoutId={schematicLayoutId}
+            layoutIds={schematicLayoutIds}
             onSetLayout={(layoutId) => onSetSchematicLayout?.(layoutId)}
+            {...(onRelayoutSchematic === undefined
+              ? {}
+              : { onRelayout: onRelayoutSchematic })}
           />
         ) : collapsed ? (
           <CompactLayerRail commands={commands} />

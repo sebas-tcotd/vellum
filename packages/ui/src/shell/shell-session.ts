@@ -32,21 +32,31 @@ export type ViewMode = 'geographic' | 'schematic';
 export type SchematicLayoutId = 'geographic' | 'octilinear' | 'orthoradial';
 
 /** Layout ids in the order the selector offers them. */
-export const SCHEMATIC_LAYOUT_IDS = [
+export const PUBLISHED_SCHEMATIC_LAYOUT_IDS = [
   'geographic',
   'octilinear',
   'orthoradial',
 ] as const satisfies readonly SchematicLayoutId[];
 
-/**
- * Layouts that have not earned production quality yet (Story 4.3 gates). The
- * selector marks them so choosing one is an informed decision, and the default
- * never silently becomes one of them.
- */
-export const EXPERIMENTAL_SCHEMATIC_LAYOUTS: readonly SchematicLayoutId[] = [
-  'octilinear',
-  'orthoradial',
-];
+export const ORTHORADIAL_MAX_SOURCE_LINES = 32;
+
+export function publishedSchematicLayouts(
+  sourceLineCount: number,
+): readonly SchematicLayoutId[] {
+  return sourceLineCount <= ORTHORADIAL_MAX_SOURCE_LINES
+    ? PUBLISHED_SCHEMATIC_LAYOUT_IDS
+    : ['geographic', 'octilinear'];
+}
+
+export const SCHEMATIC_LAYOUT_IDS = PUBLISHED_SCHEMATIC_LAYOUT_IDS;
+
+export function isPublishedSchematicLayout(
+  layoutId: SchematicLayoutId,
+): layoutId is (typeof PUBLISHED_SCHEMATIC_LAYOUT_IDS)[number] {
+  return (
+    PUBLISHED_SCHEMATIC_LAYOUT_IDS as readonly SchematicLayoutId[]
+  ).includes(layoutId);
+}
 
 /**
  * Sidebar width model from EXPERIENCE.md: 272 preferred, 240 min, 320 max,
@@ -106,6 +116,19 @@ export interface ShellSessionState {
      * is subscribed to, so the camera it was last framed with survives.
      */
     layoutId: SchematicLayoutId;
+    /**
+     * Lines the geometry was last *laid out* for, or `null` for the whole
+     * network.
+     *
+     * @remarks
+     * Hiding a mode projects — every remaining line keeps its exact position,
+     * so two selections can be compared. Relaying out re-routes for a smaller
+     * network, which is a different and much more expensive answer, so it stays
+     * a thing the user asks for. Any change to the selection clears it: a line
+     * switched back on has no geometry in a layout that was computed without
+     * it, and silently drawing nothing would be worse than re-fitting.
+     */
+    relayoutLineIds: readonly string[] | null;
   };
   /**
    * Geographic map or the independent schematic surface (Epic 4). Ephemeral:
@@ -143,6 +166,8 @@ export type ShellSessionAction =
   | { type: 'schematic/showAllModes' }
   | { type: 'schematic/setWidth'; width: number }
   | { type: 'schematic/setLayout'; layoutId: SchematicLayoutId }
+  | { type: 'schematic/relayout'; lineIds: readonly string[] | null }
+  | { type: 'schematic/normalizeLayout'; orthoradialEligible: boolean }
   | { type: 'schematic/reset'; windowWidth: number }
   | { type: 'modal/open'; modal: NonNullable<ActiveModal>; invoker?: string }
   | { type: 'modal/close' }
@@ -178,6 +203,7 @@ function initialSchematic(windowWidth: number): ShellSessionState['schematic'] {
     hiddenModes: [],
     widthBeforeNarrow: null,
     layoutId: 'geographic',
+    relayoutLineIds: null,
   };
 }
 
@@ -338,13 +364,51 @@ export function shellSessionReducer(
       const next = hidden.includes(action.mode)
         ? hidden.filter((mode) => mode !== action.mode)
         : [...hidden, action.mode];
-      return { ...state, schematic: { ...state.schematic, hiddenModes: next } };
+      return {
+        ...state,
+        schematic: {
+          ...state.schematic,
+          hiddenModes: next,
+          relayoutLineIds: null,
+        },
+      };
     }
 
     case 'schematic/showAllModes':
-      return state.schematic.hiddenModes.length === 0
+      return state.schematic.hiddenModes.length === 0 &&
+        state.schematic.relayoutLineIds === null
         ? state
-        : { ...state, schematic: { ...state.schematic, hiddenModes: [] } };
+        : {
+            ...state,
+            schematic: {
+              ...state.schematic,
+              hiddenModes: [],
+              relayoutLineIds: null,
+            },
+          };
+
+    case 'schematic/relayout': {
+      const lineIds =
+        action.lineIds === null || action.lineIds.length === 0
+          ? null
+          : [...action.lineIds].sort();
+      const current = state.schematic.relayoutLineIds;
+      // Identity early-return, same reason as `setLayout`: asking for the
+      // layout already on screen must not make every memoised consumer redo it.
+      if (
+        current === lineIds ||
+        (current !== null &&
+          lineIds !== null &&
+          current.length === lineIds.length &&
+          current.every((id, index) => id === lineIds[index]))
+      ) {
+        return state;
+      }
+      return {
+        ...state,
+        schematic: { ...state.schematic, relayoutLineIds: lineIds },
+      };
+    }
 
     case 'schematic/setWidth':
       // Choosing a width explicitly also clears the pending restore, exactly
@@ -358,16 +422,36 @@ export function shellSessionReducer(
         },
       };
 
-    case 'schematic/setLayout':
+    case 'schematic/setLayout': {
       // Identity early-return: re-picking the layout already on screen must not
       // produce a new state object, or every consumer memoised on the session
       // would recompute for a diagram that did not change.
-      return state.schematic.layoutId === action.layoutId
+      const layoutId = isPublishedSchematicLayout(action.layoutId)
+        ? action.layoutId
+        : 'geographic';
+      return state.schematic.layoutId === layoutId
         ? state
         : {
             ...state,
-            schematic: { ...state.schematic, layoutId: action.layoutId },
+            // A geometry change re-routes everything anyway; carrying a stale
+            // relayout selection into it would silently drop the lines it was
+            // computed without.
+            schematic: { ...state.schematic, layoutId, relayoutLineIds: null },
           };
+    }
+
+    case 'schematic/normalizeLayout':
+      return !action.orthoradialEligible &&
+        state.schematic.layoutId === 'orthoradial'
+        ? {
+            ...state,
+            schematic: {
+              ...state.schematic,
+              layoutId: 'geographic',
+              relayoutLineIds: null,
+            },
+          }
+        : state;
 
     case 'schematic/reset':
       // A new city resets the whole schematic context, not just the filters:

@@ -267,17 +267,16 @@ describe('SchematicSidebarContent — layout selector (Story 4.3)', () => {
     );
   });
 
-  it('marks the layouts that have not been published yet', () => {
-    renderSelector();
-    for (const id of ['octilinear', 'orthoradial'] as const) {
-      expect(screen.getByTestId(`schematic-layout-${id}`)).toHaveTextContent(
-        'schematicSidebar.experimental',
-      );
-    }
-    // The default is not experimental, and says so by saying nothing.
-    expect(
-      screen.getByTestId('schematic-layout-geographic'),
-    ).not.toHaveTextContent('schematicSidebar.experimental');
+  it('hides Orthoradial when the source city is over the publication threshold', () => {
+    render(
+      <SchematicSidebarContent
+        model={modelOf(city())}
+        onToggleMode={() => {}}
+        onShowAllModes={() => {}}
+        layoutIds={['geographic', 'octilinear']}
+      />,
+    );
+    expect(screen.queryByTestId('schematic-layout-orthoradial')).toBeNull();
   });
 
   it('asks for the layout the user clicked', async () => {
@@ -351,6 +350,47 @@ describe('SchematicSidebarContent — layout selector (Story 4.3)', () => {
     // promise a change that cannot happen.
     expect(screen.queryByRole('radiogroup')).toBeNull();
     expect(screen.getByTestId('schematic-no-routes')).toBeInTheDocument();
+  });
+
+  it('offers a manual relayout only once the selection hides something', () => {
+    const onRelayout = vi.fn();
+    const { rerender } = render(
+      <SchematicSidebarContent
+        model={modelOf(city())}
+        onToggleMode={() => {}}
+        onShowAllModes={() => {}}
+        onRelayout={onRelayout}
+      />,
+    );
+    // Nothing is hidden: the whole network is already what is laid out, so
+    // there is no re-fitting to offer.
+    expect(screen.queryByTestId('schematic-relayout')).toBeNull();
+
+    rerender(
+      <SchematicSidebarContent
+        model={modelOf(city(), ['Tram'])}
+        onToggleMode={() => {}}
+        onShowAllModes={() => {}}
+        onRelayout={onRelayout}
+      />,
+    );
+    screen.getByTestId('schematic-relayout').click();
+    expect(onRelayout).toHaveBeenCalledWith(['L1']);
+  });
+
+  it('hands the whole network back once the geometry is relaid out', () => {
+    const onRelayout = vi.fn();
+    const base = modelOf(city(), ['Tram']);
+    render(
+      <SchematicSidebarContent
+        model={{ ...base, relayoutLineIds: ['L1'] }}
+        onToggleMode={() => {}}
+        onShowAllModes={() => {}}
+        onRelayout={onRelayout}
+      />,
+    );
+    screen.getByTestId('schematic-relayout').click();
+    expect(onRelayout).toHaveBeenCalledWith(null);
   });
 
   it('stays out of the way when no caller wires it', () => {

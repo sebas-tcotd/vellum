@@ -4,6 +4,7 @@ import {
   type SetStateAction,
   Suspense,
   useCallback,
+  useEffect,
   useRef,
   useState,
 } from 'react';
@@ -33,7 +34,11 @@ import { PreferencesPanel } from './panels/PreferencesPanel';
 import { DesktopShell } from './shell';
 import { MapAppearanceSidebar } from './sidebar/MapAppearanceSidebar';
 import type { CommandRegistry } from '../shell/commands';
-import type { SchematicLayoutId, ShellSession } from '../shell/shell-session';
+import {
+  publishedSchematicLayouts,
+  type SchematicLayoutId,
+  type ShellSession,
+} from '../shell/shell-session';
 import type { useExportWorkflow } from '../hooks/use-export-workflow';
 import {
   useSchematicNetwork,
@@ -123,6 +128,13 @@ export function AppSurface({
   // The one model the schematic surface and its sidebar both read, derived at
   // their common ancestor so a stroke and its legend row cannot disagree.
   const schematicLayoutId = shell.state.schematic.layoutId;
+  const schematicLayoutIds = publishedSchematicLayouts(
+    cityData?.transitLines.length ?? 0,
+  );
+  const orthoradialEligible = schematicLayoutIds.includes('orthoradial');
+  useEffect(() => {
+    shellDispatch({ type: 'schematic/normalizeLayout', orthoradialEligible });
+  }, [orthoradialEligible, shellDispatch]);
   const schematicModel = useSchematicNetwork({
     cityData,
     hiddenModes: shell.state.schematic.hiddenModes,
@@ -135,6 +147,7 @@ export function AppSurface({
     enabled: isSchematic,
     client: schematicLayoutClient,
     layoutId: schematicLayoutId,
+    relayoutLineIds: shell.state.schematic.relayoutLineIds,
   });
   const toggleSchematicMode = useCallback(
     (mode: TransitMode) =>
@@ -151,6 +164,13 @@ export function AppSurface({
   const setSchematicLayout = useCallback(
     (layoutId: SchematicLayoutId) =>
       shellDispatch({ type: 'schematic/setLayout', layoutId }),
+    [shellDispatch],
+  );
+  // Re-routing for a subset is the one schematic operation that is *not* a
+  // projection, so it is only ever done because the user asked for it.
+  const relayoutSchematic = useCallback(
+    (lineIds: readonly string[] | null) =>
+      shellDispatch({ type: 'schematic/relayout', lineIds }),
     [shellDispatch],
   );
 
@@ -201,7 +221,9 @@ export function AppSurface({
                 onOccupiedWidthChange={setSidebarWidth}
                 schematicModel={schematicModel}
                 schematicLayoutId={schematicLayoutId}
+                schematicLayoutIds={schematicLayoutIds}
                 onSetSchematicLayout={setSchematicLayout}
+                onRelayoutSchematic={relayoutSchematic}
                 onToggleSchematicMode={toggleSchematicMode}
                 onShowAllSchematicModes={showAllSchematicModes}
                 onHoverSchematicLine={setHoveredSchematicLineId}

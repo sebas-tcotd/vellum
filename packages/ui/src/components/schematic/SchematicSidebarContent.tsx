@@ -7,8 +7,7 @@ import type {
   SchematicNetworkModel,
 } from '../../hooks/use-schematic-network';
 import {
-  EXPERIMENTAL_SCHEMATIC_LAYOUTS,
-  SCHEMATIC_LAYOUT_IDS,
+  PUBLISHED_SCHEMATIC_LAYOUT_IDS,
   type SchematicLayoutId,
 } from '../../shell/shell-session';
 
@@ -24,6 +23,13 @@ export interface SchematicSidebarContentProps {
   layoutId?: SchematicLayoutId;
   /** Asks for a different geometry. Absent means the selector is not offered. */
   onSetLayout?: (layoutId: SchematicLayoutId) => void;
+  layoutIds?: readonly SchematicLayoutId[] | undefined;
+  /**
+   * Re-routes the geometry for the lines currently on screen, or hands `null`
+   * back to lay the whole network out again. Absent means the control is not
+   * offered.
+   */
+  onRelayout?: (lineIds: readonly string[] | null) => void;
 }
 
 /**
@@ -50,6 +56,8 @@ export function SchematicSidebarContent({
   onHoverLine = noop,
   layoutId = 'geographic',
   onSetLayout,
+  layoutIds = PUBLISHED_SCHEMATIC_LAYOUT_IDS,
+  onRelayout,
 }: SchematicSidebarContentProps) {
   const { t } = useTranslation();
   const {
@@ -60,8 +68,12 @@ export function SchematicSidebarContent({
     hasDrawableNetwork,
     hasVisibleStations,
     isFilteredEmpty,
+    relayoutLineIds,
   } = model;
   const canRestore = hiddenModes.size > 0;
+  const visibleLineIds = legend.flatMap((group) =>
+    group.lines.map((line) => line.lineId),
+  );
 
   return (
     <div className="schematic-panel" data-testid="schematic-sidebar">
@@ -89,9 +101,9 @@ export function SchematicSidebarContent({
       {onSetLayout !== undefined && hasDrawableNetwork && (
         <LayoutRadioGroup
           layoutId={layoutId}
+          layoutIds={layoutIds}
           onSetLayout={onSetLayout}
           label={t('schematicSidebar.layout')}
-          experimentalLabel={t('schematicSidebar.experimental')}
         />
       )}
 
@@ -128,6 +140,34 @@ export function SchematicSidebarContent({
               {t('schematicSidebar.showAllModes')}
             </button>
           )}
+          {/* Two operations, deliberately not one control. A mode switch
+              *projects*: every line that stays keeps the position it had, which
+              is what lets two selections be compared. This re-routes for the
+              smaller network, which moves everything — so it is asked for, not
+              implied, and any later switch hands the full layout back. */}
+          {onRelayout !== undefined &&
+            (relayoutLineIds !== null || canRestore) && (
+              <button
+                type="button"
+                className="schematic-panel__restore"
+                data-testid="schematic-relayout"
+                title={
+                  relayoutLineIds === null
+                    ? t('schematicSidebar.refitLayoutHint')
+                    : undefined
+                }
+                disabled={
+                  relayoutLineIds === null && visibleLineIds.length === 0
+                }
+                onClick={() =>
+                  onRelayout(relayoutLineIds === null ? visibleLineIds : null)
+                }
+              >
+                {relayoutLineIds === null
+                  ? t('schematicSidebar.refitLayout')
+                  : t('schematicSidebar.restoreLayout')}
+              </button>
+            )}
         </section>
       )}
 
@@ -218,12 +258,12 @@ function LayoutRadioGroup({
   layoutId,
   onSetLayout,
   label,
-  experimentalLabel,
+  layoutIds,
 }: {
   layoutId: SchematicLayoutId;
   onSetLayout: (layoutId: SchematicLayoutId) => void;
   label: string;
-  experimentalLabel: string;
+  layoutIds: readonly SchematicLayoutId[];
 }) {
   const { t } = useTranslation();
   const groupRef = useRef<HTMLDivElement>(null);
@@ -243,14 +283,14 @@ function LayoutRadioGroup({
   };
 
   const move = (delta: number): void => {
-    const count = SCHEMATIC_LAYOUT_IDS.length;
+    const count = layoutIds.length;
     // `indexOf` answers -1 for an id outside the list. Left alone, `-1 + delta`
     // wraps to an arbitrary option and the arrows would jump somewhere the user
     // cannot predict; clamping to the first option makes an unknown id behave
     // like "nothing chosen yet".
-    const found = SCHEMATIC_LAYOUT_IDS.indexOf(layoutId);
+    const found = layoutIds.indexOf(layoutId);
     const index = found >= 0 ? found : 0;
-    select(SCHEMATIC_LAYOUT_IDS[(index + delta + count) % count]);
+    select(layoutIds[(index + delta + count) % count]);
   };
 
   return (
@@ -267,9 +307,8 @@ function LayoutRadioGroup({
         aria-labelledby={headingId}
         className="schematic-panel__layouts"
       >
-        {SCHEMATIC_LAYOUT_IDS.map((id) => {
+        {layoutIds.map((id) => {
           const selected = id === layoutId;
-          const experimental = EXPERIMENTAL_SCHEMATIC_LAYOUTS.includes(id);
           return (
             <button
               key={id}
@@ -297,10 +336,10 @@ function LayoutRadioGroup({
                   // user who wants the published geometry back should not have
                   // to count arrow presses.
                   event.preventDefault();
-                  select(SCHEMATIC_LAYOUT_IDS[0]);
+                  select(layoutIds[0]);
                 } else if (event.key === 'End') {
                   event.preventDefault();
-                  select(SCHEMATIC_LAYOUT_IDS[SCHEMATIC_LAYOUT_IDS.length - 1]);
+                  select(layoutIds[layoutIds.length - 1]);
                 }
               }}
             >
@@ -311,11 +350,6 @@ function LayoutRadioGroup({
               <span className="schematic-panel__layout-label">
                 {t(`schematicLayouts.${id}`)}
               </span>
-              {experimental && (
-                <span className="schematic-panel__layout-tag">
-                  {experimentalLabel}
-                </span>
-              )}
             </button>
           );
         })}

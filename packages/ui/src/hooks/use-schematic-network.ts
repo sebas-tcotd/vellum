@@ -7,6 +7,7 @@ import {
   geographicSchematicLayout,
   isSchematicLayoutEmpty,
   type CityData,
+  type SchematicLabelSource,
   type SchematicLayout,
   type SchematicLayoutStrategy,
   type TransitMode,
@@ -97,6 +98,24 @@ export interface SchematicNetworkModel {
   readonly visibleLineCount: number;
   /** Whether any station symbol is on screen, so the key can be earned. */
   readonly hasVisibleStations: boolean;
+  /**
+   * The names a label pass may draw, for the lines and stops that are visible.
+   *
+   * @remarks
+   * Sources, not placements. Where a label *fits* depends on the camera — the
+   * same diagram has room for more names the further in it is zoomed — and the
+   * camera lives in the surface, not here. `placeSchematicLabels` is therefore
+   * called by the view with its own scale, over these.
+   */
+  readonly labelSources: {
+    readonly lines: readonly SchematicLabelSource[];
+    readonly stations: readonly SchematicLabelSource[];
+  };
+  /**
+   * Lines the *geometry* was laid out for, or `null` when it was laid out for
+   * the whole network and visibility is only a projection over it.
+   */
+  readonly relayoutLineIds: readonly string[] | null;
   readonly layoutProgress: {
     readonly phase: 'deriving' | 'laying-out';
     readonly completed: number;
@@ -130,6 +149,20 @@ export interface UseSchematicNetworkOptions {
   /** Optional desktop worker port. Omitted in isolated UI tests. */
   client?: SchematicLayoutClientPort | undefined;
   layoutId?: 'geographic' | 'octilinear' | 'orthoradial';
+  /**
+   * Lay the geometry out for these lines only, instead of for the whole
+   * network. `null` (the default) keeps the network's own layout and hides
+   * lines by projection.
+   *
+   * @remarks
+   * This is a different operation from hiding a mode, which is why it is a
+   * separate input and a manual one. Hiding projects: every line that stays
+   * keeps the exact position it had, so the reader can compare the two views.
+   * Relaying out *re-routes*: the grid, the slot order and the offsets are all
+   * recomputed for the smaller network, which is what makes a handful of metro
+   * lines read as their own diagram instead of as the gaps in a bus map.
+   */
+  relayoutLineIds?: readonly string[] | null;
 }
 
 interface SchematicBase {
@@ -141,6 +174,24 @@ interface SchematicBase {
     readonly name: string | null;
   }[];
   readonly availableModes: readonly TransitMode[];
+  readonly stationLabels: readonly SchematicLabelSource[];
+}
+
+function stationLabelsFromCity(
+  cityData: CityData,
+): readonly SchematicLabelSource[] {
+  const names = new Map<string, string>();
+  for (const line of cityData.transitLines) {
+    for (const stop of line.stops) {
+      const name = stop.name.trim();
+      if (name && !names.has(stop.id)) names.set(stop.id, name);
+    }
+  }
+  return Object.freeze(
+    [...names]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([id, name]) => ({ id, name })),
+  );
 }
 
 /**
@@ -184,6 +235,11 @@ export const EMPTY_SCHEMATIC_MODEL: SchematicNetworkModel = Object.freeze({
   legend: Object.freeze([]),
   visibleLineCount: 0,
   hasVisibleStations: false,
+  labelSources: Object.freeze({
+    lines: Object.freeze([]),
+    stations: Object.freeze([]),
+  }),
+  relayoutLineIds: null,
   layoutProgress: null,
   layoutError: false,
   layoutDiagnostic: null,
@@ -208,7 +264,28 @@ export function useSchematicNetwork({
   enabled = true,
   client,
   layoutId = 'geographic',
+  relayoutLineIds = null,
 }: UseSchematicNetworkOptions): SchematicNetworkModel {
+  // The identity of the relayout selection by *value*: the caller holds it in a
+  // reducer and may hand over a fresh array on every render.
+  const relayoutKey =
+    relayoutLineIds === null ? '' : [...relayoutLineIds].sort().join(',');
+  const layoutKey =
+    relayoutKey === '' ? layoutId : `${layoutId}@${relayoutKey}`;
+  // The network the layout is computed from: the whole city, or just the lines
+  // the user asked to lay out on their own. Filtering *here* — before the
+  // network is derived — is the one place it is allowed, because the result is
+  // a different layout rather than a projection of one.
+  const layoutCityData = useMemo(() => {
+    if (cityData === null || relayoutLineIds === null) return cityData;
+    const keep = new Set(relayoutLineIds);
+    return {
+      ...cityData,
+      transitLines: cityData.transitLines.filter((line) => keep.has(line.id)),
+    };
+    // `relayoutKey` is the value-identity of `relayoutLineIds`; depending on the
+    // array itself would rebuild the city — and re-run the worker — every render.
+  }, [cityData, relayoutKey, relayoutLineIds]);
   // Per document and strategy: the network, its base layout, and everything
   // that describes the *drawable* geometry regardless of what is selected.
   // The cache is a ref rather than a second memo because `enabled` is in the
@@ -222,7 +299,7 @@ export function useSchematicNetwork({
   // half — is a function of it alone.
   const cacheRef = useRef<{
     cityData: CityData;
-    byStrategy: Map<SchematicLayoutStrategy, SchematicBase>;
+    byStrategy: Map<SchematicLayoutStrategy, Map<string, SchematicBase>>;
   } | null>(null);
 
   const [workerBase, setWorkerBase] = useState<SchematicBase | null>(null);
@@ -243,16 +320,17 @@ export function useSchematicNetwork({
   const cachedWorkerBase =
     cityData === null
       ? undefined
-      : workerCache.current.get(cityData)?.get(layoutId);
+      : workerCache.current.get(cityData)?.get(layoutKey);
   useEffect(() => {
-    if (!client || !cityData || !enabled || cachedWorkerBase) return;
+    if (!client || !cityData || !layoutCityData || !enabled || cachedWorkerBase)
+      return;
     let current = true;
     setLayoutError(false);
     setLayoutDiagnostic(null);
     setLayoutProgress({ phase: 'deriving', completed: 0, total: 2 });
     let cancel: (() => void) | null = null;
     try {
-      cancel = client.request(cityData, layoutId, (event) => {
+      cancel = client.request(layoutCityData, layoutId, (event) => {
         if (!current) return;
         if (event.type === 'progress') {
           setLayoutProgress({
@@ -279,10 +357,11 @@ export function useSchematicNetwork({
           availableModes: TOGGLABLE_TRANSIT_MODES.filter((mode) =>
             lines.some((line) => line.mode === mode),
           ),
+          stationLabels: stationLabelsFromCity(cityData),
         };
         const byLayout =
           workerCache.current.get(cityData) ?? new Map<string, SchematicBase>();
-        byLayout.set(layoutId, base);
+        byLayout.set(layoutKey, base);
         workerCache.current.set(cityData, byLayout);
         setWorkerBase(base);
         setLayoutProgress(null);
@@ -299,7 +378,15 @@ export function useSchematicNetwork({
       cancel?.();
       if (cancelRef.current === cancel) cancelRef.current = null;
     };
-  }, [cityData, client, enabled, cachedWorkerBase, layoutId]);
+  }, [
+    cityData,
+    layoutCityData,
+    client,
+    enabled,
+    cachedWorkerBase,
+    layoutId,
+    layoutKey,
+  ]);
 
   const base = useMemo<SchematicBase | null>(() => {
     if (client) return cachedWorkerBase ?? workerBase;
@@ -309,10 +396,15 @@ export function useSchematicNetwork({
       cache = { cityData, byStrategy: new Map() };
       cacheRef.current = cache;
     }
-    const cached = cache.byStrategy.get(strategy);
+    let byKey = cache.byStrategy.get(strategy);
+    if (byKey === undefined) {
+      byKey = new Map<string, SchematicBase>();
+      cache.byStrategy.set(strategy, byKey);
+    }
+    const cached = byKey.get(relayoutKey);
     if (cached !== undefined) return cached;
-    if (!enabled) return null;
-    const network = deriveTransitNetwork(cityData);
+    if (!enabled || layoutCityData === null) return null;
+    const network = deriveTransitNetwork(layoutCityData);
     const layout = strategy(network);
 
     // Available lines are the intersection of "draws a stroke" and "has
@@ -356,10 +448,20 @@ export function useSchematicNetwork({
       availableModes: TOGGLABLE_TRANSIT_MODES.filter((mode) =>
         drawnModes.has(mode),
       ),
+      stationLabels: stationLabelsFromCity(cityData),
     };
-    cache.byStrategy.set(strategy, value);
+    byKey.set(relayoutKey, value);
     return value;
-  }, [cityData, strategy, enabled, client, workerBase, cachedWorkerBase]);
+  }, [
+    cityData,
+    layoutCityData,
+    relayoutKey,
+    strategy,
+    enabled,
+    client,
+    workerBase,
+    cachedWorkerBase,
+  ]);
 
   // The value-identity of `hiddenModes`: a fresh array with the same contents
   // must not count as a change and re-project a layout that did not move.
@@ -393,7 +495,6 @@ export function useSchematicNetwork({
         .map(({ lineId, name, color }) => ({ lineId, name, color }));
       return lines.length > 0 ? [{ mode, lines }] : [];
     });
-
     return {
       layout,
       hasDrawableNetwork: true,
@@ -403,6 +504,15 @@ export function useSchematicNetwork({
       legend,
       visibleLineCount: visibleLines.length,
       hasVisibleStations: layout.stations.length > 0,
+      labelSources: {
+        lines: visibleLines.map(({ lineId, name, mode }) => ({
+          id: lineId,
+          name,
+          mode,
+        })),
+        stations: base.stationLabels,
+      },
+      relayoutLineIds,
       layoutProgress,
       layoutError,
       layoutDiagnostic,
@@ -421,6 +531,7 @@ export function useSchematicNetwork({
   }, [
     base,
     hiddenKey,
+    relayoutLineIds,
     layoutProgress,
     layoutError,
     layoutDiagnostic,

@@ -250,20 +250,38 @@ describe('filterSchematicLayout', () => {
     expect(filterSchematicLayout(full, []).connectors).toEqual([]);
   });
 
-  it('keeps bounds and coordinates identical, recomputing nothing', () => {
+  it('keeps bounds and every surviving stroke identical', () => {
     const full = base();
     const filtered = filterSchematicLayout(full, ['L1']);
     expect(filtered.bounds).toEqual(full.bounds);
-    for (const station of filtered.stations) {
-      const original = full.stations.find((s) => s.id === station.id);
-      expect({ x: station.x, y: station.y }).toEqual({
-        x: original?.x,
-        y: original?.y,
-      });
-    }
     for (const segment of filtered.segments) {
-      expect(full.segments).toContain(segment);
+      const original = full.segments.find(
+        (s) => s.lineId === segment.lineId && s.edgeId === segment.edgeId,
+      );
+      expect(segment.points).toEqual(original?.points);
     }
+  });
+
+  it('shrinks a shared capsule onto the slots still being drawn', () => {
+    // The symbol is the one thing that moves, and it has to: a capsule spans
+    // the slots of the lines calling there, so hiding one of them makes the
+    // honest symbol the smaller capsule over what is left. Keeping the wide
+    // shape would have a stop claim a service the diagram no longer draws.
+    const full = base();
+    const shared = full.stations.find((s) => s.lineIds.length > 1);
+    expect(shared).toBeDefined();
+    const filtered = filterSchematicLayout(full, ['L1']);
+    const after = filtered.stations.find((s) => s.id === shared?.id);
+    expect(after?.lineIds).toEqual(['L1']);
+    const spanOf = (station: typeof shared): number => {
+      const xs = (station?.shape ?? []).map((p) => p.x);
+      const ys = (station?.shape ?? []).map((p) => p.y);
+      return Math.max(
+        Math.max(...xs) - Math.min(...xs),
+        Math.max(...ys) - Math.min(...ys),
+      );
+    };
+    expect(spanOf(after)).toBeLessThan(spanOf(shared));
   });
 
   it('drops the strokes and the exclusive stops of a hidden line', () => {

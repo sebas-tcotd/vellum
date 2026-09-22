@@ -1792,8 +1792,8 @@ describe('App — schematic sidebar (Story 4.2)', () => {
     );
 
     // Legend and diagram describe the same two lines, by name and by colour.
-    expect(screen.getByText('Red line')).toBeInTheDocument();
-    expect(screen.getByText('Blue line')).toBeInTheDocument();
+    expect(screen.getAllByText('Red line').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Blue line').length).toBeGreaterThan(0);
     expect(new Set(strokeLineIds())).toEqual(new Set(['L1', 'L2']));
   });
 
@@ -1806,7 +1806,7 @@ describe('App — schematic sidebar (Story 4.2)', () => {
     await user.click(screen.getByTestId('schematic-mode-Bus'));
 
     expect(screen.queryByText('Red line')).toBeNull();
-    expect(screen.getByText('Blue line')).toBeInTheDocument();
+    expect(screen.getAllByText('Blue line').length).toBeGreaterThan(0);
     expect(new Set(strokeLineIds())).toEqual(new Set(['L2']));
     // The geographic transit filter is a different thing and stays untouched.
     expect(useVellumStore.getState().layerOptions).toBe(beforeLayers);
