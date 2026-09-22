@@ -237,7 +237,8 @@
     "filteredTitle": "No lines shown",
     "filteredBody": "Every available transport mode is switched off, so the diagram has nothing to draw.",
     "showAllModes": "Show all modes",
-    "fit": "Fit diagram"
+    "fit": "Fit diagram",
+    "details": "Diagram details"
   },
   "schematicSidebar": {
     "title": "Schematic network",
@@ -253,7 +254,10 @@
     "key": "Key",
     "stop": "Stop",
     "filteredEmpty": "No mode is switched on, so no line is drawn.",
-    "noRoutes": "This city has no transit lines with a route, so there is nothing to filter."
+    "noRoutes": "This city has no transit lines with a route, so there is nothing to filter.",
+    "refitLayout": "Refit layout to visible lines",
+    "refitLayoutHint": "Re-routes the diagram for the lines on screen. Hiding a mode alone keeps every line where it is.",
+    "restoreLayout": "Lay out the whole network again"
   },
   "schematicLayouts": {
     "geographic": "Geographic trace",

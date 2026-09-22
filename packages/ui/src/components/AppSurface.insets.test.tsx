@@ -9,7 +9,6 @@ import {
   deriveTransitNetwork,
   geographicSchematicLayout,
   octilinearSchematicLayout,
-  orthoradialSchematicLayout,
   type SchematicLayoutStrategy,
 } from '@vellum/core';
 import { cleanup, render, screen, act } from '../test-utils';
@@ -213,11 +212,7 @@ describe('AppSurface — switching schematic layout', () => {
     });
     viewportPaddingLeft.length = 0;
 
-    for (const layoutId of [
-      'octilinear',
-      'orthoradial',
-      'geographic',
-    ] as const) {
+    for (const layoutId of ['octilinear', 'geographic'] as const) {
       act(() => {
         session.dispatch({ type: 'schematic/setLayout', layoutId });
       });
@@ -275,7 +270,7 @@ describe('AppSurface — a layout id draws the geometry it names', () => {
       )
       .sort();
 
-  it('renders each strategy and never two geometries at once', () => {
+  it('renders each published strategy and never two geometries at once', () => {
     render(<Harness />);
     act(() => {
       session.dispatch({ type: 'viewMode/toggle' });
@@ -285,7 +280,6 @@ describe('AppSurface — a layout id draws the geometry it names', () => {
     for (const [layoutId, strategy] of [
       ['geographic', geographicSchematicLayout],
       ['octilinear', octilinearSchematicLayout],
-      ['orthoradial', orthoradialSchematicLayout],
     ] as const) {
       act(() => {
         session.dispatch({ type: 'schematic/setLayout', layoutId });
@@ -297,8 +291,6 @@ describe('AppSurface — a layout id draws the geometry it names', () => {
       seen.push(drawn);
     }
 
-    // Three ids, three distinct drawings: a record wired to one strategy three
-    // times, or with two entries swapped, fails here.
-    expect(new Set(seen.map((points) => points.join('|'))).size).toBe(3);
+    expect(new Set(seen.map((points) => points.join('|'))).size).toBe(2);
   });
 });

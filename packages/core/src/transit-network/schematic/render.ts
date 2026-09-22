@@ -107,6 +107,23 @@ export interface SchematicRenderInput {
   readonly nodes: ReadonlyMap<string, NodeExtent>;
   /** Presentation-only multiplier; never changes corridor centerlines. */
   readonly presentationScale?: number;
+  /**
+   * Lines the diagram is currently drawing, or `undefined` for "all of them".
+   *
+   * @remarks
+   * Visibility belongs *here*, not in a post-filter over the output, and a
+   * station is why. A stop is placed on one corridor, and a transfer's corridor
+   * may belong to a line that is now hidden: filtering the finished arrays
+   * keeps that symbol (one of its lines is still visible) while deleting the
+   * stroke it was drawn on, which is the loose capsule floating in empty space.
+   * Filtering the *input* instead rebuilds the capsule over the slots of the
+   * lines that are actually drawn, and drops the symbol when none of them ride
+   * this corridor at all.
+   *
+   * Slots are read from the corridor untouched, so every surviving stroke keeps
+   * the coordinates it had: hiding a line never moves the lines that stay.
+   */
+  readonly visibleLineIds?: ReadonlySet<string>;
 }
 
 /** The drawable output of the rendering stage, unfrozen. */
@@ -355,6 +372,9 @@ export function renderSchematic(
   const scale = Number.isFinite(requested)
     ? Math.min(3, Math.max(0.35, requested))
     : 1;
+  const visible = input.visibleLineIds;
+  const isVisible = (lineId: string): boolean =>
+    visible === undefined || visible.has(lineId);
   const trimmedById = new Map<string, TrimmedCorridor>();
   for (const placed of input.corridors) {
     trimmedById.set(placed.edgeId, trimCorridor(placed, input.nodes, scale));
@@ -375,7 +395,7 @@ export function renderSchematic(
       byString,
     )) {
       const line = input.lines.get(lineId);
-      if (line === undefined) continue;
+      if (line === undefined || !isVisible(lineId)) continue;
       segments.push({
         lineId,
         color: line.color,
@@ -393,6 +413,7 @@ export function renderSchematic(
   // so a line touching three corridors at one node still connects correctly.
   const connectors: SchematicSegment[] = [];
   for (const transition of input.transitions) {
+    if (!isVisible(transition.lineId)) continue;
     const from = trimmedById.get(transition.fromEdge);
     const to = trimmedById.get(transition.toEdge);
     if (from === undefined || to === undefined) continue;
@@ -443,6 +464,9 @@ export function renderSchematic(
   for (const stop of input.stops) {
     const corridor = trimmedById.get(stop.edgeId);
     if (corridor === undefined) continue;
+    const lineIds =
+      visible === undefined ? stop.lineIds : stop.lineIds.filter(isVisible);
+    if (lineIds.length === 0) continue;
     const drawn = corridor.trimmed.map(toVec);
     const wanted = Math.min(
       corridor.total,
@@ -456,9 +480,12 @@ export function renderSchematic(
       corridor.trimmedLength > 0
         ? Math.min(1, Math.max(0, alongTrimmed / corridor.trimmedLength))
         : 0;
-    const offsets = stoppingOffsets(corridor.placed.slots, stop.lineIds);
-    // A stop whose lines ride no slot of this corridor has no slots to span. The
-    // symbol still belongs on the centerline rather than nowhere.
+    const offsets = stoppingOffsets(corridor.placed.slots, lineIds);
+    // Under a visibility projection an empty span means every line that could
+    // have carried this symbol is hidden: the stroke it sat on is not drawn, so
+    // neither is it. Without a projection the stop is real and the symbol still
+    // belongs on the centerline rather than nowhere.
+    if (offsets.length === 0 && visible !== undefined) continue;
     const spread = offsets.length > 0 ? offsets : [0];
     const minOffset = Math.min(...spread);
     const maxOffset = Math.max(...spread);
@@ -478,7 +505,7 @@ export function renderSchematic(
       SCHEMATIC_STATION_HALF_THICKNESS * scale,
     );
     const modes = new Set(
-      stop.lineIds
+      lineIds
         .map((lineId) => input.lines.get(lineId)?.mode)
         .filter((mode) => mode !== undefined),
     );
@@ -487,7 +514,7 @@ export function renderSchematic(
       x: centre[0],
       y: centre[1],
       edgeId: stop.edgeId,
-      lineIds: stop.lineIds,
+      lineIds,
       shape: roundedRectRing(
         centre,
         along,

@@ -508,6 +508,56 @@
   transition: opacity 120ms ease;
 }
 
+/* No `fill`, `font-size` or `stroke-width` here on purpose. All three are set
+   as attributes by `SchematicView`, scaled by the camera, and a class rule beats
+   a presentation attribute: with them in the stylesheet the type stayed a fixed
+   number of *viewBox* units, so a label grew to fill the screen as the diagram
+   was zoomed into, and a line could not be named in its own colour.
+   `currentColor` is what the station labels fall back to. */
+.schematic-view__label {
+  color: var(--color-text);
+  font-weight: 600;
+  paint-order: stroke;
+  stroke: var(--color-bg);
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+
+/* A line label is centred on its run: the anchor is the optical middle of the
+   stroke it names, in both axes, so the placement pass does not have to guess a
+   baseline offset inside a rotated frame. */
+.schematic-view__label--line {
+  dominant-baseline: central;
+}
+
+.schematic-view__detail {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  max-width: 20rem;
+  padding: 8px 10px;
+  color: var(--color-text);
+  background: var(--color-bg);
+  border: 1px solid var(--shell-border);
+  border-radius: var(--shell-radius-interactive);
+}
+
+.schematic-view__detail button {
+  color: inherit;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+.schematic-view__stations polygon:focus-visible {
+  outline: none;
+  stroke: var(--shell-focus);
+  stroke-width: 3px;
+}
+
 .schematic-view__dimmed {
   opacity: 0.18;
 }

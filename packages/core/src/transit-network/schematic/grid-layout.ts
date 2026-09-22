@@ -663,42 +663,69 @@ export function rematerializeSchematicLayout(
 ): SchematicLayout {
   const input = layout.presentationInput ?? renderInputs.get(layout);
   if (input === undefined || presentationScale === 1) return layout;
-  const drawn = renderSchematic({ ...input, presentationScale });
-  const visibleLines = isFilteredSchematicLayout(layout)
+  const visibleLineIds = visibilityOf(layout);
+  return redrawFrom(layout, input, { presentationScale, visibleLineIds });
+}
+
+/**
+ * The visible-line set of a layout that is a visibility projection, or
+ * `undefined` for a base layout that draws everything.
+ */
+function visibilityOf(
+  layout: SchematicLayout,
+): ReadonlySet<string> | undefined {
+  return isFilteredSchematicLayout(layout)
     ? new Set(layout.segments.map((segment) => segment.lineId))
-    : null;
-  const rematerialized = Object.freeze({
+    : undefined;
+}
+
+/**
+ * Redraws a layout from the render input it was produced with, keeping its
+ * bounds and its routed corridors. The single seam both the camera's
+ * presentation scale and the visibility projection go through, so a station
+ * capsule is rebuilt by the code that built it rather than filtered afterwards.
+ */
+function redrawFrom(
+  layout: SchematicLayout,
+  input: SchematicRenderInput,
+  options: {
+    presentationScale?: number;
+    visibleLineIds?: ReadonlySet<string> | undefined;
+  },
+): SchematicLayout {
+  const drawn = renderSchematic({
+    ...input,
+    ...(options.presentationScale === undefined
+      ? {}
+      : { presentationScale: options.presentationScale }),
+    ...(options.visibleLineIds === undefined
+      ? {}
+      : { visibleLineIds: options.visibleLineIds }),
+  });
+  const redrawn = Object.freeze({
     bounds: layout.bounds,
     corridors: layout.corridors,
-    segments: Object.freeze(
-      drawn.segments
-        .filter(
-          (segment) =>
-            visibleLines === null || visibleLines.has(segment.lineId),
-        )
-        .map(freezeSegment),
-    ),
-    connectors: Object.freeze(
-      drawn.connectors
-        .filter(
-          (segment) =>
-            visibleLines === null || visibleLines.has(segment.lineId),
-        )
-        .map(freezeSegment),
-    ),
-    stations: Object.freeze(
-      drawn.stations
-        .filter(
-          (station) =>
-            visibleLines === null ||
-            station.lineIds.some((lineId) => visibleLines.has(lineId)),
-        )
-        .map(freezeStation),
-    ),
+    segments: Object.freeze(drawn.segments.map(freezeSegment)),
+    connectors: Object.freeze(drawn.connectors.map(freezeSegment)),
+    stations: Object.freeze(drawn.stations.map(freezeStation)),
     presentationInput: input,
   });
-  renderInputs.set(rematerialized, input);
-  return rematerialized;
+  renderInputs.set(redrawn, input);
+  return redrawn;
+}
+
+/**
+ * Redraws `layout` with only `visibleLineIds` drawn, or `null` when the layout
+ * carries no render provenance (a hand-built one) and the caller has to fall
+ * back to filtering the arrays.
+ */
+export function projectSchematicVisibility(
+  layout: SchematicLayout,
+  visibleLineIds: ReadonlySet<string>,
+): SchematicLayout | null {
+  const input = layout.presentationInput ?? renderInputs.get(layout);
+  if (input === undefined) return null;
+  return redrawFrom(layout, input, { visibleLineIds });
 }
 
 /** @internal Carries render provenance through a visibility-only projection. */

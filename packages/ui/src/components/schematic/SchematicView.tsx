@@ -1,10 +1,11 @@
 import {
+  placeSchematicLabels,
   rematerializeSchematicLayout,
   SCHEMATIC_LINE_WIDTH,
   type SchematicPoint,
 } from '@vellum/core';
 import { Maximize } from 'lucide-react';
-import { forwardRef, useMemo } from 'react';
+import { forwardRef, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { SchematicNetworkModel } from '../../hooks/use-schematic-network';
 import { useSchematicCamera } from './use-schematic-camera';
@@ -40,8 +41,10 @@ export interface SchematicViewProps {
  * to the store, the camera, the theme or the layers, has no camera of its own,
  * and draws on a solid background with no geographic layers.
  *
- * Station *labels* are deliberately absent: placing them is the layout
- * strategy's job (Story 4.4), not this surface's.
+ * Labels are *placed* here rather than in the model, and that is deliberate:
+ * how many names fit is a function of the camera, so the same diagram carries
+ * more of them the further in it is zoomed. The model supplies the names, this
+ * surface supplies the scale, and `placeSchematicLabels` decides.
  *
  * The geometry is the layout's, down to the stroke width. `strokeWidth` is set
  * here from {@link SCHEMATIC_LINE_WIDTH} rather than in CSS because the layout's
@@ -70,6 +73,35 @@ export const SchematicView = forwardRef<HTMLElement, SchematicViewProps>(
       () => rematerializeSchematicLayout(layout, camera.visualScale),
       [layout, camera.visualScale],
     );
+    // Placed here, not in the model: how many names fit is a function of the
+    // camera, and the camera lives on this surface. Both inputs are quantised —
+    // the layout changes only when the selection does, `visualScale` only in
+    // eighths — so panning never moves a label and a zoom step is one pass.
+    const labels = useMemo(
+      () =>
+        placeSchematicLabels(
+          renderedLayout,
+          model.labelSources.lines,
+          model.labelSources.stations,
+          { scale: camera.visualScale },
+        ),
+      [renderedLayout, model.labelSources, camera.visualScale],
+    );
+    const stationNameById = useMemo(
+      () =>
+        new Map(
+          model.labelSources.stations.flatMap((station) =>
+            station.name === null ? [] : [[station.id, station.name] as const],
+          ),
+        ),
+      [model.labelSources],
+    );
+    const [selectedStationId, setSelectedStationId] = useState<string | null>(
+      null,
+    );
+    const selectedStationName = selectedStationId
+      ? (stationNameById.get(selectedStationId) ?? null)
+      : null;
 
     return (
       <section
@@ -128,12 +160,33 @@ export const SchematicView = forwardRef<HTMLElement, SchematicViewProps>(
                 stations: renderedLayout.stations.length,
               })}
             </p>
+            <ul className="sr-only" aria-label={t('schematic.details')}>
+              {labels.map((label) => (
+                <li key={label.id}>{label.accessibleName}</li>
+              ))}
+            </ul>
+            {selectedStationName && (
+              <aside
+                className="schematic-view__detail"
+                aria-live="polite"
+                data-testid="schematic-station-detail"
+              >
+                <strong>{selectedStationName}</strong>
+                <button
+                  type="button"
+                  onClick={() => setSelectedStationId(null)}
+                  aria-label={t('common.close')}
+                >
+                  ×
+                </button>
+              </aside>
+            )}
             <svg
               className="schematic-view__diagram"
               data-testid="schematic-diagram"
               viewBox={`${camera.viewBox.x} ${camera.viewBox.y} ${camera.viewBox.width} ${camera.viewBox.height}`}
               preserveAspectRatio="xMidYMid meet"
-              aria-hidden="true"
+              aria-label={t('schematic.region')}
               onWheel={camera.onWheel}
               onPointerDown={camera.onPointerDown}
               onPointerMove={camera.onPointerMove}
@@ -188,8 +241,43 @@ export const SchematicView = forwardRef<HTMLElement, SchematicViewProps>(
                         ? 'schematic-view__dimmed'
                         : undefined
                     }
-                  />
+                    tabIndex={stationNameById.has(station.id) ? 0 : undefined}
+                    aria-label={stationNameById.get(station.id)}
+                    onFocus={() => setSelectedStationId(station.id)}
+                    onClick={() => setSelectedStationId(station.id)}
+                  >
+                    {stationNameById.has(station.id) && (
+                      <title>{stationNameById.get(station.id)}</title>
+                    )}
+                  </polygon>
                 ))}
+              </g>
+              <g className="schematic-view__labels" aria-hidden="true">
+                {labels
+                  .filter((label) => label.text !== null)
+                  .map((label) => {
+                    // Both in viewBox units, both from the same scale the
+                    // placement used, and both as *attributes*: a `font-size`
+                    // in the stylesheet would be a constant number of viewBox
+                    // units, which is what made a label grow to fill the screen
+                    // as the camera zoomed in.
+                    const size = label.fontSize * camera.visualScale;
+                    return (
+                      <text
+                        key={label.id}
+                        x={label.x}
+                        y={label.y}
+                        textAnchor={label.anchor}
+                        transform={`rotate(${label.angle} ${label.x} ${label.y})`}
+                        fontSize={size}
+                        strokeWidth={size * 0.3}
+                        fill={label.color ?? 'currentColor'}
+                        className={`schematic-view__label schematic-view__label--${label.kind}`}
+                      >
+                        {label.text}
+                      </text>
+                    );
+                  })}
               </g>
             </svg>
             <button

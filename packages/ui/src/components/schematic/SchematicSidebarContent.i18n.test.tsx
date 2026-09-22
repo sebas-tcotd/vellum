@@ -123,7 +123,7 @@ describe('SchematicSidebarContent — selector de layout (i18n real)', () => {
     );
   }
 
-  it('nombra cada geometría y su marca en los dos idiomas', async () => {
+  it('nombra cada geometría publicada en los dos idiomas', async () => {
     renderSelector();
     expect(
       screen.getByRole('radiogroup', { name: 'Diagram geometry' }),
@@ -134,10 +134,9 @@ describe('SchematicSidebarContent — selector de layout (i18n real)', () => {
     expect(screen.getByTestId('schematic-layout-octilinear')).toHaveTextContent(
       'Octilinear',
     );
-    // La marca es texto, no sólo color: se traduce como cualquier otra palabra.
     expect(
       screen.getByTestId('schematic-layout-orthoradial'),
-    ).toHaveTextContent('experimental');
+    ).toHaveTextContent('Orthoradial');
 
     cleanup();
     await i18n.changeLanguage('es');

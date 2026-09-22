@@ -27,6 +27,22 @@ describe('initialShellSession', () => {
   });
 });
 
+describe('published schematic layouts', () => {
+  it('normalizes Orthoradial when the source city becomes ineligible', () => {
+    const selected = shellSessionReducer(base(), {
+      type: 'schematic/setLayout',
+      layoutId: 'orthoradial',
+    });
+    expect(selected.schematic.layoutId).toBe('orthoradial');
+    expect(
+      shellSessionReducer(selected, {
+        type: 'schematic/normalizeLayout',
+        orthoradialEligible: false,
+      }).schematic.layoutId,
+    ).toBe('geographic');
+  });
+});
+
 describe('sidebar context', () => {
   it('keeps exactly one layer detail open', () => {
     let state = shellSessionReducer(base(), {
@@ -466,6 +482,41 @@ describe('schematic layout (Story 4.3)', () => {
         layoutId: 'orthoradial',
       }),
     ).toBe(state);
+  });
+
+  it('remembers the lines a manual relayout was asked for, sorted', () => {
+    const state = shellSessionReducer(base(), {
+      type: 'schematic/relayout',
+      lineIds: ['L2', 'L1'],
+    });
+    expect(state.schematic.relayoutLineIds).toEqual(['L1', 'L2']);
+    // Asking for the layout already on screen must not make every consumer
+    // memoised on the session redo it.
+    expect(
+      shellSessionReducer(state, {
+        type: 'schematic/relayout',
+        lineIds: ['L1', 'L2'],
+      }),
+    ).toBe(state);
+  });
+
+  it('hands the full layout back whenever the selection moves under it', () => {
+    // A line switched back on has no geometry in a layout that was computed
+    // without it. Drawing nothing for it would be a silent lie, so any change
+    // to the selection — or to the geometry — returns to the full network.
+    const relaid = shellSessionReducer(base(), {
+      type: 'schematic/relayout',
+      lineIds: ['L1'],
+    });
+    for (const action of [
+      { type: 'schematic/toggleMode', mode: 'Bus' },
+      { type: 'schematic/showAllModes' },
+      { type: 'schematic/setLayout', layoutId: 'octilinear' },
+    ] as const) {
+      expect(
+        shellSessionReducer(relaid, action).schematic.relayoutLineIds,
+      ).toBeNull();
+    }
   });
 
   it('goes back to geographic when a new city resets the session', () => {

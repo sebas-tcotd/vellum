@@ -42,7 +42,7 @@ export const ORTHORADIAL_GRID = {
   baseSpokes: 8,
   minRings: 5,
   /** Hard presentation limit; the grid grows before it refuses a dense network. */
-  maxRings: 32,
+  maxRings: 64,
   /** Free radius kept beyond the furthest seed, as a fraction of it. */
   padding: 0.18,
 } as const;
@@ -53,11 +53,31 @@ function capacityAt(rings: number): number {
   return capacity;
 }
 
+/**
+ * Rings for `seedCount` nodes: the **same linear resolution** the octilinear
+ * grid uses, not the smallest grid that fits the nodes.
+ *
+ * @remarks
+ * Sizing the grid to `capacity ≥ seedCount` is the bug this replaces, and it is
+ * worth naming because the symptom pointed somewhere else. A* routes around
+ * cells that are already taken, and every *other* node's cell is blocked for the
+ * whole search (`gridSchematicLayout`), so a grid with one cell per node has
+ * almost no free cell to route through: on Pepper Lake, 119 of 156 corridors
+ * fell back to `lineTo`, which ignores occupancy entirely, and the diagram came
+ * out as overlapping spaghetti that read as an *offset* fault.
+ *
+ * `./octilinear` puts `4·√n + 8` cells across the network's whole span. A ring
+ * index measures a **radius** — half a span — so half as many rings cover the
+ * same ground at the same cell size, which is what keeps the two grammars
+ * comparable instead of one being quietly ten times coarser.
+ */
 function ringsFor(seedCount: number): number {
-  let rings = ORTHORADIAL_GRID.minRings;
+  const wanted = 2 * Math.ceil(Math.sqrt(Math.max(1, seedCount))) + 5;
+  let rings = Math.max(ORTHORADIAL_GRID.minRings, wanted);
   while (rings < ORTHORADIAL_GRID.maxRings && capacityAt(rings) < seedCount) {
     rings++;
   }
+  rings = Math.min(rings, ORTHORADIAL_GRID.maxRings);
   if (capacityAt(rings) < seedCount) {
     throw new Error(
       `SCHEMATIC_GRID_EXHAUSTED: ${capacityAt(rings)} cells cannot hold ${seedCount} nodes`,

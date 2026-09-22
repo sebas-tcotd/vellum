@@ -114,15 +114,19 @@ describe('orthoradialSchematicLayout', () => {
 });
 
 describe('pseudo-orthoradial ring density (SSTD §5.2)', () => {
-  it('scales beyond the former 681-cell grid capacity within its hard limit', () => {
+  it('keeps routing headroom above the node count, inside the hard limit', () => {
+    // Not a capacity check: a grid that merely *fits* the nodes is the defect
+    // `ringsFor` documents. Every other node's cell is blocked for the whole of
+    // A*'s search, so one cell per node leaves nothing to route through and the
+    // corridors fall back to the occupancy-blind walk.
     const grid = createOrthoradialGrid(
       Array.from({ length: 682 }, (_, index) => ({
         x: Math.cos(index) * 100,
         y: Math.sin(index) * 100,
       })),
     );
-    expect(grid.cellCount).toBeGreaterThanOrEqual(682);
-    expect(grid.cellCount).toBeLessThanOrEqual(4096);
+    expect(grid.cellCount).toBeGreaterThanOrEqual(4 * 682);
+    expect(grid.cellCount).toBeLessThanOrEqual(11000);
   });
 
   it('doubles the spokes whenever the radius doubles', () => {

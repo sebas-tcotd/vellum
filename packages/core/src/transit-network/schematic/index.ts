@@ -37,7 +37,10 @@ export {
 
 import type { TransitNetwork } from '../../types/transit-network';
 import { markFilteredLayout, type SchematicLayout } from './contract';
-import { inheritSchematicRenderInput } from './grid-layout';
+import {
+  inheritSchematicRenderInput,
+  projectSchematicVisibility,
+} from './grid-layout';
 
 /** A pure, deterministic layout strategy. */
 export type SchematicLayoutStrategy = (
@@ -93,25 +96,41 @@ export {
   type SchematicLayoutMetrics,
 } from './metrics';
 
+export {
+  deriveSchematicLineLabel,
+  placeSchematicLabels,
+  resolveLabelVariant,
+  type SchematicLabel,
+  type SchematicLabelSource,
+  type SchematicLabelVariant,
+} from './labels';
+
 /** Whether a layout has nothing to draw (no segments). */
 export function isSchematicLayoutEmpty(layout: SchematicLayout): boolean {
   return layout.segments.length === 0;
 }
 
 /**
- * Projects a layout onto a set of visible lines: a pure filter that keeps
- * `bounds` and every surviving coordinate byte-identical.
+ * Projects a layout onto a set of visible lines: `bounds`, the routed
+ * corridors and every surviving **stroke** stay byte-identical.
  *
  * @remarks
  * Visibility is applied *after* the layout, never before it. Filtering the
- * network first would change the bounds and move every remaining station,
- * which is exactly what a filter must not do — the reader has to be able to
- * read the same map with fewer lines on it. A station survives while at least
- * one of its {@link SchematicStation.lineIds} is visible, so a shared
- * interchange stays put when only one of its lines is hidden.
+ * network first would change the bounds and move every remaining line, which is
+ * exactly what a filter must not do — the reader has to be able to read the
+ * same map with fewer lines on it.
  *
- * Ids the layout does not draw are ignored; the result is frozen and shares
- * the input's frozen segment/station objects, so it is safe to memoise.
+ * A station symbol is the one thing that does move, and it has to. A stop is
+ * drawn as a capsule spanning the slots of the lines that call there, centred
+ * on their middle; hide some of them and the honest symbol is the smaller
+ * capsule over the slots that are left. Keeping the original shape would make a
+ * stop claim services the diagram is no longer drawing, and keeping a stop
+ * whose *host corridor* is now hidden leaves a capsule floating over nothing —
+ * both of which this projection now fixes by redrawing from the strategy's own
+ * render input rather than filtering the finished arrays.
+ *
+ * Ids the layout does not draw are ignored, and the result is frozen, so it is
+ * safe to memoise.
  *
  * @param layout - The base layout a strategy produced.
  * @param visibleLineIds - Ids to keep. Anything else is dropped.
@@ -139,6 +158,16 @@ export function filterSchematicLayout(
   ) {
     return layout;
   }
+
+  // Preferred path: redraw from the render input the strategy produced, with
+  // the visible set applied to the *stops* as well as to the strokes. A station
+  // is placed on one corridor, so a transfer whose corridor belongs to a hidden
+  // line survives the array filter above — one of its lines is still visible —
+  // while the stroke it was drawn on disappears, and the symbol is left
+  // floating in empty space. Redrawing rebuilds the capsule over the slots that
+  // are actually drawn and drops it when none of them are.
+  const redrawn = projectSchematicVisibility(layout, visible);
+  if (redrawn !== null) return markFilteredLayout(redrawn);
 
   // `corridors` is carried through untouched, and so are the slot offsets of a
   // surviving stroke. Re-slotting a filtered corridor would move every line that
