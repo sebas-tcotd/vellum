@@ -2,6 +2,23 @@
 
 All notable changes to Vellum will be documented here.
 
+## [0.10.0](https://github.com/sebas-tcotd/vellum/compare/v0.9.0...v0.10.0) (2026-09-22)
+
+
+### Features
+
+* **core,ui,desktop:** abrir una vista esquemática separada del mapa geográfico ([fc937eb](https://github.com/sebas-tcotd/vellum/commit/fc937ebd03f4586ab6f399186949ddf5370cd124))
+* **core,ui,desktop:** abrir una vista esquemática separada del mapa geográfico ([2247244](https://github.com/sebas-tcotd/vellum/commit/2247244b3952e76e9a1f271dc16ffac812137568))
+* **core,ui:** comparar layouts esquemáticos octilinear y orthoradial ([0c53f55](https://github.com/sebas-tcotd/vellum/commit/0c53f5580b196bad8ea55bba7e408d4e0bda9775))
+* **core,ui:** dibujar el esquemático con las reglas de LOOM ([a72a765](https://github.com/sebas-tcotd/vellum/commit/a72a765d305b20dadf4f7f48aeb0f469415e854f))
+* **core,ui:** leer y controlar la red esquemática ([bfe2760](https://github.com/sebas-tcotd/vellum/commit/bfe27606a258c1c85c859ec0f622d22987527166))
+* **core,ui:** leer y controlar la red esquemática (Story 4.2) ([ad0b82b](https://github.com/sebas-tcotd/vellum/commit/ad0b82b25b566a17b82ea79c3a9d6b021e2f4cc0))
+* **core,ui:** resaltar la línea señalada y ordenar el sidebar esquemático ([75f8664](https://github.com/sebas-tcotd/vellum/commit/75f8664641f65feeec98debbd61936254a6d7610))
+* **schematic:** add svg camera and worker layouts ([3eda9dc](https://github.com/sebas-tcotd/vellum/commit/3eda9dcf0a82cd409e7b2c9ea741b70dbc91fef6))
+* **schematic:** etiquetas LOOM, rejilla ortorradial y relayout manual ([19c27d1](https://github.com/sebas-tcotd/vellum/commit/19c27d134f36b50e35275849df66295c29f58973))
+* **schematic:** etiquetas LOOM, rejilla ortorradial y relayout manual ([dba2f60](https://github.com/sebas-tcotd/vellum/commit/dba2f602a9a5d32230931934add4a2f35e50e94a))
+* **schematic:** refine semantic zoom and station grouping ([942e1d7](https://github.com/sebas-tcotd/vellum/commit/942e1d75390aa29ddb37a557154f10d8f5710712))
+
 ## [0.9.0](https://github.com/sebas-tcotd/vellum/compare/v0.8.0...v0.9.0) (2026-09-19)
 
 
