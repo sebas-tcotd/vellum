@@ -13,5 +13,9 @@ geo = "0.33"
 serde_json = "1"
 image = { version = "0.24", default-features = false, features = ["png"] }
 base64 = "0.22"
+# `.vellummap` container. Only the deflate codec, through flate2's pure-Rust backend
+# (miniz_oxide) — the same one `image`/`png` already compile — so no new crates.
+zip = { version = "4.6.1", default-features = false, features = ["deflate-flate2"] }
+sha2 = "0.10.9"
 
 [dev-dependencies]

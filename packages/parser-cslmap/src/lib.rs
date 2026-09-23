@@ -7,3 +7,4 @@ pub mod dlc_fallback;
 pub mod errors;
 pub mod parser;
 pub mod types;
+pub mod vellummap;

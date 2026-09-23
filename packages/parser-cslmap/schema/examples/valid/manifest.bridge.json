@@ -1,0 +1,137 @@
+{
+  "format": "vellummap",
+  "exportSchemaVersion": "1.0",
+  "snapshotId": "0f8fad5b-d9cb-469f-a165-70867728950e",
+  "parentSnapshotId": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+  "exportedAtUtc": "2026-09-23T14:05:00Z",
+  "gameTime": "2031-05-17T08:00:00",
+  "game": {
+    "version": "1.21.1-f9",
+    "instanceId": "3f2504e0-4f89-11d3-9a0c-0305e82c3301"
+  },
+  "producer": {
+    "name": "Vellum Bridge",
+    "version": "0.5.0"
+  },
+  "city": {
+    "name": "Sample City"
+  },
+  "modules": [
+    {
+      "id": "terrain",
+      "path": "terrain.bin",
+      "version": "1.0",
+      "codec": "deflate",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "grid": {
+        "resolution": 1081,
+        "cellSize": 16,
+        "sample": "u16le",
+        "scale": 0.015625
+      }
+    },
+    {
+      "id": "water",
+      "path": "water.json",
+      "version": "1.0",
+      "codec": "deflate",
+      "sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+    },
+    {
+      "id": "water-mask",
+      "path": "water-mask.bin",
+      "version": "1.0",
+      "codec": "deflate",
+      "sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "grid": {
+        "resolution": 1081,
+        "cellSize": 16,
+        "sample": "u8"
+      }
+    },
+    {
+      "id": "water-depth",
+      "path": "water-depth.bin",
+      "version": "1.0",
+      "codec": "deflate",
+      "sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+      "grid": {
+        "resolution": 1081,
+        "cellSize": 16,
+        "sample": "u16le",
+        "scale": 0.015625
+      }
+    },
+    {
+      "id": "vegetation",
+      "path": "vegetation.bin",
+      "version": "1.0",
+      "codec": "deflate",
+      "sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+      "grid": {
+        "resolution": 512,
+        "cellSize": 33.75,
+        "sample": "u8"
+      }
+    },
+    {
+      "id": "roads",
+      "path": "roads.json",
+      "version": "1.0",
+      "codec": "deflate",
+      "sha256": "5555555555555555555555555555555555555555555555555555555555555555"
+    },
+    {
+      "id": "transit",
+      "path": "transit.json",
+      "version": "1.0",
+      "codec": "deflate",
+      "sha256": "6666666666666666666666666666666666666666666666666666666666666666"
+    },
+    {
+      "id": "buildings",
+      "path": "buildings.json",
+      "version": "1.0",
+      "codec": "deflate",
+      "sha256": "7777777777777777777777777777777777777777777777777777777777777777"
+    },
+    {
+      "id": "districts",
+      "path": "districts.json",
+      "version": "1.0",
+      "codec": "deflate",
+      "sha256": "8888888888888888888888888888888888888888888888888888888888888888"
+    },
+    {
+      "id": "parks",
+      "path": "parks.json",
+      "version": "1.0",
+      "codec": "deflate",
+      "sha256": "9999999999999999999999999999999999999999999999999999999999999999"
+    },
+    {
+      "id": "district-grid",
+      "path": "districts.bin",
+      "version": "1.0",
+      "codec": "deflate",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "grid": {
+        "resolution": 900,
+        "cellSize": 19.2,
+        "sample": "u8x8"
+      }
+    },
+    {
+      "id": "park-grid",
+      "path": "parks.bin",
+      "version": "1.0",
+      "codec": "deflate",
+      "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "grid": {
+        "resolution": 900,
+        "cellSize": 19.2,
+        "sample": "u8x8"
+      }
+    }
+  ]
+}

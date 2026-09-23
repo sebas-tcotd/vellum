@@ -1,7 +1,7 @@
-mod builder;
+pub(crate) mod builder;
 mod events;
-mod handlers;
-mod terrain;
+pub(crate) mod handlers;
+pub(crate) mod terrain;
 mod types;
 mod utils;
 
@@ -10,7 +10,7 @@ mod tests;
 
 use crate::city_data::CityData;
 use crate::errors::VellumError;
-use builder::CityDataBuilder;
+use builder::{build_city_data, CityDataBuilder, RawCity};
 use events::{ParseWarningsPayload, ProgressPayload};
 use quick_xml::events::Event;
 use quick_xml::Reader;
@@ -68,6 +68,15 @@ pub fn parse_cslmap_bytes(content: &[u8]) -> Result<CityData, VellumError> {
 /// unsupported root `version` — the root gate ignores lenient mode.
 pub fn parse_cslmap_bytes_lenient(content: &[u8]) -> Result<CityData, VellumError> {
     run_parse_loop(strip_bom(content), true, &mut NoopObserver)
+}
+
+/// Strict parse of a `.cslmap` up to `RawCity`, before any derivation. Used by the
+/// `.cslmap` → `.vellummap` reference converter.
+///
+/// # Errors
+/// Same as `parse_cslmap_bytes`.
+pub(crate) fn parse_cslmap_raw(content: &[u8]) -> Result<RawCity, VellumError> {
+    run_raw_parse_loop(strip_bom(content), false, &mut NoopObserver)
 }
 
 // ─── BOM stripping ────────────────────────────────────────────────────────────
@@ -210,6 +219,16 @@ fn run_parse_loop<O: ParseObserver>(
     allow_partial: bool,
     observer: &mut O,
 ) -> Result<CityData, VellumError> {
+    let raw = run_raw_parse_loop(content, allow_partial, observer)?;
+    observer.on_warnings(&raw.warnings());
+    build_city_data(raw)
+}
+
+fn run_raw_parse_loop<O: ParseObserver>(
+    content: &[u8],
+    allow_partial: bool,
+    observer: &mut O,
+) -> Result<RawCity, VellumError> {
     let mut reader = Reader::from_reader(content);
     reader.config_mut().trim_text(true);
 
@@ -270,8 +289,7 @@ fn run_parse_loop<O: ParseObserver>(
         });
     }
 
-    observer.on_warnings(builder.warnings());
-    builder.build()
+    Ok(builder.into_raw())
 }
 
 // ─── Loop-level helpers ───────────────────────────────────────────────────────

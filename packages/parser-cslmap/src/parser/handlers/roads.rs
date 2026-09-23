@@ -1,4 +1,4 @@
-use crate::city_data::{MapBounds, RoadNode, RoadSegment, Vec3};
+use crate::city_data::{MapBounds, Vec3, WayType};
 use crate::dlc_fallback;
 use crate::types::transit::normalize_debug_segs;
 use std::collections::{HashMap, VecDeque};
@@ -9,8 +9,7 @@ use super::super::utils::{attr_f64, attr_str};
 /// Derives `WayType` flags from an `item_class` string.
 /// Strips `[Deprecated]` prefix (AC2 / Gotcha 5) before matching.
 /// Returns a non-empty Vec — unknown items get `[None]`.
-pub fn way_type_from_item_class(item_class: &str) -> Vec<crate::city_data::WayType> {
-    use crate::city_data::WayType;
+pub fn way_type_from_item_class(item_class: &str) -> Vec<WayType> {
     let s = item_class.trim_start_matches("[Deprecated]");
 
     let mut types = Vec::new();
@@ -54,10 +53,10 @@ pub fn way_type_from_item_class(item_class: &str) -> Vec<crate::city_data::WayTy
 /// (`Small Road`, `Medium Road`, `Large Road`, `Highway`) keep the same
 /// `icls` whether they run at grade or on a viaduct — their height lives
 /// exclusively on the nodes.
-#[derive(Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy, Default)]
 pub(crate) struct NodeElevation {
-    elev: f64,
-    underground: bool,
+    pub(crate) elev: f64,
+    pub(crate) underground: bool,
 }
 
 impl NodeElevation {
@@ -66,17 +65,23 @@ impl NodeElevation {
     }
 }
 
+/// Classifies a road segment: `WayType` flags from its `item_class`, refined by the
+/// elevation of its end nodes. The single classification used by every source.
+pub(crate) fn classify_way_type(
+    item_class: &str,
+    start: NodeElevation,
+    end: NodeElevation,
+) -> Vec<WayType> {
+    let mut way_type = way_type_from_item_class(item_class);
+    apply_node_elevation(&mut way_type, start, end);
+    way_type
+}
+
 /// Adds `Elevated` / `Underground` to `types` when either end node is off-grade.
 ///
 /// A segment with only one raised end is the ramp onto the structure, and CS1
 /// draws it as part of it — so `any` rather than `all`.
-fn apply_node_elevation(
-    types: &mut Vec<crate::city_data::WayType>,
-    start: NodeElevation,
-    end: NodeElevation,
-) {
-    use crate::city_data::WayType;
-
+fn apply_node_elevation(types: &mut Vec<WayType>, start: NodeElevation, end: NodeElevation) {
     if start.is_elevated() || end.is_elevated() {
         if !types
             .iter()
@@ -154,7 +159,44 @@ impl BoundsTracker {
     }
 }
 
+/// One warning per segment whose `ItemClass` is not a known base-game or DLC
+/// class, in segment order. Shared by every source.
+pub(crate) fn unknown_item_class_warnings(segments: &[RawRoadSegment]) -> Vec<String> {
+    segments
+        .iter()
+        .filter(|seg| !dlc_fallback::is_known_item_class(&seg.item_class))
+        // Width only. The tier this ends up rendered as is decided by
+        // `classifyRoadTier` in `@vellum/core`; restating it here in a second
+        // vocabulary just gave the two a way to drift.
+        .map(|seg| {
+            format!(
+                "Unknown ItemClass '{}' (width {:.1})",
+                seg.item_class, seg.width
+            )
+        })
+        .collect()
+}
+
 // ─── RoadBuilder ─────────────────────────────────────────────────────────────
+
+/// A positioned road node as read from the source. Its elevation lives in
+/// `RawCity::node_elevations`, which also covers nodes without a position.
+#[derive(Debug, Clone)]
+pub(crate) struct RawRoadNode {
+    pub(crate) id: String,
+    pub(crate) position: Vec3,
+}
+
+/// A physical road segment as read from the source, before `WayType` classification.
+#[derive(Debug, Clone)]
+pub(crate) struct RawRoadSegment {
+    pub(crate) id: String,
+    pub(crate) start_node_id: String,
+    pub(crate) end_node_id: String,
+    pub(crate) item_class: String,
+    pub(crate) width: f64,
+    pub(crate) points: Vec<Vec3>,
+}
 
 /// Accumulates node and segment XML events into `road_nodes`, `road_segments`,
 /// and `node_position_index` (shared with transit for stop resolution).
@@ -169,12 +211,12 @@ pub(crate) struct RoadBuilder {
     in_seg_path: bool,
     in_seg_segs: bool,
 
-    pub(crate) bounds: BoundsTracker,
     pub(crate) node_position_index: HashMap<String, Vec3>,
-    node_elevation_index: HashMap<String, NodeElevation>,
-    pub(crate) road_nodes: Vec<RoadNode>,
-    pub(crate) road_segments: Vec<RoadSegment>,
-    pub(crate) warnings: Vec<String>,
+    pub(crate) road_nodes: Vec<RawRoadNode>,
+    pub(crate) road_segments: Vec<RawRoadSegment>,
+    /// Elevation of every `<Node>`, in document order, recorded when the element
+    /// opens — also for nodes that never get a `<Pos>`.
+    pub(crate) node_elevations: Vec<(String, NodeElevation)>,
 
     // Virtual transit connector segs keyed by (sn, en); consumed by TransitBuilder.
     pub(crate) transit_route_by_nodes: HashMap<(String, String), VecDeque<Vec<String>>>,
@@ -183,13 +225,6 @@ pub(crate) struct RoadBuilder {
 impl RoadBuilder {
     fn in_seg(&self) -> bool {
         self.current_seg.is_some()
-    }
-
-    fn node_elevation(&self, node_id: &str) -> NodeElevation {
-        self.node_elevation_index
-            .get(node_id)
-            .copied()
-            .unwrap_or_default()
     }
 
     pub(crate) fn handle_start(
@@ -201,13 +236,13 @@ impl RoadBuilder {
             b"Node" => {
                 self.in_node = true;
                 self.current_node_id = attr_str(e, b"id").unwrap_or_default();
-                self.node_elevation_index.insert(
+                self.node_elevations.push((
                     self.current_node_id.clone(),
                     NodeElevation {
                         elev: attr_f64(e, b"elev").unwrap_or(0.0),
                         underground: attr_str(e, b"ug").as_deref() == Some("true"),
                     },
-                );
+                ));
             }
             b"Seg" => {
                 if self.current_seg.is_some() {
@@ -260,11 +295,10 @@ impl RoadBuilder {
                 let position = Vec3 { x, y, z };
                 self.node_position_index
                     .insert(self.current_node_id.clone(), position.clone());
-                self.road_nodes.push(RoadNode {
+                self.road_nodes.push(RawRoadNode {
                     id: self.current_node_id.clone(),
                     position,
                 });
-                self.bounds.update(x, z);
             }
             b"p" | b"P" if self.in_seg_points => {
                 if let Some(ref mut seg) = self.current_seg {
@@ -330,28 +364,10 @@ impl RoadBuilder {
                         return;
                     }
 
-                    if !dlc_fallback::is_known_item_class(&seg.item_class) {
-                        // Width only. The tier this ends up rendered as is decided
-                        // by `classifyRoadTier` in `@vellum/core`; restating it here
-                        // in a second vocabulary just gave the two a way to drift.
-                        self.warnings.push(format!(
-                            "Unknown ItemClass '{}' (width {:.1})",
-                            seg.item_class, seg.width
-                        ));
-                    }
-
-                    let mut way_type = way_type_from_item_class(&seg.item_class);
-                    apply_node_elevation(
-                        &mut way_type,
-                        self.node_elevation(&seg.start_node_id),
-                        self.node_elevation(&seg.end_node_id),
-                    );
-
-                    self.road_segments.push(RoadSegment {
+                    self.road_segments.push(RawRoadSegment {
                         id: seg.id,
                         start_node_id: seg.start_node_id,
                         end_node_id: seg.end_node_id,
-                        way_type,
                         item_class: seg.item_class,
                         width: seg.width,
                         points: seg.points,

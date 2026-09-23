@@ -1,0 +1,22 @@
+{
+  "lines": [
+    {
+      "sourceId": 4,
+      "name": "Line 4",
+      "transportType": "Bus",
+      "color": "#FF6600FF",
+      "stops": [
+        {
+          "sourceId": 1,
+          "position": {
+            "x": 0,
+            "y": 70,
+            "z": 0
+          },
+          "nameDerived": true
+        }
+      ],
+      "route": []
+    }
+  ]
+}

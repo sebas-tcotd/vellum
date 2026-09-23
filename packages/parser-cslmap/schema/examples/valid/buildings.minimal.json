@@ -1,0 +1,32 @@
+{
+  "buildings": [
+    {
+      "sourceId": 12,
+      "name": "H1 1x1 Sweatshop01",
+      "itemClass": "Low Commercial",
+      "serviceType": "CommercialLow",
+      "footprint": [
+        {
+          "x": 10,
+          "y": 70,
+          "z": 10
+        },
+        {
+          "x": 18,
+          "y": 70,
+          "z": 10
+        },
+        {
+          "x": 18,
+          "y": 70,
+          "z": 18
+        },
+        {
+          "x": 10,
+          "y": 70,
+          "z": 18
+        }
+      ]
+    }
+  ]
+}

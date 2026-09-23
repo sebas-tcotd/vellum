@@ -1,4 +1,4 @@
-use crate::city_data::{PathSegment, TransitLine, TransitStop, Vec3};
+use crate::city_data::Vec3;
 use std::collections::{HashMap, VecDeque};
 
 use super::super::utils::{attr_str, rgba_to_hex};
@@ -19,6 +19,30 @@ pub fn parse_transit_mode(s: &str) -> crate::city_data::TransitMode {
     }
 }
 
+// ─── Raw transit ─────────────────────────────────────────────────────────────
+
+/// A transit stop as read from the source: its node, resolved position and name
+/// (empty when the source has none).
+#[derive(Debug, Clone)]
+pub(crate) struct RawTransitStop {
+    pub(crate) node_id: String,
+    pub(crate) position: Vec3,
+    pub(crate) name: String,
+}
+
+/// A transit line as read from the source. `transport_type` is the game's raw
+/// `TransportType` name; it is mapped to `TransitMode` when `CityData` is built.
+/// `route` is the ordered list of segment IDs of the whole line.
+#[derive(Debug, Clone)]
+pub(crate) struct RawTransitLine {
+    pub(crate) id: String,
+    pub(crate) name: String,
+    pub(crate) transport_type: String,
+    pub(crate) color: String,
+    pub(crate) stops: Vec<RawTransitStop>,
+    pub(crate) route: Vec<String>,
+}
+
 // ─── TransitBuilder ──────────────────────────────────────────────────────────
 
 /// Accumulates transit XML events into finished `TransitLine` values.
@@ -31,9 +55,9 @@ pub(crate) struct TransitBuilder {
     current_name: String,
     current_mode: String,
     current_color: String,
-    current_stops: Vec<TransitStop>,
+    current_stops: Vec<RawTransitStop>,
 
-    pub(crate) transit_lines: Vec<TransitLine>,
+    pub(crate) transit_lines: Vec<RawTransitLine>,
 }
 
 impl TransitBuilder {
@@ -85,15 +109,13 @@ impl TransitBuilder {
             }
             b"Stop" => {
                 let node_id = attr_str(e, b"node").unwrap_or_default();
-                let mode = parse_transit_mode(&self.current_mode.clone());
                 let position = node_position_index.get(&node_id).cloned().unwrap_or(Vec3 {
                     x: 0.0,
                     y: 0.0,
                     z: 0.0,
                 });
-                self.current_stops.push(TransitStop {
-                    id: node_id,
-                    mode,
+                self.current_stops.push(RawTransitStop {
+                    node_id,
                     position,
                     name: String::new(),
                 });
@@ -120,9 +142,11 @@ impl TransitBuilder {
         } else {
             raw_color
         };
-        let mode = parse_transit_mode(&mode_str);
-
-        let stop_ids: Vec<String> = self.current_stops.iter().map(|s| s.id.clone()).collect();
+        let stop_ids: Vec<String> = self
+            .current_stops
+            .iter()
+            .map(|s| s.node_id.clone())
+            .collect();
         let n = stop_ids.len();
         let mut all_seg_ids: Vec<String> = Vec::new();
         for i in 0..n {
@@ -136,21 +160,13 @@ impl TransitBuilder {
                 }
             }
         }
-        let route = if all_seg_ids.is_empty() {
-            Vec::new()
-        } else {
-            vec![PathSegment {
-                segment_ids: all_seg_ids,
-            }]
-        };
-
-        self.transit_lines.push(TransitLine {
+        self.transit_lines.push(RawTransitLine {
             id,
             name,
-            mode,
+            transport_type: mode_str,
             color,
             stops: std::mem::take(&mut self.current_stops),
-            route,
+            route: all_seg_ids,
         });
         self.in_trans = false;
     }
