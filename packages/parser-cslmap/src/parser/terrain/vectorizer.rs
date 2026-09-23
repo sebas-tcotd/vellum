@@ -1,4 +1,6 @@
-use super::grid::{TERRAIN_CELL_SIZE, TERRAIN_GRID_SIZE, TERRAIN_MAP_ORIGIN};
+use super::grid::{
+    is_water, MIN_WATER_DEPTH, TERRAIN_CELL_SIZE, TERRAIN_GRID_SIZE, TERRAIN_MAP_ORIGIN,
+};
 use crate::city_data::{TerrainBand, TerrainIsoline, TerrainPolygon, TerrainRing};
 use contour::ContourBuilder;
 use geo::Simplify;
@@ -40,13 +42,13 @@ pub fn simplify_polygon(poly: &geo::Polygon<f64>) -> geo::Polygon<f64> {
 pub fn vectorize_land_polygon(
     _elev_grid: &[f64],
     res_grid: &[f64],
-    sea_level: f64,
+    _sea_level: f64,
 ) -> Vec<TerrainPolygon> {
-    // res_grid is continuous: 0.0 on dry land, > sea_level where water is present.
+    // res_grid is the water depth: 0.0 on dry land, > MIN_WATER_DEPTH where water is present.
     // Using res_grid directly (vs. binary water mask) gives smooth sub-cell interpolation
     // at polygon boundaries — same organic quality as the coastline isoline.
-    // Inland water bodies (res > sea_level) emerge naturally as holes in the isoband.
-    match terrain_builder().contours(res_grid, &[0.0_f64, sea_level]) {
+    // Inland water bodies emerge naturally as holes in the isoband.
+    match terrain_builder().contours(res_grid, &[0.0_f64, MIN_WATER_DEPTH]) {
         Ok(bands) => bands
             .iter()
             .flat_map(|band| {
@@ -66,8 +68,8 @@ pub fn vectorize_land_polygon(
 
 /// Vectorizes inland water bodies (rivers and lakes) into `TerrainPolygon`s.
 ///
-/// A cell is inland water when its elevation is above sea level but its resolution
-/// (surface water height) also exceeds sea level.
+/// A cell is water when [`is_water`] holds for its depth (`res`). The `elev > sea_level`
+/// term compares mixed scales and is always true (see `grid::ELEVATION_UNITS_PER_METER`).
 pub fn vectorize_inland_water(
     elev_grid: &[f64],
     res_grid: &[f64],
@@ -77,7 +79,7 @@ pub fn vectorize_inland_water(
         .iter()
         .zip(res_grid.iter())
         .map(|(&elev, &res)| {
-            if elev > sea_level && res > sea_level {
+            if elev > sea_level && is_water(res) {
                 1.0
             } else {
                 0.0

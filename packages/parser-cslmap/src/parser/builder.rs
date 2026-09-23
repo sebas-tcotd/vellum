@@ -175,8 +175,7 @@ impl CityDataBuilder {
         let contour_lines = vectorizer::vectorize_contour_lines(&self.elev_grid, sea_level, 3200.0);
         // Same step as the isolines above, so every band edge is a drawn contour.
         let terrain_bands = vectorizer::vectorize_terrain_bands(&self.elev_grid, sea_level, 3200.0);
-        let terrain_dem =
-            texture::generate_terrain_dem(&self.elev_grid, &self.res_grid, sea_level)?;
+        let terrain_dem = texture::generate_terrain_dem(&self.elev_grid, &self.res_grid)?;
 
         Ok(CityData {
             city_name: self.city_name,
