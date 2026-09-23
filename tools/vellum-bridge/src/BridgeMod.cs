@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Reflection;
 using System.Text;
 using ICities;
 using ColossalFramework;
@@ -25,7 +26,7 @@ namespace VellumBridge
         public override void OnLevelLoaded(LoadMode mode)
         {
             BridgeCapture.SetLoaded(true);
-            Debug.Log("[VellumBridge] Ciudad cargada; captura disponible desde las opciones del mod.");
+            Debug.Log("[VellumBridge] Ciudad cargada; captura disponible con Ctrl+Shift+V o desde las opciones del mod.");
         }
 
         public override void OnLevelUnloading()
@@ -39,6 +40,11 @@ namespace VellumBridge
         // OnUpdate corre en el hilo principal cada frame, también con la simulación en pausa.
         public override void OnUpdate(float realTimeDelta, float simulationTimeDelta)
         {
+            // Ctrl+Shift+V captura sin abrir el menú, que pausa el juego: así se puede
+            // capturar con la simulación corriendo. Con la ciudad en pausa, igual que el botón.
+            bool ctrl = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
+            bool shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
+            if (ctrl && shift && Input.GetKeyDown(KeyCode.V)) BridgeCapture.Request();
             BridgeCapture.ShowPendingResult();
         }
     }
@@ -105,12 +111,15 @@ namespace VellumBridge
             var document = new Snapshot();
             document.kind = "vellum-bridge-raw-snapshot";
             document.snapshotVersion = 1;
-            document.bridgeVersion = "0.1.0-experimental";
+            document.bridgeVersion = "0.5.0-experimental";
             document.capturedAt = DateTime.UtcNow.ToString("o");
             document.cityName = Singleton<SimulationManager>.instance.m_metaData != null
                 ? Singleton<SimulationManager>.instance.m_metaData.m_CityName : null;
             // Application.version devuelve "1.0" en CS1; la versión real del juego está en BuildConfig.
             document.gameVersion = BuildConfig.applicationVersion;
+            // El agua se simula: la captura es un instante y depende de si la simulación corría.
+            document.simulationPaused = Singleton<SimulationManager>.instance.SimulationPaused
+                || Singleton<SimulationManager>.instance.ForcedSimulationPaused;
             document.diagnostics = new Diagnostics();
             document.payload = new Payload();
 
@@ -130,13 +139,22 @@ namespace VellumBridge
             catch (Exception error) { document.diagnostics.errors.Add("vegetation: " + error); }
             try { document.payload.terrain = CaptureTerrain(); }
             catch (Exception error) { document.diagnostics.errors.Add("terrain: " + error); }
+            try { document.payload.resourceGrid = CaptureResourceGrid(); }
+            catch (Exception error) { document.diagnostics.errors.Add("resourceGrid: " + error); }
+            // 262 143 árboles en San Rico = buffer vanilla lleno; con esto se distingue un truncado.
+            try { document.payload.treeBufferLength = Singleton<TreeManager>.instance.m_trees.m_buffer.Length; }
+            catch (Exception error) { document.diagnostics.errors.Add("treeBufferLength: " + error); }
+            try { document.payload.terrainLayers = CaptureTerrainLayers(); }
+            catch (Exception error) { document.diagnostics.errors.Add("terrainLayers: " + error); }
+            try { document.payload.water = CaptureWater(); }
+            catch (Exception error) { document.diagnostics.errors.Add("water: " + error); }
             try { document.payload.districtGrid = CaptureGrid(Singleton<DistrictManager>.instance.m_districtGrid); }
             catch (Exception error) { document.diagnostics.errors.Add("districtGrid: " + error); }
             try { document.payload.parkGrid = CaptureGrid(Singleton<DistrictManager>.instance.m_parkGrid); }
             catch (Exception error) { document.diagnostics.errors.Add("parkGrid: " + error); }
 
             // Una sección sin extractor no se representa como arreglo vacío.
-            document.diagnostics.unsupported.AddRange(new[] { "water", "dlcs", "mods" });
+            document.diagnostics.unsupported.AddRange(new[] { "dlcs", "mods" });
             document.diagnostics.complete = document.diagnostics.errors.Count == 0
                 && document.diagnostics.unsupported.Count == 0;
 
@@ -257,6 +275,114 @@ namespace VellumBridge
             return record;
         }
 
+        // Grilla de recursos naturales 512×512 (33,75 m): m_forest y m_tree por celda, que el juego
+        // recalcula a partir de los árboles vivos. Diagnóstico para saber si <Forest> de .cslmap es
+        // m_forest (Westdale: 61 760 celdas de bosque con 541 árboles).
+        private static GridRecord CaptureResourceGrid()
+        {
+            var cells = Singleton<NaturalResourceManager>.instance.m_naturalResources;
+            int resolution = (int)Math.Round(Math.Sqrt(cells.Length));
+            if (resolution * resolution != cells.Length)
+                throw new InvalidOperationException("La grilla tiene " + cells.Length + " celdas; no es cuadrada");
+            var bytes = new byte[cells.Length * 2];
+            for (int i = 0; i < cells.Length; i++)
+            {
+                bytes[i * 2] = cells[i].m_forest;
+                bytes[i * 2 + 1] = cells[i].m_tree;
+            }
+            var record = new GridRecord();
+            record.resolution = resolution;
+            record.cellSize = 33.75f;
+            record.encoding = "cell-u8x2-base64";
+            record.layout = "forest,tree";
+            record.data = Convert.ToBase64String(bytes);
+            return record;
+        }
+
+        // Diagnóstico: celdas donde otras capas de alturas de TerrainManager difieren de RawHeights.
+        // .cslmap difiere de RawHeights en 813 celdas de island-hopping y su exportador no es
+        // público; esto muestra si alguna de estas capas es la que exporta. Disperso para no
+        // duplicar la grilla completa.
+        private static TerrainLayerRecord[] CaptureTerrainLayers()
+        {
+            var terrain = Singleton<TerrainManager>.instance;
+            ushort[] raw = terrain.RawHeights;
+            var layers = new List<TerrainLayerRecord>();
+            foreach (var pair in new[]
+            {
+                new KeyValuePair<string, ushort[]>("RawHeights2", terrain.RawHeights2),
+                new KeyValuePair<string, ushort[]>("BlockHeights", terrain.BlockHeights),
+            })
+            {
+                if (pair.Value.Length != raw.Length)
+                    throw new InvalidOperationException(pair.Key + " tiene " + pair.Value.Length + " muestras");
+                var indices = new List<int>();
+                var values = new List<int>();
+                for (int i = 0; i < raw.Length; i++)
+                {
+                    if (pair.Value[i] == raw[i]) continue;
+                    indices.Add(i);
+                    values.Add(pair.Value[i]);
+                }
+                var record = new TerrainLayerRecord();
+                record.name = pair.Key;
+                record.indices = indices.ToArray();
+                record.values = values.ToArray();
+                layers.Add(record);
+            }
+            return layers.ToArray();
+        }
+
+        // Profundidad cruda del agua por celda (Cell.m_height, misma grilla y unidades que RawHeights)
+        // y fuentes de agua. Velocidad y contaminación se omiten: no sirven a un mapa.
+        // m_waterBuffers y m_waterFrameIndex son privados; el índice del buffer estable es el mismo
+        // que usa BuildingSpawnPoints (MacSergey) al leerlo fuera de la simulación.
+        private static WaterRecord CaptureWater()
+        {
+            var simulation = Singleton<TerrainManager>.instance.WaterSimulation;
+            const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
+            var buffers = (WaterSimulation.Cell[][])typeof(WaterSimulation).GetField("m_waterBuffers", flags).GetValue(simulation);
+            uint frame = (uint)typeof(WaterSimulation).GetField("m_waterFrameIndex", flags).GetValue(simulation);
+            var cells = buffers[~(frame >> 6) & 1u];
+            var record = new WaterRecord();
+            record.resolution = TerrainManager.RAW_RESOLUTION + 1;
+            if (cells.Length != record.resolution * record.resolution)
+                throw new InvalidOperationException("El buffer de agua tiene " + cells.Length + " celdas; se esperaban "
+                    + record.resolution * record.resolution);
+            var bytes = new byte[cells.Length * 2];
+            for (int i = 0; i < cells.Length; i++)
+            {
+                bytes[i * 2] = (byte)cells[i].m_height;
+                bytes[i * 2 + 1] = (byte)(cells[i].m_height >> 8);
+            }
+            record.cellSize = 16f;
+            record.heightScale = 1f / 64f;
+            record.encoding = "uint16-le-base64";
+            record.frameIndex = frame;
+            record.depth = Convert.ToBase64String(bytes);
+
+            var list = simulation.m_waterSources;
+            var sources = new List<WaterSourceRecord>();
+            for (int i = 0; i < list.m_size; i++)
+            {
+                var source = list.m_buffer[i];
+                if (source.m_type == 0) continue; // entrada libre de la FastList
+                var item = new WaterSourceRecord();
+                item.id = i + 1; // Building.m_waterSource guarda índice + 1
+                item.type = source.m_type;
+                item.inputPosition = Vector(source.m_inputPosition);
+                item.outputPosition = Vector(source.m_outputPosition);
+                item.inputRate = source.m_inputRate;
+                item.outputRate = source.m_outputRate;
+                item.target = source.m_target;
+                item.flow = source.m_flow;
+                item.water = source.m_water;
+                sources.Add(item);
+            }
+            record.sources = sources.ToArray();
+            return record;
+        }
+
         // Celdas crudas de distrito/parque: hasta 4 IDs con su peso (alpha) por celda. Los polígonos
         // se derivan fuera del bridge para no transformar datos dentro del snapshot.
         // Vanilla usa 512×512 (25 tiles centrales); mods como 81 Tiles 2 reemplazan el arreglo por
@@ -327,6 +453,10 @@ namespace VellumBridge
                 record.name = Singleton<TransportManager>.instance.GetLineName((ushort)i);
                 record.color = "#" + line.m_color.r.ToString("x2") + line.m_color.g.ToString("x2")
                     + line.m_color.b.ToString("x2");
+                // m_color solo vale con el flag CustomColor; sin él el juego pinta el color por
+                // defecto del modo. .cslmap exporta este color visible.
+                Color32 shown = Singleton<TransportManager>.instance.GetLineColor((ushort)i);
+                record.displayColor = "#" + shown.r.ToString("x2") + shown.g.ToString("x2") + shown.b.ToString("x2");
                 var stops = new List<int>();
                 var stopNames = new List<string>();
                 var stopRoads = new List<int>();
@@ -498,6 +628,8 @@ namespace VellumBridge
             Field(w, "gameVersion", s.gameVersion);
             Field(w, "capturedAt", s.capturedAt);
             Field(w, "cityName", s.cityName);
+            Key(w, "simulationPaused", false);
+            w.Append(s.simulationPaused ? "true" : "false");
             Key(w, "payload", false);
             w.Append('{');
             Array(w, "roads", s.payload.roads, WriteRoad, true);
@@ -509,6 +641,12 @@ namespace VellumBridge
             Array(w, "vegetation", s.payload.vegetation, WriteTree);
             Key(w, "terrain", false);
             WriteTerrain(w, s.payload.terrain);
+            Array(w, "terrainLayers", s.payload.terrainLayers, WriteTerrainLayer);
+            Key(w, "resourceGrid", false);
+            WriteGrid(w, s.payload.resourceGrid);
+            Field(w, "treeBufferLength", s.payload.treeBufferLength);
+            Key(w, "water", false);
+            WriteWater(w, s.payload.water);
             Key(w, "districtGrid", false);
             WriteGrid(w, s.payload.districtGrid);
             Key(w, "parkGrid", false);
@@ -564,6 +702,44 @@ namespace VellumBridge
             w.Append('}');
         }
 
+        private static void WriteTerrainLayer(StringBuilder w, TerrainLayerRecord l)
+        {
+            w.Append('{');
+            Field(w, "name", l.name, true);
+            Array(w, "indices", l.indices, Int);
+            Array(w, "values", l.values, Int);
+            w.Append('}');
+        }
+
+        private static void WriteWater(StringBuilder w, WaterRecord t)
+        {
+            if (t == null) { w.Append("null"); return; }
+            w.Append('{');
+            Field(w, "resolution", t.resolution, true);
+            Field(w, "cellSize", t.cellSize);
+            Field(w, "heightScale", t.heightScale);
+            Field(w, "encoding", t.encoding);
+            Field(w, "frameIndex", (long)t.frameIndex);
+            Field(w, "depth", t.depth);
+            Array(w, "sources", t.sources, WriteWaterSource);
+            w.Append('}');
+        }
+
+        private static void WriteWaterSource(StringBuilder w, WaterSourceRecord s)
+        {
+            w.Append('{');
+            Field(w, "id", s.id, true);
+            Field(w, "type", s.type);
+            Array(w, "inputPosition", s.inputPosition, Float);
+            Array(w, "outputPosition", s.outputPosition, Float);
+            Field(w, "inputRate", s.inputRate);
+            Field(w, "outputRate", s.outputRate);
+            Field(w, "target", s.target);
+            Field(w, "flow", s.flow);
+            Field(w, "water", s.water);
+            w.Append('}');
+        }
+
         private static void WriteGrid(StringBuilder w, GridRecord g)
         {
             if (g == null) { w.Append("null"); return; }
@@ -613,6 +789,7 @@ namespace VellumBridge
             Field(w, "customName", t.customName);
             Field(w, "name", t.name);
             Field(w, "color", t.color);
+            Field(w, "displayColor", t.displayColor);
             Array(w, "stopNodeIds", t.stopNodeIds, Int);
             Array(w, "stopCustomNames", t.stopCustomNames, String);
             Array(w, "stopRoadSegments", t.stopRoadSegments, Int);
@@ -682,6 +859,12 @@ namespace VellumBridge
             Int(w, value);
         }
 
+        private static void Field(StringBuilder w, string name, long value)
+        {
+            Key(w, name, false);
+            w.Append(value.ToString(CultureInfo.InvariantCulture));
+        }
+
         private static void Field(StringBuilder w, string name, float value)
         {
             Key(w, name, false);
@@ -726,6 +909,7 @@ namespace VellumBridge
     {
         public string kind, bridgeVersion, gameVersion, capturedAt, cityName;
         public int snapshotVersion;
+        public bool simulationPaused;
         public Payload payload;
         public Diagnostics diagnostics;
     }
@@ -745,6 +929,10 @@ namespace VellumBridge
         public AreaRecord[] parks;
         public TreeRecord[] vegetation;
         public TerrainRecord terrain;
+        public WaterRecord water;
+        public TerrainLayerRecord[] terrainLayers;
+        public GridRecord resourceGrid;
+        public int treeBufferLength;
         public GridRecord districtGrid, parkGrid;
     }
     [Serializable] internal sealed class Road
@@ -765,6 +953,25 @@ namespace VellumBridge
         public int resolution;
         public float cellSize, heightScale;
         public string encoding, data;
+    }
+    [Serializable] internal sealed class TerrainLayerRecord
+    {
+        public string name;
+        public int[] indices, values;
+    }
+    [Serializable] internal sealed class WaterRecord
+    {
+        public int resolution;
+        public float cellSize, heightScale;
+        public uint frameIndex;
+        public string encoding, depth;
+        public WaterSourceRecord[] sources;
+    }
+    [Serializable] internal sealed class WaterSourceRecord
+    {
+        public int id, type;
+        public float[] inputPosition, outputPosition;
+        public long inputRate, outputRate, target, flow, water;
     }
     [Serializable] internal sealed class GridRecord
     {
@@ -787,7 +994,7 @@ namespace VellumBridge
     [Serializable] internal sealed class TransitRecord
     {
         public int id, lineNumber;
-        public string flags, transportType, customName, name, color;
+        public string flags, transportType, customName, name, color, displayColor;
         public int[] stopNodeIds, stopRoadSegments;
         public string[] stopCustomNames;
         public LegRecord[] legs;

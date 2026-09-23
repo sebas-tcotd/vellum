@@ -11,6 +11,7 @@ import {
 import {
   compareCity,
   corpusSummary,
+  parseCslmapTerrain,
   reportMarkdown,
   summarize,
 } from './compare.mjs';
@@ -117,7 +118,11 @@ for (const entry of manifest.entries) {
       if (parsed.status !== 0)
         throw new Error(`Parser CSLMap: ${parsed.stderr.trim()}`);
       const baseline = JSON.parse(fs.readFileSync(baselinePath, 'utf8'));
-      item.comparison = compareCity(raw, baseline);
+      item.comparison = compareCity(
+        raw,
+        baseline,
+        parseCslmapTerrain(fs.readFileSync(cslmap, 'utf8')),
+      );
       item.status = 'comparison-complete';
       geometries.push({ id: entry.id, raw });
     } finally {
