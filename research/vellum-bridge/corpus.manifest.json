@@ -1,0 +1,204 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "altavento",
+      "kind": "real",
+      "status": "ready-for-capture",
+      "cityName": "Altavento",
+      "cslmap": "../../packages/parser-cslmap/fixtures/altavento.cslmap",
+      "snapshot": null,
+      "origin": "repository fixture"
+    },
+    {
+      "id": "altavento-2026-09-22",
+      "kind": "real",
+      "status": "captured",
+      "cityName": "Altavento",
+      "cslmap": "cslmap/Altavento-20260922-175423.cslmap",
+      "snapshot": "snapshots/snapshot-20260922T225426988Z.json",
+      "origin": "CSLMapView y Vellum Bridge exportados en la misma sesión (2026-09-22 17:54, 3 s de diferencia), después de una tormenta eléctrica nivel 8",
+      "storage": "local"
+    },
+    {
+      "id": "aurelia-del-delta",
+      "kind": "real",
+      "status": "ready-for-capture",
+      "cityName": "Aurelia del Delta",
+      "cslmap": "../../packages/parser-cslmap/fixtures/aurelia-del-delta.cslmap",
+      "snapshot": null,
+      "origin": "repository fixture"
+    },
+    {
+      "id": "aurelia-del-delta-2026-09-22",
+      "kind": "real",
+      "status": "captured",
+      "cityName": "Aurelia del Delta",
+      "cslmap": "cslmap/aurelia-del-delta-20260922-183856.cslmap",
+      "snapshot": "snapshots/snapshot-20260922T233858243Z.json",
+      "origin": "CSLMapView y Vellum Bridge exportados en la misma sesión (2026-09-22, 2 s de diferencia); .cslmap original: Aurelia del Delta-20260922-183856.cslmap",
+      "storage": "local"
+    },
+    {
+      "id": "fährimperium",
+      "kind": "real",
+      "status": "ready-for-capture",
+      "cityName": "Fährimperium",
+      "cslmap": "../../packages/parser-cslmap/fixtures/fährimperium.cslmap",
+      "snapshot": null,
+      "origin": "repository fixture"
+    },
+    {
+      "id": "fährimperium-2026-09-22",
+      "kind": "real",
+      "status": "captured",
+      "cityName": "Fährimperium",
+      "cslmap": "cslmap/fährimperium-20260922-182521.cslmap",
+      "snapshot": "snapshots/snapshot-20260922T232524727Z.json",
+      "origin": "CSLMapView y Vellum Bridge exportados en la misma sesión (2026-09-22, 3 s de diferencia); .cslmap original: Fährimperium-20260922-182521.cslmap",
+      "storage": "local"
+    },
+    {
+      "id": "island-hopping",
+      "kind": "real",
+      "status": "ready-for-capture",
+      "cityName": "Island Hopping",
+      "cslmap": "../../packages/parser-cslmap/fixtures/island-hopping.cslmap",
+      "snapshot": null,
+      "origin": "repository fixture"
+    },
+    {
+      "id": "island-hopping-2026-09-22",
+      "kind": "real",
+      "status": "captured",
+      "cityName": "Island Hopping",
+      "cslmap": "cslmap/island-hopping-20260922-182227.cslmap",
+      "snapshot": "snapshots/snapshot-20260922T232229677Z.json",
+      "origin": "CSLMapView y Vellum Bridge exportados en la misma sesión (2026-09-22, 2 s de diferencia); .cslmap original: Island Hopping-20260922-182227.cslmap",
+      "storage": "local"
+    },
+    {
+      "id": "pepper-lake",
+      "kind": "real",
+      "status": "ready-for-capture",
+      "cityName": "Pepper Lake",
+      "cslmap": "../../packages/parser-cslmap/fixtures/pepper-lake.cslmap",
+      "snapshot": null,
+      "origin": "repository fixture"
+    },
+    {
+      "id": "pepper-lake-2026-09-22",
+      "kind": "real",
+      "status": "captured",
+      "cityName": "Pepper Lake",
+      "cslmap": "cslmap/pepper-lake-20260922-181945.cslmap",
+      "snapshot": "snapshots/snapshot-20260922T231948675Z.json",
+      "origin": "CSLMapView y Vellum Bridge exportados en la misma sesión (2026-09-22, 3 s de diferencia); .cslmap original: Pepper Lake-20260922-181945.cslmap",
+      "storage": "local"
+    },
+    {
+      "id": "verkehrsbehebung",
+      "kind": "real",
+      "status": "ready-for-capture",
+      "cityName": "Verkehrsbehebung",
+      "cslmap": "../../packages/parser-cslmap/fixtures/verkehrsbehebung.cslmap",
+      "snapshot": null,
+      "origin": "repository fixture"
+    },
+    {
+      "id": "verkehrsbehebung-2026-09-22",
+      "kind": "real",
+      "status": "captured",
+      "cityName": "Verkehrsbehebung",
+      "cslmap": "cslmap/verkehrsbehebung-20260922-182805.cslmap",
+      "snapshot": "snapshots/snapshot-20260922T232806721Z.json",
+      "origin": "CSLMapView y Vellum Bridge exportados en la misma sesión (2026-09-22, 1 s de diferencia); .cslmap original: Verkehrsbehebung-20260922-182805.cslmap",
+      "storage": "local"
+    },
+    {
+      "id": "costa-tijuca-2026-09-22",
+      "kind": "real",
+      "status": "captured",
+      "cityName": "Costa Tijuca",
+      "cslmap": "cslmap/costa-tijuca-20260922-183110.cslmap",
+      "snapshot": "snapshots/snapshot-20260922T233112848Z.json",
+      "origin": "CSLMapView y Vellum Bridge exportados en la misma sesión (2026-09-22, 2 s de diferencia); .cslmap original: Costa Tijuca-20260922-183110.cslmap",
+      "storage": "local"
+    },
+    {
+      "id": "san-rico-2026-09-22",
+      "kind": "real",
+      "status": "captured",
+      "cityName": "San Rico",
+      "cslmap": "cslmap/san-rico-20260922-181024.cslmap",
+      "snapshot": "snapshots/snapshot-20260922T231028303Z.json",
+      "origin": "CSLMapView y Vellum Bridge exportados en la misma sesión (2026-09-22, 4 s de diferencia); .cslmap original: San Rico-20260922-181024.cslmap",
+      "storage": "local"
+    },
+    {
+      "id": "springvalley-2026-09-22",
+      "kind": "real",
+      "status": "captured",
+      "cityName": "Springvalley",
+      "cslmap": "cslmap/springvalley-20260922-181527.cslmap",
+      "snapshot": "snapshots/snapshot-20260922T231529589Z.json",
+      "origin": "CSLMapView y Vellum Bridge exportados en la misma sesión (2026-09-22, 2 s de diferencia); .cslmap original: Springvalley-20260922-181527.cslmap",
+      "storage": "local"
+    },
+    {
+      "id": "westdale-2026-09-22",
+      "kind": "real",
+      "status": "captured",
+      "cityName": "웨스트데일",
+      "cslmap": "cslmap/westdale-20260922-183508.cslmap",
+      "snapshot": "snapshots/snapshot-20260922T233511006Z.json",
+      "origin": "CSLMapView y Vellum Bridge exportados en la misma sesión (2026-09-22, 3 s de diferencia); .cslmap original: 웨스트데일-20260922-183508.cslmap",
+      "storage": "local"
+    },
+    {
+      "id": "corrupted",
+      "kind": "synthetic",
+      "status": "excluded-synthetic",
+      "cslmap": "../../packages/parser-cslmap/fixtures/corrupted.cslmap",
+      "snapshot": null,
+      "origin": "repository fixture",
+      "reason": "Archivo corrupto creado para probar errores del parser."
+    },
+    {
+      "id": "minimal-valid",
+      "kind": "synthetic",
+      "status": "excluded-synthetic",
+      "cslmap": "../../packages/parser-cslmap/fixtures/minimal-valid.cslmap",
+      "snapshot": null,
+      "origin": "repository fixture",
+      "reason": "XML mínimo creado para probar el parser; no representa una ciudad real."
+    },
+    {
+      "id": "unknown-dlc-assets",
+      "kind": "synthetic",
+      "status": "excluded-synthetic",
+      "cslmap": "../../packages/parser-cslmap/fixtures/unknown-dlc-assets.cslmap",
+      "snapshot": null,
+      "origin": "repository fixture",
+      "reason": "Fixture pequeño creado para probar clases de assets desconocidas."
+    },
+    {
+      "id": "with-transit-paths-debug",
+      "kind": "synthetic",
+      "status": "excluded-synthetic",
+      "cslmap": "../../packages/parser-cslmap/fixtures/with-transit-paths-debug.cslmap",
+      "snapshot": null,
+      "origin": "repository fixture",
+      "reason": "Fixture mínimo de rutas de tránsito en formato debug."
+    },
+    {
+      "id": "with-transit",
+      "kind": "synthetic",
+      "status": "excluded-synthetic",
+      "cslmap": "../../packages/parser-cslmap/fixtures/with-transit.cslmap",
+      "snapshot": null,
+      "origin": "repository fixture",
+      "reason": "Fixture mínimo de tránsito para pruebas del parser."
+    }
+  ]
+}

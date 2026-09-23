@@ -5193,7 +5193,7 @@ dependencies = [
 
 [[package]]
 name = "vellum"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "parser-cslmap",
  "png 0.18.1",

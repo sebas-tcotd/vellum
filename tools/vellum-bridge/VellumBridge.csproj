@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net35</TargetFramework>
+    <OutputType>Library</OutputType>
+    <AssemblyName>VellumBridge</AssemblyName>
+    <LangVersion>7.3</LangVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="ICities"><HintPath>$(CS1_MANAGED_DIR)/ICities.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Assembly-CSharp"><HintPath>$(CS1_MANAGED_DIR)/Assembly-CSharp.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="ColossalManaged"><HintPath>$(CS1_MANAGED_DIR)/ColossalManaged.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine"><HintPath>$(CS1_MANAGED_DIR)/UnityEngine.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+  <Target Name="CheckGameReferences" BeforeTargets="ResolveReferences">
+    <Error Condition="'$(CS1_MANAGED_DIR)' == ''" Text="Define CS1_MANAGED_DIR con la carpeta Managed de Cities: Skylines 1." />
+    <Error Condition="!Exists('$(CS1_MANAGED_DIR)/ICities.dll')" Text="No se encuentra ICities.dll en CS1_MANAGED_DIR." />
+  </Target>
+</Project>
