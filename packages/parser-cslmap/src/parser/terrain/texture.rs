@@ -1,4 +1,4 @@
-use super::grid::{ELEVATION_UNITS_PER_METER, TERRAIN_GRID_SIZE};
+use super::grid::{is_water, ELEVATION_UNITS_PER_METER, TERRAIN_GRID_SIZE};
 use crate::city_data::TerrainDem;
 use crate::errors::VellumError;
 use std::io::Cursor;
@@ -26,7 +26,7 @@ struct LandExtent {
 /// why the documented metre-scaling factors are not used.
 ///
 /// # Water
-/// Water cells (`res > sea_level` — the same classifier `vectorizer` uses) are clamped
+/// Water cells (`grid::is_water` — the same classifier `vectorizer` uses) are clamped
 /// to the lowest land elevation so the hillshade sees a flat sea floor instead of a
 /// cliff at every coastline. They are hidden at render time by the sea-mask fill layer,
 /// **not** by this encoding: land and water elevation ranges overlap in real maps
@@ -38,10 +38,9 @@ struct LandExtent {
 pub fn generate_terrain_dem(
     elev_grid: &[f64],
     res_grid: &[f64],
-    sea_level: f64,
 ) -> Result<TerrainDem, VellumError> {
-    let extent = land_extent(elev_grid, res_grid, sea_level);
-    let data_uri = encode_dem_png(elev_grid, res_grid, sea_level, extent.min_raw)?;
+    let extent = land_extent(elev_grid, res_grid);
+    let data_uri = encode_dem_png(elev_grid, res_grid, extent.min_raw)?;
 
     Ok(TerrainDem {
         data_uri,
@@ -54,12 +53,12 @@ pub fn generate_terrain_dem(
 ///
 /// Falls back to a unit-wide range for a fully submerged map so the ramp never
 /// degenerates to a zero-width domain.
-fn land_extent(elev_grid: &[f64], res_grid: &[f64], sea_level: f64) -> LandExtent {
+fn land_extent(elev_grid: &[f64], res_grid: &[f64]) -> LandExtent {
     let mut min_raw = f64::INFINITY;
     let mut max_raw = f64::NEG_INFINITY;
 
     for (&elev, &res) in elev_grid.iter().zip(res_grid.iter()) {
-        if res > sea_level {
+        if is_water(res) {
             continue;
         }
         min_raw = min_raw.min(elev);
@@ -78,7 +77,6 @@ fn land_extent(elev_grid: &[f64], res_grid: &[f64], sea_level: f64) -> LandExten
 fn encode_dem_png(
     elev_grid: &[f64],
     res_grid: &[f64],
-    sea_level: f64,
     water_floor_raw: f64,
 ) -> Result<String, VellumError> {
     use image::{ImageBuffer, Rgba, RgbaImage};
@@ -91,11 +89,7 @@ fn encode_dem_png(
     for (i, (&elev, &res)) in elev_grid.iter().zip(res_grid.iter()).enumerate() {
         #[allow(clippy::cast_possible_truncation)]
         let idx = i as u32;
-        let raw = if res > sea_level {
-            water_floor_raw
-        } else {
-            elev
-        };
+        let raw = if is_water(res) { water_floor_raw } else { elev };
         #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
         let packed = raw.clamp(0.0, MAX_PACKED_ELEVATION) as u32;
         let pixel = Rgba([
@@ -156,7 +150,7 @@ mod tests {
         // plus a water cell at 1600 raw that must not widen the ramp domain.
         let elev = [6400.0, 12800.0, 1600.0];
         let res = [0.0, 0.0, 500.0];
-        let extent = land_extent(&elev, &res, 187.031);
+        let extent = land_extent(&elev, &res);
         assert!((extent.min_raw - 6400.0).abs() < 1e-9);
         assert!((extent.max_raw - 12800.0).abs() < 1e-9);
         // 6400 raw / 64 = 100 m, 12800 raw / 64 = 200 m.
@@ -164,8 +158,16 @@ mod tests {
     }
 
     #[test]
+    fn shallow_water_below_sea_level_value_is_still_water() {
+        // res is depth: 100 raw = 1.56 m of water. The old `res > sea_level` test
+        // (187.031, in metres) counted it as land and let it set the ramp's minimum.
+        let extent = land_extent(&[6400.0, 12800.0, 1600.0], &[0.0, 0.0, 100.0]);
+        assert!((extent.min_raw - 6400.0).abs() < 1e-9);
+    }
+
+    #[test]
     fn land_extent_falls_back_when_fully_submerged() {
-        let extent = land_extent(&[1600.0], &[500.0], 187.031);
+        let extent = land_extent(&[1600.0], &[500.0]);
         assert!(
             extent.max_raw > extent.min_raw,
             "ramp domain must be non-empty"

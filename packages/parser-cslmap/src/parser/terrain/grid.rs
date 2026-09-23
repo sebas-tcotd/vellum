@@ -14,11 +14,25 @@ pub const TERRAIN_MAP_ORIGIN: f64 = -8640.0;
 ///
 /// **Caveat (do not "fix" without a separate decision).** `<SeaLevel>` is reported in
 /// metres (187.031 in `altavento`), so the `elev <= sea_level` term in the water tests
-/// of this module's siblings compares mixed scales and is true for 0 of 1 168 561 cells
-/// — water classification is driven exclusively by `res > sea_level`, which works
-/// because `res` is 0 on dry land. Making the comparison dimensionally consistent would
-/// reclassify roughly half the map as water, so it is deliberately left alone.
+/// of this module's siblings compares mixed scales and is true for 0 of 1 168 561 cells.
+/// Water classification is driven exclusively by [`is_water`].
 pub const ELEVATION_UNITS_PER_METER: f64 = 64.0;
+
+/// Minimum water depth, in raw units, for a cell to count as water (16 = 25 cm).
+///
+/// `res` in `<Ter>` is the water **depth** (`WaterSimulation.Cell.m_height`), not the
+/// surface elevation: Vellum Bridge snapshots match it exactly in 99.9 % of wet cells
+/// (`altavento`, `island-hopping`, 2026-09-23). Comparing it against `<SeaLevel>` (metres)
+/// dropped every cell shallower than `SeaLevel / 64` m — 6 236 cells in `altavento`,
+/// most of them 1–2.9 m deep, i.e. the shallow band of every shore.
+///
+/// ponytail: fixed threshold that hides the simulation's wet film; tune if shores look noisy.
+pub const MIN_WATER_DEPTH: f64 = 16.0;
+
+/// Whether a `<Ter>` cell holds water, from its `res` (depth) value.
+pub fn is_water(res: f64) -> bool {
+    res > MIN_WATER_DEPTH
+}
 
 /// Parses the `CSLExportXML` terrain CSV format: `"elev:res,elev:res,..."`
 /// Grid is 1081×1081, row-major. Fills `elev_grid` and `res_grid` for later vectorization.
