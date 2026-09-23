@@ -199,6 +199,56 @@
       "snapshot": null,
       "origin": "repository fixture",
       "reason": "Fixture mínimo de tránsito para pruebas del parser."
+    },
+    {
+      "id": "altavento-2026-09-23-pausa",
+      "kind": "real",
+      "status": "captured",
+      "cityName": "Altavento",
+      "cslmap": "cslmap/Altavento-20260922-214600.cslmap",
+      "storage": "local",
+      "snapshot": "snapshots/snapshot-20260923T024603927Z.json",
+      "origin": "CSLMapView y Vellum Bridge 0.2.0 (primera captura con agua) en la misma sesión (2026-09-22 21:46), con la simulación en pausa"
+    },
+    {
+      "id": "island-hopping-2026-09-23-pausa",
+      "kind": "real",
+      "status": "captured",
+      "cityName": "Island Hopping",
+      "cslmap": "cslmap/Island Hopping-20260922-221408.cslmap",
+      "snapshot": "snapshots/snapshot-20260923T032332376Z.json",
+      "origin": "CSLMapView (22:14) y Vellum Bridge 0.3.0 (22:23) de la misma partida, simulación en pausa en el mismo frame de agua",
+      "storage": "local"
+    },
+    {
+      "id": "san-rico-2026-09-23-pausa",
+      "kind": "real",
+      "status": "captured",
+      "cityName": "San Rico",
+      "cslmap": "cslmap/san-rico-20260922-225502.cslmap",
+      "snapshot": "snapshots/snapshot-20260923T035548388Z.json",
+      "origin": "CSLMapView y Vellum Bridge 0.4.0 en la misma sesión (2026-09-22 22:55), simulación en pausa; .cslmap original: San Rico-20260922-225502.cslmap",
+      "storage": "local"
+    },
+    {
+      "id": "westdale-2026-09-23-pausa",
+      "kind": "real",
+      "status": "captured",
+      "cityName": "웨스트데일",
+      "cslmap": "cslmap/westdale-20260922-225858.cslmap",
+      "snapshot": "snapshots/snapshot-20260923T035903373Z.json",
+      "origin": "CSLMapView y Vellum Bridge 0.4.0 en la misma sesión (2026-09-22 22:59), simulación en pausa; .cslmap original: 웨스트데일-20260922-225858.cslmap",
+      "storage": "local"
+    },
+    {
+      "id": "costa-tijuca-2026-09-23-pausa",
+      "kind": "real",
+      "status": "captured",
+      "cityName": "Costa Tijuca",
+      "cslmap": "cslmap/costa-tijuca-20260923-010237.cslmap",
+      "snapshot": "snapshots/snapshot-20260923T060240938Z.json",
+      "origin": "CSLMapView y Vellum Bridge 0.5.0 en la misma sesión (2026-09-23 01:02), simulación en pausa; .cslmap original: Costa Tijuca-20260923-010237.cslmap",
+      "storage": "local"
     }
   ]
 }
