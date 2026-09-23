@@ -19,3 +19,8 @@ AGENTS.md
 CLAUDE.md
 opencode.json
 CHANGELOG.md
+# Salidas generadas de Vellum Bridge (build .NET, snapshots del mod y reportes del arnés)
+tools/vellum-bridge/bin/
+tools/vellum-bridge/obj/
+research/vellum-bridge/snapshots/
+research/vellum-bridge/reports/

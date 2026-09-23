@@ -41,6 +41,11 @@ opencode.json
 # Test output folders
 **/test-results/
 
+# Capturas de Vellum Bridge (.cslmap + Raw Snapshot): pesan cientos de MB, se
+# comparten entre máquinas por fuera de Git. El manifest las marca storage: local.
+research/vellum-bridge/snapshots/
+research/vellum-bridge/cslmap/
+
 # 6.2A golden harness decodes .png on demand (see harness.mjs); a persisted
 # .rgba sidecar is ~10x the size of its .png and nothing reads it.
 packages/renderer-webgl/test/export-goldens/**/*.rgba
@@ -55,3 +60,8 @@ packages/renderer-webgl/test/export-goldens/**/*.rgba
 # Captures the golden-flow visual comparison writes next to a failing baseline
 # for inspection. Scratch output, never evidence — see the baselines README.
 apps/desktop/tests/e2e/baselines/*.actual.png
+
+# Build from .NET
+tools/vellum-bridge/bin
+tools/vellum-bridge/obj
+
