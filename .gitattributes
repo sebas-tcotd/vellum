@@ -1,0 +1,6 @@
+# LF en todas las plataformas: Prettier exige LF y el desarrollo principal es en macOS.
+* text=auto eol=lf
+
+# Los fixtures .cslmap se comparan por hash (corpus de Vellum Bridge) y el parser los
+# lee tal cual; Git no debe convertir sus finales de línea.
+*.cslmap -text
