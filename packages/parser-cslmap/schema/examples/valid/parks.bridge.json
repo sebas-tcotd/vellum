@@ -1,0 +1,23 @@
+{
+  "parks": [
+    {
+      "sourceId": 3,
+      "name": "City Zoo",
+      "labelPosition": {
+        "x": -50,
+        "y": 0,
+        "z": -50
+      },
+      "parkType": "Zoo"
+    },
+    {
+      "sourceId": 5,
+      "name": "Old Park",
+      "labelPosition": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      }
+    }
+  ]
+}

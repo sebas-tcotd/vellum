@@ -59,34 +59,60 @@ pub fn parse_terrain_csv(csv: &str, elev_grid: &mut Vec<f64>, res_grid: &mut Vec
     }
 }
 
-/// Parses one row of the `CSLExportXML` forest CSV format.
+/// Side of the vegetation density grid (`NaturalResourceManager.m_tree`): 512 × 512 cells.
+pub const FOREST_GRID_SIZE: usize = 512;
+/// World units per vegetation cell: 17280 / 512 = 33.75.
+#[allow(clippy::cast_precision_loss)]
+pub const FOREST_CELL_SIZE: f64 = 17280.0 / FOREST_GRID_SIZE as f64;
+
+/// Parses one row of the `CSLExportXML` forest CSV format into `forest_grid`.
 ///
 /// The `<Forests>` section contains 512 `<Forest>` child elements, each holding one
 /// comma-separated row of 512 density integers (0–255). `row` is the 0-based index
-/// of the current `<Forest>` element (incremented by the caller).
+/// of the current `<Forest>` element (incremented by the caller). `forest_grid` is the
+/// row-major 512 × 512 density grid; cells are derived from it by [`forest_cells_from_grid`].
 ///
 /// Grid: 512 × 512 cells covering the full 17280 × 17280 world-unit map (-8640…+8640).
-/// Cell size: 17280 / 512 = 33.75 world units per side.
-pub fn parse_forest_csv(csv: &str, row: usize, forest_cells: &mut Vec<ForestCell>) {
-    const FOREST_GRID: usize = 512;
-    const MAP_SIZE: f64 = 17280.0; // total world span (-8640 to +8640)
-    #[allow(clippy::cast_precision_loss)]
-    const CELL_SIZE: f64 = MAP_SIZE / FOREST_GRID as f64; // 33.75 world units
-    const MAP_ORIGIN: f64 = -8640.0;
-
+pub fn parse_forest_csv(csv: &str, row: usize, forest_grid: &mut [u8]) {
+    if row >= FOREST_GRID_SIZE {
+        eprintln!("[parser-cslmap] Forest row {row} beyond the 512-row grid; ignored");
+        return;
+    }
     for (col, val) in csv.split(',').enumerate() {
-        if col >= FOREST_GRID {
+        if col >= FOREST_GRID_SIZE {
             break; // guard against malformed rows
         }
         let density_raw: u32 = val.trim().parse().unwrap_or(0);
-        if density_raw == 0 {
-            continue;
+        // `m_tree` is a byte in the game: anything above 255 is a malformed export.
+        let density = u8::try_from(density_raw).unwrap_or_else(|_| {
+            eprintln!("[parser-cslmap] Forest density {density_raw} above 255; clamped");
+            u8::MAX
+        });
+        if let Some(cell) = forest_grid.get_mut(row * FOREST_GRID_SIZE + col) {
+            *cell = density;
         }
-        #[allow(clippy::cast_precision_loss)]
-        let x = MAP_ORIGIN + col as f64 * CELL_SIZE;
-        #[allow(clippy::cast_precision_loss)]
-        let z = MAP_ORIGIN + row as f64 * CELL_SIZE;
-        let density = f64::from(density_raw) / 255.0;
-        forest_cells.push(ForestCell { x, z, density });
     }
+}
+
+/// Derives the non-empty `ForestCell`s of a row-major 512 × 512 density grid
+/// (density = raw / 255). Shared by the `.cslmap` and `.vellummap` sources.
+pub fn forest_cells_from_grid(forest_grid: &[u8]) -> Vec<ForestCell> {
+    forest_grid
+        .iter()
+        .enumerate()
+        .filter(|(_, &raw)| raw != 0)
+        .map(|(idx, &raw)| {
+            let row = idx / FOREST_GRID_SIZE;
+            let col = idx % FOREST_GRID_SIZE;
+            #[allow(clippy::cast_precision_loss)]
+            let x = TERRAIN_MAP_ORIGIN + col as f64 * FOREST_CELL_SIZE;
+            #[allow(clippy::cast_precision_loss)]
+            let z = TERRAIN_MAP_ORIGIN + row as f64 * FOREST_CELL_SIZE;
+            ForestCell {
+                x,
+                z,
+                density: f64::from(raw) / 255.0,
+            }
+        })
+        .collect()
 }

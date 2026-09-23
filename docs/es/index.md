@@ -28,13 +28,14 @@ cambiar de idioma sin perder el contexto.
 
 ## Renderizado y formatos
 
-| Documento                                                              | Qué explica                                                                      |
-| ---------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| [Algoritmo de renderizado de tránsito](transit-rendering-algorithm.md) | El modelo path-based que mantiene continuas y estables las líneas de tránsito.   |
-| [Renderizado de distritos](district-rendering.md)                      | Por qué los distritos de `.cslmap` son anotaciones y no polígonos reconstruidos. |
-| [Renderizado de bosques](forest-rendering.md)                          | El enfoque de overlay de densidad para los datos forestales de `.cslmap`.        |
-| [Schema `.vellumstyle`](vellumstyle-schema.md)                         | El formato público v1 para crear temas personalizados.                           |
-| [Crear y depurar un tema](creating-themes.md)                          | Recorrido de un ejemplo oficial al selector, y cómo corregir cada diagnóstico.   |
+| Documento                                                              | Qué explica                                                                       |
+| ---------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| [Algoritmo de renderizado de tránsito](transit-rendering-algorithm.md) | El modelo path-based que mantiene continuas y estables las líneas de tránsito.    |
+| [Renderizado de distritos](district-rendering.md)                      | Por qué los distritos de `.cslmap` son anotaciones y no polígonos reconstruidos.  |
+| [Renderizado de bosques](forest-rendering.md)                          | El enfoque de overlay de densidad para los datos forestales de `.cslmap`.         |
+| [Schema `.vellumstyle`](vellumstyle-schema.md)                         | El formato público v1 para crear temas personalizados.                            |
+| [Documento `.vellummap`](vellummap-format.md)                          | El documento de ciudad estable v1: contenedor, módulos, agua y nombres de parada. |
+| [Crear y depurar un tema](creating-themes.md)                          | Recorrido de un ejemplo oficial al selector, y cómo corregir cada diagnóstico.    |
 
 ## Decisiones de producto
 

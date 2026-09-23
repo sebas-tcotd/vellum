@@ -1,0 +1,13 @@
+{
+  "districts": [
+    {
+      "sourceId": 1,
+      "name": "Downtown",
+      "labelPosition": {
+        "x": 50,
+        "y": 0,
+        "z": 50
+      }
+    }
+  ]
+}

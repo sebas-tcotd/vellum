@@ -1,0 +1,97 @@
+{
+  "format": "vellummap",
+  "exportSchemaVersion": "1.0",
+  "snapshotId": "0f8fad5b-d9cb-469f-a165-70867728950e",
+  "exportedAtUtc": "2026-09-23T14:05:00Z",
+  "game": {
+    "version": "1.21.1-f9"
+  },
+  "producer": {
+    "name": "Vellum Bridge",
+    "version": "0.5.0"
+  },
+  "city": {
+    "name": "Sample City"
+  },
+  "modules": [
+    {
+      "id": "terrain",
+      "path": "terrain.bin",
+      "version": "1.0",
+      "codec": "deflate",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "grid": {
+        "resolution": 1081,
+        "cellSize": 16,
+        "sample": "u16le",
+        "scale": 0.015625
+      }
+    },
+    {
+      "id": "water",
+      "path": "water.json",
+      "version": "1.0",
+      "codec": "deflate",
+      "sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+    },
+    {
+      "id": "water-mask",
+      "path": "water-mask.bin",
+      "version": "1.0",
+      "codec": "deflate",
+      "sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "grid": {
+        "resolution": 1081,
+        "cellSize": 16,
+        "sample": "u8"
+      }
+    },
+    {
+      "id": "vegetation",
+      "path": "vegetation.bin",
+      "version": "1.0",
+      "codec": "deflate",
+      "sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+      "grid": {
+        "resolution": 512,
+        "cellSize": 33.75,
+        "sample": "u8"
+      }
+    },
+    {
+      "id": "roads",
+      "path": "roads.json",
+      "version": "1.0",
+      "codec": "deflate",
+      "sha256": "5555555555555555555555555555555555555555555555555555555555555555"
+    },
+    {
+      "id": "transit",
+      "path": "transit.json",
+      "version": "1.0",
+      "codec": "deflate",
+      "sha256": "6666666666666666666666666666666666666666666666666666666666666666"
+    },
+    {
+      "id": "buildings",
+      "path": "buildings.json",
+      "version": "1.0",
+      "codec": "deflate",
+      "sha256": "7777777777777777777777777777777777777777777777777777777777777777"
+    },
+    {
+      "id": "districts",
+      "path": "districts.json",
+      "version": "1.0",
+      "codec": "deflate",
+      "sha256": "8888888888888888888888888888888888888888888888888888888888888888"
+    },
+    {
+      "id": "parks",
+      "path": "parks.json",
+      "version": "1.0",
+      "codec": "deflate",
+      "sha256": "9999999999999999999999999999999999999999999999999999999999999999"
+    }
+  ]
+}

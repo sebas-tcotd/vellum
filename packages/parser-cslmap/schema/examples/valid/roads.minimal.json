@@ -1,0 +1,55 @@
+{
+  "nodes": [
+    {
+      "sourceId": 1,
+      "position": {
+        "x": 0,
+        "y": 70,
+        "z": 0
+      },
+      "elevation": 0,
+      "underground": false
+    },
+    {
+      "sourceId": 2,
+      "position": {
+        "x": 100,
+        "y": 80,
+        "z": 0
+      },
+      "elevation": 10,
+      "underground": false
+    }
+  ],
+  "segments": [
+    {
+      "sourceId": 7,
+      "startNodeSourceId": 1,
+      "endNodeSourceId": 2,
+      "itemClass": "Medium Road",
+      "width": 24,
+      "points": [
+        {
+          "x": 0,
+          "y": 70,
+          "z": 0
+        },
+        {
+          "x": 33.3,
+          "y": 73.3,
+          "z": 0
+        },
+        {
+          "x": 66.6,
+          "y": 76.6,
+          "z": 0
+        },
+        {
+          "x": 100,
+          "y": 80,
+          "z": 0
+        }
+      ]
+    }
+  ]
+}

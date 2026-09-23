@@ -1,7 +1,17 @@
-use crate::city_data::{ParkArea, ParkType, Vec3};
+use crate::city_data::{ParkType, Vec3};
 
 use super::super::types::TextElement;
 use super::super::utils::{attr_f64, attr_str};
+
+/// A park area as read from the source. `park_type` is the game's raw type name
+/// (empty when absent); it is mapped to `ParkType` when `CityData` is built.
+#[derive(Debug, Clone)]
+pub(crate) struct RawParkArea {
+    pub(crate) id: String,
+    pub(crate) name: String,
+    pub(crate) position: Vec3,
+    pub(crate) park_type: String,
+}
 
 #[derive(Default)]
 pub(crate) struct ParkBuilder {
@@ -12,7 +22,7 @@ pub(crate) struct ParkBuilder {
     in_type_text: bool,
     current_park_type: String,
 
-    pub(crate) park_areas: Vec<ParkArea>,
+    pub(crate) park_areas: Vec<RawParkArea>,
 }
 
 impl ParkBuilder {
@@ -70,11 +80,11 @@ impl ParkBuilder {
             return;
         }
 
-        self.park_areas.push(ParkArea {
+        self.park_areas.push(RawParkArea {
             id: std::mem::take(&mut self.current_id),
             name: std::mem::take(&mut self.current_name),
             position,
-            park_type,
+            park_type: std::mem::take(&mut self.current_park_type),
         });
     }
 
@@ -95,7 +105,7 @@ impl ParkBuilder {
     }
 }
 
-fn park_type_from_xml(value: &str) -> ParkType {
+pub(crate) fn park_type_from_xml(value: &str) -> ParkType {
     match value {
         "Generic" => ParkType::Generic,
         "University" => ParkType::University,

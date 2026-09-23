@@ -762,3 +762,96 @@ fn root_gate_trims_the_declared_version() {
         other => panic!("expected UnsupportedVersion with empty found, got: {other:?}"),
     }
 }
+
+// Pins the derivations the shared build path owns, so a swapped axis or anchor
+// cannot pass silently: exact bounds (x from x, z from z), the building anchor
+// (first footprint point, not the last) and forest cells (column → x, row → z),
+// including the 255 clamp and the rows past the 512-row grid.
+#[test]
+fn shared_build_derivations_are_exact() {
+    let mut forests = String::new();
+    for row in 0..=512 {
+        let line = match row {
+            0 => "0,0,0,51".to_owned(), // (row 0, col 3) = 51 → 0.2
+            1 => "0,0,300".to_owned(),  // (row 1, col 2) = 300 → clamped to 255
+            512 => "9,9,9".to_owned(),  // the 513th row does not exist in the grid
+            _ => "0".to_owned(),
+        };
+        forests += "<Forest>";
+        forests += &line;
+        forests += "</Forest>";
+    }
+    let xml = format!(
+        r#"<CSLExportXML version="4.1"><City>Pins</City><Generated>g</Generated>
+          <Nodes>
+            <Node id="1" elev="0" ug="false"><Pos x="-100.0" y="5.0" z="300.0" /></Node>
+            <Node id="2" elev="0" ug="false"><Pos x="250.0" y="5.0" z="-40.0" /></Node>
+          </Nodes>
+          <Buildings>
+            <Buil id="3" name="B" subsrv="ResidentialLow" icls="Low Residential">
+              <Points>
+                <p x="10.0" y="1.0" z="20.0" />
+                <p x="30.0" y="1.0" z="20.0" />
+                <p x="30.0" y="1.0" z="40.0" />
+              </Points>
+            </Buil>
+          </Buildings>
+          <Forests>{forests}</Forests>
+        </CSLExportXML>"#
+    );
+    let city = parse_cslmap_bytes(xml.as_bytes()).expect("inline city must parse");
+
+    let b = &city.bounds;
+    assert_eq!(
+        (b.min_x, b.max_x, b.min_z, b.max_z),
+        (-100.0, 250.0, -40.0, 300.0)
+    );
+
+    let building = &city.buildings[0];
+    assert_eq!(
+        building.position.x.to_bits(),
+        building.footprint[0].x.to_bits()
+    );
+    assert_eq!(
+        building.position.z.to_bits(),
+        building.footprint[0].z.to_bits()
+    );
+    assert!((building.position.x - 10.0).abs() < f64::EPSILON);
+    assert!((building.position.z - 20.0).abs() < f64::EPSILON);
+
+    let cells: Vec<(f64, f64, f64)> = city
+        .forest_cells
+        .iter()
+        .map(|c| (c.x, c.z, c.density))
+        .collect();
+    assert_eq!(
+        cells,
+        vec![
+            (-8640.0 + 3.0 * 33.75, -8640.0, 51.0 / 255.0),
+            (-8640.0 + 2.0 * 33.75, -8640.0 + 33.75, 1.0),
+        ],
+        "only the two in-grid cells, in row-major order"
+    );
+}
+
+// A <Node> without <Pos> still records its elevation, as it did before the
+// RawCity refactor: a segment ending there is classified as elevated.
+#[test]
+fn node_without_position_still_elevates_its_segments() {
+    let xml = br#"<CSLExportXML version="4.1"><Nodes>
+            <Node id="1" elev="0" ug="false"><Pos x="0.0" y="0.0" z="0.0" /></Node>
+            <Node id="2" elev="12" ug="false"></Node>
+          </Nodes><Segments>
+            <Seg id="5" sn="1" en="2" icls="Medium Road" width="24.0"><Points /></Seg>
+          </Segments></CSLExportXML>"#;
+    let city = parse_cslmap_bytes(xml).expect("must parse");
+    assert_eq!(city.road_nodes.len(), 1);
+    assert!(
+        city.road_segments[0]
+            .way_type
+            .iter()
+            .any(|t| matches!(t, crate::city_data::WayType::Elevated)),
+        "got {:?}",
+        city.road_segments[0].way_type
+    );
+}

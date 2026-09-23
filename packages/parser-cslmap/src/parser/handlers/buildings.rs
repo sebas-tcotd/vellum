@@ -1,6 +1,17 @@
-use crate::city_data::{Building, Vec3};
+use crate::city_data::Vec3;
 
 use super::super::utils::{attr_f64, attr_str};
+
+/// A building as read from the source. Its anchor `position` is derived from the
+/// footprint when `CityData` is built.
+#[derive(Debug, Clone)]
+pub(crate) struct RawBuilding {
+    pub(crate) id: String,
+    pub(crate) name: String,
+    pub(crate) item_class: String,
+    pub(crate) service_type: String,
+    pub(crate) footprint: Vec<Vec3>,
+}
 
 // ─── BuildingBuilder ─────────────────────────────────────────────────────────
 
@@ -15,7 +26,7 @@ pub(crate) struct BuildingBuilder {
     in_points: bool,
     current_footprint: Vec<Vec3>,
 
-    pub(crate) buildings: Vec<Building>,
+    pub(crate) buildings: Vec<RawBuilding>,
 }
 
 impl BuildingBuilder {
@@ -54,27 +65,12 @@ impl BuildingBuilder {
                 self.in_points = false;
             }
             b"Buil" if self.in_buil => {
-                let footprint = std::mem::take(&mut self.current_footprint);
-                let position = if let Some(first) = footprint.first() {
-                    first.clone()
-                } else {
-                    eprintln!(
-                        "[parser-cslmap] Building id='{}' has empty footprint — position defaulting to origin",
-                        self.current_id
-                    );
-                    Vec3 {
-                        x: 0.0,
-                        y: 0.0,
-                        z: 0.0,
-                    }
-                };
-                self.buildings.push(Building {
+                self.buildings.push(RawBuilding {
                     id: std::mem::take(&mut self.current_id),
                     name: std::mem::take(&mut self.current_name),
-                    position,
                     item_class: std::mem::take(&mut self.current_icls),
                     service_type: std::mem::take(&mut self.current_subsrv),
-                    footprint,
+                    footprint: std::mem::take(&mut self.current_footprint),
                 });
                 self.in_buil = false;
             }

@@ -1,0 +1,51 @@
+{
+  "lines": [
+    {
+      "sourceId": 4,
+      "name": "Line 4",
+      "transportType": "Bus",
+      "color": "#FF6600FF",
+      "stops": [
+        {
+          "sourceId": 1,
+          "position": {
+            "x": 0,
+            "y": 70,
+            "z": 0
+          },
+          "name": "Main Street 1",
+          "nameDerived": true
+        },
+        {
+          "sourceId": 3,
+          "position": {
+            "x": 50,
+            "y": 75,
+            "z": 0
+          },
+          "name": "Main Street 2",
+          "nameDerived": true
+        },
+        {
+          "sourceId": 2,
+          "position": {
+            "x": 100,
+            "y": 80,
+            "z": 0
+          },
+          "name": "Central Station",
+          "nameDerived": false
+        },
+        {
+          "sourceId": 9,
+          "position": {
+            "x": 150,
+            "y": 80,
+            "z": 0
+          }
+        }
+      ],
+      "route": [7, 8]
+    }
+  ]
+}
