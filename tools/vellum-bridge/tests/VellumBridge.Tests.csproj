@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Harness del escritor .vellummap fuera de CS1. Enlaza solo el modelo y el escritor puros
+       (sin dependencias del juego) y usa C# 7.3, el mismo lenguaje que el mod net35. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <LangVersion>7.3</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <RootNamespace>VellumBridge.Tests</RootNamespace>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../src/Export/VellumModel.cs" Link="Export/VellumModel.cs" />
+    <Compile Include="../src/Export/VellumWriter.cs" Link="Export/VellumWriter.cs" />
+  </ItemGroup>
+</Project>

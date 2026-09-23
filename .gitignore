@@ -64,4 +64,6 @@ apps/desktop/tests/e2e/baselines/*.actual.png
 # Build from .NET
 tools/vellum-bridge/bin
 tools/vellum-bridge/obj
+tools/vellum-bridge/tests/bin
+tools/vellum-bridge/tests/obj
 

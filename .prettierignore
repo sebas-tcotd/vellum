@@ -22,5 +22,7 @@ CHANGELOG.md
 # Salidas generadas de Vellum Bridge (build .NET, snapshots del mod y reportes del arnés)
 tools/vellum-bridge/bin/
 tools/vellum-bridge/obj/
+tools/vellum-bridge/tests/bin/
+tools/vellum-bridge/tests/obj/
 research/vellum-bridge/snapshots/
 research/vellum-bridge/reports/

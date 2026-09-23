@@ -4,9 +4,11 @@ using System.Globalization;
 using System.IO;
 using System.Reflection;
 using System.Text;
+using System.Threading;
 using ICities;
 using ColossalFramework;
 using UnityEngine;
+using VellumBridge.Export;
 
 namespace VellumBridge
 {
@@ -18,6 +20,7 @@ namespace VellumBridge
         public void OnSettingsUI(UIHelperBase helper)
         {
             helper.AddButton("Capturar Raw Snapshot", delegate { BridgeCapture.Request(); });
+            helper.AddButton("Exportar para Vellum", delegate { BridgeExport.Request(); });
         }
     }
 
@@ -26,12 +29,14 @@ namespace VellumBridge
         public override void OnLevelLoaded(LoadMode mode)
         {
             BridgeCapture.SetLoaded(true);
-            Debug.Log("[VellumBridge] Ciudad cargada; captura disponible con Ctrl+Shift+V o desde las opciones del mod.");
+            BridgeExport.SetLoaded(true);
+            Debug.Log("[VellumBridge] Ciudad cargada; captura con Ctrl+Shift+V y exportación para Vellum con Ctrl+Shift+E, o desde las opciones del mod.");
         }
 
         public override void OnLevelUnloading()
         {
             BridgeCapture.SetLoaded(false);
+            BridgeExport.SetLoaded(false);
         }
     }
 
@@ -45,12 +50,234 @@ namespace VellumBridge
             bool ctrl = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
             bool shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
             if (ctrl && shift && Input.GetKeyDown(KeyCode.V)) BridgeCapture.Request();
+            if (ctrl && shift && Input.GetKeyDown(KeyCode.E)) BridgeExport.Request();
             BridgeCapture.ShowPendingResult();
+            BridgeExport.ShowPendingResult();
+        }
+    }
+
+    // Exportación «Exportar para Vellum»: el documento .vellummap (docs/es/vellummap-format.md).
+    // La copia de buffers ocurre en el hilo de simulación (o aquí mismo con el juego en pausa); la
+    // serialización, compresión y escritura, en un hilo aparte para no frenar la simulación. El
+    // resultado vuelve por pendingResult a OnUpdate, como en la captura.
+    internal static class BridgeExport
+    {
+        // Transiciones de estado bajo `gate`. `generation` cambia con cada carga o descarga de
+        // ciudad: el resultado de una exportación solo se publica si su generación sigue vigente,
+        // así el de la ciudad anterior nunca aparece en la nueva.
+        private static readonly object gate = new object();
+        private static bool loaded;
+        private static int generation;
+        private static bool exporting;
+        private static bool writing;          // hilo de escritura vivo
+        private static volatile string pendingResult;
+
+        internal static void SetLoaded(bool value)
+        {
+            lock (gate)
+            {
+                loaded = value;
+                generation++;
+                pendingResult = null;
+                // Con un hilo de escritura vivo, `exporting` lo libera ese hilo al terminar: así no
+                // hay dos exportaciones simultáneas.
+                if (!writing) exporting = false;
+            }
+        }
+
+        internal static void Request()
+        {
+            int ticket;
+            lock (gate)
+            {
+                if (!loaded) { BridgeCapture.ShowResult("Carga una ciudad antes de exportar para Vellum. Inténtalo de nuevo."); return; }
+                if (exporting) { BridgeCapture.ShowResult("Ya hay una exportación en curso."); return; }
+                if (SavePanel.isSaving) { BridgeCapture.ShowResult("Hay un guardado en curso. Inténtalo de nuevo cuando termine."); return; }
+                exporting = true;
+                ticket = generation;
+            }
+            BridgeCapture.ShowResult("Exportando para Vellum…\n\nLa ventana mostrará el resultado al terminar.");
+            Debug.Log("[VellumBridge] Exportación: solicitada.");
+            var simulation = Singleton<SimulationManager>.instance;
+            if (simulation.SimulationPaused || simulation.ForcedSimulationPaused) Extract(ticket);
+            else simulation.AddAction(delegate { Extract(ticket); });
+        }
+
+        internal static void ShowPendingResult()
+        {
+            string message = pendingResult;
+            if (message == null) return;
+            pendingResult = null;
+            BridgeCapture.ShowResult(message);
+        }
+
+        // Termina la operación dueña de `exporting`. El mensaje solo se publica si la ciudad no cambió.
+        private static void Finish(int ticket, string message)
+        {
+            lock (gate)
+            {
+                exporting = false;
+                writing = false;
+                if (ticket == generation) pendingResult = message;
+                else Debug.Log("[VellumBridge] Exportación: resultado descartado porque la ciudad cambió: " + message);
+            }
+        }
+
+        private static void Extract(int ticket)
+        {
+            VellumModel model;
+            try
+            {
+                bool cityLoaded;
+                lock (gate)
+                {
+                    cityLoaded = loaded;
+                    // La ciudad cambió mientras la acción esperaba en la cola: SetLoaded ya liberó
+                    // `exporting` y puede haber otra exportación en marcha, así que no se toca.
+                    if (ticket != generation)
+                    {
+                        Debug.LogWarning("[VellumBridge] Exportación descartada: la ciudad cambió antes de extraer.");
+                        return;
+                    }
+                }
+                if (!cityLoaded || SavePanel.isSaving)
+                {
+                    Debug.LogWarning("[VellumBridge] Exportación rechazada: ciudad no cargada o guardado en curso.");
+                    Finish(ticket, "Exportación cancelada: no hay ciudad cargada o hay un guardado en curso. No se escribió nada. Inténtalo de nuevo.");
+                    return;
+                }
+                var watch = System.Diagnostics.Stopwatch.StartNew();
+                Debug.Log("[VellumBridge] Exportación: extracción iniciada.");
+                model = VellumExtractor.Extract(BridgeCapture.Version);
+                Debug.Log("[VellumBridge] Exportación: extracción terminada en " + watch.ElapsedMilliseconds + " ms ("
+                    + model.nodes.Count + " nodos, " + model.segments.Count + " segmentos, " + model.lines.Count + " líneas, "
+                    + model.buildings.Count + " edificios; simulación " + (model.simulationPaused ? "en pausa" : "en marcha") + ").");
+            }
+            catch (Exception error)
+            {
+                Debug.LogError("[VellumBridge] Exportación: extracción fallida: " + error);
+                Finish(ticket, "Exportación cancelada: " + error.Message + (error is ExportFailedException ? "" : " No se escribió ningún archivo."));
+                return;
+            }
+
+            try
+            {
+                lock (gate)
+                {
+                    if (ticket != generation)
+                    {
+                        // SetLoaded ya liberó `exporting` (no había escritura viva): no se toca.
+                        Debug.LogWarning("[VellumBridge] Exportación descartada: la ciudad cambió durante la extracción.");
+                        return;
+                    }
+                    writing = true;
+                }
+                var thread = new Thread(delegate () { Write(ticket, model); });
+                thread.IsBackground = true;
+                thread.Name = "VellumBridge export";
+                thread.Start();
+            }
+            catch (Exception error)
+            {
+                Debug.LogError("[VellumBridge] Exportación: no se pudo iniciar la escritura: " + error);
+                Finish(ticket, "Exportación cancelada: no se pudo iniciar la escritura (" + error.Message + "). No se escribió ningún archivo.");
+            }
+        }
+
+        private static void Write(int ticket, VellumModel model)
+        {
+            ExportSummary summary = null;
+            bool published = false;
+            try
+            {
+                var watch = System.Diagnostics.Stopwatch.StartNew();
+                string folder = ExportFolder();
+                DeleteOrphanParts(folder);
+                Debug.Log("[VellumBridge] Exportación: escritura iniciada en " + folder + ".");
+                var options = new WriterOptions();
+                options.isSaving = delegate { return SavePanel.isSaving; };
+                summary = VellumWriter.Export(model, folder, options);
+                published = true;
+                Debug.Log("[VellumBridge] Exportación: publicada " + summary.path + " (" + summary.bytes + " bytes) en "
+                    + watch.ElapsedMilliseconds + " ms. Módulos: " + string.Join(", ", summary.modules.ToArray())
+                    + ". Límites: " + summary.limits.Count + ".");
+                foreach (string limit in summary.limits) Debug.Log("[VellumBridge] Exportación: límite: " + limit);
+                Finish(ticket, Describe(summary));
+            }
+            catch (Exception error)
+            {
+                if (published)
+                {
+                    Debug.LogError("[VellumBridge] Exportación: publicada, pero falló el resumen: " + error);
+                    Finish(ticket, "El archivo sí se escribió:\n" + summary.path
+                        + "\n\nNo se pudo preparar el resumen (" + error.Message + "). Revisa el log [VellumBridge].");
+                    return;
+                }
+                Debug.LogError("[VellumBridge] Exportación: escritura fallida: " + error);
+                Finish(ticket, "Exportación cancelada: " + (error is ExportFailedException ? error.Message
+                    : "error inesperado al escribir (" + error.Message + "). No se escribió ningún archivo."));
+            }
+        }
+
+        // Un cierre del juego a mitad de escritura deja un .part (el hilo es background). Como solo
+        // hay una exportación a la vez, cualquier .part de la carpeta es huérfano.
+        private static void DeleteOrphanParts(string folder)
+        {
+            if (!Directory.Exists(folder)) return;
+            foreach (string part in Directory.GetFiles(folder, "*" + VellumWriter.FileExtension + ".part"))
+            {
+                try
+                {
+                    File.Delete(part);
+                    Debug.Log("[VellumBridge] Exportación: borrado el temporal huérfano " + part + ".");
+                }
+                catch (Exception error) { Debug.LogWarning("[VellumBridge] Exportación: no se pudo borrar " + part + ": " + error.Message); }
+            }
+        }
+
+        private static string Describe(ExportSummary summary)
+        {
+            var text = new StringBuilder();
+            text.Append("Exportado para Vellum:\n").Append(summary.path).Append("\n");
+            if (summary.bytes < 0) text.Append("tamaño desconocido");
+            else if (summary.bytes < 1024 * 1024)
+                text.Append((summary.bytes / 1024.0).ToString("0.0", CultureInfo.InvariantCulture)).Append(" KB");
+            else text.Append((summary.bytes / (1024.0 * 1024.0)).ToString("0.0", CultureInfo.InvariantCulture)).Append(" MB");
+            text.Append("\n\n");
+            text.Append(summary.nodes).Append(" nodos, ").Append(summary.segments).Append(" segmentos, ")
+                .Append(summary.lines).Append(" líneas, ").Append(summary.stops).Append(" paradas, ")
+                .Append(summary.buildings).Append(" edificios, ").Append(summary.districts).Append(" distritos, ")
+                .Append(summary.parks).Append(" parques.\n\n");
+            text.Append("Módulos: ").Append(string.Join(", ", summary.modules.ToArray())).Append("\n");
+            if (summary.limits.Count > 0)
+            {
+                text.Append("\nLímites:\n");
+                foreach (string limit in summary.limits) text.Append("• ").Append(limit).Append("\n");
+            }
+            return text.ToString();
+        }
+
+        // Documentos/Vellum Bridge. Mono en macOS y Linux devuelve $HOME como MyDocuments: se usa
+        // $HOME/Documents si existe y, si no, $HOME/Vellum Bridge.
+        private static string ExportFolder()
+        {
+            string documents = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+            if (string.IsNullOrEmpty(documents) || !Path.IsPathRooted(documents))
+                throw new ExportFailedException("No se encontró la carpeta Documentos del usuario (el sistema devolvió «"
+                    + documents + "»). No se escribió ningún archivo.");
+            if (Path.DirectorySeparatorChar == '/')
+            {
+                string nested = Path.Combine(documents, "Documents");
+                if (Directory.Exists(nested)) documents = nested;
+            }
+            return Path.Combine(documents, "Vellum Bridge");
         }
     }
 
     internal static class BridgeCapture
     {
+        internal const string Version = "0.6.0-experimental";
+
         private static bool loaded;
         private static volatile bool capturing;
         private static volatile string pendingResult;
@@ -79,7 +306,7 @@ namespace VellumBridge
             ShowResult(message);
         }
 
-        private static void ShowResult(string message)
+        internal static void ShowResult(string message)
         {
             try
             {
@@ -111,7 +338,7 @@ namespace VellumBridge
             var document = new Snapshot();
             document.kind = "vellum-bridge-raw-snapshot";
             document.snapshotVersion = 1;
-            document.bridgeVersion = "0.5.0-experimental";
+            document.bridgeVersion = Version;
             document.capturedAt = DateTime.UtcNow.ToString("o");
             document.cityName = Singleton<SimulationManager>.instance.m_metaData != null
                 ? Singleton<SimulationManager>.instance.m_metaData.m_CityName : null;
