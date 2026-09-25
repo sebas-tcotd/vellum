@@ -49,6 +49,7 @@ impl DistrictBuilder {
                 id: std::mem::take(&mut self.current_id),
                 name: std::mem::take(&mut self.current_name),
                 position,
+                boundary: None,
             });
             self.in_dist = false;
         }

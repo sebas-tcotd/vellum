@@ -4,7 +4,7 @@
  * entities.
  */
 
-import type { Building, CityData } from '@vellum/core';
+import { isNetworkItemClass, type Building, type CityData } from '@vellum/core';
 import { csToGeoArray } from '../../coordinate-transform';
 import { resolveServiceGroup } from '../../service-icons';
 import { resolveBuildingZoning } from '../config/building-categories';
@@ -48,6 +48,9 @@ export function buildBuildingsGeoJson(
     .filter(
       (building) => !BUILDING_EXCLUDED_ITEM_CLASSES.has(building.itemClass),
     )
+    // Pillars, pylons and pipe junctions carry their network's class. Only
+    // native documents export them; they are structure, not buildings.
+    .filter((building) => !isNetworkItemClass(building.itemClass))
     .filter((building) => !isNaturalDecoration(building))
     .map(createBuildingFeature);
 

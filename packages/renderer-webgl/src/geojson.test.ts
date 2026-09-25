@@ -7,6 +7,7 @@ import {
 } from '@vellum/core/testing';
 import type { RoadNode } from '@vellum/core';
 import {
+  buildAreaBoundariesGeoJson,
   buildBuildingsGeoJson,
   buildParkAreasGeoJson,
   buildRoadsGeoJson,
@@ -899,4 +900,151 @@ describe('buildBuildingsGeoJson — natural decoration filter', () => {
 
     expect(buildBuildingsGeoJson(city).features).toHaveLength(1);
   });
+});
+
+// ─── Native `.vellummap` enrichments (Story 5.4) ──────────────────────────────
+
+function oneStopCity(stop: { name: string; nameDerived?: boolean }) {
+  return makeCityData({
+    roadNodes: [NODE_A, NODE_B],
+    roadSegments: [SEG_1],
+    transitLines: [
+      makeTransitLine({
+        id: 'line-1',
+        route: [makePathSeg(['seg-1'])],
+        stops: [
+          {
+            id: 'stop-1',
+            mode: 'Bus',
+            position: { x: 50, y: 0, z: 4 },
+            ...stop,
+          },
+        ],
+      }),
+    ],
+  });
+}
+
+describe('buildTransitRenderData — stop names', () => {
+  it('names a station after its stop and keeps the derived mark', () => {
+    const data = buildTransitRenderData(
+      oneStopCity({ name: 'Main Street 2', nameDerived: true }),
+    );
+    for (const feature of [
+      ...data.stations.features,
+      ...data.stationDots.features,
+    ]) {
+      expect(feature.properties.name).toBe('Main Street 2');
+      expect(feature.properties.nameDerived).toBe(true);
+    }
+  });
+
+  it('omits the name entirely for an unnamed (.cslmap) stop', () => {
+    const data = buildTransitRenderData(oneStopCity({ name: '' }));
+    const props = data.stations.features[0].properties;
+    expect('name' in props).toBe(false);
+    expect('nameDerived' in props).toBe(false);
+  });
+});
+
+describe('buildAreaBoundariesGeoJson', () => {
+  const triangle: [number, number][] = [
+    [0, 0],
+    [0.01, 0],
+    [0.01, 0.01],
+    [0, 0],
+  ];
+
+  it('emits one ring per boundary, tagged by kind and park type', () => {
+    const city = makeCityData({
+      districts: [
+        {
+          id: '1',
+          name: 'Downtown',
+          position: { x: 0, y: 0, z: 0 },
+          boundary: [{ exterior: triangle, holes: [triangle] }],
+        },
+      ],
+      parkAreas: [
+        {
+          id: '3',
+          name: 'Zoo',
+          position: { x: 0, y: 0, z: 0 },
+          parkType: 'Generic',
+          boundary: [{ exterior: triangle, holes: [] }],
+        },
+      ],
+    });
+    const features = buildAreaBoundariesGeoJson(city).features;
+    expect(features.map((f) => f.properties)).toEqual([
+      { id: '1', kind: 'district', parkType: 'None' },
+      { id: '1', kind: 'district', parkType: 'None' },
+      { id: '3', kind: 'park', parkType: 'Generic' },
+    ]);
+    expect(features[0].geometry).toEqual({
+      type: 'LineString',
+      coordinates: triangle,
+    });
+  });
+
+  it('is empty for a .cslmap city, whose areas are label points only', () => {
+    const city = makeCityData({
+      districts: [
+        { id: '1', name: 'Downtown', position: { x: 0, y: 0, z: 0 } },
+      ],
+    });
+    expect(buildAreaBoundariesGeoJson(city).features).toHaveLength(0);
+  });
+});
+
+describe('buildBuildingsGeoJson — network structures', () => {
+  it.each([
+    ['HighwayBridgePillar', 'Highway'],
+    ['Monorail Pylon', 'Monorail Track'],
+    ['Water Pipe Junction', 'Water Pipe'],
+    ['Overground Metro Elevated Pillar 01', 'Metro Track'],
+  ])('drops "%s" (%s), which holds a network up', (name, itemClass) => {
+    const city = makeCityData({
+      buildings: [makeBuilding({ id: 'pillar', name, itemClass })],
+    });
+    expect(buildBuildingsGeoJson(city).features).toHaveLength(0);
+  });
+
+  it('keeps the tram depot, a real building despite its excluded road class', () => {
+    const city = makeCityData({
+      buildings: [
+        makeBuilding({
+          id: 'depot',
+          name: 'Tram Depot',
+          itemClass: 'Tram Facility',
+        }),
+      ],
+    });
+    expect(buildBuildingsGeoJson(city).features).toHaveLength(1);
+  });
+});
+
+describe('buildRoadsGeoJson — native networks', () => {
+  function city(itemClass: string) {
+    return makeCityData({
+      roadNodes: [NODE_A, NODE_B],
+      roadSegments: [makeRoadSegment({ ...SEG_1, itemClass, width: 3 })],
+    });
+  }
+
+  it.each([
+    ['Ship Path', 'ferry'],
+    ['Airplane Path', 'flight'],
+    ['Transport Connection', 'connection'],
+  ])('routes %s to the %s layer', (itemClass, category) => {
+    const [feature] = buildRoadsGeoJson(city(itemClass)).features;
+    expect(feature?.properties.category).toBe(category);
+  });
+
+  it.each(['Metro Line', 'Water Pipe', 'Landscaping Quay'])(
+    'draws nothing for %s',
+    (itemClass) => {
+      expect(buildRoadsGeoJson(city(itemClass)).features).toHaveLength(0);
+    },
+  );
 });

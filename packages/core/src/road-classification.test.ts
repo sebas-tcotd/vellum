@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  isNetworkItemClass,
   classifyRoadCategory,
   classifyRoadTier,
   EXCLUDED_ROAD_CLASSES,
@@ -30,7 +31,7 @@ describe('classifyRoadTier', () => {
   it('keeps ferry and airship paths on the width heuristic', () => {
     // Neither is in ITEM_CLASS_TIER, so the modded-asset fallback decides.
     expect(classifyRoadTier('Ferry Path', ['None'], 4)).toBe('pedestrianWay');
-    expect(classifyRoadTier('Blimp Line', ['None'], 4)).toBe('pedestrianWay');
+    expect(classifyRoadTier('Blimp Path', ['None'], 4)).toBe('pedestrianWay');
   });
 
   it('falls back to wayType for an unknown modded asset', () => {
@@ -82,7 +83,39 @@ describe('classifyRoadCategory', () => {
   it('routes ferry and airship paths to their own categories', () => {
     expect(classifyRoadCategory('Ferry Path')).toBe('ferry');
     expect(classifyRoadCategory('Blimp Path')).toBe('airship');
-    expect(classifyRoadCategory('Blimp Line')).toBe('airship');
+  });
+
+  // Native `.vellummap` documents keep what the `.cslmap` exporter filtered.
+  it('never draws a virtual `* Line` connector, whatever its mode', () => {
+    for (const connector of [
+      'Bus Line',
+      'Tram Line',
+      'Train Line',
+      'Metro Line',
+      'Monorail Line',
+      'Ship Line',
+      'Airplane Line',
+      'Blimp Line',
+    ]) {
+      expect(classifyRoadCategory(connector)).toBe('excluded');
+      expect(classifyRoadTier(connector, ['None'], 2)).toBeNull();
+    }
+  });
+
+  it('routes the native non-road networks to their decided treatments', () => {
+    expect(classifyRoadCategory('Ship Path')).toBe('ferry');
+    expect(classifyRoadCategory('Airplane Path')).toBe('flight');
+    expect(classifyRoadCategory('Transport Connection')).toBe('connection');
+    expect(classifyRoadCategory('Water Pipe')).toBe('excluded');
+    expect(classifyRoadTier('Water Pipe', ['None'], 9)).toBeNull();
+    // Drawn categories must still carry a tier for their width.
+    for (const itemClass of [
+      'Ship Path',
+      'Airplane Path',
+      'Transport Connection',
+    ]) {
+      expect(classifyRoadTier(itemClass, ['None'], 3)).not.toBeNull();
+    }
   });
 
   it('routes ordinary and modded road classes to road', () => {
@@ -163,6 +196,38 @@ describe('classifyRoadCategory', () => {
     for (const itemClass of Object.keys(ITEM_CLASS_TIER)) {
       expect(EXCLUDED_ROAD_CLASSES.has(itemClass)).toBe(false);
       expect(classifyRoadCategory(itemClass)).not.toBe('excluded');
+    }
+  });
+});
+
+describe('isNetworkItemClass', () => {
+  it('recognises every network class, drawn or not', () => {
+    for (const itemClass of [
+      'Highway',
+      'Train Track',
+      'Monorail Track',
+      'Pedestrian Path',
+      'Water Pipe',
+      'Transport Connection',
+      'Airplane Path',
+      'Metro Line',
+      'Ferry Path',
+    ]) {
+      expect(isNetworkItemClass(itemClass)).toBe(true);
+    }
+  });
+
+  it('leaves buildings and unknown modded classes alone', () => {
+    for (const itemClass of [
+      'Low Residential - Level4',
+      'Beautification Item',
+      // The tram depot: excluded as a road segment, but a real building.
+      'Tram Facility',
+      'Water Facility',
+      'Some Modded Asset',
+      'constructor',
+    ]) {
+      expect(isNetworkItemClass(itemClass)).toBe(false);
     }
   });
 });

@@ -17,6 +17,7 @@
 export { buildBuildingsGeoJson } from './builders/buildings.builder';
 export { buildGridGeoJson } from './builders/grid.builder';
 export {
+  buildAreaBoundariesGeoJson,
   buildDistrictsGeoJson,
   buildForestsGeoJson,
   buildParkAreasGeoJson,
@@ -43,6 +44,9 @@ export type {
   ContourLineCollection,
   ContourLineFeature,
   ContourLineProperties,
+  AreaBoundariesFeatureCollection,
+  AreaBoundaryFeature,
+  AreaBoundaryFeatureProperties,
   DistrictFeature,
   DistrictFeatureProperties,
   DistrictsFeatureCollection,

@@ -1,7 +1,7 @@
 {
   "emptyState": {
     "title": "Vellum",
-    "dropHint": "Drop your .cslmap file here",
+    "dropHint": "Drop your city (.vellummap or .cslmap) here",
     "orOpenWith": "or press",
     "firstUseHint": "Export your city with CSL Map View · Vellum's native exporter coming in v2 →"
   },
@@ -10,7 +10,7 @@
     "rendering": "Rendering map..."
   },
   "errors": {
-    "InvalidFile": "This file couldn't be read. It may be corrupted or not a valid .cslmap.",
+    "InvalidFile": "This file couldn't be read. It may be corrupted or not a valid .vellummap or .cslmap.",
     "UnsupportedVersion": "This map was exported with an unsupported version ({{found}}).",
     "MissingVersion": "This map doesn't declare an exporter version. It may not be a valid .cslmap.",
     "PartialParse": "Map loaded with warnings. Some elements may not display correctly.",
@@ -320,7 +320,12 @@
     "resize": "Resize sidebar"
   },
   "documentContext": {
-    "sourceFile": "Source file"
+    "sourceFile": "Source file",
+    "cslmapChip": "CSLMap",
+    "cslmapChipHint": "This city comes from a .cslmap file, the backward-compatible format. Some layers, such as 3D terrain, require Vellum's native format, exported by Vellum Bridge."
+  },
+  "mapTooltip": {
+    "derivedStopName": "Name derived from the street"
   },
   "document": {
     "openMap": "Open map"

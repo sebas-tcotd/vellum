@@ -4,6 +4,7 @@ import type { ParkType } from '@vellum/core';
 import type {
   Feature,
   FeatureCollection,
+  LineStringGeometry,
   PointGeometry,
   PolygonGeometry,
 } from './geojson-primitives';
@@ -31,6 +32,32 @@ export interface ParkAreaFeatureProperties {
   /** The type of park area (University, Industry, Forestry, etc.). */
   parkType: ParkType;
 }
+
+/**
+ * Properties attached to each area-boundary ring (native documents only).
+ *
+ * @remarks
+ * One feature per ring (exterior or hole) of a district's or park's
+ * `boundary`: a ring drawn as a line is exactly the outline, with no need
+ * for a `MultiLineString` primitive.
+ */
+export interface AreaBoundaryFeatureProperties {
+  /** The district's or park's CS1 identifier. */
+  id: string;
+  /** Which layer draws the ring. */
+  kind: 'district' | 'park';
+  /** Park type, for the park colour expression; `None` for districts. */
+  parkType: ParkType;
+}
+
+/** A GeoJSON Feature wrapping one district or park boundary ring. */
+export type AreaBoundaryFeature = Feature<
+  LineStringGeometry,
+  AreaBoundaryFeatureProperties
+>;
+/** A GeoJSON FeatureCollection of district and park boundary rings. */
+export type AreaBoundariesFeatureCollection =
+  FeatureCollection<AreaBoundaryFeature>;
 
 /** A GeoJSON Feature wrapping a forest cell point. */
 export type ForestFeature = Feature<PointGeometry, ForestFeatureProperties>;

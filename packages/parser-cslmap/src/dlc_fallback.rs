@@ -2,10 +2,13 @@
 /// Sources: CS1 base game + Snowfall, After Dark, Mass Transit, etc.
 #[must_use]
 pub fn is_known_item_class(item_class: &str) -> bool {
-    matches!(
-        item_class,
-        // Roads — base game
-        "Basic Road"
+    // Every `* Line` class is a virtual transit connector — the same suffix rule
+    // the `.cslmap` handler and `@vellum/core`'s renderer classification apply.
+    item_class.ends_with(" Line")
+        || matches!(
+            item_class,
+            // Roads — base game
+            "Basic Road"
             | "Basic Road Elevated"
             | "Basic Road Bridge"
             | "Small Road"
@@ -64,7 +67,22 @@ pub fn is_known_item_class(item_class: &str) -> bool {
             | "Ship Path"
             // Beautification (buildings, not roads — filtered at render time)
             | "Beautification Item"
-    )
+            // Classes only the native `.vellummap` carries as segments: the
+            // `.cslmap` exporter filtered them out. Each has a decided render
+            // treatment in `@vellum/core/road-classification`.
+            | "Pedestrian Street"
+            | "Airplane Runway"
+            | "Airport Concourse"
+            | "Bus Stop"
+            | "Ship Dock"
+            | "Landscaping Quay"
+            | "Transport Connection"
+            | "Water Pipe"
+            // Vanilla ways the renderer already treats (cable car) or excludes
+            // (helicopter), which native documents can carry as segments.
+            | "CableCar Path"
+            | "Helicopter Path"
+        )
 }
 
 #[cfg(test)]
@@ -77,6 +95,29 @@ mod tests {
         assert!(is_known_item_class("Highway"));
         assert!(is_known_item_class("Bus Line"));
         assert!(is_known_item_class("Blimp Path"));
+    }
+
+    /// Classes a native `.vellummap` carries as segments. Dropping one from the
+    /// list would flood every normal native open with parse warnings.
+    #[test]
+    fn native_segment_classes_are_known() {
+        for class in [
+            "Pedestrian Street",
+            "Airplane Runway",
+            "Airport Concourse",
+            "Bus Stop",
+            "Ship Dock",
+            "Landscaping Quay",
+            "Transport Connection",
+            "Water Pipe",
+            "CableCar Path",
+            "Helicopter Path",
+            "Metro Line",
+            "Airplane Line",
+            "Some Future Line",
+        ] {
+            assert!(is_known_item_class(class), "{class} should be known");
+        }
     }
 
     #[test]

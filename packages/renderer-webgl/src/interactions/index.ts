@@ -176,10 +176,14 @@ export function subscribeHover(
 
     const linesSeen = new Set<string>();
     const allLines: Array<TransitLineInfo> = [];
+    // The top-most named station names the tooltip; only native documents
+    // name stops, so a `.cslmap` never sets it.
+    let named: TransitStopFeatureProperties | undefined;
 
     for (const feature of nearby) {
       if (!feature.properties) continue;
       const props = feature.properties as TransitStopFeatureProperties;
+      if (!named && typeof props.name === 'string' && props.name) named = props;
       let parsed: Array<TransitLineInfo>;
       try {
         parsed = JSON.parse(props.lines) as Array<TransitLineInfo>;
@@ -204,6 +208,10 @@ export function subscribeHover(
       screenX: e.point.x,
       screenY: e.point.y,
       lines: allLines,
+      ...(named && {
+        stopName: named.name,
+        stopNameDerived: named.nameDerived === true,
+      }),
     };
     callback(info);
   };

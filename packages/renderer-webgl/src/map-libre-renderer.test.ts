@@ -1179,6 +1179,50 @@ describe('MapLibreRenderer', () => {
   });
 
   describe('districts points/labels display mode', () => {
+    it('ties native district outlines to districts and park outlines to the park sublayer', async () => {
+      const renderer = makeRenderer();
+      mockMap.getLayer.mockReturnValue({ id: 'any' } as unknown as undefined);
+      await renderer.render(makeCityData(), {
+        activeLayers: ALL_LAYERS_VISIBLE,
+      });
+      expect(mockMap.setLayoutProperty).toHaveBeenCalledWith(
+        'district-boundaries',
+        'visibility',
+        'visible',
+      );
+      // Park areas are opt-in, so their outlines start hidden with them.
+      expect(mockMap.setLayoutProperty).toHaveBeenCalledWith(
+        'park-boundaries',
+        'visibility',
+        'none',
+      );
+
+      vi.clearAllMocks();
+      mockMap.getLayer.mockReturnValue({ id: 'any' } as unknown as undefined);
+      renderer.setLayerOptions({
+        transit: { visibleModes: [], showConfirmedTransfers: true },
+        buildings: { visibleCategories: [], colorByCategory: false },
+        districts: { showNameOnMap: true, showParkAreas: true },
+        terrain: {
+          showContourLines: true,
+          showColorRelief: true,
+          showHillshade: true,
+        },
+        basemap: { showGrid: false },
+      });
+      // The label display mode does not hide the outline.
+      expect(mockMap.setLayoutProperty).toHaveBeenCalledWith(
+        'district-boundaries',
+        'visibility',
+        'visible',
+      );
+      expect(mockMap.setLayoutProperty).toHaveBeenCalledWith(
+        'park-boundaries',
+        'visibility',
+        'visible',
+      );
+    });
+
     it('shows districts-points and hides districts-labels by default', async () => {
       const renderer = makeRenderer();
       mockMap.getLayer.mockReturnValue({ id: 'any' } as unknown as undefined);
@@ -1691,6 +1735,41 @@ describe('MapLibreRenderer', () => {
         screenY: 200,
         lines: [{ name: 'Line 1', color: '#FF0000', mode: 'Bus' }],
       });
+    });
+
+    it('mousemove handler carries a native stop name and its derived mark', () => {
+      const renderer = makeRenderer();
+      const cb = vi.fn();
+      renderer.subscribeHover(cb);
+
+      mockMap.queryRenderedFeatures.mockReturnValueOnce([
+        {
+          properties: {
+            id: '1:c:7',
+            mode: 'Bus',
+            color: '#FF0000',
+            lines: JSON.stringify([
+              { name: 'Line 1', color: '#FF0000', mode: 'Bus' },
+            ]),
+            name: 'Main Street 2',
+            nameDerived: true,
+          },
+        },
+      ] as unknown as never[]);
+
+      const moveHandler = (
+        mockMap.on as ReturnType<typeof vi.fn>
+      ).mock.calls.find(
+        (c: unknown[]) => c[0] === 'mousemove' && c[1] === 'transit-stops',
+      )?.[2] as (e: { point: { x: number; y: number } }) => void;
+      moveHandler({ point: { x: 10, y: 20 } });
+
+      expect(cb).toHaveBeenCalledWith(
+        expect.objectContaining({
+          stopName: 'Main Street 2',
+          stopNameDerived: true,
+        }),
+      );
     });
 
     it('mousemove handler deduplicates lines across multiple nearby features', () => {

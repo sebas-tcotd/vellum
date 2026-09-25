@@ -11,13 +11,13 @@ fn pending_file_path() -> &'static Mutex<Option<String>> {
 ///
 /// # Remarks
 /// Called once from `.setup()`, before any window exists. The first non-flag
-/// argument after argv[0] that ends in `.cslmap` (case-insensitive) is treated
+/// argument after argv[0] that ends in `.cslmap` or `.vellummap` (case-insensitive) is treated
 /// as the file to open; anything else (dev server flags, no argument at all)
 /// leaves the pending slot empty.
 pub fn capture_startup_file_path() {
     let path = std::env::args()
         .skip(1)
-        .find(|arg| !arg.starts_with('-') && arg.to_lowercase().ends_with(".cslmap"));
+        .find(|arg| !arg.starts_with('-') && is_city_document(arg));
     if let Some(path) = path {
         if let Ok(mut pending) = pending_file_path().lock() {
             *pending = Some(path);
@@ -25,7 +25,13 @@ pub fn capture_startup_file_path() {
     }
 }
 
-/// Returns and clears the `.cslmap` path the app was launched with, if any.
+/// Whether `path` names a city document Vellum opens: `.cslmap` or `.vellummap`.
+fn is_city_document(path: &str) -> bool {
+    let lower = path.to_lowercase();
+    lower.ends_with(".cslmap") || lower.ends_with(".vellummap")
+}
+
+/// Returns and clears the city document path (`.cslmap` or `.vellummap`) the app was launched with, if any.
 ///
 /// # Remarks
 /// Mutates the process-wide pending-path slot: the first caller (the frontend,
@@ -43,7 +49,7 @@ pub fn get_startup_file_path() -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{get_startup_file_path, pending_file_path};
+    use super::{get_startup_file_path, is_city_document, pending_file_path};
 
     /// Single test — `PENDING_FILE_PATH` is a process-wide static, so a second
     /// test touching it in parallel would race.
@@ -65,5 +71,13 @@ mod tests {
             None,
             "second read finds it cleared"
         );
+    }
+
+    #[test]
+    fn both_city_documents_are_accepted_case_insensitively() {
+        assert!(is_city_document("C:\\Cities\\altavento.CSLMAP"));
+        assert!(is_city_document("/Users/me/Costa Tijuca.vellummap"));
+        assert!(!is_city_document("/Users/me/theme.vellumstyle"));
+        assert!(!is_city_document("/Users/me/raw.quire"));
     }
 }

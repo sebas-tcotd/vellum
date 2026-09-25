@@ -27,11 +27,42 @@ import type { ResolvedColors } from '../style-adapter';
 import {
   AIRSHIP_LINE_DASHARRAY,
   AIRSHIP_LINE_OPACITY,
+  CONNECTION_LINE_DASHARRAY,
+  CONNECTION_LINE_OPACITY,
+  CONNECTION_MIN_ZOOM,
+  FERRY_LINE_DASHARRAY,
+  FERRY_LINE_OPACITY,
+  FLIGHT_LINE_DASHARRAY,
+  FLIGHT_LINE_OPACITY,
   CABLECAR_LINE_DASHARRAY,
   CABLECAR_LINE_OPACITY,
   resolveAirshipColor,
   resolveCableCarColor,
 } from '../expressions/transit-color';
+
+/** A flight path is a hairline at every zoom: it annotates, it is not a way. */
+const FLIGHT_LINE_WIDTH_EXPR = [
+  'interpolate',
+  ['exponential', 1.5],
+  ['zoom'],
+  10,
+  0.6,
+  14,
+  1,
+  18,
+  1.5,
+] as unknown as maplibregl.ExpressionSpecification;
+
+/** Transport connections only appear from their min zoom, so start there. */
+const CONNECTION_LINE_WIDTH_EXPR = [
+  'interpolate',
+  ['exponential', 1.5],
+  ['zoom'],
+  CONNECTION_MIN_ZOOM,
+  0.6,
+  18,
+  1.5,
+] as unknown as maplibregl.ExpressionSpecification;
 
 /** Adds roads source and both casing + fill layers. */
 export function addRoadsLayer(
@@ -262,7 +293,7 @@ export function addRoadsLayer(
     layout: { 'line-cap': 'butt', 'line-join': 'round' },
     paint: {
       'line-color': colors.ferry,
-      'line-opacity': 0.65,
+      'line-opacity': FERRY_LINE_OPACITY,
       'line-opacity-transition': { duration: 300 },
       'line-width': [
         'interpolate',
@@ -275,7 +306,7 @@ export function addRoadsLayer(
         18,
         4,
       ] as unknown as maplibregl.ExpressionSpecification,
-      'line-dasharray': [3, 1],
+      'line-dasharray': [...FERRY_LINE_DASHARRAY],
     },
   });
 
@@ -318,6 +349,39 @@ export function addRoadsLayer(
       ] as unknown as maplibregl.ExpressionSpecification,
       'line-dasharray': [...CABLECAR_LINE_DASHARRAY],
       'line-opacity': CABLECAR_LINE_OPACITY,
+      'line-opacity-transition': { duration: 300 },
+    },
+  });
+
+  // Native-only ways (`.vellummap`): a `.cslmap` never emits these
+  // categories, so its map is unchanged.
+  addLayerIfAbsent(map, {
+    id: 'roads-flight',
+    type: 'line',
+    source: 'roads',
+    filter: isCategory('flight'),
+    layout: { 'line-cap': 'butt', 'line-join': 'round' },
+    paint: {
+      'line-color': colors.districtLabel,
+      'line-width': FLIGHT_LINE_WIDTH_EXPR,
+      'line-dasharray': [...FLIGHT_LINE_DASHARRAY],
+      'line-opacity': FLIGHT_LINE_OPACITY,
+      'line-opacity-transition': { duration: 300 },
+    },
+  });
+
+  addLayerIfAbsent(map, {
+    id: 'roads-connection',
+    type: 'line',
+    source: 'roads',
+    filter: isCategory('connection'),
+    minzoom: CONNECTION_MIN_ZOOM,
+    layout: { 'line-cap': 'round', 'line-join': 'round' },
+    paint: {
+      'line-color': colors.roadCasing.pedestrianWay,
+      'line-width': CONNECTION_LINE_WIDTH_EXPR,
+      'line-dasharray': [...CONNECTION_LINE_DASHARRAY],
+      'line-opacity': CONNECTION_LINE_OPACITY,
       'line-opacity-transition': { duration: 300 },
     },
   });

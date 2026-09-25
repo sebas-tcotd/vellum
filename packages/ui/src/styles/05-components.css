@@ -76,6 +76,26 @@
   min-width: 0;
 }
 
+.shell-context-header__title {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  min-width: 0;
+}
+
+/* Discreet source label: not a warning, so muted ink and a hairline border. */
+.shell-context-header__chip {
+  flex: 0 0 auto;
+  padding: 1px 5px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1.4;
+  color: var(--shell-text-muted);
+  border: 1px solid var(--shell-separator);
+  border-radius: var(--shell-radius-control);
+  cursor: default;
+}
+
 .shell-context-header__city {
   margin: 0;
   overflow: hidden;

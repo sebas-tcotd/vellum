@@ -40,9 +40,10 @@ function computeStyle(
  * district marker on the map.
  *
  * @remarks
- * Renders `null` when `info` is `null`. Branches on `info.kind`: transit
- * stops in the `.cslmap` format do not have names — only the transit lines
- * serving each stop have names — while districts render a single-line name.
+ * Renders `null` when `info` is `null`. Branches on `info.kind`: a transit
+ * stop lists the lines serving it, headed by the stop's name when the
+ * document has one (native `.vellummap`; a derived name is marked as such —
+ * `.cslmap` stops have no names), while districts render a single-line name.
  * Positioned with edge-awareness so it stays within the canvas container.
  */
 export function MapTooltip({
@@ -81,6 +82,21 @@ export function MapTooltip({
       style={style}
       className="bg-neutral-900/95 text-white rounded-md shadow-lg px-3 py-2 text-sm min-w-28 max-w-52"
     >
+      {info.stopName ? (
+        <div className="mb-1.5">
+          <span
+            className="text-xs font-medium truncate block"
+            title={info.stopName}
+          >
+            {info.stopName}
+          </span>
+          {info.stopNameDerived ? (
+            <span className="text-[10px] opacity-50 italic block">
+              {t('mapTooltip.derivedStopName')}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
       <ul className="flex flex-col gap-1">
         {info.lines.map((line) => {
           const modeLabel = t(`transitModes.${line.mode}`, {

@@ -1,3 +1,7 @@
+/** Shared cartographic treatment for maritime (ferry and ship) route ways. */
+export const FERRY_LINE_DASHARRAY = [3, 1] as const;
+export const FERRY_LINE_OPACITY = 0.65;
+
 /** Shared cartographic treatment for airship (Dirigible) route ways. */
 export const AIRSHIP_LINE_DASHARRAY = [3, 2] as const;
 export const AIRSHIP_LINE_OPACITY = 0.48;
@@ -11,6 +15,25 @@ export const AIRSHIP_LINE_OPACITY = 0.48;
  */
 export const CABLECAR_LINE_DASHARRAY = [6, 3] as const;
 export const CABLECAR_LINE_OPACITY = 0.85;
+
+/**
+ * Shared cartographic treatment for aircraft flight paths (native documents).
+ *
+ * Long, sparse dashes in the theme's label ink, thin and translucent: the
+ * aeronautical-chart idiom. Ink rather than a transit colour because a flight
+ * path crosses land and sea alike and must read on both.
+ */
+export const FLIGHT_LINE_DASHARRAY = [8, 5] as const;
+export const FLIGHT_LINE_OPACITY = 0.6;
+
+/**
+ * Shared cartographic treatment for transport connections (native documents):
+ * the short stop↔platform links inside a station. Faint dots, and only from
+ * {@link CONNECTION_MIN_ZOOM}: at city scale they are clutter.
+ */
+export const CONNECTION_LINE_DASHARRAY = [1, 1.5] as const;
+export const CONNECTION_LINE_OPACITY = 0.7;
+export const CONNECTION_MIN_ZOOM = 15;
 
 /**
  * Lightens a theme colour toward white for the airship's cloud-like route tint.

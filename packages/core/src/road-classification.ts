@@ -44,8 +44,12 @@ export interface RoadWidthStyle {
  *
  * @remarks
  * Orthogonal to {@link RoadTier}: the category decides *where* a segment is
- * drawn, the tier decides *how thick*. Ferry and airship paths keep whatever
- * tier the width heuristic gives them.
+ * drawn, the tier decides *how thick*. Ferry, airship, flight and
+ * connection paths keep whatever tier the width heuristic gives them.
+ *
+ * `flight` and `connection` only occur in native `.vellummap` documents: the
+ * `.cslmap` exporter never emits `Airplane Path` or `Transport Connection` as
+ * segments, so a `.cslmap` never reaches their layers.
  */
 export type RoadCategory =
   | 'road'
@@ -54,6 +58,8 @@ export type RoadCategory =
   | 'ferry'
   | 'airship'
   | 'cablecar'
+  | 'flight'
+  | 'connection'
   | 'excluded';
 
 /**
@@ -128,21 +134,23 @@ export const ITEM_CLASS_TIER: Readonly<Record<string, RoadTier>> = {
  * Item classes that are never drawn as road geometry.
  *
  * @remarks
- * The Rust parser already drops `Bus Line` and the landscaping tools from
- * `road_segments` (see `parser/tests.rs`), so on a normally-parsed city these
- * entries never match. Airship paths are *not* here: they remain in
- * `road_segments` deliberately because transit route reconstruction needs
- * their geometry, and {@link classifyRoadCategory} routes them to the
- * dedicated dashed Dirigible layer instead of an ordinary road rendering.
- * This set is the single filter point for both the interactive map and the
- * SVG export.
+ * The `.cslmap` parser already drops every `* Line` connector and the
+ * landscaping tools from `road_segments` (see `parser/tests.rs`); the native
+ * `.vellummap` keeps them in `CityData`, so this set — plus the `* Line` rule
+ * in {@link isExcludedRoadClass} — is what keeps them off the map. Airship
+ * paths are *not* here: they remain in `road_segments` deliberately because
+ * transit route reconstruction needs their geometry, and
+ * {@link classifyRoadCategory} routes them to the dedicated dashed Dirigible
+ * layer instead of an ordinary road rendering. This set is the single filter
+ * point for both the interactive map and the SVG export.
  */
 export const EXCLUDED_ROAD_CLASSES: ReadonlySet<string> = new Set([
   'Electricity Wire',
-  'Airplane Path',
-  // Virtual routing geometry for helicopters, exactly like `Airplane Path`.
+  // Virtual routing geometry for helicopters. Unlike `Airplane Path` it has
+  // no decided treatment, so it stays off the map.
   'Helicopter Path',
-  'Ship Path',
+  // Underground utility: kept in `CityData`, never drawn on a city map.
+  'Water Pipe',
   'Tram Line',
   'Tram Facility',
   // Virtual connectors used only for transit routing — never real geometry.
@@ -155,11 +163,28 @@ export const EXCLUDED_ROAD_CLASSES: ReadonlySet<string> = new Set([
   'Landscaping Quay',
 ]);
 
-/** Item classes drawn as ferry routes rather than as road geometry. */
-const FERRY_CLASSES = new Set(['Ferry Path']);
+/**
+ * Item classes drawn as maritime routes rather than as road geometry.
+ *
+ * @remarks
+ * `Ship Path` is the passenger/cargo shipping lane, a native-only segment; it
+ * reads as the same kind of water route as a ferry path, so it shares the
+ * maritime layer instead of adding a theme colour of its own.
+ */
+const FERRY_CLASSES = new Set(['Ferry Path', 'Ship Path']);
 
 /** Item classes drawn as airship (dirigible) routes. */
-const AIRSHIP_CLASSES = new Set(['Blimp Path', 'Blimp Line']);
+const AIRSHIP_CLASSES = new Set(['Blimp Path']);
+
+/** Item classes drawn as aircraft flight paths (native documents only). */
+const FLIGHT_CLASSES = new Set(['Airplane Path']);
+
+/**
+ * Item classes drawn as transport connections: the short links inside a
+ * station between a stop and its platforms (native documents only). Drawn
+ * faintly and only at detail zoom — at city scale they are clutter.
+ */
+const CONNECTION_CLASSES = new Set(['Transport Connection']);
 
 /**
  * Item classes drawn as cable-car ways.
@@ -175,6 +200,55 @@ const CABLECAR_CLASSES = new Set(['CableCar Path']);
 
 /** Item classes drawn as airport runways: road geometry, flat-capped. */
 const RUNWAY_CLASSES = new Set(['Airplane Runway']);
+
+/**
+ * Whether a segment of `itemClass` is never drawn.
+ *
+ * @remarks
+ * Any `* Line` class is a virtual transit connector (`Bus Line`, `Metro Line`,
+ * `Blimp Line`, …) — the exact rule the `.cslmap` parser applies before
+ * `CityData` exists. Native documents keep those connectors in the data, so
+ * the renderer has to apply it too.
+ */
+function isExcludedRoadClass(itemClass: string): boolean {
+  return EXCLUDED_ROAD_CLASSES.has(itemClass) || itemClass.endsWith(' Line');
+}
+
+/**
+ * Networks that are never drawn as ways. Deliberately not
+ * {@link EXCLUDED_ROAD_CLASSES}: that set also holds building classes such as
+ * `Tram Facility` (the tram depot), which must stay on the map.
+ */
+const UNDRAWN_NETWORK_CLASSES = new Set([
+  'Electricity Wire',
+  'Helicopter Path',
+  'Water Pipe',
+]);
+
+/**
+ * Whether `itemClass` names a network — a way of any kind, drawn or not.
+ *
+ * @remarks
+ * CS1 gives the structures that hold a network up the network's own class:
+ * a `HighwayBridgePillar` is a `Highway`, a `Monorail Pylon` a `Monorail
+ * Track`, a `Water Pipe Junction` a `Water Pipe`. The native document exports
+ * them as buildings (the `.cslmap` exporter filtered them out), so the
+ * buildings layer asks this to keep a pillar from drawing as a house.
+ * Unknown (modded) classes are not networks: they are never dropped by guess.
+ */
+export function isNetworkItemClass(itemClass: string): boolean {
+  return (
+    tierOf(itemClass) !== undefined ||
+    itemClass.endsWith(' Line') ||
+    UNDRAWN_NETWORK_CLASSES.has(itemClass) ||
+    FERRY_CLASSES.has(itemClass) ||
+    AIRSHIP_CLASSES.has(itemClass) ||
+    FLIGHT_CLASSES.has(itemClass) ||
+    CONNECTION_CLASSES.has(itemClass) ||
+    CABLECAR_CLASSES.has(itemClass) ||
+    RUNWAY_CLASSES.has(itemClass)
+  );
+}
 
 /**
  * The tier {@link ITEM_CLASS_TIER} assigns to `itemClass`, or `undefined`.
@@ -213,7 +287,7 @@ export function classifyRoadTier(
   wayType: readonly WayType[],
   width: number,
 ): RoadTier | null {
-  if (EXCLUDED_ROAD_CLASSES.has(itemClass)) return null;
+  if (isExcludedRoadClass(itemClass)) return null;
 
   const known = tierOf(itemClass);
   if (known) return known;
@@ -243,9 +317,11 @@ export function classifyRoadTier(
  * them to cap it flat. Every other non-`road` category has a layer of its own.
  */
 export function classifyRoadCategory(itemClass: string): RoadCategory {
-  if (EXCLUDED_ROAD_CLASSES.has(itemClass)) return 'excluded';
+  if (isExcludedRoadClass(itemClass)) return 'excluded';
   if (FERRY_CLASSES.has(itemClass)) return 'ferry';
   if (AIRSHIP_CLASSES.has(itemClass)) return 'airship';
+  if (FLIGHT_CLASSES.has(itemClass)) return 'flight';
+  if (CONNECTION_CLASSES.has(itemClass)) return 'connection';
   if (CABLECAR_CLASSES.has(itemClass)) return 'cablecar';
   if (RUNWAY_CLASSES.has(itemClass)) return 'runway';
 

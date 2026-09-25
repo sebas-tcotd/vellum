@@ -10,8 +10,8 @@ use super::terrain::grid::{FOREST_GRID_SIZE, TERRAIN_GRID_SIZE};
 use super::terrain::{grid, texture, vectorizer};
 use super::types::TextElement;
 use crate::city_data::{
-    Building, CityData, District, ParkArea, PathSegment, RoadNode, RoadSegment, TransitLine,
-    TransitStop, Vec3,
+    Building, CityData, CitySource, District, ParkArea, PathSegment, RoadNode, RoadSegment,
+    TransitLine, TransitStop, Vec3,
 };
 use crate::errors::VellumError;
 use std::collections::HashMap;
@@ -293,6 +293,8 @@ pub(crate) fn build_city_data(mut raw: RawCity) -> Result<CityData, VellumError>
 
     Ok(CityData {
         city_name: raw.city_name,
+        // The native adapter overrides this after the shared construction.
+        source: CitySource::Cslmap,
         file_name: String::new(),
         generated_at: raw.generated_at,
         bounds,
@@ -320,6 +322,7 @@ pub(crate) fn build_city_data(mut raw: RawCity) -> Result<CityData, VellumError>
                 id: park.id,
                 name: park.name,
                 position: park.position,
+                boundary: None,
             })
             .collect(),
     })
@@ -335,6 +338,7 @@ fn build_transit_line(line: RawTransitLine) -> TransitLine {
             mode: mode.clone(),
             position: stop.position,
             name: stop.name,
+            name_derived: stop.name_derived,
         })
         .collect();
     let route = if line.route.is_empty() {

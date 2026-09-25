@@ -32,9 +32,15 @@ export interface TransitTooltipInfo {
   screenY: number;
   /**
    * All transit lines serving the hovered stop (or cluster of stops).
-   * Note: individual stops have no name in the .cslmap — only lines have names.
    */
   lines: TransitLineInfo[];
+  /**
+   * Name of the hovered stop, when the document names it (native
+   * `.vellummap` only — `.cslmap` stops have no names).
+   */
+  stopName?: string;
+  /** `true` when {@link stopName} was derived from the street, not set in game. */
+  stopNameDerived?: boolean;
 }
 
 /** Info emitted by the hover subscription when the cursor enters a district marker (points display mode). */

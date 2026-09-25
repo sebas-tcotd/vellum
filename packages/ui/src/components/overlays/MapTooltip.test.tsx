@@ -148,4 +148,42 @@ describe('MapTooltip', () => {
     expect(tooltip.style.left).toBe('112px');
     expect(tooltip.style.top).toBe('112px');
   });
+
+  it('heads the lines with a native stop name, marked when derived', () => {
+    render(
+      <MapTooltip
+        {...makeProps({
+          info: {
+            kind: 'transit',
+            screenX: 50,
+            screenY: 50,
+            lines: [{ name: 'Bus 1', color: '#FF0000', mode: 'Bus' }],
+            stopName: 'Evergreen Boulevard 3',
+            stopNameDerived: true,
+          },
+        })}
+      />,
+    );
+    expect(screen.getByText('Evergreen Boulevard 3')).toBeTruthy();
+    expect(screen.getByText('mapTooltip.derivedStopName')).toBeTruthy();
+  });
+
+  it('does not mark a stop name assigned in game', () => {
+    render(
+      <MapTooltip
+        {...makeProps({
+          info: {
+            kind: 'transit',
+            screenX: 50,
+            screenY: 50,
+            lines: [{ name: 'Bus 1', color: '#FF0000', mode: 'Bus' }],
+            stopName: 'Central Station',
+            stopNameDerived: false,
+          },
+        })}
+      />,
+    );
+    expect(screen.getByText('Central Station')).toBeTruthy();
+    expect(screen.queryByText('mapTooltip.derivedStopName')).toBeNull();
+  });
 });

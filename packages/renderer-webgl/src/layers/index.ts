@@ -16,6 +16,7 @@ export { addTransitLayers } from './layer-transit';
 export { addBuildingsLayer } from './layer-buildings';
 export { addServiceIconsLayer } from './layer-service-icons';
 export { addForestsLayer } from './layer-forests';
+export { addAreaBoundariesLayer } from './layer-area-boundaries';
 export { addDistrictsLayer } from './layer-districts';
 export { addParksLayer } from './layer-parks';
 export { addGridLayer } from './layer-grid';

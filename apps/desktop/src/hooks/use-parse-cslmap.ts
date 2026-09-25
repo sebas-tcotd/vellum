@@ -17,7 +17,7 @@ import { IPC_COMMANDS, IPC_EVENTS } from '@vellum/core';
  * always cancelled *before* that shared global mutates (AD-15) — not
  * reactively afterward, which a `useEffect` keyed on `cityData` could never
  * guarantee.
- * @returns `loadFile` — loads a `.cslmap` path via IPC, with anti-race guard.
+ * @returns `loadFile` — loads a `.cslmap` or `.vellummap` path via IPC, with anti-race guard.
  * @returns `openFileDialog` — opens the OS file picker, then calls `loadFile`.
  * @returns `loadFilePartial` — retries the last file path with allow_partial=true.
  */
@@ -228,7 +228,9 @@ export function useParseCslmap(
     try {
       selected = await open({
         title: 'Abrir ciudad',
-        filters: [{ name: 'CSL Map', extensions: ['cslmap'] }],
+        // One filter for both: the native document first, the legacy
+        // `.cslmap` still opens through the same command.
+        filters: [{ name: 'Ciudad', extensions: ['vellummap', 'cslmap'] }],
         multiple: false,
       });
     } catch (err) {
