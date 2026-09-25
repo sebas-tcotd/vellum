@@ -209,8 +209,20 @@ namespace VellumBridge.Tests
             limits.Clear();
             var unknown = new AreaGrid { resolution = 900, cells = new byte[900 * 900 * 8] };
             unknown.cells[8] = 9;
+            unknown.cells[12] = 200;
             Check(VellumWriter.AreaGridBytes("distritos", unknown, ids, limits) == null && limits.Count == 1,
-                "Grilla con un id no declarado: módulo omitido con límite");
+                "Grilla con un id no declarado con peso: módulo omitido con límite");
+
+            // Costa Tijuca: ids de áreas borradas en ranuras sin peso → se escriben como 0.
+            limits.Clear();
+            var stale = new AreaGrid { resolution = 900, cells = new byte[900 * 900 * 8] };
+            stale.cells[0] = 1; stale.cells[4] = 255;   // ranura 1: área viva con peso
+            stale.cells[1] = 3;                          // ranura 2: área borrada, alpha 0
+            byte[] cleaned = VellumWriter.AreaGridBytes("distritos", stale, ids, limits);
+            Check(cleaned != null && cleaned[0] == 1 && cleaned[4] == 255 && cleaned[1] == 0,
+                "Ranura sin peso con id inexistente: se escribe 0 y la grilla se conserva");
+            Check(stale.cells[1] == 3, "La limpieza no modifica el modelo");
+            Check(limits.Count == 1 && limits[0].Contains("1 ranuras"), "Ranuras limpiadas declaradas como límite");
 
             limits.Clear();
             Check(VellumWriter.AreaGridBytes("parques", null, ids, limits) == null && limits.Count == 1,

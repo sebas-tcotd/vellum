@@ -431,24 +431,34 @@ namespace VellumBridge.Export
                     limits.Add("Grilla de " + what + " omitida: el área " + id + " no cabe en un byte (1–255).");
                     return null;
                 }
-            for (int i = 0; i < grid.cells.Length; i += 8)
+            // CS1 deja en las ranuras sin peso el id de áreas ya borradas (Costa Tijuca: ids 1–3 en
+            // ~800 000 celdas, todas con alpha 0). El contrato pide 0 en las ranuras sin uso, así que
+            // esas se limpian; un id desconocido con peso sí deja la grilla fuera.
+            byte[] cells = (byte[])grid.cells.Clone();
+            int cleared = 0;
+            for (int i = 0; i < cells.Length; i += 8)
                 for (int k = 0; k < 4; k++)
                 {
-                    byte id = grid.cells[i + k];
-                    if (id != 0 && !ids.ContainsKey(id))
+                    byte id = cells[i + k];
+                    if (id == 0 || ids.ContainsKey(id)) continue;
+                    if (cells[i + 4 + k] != 0)
                     {
-                        limits.Add("Grilla de " + what + " omitida: la celda " + (i / 8) + " nombra el área " + id + ", que no se exportó.");
+                        limits.Add("Grilla de " + what + " omitida: la celda " + (i / 8) + " nombra con peso el área " + id + ", que no se exportó.");
                         return null;
                     }
+                    cells[i + k] = 0;
+                    cleared++;
                 }
+            if (cleared > 0)
+                limits.Add("Grilla de " + what + ": " + cleared + " ranuras sin peso con ids de áreas inexistentes se escribieron como 0.");
 
-            if (grid.resolution == AreaResolution) return grid.cells;
+            if (grid.resolution == AreaResolution) return cells;
             // Mismo tamaño de celda (19,2 m) y ambas centradas en el origen: la de 512² ocupa las
             // celdas 194..705 de la de 900².
             const int offset = (AreaResolution - VanillaAreaResolution) / 2;
             var padded = new byte[AreaResolution * AreaResolution * 8];
             for (int row = 0; row < VanillaAreaResolution; row++)
-                Buffer.BlockCopy(grid.cells, row * VanillaAreaResolution * 8, padded,
+                Buffer.BlockCopy(cells, row * VanillaAreaResolution * 8, padded,
                     ((row + offset) * AreaResolution + offset) * 8, VanillaAreaResolution * 8);
             limits.Add("Grilla de " + what + " rellenada desde 512² (vanilla) a 900²: fuera de los 25 tiles centrales no hay áreas.");
             return padded;
