@@ -21,7 +21,8 @@ namespace VellumBridge.Export
     internal sealed class WriterOptions
     {
         // Compresor deflate crudo. null = DeflateStream. Si lanza, el módulo va `stored`.
-        public Func<byte[], byte[]> compress;
+        // Solo el harness lo asigna; el inicializador explícito evita CS0649 en el mod.
+        public Func<byte[], byte[]> compress = null;
         // true si el juego está guardando: la exportación se descarta. null = nunca.
         public Func<bool> isSaving;
     }
