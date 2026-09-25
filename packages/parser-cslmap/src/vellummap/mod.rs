@@ -8,6 +8,7 @@
 //! never a silent reinterpretation. A valid document is turned into a `RawCity` and
 //! goes through the same `build_city_data` path as a `.cslmap`.
 
+mod areas;
 mod manifest;
 mod modules;
 mod read;
@@ -17,6 +18,7 @@ mod write;
 mod tests;
 
 pub use read::parse_vellummap_bytes;
+pub(crate) use read::parse_vellummap_observed;
 pub use write::cslmap_to_vellummap;
 
 use crate::city_data::{District, Vec3};
@@ -188,6 +190,7 @@ impl Document {
                             node_id: stop.source_id.to_string(),
                             position: stop.position.into(),
                             name: stop.name.unwrap_or_default(),
+                            name_derived: stop.name_derived.unwrap_or(false),
                         })
                         .collect(),
                     route: line.route.iter().map(u32::to_string).collect(),
@@ -213,6 +216,7 @@ impl Document {
                     id: d.source_id.to_string(),
                     name: d.name,
                     position: d.label_position.into(),
+                    boundary: None,
                 })
                 .collect(),
             park_areas: self

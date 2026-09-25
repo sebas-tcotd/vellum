@@ -11,7 +11,7 @@ use super::modules::{
 use super::read::{read_document, sha256_hex};
 use super::write::{write_document, write_zip};
 use super::*;
-use crate::city_data::CityData;
+use crate::city_data::{CityData, CitySource};
 use crate::parser::parse_cslmap_bytes;
 use std::io::{Cursor, Read};
 use std::path::PathBuf;
@@ -381,6 +381,16 @@ fn converted_fixtures_match_the_cslmap_city_data() {
         let expected = parse_cslmap_bytes(&cslmap).expect("fixture must parse");
         let vellummap = cslmap_to_vellummap(&cslmap).expect("fixture must convert");
         let actual = parse_vellummap_bytes(&vellummap).expect("converted document must open");
+        assert_eq!(
+            expected.source,
+            CitySource::Cslmap,
+            "{name}: .cslmap source"
+        );
+        assert_eq!(
+            actual.source,
+            CitySource::Vellummap,
+            "{name}: native source"
+        );
 
         assert_eq!(
             expected.generated_at, generated,
@@ -394,6 +404,8 @@ fn converted_fixtures_match_the_cslmap_city_data() {
             let object = value.as_object_mut().unwrap();
             object.remove("fileName");
             object.remove("generatedAt");
+            // Which document it came from is the one field that must differ.
+            object.remove("source");
         }
         for (key, want) in expected.as_object().unwrap() {
             assert!(
@@ -455,7 +467,17 @@ fn bridge_extras_are_accepted_and_reach_city_data() {
     let line = &city.transit_lines[0];
     assert_eq!(line.color, "#FF6600FF");
     assert_eq!(line.stops[0].name, "Main Street");
+    assert!(line.stops[0].name_derived, "the derived mark must survive");
     assert_eq!(line.stops[1].name, "");
+    assert!(!line.stops[1].name_derived);
+    assert_eq!(city.source, CitySource::Vellummap);
+    // One owned cell each in the area grids → one closed boundary each.
+    for boundary in [&city.districts[0].boundary, &city.park_areas[0].boundary] {
+        let polygons = boundary
+            .as_ref()
+            .expect("an area in the grid gets a boundary");
+        assert_eq!(polygons.len(), 1);
+    }
     assert_eq!(line.route[0].segment_ids, vec!["7".to_owned()]);
     // Node 2 is elevated → the segment is classified through the shared path.
     assert!(city.road_segments[0]
@@ -467,6 +489,45 @@ fn bridge_extras_are_accepted_and_reach_city_data() {
         crate::city_data::ParkType::None
     ));
     assert!(!city.inland_water_polygons.is_empty());
+}
+
+#[test]
+fn cslmap_source_serializes_as_the_literal_the_chip_checks() {
+    let city = parse_cslmap_bytes(&fixture("minimal-valid.cslmap")).unwrap();
+    assert_eq!(serde_json::to_value(&city).unwrap()["source"], "cslmap");
+}
+
+#[test]
+fn native_parse_warnings_reach_the_observer() {
+    let mut document = bridge_document();
+    document.roads.segments[0].item_class = "Some Modded Road".to_owned();
+    let bytes = write_document(&document).unwrap();
+
+    let mut seen = Vec::new();
+    parse_vellummap_observed(&bytes, |warnings| seen.extend_from_slice(warnings)).unwrap();
+    assert_eq!(seen.len(), 1, "{seen:?}");
+    assert!(seen[0].contains("Some Modded Road"), "{seen:?}");
+}
+
+// ─── Matrix: "Áreas" — sin grilla, solo etiqueta ──────────────────────────────
+
+#[test]
+fn areas_without_a_grid_keep_only_their_label() {
+    let mut document = bridge_document();
+    document.district_grid = None;
+    document.park_grid = None;
+    let city = parse_vellummap_bytes(&write_document(&document).unwrap()).unwrap();
+    assert!(city.districts[0].boundary.is_none());
+    assert!(city.park_areas[0].boundary.is_none());
+
+    // …and the contract omits the field instead of sending `null`.
+    let json = serde_json::to_value(&city).unwrap();
+    // The frontend compares this literal (`source === 'cslmap'`): pin the wire value.
+    assert_eq!(json["source"], "vellummap");
+    assert!(json["districts"][0].get("boundary").is_none());
+    assert!(json["transitLines"][0]["stops"][1]
+        .get("nameDerived")
+        .is_none());
 }
 
 #[test]

@@ -1,4 +1,4 @@
-//! Spike tool: parse a `.cslmap` and dump the resulting `CityData` as JSON, so the
+//! Spike tool: parse a `.cslmap` (or `.vellummap`) and dump the resulting `CityData` as JSON, so the
 //! TypeScript render pipeline can be exercised on real cities outside the Tauri app.
 //!
 //! `terrainDem` is stripped: it is a base64 PNG data URI worth tens of megabytes and
@@ -12,12 +12,13 @@
 //! ```
 
 use parser_cslmap::parser::parse_cslmap_bytes;
+use parser_cslmap::vellummap::parse_vellummap_bytes;
 use serde_json::Value;
 
 fn main() {
     let mut args = std::env::args().skip(1);
     let (Some(input), Some(output)) = (args.next(), args.next()) else {
-        eprintln!("usage: dump_city <input.cslmap> <output.json>");
+        eprintln!("usage: dump_city <input.cslmap|.vellummap> <output.json>");
         std::process::exit(2);
     };
 
@@ -29,7 +30,12 @@ fn main() {
         }
     };
 
-    let city = match parse_cslmap_bytes(&bytes) {
+    let parsed = if input.to_lowercase().ends_with(".vellummap") {
+        parse_vellummap_bytes(&bytes)
+    } else {
+        parse_cslmap_bytes(&bytes)
+    };
+    let city = match parsed {
         Ok(c) => c,
         Err(e) => {
             eprintln!("parse {input}: {e}");

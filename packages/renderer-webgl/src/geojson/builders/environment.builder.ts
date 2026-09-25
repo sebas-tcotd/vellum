@@ -3,6 +3,8 @@
 import type { CityData } from '@vellum/core';
 import { CS1_WORLD_HALF, csToGeoArray } from '../../coordinate-transform';
 import type {
+  AreaBoundariesFeatureCollection,
+  AreaBoundaryFeature,
   DistrictFeature,
   DistrictsFeatureCollection,
   ForestFeature,
@@ -42,6 +44,45 @@ export function buildDistrictsGeoJson(
     geometry: { type: 'Point', coordinates: csToGeoArray(district.position) },
     properties: { id: district.id, name: district.name },
   }));
+  return { type: 'FeatureCollection', features };
+}
+
+/**
+ * Builds the outline rings of every district and park that carries a
+ * `boundary`.
+ *
+ * @remarks
+ * Only native `.vellummap` documents have boundaries (vectorized from their
+ * area grids); a `.cslmap` yields an empty collection, so its map is unchanged.
+ * Boundaries are already WGS-84, like the terrain polygons.
+ */
+export function buildAreaBoundariesGeoJson(
+  cityData: CityData,
+): AreaBoundariesFeatureCollection {
+  const features: AreaBoundaryFeature[] = [];
+  const push = (
+    id: string,
+    kind: AreaBoundaryFeature['properties']['kind'],
+    parkType: AreaBoundaryFeature['properties']['parkType'],
+    boundary: CityData['districts'][number]['boundary'],
+  ) => {
+    for (const polygon of boundary ?? []) {
+      for (const ring of [polygon.exterior, ...polygon.holes]) {
+        if (ring.length < 2) continue;
+        features.push({
+          type: 'Feature',
+          geometry: { type: 'LineString', coordinates: ring },
+          properties: { id, kind, parkType },
+        });
+      }
+    }
+  };
+  for (const district of cityData.districts) {
+    push(district.id, 'district', 'None', district.boundary);
+  }
+  for (const park of cityData.parkAreas) {
+    push(park.id, 'park', park.parkType, park.boundary);
+  }
   return { type: 'FeatureCollection', features };
 }
 

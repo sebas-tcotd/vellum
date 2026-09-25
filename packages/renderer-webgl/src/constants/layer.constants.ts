@@ -1,5 +1,10 @@
 import type { LayerName } from '@vellum/core';
 import { ELEVATION_UNITS_PER_METER } from '../sources/dem-protocol';
+import {
+  CONNECTION_LINE_OPACITY,
+  FERRY_LINE_OPACITY,
+  FLIGHT_LINE_OPACITY,
+} from '../expressions/transit-color';
 
 /**
  * Vertical exaggeration for the `terrain-hillshade` layer, in "metres" terms: CS1
@@ -36,6 +41,11 @@ export const FORESTS_CIRCLE_OPACITY_EXPRESSION = [
 export const HILLSHADE_EXAGGERATION =
   HILLSHADE_EXAGGERATION_M / ELEVATION_UNITS_PER_METER;
 
+/** Baseline opacity of the native district outline (also the dimming baseline). */
+export const DISTRICT_BOUNDARY_OPACITY = 0.55;
+/** Baseline opacity of the native park outline (also the dimming baseline). */
+export const PARK_BOUNDARY_OPACITY = 0.8;
+
 /**
  * Maps each logical `LayerName` to the MapLibre layer IDs that implement it.
  *
@@ -56,6 +66,8 @@ export const LAYER_ID_MAP: Record<LayerName, string[]> = {
     'roads-bridge-fill',
     'roads-ferry',
     'roads-blimp',
+    'roads-flight',
+    'roads-connection',
     'roads-railway-surface-casing',
     'roads-railway-surface-fill',
     'roads-railway-elevated-casing',
@@ -74,6 +86,8 @@ export const LAYER_ID_MAP: Record<LayerName, string[]> = {
   buildings: ['buildings-fill', 'buildings-outline', 'service-icons'],
   forests: ['forests-circles'],
   districts: [
+    'district-boundaries',
+    'park-boundaries',
     'districts-points',
     'districts-labels',
     'park-areas-points',
@@ -165,8 +179,10 @@ export const NON_TRANSIT_OPACITY: Record<
   'roads-bridge-casing': { prop: 'line-opacity', base: 1 },
   'roads-bridge-shadow': { prop: 'line-opacity', base: 0.3 },
   'roads-bridge-fill': { prop: 'line-opacity', base: 1 },
-  'roads-ferry': { prop: 'line-opacity', base: 0.65 },
+  'roads-ferry': { prop: 'line-opacity', base: FERRY_LINE_OPACITY },
   'roads-blimp': { prop: 'line-opacity', base: 0.48 },
+  'roads-flight': { prop: 'line-opacity', base: FLIGHT_LINE_OPACITY },
+  'roads-connection': { prop: 'line-opacity', base: CONNECTION_LINE_OPACITY },
   'roads-railway-surface-casing': { prop: 'line-opacity', base: 1 },
   'roads-railway-surface-fill': { prop: 'line-opacity', base: 1 },
   'roads-railway-elevated-casing': { prop: 'line-opacity', base: 1 },
@@ -180,6 +196,11 @@ export const NON_TRANSIT_OPACITY: Record<
     prop: 'circle-opacity',
     base: FORESTS_CIRCLE_OPACITY_EXPRESSION,
   },
+  'district-boundaries': {
+    prop: 'line-opacity',
+    base: DISTRICT_BOUNDARY_OPACITY,
+  },
+  'park-boundaries': { prop: 'line-opacity', base: PARK_BOUNDARY_OPACITY },
   'districts-points': { prop: 'circle-opacity', base: 1 },
   'districts-labels': { prop: 'text-opacity', base: 1 },
   'park-areas-points': { prop: 'circle-opacity', base: 1 },

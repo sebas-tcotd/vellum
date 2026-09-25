@@ -19,6 +19,7 @@ const DEFAULT_BOUNDS = {
 
 const MINIMAL_CITY_DATA: CityData = {
   cityName: 'Test City',
+  source: 'cslmap',
   fileName: 'test-city.cslmap',
   generatedAt: '2026-01-01T00:00:00Z',
   bounds: DEFAULT_BOUNDS,

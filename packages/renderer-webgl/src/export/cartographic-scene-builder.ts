@@ -42,12 +42,14 @@ import {
 import { VELLUM_LOGO_SIZE, vellumLogoInnerSvg } from '../assets/vellum-logo';
 import { geoToCs } from '../coordinate-transform';
 import { resolveBuildingColor } from '../expressions/building-color';
+import { DISTRICT_BOUNDARY_OPACITY } from '../constants/layer.constants';
 import { resolveRoadWidthPx } from '../expressions/road-width-curve';
 import { resolveElevationColor } from '../expressions/terrain-relief';
 import {
   buildBuildingsGeoJson,
   buildCoastlineGeoJson,
   buildContourLinesGeoJson,
+  buildAreaBoundariesGeoJson,
   buildDistrictsGeoJson,
   buildForestsGeoJson,
   buildLandPolygonGeoJson,
@@ -69,6 +71,10 @@ import {
 } from '../layers/layer-transit';
 import {
   AIRSHIP_LINE_DASHARRAY,
+  FERRY_LINE_DASHARRAY,
+  FERRY_LINE_OPACITY,
+  FLIGHT_LINE_DASHARRAY,
+  FLIGHT_LINE_OPACITY,
   CABLECAR_LINE_DASHARRAY,
   CABLECAR_LINE_OPACITY,
   AIRSHIP_LINE_OPACITY,
@@ -417,30 +423,60 @@ function buildRoadEntities(context: LayerContext): SceneEntity[] {
       capEnds && category !== 'runway' ? ('round' as const) : ('butt' as const);
     const geometry = { kind: 'path', points } as const;
 
+    // Transport connections only appear from detail zoom on the live map; a
+    // static document has no zoom and is read at overview scale.
+    if (category === 'connection') continue;
+
     // Ways with a dedicated dashed treatment on the interactive map get the
     // same one here — the export and the map read the same `category`.
     const dashedWay =
-      category === 'airship'
+      category === 'ferry'
         ? {
-            color: resolveAirshipColor(colors.ferry),
-            opacity: AIRSHIP_LINE_OPACITY,
-            dashPx: AIRSHIP_LINE_DASHARRAY,
+            color: colors.ferry,
+            opacity: FERRY_LINE_OPACITY,
+            dashPx: FERRY_LINE_DASHARRAY,
+            // Same dedicated weight as the cable car: the live layer ignores
+            // the width heuristic's tier.
+            widthPx: resolveRoadWidthPx(
+              ROAD_WIDTH_STYLES.local.fixed,
+              ROAD_WIDTH_STYLES.local.scaled,
+              roadWidthFactor,
+            ),
           }
-        : category === 'cablecar'
+        : category === 'flight'
           ? {
-              color: resolveCableCarColor(colors.ferry),
-              opacity: CABLECAR_LINE_OPACITY,
-              dashPx: CABLECAR_LINE_DASHARRAY,
-              // Its tier is a pedestrian-way hairline; borrow the local-street
-              // weight from the canonical table so the export matches the
-              // dedicated width the interactive layer gives it.
+              color: colors.districtLabel,
+              opacity: FLIGHT_LINE_OPACITY,
+              dashPx: FLIGHT_LINE_DASHARRAY,
+              // A hairline, but not a footpath's: at overview scale that
+              // weight rounds to nothing and the route disappears.
               widthPx: resolveRoadWidthPx(
-                ROAD_WIDTH_STYLES.local.fixed,
-                ROAD_WIDTH_STYLES.local.scaled,
+                ROAD_WIDTH_STYLES.gravel.fixed,
+                ROAD_WIDTH_STYLES.gravel.scaled,
                 roadWidthFactor,
               ),
             }
-          : null;
+          : category === 'airship'
+            ? {
+                color: resolveAirshipColor(colors.ferry),
+                opacity: AIRSHIP_LINE_OPACITY,
+                dashPx: AIRSHIP_LINE_DASHARRAY,
+              }
+            : category === 'cablecar'
+              ? {
+                  color: resolveCableCarColor(colors.ferry),
+                  opacity: CABLECAR_LINE_OPACITY,
+                  dashPx: CABLECAR_LINE_DASHARRAY,
+                  // Its tier is a pedestrian-way hairline; borrow the local-street
+                  // weight from the canonical table so the export matches the
+                  // dedicated width the interactive layer gives it.
+                  widthPx: resolveRoadWidthPx(
+                    ROAD_WIDTH_STYLES.local.fixed,
+                    ROAD_WIDTH_STYLES.local.scaled,
+                    roadWidthFactor,
+                  ),
+                }
+              : null;
 
     if (dashedWay) {
       const dashWidthPx = dashedWay.widthPx ?? widthPx;
@@ -630,20 +666,48 @@ function buildForestEntities(context: LayerContext): SceneEntity[] {
   );
 }
 
+/** District outline weight and dash in output pixels (live map: 1–2.5 px, `[4, 2]` × width). */
+const DISTRICT_BOUNDARY_WIDTH_PX = 1.5;
+const DISTRICT_BOUNDARY_DASH_PX = [6, 3] as const;
+
 function buildDistrictEntities(context: LayerContext): SceneEntity[] {
-  const { snapshot, colors } = context;
-  return buildDistrictsGeoJson(snapshot.cityData).features.map((feature) => {
-    const [lng, lat] = feature.geometry.coordinates;
-    return {
-      id: `${ID_PREFIX.districts}-${feature.properties.id}`,
-      geometry: {
-        kind: 'circle' as const,
-        center: geoToCs({ lng, lat }),
-        radiusPx: DISTRICT_RADIUS_PX,
+  const { snapshot, colors, warnings } = context;
+  // Native district outlines (parks are not part of the export). Painted
+  // before the markers so each marker sits on top of its own boundary.
+  const outlines: SceneEntity[] = [];
+  for (const feature of buildAreaBoundariesGeoJson(snapshot.cityData)
+    .features) {
+    if (feature.properties.kind !== 'district') continue;
+    const points = toWorldPath(feature.geometry.coordinates, warnings);
+    if (!points) continue;
+    outlines.push({
+      id: `${ID_PREFIX.districts}-${feature.properties.id}-boundary-${outlines.length}`,
+      geometry: { kind: 'path', points },
+      stroke: {
+        color: colors.districtLabel,
+        widthPx: DISTRICT_BOUNDARY_WIDTH_PX,
+        opacity: DISTRICT_BOUNDARY_OPACITY,
+        lineCap: 'butt',
+        lineJoin: 'round',
+        dashPx: DISTRICT_BOUNDARY_DASH_PX,
       },
-      fill: { color: colors.districtFill },
-    };
-  });
+    });
+  }
+  const markers = buildDistrictsGeoJson(snapshot.cityData).features.map(
+    (feature) => {
+      const [lng, lat] = feature.geometry.coordinates;
+      return {
+        id: `${ID_PREFIX.districts}-${feature.properties.id}`,
+        geometry: {
+          kind: 'circle' as const,
+          center: geoToCs({ lng, lat }),
+          radiusPx: DISTRICT_RADIUS_PX,
+        },
+        fill: { color: colors.districtFill },
+      };
+    },
+  );
+  return [...outlines, ...markers];
 }
 
 // ─── Shared helpers ──────────────────────────────────────────────────────────

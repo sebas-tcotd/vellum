@@ -4,7 +4,7 @@ use crate::export::session::ExportSessionManager;
 use crate::ipc_contract::{
     AppendAckResponse, BeginExport, ExportReceiptResponse, ExportSessionResponse,
 };
-use parser_cslmap::parser::parse_cslmap_file;
+use parser_cslmap::parser::{parse_cslmap_file, parse_vellummap_file};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tauri::ipc::InvokeBody;
@@ -57,32 +57,42 @@ pub struct ExportResult {
 
 // ─── Commands ────────────────────────────────────────────────────────────────
 
-/// Parses a `.cslmap` file and returns the complete immutable `CityData` domain model.
+/// Whether `path` names a native `.vellummap` document (case-insensitive).
+/// Anything else goes to the `.cslmap` reader, which rejects what it cannot read.
+fn is_vellummap_path(path: &str) -> bool {
+    path.to_lowercase().ends_with(".vellummap")
+}
+
+/// Parses a city document — a legacy `.cslmap` or a native `.vellummap` — and
+/// returns the complete immutable `CityData` domain model.
 ///
-/// **Architectural Context:** /// This is a Tauri IPC endpoint (`#[tauri::command]`). It executes asynchronously off
-/// the main thread, ensuring the React UI remains fully responsive (≥30fps) during heavy
-/// XML parsing operations, satisfying the strict NFR budget for file loading.
-///
-/// **Future Implementation (Story 2.x):** /// Currently implemented as a stub. Will be fully implemented using the `quick-xml` crate
-/// for high-performance, allocation-efficient parsing.
+/// One IPC command for both: the extension picks the reader, and both produce
+/// the same contract. `allow_partial` only applies to `.cslmap`; a native
+/// document is all-or-nothing. Parsing runs on a blocking thread so the Tauri
+/// async runtime (and the UI) stay responsive.
 ///
 /// # Errors
-/// Returns a `VellumError` (serialized to TS) if the file cannot be found, read, or if
-/// the XML schema is invalid. The frontend MUST map this error to an i18n key rather
-/// than displaying the raw reason.
-/// Parses a `.cslmap` file and returns the complete immutable `CityData` domain model.
-/// Runs the CPU-bound XML parsing on a blocking thread to avoid stalling the Tauri async runtime.
+/// Returns a `VellumError` (serialized to TS) if the file cannot be read, is not
+/// a valid document (malformed XML, a `.vellummap` whose hash, schema or
+/// cross-module rules fail), or declares an unsupported version. The frontend
+/// MUST map this error to an i18n key rather than displaying the raw reason.
 #[tauri::command]
 pub async fn parse_cslmap(
     file_path: String,
     allow_partial: bool,
     app_handle: tauri::AppHandle,
 ) -> Result<CityData, VellumError> {
-    tokio::task::spawn_blocking(move || parse_cslmap_file(&file_path, &app_handle, allow_partial))
-        .await
-        .map_err(|e| VellumError::IoError {
-            reason: format!("Parser task failed: {e}"),
-        })?
+    tokio::task::spawn_blocking(move || {
+        if is_vellummap_path(&file_path) {
+            parse_vellummap_file(&file_path, &app_handle)
+        } else {
+            parse_cslmap_file(&file_path, &app_handle, allow_partial)
+        }
+    })
+    .await
+    .map_err(|e| VellumError::IoError {
+        reason: format!("Parser task failed: {e}"),
+    })?
 }
 
 // ─── Theme loading ───────────────────────────────────────────────────────────
@@ -499,6 +509,14 @@ pub async fn cancel_export(
 #[allow(clippy::expect_used, clippy::unwrap_used)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn native_documents_are_routed_to_the_native_reader_in_any_case() {
+        assert!(is_vellummap_path("/Users/me/Costa Tijuca.vellummap"));
+        assert!(is_vellummap_path("C:\\Cities\\Costa Tijuca.VellumMap"));
+        assert!(!is_vellummap_path("/Users/me/costa-tijuca.cslmap"));
+        assert!(!is_vellummap_path("/Users/me/vellummap.cslmap"));
+    }
 
     /// A temp dir unique per call (pid + nanosecond timestamp) — a fixed literal name
     /// would risk collisions if tests ever run concurrently across processes or if two

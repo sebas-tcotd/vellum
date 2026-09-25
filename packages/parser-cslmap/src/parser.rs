@@ -49,6 +49,30 @@ pub fn parse_cslmap_file(
     Ok(result)
 }
 
+/// Reads a `.vellummap` from disk and builds its `CityData` through the strict
+/// native reader, emitting the same progress and parse-warnings events as
+/// `parse_cslmap_file`. A native document is all-or-nothing: there is no
+/// lenient mode.
+///
+/// # Errors
+/// Returns `VellumError::IoError` if the file cannot be read, and whatever
+/// `parse_vellummap_bytes` returns for a document it rejects.
+pub fn parse_vellummap_file(
+    path: &str,
+    app_handle: &tauri::AppHandle,
+) -> Result<CityData, VellumError> {
+    let bytes = std::fs::read(path).map_err(|e| VellumError::IoError {
+        reason: e.to_string(),
+    })?;
+    let mut observer = TauriObserver::new(app_handle);
+    observer.emit_lifecycle("reading", 0.0);
+    let city = crate::vellummap::parse_vellummap_observed(&bytes, |warnings| {
+        observer.on_warnings(warnings);
+    })?;
+    observer.emit_lifecycle("done", 100.0);
+    Ok(city)
+}
+
 /// Pure parsing function (no `AppHandle`): used directly by unit tests.
 ///
 /// # Errors

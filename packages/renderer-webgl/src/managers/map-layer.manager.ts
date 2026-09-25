@@ -87,6 +87,12 @@ export class MapLayerManager {
    * Reconciles districts display mode and the independent park-area sublayer.
    */
   private applyDistrictsVisibility(): void {
+    // Outlines are independent of the point/label display mode.
+    this.setLayoutIfExists(
+      'district-boundaries',
+      'visibility',
+      this.districtsVisible ? 'visible' : 'none',
+    );
     const showPoints = this.districtsVisible && !this.districtsShowNameOnMap;
     const showLabels = this.districtsVisible && this.districtsShowNameOnMap;
     this.setLayoutIfExists(
@@ -107,6 +113,11 @@ export class MapLayerManager {
     );
     this.setLayoutIfExists(
       'park-areas-labels',
+      'visibility',
+      showParkAreas ? 'visible' : 'none',
+    );
+    this.setLayoutIfExists(
+      'park-boundaries',
       'visibility',
       showParkAreas ? 'visible' : 'none',
     );
@@ -308,6 +319,12 @@ export class MapLayerManager {
       buildBuildingColorExpression(c, 'stroke', colorByCategory),
     );
 
+    this.setPaintIfExists('district-boundaries', 'line-color', c.districtLabel);
+    this.setPaintIfExists(
+      'park-boundaries',
+      'line-color',
+      buildParkColorExpression(c),
+    );
     this.setPaintIfExists('districts-points', 'circle-color', c.districtFill);
     this.setPaintIfExists(
       'districts-points',
@@ -388,6 +405,12 @@ export class MapLayerManager {
       'roads-blimp',
       'line-color',
       resolveAirshipColor(c.ferry),
+    );
+    this.setPaintIfExists('roads-flight', 'line-color', c.districtLabel);
+    this.setPaintIfExists(
+      'roads-connection',
+      'line-color',
+      c.roadCasing.pedestrianWay,
     );
 
     // Re-apply terrain sub-element visibility — setTransitDimming() above resets

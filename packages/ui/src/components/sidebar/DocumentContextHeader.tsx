@@ -1,9 +1,15 @@
 import { useTranslation } from 'react-i18next';
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import type { CitySource } from '@vellum/core';
 
 export interface DocumentContextHeaderProps {
   cityName: string;
   fileName: string;
+  /**
+   * Document the city came from. Only `'cslmap'` is labelled — with a discreet
+   * chip, never a banner — because the native document is the normal case.
+   */
+  source?: CitySource | undefined;
   collapsed: boolean;
   onToggleCollapsed: () => void;
   /**
@@ -25,6 +31,7 @@ export interface DocumentContextHeaderProps {
 export function DocumentContextHeader({
   cityName,
   fileName,
+  source,
   collapsed,
   onToggleCollapsed,
   collapsible = true,
@@ -39,9 +46,19 @@ export function DocumentContextHeader({
     >
       {!collapsed && (
         <div className="shell-context-header__identity">
-          <h1 className="shell-context-header__city" title={cityName}>
-            {cityName}
-          </h1>
+          <div className="shell-context-header__title">
+            <h1 className="shell-context-header__city" title={cityName}>
+              {cityName}
+            </h1>
+            {source === 'cslmap' && (
+              <span
+                className="shell-context-header__chip"
+                title={t('documentContext.cslmapChipHint')}
+              >
+                {t('documentContext.cslmapChip')}
+              </span>
+            )}
+          </div>
           <details className="shell-context-header__file">
             <summary>{t('documentContext.sourceFile')}</summary>
             <p title={fileName}>{fileName}</p>

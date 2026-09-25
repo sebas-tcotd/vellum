@@ -24,6 +24,10 @@ import {
   AIRSHIP_LINE_DASHARRAY,
   AIRSHIP_LINE_OPACITY,
   resolveAirshipColor,
+  FERRY_LINE_DASHARRAY,
+  FERRY_LINE_OPACITY,
+  FLIGHT_LINE_DASHARRAY,
+  FLIGHT_LINE_OPACITY,
 } from '../expressions/transit-color';
 
 const STYLE = {
@@ -367,15 +371,34 @@ describe('buildCartographicScene', () => {
 
   it.each([
     'Electricity Wire',
-    'Airplane Path',
-    'Ship Path',
     'Tram Line',
     'Tram Facility',
     'Landscaping Canal',
     'Landscaping Flood Wall',
+    // Native `.vellummap` classes that stay off the map.
+    'Water Pipe',
+    'Metro Line',
+    'Airplane Line',
+    // Detail-zoom only on the live map; a static document has no zoom.
+    'Transport Connection',
   ])('excludes the non-road class %s', (itemClass) => {
     expect(layerEntities(build(roadCity(itemClass)), 'roads')).toHaveLength(0);
   });
+
+  it.each([
+    ['Ferry Path', '#4080c0', FERRY_LINE_OPACITY, FERRY_LINE_DASHARRAY],
+    ['Ship Path', '#4080c0', FERRY_LINE_OPACITY, FERRY_LINE_DASHARRAY],
+    ['Airplane Path', '#222222', FLIGHT_LINE_OPACITY, FLIGHT_LINE_DASHARRAY],
+  ] as const)(
+    'draws %s as one dashed stroke, as on the live map',
+    (itemClass, color, opacity, dash) => {
+      const roads = layerEntities(build(roadCity(itemClass)), 'roads');
+      expect(roads).toHaveLength(1);
+      const { stroke } = roads[0]!;
+      expect(stroke).toMatchObject({ color, opacity });
+      expect(stroke!.dashPx).toEqual(dash.map((d) => d * stroke!.widthPx));
+    },
+  );
 
   it('classifies by itemClass, not by segment name or width', () => {
     // Same `width: 16` in both, so only `itemClass` can produce the difference.
@@ -622,6 +645,23 @@ describe('buildCartographicScene', () => {
     expect(
       scene.warnings.find((warning) => warning.code === 'empty-layer')?.count,
     ).toBeGreaterThan(0);
+  });
+
+  it('outlines a native district boundary under its marker', () => {
+    const city = makeCityData({
+      districts: [
+        {
+          id: 'd1',
+          name: 'Downtown',
+          position: { x: 0, y: 0, z: 0 },
+          boundary: [square(0)],
+        },
+      ],
+    });
+    const [outline, marker] = layerEntities(build(city), 'districts');
+    expect(outline!.geometry.kind).toBe('path');
+    expect(outline!.stroke).toMatchObject({ color: '#222222' });
+    expect(marker!.geometry.kind).toBe('circle');
   });
 
   it('honours the boundary of the world extent without producing NaN', () => {

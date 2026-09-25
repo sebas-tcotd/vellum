@@ -35,6 +35,7 @@ import { calculatePolygonCentroid } from '../utils/geometry.helpers';
 export function buildTransitRenderData(cityData: CityData): TransitRenderData {
   const network = deriveTransitNetwork(cityData);
   const geometry = network.renderGeometry;
+  const names = stopNames(cityData);
 
   return {
     lines: {
@@ -47,16 +48,17 @@ export function buildTransitRenderData(cityData: CityData): TransitRenderData {
     },
     stations: {
       type: 'FeatureCollection',
-      features: createStationFeatures(geometry.stations),
+      features: createStationFeatures(geometry.stations, names),
     },
     stationDots: {
       type: 'FeatureCollection',
-      features: createStationDotFeatures(geometry.stations),
+      features: createStationDotFeatures(geometry.stations, names),
     },
     transferMarkers: {
       type: 'FeatureCollection',
       features: createStationDotFeatures(
         geometry.stations.filter((s) => s.confirmedTransfer),
+        names,
       ),
     },
   };
@@ -149,8 +151,49 @@ function createConnectorFeatures(
   });
 }
 
+/** A stop's name and whether it was derived from its street. */
+interface StopName {
+  readonly name: string;
+  readonly derived: boolean;
+}
+
+/**
+ * Named stops by id. Only native documents name stops; a `.cslmap` yields an
+ * empty map and its stations keep the name-less tooltip.
+ */
+function stopNames(cityData: CityData): Map<string, StopName> {
+  const names = new Map<string, StopName>();
+  for (const line of cityData.transitLines) {
+    for (const stop of line.stops) {
+      const name = stop.name.trim();
+      if (name && !names.has(stop.id)) {
+        names.set(stop.id, { name, derived: stop.nameDerived === true });
+      }
+    }
+  }
+  return names;
+}
+
+/**
+ * The name properties of a station, keyed by its first member stop (the
+ * `stopId` part of the `stopId:corridorId` station id). Omitted — not
+ * `undefined` — when the stop has no name, so MapLibre sees no property.
+ */
+function stationNameProperties(
+  station: StationGeometry,
+  names: ReadonlyMap<string, StopName>,
+): Pick<TransitStopFeature['properties'], 'name' | 'nameDerived'> {
+  // Cut at the *first* colon: corridor ids contain colons themselves
+  // (`c:<segment>`), stop ids are colon-free CS1 node ids.
+  const colon = station.id.indexOf(':');
+  const stopId = colon < 0 ? station.id : station.id.slice(0, colon);
+  const found = names.get(stopId);
+  return found ? { name: found.name, nameDerived: found.derived } : {};
+}
+
 function createStationFeatures(
   stations: readonly StationGeometry[],
+  names: ReadonlyMap<string, StopName>,
 ): TransitStopFeature[] {
   return stations.map((station) => ({
     type: 'Feature' as const,
@@ -163,12 +206,14 @@ function createStationFeatures(
       mode: station.lines[0]?.mode ?? 'Unknown',
       color: station.lines[0]?.color ?? '#ffffff',
       lines: JSON.stringify(station.lines),
+      ...stationNameProperties(station, names),
     },
   }));
 }
 
 function createStationDotFeatures(
   stations: readonly StationGeometry[],
+  names: ReadonlyMap<string, StopName>,
 ): StationDotFeature[] {
   return stations.map((station) => {
     const centroid = calculatePolygonCentroid(station.polygon.slice(0, -1));
@@ -180,6 +225,7 @@ function createStationDotFeatures(
         mode: station.lines[0]?.mode ?? 'Unknown',
         color: station.lines[0]?.color ?? '#ffffff',
         lines: JSON.stringify(station.lines),
+        ...stationNameProperties(station, names),
       },
     };
   });

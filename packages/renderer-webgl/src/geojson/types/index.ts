@@ -7,6 +7,9 @@ export type {
   BuildingZoning,
 } from './buildings.types';
 export type {
+  AreaBoundariesFeatureCollection,
+  AreaBoundaryFeature,
+  AreaBoundaryFeatureProperties,
   DistrictFeature,
   DistrictFeatureProperties,
   DistrictsFeatureCollection,

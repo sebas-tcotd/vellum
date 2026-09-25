@@ -159,6 +159,11 @@ export interface TransitStop {
   position: Vec3;
   /** Custom or default name assigned in-game. */
   name: string;
+  /**
+   * `true` when `name` was derived from the stop's street rather than assigned
+   * in game. Only native `.vellummap` documents set it; absent means `false`.
+   */
+  nameDerived?: boolean;
 }
 
 /**
@@ -286,6 +291,11 @@ export interface District {
   name: string;
   /** Label anchor in world-space (the single point exported by .cslmap). */
   position: Vec3;
+  /**
+   * Real extent in WGS-84, vectorized from the native document's area grid.
+   * Absent for `.cslmap`, which only exports the label point.
+   */
+  boundary?: TerrainPolygon[];
 }
 
 /**
@@ -315,10 +325,21 @@ export interface ParkArea {
   position: Vec3;
   /** The type of park area (University, Industry, Forestry, etc.). */
   parkType: ParkType;
+  /**
+   * Real extent in WGS-84, vectorized from the native document's area grid.
+   * Absent for `.cslmap`, which only exports the label point.
+   */
+  boundary?: TerrainPolygon[];
 }
 
 /**
- * The core domain model representing a completely parsed `.cslmap` city.
+ * Which document a {@link CityData} was built from: the legacy CSL Map View
+ * export or Vellum's native document produced by Vellum Bridge.
+ */
+export type CitySource = 'cslmap' | 'vellummap';
+
+/**
+ * The core domain model representing a completely parsed city (`.cslmap` or `.vellummap`).
  * @remarks
  * This structure is strictly immutable once constructed. The Rust parser produces it
  * and renderers consume it. Arrays may be empty, but must never be `null`.
@@ -326,7 +347,9 @@ export interface ParkArea {
 export interface CityData {
   /** The name of the city as defined in the save file. */
   cityName: string;
-  /** The original filename of the `.cslmap` archive. */
+  /** Document this city was read from. Drives the sidebar's «CSLMap» chip. */
+  source: CitySource;
+  /** The original filename of the opened document. */
   fileName: string;
   /** ISO 8601 timestamp representing when this data was parsed. */
   generatedAt: string;

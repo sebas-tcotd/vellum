@@ -333,8 +333,11 @@ export function MapLibreRoot({
     let cancelled = false;
     subscribeFileDrop((paths) => {
       if (useVellumStore.getState().loadingState === 'loading') return;
-      const cslmapPath = paths.find((p) => p.toLowerCase().endsWith('.cslmap'));
-      if (cslmapPath) void loadFile(cslmapPath);
+      const cityPath = paths.find((p) => {
+        const lower = p.toLowerCase();
+        return lower.endsWith('.cslmap') || lower.endsWith('.vellummap');
+      });
+      if (cityPath) void loadFile(cityPath);
     })
       .then((unlisten: () => void) => {
         if (!cancelled) {

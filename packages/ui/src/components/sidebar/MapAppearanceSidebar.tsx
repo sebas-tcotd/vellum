@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { LAYER_NAMES, type TransitMode } from '@vellum/core';
+import { LAYER_NAMES, type CitySource, type TransitMode } from '@vellum/core';
 import { SchematicSidebarContent } from '../schematic/SchematicSidebarContent';
 import type { SchematicNetworkModel } from '../../hooks/use-schematic-network';
 import type { CommandRegistry } from '../../shell/commands';
@@ -18,6 +18,8 @@ import { SidebarResizeHandle } from './SidebarResizeHandle';
 export interface MapAppearanceSidebarProps {
   cityName: string;
   fileName: string;
+  /** Document the city came from; a `.cslmap` gets the «CSLMap» chip. */
+  source?: CitySource | undefined;
   commands: CommandRegistry;
   shell: ShellSession;
   /**
@@ -58,6 +60,7 @@ export interface MapAppearanceSidebarProps {
 export function MapAppearanceSidebar({
   cityName,
   fileName,
+  source,
   commands,
   shell,
   onOccupiedWidthChange,
@@ -162,6 +165,7 @@ export function MapAppearanceSidebar({
       <DocumentContextHeader
         cityName={cityName}
         fileName={fileName}
+        source={source}
         collapsed={collapsed}
         collapsible={!isSchematic}
         onToggleCollapsed={() =>

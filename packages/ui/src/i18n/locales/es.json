@@ -1,7 +1,7 @@
 {
   "emptyState": {
     "title": "Vellum",
-    "dropHint": "Arrastra tu archivo .cslmap aquí",
+    "dropHint": "Arrastra tu ciudad (.vellummap o .cslmap) aquí",
     "orOpenWith": "o presiona",
     "firstUseHint": "Exporta tu ciudad con CSL Map View · El exportador nativo de Vellum viene en v2 →"
   },
@@ -10,7 +10,7 @@
     "rendering": "Renderizando mapa..."
   },
   "errors": {
-    "InvalidFile": "No se pudo leer el archivo. ¿Es un .cslmap válido?",
+    "InvalidFile": "No se pudo leer el archivo. ¿Es un .vellummap o .cslmap válido?",
     "UnsupportedVersion": "Este mapa fue exportado con una versión no soportada ({{found}}).",
     "MissingVersion": "No se pudo determinar la versión del exportador de este mapa. ¿Es un .cslmap válido?",
     "PartialParse": "Mapa cargado con advertencias. Algunos elementos pueden no mostrarse correctamente.",
@@ -320,7 +320,12 @@
     "resize": "Redimensionar barra lateral"
   },
   "documentContext": {
-    "sourceFile": "Archivo de origen"
+    "sourceFile": "Archivo de origen",
+    "cslmapChip": "CSLMap",
+    "cslmapChipHint": "Esta ciudad viene de un archivo .cslmap, el formato retrocompatible. Algunas capas, como el terreno 3D, requieren el formato nativo de Vellum, que exporta Vellum Bridge."
+  },
+  "mapTooltip": {
+    "derivedStopName": "Nombre derivado de la calle"
   },
   "document": {
     "openMap": "Abrir mapa"

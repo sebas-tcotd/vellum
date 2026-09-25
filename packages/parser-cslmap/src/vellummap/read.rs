@@ -3,12 +3,13 @@
 //! Everything is read in memory. Each entry's declared size is checked against
 //! its limit before a single byte is inflated (anti zip bomb).
 
+use super::areas::area_boundaries;
 use super::manifest::{parse_manifest, spec_of, Codec, ModuleId, MODULES};
 use super::{
     invalid, Document, MANIFEST_PATH, MAX_DOCUMENT_BYTES, MAX_JSON_BYTES, MAX_MANIFEST_BYTES,
     MODULE_ORDER,
 };
-use crate::city_data::CityData;
+use crate::city_data::{CityData, CitySource};
 use crate::errors::VellumError;
 use crate::parser::builder::build_city_data;
 use serde::de::DeserializeOwned;
@@ -29,7 +30,47 @@ type Archive<'a> = ZipArchive<Cursor<&'a [u8]>>;
 /// (not a zip, undeclared or missing entry, wrong size, hash or codec, unknown
 /// field, inconsistent modules).
 pub fn parse_vellummap_bytes(bytes: &[u8]) -> Result<CityData, VellumError> {
-    build_city_data(read_document(bytes)?.into_raw())
+    parse_vellummap_observed(bytes, |_| {})
+}
+
+/// `parse_vellummap_bytes`, handing the unknown-`ItemClass` warnings to
+/// `on_warnings` before `CityData` is built — as the `.cslmap` loop does.
+pub(crate) fn parse_vellummap_observed(
+    bytes: &[u8],
+    on_warnings: impl FnOnce(&[String]),
+) -> Result<CityData, VellumError> {
+    let mut document = read_document(bytes)?;
+    let district_grid = document.district_grid.take();
+    let park_grid = document.park_grid.take();
+
+    let raw = document.into_raw();
+    on_warnings(&raw.warnings());
+    let mut city = build_city_data(raw)?;
+    city.source = CitySource::Vellummap;
+
+    // Area ids are `sourceId`s (1–255, checked by `Document::validate`), which
+    // the adapter turned into the `id` strings.
+    if let Some(grid) = district_grid {
+        let mut boundaries = area_boundaries(&grid);
+        for district in &mut city.districts {
+            district.boundary = district
+                .id
+                .parse::<u8>()
+                .ok()
+                .and_then(|id| boundaries.remove(&id));
+        }
+    }
+    if let Some(grid) = park_grid {
+        let mut boundaries = area_boundaries(&grid);
+        for park in &mut city.park_areas {
+            park.boundary = park
+                .id
+                .parse::<u8>()
+                .ok()
+                .and_then(|id| boundaries.remove(&id));
+        }
+    }
+    Ok(city)
 }
 
 /// Reads and fully validates a `.vellummap` into a `Document`.

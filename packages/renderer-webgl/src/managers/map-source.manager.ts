@@ -2,6 +2,7 @@ import * as maplibregl from 'maplibre-gl';
 import type { CityData } from '@vellum/core';
 import type { ResolvedColors } from '../style-adapter';
 import {
+  addAreaBoundariesLayer,
   addBasemapLandLayer,
   addBasemapWaterLayers,
   addBuildingsLayer,
@@ -99,6 +100,11 @@ export class MapSourceManager {
     await step('forests', () =>
       addForestsLayer(this.map, cityData, this.colors),
     );
+    // Native-only outlines, under buildings and the street network they
+    // would otherwise cross.
+    await step('area-boundaries', () =>
+      addAreaBoundariesLayer(this.map, cityData, this.colors),
+    );
     await step('buildings', () =>
       addBuildingsLayer(this.map, cityData, this.colors),
     );
@@ -164,6 +170,7 @@ export class MapSourceManager {
       'transit-stops-dots',
       'districts',
       'parks',
+      'area-boundaries',
       'world-extent-source',
       'vellum-watermark-source',
     ];

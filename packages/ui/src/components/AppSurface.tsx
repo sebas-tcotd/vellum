@@ -215,6 +215,7 @@ export function AppSurface({
             {cityData !== null && (
               <MapAppearanceSidebar
                 cityName={cityData.cityName}
+                source={cityData.source}
                 fileName={cityData.fileName}
                 commands={commands}
                 shell={shell}

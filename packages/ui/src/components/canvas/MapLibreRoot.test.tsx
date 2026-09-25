@@ -207,6 +207,17 @@ describe('MapLibreRoot — política de drop de archivos', () => {
     expect(loadFile).toHaveBeenCalledWith('/tmp/City.CSLMAP');
   });
 
+  it('carga también un .vellummap, el documento nativo de Bridge', async () => {
+    const loadFile = vi.fn().mockResolvedValue(undefined);
+    const drop = await renderWithDrop(loadFile);
+
+    act(() => {
+      drop(['/tmp/notes.txt', '/tmp/Costa Tijuca.VellumMap']);
+    });
+
+    expect(loadFile).toHaveBeenCalledWith('/tmp/Costa Tijuca.VellumMap');
+  });
+
   it('ignora un drop sin ningún .cslmap, sin lanzar', async () => {
     const loadFile = vi.fn().mockResolvedValue(undefined);
     const drop = await renderWithDrop(loadFile);

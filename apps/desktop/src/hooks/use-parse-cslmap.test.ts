@@ -76,6 +76,27 @@ describe('useParseCslmap', () => {
     expect(useVellumStore.getState().loadingError).toEqual(fakeError);
   });
 
+  it('keeps the last valid city when a native document is rejected', async () => {
+    const valid = makeCityData({ cityName: 'Costa Tijuca' });
+    useVellumStore.getState().setCityData(valid);
+    const rejection = {
+      type: 'InvalidFile',
+      reason: '`roads.json` does not match its sha256',
+    };
+    vi.mocked(invoke).mockRejectedValue(rejection);
+
+    const { result } = renderHook(() => useParseCslmap());
+    await act(() => result.current.loadFile('/cities/broken.vellummap'));
+
+    expect(invoke).toHaveBeenCalledWith('parse_cslmap', {
+      filePath: '/cities/broken.vellummap',
+      allowPartial: false,
+    });
+    expect(useVellumStore.getState().loadingState).toBe('error');
+    expect(useVellumStore.getState().loadingError).toEqual(rejection);
+    expect(useVellumStore.getState().cityData).toBe(valid);
+  });
+
   // The parser reports an absent `version` attribute as the empty string, and
   // `toVellumError` admits it only because its guard is `typeof found === 'string'`.
   // A truthiness guard there would collapse this into the generic IoError
@@ -122,6 +143,16 @@ describe('useParseCslmap', () => {
     });
 
     expect(useVellumStore.getState().cityData?.cityName).toBe('Ciudad B');
+  });
+
+  it('offers both city documents in the open dialog', async () => {
+    vi.mocked(open).mockResolvedValue(null);
+
+    const { result } = renderHook(() => useParseCslmap());
+    await act(() => result.current.openFileDialog());
+
+    const [options] = vi.mocked(open).mock.lastCall!;
+    expect(options?.filters?.[0]?.extensions).toEqual(['vellummap', 'cslmap']);
   });
 
   it('does not call loadFile if user cancels dialog', async () => {

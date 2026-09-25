@@ -38,10 +38,16 @@ export interface TransitStopFeatureProperties {
   /**
    * JSON-encoded array of all lines serving this stop.
    * Parsed in hover callbacks to display multi-line tooltips.
-   * Note: stop names are not available in the .cslmap format.
    * Format: Array<{ name: string; color: string; mode: string }>
    */
   lines: string;
+  /**
+   * Name of the station's first member stop. Only native `.vellummap`
+   * documents name stops; absent for `.cslmap` and for unnamed stops.
+   */
+  name?: string;
+  /** `true` when {@link name} was derived from the stop's street. */
+  nameDerived?: boolean;
 }
 
 /** A GeoJSON Feature wrapping a transit line. */

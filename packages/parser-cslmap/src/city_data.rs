@@ -75,10 +75,24 @@ pub struct TerrainDem {
     pub elev_max: f64,
 }
 
+/// Which document a `CityData` was built from.
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum CitySource {
+    /// Legacy CSL Map View export, the backward-compatible path.
+    #[default]
+    Cslmap,
+    /// Vellum's native document, produced by Vellum Bridge.
+    Vellummap,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct CityData {
     pub city_name: String,
+    /// Document this city was read from. Drives the sidebar chip shown for `.cslmap`.
+    #[serde(default)]
+    pub source: CitySource,
     pub file_name: String,
     pub generated_at: String,
     pub bounds: MapBounds,
@@ -175,6 +189,10 @@ pub struct TransitStop {
     pub mode: TransitMode,
     pub position: Vec3,
     pub name: String,
+    /// `true` when `name` was derived from the stop's street, not assigned in game.
+    /// Only the native document sets it; omitted when `false`.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub name_derived: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -216,6 +234,10 @@ pub struct District {
     pub name: String,
     /// Label anchor in world-space (first `<p>` element in the Dist XML node).
     pub position: Vec3,
+    /// Real extent in WGS-84, vectorized from the native document's area grid.
+    /// Absent for `.cslmap`, which only exports the label point.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub boundary: Option<Vec<TerrainPolygon>>,
 }
 
 /// Serializes as `PascalCase` to match the TypeScript union.
@@ -242,6 +264,10 @@ pub struct ParkArea {
     pub position: Vec3,
     /// The type of park area (University, Industry, Forestry, etc.).
     pub park_type: ParkType,
+    /// Real extent in WGS-84, vectorized from the native document's area grid.
+    /// Absent for `.cslmap`, which only exports the label point.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub boundary: Option<Vec<TerrainPolygon>>,
 }
 
 #[cfg(test)]
