@@ -2,6 +2,30 @@
 
 All notable changes to Vellum will be documented here.
 
+## [0.11.0](https://github.com/sebas-tcotd/vellum/compare/v0.10.0...v0.11.0) (2026-09-25)
+
+
+### Features
+
+* **desktop:** abrir en Vellum una ciudad exportada por Bridge (Story 5.4) ([c15418f](https://github.com/sebas-tcotd/vellum/commit/c15418f58da9219e549437e57dd1b2a64d73a8e2))
+* **desktop:** abrir en Vellum una ciudad exportada por Bridge (Story 5.4) ([276bcda](https://github.com/sebas-tcotd/vellum/commit/276bcda81a9e74ac04cc18f5631fae620d5e0172))
+* **parser-cslmap:** definir el documento de ciudad .vellummap (Story 5.2) ([ca1e8b6](https://github.com/sebas-tcotd/vellum/commit/ca1e8b683f59697188a9c22759065a76c1242f36))
+* **vellum-bridge:** arnés de corpus y comparación con .cslmap ([db7bf30](https://github.com/sebas-tcotd/vellum/commit/db7bf302749349135d5b42a642d7cb0bf52b16b2))
+* **vellum-bridge:** bridge 0.5 con agua, capas de alturas, vegetación y color de línea ([4e98c6b](https://github.com/sebas-tcotd/vellum/commit/4e98c6bfe916538ab3411f9addc50373ca575ce0))
+* **vellum-bridge:** comparar agua, terreno, vegetación y líneas contra .cslmap ([e50b5ae](https://github.com/sebas-tcotd/vellum/commit/e50b5ae28e2e6cc81a8eefe818949caaef4851f4))
+* **vellum-bridge:** derivar polígonos de distritos y parques desde la grilla cruda ([16e1528](https://github.com/sebas-tcotd/vellum/commit/16e15280f1d6d3d4a0ceaeee2c9ab6822044ab37))
+* **vellum-bridge:** exportar la ciudad a .vellummap desde el juego (Story 5.3) ([e23f213](https://github.com/sebas-tcotd/vellum/commit/e23f21347c7a8aaeb8a6b1f428fbbbee8dcb997d))
+* **vellum-bridge:** exportar la ciudad a .vellummap desde el juego (Story 5.3) ([ba17366](https://github.com/sebas-tcotd/vellum/commit/ba173663c89b28ad4fafec480e1a3bf00e1a6871))
+* **vellum-bridge:** mod local de CS1 para capturar un Raw Snapshot ([89dd424](https://github.com/sebas-tcotd/vellum/commit/89dd424e51a2ccdfc9c40fa2765c17c73bcb6a67))
+
+
+### Bug Fixes
+
+* **parser-cslmap:** clasificar agua por profundidad, no contra SeaLevel ([abd6c04](https://github.com/sebas-tcotd/vellum/commit/abd6c0488edf623649578b972a42eea707119143))
+* **parser-cslmap:** clasificar agua por profundidad, no contra SeaLevel ([6a41c83](https://github.com/sebas-tcotd/vellum/commit/6a41c836f360e6f3f5c341be44ce9472a6e6f8ac))
+* **vellum-bridge:** conservar las grillas de áreas con ids huérfanos sin peso ([3f9ab27](https://github.com/sebas-tcotd/vellum/commit/3f9ab27bfee70cf701c129630dd399c7672987fd))
+* **vellum-bridge:** silenciar CS0649 en WriterOptions.compress ([d8afca8](https://github.com/sebas-tcotd/vellum/commit/d8afca8d46ba3211306326a0d16c048cbf7d6244))
+
 ## [0.10.0](https://github.com/sebas-tcotd/vellum/compare/v0.9.0...v0.10.0) (2026-09-22)
 
 
