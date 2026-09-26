@@ -13,8 +13,16 @@ import {
  */
 const HILLSHADE_EXAGGERATION_M = 0.6;
 
+/**
+ * Opacity of the contour lines — kept low so they read as part of the terrain, not
+ * over it. The one value the layer, the options toggle and the theme all use.
+ */
+export const CONTOUR_LINE_OPACITY = 0.35;
+
 /** Baseline `raster-opacity` of `forests-canopy`; the per-cell alpha is baked into the image. */
 export const FORESTS_CANOPY_OPACITY = 1;
+/** Baseline `raster-opacity` of the detail-zoom `forests-trees` crowns. */
+export const FORESTS_TREES_OPACITY = 1;
 
 /**
  * Exaggeration actually handed to MapLibre.
@@ -73,7 +81,7 @@ export const LAYER_ID_MAP: Record<LayerName, string[]> = {
     'transit-transfer-marker',
   ],
   buildings: ['buildings-fill', 'buildings-outline', 'service-icons'],
-  forests: ['forests-canopy'],
+  forests: ['forests-canopy', 'forests-trees'],
   districts: [
     'district-boundaries',
     'park-boundaries',
@@ -155,7 +163,7 @@ export const NON_TRANSIT_OPACITY: Record<
     prop: 'hillshade-exaggeration',
     base: HILLSHADE_EXAGGERATION,
   },
-  'terrain-lines-layer': { prop: 'line-opacity', base: 0.5 },
+  'terrain-lines-layer': { prop: 'line-opacity', base: CONTOUR_LINE_OPACITY },
   'coastline-layer': { prop: 'line-opacity', base: 0.8 },
   'base-water': { prop: 'fill-opacity', base: 1 },
   'base-land': { prop: 'fill-opacity', base: 1 },
@@ -181,6 +189,7 @@ export const NON_TRANSIT_OPACITY: Record<
   'buildings-outline': { prop: 'line-opacity', base: 1 },
   'service-icons': { prop: 'icon-opacity', base: 1 },
   'forests-canopy': { prop: 'raster-opacity', base: FORESTS_CANOPY_OPACITY },
+  'forests-trees': { prop: 'raster-opacity', base: FORESTS_TREES_OPACITY },
   'district-boundaries': {
     prop: 'line-opacity',
     base: DISTRICT_BOUNDARY_OPACITY,

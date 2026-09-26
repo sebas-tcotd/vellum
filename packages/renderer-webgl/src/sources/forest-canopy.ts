@@ -54,8 +54,11 @@ export const CANOPY_COORDINATES = [
   csToGeoArray({ x: -CS1_WORLD_HALF, z: CS1_WORLD_HALF }),
 ] as [[number, number], [number, number], [number, number], [number, number]];
 
-/** Rebuilds the density grid from the parser's cells and derives alpha + shading. */
-export function buildCanopyRaster(cells: readonly ForestCell[]): CanopyRaster {
+/** World units per grid cell (33.75). */
+export const CANOPY_CELL_SIZE = CELL_SIZE;
+
+/** Rebuilds the row-major 512² density grid (0–1) from the parser's non-empty cells. */
+export function buildDensityGrid(cells: readonly ForestCell[]): Float32Array {
   const n = CANOPY_GRID_SIZE;
   const density = new Float32Array(n * n);
   for (const cell of cells) {
@@ -65,6 +68,12 @@ export function buildCanopyRaster(cells: readonly ForestCell[]): CanopyRaster {
       density[row * n + col] = cell.density;
     }
   }
+  return density;
+}
+
+/** Derives the canopy's alpha + shading from a density grid. */
+export function buildCanopyRaster(density: Float32Array): CanopyRaster {
+  const n = CANOPY_GRID_SIZE;
 
   // Two box passes ≈ a Gaussian: enough to merge neighbouring cells into patches.
   const field = boxBlur(boxBlur(density, n), n);

@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
-  buildCanopyRaster,
+  buildCanopyRaster as fromGrid,
+  buildDensityGrid,
   CANOPY_GRID_SIZE,
   CANOPY_IMAGE_SIZE,
   CANOPY_UPSAMPLE,
 } from './forest-canopy';
+
+const buildCanopyRaster = (cells: Parameters<typeof buildDensityGrid>[0]) =>
+  fromGrid(buildDensityGrid(cells));
 
 const CELL = 17280 / CANOPY_GRID_SIZE;
 const cellAt = (col: number, row: number, density: number) => ({

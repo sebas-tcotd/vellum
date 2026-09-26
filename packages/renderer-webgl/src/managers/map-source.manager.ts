@@ -166,6 +166,7 @@ export class MapSourceManager {
       'coastline-source',
       'terrain-lines-source',
       'forests',
+      'forests-trees',
       'buildings',
       'roads',
       'road-labels',
