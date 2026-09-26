@@ -9,7 +9,8 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
-    }
+    },
+    "./tree-worker": "./src/sources/tree-worker.ts"
   },
   "scripts": {
     "build": "tsc -b",

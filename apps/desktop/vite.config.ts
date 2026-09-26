@@ -23,8 +23,18 @@ export default defineConfig(async () => ({
         ),
       },
       // Resolve workspace packages from source so Vite HMR works without rebuilding dist
+      // The package's one extra entry: the tree painter Worker (see its `exports`).
       {
-        find: '@vellum/renderer-webgl',
+        find: /^@vellum\/renderer-webgl\/tree-worker(?=\?|$)/,
+        replacement: fileURLToPath(
+          new URL(
+            '../../packages/renderer-webgl/src/sources/tree-worker.ts',
+            import.meta.url,
+          ),
+        ),
+      },
+      {
+        find: /^@vellum\/renderer-webgl$/,
         replacement: fileURLToPath(
           new URL(
             '../../packages/renderer-webgl/src/index.ts',

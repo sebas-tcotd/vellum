@@ -31,7 +31,10 @@ let grid: Float32Array | null = null;
 let color = '#000';
 let registered = false;
 let nextId = 0;
-const pending = new Map<number, (data: ArrayBuffer) => void>();
+const pending = new Map<
+  number,
+  { tile: TileAddress; resolve: (data: ArrayBuffer) => void }
+>();
 
 /**
  * Points the tree protocol at the bundled URL of `tree-worker.ts`. Only the
@@ -48,8 +51,21 @@ export function setTreeSource(density: Float32Array, crownColor: string): void {
   if (workerUrl && !worker) {
     worker = new Worker(workerUrl, { type: 'module' });
     worker.onmessage = (e: MessageEvent<{ id: number; data: ArrayBuffer }>) => {
-      pending.get(e.data.id)?.(e.data.data);
+      pending.get(e.data.id)?.resolve(e.data.data);
       pending.delete(e.data.id);
+    };
+    // A worker that fails to load (stale dev bundle, blocked script) would leave
+    // every tile request hanging with no error; drop it and paint on this thread.
+    worker.onerror = (e) => {
+      console.error(
+        '[tree-protocol] worker failed, painting on main thread:',
+        e,
+      );
+      worker = null;
+      for (const { tile, resolve } of pending.values()) {
+        void requestTile(tile).then(resolve);
+      }
+      pending.clear();
     };
   }
   worker?.postMessage({ type: 'grid', grid: density });
@@ -74,7 +90,7 @@ function requestTile(tile: TileAddress): Promise<ArrayBuffer> {
   const id = nextId++;
   const w = worker;
   return new Promise((resolve) => {
-    pending.set(id, resolve);
+    pending.set(id, { tile, resolve });
     w.postMessage({ type: 'tile', id, tile, color });
   });
 }
