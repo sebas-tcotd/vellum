@@ -678,6 +678,11 @@
                 "type": "number",
                 "minimum": 0
               },
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Visible street name (NetManager.GetSegmentName). Absent for unnamed networks."
+              },
               "points": {
                 "type": "array",
                 "items": {

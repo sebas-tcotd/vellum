@@ -270,6 +270,7 @@ pub(crate) fn build_city_data(mut raw: RawCity) -> Result<CityData, VellumError>
             end_node_id: seg.end_node_id,
             item_class: seg.item_class,
             width: seg.width,
+            name: seg.name,
             points: seg.points,
         })
         .collect();

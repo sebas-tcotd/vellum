@@ -10,6 +10,7 @@ import {
   buildAreaBoundariesGeoJson,
   buildBuildingsGeoJson,
   buildParkAreasGeoJson,
+  buildRoadLabelsGeoJson,
   buildRoadsGeoJson,
   buildTransitGeoJson,
   buildTransitRenderData,
@@ -755,6 +756,25 @@ describe('buildRoadsGeoJson — welding contiguous segments', () => {
     expect(buildRoadsGeoJson(city).features).toHaveLength(2);
   });
 
+  it('does not weld across a street-name change, and carries the name', () => {
+    const [first, second] = chain([
+      ['node-a', 'node-b'],
+      ['node-b', 'node-c'],
+    ]);
+    const city = makeCityData({
+      roadNodes: [NODE_A, NODE_B, NODE_C],
+      roadSegments: [
+        { ...first!, name: 'Elm Street' },
+        { ...second!, name: 'Oak Avenue' },
+      ],
+    });
+
+    const names = buildRoadsGeoJson(city).features.map(
+      (f) => f.properties.name,
+    );
+    expect(names.sort()).toEqual(['Elm Street', 'Oak Avenue']);
+  });
+
   it('does not weld across a junction', () => {
     // Three segments meet at b: which pair would continue is arbitrary.
     const city = makeCityData({
@@ -1047,4 +1067,66 @@ describe('buildRoadsGeoJson — native networks', () => {
       expect(buildRoadsGeoJson(city(itemClass)).features).toHaveLength(0);
     },
   );
+});
+
+describe('buildRoadLabelsGeoJson', () => {
+  // Elm runs a→b→c straight through junction b, where Oak leaves north.
+  // At junction c, Pine carries on east and Elm turns 90° north to d —
+  // too sharp for a label to follow.
+  const node = (id: string, x: number, z: number): RoadNode => ({
+    id,
+    position: { x, y: 0, z },
+  });
+  const nodes = [
+    node('a', 0, 0),
+    node('b', 100, 0),
+    node('c', 200, 0),
+    node('n', 100, 100),
+    node('d', 200, 100),
+    node('e', 300, 0),
+  ];
+  const street = (id: string, from: string, to: string, name: string) =>
+    makeRoadSegment({
+      id,
+      startNodeId: from,
+      endNodeId: to,
+      itemClass: 'Small Road',
+      name,
+    });
+
+  it('labels a street through its junctions, not block by block', () => {
+    const roads = buildRoadsGeoJson(
+      makeCityData({
+        roadNodes: nodes,
+        roadSegments: [
+          // `.vellummap` curves repeat their end nodes among the points.
+          {
+            ...street('ab', 'a', 'b', 'Elm'),
+            points: [
+              { x: 0, y: 0, z: 0 },
+              { x: 100, y: 0, z: 0 },
+            ],
+          },
+          street('cb', 'c', 'b', 'Elm'), // stored back to front
+          street('bn', 'b', 'n', 'Oak'),
+          street('cd', 'c', 'd', 'Elm'), // 90° turn at c
+          street('ce', 'c', 'e', 'Pine'),
+        ],
+      }),
+    );
+    // Junctions at b and c split Elm into three render lines.
+    expect(roads.features.length).toBe(5);
+
+    const labels = buildRoadLabelsGeoJson(roads).features;
+    const elm = labels.filter((f) => f.properties.name === 'Elm');
+    const lengths = elm.map((f) => f.geometry.coordinates.length).sort();
+    // a→b→c as one line (3 points); the right-angle branch stays apart.
+    expect(lengths).toEqual([2, 3]);
+    expect(labels.filter((f) => f.properties.name === 'Oak')).toHaveLength(1);
+    // No zero-length steps: MapLibre rejects line labels across them.
+    for (const { geometry } of labels) {
+      const c = geometry.coordinates;
+      expect(c.some((p, i) => i > 0 && `${p}` === `${c[i - 1]}`)).toBe(false);
+    }
+  });
 });

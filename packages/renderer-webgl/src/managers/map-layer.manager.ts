@@ -18,6 +18,7 @@ import {
   buildContourColorRamp,
 } from '../expressions/terrain-relief';
 import type { ResolvedColors } from '../style-adapter';
+import { retintForests } from '../layers/layer-forests';
 import { resolveAirshipColor } from '../expressions/transit-color';
 
 /**
@@ -30,6 +31,10 @@ export class MapLayerManager {
   private districtsShowNameOnMap = false;
   /** Current `LayerOptions.districts.showParkAreas` — mirrors its default. */
   private districtsShowParkAreas = false;
+  /** Whether the `roads` layer is toggled on; street names follow it. */
+  private roadsVisible = true;
+  /** Current `LayerOptions.roads.showStreetNames` — mirrors its default. */
+  private roadsShowStreetNames = true;
 
   /**
    * Mirrors the last `setTransitDimming` call, so `setOptions` (fired whenever
@@ -81,6 +86,20 @@ export class MapLayerManager {
         visible ? 'visible' : 'none',
       );
     }
+
+    if (layer === 'roads') {
+      this.roadsVisible = visible;
+      this.applyStreetNamesVisibility();
+    }
+  }
+
+  /** Street names show only while both the roads layer and the option are on. */
+  private applyStreetNamesVisibility(): void {
+    this.setLayoutIfExists(
+      'roads-labels',
+      'visibility',
+      this.roadsVisible && this.roadsShowStreetNames ? 'visible' : 'none',
+    );
   }
 
   /**
@@ -217,6 +236,9 @@ export class MapLayerManager {
       basemap.showGrid ? this.colors.grid.opacity : 0,
     );
 
+    this.roadsShowStreetNames = options.roads.showStreetNames;
+    this.applyStreetNamesVisibility();
+
     this.districtsShowNameOnMap = options.districts.showNameOnMap;
     this.districtsShowParkAreas = options.districts.showParkAreas;
     this.applyDistrictsVisibility();
@@ -305,7 +327,7 @@ export class MapLayerManager {
       );
     }
     this.applyContourColor(options.terrain.showColorRelief);
-    this.setPaintIfExists('forests-circles', 'circle-color', c.forests);
+    retintForests(this.map, c.forests);
 
     const { colorByCategory } = options.buildings;
     this.setPaintIfExists(
@@ -400,6 +422,12 @@ export class MapLayerManager {
       'line-color',
       fillExpr,
     );
+    this.setPaintIfExists(
+      'roads-labels',
+      'text-color',
+      buildRoadColorExpression(c, 'label'),
+    );
+    this.setPaintIfExists('roads-labels', 'text-halo-color', fillExpr);
     this.setPaintIfExists('roads-ferry', 'line-color', c.ferry);
     this.setPaintIfExists(
       'roads-blimp',

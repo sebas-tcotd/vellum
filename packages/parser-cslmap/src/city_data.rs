@@ -153,6 +153,9 @@ pub struct RoadSegment {
     pub way_type: Vec<WayType>,
     pub item_class: String,
     pub width: f64,
+    /// Visible street name. Only `.vellummap` carries it; absent otherwise.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
     /// Bezier control points from the segment's `<Points>` element.
     pub points: Vec<Vec3>,
 }
@@ -305,6 +308,7 @@ mod tests {
             way_type: vec![WayType::Road, WayType::Elevated],
             item_class: "Basic Road".to_string(),
             width: 16.0,
+            name: None,
             points: vec![Vec3 {
                 x: 1.0,
                 y: 2.0,

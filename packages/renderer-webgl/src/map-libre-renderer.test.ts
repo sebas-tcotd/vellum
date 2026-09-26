@@ -281,7 +281,7 @@ describe('MapLibreRenderer', () => {
     expect(layerIds).toContain('transit-stops');
     expect(layerIds).toContain('buildings-fill');
     expect(layerIds).toContain('buildings-outline');
-    expect(layerIds).toContain('forests-circles');
+    expect(layerIds).toContain('forests-canopy');
     expect(layerIds).toContain('districts-points');
   });
 
@@ -315,7 +315,7 @@ describe('MapLibreRenderer', () => {
         (call) => [call[0] as string, call[1] as { maxzoom?: number }] as const,
       ),
     );
-    for (const id of ['buildings', 'roads', 'forests']) {
+    for (const id of ['buildings', 'roads']) {
       expect(byId.get(id)?.maxzoom).toBe(HEAVY_SOURCE_MAX_ZOOM);
     }
   });
@@ -1178,6 +1178,44 @@ describe('MapLibreRenderer', () => {
     expect(mockMap.setLayoutProperty).not.toHaveBeenCalled();
   });
 
+  describe('street names', () => {
+    const lastLabelVisibility = () =>
+      mockMap.setLayoutProperty.mock.calls
+        .filter(([id, prop]) => id === 'roads-labels' && prop === 'visibility')
+        .at(-1)?.[2];
+    const options = (showStreetNames: boolean) => ({
+      roads: { showStreetNames },
+      transit: { visibleModes: [], showConfirmedTransfers: true },
+      buildings: { visibleCategories: [], colorByCategory: false },
+      districts: { showNameOnMap: false, showParkAreas: false },
+      terrain: {
+        showContourLines: true,
+        showColorRelief: true,
+        showHillshade: true,
+      },
+      basemap: { showGrid: false },
+    });
+
+    it('follow the option and never outlive the roads layer', async () => {
+      const renderer = makeRenderer();
+      mockMap.getLayer.mockReturnValue({ id: 'any' } as unknown as undefined);
+      await renderer.render(makeCityData(), {
+        activeLayers: ALL_LAYERS_VISIBLE,
+      });
+
+      renderer.setLayerOptions(options(false));
+      expect(lastLabelVisibility()).toBe('none');
+      // Turning roads back on must not bring the hidden names with it.
+      renderer.setLayerVisibility('roads', true);
+      expect(lastLabelVisibility()).toBe('none');
+
+      renderer.setLayerOptions(options(true));
+      expect(lastLabelVisibility()).toBe('visible');
+      renderer.setLayerVisibility('roads', false);
+      expect(lastLabelVisibility()).toBe('none');
+    });
+  });
+
   describe('districts points/labels display mode', () => {
     it('ties native district outlines to districts and park outlines to the park sublayer', async () => {
       const renderer = makeRenderer();
@@ -1200,6 +1238,7 @@ describe('MapLibreRenderer', () => {
       vi.clearAllMocks();
       mockMap.getLayer.mockReturnValue({ id: 'any' } as unknown as undefined);
       renderer.setLayerOptions({
+        roads: { showStreetNames: true },
         transit: { visibleModes: [], showConfirmedTransfers: true },
         buildings: { visibleCategories: [], colorByCategory: false },
         districts: { showNameOnMap: true, showParkAreas: true },
@@ -1262,6 +1301,7 @@ describe('MapLibreRenderer', () => {
       mockMap.getLayer.mockReturnValue({ id: 'any' } as unknown as undefined);
 
       renderer.setLayerOptions({
+        roads: { showStreetNames: true },
         transit: { visibleModes: [], showConfirmedTransfers: true },
         buildings: { visibleCategories: [], colorByCategory: false },
         districts: { showNameOnMap: true, showParkAreas: false },
@@ -1295,6 +1335,7 @@ describe('MapLibreRenderer', () => {
       mockMap.getLayer.mockReturnValue({ id: 'any' } as unknown as undefined);
 
       renderer.setLayerOptions({
+        roads: { showStreetNames: true },
         transit: { visibleModes: [], showConfirmedTransfers: true },
         buildings: { visibleCategories: [], colorByCategory: false },
         districts: { showNameOnMap: false, showParkAreas: true },
@@ -1325,6 +1366,7 @@ describe('MapLibreRenderer', () => {
         activeLayers: ALL_LAYERS_VISIBLE,
       });
       renderer.setLayerOptions({
+        roads: { showStreetNames: true },
         transit: { visibleModes: [], showConfirmedTransfers: true },
         buildings: { visibleCategories: [], colorByCategory: false },
         districts: { showNameOnMap: true, showParkAreas: true },
@@ -1463,6 +1505,7 @@ describe('MapLibreRenderer', () => {
       // Toggling any option (here: contour lines) re-runs setOptions, which
       // must not reset the relief back to full opacity while dimming holds.
       renderer.setLayerOptions({
+        roads: { showStreetNames: true },
         transit: { visibleModes: [], showConfirmedTransfers: true },
         buildings: { visibleCategories: [], colorByCategory: false },
         districts: { showNameOnMap: false, showParkAreas: false },
@@ -1529,7 +1572,7 @@ describe('MapLibreRenderer', () => {
       expect(mockMap.removeLayer).toHaveBeenCalledWith('transit-stops');
       expect(mockMap.removeLayer).toHaveBeenCalledWith('buildings-fill');
       expect(mockMap.removeLayer).toHaveBeenCalledWith('buildings-outline');
-      expect(mockMap.removeLayer).toHaveBeenCalledWith('forests-circles');
+      expect(mockMap.removeLayer).toHaveBeenCalledWith('forests-canopy');
       expect(mockMap.removeLayer).toHaveBeenCalledWith('districts-points');
       expect(mockMap.removeLayer).toHaveBeenCalledWith('districts-labels');
       expect(mockMap.removeLayer).toHaveBeenCalledWith('park-areas-points');
@@ -2284,11 +2327,6 @@ describe('MapLibreRenderer', () => {
         'base-land',
         'fill-color',
         MOCK_STYLE.terrain.base,
-      );
-      expect(mockMap.setPaintProperty).toHaveBeenCalledWith(
-        'forests-circles',
-        'circle-color',
-        MOCK_STYLE.forests,
       );
       expect(mockMap.setPaintProperty).toHaveBeenCalledWith(
         'buildings-fill',

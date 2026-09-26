@@ -105,6 +105,13 @@ pub(crate) struct RoadSegmentDoc {
     /// The network prefab's `ItemClass` name — the source of truth for classification.
     pub(crate) item_class: String,
     pub(crate) width: f64,
+    /// Visible street name (`NetManager.GetSegmentName`). Absent for unnamed networks.
+    #[serde(
+        default,
+        deserialize_with = "non_null",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub(crate) name: Option<String>,
     /// Curve points along the segment, start to end.
     pub(crate) points: Vec<Position>,
 }

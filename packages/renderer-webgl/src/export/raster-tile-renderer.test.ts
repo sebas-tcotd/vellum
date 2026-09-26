@@ -171,6 +171,7 @@ function makeSnapshot(
     style: MOCK_STYLE,
     activeLayers: makeLayerVisibility(),
     layerOptions: {
+      roads: { showStreetNames: true },
       transit: { visibleModes: ['Bus'], showConfirmedTransfers: true },
       buildings: { visibleCategories: ['residential'], colorByCategory: false },
       districts: { showNameOnMap: false, showParkAreas: false },

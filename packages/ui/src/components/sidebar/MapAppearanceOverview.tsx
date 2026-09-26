@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
-import type { LayerName } from '@vellum/core';
-import { LAYERS_WITH_ADVANCED_OPTIONS, LAYER_NAMES } from '@vellum/core';
+import type { CitySource, LayerName } from '@vellum/core';
+import { LAYER_NAMES, hasAdvancedOptions } from '@vellum/core';
 import { useVellumStore } from '../../store/vellum-store';
 import type { CommandRegistry } from '../../shell/commands';
 import { Separator } from '../../lib/separator';
@@ -10,6 +10,8 @@ import { MapStyleSection } from './MapStyleSection';
 
 export interface MapAppearanceOverviewProps {
   commands: CommandRegistry;
+  /** Open document's source; decides which layers offer a detail panel. */
+  source?: CitySource | undefined;
 }
 
 /** `data-focus-id` of a layer's disclosure, so Back can restore focus to it. */
@@ -19,6 +21,7 @@ export const layerDisclosureFocusId = (layer: LayerName): string =>
 /** Resting state of the appearance sidebar: how the map is drawn, and what is drawn. */
 export function MapAppearanceOverview({
   commands,
+  source,
 }: MapAppearanceOverviewProps) {
   const { t } = useTranslation();
   const activeLayers = useVellumStore((s) => s.activeLayers);
@@ -44,7 +47,7 @@ export function MapAppearanceOverview({
               onToggleVisible={commands['layer.toggle'].execute}
               icon={<Icon size={14} strokeWidth={1.5} />}
               dimIndicator={dimIndicator}
-              hasDetail={LAYERS_WITH_ADVANCED_OPTIONS.has(layer)}
+              hasDetail={hasAdvancedOptions(layer, source)}
               onOpenDetail={commands['layer.detail'].execute}
               disclosureFocusId={layerDisclosureFocusId(layer)}
               // The disclosure names itself as the focus origin, so Back

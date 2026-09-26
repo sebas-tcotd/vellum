@@ -32,6 +32,8 @@ function makeProps(
     onToggleHillshade: vi.fn(),
     showGrid: false,
     onToggleShowGrid: vi.fn(),
+    showStreetNames: true,
+    onToggleShowStreetNames: vi.fn(),
     ...overrides,
   };
 }
@@ -132,8 +134,24 @@ describe('AdvancedOptionsPanel — districts', () => {
 
   it('renders nothing for layers without advanced options', () => {
     const { container } = render(
-      <AdvancedOptionsPanel {...makeProps({ layer: 'roads' })} />,
+      <AdvancedOptionsPanel {...makeProps({ layer: 'forests' })} />,
     );
     expect(container.firstChild).toBeNull();
+  });
+});
+
+describe('AdvancedOptionsPanel — roads', () => {
+  it('toggles street names off', () => {
+    const onToggle = vi.fn();
+    render(
+      <AdvancedOptionsPanel
+        {...makeProps({ layer: 'roads', onToggleShowStreetNames: onToggle })}
+      />,
+    );
+    expect(
+      screen.getByText('layerOptionsPanel.showStreetNames'),
+    ).toBeInTheDocument();
+    screen.getByRole('switch').click();
+    expect(onToggle).toHaveBeenCalledWith(false);
   });
 });

@@ -85,6 +85,11 @@ export interface SvgExportPolicy {
   readonly pixelsPerWorldUnit: number;
   /** Width a local road resolves to under this policy, in pixels. */
   readonly localRoadWidthPx: number;
+  /**
+   * Whether roads grow into their real width at detail scale, as on the live
+   * map. Off when the width is pinned: a pin is a constant weight on purpose.
+   */
+  readonly roadWorldLock: boolean;
 }
 
 /** Arguments needed to resolve a policy for one document. */
@@ -153,6 +158,7 @@ export function resolveSvgExportPolicy(
     equivalentZoom,
     pixelsPerWorldUnit,
     localRoadWidthPx: LOCAL_ROAD_FIXED + LOCAL_ROAD_SCALED * roadWidthFactor,
+    roadWorldLock: pinned === undefined,
   };
 }
 

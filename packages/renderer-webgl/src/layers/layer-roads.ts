@@ -5,7 +5,7 @@
  * Internal module — not exported from the package barrel.
  */
 
-import type { CityData, RoadCategory } from '@vellum/core';
+import type { CityData, RoadCategory, RoadTier } from '@vellum/core';
 import type * as maplibregl from 'maplibre-gl';
 import {
   buildRoadColorExpression,
@@ -21,7 +21,7 @@ import {
   RAILWAY_WIDTH_EXPR,
 } from '../expressions/railway-width';
 import { HEAVY_SOURCE_MAX_ZOOM } from '../constants/layer.constants';
-import { buildRoadsGeoJson } from '../geojson';
+import { buildRoadLabelsGeoJson, buildRoadsGeoJson } from '../geojson';
 import { addLayerIfAbsent, addSourceIfAbsent } from '../helpers';
 import type { ResolvedColors } from '../style-adapter';
 import {
@@ -522,6 +522,111 @@ export function addRoadsLayer(
       'line-dasharray': [6, 4],
       'line-opacity': 0.55,
       'line-opacity-transition': { duration: 300 },
+    },
+  });
+}
+
+/** Label priority by tier: lower is placed first when labels collide. */
+const LABEL_RANK: Partial<Record<RoadTier, number>> = {
+  highway: 0,
+  largeArterial: 1,
+  mediumArterial: 2,
+  local: 3,
+  pedestrianStreet: 4,
+  gravel: 4,
+  pedestrianWay: 5,
+};
+
+const tierIn = (tiers: readonly RoadTier[]) => [
+  'in',
+  ['get', 'tier'],
+  ['literal', tiers],
+];
+
+const MAJOR_TIERS: readonly RoadTier[] = [
+  'highway',
+  'largeArterial',
+  'mediumArterial',
+];
+const MINOR_TIERS: readonly RoadTier[] = [
+  ...MAJOR_TIERS,
+  'local',
+  'pedestrianStreet',
+  'gravel',
+];
+
+/**
+ * Street-name labels along the line (`.vellummap` only: a `.cslmap` has no
+ * names, so the layer draws nothing there).
+ *
+ * @remarks
+ * Web-map conventions: arterials from z14, locals from z15, footpaths from
+ * z17; higher tiers win collisions (`symbol-sort-key`), and MapLibre's shared
+ * collision index keeps names off each other and off the other symbol layers.
+ * Labels ride their own source of whole streets (see `buildRoadLabelsGeoJson`)
+ * and are registered after transit so lines never cover a name.
+ */
+export function addRoadLabelsLayer(
+  map: maplibregl.Map,
+  cityData: CityData,
+  colors: ResolvedColors,
+): void {
+  addSourceIfAbsent(map, 'road-labels', {
+    type: 'geojson',
+    // ponytail: rebuilds the roads collection the roads step already built;
+    // hand it over if the load step ever shows up in a profile.
+    data: buildRoadLabelsGeoJson(buildRoadsGeoJson(cityData)),
+    maxzoom: HEAVY_SOURCE_MAX_ZOOM,
+  });
+
+  addLayerIfAbsent(map, {
+    id: 'roads-labels',
+    type: 'symbol',
+    source: 'road-labels',
+    minzoom: 14,
+    // Zoom in a filter is evaluated at integer zooms only, which is exactly
+    // the granularity these thresholds need.
+    filter: [
+      'step',
+      ['zoom'],
+      tierIn(MAJOR_TIERS),
+      15,
+      tierIn(MINOR_TIERS),
+      17,
+      true,
+    ] as unknown as maplibregl.FilterSpecification,
+    layout: {
+      'symbol-placement': 'line',
+      'symbol-spacing': 320,
+      'symbol-sort-key': [
+        'match',
+        ['get', 'tier'],
+        ...Object.entries(LABEL_RANK).flat(),
+        9,
+      ] as unknown as maplibregl.ExpressionSpecification,
+      'text-field': ['get', 'name'],
+      'text-font': ['DM Mono'],
+      'text-size': [
+        'interpolate',
+        ['linear'],
+        ['zoom'],
+        14,
+        ['match', ['get', 'tier'], MAJOR_TIERS as RoadTier[], 10, 9],
+        18,
+        ['match', ['get', 'tier'], MAJOR_TIERS as RoadTier[], 14, 12],
+      ] as unknown as maplibregl.ExpressionSpecification,
+      'text-max-angle': 30,
+      'text-padding': 4,
+      'text-letter-spacing': 0.04,
+    },
+    paint: {
+      // Theme ink, auto-tinted per tier where it would not read on the fill.
+      'text-color': buildRoadColorExpression(colors, 'label'),
+      // Haloed in the road's own fill, so the name reads as printed on it.
+      'text-halo-color': buildRoadColorExpression(colors, 'fill'),
+      'text-halo-width': 1.5,
+      'text-opacity': 1,
+      'text-opacity-transition': { duration: 300 },
     },
   });
 }

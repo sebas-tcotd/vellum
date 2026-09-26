@@ -1,6 +1,11 @@
 import { useEffect, useLayoutEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { LAYER_NAMES, type CitySource, type TransitMode } from '@vellum/core';
+import {
+  LAYER_NAMES,
+  hasAdvancedOptions,
+  type CitySource,
+  type TransitMode,
+} from '@vellum/core';
 import { SchematicSidebarContent } from '../schematic/SchematicSidebarContent';
 import type { SchematicNetworkModel } from '../../hooks/use-schematic-network';
 import type { CommandRegistry } from '../../shell/commands';
@@ -123,6 +128,14 @@ export function MapAppearanceSidebar({
     focusBeforeCleanViewRef.current = null;
   }, [isCleanView]);
 
+  // A panel the new document does not offer (the roads panel when a .cslmap
+  // replaces a .vellummap) closes instead of showing options that do nothing.
+  const detailUnavailable =
+    view.kind === 'detail' && !hasAdvancedOptions(view.layerId, source);
+  useEffect(() => {
+    if (detailUnavailable) dispatch({ type: 'sidebar/closeDetail' });
+  }, [detailUnavailable, dispatch]);
+
   // Back / Escape out of a detail returns focus to the disclosure that opened
   // it, or to the overview heading when the detail was opened from the menu or
   // a shortcut and has no on-screen invoker.
@@ -189,7 +202,7 @@ export function MapAppearanceSidebar({
         ) : collapsed ? (
           <CompactLayerRail commands={commands} />
         ) : view.kind === 'overview' ? (
-          <MapAppearanceOverview commands={commands} />
+          <MapAppearanceOverview commands={commands} source={source} />
         ) : (
           <LayerDetailPanel
             layer={view.layerId}

@@ -99,7 +99,7 @@ namespace VellumBridge.Tests
             m.segments.Add(Straight(12, 3, 4, "Water Pipe", 2f)); // red no vial: se exporta igual
             m.segments.Add(new SegmentModel
             {
-                sourceId = 13, startNode = 4, endNode = 5, itemClass = "Small Road", width = 16f,
+                sourceId = 13, startNode = 4, endNode = 5, itemClass = "Small Road", width = 16f, name = "Oak Ave",
                 a = new Vec3(400, 70, 0), b = new Vec3(430, 70, 20), c = new Vec3(470, 70, 20), d = new Vec3(500, 70, 0),
             });
 
@@ -282,6 +282,8 @@ namespace VellumBridge.Tests
                     JsonElement segments = roads.RootElement.GetProperty("segments");
                     Check(segments.GetArrayLength() == 4, "Redes no viales exportadas (Water Pipe)");
                     Check(segments[0].GetProperty("points").GetArrayLength() == 5, "Segmento de 100 m: 5 puntos");
+                    Check(segments[3].GetProperty("name").GetString() == "Oak Ave", "Segmento con nombre de calle");
+                    Check(!segments[0].TryGetProperty("name", out _), "Segmento sin nombre: se omite la clave");
                 }
                 using (JsonDocument buildings = Json(zip, "buildings.json"))
                 {

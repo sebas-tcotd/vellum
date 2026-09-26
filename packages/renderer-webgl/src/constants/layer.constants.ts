@@ -11,22 +11,10 @@ import {
  * terrain is gentle relative to its 17 km span, so a mild boost is needed for slopes to
  * read at all.
  */
-const HILLSHADE_EXAGGERATION_M = 0.35;
+const HILLSHADE_EXAGGERATION_M = 0.6;
 
-/**
- * Baseline `circle-opacity` expression for `forests-circles`, shared with the layer's
- * own paint definition in `layers/layer-forests.ts` so the two never drift apart.
- * Kept low so dense forest doesn't read as a solid block at low zoom.
- */
-export const FORESTS_CIRCLE_OPACITY_EXPRESSION = [
-  'interpolate',
-  ['linear'],
-  ['get', 'density'],
-  0,
-  0.08,
-  1,
-  0.25,
-] as const;
+/** Baseline `raster-opacity` of `forests-canopy`; the per-cell alpha is baked into the image. */
+export const FORESTS_CANOPY_OPACITY = 1;
 
 /**
  * Exaggeration actually handed to MapLibre.
@@ -74,6 +62,7 @@ export const LAYER_ID_MAP: Record<LayerName, string[]> = {
     'roads-railway-elevated-fill',
     'roads-railway-underground-casing',
     'roads-railway-underground-fill',
+    'roads-labels',
   ],
   transit: [
     'transit-connector',
@@ -84,7 +73,7 @@ export const LAYER_ID_MAP: Record<LayerName, string[]> = {
     'transit-transfer-marker',
   ],
   buildings: ['buildings-fill', 'buildings-outline', 'service-icons'],
-  forests: ['forests-circles'],
+  forests: ['forests-canopy'],
   districts: [
     'district-boundaries',
     'park-boundaries',
@@ -136,9 +125,6 @@ export const TRANSIT_DIM_FACTOR = 0.15;
 /**
  * Baseline opacity (and paint property) for every non-transit layer id, used to
  * compute the dimmed value (`baseline * TRANSIT_DIM_FACTOR`) in `MapLayerManager.setTransitDimming`.
- * `forests-circles` uses a data-driven expression instead of a plain number — its
- * dimmed variant scales the existing expression via `['*', expr, factor]`.
- *
  * `terrain-hillshade` is the one entry that does not scale an opacity: MapLibre's
  * `HillshadePaintProps` has no `hillshade-opacity`, so the layer is dimmed by scaling
  * its exaggeration towards zero instead, which flattens the shading. The generic
@@ -151,6 +137,7 @@ export const NON_TRANSIT_OPACITY: Record<
       | 'fill-opacity'
       | 'line-opacity'
       | 'circle-opacity'
+      | 'raster-opacity'
       | 'icon-opacity'
       | 'text-opacity'
       | 'color-relief-opacity'
@@ -189,13 +176,11 @@ export const NON_TRANSIT_OPACITY: Record<
   'roads-railway-elevated-fill': { prop: 'line-opacity', base: 1 },
   'roads-railway-underground-casing': { prop: 'line-opacity', base: 0.55 },
   'roads-railway-underground-fill': { prop: 'line-opacity', base: 0.55 },
+  'roads-labels': { prop: 'text-opacity', base: 1 },
   'buildings-fill': { prop: 'fill-opacity', base: 0.85 },
   'buildings-outline': { prop: 'line-opacity', base: 1 },
   'service-icons': { prop: 'icon-opacity', base: 1 },
-  'forests-circles': {
-    prop: 'circle-opacity',
-    base: FORESTS_CIRCLE_OPACITY_EXPRESSION,
-  },
+  'forests-canopy': { prop: 'raster-opacity', base: FORESTS_CANOPY_OPACITY },
   'district-boundaries': {
     prop: 'line-opacity',
     base: DISTRICT_BOUNDARY_OPACITY,

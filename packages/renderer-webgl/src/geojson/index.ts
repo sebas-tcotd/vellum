@@ -24,7 +24,10 @@ export {
   buildWaterSurfaceGeoJson,
   buildWorldExtentGeoJson,
 } from './builders/environment.builder';
-export { buildRoadsGeoJson } from './builders/roads.builder';
+export {
+  buildRoadLabelsGeoJson,
+  buildRoadsGeoJson,
+} from './builders/roads.builder';
 export {
   buildCoastlineGeoJson,
   buildContourLinesGeoJson,
