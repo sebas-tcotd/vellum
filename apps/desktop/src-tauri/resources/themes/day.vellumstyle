@@ -183,5 +183,8 @@
   "transferMarker": {
     "fill": "#d9a441",
     "stroke": "#8a5a1f"
+  },
+  "roadLabels": {
+    "color": "#4a3f33"
   }
 }

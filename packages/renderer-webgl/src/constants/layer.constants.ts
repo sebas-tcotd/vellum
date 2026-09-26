@@ -74,6 +74,7 @@ export const LAYER_ID_MAP: Record<LayerName, string[]> = {
     'roads-railway-elevated-fill',
     'roads-railway-underground-casing',
     'roads-railway-underground-fill',
+    'roads-labels',
   ],
   transit: [
     'transit-connector',
@@ -189,6 +190,7 @@ export const NON_TRANSIT_OPACITY: Record<
   'roads-railway-elevated-fill': { prop: 'line-opacity', base: 1 },
   'roads-railway-underground-casing': { prop: 'line-opacity', base: 0.55 },
   'roads-railway-underground-fill': { prop: 'line-opacity', base: 0.55 },
+  'roads-labels': { prop: 'text-opacity', base: 1 },
   'buildings-fill': { prop: 'fill-opacity', base: 0.85 },
   'buildings-outline': { prop: 'line-opacity', base: 1 },
   'service-icons': { prop: 'icon-opacity', base: 1 },

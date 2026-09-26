@@ -28,6 +28,7 @@ function snapshotInput(): ExportSnapshotInput {
       districts: true,
     },
     layerOptions: {
+      roads: { showStreetNames: true },
       transit: { visibleModes: ['Bus'], showConfirmedTransfers: true },
       buildings: { visibleCategories: ['residential'], colorByCategory: false },
       districts: { showNameOnMap: false, showParkAreas: false },

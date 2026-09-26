@@ -43,6 +43,14 @@ export interface RoadFeatureProperties {
   capEnds: boolean;
   /** Physical base width in CS1 world units. Used for `line-width` expressions. */
   width: number;
+  /**
+   * World width (CS1 units) the line grows into at detail zoom, so the street
+   * edge meets the buildings; `0` keeps the cartographic width (highways,
+   * non-road ways). See `ROAD_WIDTH_EXPR`.
+   */
+  worldWidth: number;
+  /** Visible street name, when the source carries one (`.vellummap` only). */
+  name?: string;
   /** Comma-separated WayType flags (e.g. "Road,Bridge"). */
   wayType: string;
   /** Fixed component of the line width model: totalWidth = fixed + scaled * zoomFactor. */

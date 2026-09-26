@@ -234,10 +234,10 @@ describe('visibility and disclosure are independent (AD-11)', () => {
     render(<Harness />);
     expect(
       screen.queryByRole('button', {
-        name: 'a11y.configureLayer:layers.roads',
+        name: 'a11y.configureLayer:layers.forests',
       }),
     ).toBeNull();
-    expect(visibilitySwitch('roads')).toBeInTheDocument();
+    expect(visibilitySwitch('forests')).toBeInTheDocument();
   });
 });
 

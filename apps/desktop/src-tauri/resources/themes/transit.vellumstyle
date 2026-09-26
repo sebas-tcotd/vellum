@@ -172,5 +172,8 @@
     "opacity": 0.25,
     "width": 1,
     "dasharray": [4, 4]
+  },
+  "roadLabels": {
+    "color": "#e0e0e0"
   }
 }

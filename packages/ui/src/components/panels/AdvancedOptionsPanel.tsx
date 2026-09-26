@@ -73,13 +73,16 @@ export interface AdvancedOptionsPanelProps {
   /** Whether the basemap 9×9 projection grid is visible. */
   showGrid: boolean;
   onToggleShowGrid: (enabled: boolean) => void;
+  /** Whether street names are drawn along the roads. */
+  showStreetNames: boolean;
+  onToggleShowStreetNames: (enabled: boolean) => void;
 }
 
 /**
  * Content of the advanced-options floating panel (see `FloatingLayerPanel.tsx`
  * for the panel chrome). Renders terrain sub-element toggles, the transit-mode
- * filter, the buildings' RICO filter + "color by category" toggle, or the
- * district label toggle, depending on `layer`.
+ * filter, the buildings' RICO filter + "color by category" toggle, the
+ * district label toggle, or the street-names toggle, depending on `layer`.
  */
 export function AdvancedOptionsPanel({
   layer,
@@ -103,6 +106,8 @@ export function AdvancedOptionsPanel({
   onToggleHillshade,
   showGrid,
   onToggleShowGrid,
+  showStreetNames,
+  onToggleShowStreetNames,
 }: AdvancedOptionsPanelProps) {
   const { t } = useTranslation();
 
@@ -189,6 +194,16 @@ export function AdvancedOptionsPanel({
           onCheckedChange={onToggleShowParkAreas}
         />
       </div>
+    );
+  }
+
+  if (layer === 'roads') {
+    return (
+      <OptionRow
+        label={t('layerOptionsPanel.showStreetNames')}
+        checked={showStreetNames}
+        onCheckedChange={onToggleShowStreetNames}
+      />
     );
   }
 

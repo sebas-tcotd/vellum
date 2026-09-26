@@ -5,6 +5,7 @@ import {
   classifyRoadTier,
   ROAD_WIDTH_STYLES,
   type CityData,
+  type RoadCategory,
   type RoadNode,
   type RoadSegment,
 } from '@vellum/core';
@@ -94,6 +95,8 @@ function signatureOf(segment: RoadSegment, tier: RoadTier): string {
     segment.itemClass,
     segment.wayType.join(','),
     segment.width,
+    // Welding across a name change would label the whole chain by one end.
+    segment.name ?? '',
   ].join('|');
 }
 
@@ -300,6 +303,16 @@ function isValidSegment(
  * and this silently starts labelling a whole chain by whichever end happened to
  * come first — so the two must change together.
  */
+/**
+ * Categories whose detail-zoom width follows the segment's real width, so the
+ * street edge meets the building frontage. Highways keep their cartographic
+ * weight: no lots front onto them.
+ */
+const WORLD_LOCKED_CATEGORIES: ReadonlySet<RoadCategory> = new Set([
+  'road',
+  'runway',
+]);
+
 function createChainFeature(
   chain: number[],
   rendered: RenderedSegment[],
@@ -309,6 +322,7 @@ function createChainFeature(
   const { segment, tier } = rendered[chain[0]!]!;
   const endNodes = chainEndNodes(chain, rendered);
   const { fixed, scaled } = ROAD_WIDTH_STYLES[tier];
+  const category = classifyRoadCategory(segment.itemClass);
 
   return {
     type: 'Feature',
@@ -320,16 +334,153 @@ function createChainFeature(
       id: segment.id,
       itemClass: segment.itemClass,
       tier,
-      category: classifyRoadCategory(segment.itemClass),
+      category,
       isTunnel: segment.wayType.includes('Tunnel'),
       isBridge: segment.wayType.includes('Bridge'),
       isElevated: segment.wayType.includes('Elevated'),
       isUnderground: segment.wayType.includes('Underground'),
       capEnds: capsEnds(chain, endNodes, rendered, byNode),
       width: segment.width,
+      worldWidth:
+        WORLD_LOCKED_CATEGORIES.has(category) && tier !== 'highway'
+          ? segment.width
+          : 0,
       wayType: segment.wayType.join(','),
       fixedWidth: fixed,
       scaledWidth: scaled,
+      ...(segment.name ? { name: segment.name } : {}),
     },
   };
+}
+
+/** One street-name label line: every same-name way stitched end to end. */
+export interface RoadLabelFeature {
+  type: 'Feature';
+  geometry: { type: 'LineString'; coordinates: number[][] };
+  properties: { name: string; tier: RoadTier };
+}
+
+/** Sharpest turn (≈60°) a label line may take through a junction. */
+const MIN_LABEL_TURN_COS = 0.5;
+
+/**
+ * Stitches same-name road lines through junctions into long label lines.
+ *
+ * @remarks
+ * Welded render features stop at every junction, so a street is one block
+ * long per feature and its name rarely fits: MapLibre drops a line label that
+ * is longer than its line. Web maps label the *street*, not the block. Here,
+ * at each shared endpoint the walk continues into the straightest unused
+ * same-name, same-tier line, never turning sharper than ~60°.
+ */
+export function buildRoadLabelsGeoJson(roads: RoadsFeatureCollection): {
+  type: 'FeatureCollection';
+  features: RoadLabelFeature[];
+} {
+  const groups = new Map<string, RoadFeature[]>();
+  for (const feature of roads.features) {
+    const { name, category, tier } = feature.properties;
+    if (!name || category !== 'road') continue;
+    const key = `${tier}|${name}`;
+    const group = groups.get(key);
+    if (group) group.push(feature);
+    else groups.set(key, [feature]);
+  }
+
+  const features: RoadLabelFeature[] = [];
+  for (const group of groups.values()) {
+    const { name, tier } = group[0]!.properties;
+    for (const coordinates of stitchLines(
+      group.map((f) => f.geometry.coordinates),
+    )) {
+      features.push({
+        type: 'Feature',
+        geometry: { type: 'LineString', coordinates },
+        properties: { name: name!, tier },
+      });
+    }
+  }
+  return { type: 'FeatureCollection', features };
+}
+
+const pointKey = (p: number[]) => `${p[0]},${p[1]}`;
+
+function stitchLines(lines: number[][][]): number[][][] {
+  const byEnd = new Map<string, number[]>();
+  lines.forEach((line, i) => {
+    for (const end of [line[0]!, line[line.length - 1]!]) {
+      const at = byEnd.get(pointKey(end));
+      if (at) at.push(i);
+      else byEnd.set(pointKey(end), [i]);
+    }
+  });
+  const used = new Set<number>();
+
+  // Extends `path` forward from its last point; returns it for chaining.
+  const extend = (path: number[][]): number[][] => {
+    for (;;) {
+      const tail = path[path.length - 1]!;
+      const before = path[path.length - 2]!;
+      let best = -1;
+      let bestCos = MIN_LABEL_TURN_COS;
+      let bestLine: number[][] = [];
+      for (const i of byEnd.get(pointKey(tail)) ?? []) {
+        if (used.has(i)) continue;
+        const line = lines[i]!;
+        const oriented =
+          pointKey(line[0]!) === pointKey(tail) ? line : [...line].reverse();
+        const cos = turnCos(before, tail, oriented[1]!);
+        if (cos > bestCos) {
+          best = i;
+          bestCos = cos;
+          bestLine = oriented;
+        }
+      }
+      if (best < 0) return path;
+      used.add(best);
+      path.push(...bestLine.slice(1));
+    }
+  };
+
+  // Start from dead ends first so each walk covers a street end to end.
+  const order = lines
+    .map((_, i) => i)
+    .sort((a, b) => endDegree(lines[a]!, byEnd) - endDegree(lines[b]!, byEnd));
+
+  const out: number[][][] = [];
+  for (const i of order) {
+    if (used.has(i)) continue;
+    used.add(i);
+    const forward = extend([...lines[i]!]);
+    out.push(withoutRepeats(extend(forward.reverse())));
+  }
+  return out;
+}
+
+/**
+ * Drops consecutive duplicate points. `.vellummap` curves repeat their node at
+ * each end, and a zero-length step has no direction: MapLibre's line-label
+ * angle check then rejects every label that spans one.
+ */
+function withoutRepeats(path: number[][]): number[][] {
+  return path.filter(
+    (p, i) => i === 0 || pointKey(p) !== pointKey(path[i - 1]!),
+  );
+}
+
+function endDegree(line: number[][], byEnd: Map<string, number[]>): number {
+  return Math.min(
+    byEnd.get(pointKey(line[0]!))!.length,
+    byEnd.get(pointKey(line[line.length - 1]!))!.length,
+  );
+}
+
+/** Cosine of the turn a → b → c (1 = straight on). */
+function turnCos(a: number[], b: number[], c: number[]): number {
+  const ux = b[0]! - a[0]!;
+  const uy = b[1]! - a[1]!;
+  const vx = c[0]! - b[0]!;
+  const vy = c[1]! - b[1]!;
+  const len = Math.hypot(ux, uy) * Math.hypot(vx, vy);
+  return len === 0 ? 1 : (ux * vx + uy * vy) / len;
 }

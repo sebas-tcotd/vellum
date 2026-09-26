@@ -1,35 +1,54 @@
 import { describe, it, expect } from 'vitest';
-import { ROAD_WIDTH_EXPR, ROAD_CASING_WIDTH_EXPR } from './road-width';
+import {
+  ROAD_WIDTH_EXPR,
+  ROAD_CASING_WIDTH_EXPR,
+  WORLD_LOCK_ZOOM,
+} from './road-width';
 
 // The expressions have the shape:
 //   ['interpolate', ['exponential', 2], ['zoom'], z0, out0, z1, out1, ...]
-// where each output is ['+', ['get','fixedWidth'], ['*', ['get','scaledWidth'], F] (, ADD?)].
+// Each output is a per-feature arithmetic expression, evaluated below.
 
 type Expr = unknown[];
+type Props = { fixedWidth: number; scaledWidth: number; worldWidth: number };
 
-function parseStops(expr: Expr): Array<{ zoom: number; out: Expr }> {
+function parseStops(expr: Expr): Array<{ zoom: number; out: unknown }> {
   expect(expr[0]).toBe('interpolate');
   expect(expr[1]).toEqual(['exponential', 2]); // geographic-family curve
   expect(expr[2]).toEqual(['zoom']);
-  const stops: Array<{ zoom: number; out: Expr }> = [];
+  const stops: Array<{ zoom: number; out: unknown }> = [];
   for (let i = 3; i < expr.length; i += 2) {
-    stops.push({ zoom: expr[i] as number, out: expr[i + 1] as Expr });
+    stops.push({ zoom: expr[i] as number, out: expr[i + 1] });
   }
   return stops;
 }
 
-/** Extracts the scaledWidth factor F from ['+', get fixed, ['*', get scaled, F], add?]. */
-function factorOf(out: Expr): number {
-  const mul = out[2] as Expr; // ['*', ['get','scaledWidth'], F]
-  expect(mul[0]).toBe('*');
-  expect(mul[1]).toEqual(['get', 'scaledWidth']);
-  return mul[2] as number;
+/** Evaluates the arithmetic subset the width outputs use. */
+function evaluate(out: unknown, props: Props): number {
+  if (typeof out === 'number') return out;
+  const [op, ...args] = out as [string, ...unknown[]];
+  if (op === 'get') return props[args[0] as keyof Props];
+  const values = args.map((arg) => evaluate(arg, props));
+  switch (op) {
+    case '+':
+      return values.reduce((a, b) => a + b, 0);
+    case '*':
+      return values.reduce((a, b) => a * b, 1);
+    case '-':
+      return values[0]! - values[1]!;
+    case 'max':
+      return Math.max(...values);
+    default:
+      throw new Error(`unexpected operator ${op}`);
+  }
 }
 
-/** Extracts the casing additive (4th term), or 0 if absent. */
-function addOf(out: Expr): number {
-  return typeof out[3] === 'number' ? out[3] : 0;
-}
+/** The tier-weight factor F at a stop: width of a `{0, 1}` cartographic feature. */
+const CARTO_UNIT: Props = { fixedWidth: 0, scaledWidth: 1, worldWidth: 0 };
+const factorOf = (out: unknown) => evaluate(out, CARTO_UNIT);
+/** The casing border at a stop: width of a zero-weight feature. */
+const addOf = (out: unknown) =>
+  evaluate(out, { fixedWidth: 0, scaledWidth: 0, worldWidth: 0 });
 
 describe('ROAD_WIDTH_EXPR — factor curve', () => {
   const stops = parseStops(ROAD_WIDTH_EXPR as Expr);
@@ -56,13 +75,21 @@ describe('ROAD_WIDTH_EXPR — factor curve', () => {
     }
   });
 
-  it('preserves tier ratios at every stop (factor is tier-independent)', () => {
-    // The factor multiplies scaledWidth, which carries the hierarchy; so two
-    // tiers keep a constant width ratio at any given zoom. Verified indirectly:
-    // every stop's output references scaledWidth linearly with no per-tier term.
+  it('preserves tier ratios at every stop for cartographic features', () => {
+    // With no world width, width is linear in the tier weights, so two tiers
+    // keep a constant width ratio at any given zoom.
     for (const s of stops) {
-      expect(s.out[1] as Expr).toEqual(['get', 'fixedWidth']);
-      expect((s.out[2] as Expr)[1]).toEqual(['get', 'scaledWidth']);
+      const local = evaluate(s.out, {
+        fixedWidth: 0,
+        scaledWidth: 0.8,
+        worldWidth: 0,
+      });
+      const arterial = evaluate(s.out, {
+        fixedWidth: 0,
+        scaledWidth: 2,
+        worldWidth: 0,
+      });
+      expect(arterial / local).toBeCloseTo(2 / 0.8, 5);
     }
   });
 });
@@ -76,7 +103,9 @@ describe('ROAD_CASING_WIDTH_EXPR — border', () => {
       fillStops.map((s) => s.zoom),
     );
     for (let i = 0; i < fillStops.length; i++) {
-      expect(factorOf(casingStops[i].out)).toBe(factorOf(fillStops[i].out));
+      expect(
+        factorOf(casingStops[i].out) - addOf(casingStops[i].out),
+      ).toBeCloseTo(factorOf(fillStops[i].out), 9);
     }
   });
 
@@ -88,5 +117,38 @@ describe('ROAD_CASING_WIDTH_EXPR — border', () => {
       expect(adds[i]).toBeGreaterThanOrEqual(adds[i - 1]);
     }
     expect(Math.max(...adds)).toBeLessThan(8);
+  });
+});
+
+describe('world lock at detail zoom', () => {
+  const casingStops = parseStops(ROAD_CASING_WIDTH_EXPR as Expr);
+  const fillStops = parseStops(ROAD_WIDTH_EXPR as Expr);
+  const at = (stops: typeof casingStops, zoom: number) =>
+    stops.find((s) => s.zoom === zoom)!.out;
+  // A CS1 Small Road: 16 world units kerb to kerb, local tier weights.
+  const smallRoad: Props = {
+    fixedWidth: 0.2,
+    scaledWidth: 0.8,
+    worldWidth: 16,
+  };
+
+  it('spans the real road width with the casing at z18', () => {
+    // 16 units ≈ 16 m; at z18 (512px tiles) ≈ 3.35 px per metre.
+    expect(evaluate(at(casingStops, WORLD_LOCK_ZOOM), smallRoad)).toBeCloseTo(
+      53.6,
+      0,
+    );
+  });
+
+  it('never draws thinner than the tier weight', () => {
+    const skinny: Props = { ...smallRoad, worldWidth: 1 };
+    expect(evaluate(at(fillStops, WORLD_LOCK_ZOOM), skinny)).toBeCloseTo(
+      0.2 + 0.8 * 16,
+      9,
+    );
+  });
+
+  it('leaves the far zooms on the cartographic weight', () => {
+    expect(evaluate(at(fillStops, 14), smallRoad)).toBeCloseTo(1.0, 9);
   });
 });

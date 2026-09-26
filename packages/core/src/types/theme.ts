@@ -211,6 +211,17 @@ export interface RenderStyleParams {
     /** Marker outline/ring color. */
     stroke: ColorToken;
   };
+  /**
+   * Street-name labels. Falls back to built-in defaults if not specified.
+   * @remarks
+   * `color` is the preferred ink. On a road fill it can't be read on (contrast
+   * under 3:1, e.g. dark text on a dark highway), the renderer switches that
+   * tier to white or near-black, whichever reads better.
+   */
+  roadLabels?: {
+    /** Preferred text color of street names. */
+    color: ColorToken;
+  };
 }
 
 /**

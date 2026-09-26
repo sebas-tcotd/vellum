@@ -176,24 +176,25 @@ el archivo** — ver [Comportamiento de validación](#comportamiento-de-validaci
 
 ## Campos de `RenderStyleParams`
 
-| Campo               | Tipo                  | Descripción                                                                                                                |
-| ------------------- | --------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `mapBackground`     | `ColorToken`          | Color de fondo detrás del terreno (visible fuera de los límites del mapa).                                                 |
-| `mapFrame`          | `ColorToken`          | Color del marco decorativo alrededor de la extensión del mundo.                                                            |
-| `terrain.base`      | `ColorToken`          | Color de elevación base/plana.                                                                                             |
-| `terrain.low`       | `ColorToken`          | Color de elevación baja.                                                                                                   |
-| `terrain.mid`       | `ColorToken`          | Color de elevación media.                                                                                                  |
-| `terrain.high`      | `ColorToken`          | Color de elevación alta.                                                                                                   |
-| `contourLine`       | `ColorToken`          | Color de las líneas de contorno del terreno.                                                                               |
-| `water`             | `ColorToken`          | Color de los cuerpos de agua (mar y agua interior).                                                                        |
-| `forests`           | `ColorToken`          | Color de los marcadores de densidad de bosque/vegetación.                                                                  |
-| `transitBackground` | `ColorToken`          | Fondo usado en exports oscuros y reservado para presentaciones centradas en tránsito. Todos los temas built-in lo definen. |
-| `roads`             | `RoadColorParams`     | Colores de la red vial, agrupados por jerarquía — ver abajo.                                                               |
-| `buildings`         | `BuildingColorParams` | Colores de edificios, agrupados por categoría de zoning — ver abajo.                                                       |
-| `districts.fill`    | `ColorToken`          | Color de relleno del marcador de distrito.                                                                                 |
-| `districts.label`   | `ColorToken`          | Color del texto de la etiqueta del distrito.                                                                               |
-| `grid`              | `GridStyle`           | Estilo de la grilla de proyección 9×9 opcional.                                                                            |
-| `parkAreas`         | `ParkAreaColors`      | Colores opcionales de marcadores de áreas de parque DLC; los valores omitidos usan defaults built-in.                      |
+| Campo               | Tipo                  | Descripción                                                                                                                                       |
+| ------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `mapBackground`     | `ColorToken`          | Color de fondo detrás del terreno (visible fuera de los límites del mapa).                                                                        |
+| `mapFrame`          | `ColorToken`          | Color del marco decorativo alrededor de la extensión del mundo.                                                                                   |
+| `terrain.base`      | `ColorToken`          | Color de elevación base/plana.                                                                                                                    |
+| `terrain.low`       | `ColorToken`          | Color de elevación baja.                                                                                                                          |
+| `terrain.mid`       | `ColorToken`          | Color de elevación media.                                                                                                                         |
+| `terrain.high`      | `ColorToken`          | Color de elevación alta.                                                                                                                          |
+| `contourLine`       | `ColorToken`          | Color de las líneas de contorno del terreno.                                                                                                      |
+| `water`             | `ColorToken`          | Color de los cuerpos de agua (mar y agua interior).                                                                                               |
+| `forests`           | `ColorToken`          | Color de los marcadores de densidad de bosque/vegetación.                                                                                         |
+| `transitBackground` | `ColorToken`          | Fondo usado en exports oscuros y reservado para presentaciones centradas en tránsito. Todos los temas built-in lo definen.                        |
+| `roads`             | `RoadColorParams`     | Colores de la red vial, agrupados por jerarquía — ver abajo.                                                                                      |
+| `buildings`         | `BuildingColorParams` | Colores de edificios, agrupados por categoría de zoning — ver abajo.                                                                              |
+| `districts.fill`    | `ColorToken`          | Color de relleno del marcador de distrito.                                                                                                        |
+| `districts.label`   | `ColorToken`          | Color del texto de la etiqueta del distrito.                                                                                                      |
+| `grid`              | `GridStyle`           | Estilo de la grilla de proyección 9×9 opcional.                                                                                                   |
+| `parkAreas`         | `ParkAreaColors`      | Colores opcionales de marcadores de áreas de parque DLC; los valores omitidos usan defaults built-in.                                             |
+| `roadLabels.color`  | `ColorToken`          | Opcional. Tinta preferida de los nombres de calles; donde no se lea sobre la vía (menos de 3:1), esa jerarquía cambia sola a blanco o casi negro. |
 
 `grid` contiene `color`, `opacity`, `width` y `dasharray`. `parkAreas` contiene los
 colores opcionales `generic`, `university`, `tradeSchool`, `industry` y `forestry`.

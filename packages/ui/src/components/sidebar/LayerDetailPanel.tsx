@@ -49,6 +49,9 @@ export function LayerDetailPanel({ layer, onBack }: LayerDetailPanelProps) {
     (s) => s.setTerrainShowHillshade,
   );
   const setBasemapShowGrid = useVellumStore((s) => s.setBasemapShowGrid);
+  const setRoadsShowStreetNames = useVellumStore(
+    (s) => s.setRoadsShowStreetNames,
+  );
   const layerName = t(`layers.${layer}`);
 
   return (
@@ -90,6 +93,8 @@ export function LayerDetailPanel({ layer, onBack }: LayerDetailPanelProps) {
         onToggleHillshade={setTerrainShowHillshade}
         showGrid={layerOptions.basemap.showGrid}
         onToggleShowGrid={setBasemapShowGrid}
+        showStreetNames={layerOptions.roads.showStreetNames}
+        onToggleShowStreetNames={setRoadsShowStreetNames}
       />
     </section>
   );

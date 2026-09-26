@@ -71,6 +71,7 @@
     "showColorRelief": "Color relief",
     "showHillshade": "Hillshade",
     "showGrid": "Projection grid",
+    "showStreetNames": "Street names",
     "buildingZones": "Building zones (RICO)",
     "showConfirmedTransfers": "Show confirmed transfers"
   },

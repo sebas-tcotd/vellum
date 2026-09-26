@@ -97,10 +97,14 @@ export const BUILDING_SERVICE_CATEGORIES: BuildingServiceCategory[] = [
  * a single on/off switch — see `future-work-panel-opciones-avanzadas.md`.
  * @remarks
  * Only layers with an actual filterable dimension get an entry here; layers
- * like `roads` have no sub-filter and are fully covered by `LayerVisibility`
+ * like `forests` have no sub-filter and are fully covered by `LayerVisibility`
  * alone.
  */
 export interface LayerOptions {
+  roads: {
+    /** Whether street names are drawn along the roads (`.vellummap` only). */
+    showStreetNames: boolean;
+  };
   transit: {
     /** Transit lines/stops whose `mode` is not in this list are hidden. */
     visibleModes: TransitMode[];
@@ -152,17 +156,19 @@ export interface LayerOptions {
   };
 }
 
-/** Layers whose toggle row shows a chevron that opens an advanced-options sub-panel (terrain sub-elements, transit-mode filter, buildings RICO filter, districts label mode, basemap grid toggle). */
+/** Layers whose toggle row shows a chevron that opens an advanced-options sub-panel (terrain sub-elements, street names, transit-mode filter, buildings RICO filter, districts label mode, basemap grid toggle). */
 export const LAYERS_WITH_ADVANCED_OPTIONS = new Set<LayerName>([
   'terrain',
+  'roads',
   'transit',
   'buildings',
   'districts',
   'basemap',
 ]);
 
-/** `LayerOptions` with every mode/category visible, RICO coloring off, district markers (not names) shown, and all terrain sub-layers on — the app's starting state. */
+/** `LayerOptions` with every mode/category visible, RICO coloring off, district markers (not names) shown, and all terrain sub-layers and street names on — the app's starting state. */
 export const DEFAULT_LAYER_OPTIONS: LayerOptions = {
+  roads: { showStreetNames: true },
   transit: { visibleModes: [...TRANSIT_MODES], showConfirmedTransfers: true },
   buildings: {
     visibleCategories: [...BUILDING_SERVICE_CATEGORIES],
