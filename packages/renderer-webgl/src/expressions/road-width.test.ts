@@ -1,9 +1,10 @@
 import { describe, it, expect } from 'vitest';
+import { ROAD_WIDTH_EXPR, ROAD_CASING_WIDTH_EXPR } from './road-width';
 import {
-  ROAD_WIDTH_EXPR,
-  ROAD_CASING_WIDTH_EXPR,
   WORLD_LOCK_ZOOM,
-} from './road-width';
+  resolveRoadWidthPx,
+  roadWidthFactorAtZoom,
+} from './road-width-curve';
 
 // The expressions have the shape:
 //   ['interpolate', ['exponential', 2], ['zoom'], z0, out0, z1, out1, ...]
@@ -150,5 +151,39 @@ describe('world lock at detail zoom', () => {
 
   it('leaves the far zooms on the cartographic weight', () => {
     expect(evaluate(at(fillStops, 14), smallRoad)).toBeCloseTo(1.0, 9);
+  });
+});
+
+describe('resolveRoadWidthPx — parity with the live expression', () => {
+  const stops = parseStops(ROAD_WIDTH_EXPR as Expr);
+  /** MapLibre's `interpolate exponential 2` over the evaluated stop outputs. */
+  const live = (zoom: number, props: Props): number => {
+    const outs = stops.map((s) => evaluate(s.out, props));
+    if (zoom <= stops[0]!.zoom) return outs[0]!;
+    for (let i = 1; i < stops.length; i++) {
+      const lo = stops[i - 1]!.zoom;
+      const hi = stops[i]!.zoom;
+      if (zoom > hi) continue;
+      const t = (2 ** (zoom - lo) - 1) / (2 ** (hi - lo) - 1);
+      return outs[i - 1]! + t * (outs[i]! - outs[i - 1]!);
+    }
+    return outs.at(-1)!;
+  };
+
+  // The SVG exporter only knows a factor; it must land on the map's width.
+  it.each([12, 13.5, 14, 15, 16, 17.3, 18, 19.5, 22])('z%s', (zoom) => {
+    for (const props of [
+      { fixedWidth: 0.2, scaledWidth: 0.8, worldWidth: 16 },
+      { fixedWidth: 0.3, scaledWidth: 3, worldWidth: 0 },
+    ]) {
+      expect(
+        resolveRoadWidthPx(
+          props.fixedWidth,
+          props.scaledWidth,
+          roadWidthFactorAtZoom(zoom),
+          props.worldWidth,
+        ),
+      ).toBeCloseTo(live(zoom, props), 6);
+    }
   });
 });

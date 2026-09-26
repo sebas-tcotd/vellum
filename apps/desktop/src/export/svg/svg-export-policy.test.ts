@@ -37,6 +37,8 @@ describe('resolveSvgExportPolicy', () => {
         policy.roadWidthFactor,
       ),
     ).toBeCloseTo(policy.localRoadWidthPx, 10);
+    // Derived from the density, roads follow the live map's world lock too.
+    expect(policy.roadWorldLock).toBe(true);
   });
 
   it('scales road weight with the document, instead of pinning it to one width', () => {
@@ -82,6 +84,8 @@ describe('resolveSvgExportPolicy', () => {
     ).toBeCloseTo(DEFAULT_LOCAL_ROAD_WIDTH_PX, 10);
     // (6 - 0.2) / 0.8
     expect(policy.roadWidthFactor).toBeCloseTo(7.25, 10);
+    // A pin is a constant weight: the world lock must not override it.
+    expect(policy.roadWorldLock).toBe(false);
   });
 
   it('derives every other tier from its own fixed/scaled pair, preserving the hierarchy', () => {

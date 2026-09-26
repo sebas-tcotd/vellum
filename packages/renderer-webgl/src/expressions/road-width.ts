@@ -36,14 +36,14 @@
  * pixel or so of the true width. Highways and non-road ways carry
  * `worldWidth: 0`, so they keep the cartographic weight.
  *
- * ponytail: the SVG exporter resolves only the tier weight (`resolveRoadWidthPx`);
- * its whole-city views sit far below z18, so the world lock never shows there.
+ * The rule itself (lock zoom, px per unit) lives in `road-width-curve.ts`
+ * next to `resolveRoadWidthPx`, which the SVG exporter evaluates.
  */
 
-import { CS1_EXTENT_DEG, CS1_WORLD_SIZE } from '@vellum/core';
 import type * as maplibregl from 'maplibre-gl';
 import {
   ROAD_CASING_ADD_PX,
+  ROAD_WORLD_LOCK_PX_PER_UNIT,
   ROAD_WIDTH_FACTOR_STOPS,
   ROAD_WIDTH_INTERPOLATION_BASE,
 } from './road-width-curve';
@@ -60,38 +60,27 @@ const FACTOR_STOPS = ROAD_WIDTH_FACTOR_STOPS;
 // Shared with the SVG exporter — see `road-width-curve.ts`.
 const CASING_ADD_PX = ROAD_CASING_ADD_PX;
 
-/** First zoom stop at which road widths follow the real `worldWidth`. */
-export const WORLD_LOCK_ZOOM = 18;
-
-/** Screen px per CS1 world unit at `zoom` (512px tiles, city near the equator). */
-function pxPerWorldUnit(zoom: number): number {
-  return ((512 * 2 ** zoom) / 360) * (CS1_EXTENT_DEG / CS1_WORLD_SIZE);
-}
-
 /**
- * Fill width for stop `i` — `fixedWidth + scaledWidth × factor`, raised from
- * {@link WORLD_LOCK_ZOOM} so fill + casing spans the real `worldWidth` — plus
- * `addPx` (casing border, shadow).
+ * Fill width for stop `i` — `fixedWidth + scaledWidth × factor`, raised where
+ * the stop is world-locked so fill + casing spans the real `worldWidth` — plus
+ * `addPx` (casing border, shadow). Mirrors `resolveRoadWidthPx`'s stop rule.
  */
 function widthOutput(i: number, addPx = 0): maplibregl.ExpressionSpecification {
-  const [zoom, factor] = FACTOR_STOPS[i]!;
+  const factor = FACTOR_STOPS[i]![1];
+  const lock = ROAD_WORLD_LOCK_PX_PER_UNIT[i];
   const cartographic = [
     '+',
     ['get', 'fixedWidth'],
     ['*', ['get', 'scaledWidth'], factor],
   ];
   const fill =
-    zoom >= WORLD_LOCK_ZOOM
-      ? [
+    lock === null || lock === undefined
+      ? cartographic
+      : [
           'max',
           cartographic,
-          [
-            '-',
-            ['*', ['get', 'worldWidth'], pxPerWorldUnit(zoom)],
-            CASING_ADD_PX[i]!,
-          ],
-        ]
-      : cartographic;
+          ['-', ['*', ['get', 'worldWidth'], lock], CASING_ADD_PX[i]!],
+        ];
   return (addPx > 0
     ? ['+', fill, addPx]
     : fill) as unknown as maplibregl.ExpressionSpecification;
