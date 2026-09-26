@@ -1,6 +1,7 @@
 import * as maplibregl from 'maplibre-gl';
 import type { LayerName, LayerOptions, TerrainDem } from '@vellum/core';
 import {
+  CONTOUR_LINE_OPACITY,
   HILLSHADE_EXAGGERATION,
   LAYER_ID_MAP,
   NON_TRANSIT_OPACITY,
@@ -216,7 +217,7 @@ export class MapLayerManager {
     this.setPaintIfExists(
       'terrain-lines-layer',
       'line-opacity',
-      terrain.showContourLines ? 1 : 0,
+      this.contourLineOpacity(terrain.showContourLines),
     );
     this.setPaintIfExists(
       'terrain-color-relief',
@@ -268,6 +269,13 @@ export class MapLayerManager {
    * hardcoding `1` instead of consulting `transitDimmingEnabled` would silently
    * undo `setTransitDimming`'s fade the next time it ran.
    */
+  private contourLineOpacity(showContourLines: boolean): number {
+    if (!showContourLines) return 0;
+    return this.transitDimmingEnabled
+      ? CONTOUR_LINE_OPACITY * TRANSIT_DIM_FACTOR
+      : CONTOUR_LINE_OPACITY;
+  }
+
   private terrainColorReliefOpacity(showColorRelief: boolean): number {
     if (!showColorRelief) return 0;
     return this.transitDimmingEnabled ? TRANSIT_DIM_FACTOR : 1;
@@ -448,7 +456,7 @@ export class MapLayerManager {
     this.setPaintIfExists(
       'terrain-lines-layer',
       'line-opacity',
-      terrainOpts.showContourLines ? 0.5 : 0,
+      this.contourLineOpacity(terrainOpts.showContourLines),
     );
     this.setPaintIfExists(
       'terrain-color-relief',

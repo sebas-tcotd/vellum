@@ -15,6 +15,7 @@ import type {
 } from '@vellum/core';
 import {
   HEAVY_SOURCE_MAX_ZOOM,
+  CONTOUR_LINE_OPACITY,
   TRANSIT_DIM_FACTOR,
 } from './constants/layer.constants';
 import { buildBuildingColorExpression } from './expressions/building-color';
@@ -1521,6 +1522,41 @@ describe('MapLibreRenderer', () => {
         'terrain-color-relief',
         'color-relief-opacity',
         TRANSIT_DIM_FACTOR,
+      );
+    });
+
+    // Regression: the layer, setOptions and applyTheme each hard-coded a
+    // different contour opacity (1, 1, 0.5), so toggling the lines off and on
+    // after a theme switch brought them back at full strength.
+    it('re-shows the contour lines at the same opacity the theme gave them', async () => {
+      const renderer = makeRenderer();
+      await renderer.render(makeCityData(), {
+        activeLayers: ALL_LAYERS_VISIBLE,
+      });
+      mockMap.getLayer.mockReturnValue({ id: 'any' } as unknown as undefined);
+      await renderer.applyTheme(MOCK_STYLE);
+      renderer.setLayerOptions({
+        roads: { showStreetNames: true },
+        transit: { visibleModes: [], showConfirmedTransfers: true },
+        buildings: { visibleCategories: [], colorByCategory: false },
+        districts: { showNameOnMap: false, showParkAreas: false },
+        terrain: {
+          showContourLines: true,
+          showColorRelief: true,
+          showHillshade: true,
+        },
+        basemap: { showGrid: false },
+      });
+
+      const contourOpacities = (mockMap.setPaintProperty as Mock).mock.calls
+        .filter(
+          ([id, prop]) =>
+            id === 'terrain-lines-layer' && prop === 'line-opacity',
+        )
+        .map(([, , value]) => value);
+      expect(contourOpacities.length).toBeGreaterThanOrEqual(2);
+      expect(new Set(contourOpacities)).toEqual(
+        new Set([CONTOUR_LINE_OPACITY]),
       );
     });
   });

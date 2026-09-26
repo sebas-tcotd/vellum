@@ -17,7 +17,10 @@
 
 import type { CityData } from '@vellum/core';
 import type * as maplibregl from 'maplibre-gl';
-import { HILLSHADE_EXAGGERATION } from '../constants/layer.constants';
+import {
+  CONTOUR_LINE_OPACITY,
+  HILLSHADE_EXAGGERATION,
+} from '../constants/layer.constants';
 import { CS1_HALF_EXTENT_DEG } from '../coordinate-transform';
 import { buildColorReliefRamp } from '../expressions/terrain-relief';
 import { buildContourLinesGeoJson } from '../geojson';
@@ -112,7 +115,7 @@ export function addTerrainContourLayer(
       // from the same helper, so the three paths cannot drift apart.
       'line-color': buildContourColorRamp(colors.terrain, cityData.terrainDem),
       'line-width': 0.5,
-      'line-opacity': 1,
+      'line-opacity': CONTOUR_LINE_OPACITY,
       'line-opacity-transition': { duration: 300 },
     },
   });
