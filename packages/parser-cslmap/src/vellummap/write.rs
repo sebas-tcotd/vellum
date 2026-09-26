@@ -268,6 +268,7 @@ fn roads_from_raw(raw: &RawCity) -> Result<RoadsModule, VellumError> {
                     end_node_source_id: source_id(&seg.end_node_id)?,
                     item_class: seg.item_class.clone(),
                     width: seg.width,
+                    name: seg.name.clone(),
                     points: seg.points.iter().map(Position::from).collect(),
                 })
             })

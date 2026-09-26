@@ -108,6 +108,7 @@ fn bridge_document() -> Document {
                 end_node_source_id: 2,
                 item_class: "Medium Road".to_owned(),
                 width: 24.0,
+                name: Some("Elm Street".to_owned()),
                 points: vec![pos(0.0, 70.0, 0.0), pos(100.0, 80.0, 0.0)],
             }],
         },
@@ -479,6 +480,7 @@ fn bridge_extras_are_accepted_and_reach_city_data() {
         assert_eq!(polygons.len(), 1);
     }
     assert_eq!(line.route[0].segment_ids, vec!["7".to_owned()]);
+    assert_eq!(city.road_segments[0].name.as_deref(), Some("Elm Street"));
     // Node 2 is elevated → the segment is classified through the shared path.
     assert!(city.road_segments[0]
         .way_type

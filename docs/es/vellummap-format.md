@@ -245,6 +245,7 @@ son `sourceId` enteros ≥ 0, únicos dentro de su colección.
       "endNodeSourceId": 2,
       "itemClass": "Medium Road",
       "width": 24,
+      "name": "Elm Street",
       "points": [{ "x": 0, "y": 70, "z": 0 }]
     }
   ]
@@ -257,6 +258,8 @@ son `sourceId` enteros ≥ 0, únicos dentro de su colección.
 - Todo segmento une dos nodos declarados en `nodes`. `width` no puede ser negativo.
 - `itemClass` es el nombre del `ItemClass` del prefab. Es la fuente de verdad para
   clasificar la vía.
+- `name` (opcional): nombre visible de la calle (`NetManager.GetSegmentName`). Se omite en
+  redes sin nombre; si está, no puede ser vacío. Vellum lo dibuja como etiqueta de la vía.
 - `points`: puntos de la curva, de inicio a fin.
 - Los bounds del mapa salen de las posiciones de los nodos.
 
@@ -341,7 +344,7 @@ añaden `parkType`, el nombre de tipo del juego sin reducir (`Generic`, `Zoo`, `
 ## Qué debe capturar Bridge (Story 5.3)
 
 - Solo elementos con el flag `Created`. Se excluyen las líneas con flag `Temporary`.
-- Por segmento: `itemClass` del prefab, ancho, nodos de inicio y fin, y los **puntos
+- Por segmento: `itemClass` del prefab, ancho, nombre visible de la calle, nodos de inicio y fin, y los **puntos
   bezier** de la curva en `points`, en orden de inicio a fin. Las redes no viales o
   invisibles (tuberías, rutas de avión y barco, conexiones) se exportan clasificadas por
   su `itemClass`; no se descartan. Las estructuras `Untouchable` también se exportan: el

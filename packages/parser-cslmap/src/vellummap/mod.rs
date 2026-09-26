@@ -273,6 +273,7 @@ fn raw_roads(
             end_node_id: seg.end_node_source_id.to_string(),
             item_class: seg.item_class,
             width: seg.width,
+            name: seg.name.filter(|name| !name.is_empty()),
             points: seg.points.into_iter().map(Vec3::from).collect(),
         })
         .collect();
