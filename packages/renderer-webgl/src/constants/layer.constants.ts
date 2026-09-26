@@ -11,7 +11,7 @@ import {
  * terrain is gentle relative to its 17 km span, so a mild boost is needed for slopes to
  * read at all.
  */
-const HILLSHADE_EXAGGERATION_M = 0.35;
+const HILLSHADE_EXAGGERATION_M = 0.6;
 
 /** Baseline `raster-opacity` of `forests-canopy`; the per-cell alpha is baked into the image. */
 export const FORESTS_CANOPY_OPACITY = 1;
