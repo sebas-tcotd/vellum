@@ -281,7 +281,7 @@ describe('MapLibreRenderer', () => {
     expect(layerIds).toContain('transit-stops');
     expect(layerIds).toContain('buildings-fill');
     expect(layerIds).toContain('buildings-outline');
-    expect(layerIds).toContain('forests-circles');
+    expect(layerIds).toContain('forests-canopy');
     expect(layerIds).toContain('districts-points');
   });
 
@@ -315,7 +315,7 @@ describe('MapLibreRenderer', () => {
         (call) => [call[0] as string, call[1] as { maxzoom?: number }] as const,
       ),
     );
-    for (const id of ['buildings', 'roads', 'forests']) {
+    for (const id of ['buildings', 'roads']) {
       expect(byId.get(id)?.maxzoom).toBe(HEAVY_SOURCE_MAX_ZOOM);
     }
   });
@@ -1572,7 +1572,7 @@ describe('MapLibreRenderer', () => {
       expect(mockMap.removeLayer).toHaveBeenCalledWith('transit-stops');
       expect(mockMap.removeLayer).toHaveBeenCalledWith('buildings-fill');
       expect(mockMap.removeLayer).toHaveBeenCalledWith('buildings-outline');
-      expect(mockMap.removeLayer).toHaveBeenCalledWith('forests-circles');
+      expect(mockMap.removeLayer).toHaveBeenCalledWith('forests-canopy');
       expect(mockMap.removeLayer).toHaveBeenCalledWith('districts-points');
       expect(mockMap.removeLayer).toHaveBeenCalledWith('districts-labels');
       expect(mockMap.removeLayer).toHaveBeenCalledWith('park-areas-points');
@@ -2327,11 +2327,6 @@ describe('MapLibreRenderer', () => {
         'base-land',
         'fill-color',
         MOCK_STYLE.terrain.base,
-      );
-      expect(mockMap.setPaintProperty).toHaveBeenCalledWith(
-        'forests-circles',
-        'circle-color',
-        MOCK_STYLE.forests,
       );
       expect(mockMap.setPaintProperty).toHaveBeenCalledWith(
         'buildings-fill',

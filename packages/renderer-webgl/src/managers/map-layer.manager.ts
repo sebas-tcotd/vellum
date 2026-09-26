@@ -18,6 +18,7 @@ import {
   buildContourColorRamp,
 } from '../expressions/terrain-relief';
 import type { ResolvedColors } from '../style-adapter';
+import { retintForests } from '../layers/layer-forests';
 import { resolveAirshipColor } from '../expressions/transit-color';
 
 /**
@@ -326,7 +327,7 @@ export class MapLayerManager {
       );
     }
     this.applyContourColor(options.terrain.showColorRelief);
-    this.setPaintIfExists('forests-circles', 'circle-color', c.forests);
+    retintForests(this.map, c.forests);
 
     const { colorByCategory } = options.buildings;
     this.setPaintIfExists(
