@@ -1,4 +1,5 @@
-import { LAYERS_WITH_ADVANCED_OPTIONS } from '@vellum/core';
+import { hasAdvancedOptions } from '@vellum/core';
+import { useVellumStore } from '../store/vellum-store';
 import type { LayerName } from '@vellum/core';
 import { useEffect } from 'react';
 
@@ -212,7 +213,12 @@ export function useKeyboardShortcuts({
           const layer = LAYER_SHORTCUT_MAP[layerIdx];
           if (layer) {
             e.preventDefault();
-            if (LAYERS_WITH_ADVANCED_OPTIONS.has(layer)) {
+            if (
+              hasAdvancedOptions(
+                layer,
+                useVellumStore.getState().cityData?.source,
+              )
+            ) {
               onOpenAdvancedOptions?.(layer);
             }
             return;

@@ -1,4 +1,4 @@
-import type { TransitMode } from './city-data';
+import type { CitySource, TransitMode } from './city-data';
 
 /** Defines the unique identifier for a logical map layer.
  * @remarks
@@ -165,6 +165,21 @@ export const LAYERS_WITH_ADVANCED_OPTIONS = new Set<LayerName>([
   'districts',
   'basemap',
 ]);
+
+/**
+ * Whether `layer` offers its advanced-options panel for the open document.
+ *
+ * @remarks
+ * Street names only exist in a `.vellummap`, so the roads panel — whose only
+ * option is showing them — is offered for that source alone.
+ */
+export function hasAdvancedOptions(
+  layer: LayerName,
+  source: CitySource | undefined,
+): boolean {
+  if (layer === 'roads') return source === 'vellummap';
+  return LAYERS_WITH_ADVANCED_OPTIONS.has(layer);
+}
 
 /** `LayerOptions` with every mode/category visible, RICO coloring off, district markers (not names) shown, and all terrain sub-layers and street names on — the app's starting state. */
 export const DEFAULT_LAYER_OPTIONS: LayerOptions = {

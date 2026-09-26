@@ -77,7 +77,9 @@ function Harness({
   stateRef,
   schematicModel = EMPTY_SCHEMATIC_MODEL,
   onSetSchematicLayout,
+  source = 'cslmap',
 }: {
+  source?: 'cslmap' | 'vellummap';
   initial?: Partial<ShellSessionState>;
   onOccupiedWidthChange?: (width: number) => void;
   /** Lets a test read the session the sidebar is actually driving. */
@@ -94,6 +96,7 @@ function Harness({
     <MapAppearanceSidebar
       cityName="Altavento"
       fileName="altavento.cslmap"
+      source={source}
       commands={makeCommands(dispatch)}
       shell={{ state, dispatch }}
       schematicModel={schematicModel}
@@ -238,6 +241,34 @@ describe('visibility and disclosure are independent (AD-11)', () => {
       }),
     ).toBeNull();
     expect(visibilitySwitch('forests')).toBeInTheDocument();
+  });
+
+  it('offers the roads panel only for a .vellummap, which has street names', () => {
+    const { unmount } = render(<Harness source="cslmap" />);
+    expect(
+      screen.queryByRole('button', {
+        name: 'a11y.configureLayer:layers.roads',
+      }),
+    ).toBeNull();
+    unmount();
+    render(<Harness source="vellummap" />);
+    expect(disclosure('roads')).toBeInTheDocument();
+  });
+
+  it('closes an open roads panel when the document has no street names', () => {
+    render(
+      <Harness
+        source="cslmap"
+        initial={{
+          sidebar: {
+            ...initialShellSession(1440).sidebar,
+            view: { kind: 'detail', layerId: 'roads' },
+          },
+        }}
+      />,
+    );
+    expect(screen.queryByText('layerOptionsPanel.showStreetNames')).toBeNull();
+    expect(visibilitySwitch('roads')).toBeInTheDocument();
   });
 });
 
