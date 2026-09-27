@@ -424,7 +424,13 @@ function buildRoadEntities(context: LayerContext): SceneEntity[] {
   const casings: SceneEntity[] = [];
   const fills: SceneEntity[] = [];
 
-  for (const feature of buildRoadsGeoJson(snapshot.cityData).features) {
+  // Higher tiers last, as the live map's `line-sort-key`: a street's round cap
+  // ends under the bigger road it meets, not painted across it. Stable sort,
+  // so equal tiers keep source order.
+  const features = [...buildRoadsGeoJson(snapshot.cityData).features].sort(
+    (a, b) => a.properties.scaledWidth - b.properties.scaledWidth,
+  );
+  for (const feature of features) {
     const points = toWorldPath(feature.geometry.coordinates, warnings);
     if (!points) continue;
     const { id, tier, fixedWidth, scaledWidth, worldWidth, capEnds } =

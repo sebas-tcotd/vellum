@@ -106,6 +106,16 @@ export function addRoadsLayer(
     'round',
   ] as unknown as maplibregl.ExpressionSpecification;
 
+  // Higher tiers draw last within each layer, so where a street ends on a
+  // bigger road its round cap sits *under* that road's fill instead of being
+  // painted across it. Source order used to decide; that only went unnoticed
+  // while a local street was much thinner than the road it met, and the z18
+  // world-width lock made them comparable. `scaledWidth` is the tier's weight.
+  const tierDrawOrder = [
+    'get',
+    'scaledWidth',
+  ] as unknown as maplibregl.ExpressionSpecification;
+
   // Tunnels render *below* at-grade roads (added first): solid casing avoids
   // the dash-alignment gap bug, dashed fill + reduced opacity signal depth.
   addLayerIfAbsent(map, {
@@ -121,7 +131,11 @@ export function addRoadsLayer(
       ],
       drawnAsRoad,
     ],
-    layout: { 'line-cap': surfaceLineCap, 'line-join': 'round' },
+    layout: {
+      'line-cap': surfaceLineCap,
+      'line-join': 'round',
+      'line-sort-key': tierDrawOrder,
+    },
     paint: {
       'line-color': buildRoadColorExpression(colors, 'casing'),
       'line-width': ROAD_CASING_WIDTH_EXPR,
@@ -143,7 +157,11 @@ export function addRoadsLayer(
       ],
       drawnAsRoad,
     ],
-    layout: { 'line-cap': surfaceLineCap, 'line-join': 'round' },
+    layout: {
+      'line-cap': surfaceLineCap,
+      'line-join': 'round',
+      'line-sort-key': tierDrawOrder,
+    },
     paint: {
       'line-color': buildRoadColorExpression(colors, 'fill'),
       'line-width': ROAD_WIDTH_EXPR,
@@ -165,7 +183,11 @@ export function addRoadsLayer(
       ['!=', ['get', 'isElevated'], true],
       drawnAsRoad,
     ],
-    layout: { 'line-cap': surfaceLineCap, 'line-join': 'round' },
+    layout: {
+      'line-cap': surfaceLineCap,
+      'line-join': 'round',
+      'line-sort-key': tierDrawOrder,
+    },
     paint: {
       'line-color': buildRoadColorExpression(colors, 'casing'),
       'line-width': ROAD_CASING_WIDTH_EXPR,
@@ -186,7 +208,11 @@ export function addRoadsLayer(
       ['!=', ['get', 'isElevated'], true],
       drawnAsRoad,
     ],
-    layout: { 'line-cap': surfaceLineCap, 'line-join': 'round' },
+    layout: {
+      'line-cap': surfaceLineCap,
+      'line-join': 'round',
+      'line-sort-key': tierDrawOrder,
+    },
     paint: {
       'line-color': buildRoadColorExpression(colors, 'fill'),
       'line-width': ROAD_WIDTH_EXPR,
@@ -250,7 +276,11 @@ export function addRoadsLayer(
       ],
       drawnAsRoad,
     ],
-    layout: { 'line-cap': elevatedLineCap, 'line-join': 'round' },
+    layout: {
+      'line-cap': elevatedLineCap,
+      'line-join': 'round',
+      'line-sort-key': tierDrawOrder,
+    },
     paint: {
       'line-color': buildRoadColorExpression(
         colors,
@@ -276,7 +306,11 @@ export function addRoadsLayer(
       ],
       drawnAsRoad,
     ],
-    layout: { 'line-cap': elevatedLineCap, 'line-join': 'round' },
+    layout: {
+      'line-cap': elevatedLineCap,
+      'line-join': 'round',
+      'line-sort-key': tierDrawOrder,
+    },
     paint: {
       'line-color': buildRoadColorExpression(colors, 'fill'),
       'line-width': ROAD_WIDTH_EXPR,

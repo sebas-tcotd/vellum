@@ -150,7 +150,7 @@ export const ROAD_WORLD_LOCK_PX_PER_UNIT: ReadonlyArray<number | null> =
  * @param factor - Curve multiplier, from {@link roadWidthFactorAtZoom} or an
  *   exporter's own cartographic policy.
  * @param worldWidth - The road's real width in CS1 units; `0` (default) keeps
- *   the tier weight at every scale (highways, non-road ways).
+ *   the tier weight at every scale (non-road ways).
  * @returns Fill stroke width in pixels (casing border not included).
  */
 export function resolveRoadWidthPx(
