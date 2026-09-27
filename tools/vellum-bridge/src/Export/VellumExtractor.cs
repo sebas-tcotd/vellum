@@ -283,11 +283,14 @@ namespace VellumBridge.Export
                     historical = (building.m_flags & Building.Flags.Historical) != 0,
                 };
                 // Nombre visible solo si es un nombre propio: el que puso el jugador, o el de un
-                // edificio único (monumentos, maravillas, landmarks: servicio Monument). Para el
+                // edificio único (monumentos, maravillas, landmarks: servicio Monument) que no sea
+                // pieza de otro. Para el
                 // resto el juego devuelve el título del tipo («Police Station», «Boulder #4») o,
                 // en un RICO, uno aleatorio; Vellum muestra su categoría en su lugar.
                 bool renamed = (building.m_flags & Building.Flags.CustomName) != 0;
-                bool unique = info.m_class.m_service == ItemClass.Service.Monument;
+                // Las piezas de un único (gradas de un estadio, escenario de un festival) son
+                // sub-edificios: sin título propio, el juego devuelve «BUILDING_TITLE[…]:0».
+                bool unique = info.m_class.m_service == ItemClass.Service.Monument && building.m_parentBuilding == 0;
                 if (renamed || unique)
                 {
                     try

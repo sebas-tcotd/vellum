@@ -344,7 +344,8 @@ versión: la presencia de `prefab` basta para leer cada edificio sin ambigüedad
   - `prefab`: el nombre del prefab.
   - `name` (opcional, nunca vacío): el nombre que ve el jugador (`GetBuildingName`). Solo
     lo llevan los edificios que el jugador renombró y los únicos (servicio `Monument`:
-    monumentos, maravillas, landmarks). Para el resto el juego solo da el título del
+    monumentos, maravillas, landmarks; no sus sub-edificios, que solo tienen una clave
+    interna). Para el resto el juego solo da el título del
     tipo («Police Station», «Boulder #4») o, en un RICO, un nombre aleatorio: no se
     exporta, y Vellum muestra la categoría del edificio.
   - `customName` (opcional): `true` si el jugador lo renombró (`Building.Flags.CustomName`).

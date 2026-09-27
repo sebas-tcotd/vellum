@@ -276,7 +276,7 @@ namespace VellumBridge
 
     internal static class BridgeCapture
     {
-        internal const string Version = "0.8.1-experimental";
+        internal const string Version = "0.8.2-experimental";
 
         private static bool loaded;
         private static volatile bool capturing;
