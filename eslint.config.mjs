@@ -75,6 +75,9 @@ const deepImportPatterns = [
     group: [
       '@vellum/renderer-webgl/*',
       '@vellum/renderer-webgl/**',
+      // The tree painter is a Worker entry: it cannot come through the index,
+      // so the package exports it and only the app's `?worker&url` import uses it.
+      '!@vellum/renderer-webgl/tree-worker*',
       '**/renderer-webgl/src/**',
       '**/renderer-webgl/dist/**',
     ],

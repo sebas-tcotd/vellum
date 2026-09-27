@@ -11,7 +11,7 @@ export {
   addTerrainReliefLayers,
 } from './layer-terrain';
 export { addBasemapLandLayer, addBasemapWaterLayers } from './layer-basemap';
-export { addRoadsLayer } from './layer-roads';
+export { addRoadLabelsLayer, addRoadsLayer } from './layer-roads';
 export { addTransitLayers } from './layer-transit';
 export { addBuildingsLayer } from './layer-buildings';
 export { addServiceIconsLayer } from './layer-service-icons';

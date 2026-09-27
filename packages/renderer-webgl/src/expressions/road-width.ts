@@ -27,12 +27,23 @@
  * `scaledWidth` therefore doubles as each tier's world-width weight; the ratios
  * between tiers (highway 3.0 : arterial 2.0 : local 0.8 …) are unchanged, so the
  * hierarchy reads identically at every zoom — only the overall growth curve
- * changed.
+ * changed. *
+ * **World lock from z18.** The tier weights alone left a local street at ~13px
+ * on z18 where its real 16-unit width is ~54px, so lots stood well back from the
+ * kerb. From {@link WORLD_LOCK_ZOOM} the *outer* edge of the casing follows each
+ * feature's `worldWidth` (its real CS1 width) — never thinner than the tier
+ * weight — and the exponential interpolation from z14 blends into it within a
+ * pixel or so of the true width. Highways and non-road ways carry
+ * `worldWidth: 0`, so they keep the cartographic weight.
+ *
+ * The rule itself (lock zoom, px per unit) lives in `road-width-curve.ts`
+ * next to `resolveRoadWidthPx`, which the SVG exporter evaluates.
  */
 
 import type * as maplibregl from 'maplibre-gl';
 import {
   ROAD_CASING_ADD_PX,
+  ROAD_WORLD_LOCK_PX_PER_UNIT,
   ROAD_WIDTH_FACTOR_STOPS,
   ROAD_WIDTH_INTERPOLATION_BASE,
 } from './road-width-curve';
@@ -49,18 +60,30 @@ const FACTOR_STOPS = ROAD_WIDTH_FACTOR_STOPS;
 // Shared with the SVG exporter — see `road-width-curve.ts`.
 const CASING_ADD_PX = ROAD_CASING_ADD_PX;
 
-/** `fixedWidth + scaledWidth × factor` (+ optional casing border) for one stop. */
-function widthOutput(
-  factor: number,
-  addPx = 0,
-): maplibregl.ExpressionSpecification {
-  const base: unknown[] = [
+/**
+ * Fill width for stop `i` — `fixedWidth + scaledWidth × factor`, raised where
+ * the stop is world-locked so fill + casing spans the real `worldWidth` — plus
+ * `addPx` (casing border, shadow). Mirrors `resolveRoadWidthPx`'s stop rule.
+ */
+function widthOutput(i: number, addPx = 0): maplibregl.ExpressionSpecification {
+  const factor = FACTOR_STOPS[i]![1];
+  const lock = ROAD_WORLD_LOCK_PX_PER_UNIT[i];
+  const cartographic = [
     '+',
     ['get', 'fixedWidth'],
     ['*', ['get', 'scaledWidth'], factor],
   ];
-  if (addPx > 0) base.push(addPx);
-  return base as unknown as maplibregl.ExpressionSpecification;
+  const fill =
+    lock === null || lock === undefined
+      ? cartographic
+      : [
+          'max',
+          cartographic,
+          ['-', ['*', ['get', 'worldWidth'], lock], CASING_ADD_PX[i]!],
+        ];
+  return (addPx > 0
+    ? ['+', fill, addPx]
+    : fill) as unknown as maplibregl.ExpressionSpecification;
 }
 
 /** Builds a top-level `interpolate exp2 zoom` width expression from per-stop outputs. */
@@ -78,15 +101,14 @@ function buildWidthExpr(
 /** Line width for road fill: geographic (world-locked) at detail, floored far. */
 export const ROAD_WIDTH_EXPR: maplibregl.ExpressionSpecification =
   buildWidthExpr(
-    FACTOR_STOPS.map(([zoom, factor]) => [zoom, widthOutput(factor)] as const),
+    FACTOR_STOPS.map(([zoom], i) => [zoom, widthOutput(i)] as const),
   );
 
 /** Casing line width: fill width plus a thin, zoom-scaled border. */
 export const ROAD_CASING_WIDTH_EXPR: maplibregl.ExpressionSpecification =
   buildWidthExpr(
     FACTOR_STOPS.map(
-      ([zoom, factor], i) =>
-        [zoom, widthOutput(factor, CASING_ADD_PX[i])] as const,
+      ([zoom], i) => [zoom, widthOutput(i, CASING_ADD_PX[i])] as const,
     ),
   );
 
@@ -101,7 +123,6 @@ const SHADOW_ADD_PX: readonly number[] = [1.5, 2.7, 3.3, 7.2, 12];
 export const ROAD_SHADOW_WIDTH_EXPR: maplibregl.ExpressionSpecification =
   buildWidthExpr(
     FACTOR_STOPS.map(
-      ([zoom, factor], i) =>
-        [zoom, widthOutput(factor, SHADOW_ADD_PX[i])] as const,
+      ([zoom], i) => [zoom, widthOutput(i, SHADOW_ADD_PX[i])] as const,
     ),
   );

@@ -195,6 +195,8 @@ pub(crate) struct RawRoadSegment {
     pub(crate) end_node_id: String,
     pub(crate) item_class: String,
     pub(crate) width: f64,
+    /// Visible street name; `.cslmap` carries none, so always `None` there.
+    pub(crate) name: Option<String>,
     pub(crate) points: Vec<Vec3>,
 }
 
@@ -370,6 +372,7 @@ impl RoadBuilder {
                         end_node_id: seg.end_node_id,
                         item_class: seg.item_class,
                         width: seg.width,
+                        name: None,
                         points: seg.points,
                     });
                 }

@@ -1,6 +1,7 @@
 import * as maplibregl from 'maplibre-gl';
 import type { LayerName, LayerOptions, TerrainDem } from '@vellum/core';
 import {
+  CONTOUR_LINE_OPACITY,
   HILLSHADE_EXAGGERATION,
   LAYER_ID_MAP,
   NON_TRANSIT_OPACITY,
@@ -18,6 +19,7 @@ import {
   buildContourColorRamp,
 } from '../expressions/terrain-relief';
 import type { ResolvedColors } from '../style-adapter';
+import { retintForests } from '../layers/layer-forests';
 import { resolveAirshipColor } from '../expressions/transit-color';
 
 /**
@@ -26,10 +28,16 @@ import { resolveAirshipColor } from '../expressions/transit-color';
 export class MapLayerManager {
   /** Whether the `districts` layer is currently toggled on via `setVisibility`. */
   private districtsVisible = false;
-  /** Current `LayerOptions.districts.showNameOnMap` — mirrors `DEFAULT_LAYER_OPTIONS`. */
-  private districtsShowNameOnMap = false;
+  /** Current `LayerOptions.districts.showAsMarker` — mirrors `DEFAULT_LAYER_OPTIONS`. */
+  private districtsShowAsMarker = false;
+  /** Current `LayerOptions.districts.showFill` — mirrors its default. */
+  private districtsShowFill = false;
   /** Current `LayerOptions.districts.showParkAreas` — mirrors its default. */
   private districtsShowParkAreas = false;
+  /** Whether the `roads` layer is toggled on; street names follow it. */
+  private roadsVisible = true;
+  /** Current `LayerOptions.roads.showStreetNames` — mirrors its default. */
+  private roadsShowStreetNames = true;
 
   /**
    * Mirrors the last `setTransitDimming` call, so `setOptions` (fired whenever
@@ -81,20 +89,39 @@ export class MapLayerManager {
         visible ? 'visible' : 'none',
       );
     }
+
+    if (layer === 'roads') {
+      this.roadsVisible = visible;
+      this.applyStreetNamesVisibility();
+    }
+  }
+
+  /** Street names show only while both the roads layer and the option are on. */
+  private applyStreetNamesVisibility(): void {
+    this.setLayoutIfExists(
+      'roads-labels',
+      'visibility',
+      this.roadsVisible && this.roadsShowStreetNames ? 'visible' : 'none',
+    );
   }
 
   /**
    * Reconciles districts display mode and the independent park-area sublayer.
    */
   private applyDistrictsVisibility(): void {
+    this.setLayoutIfExists(
+      'district-fill',
+      'visibility',
+      this.districtsVisible && this.districtsShowFill ? 'visible' : 'none',
+    );
     // Outlines are independent of the point/label display mode.
     this.setLayoutIfExists(
       'district-boundaries',
       'visibility',
       this.districtsVisible ? 'visible' : 'none',
     );
-    const showPoints = this.districtsVisible && !this.districtsShowNameOnMap;
-    const showLabels = this.districtsVisible && this.districtsShowNameOnMap;
+    const showPoints = this.districtsVisible && this.districtsShowAsMarker;
+    const showLabels = this.districtsVisible && !this.districtsShowAsMarker;
     this.setLayoutIfExists(
       'districts-points',
       'visibility',
@@ -197,7 +224,7 @@ export class MapLayerManager {
     this.setPaintIfExists(
       'terrain-lines-layer',
       'line-opacity',
-      terrain.showContourLines ? 1 : 0,
+      this.contourLineOpacity(terrain.showContourLines),
     );
     this.setPaintIfExists(
       'terrain-color-relief',
@@ -217,7 +244,11 @@ export class MapLayerManager {
       basemap.showGrid ? this.colors.grid.opacity : 0,
     );
 
-    this.districtsShowNameOnMap = options.districts.showNameOnMap;
+    this.roadsShowStreetNames = options.roads.showStreetNames;
+    this.applyStreetNamesVisibility();
+
+    this.districtsShowAsMarker = options.districts.showAsMarker;
+    this.districtsShowFill = options.districts.showFill;
     this.districtsShowParkAreas = options.districts.showParkAreas;
     this.applyDistrictsVisibility();
   }
@@ -246,6 +277,13 @@ export class MapLayerManager {
    * hardcoding `1` instead of consulting `transitDimmingEnabled` would silently
    * undo `setTransitDimming`'s fade the next time it ran.
    */
+  private contourLineOpacity(showContourLines: boolean): number {
+    if (!showContourLines) return 0;
+    return this.transitDimmingEnabled
+      ? CONTOUR_LINE_OPACITY * TRANSIT_DIM_FACTOR
+      : CONTOUR_LINE_OPACITY;
+  }
+
   private terrainColorReliefOpacity(showColorRelief: boolean): number {
     if (!showColorRelief) return 0;
     return this.transitDimmingEnabled ? TRANSIT_DIM_FACTOR : 1;
@@ -305,7 +343,7 @@ export class MapLayerManager {
       );
     }
     this.applyContourColor(options.terrain.showColorRelief);
-    this.setPaintIfExists('forests-circles', 'circle-color', c.forests);
+    retintForests(this.map, c.forests);
 
     const { colorByCategory } = options.buildings;
     this.setPaintIfExists(
@@ -320,6 +358,7 @@ export class MapLayerManager {
     );
 
     this.setPaintIfExists('district-boundaries', 'line-color', c.districtLabel);
+    this.setPaintIfExists('district-fill', 'fill-color', c.districtFill);
     this.setPaintIfExists(
       'park-boundaries',
       'line-color',
@@ -400,6 +439,12 @@ export class MapLayerManager {
       'line-color',
       fillExpr,
     );
+    this.setPaintIfExists(
+      'roads-labels',
+      'text-color',
+      buildRoadColorExpression(c, 'label'),
+    );
+    this.setPaintIfExists('roads-labels', 'text-halo-color', fillExpr);
     this.setPaintIfExists('roads-ferry', 'line-color', c.ferry);
     this.setPaintIfExists(
       'roads-blimp',
@@ -420,7 +465,7 @@ export class MapLayerManager {
     this.setPaintIfExists(
       'terrain-lines-layer',
       'line-opacity',
-      terrainOpts.showContourLines ? 0.5 : 0,
+      this.contourLineOpacity(terrainOpts.showContourLines),
     );
     this.setPaintIfExists(
       'terrain-color-relief',

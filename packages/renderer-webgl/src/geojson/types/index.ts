@@ -12,6 +12,8 @@ export type {
   AreaBoundaryFeatureProperties,
   DistrictFeature,
   DistrictFeatureProperties,
+  DistrictAreaFeature,
+  DistrictAreasFeatureCollection,
   DistrictsFeatureCollection,
   ForestFeature,
   ForestFeatureProperties,

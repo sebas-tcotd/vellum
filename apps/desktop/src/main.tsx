@@ -22,6 +22,7 @@ import {
   MapLibreRenderer,
   probeCapabilities,
   setMapWorkerUrl,
+  setTreeWorkerUrl,
   TiledRasterExporter,
 } from '@vellum/renderer-webgl';
 // CSS global importado aquí (entry point de Vite) para que los @font-face con
@@ -38,6 +39,8 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 // URL; this is the only place in the repo the bundler can do that, since the
 // renderer package is compiled by `tsc`.
 import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
+// Same reason for the detail-zoom tree painter, the renderer's one Worker entry.
+import treeWorkerUrl from '@vellum/renderer-webgl/tree-worker?worker&url';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { getCurrentWindow } from '@tauri-apps/api/window';
@@ -78,6 +81,7 @@ import {
 
 // Before any map exists: the worker pool is built on first use and never rebuilt.
 setMapWorkerUrl(maplibreWorkerUrl);
+setTreeWorkerUrl(treeWorkerUrl);
 
 const win = getCurrentWindow();
 // Single, composition-root-only OS detection point for the whole app (story

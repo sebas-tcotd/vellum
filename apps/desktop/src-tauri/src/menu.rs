@@ -467,7 +467,8 @@ fn build_layers_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>
         "District Options",
         Some("Shift+7"),
         &[
-            ("show-names", "Show District Names", false),
+            ("show-as-marker", "Show as Markers", false),
+            ("show-fill", "Show District Fill", false),
             ("show-park-areas", "Show Park Areas", false),
         ],
     )?;
@@ -732,7 +733,8 @@ pub fn update_menu_language(app_handle: AppHandle, language: String) -> Result<(
             ("buildings", "industry", "Industry"),
             ("buildings", "commercial", "Commercial"),
             ("buildings", "office", "Office"),
-            ("districts", "show-names", "Show District Names"),
+            ("districts", "show-as-marker", "Show as Markers"),
+            ("districts", "show-fill", "Show District Fill"),
             ("districts", "show-park-areas", "Show Park Areas"),
         ],
         "es" => vec![
@@ -754,7 +756,8 @@ pub fn update_menu_language(app_handle: AppHandle, language: String) -> Result<(
             ("buildings", "industry", "Industria"),
             ("buildings", "commercial", "Comercial"),
             ("buildings", "office", "Oficinas"),
-            ("districts", "show-names", "Mostrar nombres de distritos"),
+            ("districts", "show-as-marker", "Mostrar como marcadores"),
+            ("districts", "show-fill", "Mostrar relleno del distrito"),
             ("districts", "show-park-areas", "Mostrar áreas de parques"),
         ],
         _ => unreachable!("menu_locale validates language"),

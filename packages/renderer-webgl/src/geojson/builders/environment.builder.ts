@@ -5,6 +5,8 @@ import { CS1_WORLD_HALF, csToGeoArray } from '../../coordinate-transform';
 import type {
   AreaBoundariesFeatureCollection,
   AreaBoundaryFeature,
+  DistrictAreaFeature,
+  DistrictAreasFeatureCollection,
   DistrictFeature,
   DistrictsFeatureCollection,
   ForestFeature,
@@ -42,8 +44,69 @@ export function buildDistrictsGeoJson(
   const features: DistrictFeature[] = cityData.districts.map((district) => ({
     type: 'Feature',
     geometry: { type: 'Point', coordinates: csToGeoArray(district.position) },
-    properties: { id: district.id, name: district.name },
+    properties: {
+      id: district.id,
+      name: district.name,
+      labelScale: districtLabelScale(district.boundary),
+    },
   }));
+  return { type: 'FeatureCollection', features };
+}
+
+/** Area (km²) at which a district label is drawn at its base size. */
+const LABEL_BASE_AREA_KM2 = 1.5;
+const LABEL_SCALE_MIN = 0.85;
+const LABEL_SCALE_MAX = 1.6;
+
+/**
+ * Label size multiplier from a district's area: √(area / base), clamped, so
+ * text grows with the district's side length, not its area. 1 without a
+ * boundary (`.cslmap`).
+ */
+export function districtLabelScale(
+  boundary: CityData['districts'][number]['boundary'],
+): number {
+  if (!boundary || boundary.length === 0) return 1;
+  let deg2 = 0;
+  for (const polygon of boundary) {
+    deg2 += Math.abs(ringArea(polygon.exterior));
+    for (const hole of polygon.holes) deg2 -= Math.abs(ringArea(hole));
+  }
+  // Near the equator a degree is ~111.195 km on both axes (see coordinate-transform).
+  const km2 = deg2 * 111.195 ** 2;
+  const scale = Math.sqrt(km2 / LABEL_BASE_AREA_KM2);
+  return Math.min(LABEL_SCALE_MAX, Math.max(LABEL_SCALE_MIN, scale));
+}
+
+/** Shoelace area of a `[lng, lat]` ring, in square degrees (signed). */
+function ringArea(ring: readonly (readonly number[])[]): number {
+  let sum = 0;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    sum += ring[j]![0]! * ring[i]![1]! - ring[i]![0]! * ring[j]![1]!;
+  }
+  return sum / 2;
+}
+
+/**
+ * Builds one polygon per piece of every district's area, for the optional fill.
+ * Empty for `.cslmap`, which has no areas.
+ */
+export function buildDistrictAreasGeoJson(
+  cityData: CityData,
+): DistrictAreasFeatureCollection {
+  const features: DistrictAreaFeature[] = [];
+  for (const district of cityData.districts) {
+    for (const polygon of district.boundary ?? []) {
+      features.push({
+        type: 'Feature',
+        geometry: {
+          type: 'Polygon',
+          coordinates: [polygon.exterior, ...polygon.holes],
+        },
+        properties: { id: district.id },
+      });
+    }
+  }
   return { type: 'FeatureCollection', features };
 }
 

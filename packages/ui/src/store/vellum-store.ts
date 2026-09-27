@@ -144,7 +144,9 @@ interface VellumStore {
   setBuildingColorByCategory: (enabled: boolean) => void;
 
   /** Toggles between the district marker circle (off) and the text-label display mode (on). */
-  setDistrictsShowNameOnMap: (enabled: boolean) => void;
+  setDistrictsShowAsMarker: (enabled: boolean) => void;
+  /** Toggles the light district fill (native documents only). */
+  setDistrictsShowFill: (enabled: boolean) => void;
 
   /** Shows or hides DLC park-area markers and labels within the districts layer. */
   setDistrictsShowParkAreas: (enabled: boolean) => void;
@@ -158,6 +160,7 @@ interface VellumStore {
 
   /** Shows or hides the 9×9 projection grid on the basemap layer. */
   setBasemapShowGrid: (enabled: boolean) => void;
+  setRoadsShowStreetNames: (enabled: boolean) => void;
 
   /** Replaces the theme-loading warnings. Pass [] to clear. */
   setThemeWarnings: (warnings: ThemeWarning[]) => void;
@@ -346,13 +349,24 @@ export const useVellumStore = create<VellumStore>((set, get) => ({
       },
     })),
 
-  setDistrictsShowNameOnMap: (enabled) =>
+  setDistrictsShowAsMarker: (enabled) =>
     set((state) => ({
       layerOptions: {
         ...state.layerOptions,
         districts: {
           ...state.layerOptions.districts,
-          showNameOnMap: enabled,
+          showAsMarker: enabled,
+        },
+      },
+    })),
+
+  setDistrictsShowFill: (enabled) =>
+    set((state) => ({
+      layerOptions: {
+        ...state.layerOptions,
+        districts: {
+          ...state.layerOptions.districts,
+          showFill: enabled,
         },
       },
     })),
@@ -409,6 +423,14 @@ export const useVellumStore = create<VellumStore>((set, get) => ({
           ...state.layerOptions.basemap,
           showGrid: enabled,
         },
+      },
+    })),
+
+  setRoadsShowStreetNames: (enabled) =>
+    set((state) => ({
+      layerOptions: {
+        ...state.layerOptions,
+        roads: { ...state.layerOptions.roads, showStreetNames: enabled },
       },
     })),
 

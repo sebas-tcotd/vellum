@@ -113,6 +113,15 @@ export interface CartographicSceneInput {
    */
   readonly roadCasingAddPx: number;
   /**
+   * Whether detail-scale roads grow into their real width, as on the live map
+   * (`resolveRoadWidthPx`'s world lock). Default `true`.
+   *
+   * @remarks
+   * `false` keeps every road on its tier weight — for a caller that pinned a
+   * width, which is a deliberate constant weight the lock must not override.
+   */
+  readonly roadWorldLock?: boolean;
+  /**
    * Marginalia laid out for this document, from `layoutSnapshotMarginalia`.
    *
    * @remarks
@@ -176,6 +185,7 @@ export function buildCartographicScene(
       pixelsPerWorldUnit,
       roadWidthFactor: input.roadWidthFactor,
       roadCasingAddPx: input.roadCasingAddPx,
+      roadWorldLock: input.roadWorldLock ?? true,
       // The transit theme dims everything that is not transit. It is a
       // renderer effect (`MapLayerManager.setTransitDimming` scales each
       // non-transit layer's opacity), not UI chrome, so an export captured
@@ -240,6 +250,7 @@ interface LayerContext {
   readonly pixelsPerWorldUnit: number;
   readonly roadWidthFactor: number;
   readonly roadCasingAddPx: number;
+  readonly roadWorldLock: boolean;
   /** Multiplier applied to every non-transit opacity; 1 when dimming is off. */
   readonly dimFactor: number;
 }
@@ -402,19 +413,28 @@ function buildWaterEntities(context: LayerContext): SceneEntity[] {
 }
 
 function buildRoadEntities(context: LayerContext): SceneEntity[] {
-  const { snapshot, colors, warnings, roadWidthFactor, roadCasingAddPx } =
-    context;
+  const {
+    snapshot,
+    colors,
+    warnings,
+    roadWidthFactor,
+    roadCasingAddPx,
+    roadWorldLock,
+  } = context;
   const casings: SceneEntity[] = [];
   const fills: SceneEntity[] = [];
 
   for (const feature of buildRoadsGeoJson(snapshot.cityData).features) {
     const points = toWorldPath(feature.geometry.coordinates, warnings);
     if (!points) continue;
-    const { id, tier, fixedWidth, scaledWidth, capEnds } = feature.properties;
+    const { id, tier, fixedWidth, scaledWidth, worldWidth, capEnds } =
+      feature.properties;
+    // Same world lock as the live map: detail-scale streets meet the lots.
     const widthPx = resolveRoadWidthPx(
       fixedWidth,
       scaledWidth,
       roadWidthFactor,
+      roadWorldLock ? worldWidth : 0,
     );
     const { category } = feature.properties;
     // A runway is flat-capped for the same reason as on the interactive map:

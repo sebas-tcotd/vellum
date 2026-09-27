@@ -129,6 +129,8 @@ export interface RoadSegment {
   itemClass: string;
   /** Physical base width in game units (does not include UI scaling factors). */
   width: number;
+  /** Visible street name. Only `.vellummap` carries it; absent for `.cslmap` and unnamed networks. */
+  name?: string;
 }
 
 /**

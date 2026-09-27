@@ -105,7 +105,7 @@ namespace VellumBridge.Export
             }
 
             var segments = Singleton<NetManager>.instance.m_segments.m_buffer;
-            int withoutPrefab = 0;
+            int withoutPrefab = 0, segmentNameErrors = 0;
             for (int i = 1; i < segments.Length; i++)
             {
                 if ((segments[i].m_flags & NetSegment.Flags.Created) == 0) continue;
@@ -119,6 +119,10 @@ namespace VellumBridge.Export
                 Vector3 middle1, middle2;
                 NetSegment.CalculateMiddlePoints(start, segment.m_startDirection, end, segment.m_endDirection,
                     smoothStart, smoothEnd, out middle1, out middle2);
+                // Solo las calles tienen nombre; una tubería o una ruta de avión devuelve vacío.
+                string name = null;
+                try { name = Singleton<NetManager>.instance.GetSegmentName((ushort)i); }
+                catch (Exception) { segmentNameErrors++; }
                 // Redes no viales (tuberías, rutas de avión y barco, conexiones) también se exportan:
                 // itemClass las clasifica.
                 model.segments.Add(new SegmentModel
@@ -128,10 +132,12 @@ namespace VellumBridge.Export
                     endNode = segment.m_endNode,
                     itemClass = info.m_class.name,
                     width = info.m_halfWidth * 2f,
+                    name = name,
                     a = V(start), b = V(middle1), c = V(middle2), d = V(end),
                 });
             }
             if (withoutPrefab > 0) model.limits.Add(withoutPrefab + " segmentos omitidos por no tener prefab cargado.");
+            if (segmentNameErrors > 0) model.limits.Add(segmentNameErrors + " segmentos sin nombre porque no se pudo leer el nombre de su calle.");
         }
 
         private static void ReadTransit(VellumModel model)

@@ -31,9 +31,10 @@ function makeSnapshot(surface = { width: 800, height: 600 }): ExportSnapshot {
       districts: true,
     },
     layerOptions: {
+      roads: { showStreetNames: true },
       transit: { visibleModes: ['Bus'], showConfirmedTransfers: true },
       buildings: { visibleCategories: ['residential'], colorByCategory: false },
-      districts: { showNameOnMap: false, showParkAreas: false },
+      districts: { showAsMarker: true, showFill: false, showParkAreas: false },
       terrain: {
         showContourLines: true,
         showColorRelief: true,

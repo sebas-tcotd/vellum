@@ -11,6 +11,7 @@ import {
   addGridLayer,
   addMapFrameLayer,
   addParksLayer,
+  addRoadLabelsLayer,
   addRoadsLayer,
   addServiceIconsLayer,
   addTerrainContourLayer,
@@ -113,6 +114,9 @@ export class MapSourceManager {
     await step('transit', () =>
       addTransitLayers(this.map, cityData, this.colors),
     );
+    await step('road-labels', () =>
+      addRoadLabelsLayer(this.map, cityData, this.colors),
+    );
     // Sits above every other data layer but below districts/park-areas, per product request.
     await step('grid', () =>
       addGridLayer(this.map, cityData, this.colors.grid),
@@ -162,8 +166,10 @@ export class MapSourceManager {
       'coastline-source',
       'terrain-lines-source',
       'forests',
+      'forests-trees',
       'buildings',
       'roads',
+      'road-labels',
       'transit',
       'transit-connectors',
       'transit-stops',
@@ -171,6 +177,7 @@ export class MapSourceManager {
       'districts',
       'parks',
       'area-boundaries',
+      'district-areas',
       'world-extent-source',
       'vellum-watermark-source',
     ];

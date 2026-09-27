@@ -36,10 +36,14 @@ function darkenHex(hex: string, percent: number): string {
  */
 export function buildRoadColorExpression(
   colors: ResolvedColors,
-  type: 'fill' | 'casing',
+  type: 'fill' | 'casing' | 'label',
   darkenPercent = 0,
 ): maplibregl.ExpressionSpecification {
-  const table = type === 'fill' ? colors.roadFill : colors.roadCasing;
+  const table = {
+    fill: colors.roadFill,
+    casing: colors.roadCasing,
+    label: colors.roadLabel,
+  }[type];
 
   const matchArgs: (string | maplibregl.ExpressionSpecification)[] = [
     ['get', 'tier'] as maplibregl.ExpressionSpecification,

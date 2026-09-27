@@ -65,12 +65,14 @@
   "layerOptionsPanel": {
     "close": "Cerrar opciones de capa",
     "colorByCategory": "Colorear edificios por zona",
-    "showDistrictNamesOnMap": "Mostrar nombre en el mapa",
+    "showDistrictFill": "Mostrar relleno del distrito",
+    "showDistrictsAsMarkers": "Mostrar como marcadores",
     "showParkAreas": "Mostrar áreas de parque",
     "showContourLines": "Curvas de nivel",
     "showColorRelief": "Relieve hipsométrico",
     "showHillshade": "Sombreado del relieve",
     "showGrid": "Cuadrícula de proyección",
+    "showStreetNames": "Nombres de calles",
     "buildingZones": "Zonas de edificios (RICO)",
     "showConfirmedTransfers": "Mostrar transferencias confirmadas"
   },

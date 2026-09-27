@@ -223,8 +223,9 @@ namespace VellumBridge.Export
                 seen[segment.sourceId] = true;
                 json.Open('{').Key("sourceId").Int(segment.sourceId)
                     .Key("startNodeSourceId").Int(segment.startNode).Key("endNodeSourceId").Int(segment.endNode)
-                    .Key("itemClass").String(segment.itemClass).Key("width").Number(segment.width)
-                    .Key("points").Open('[');
+                    .Key("itemClass").String(segment.itemClass).Key("width").Number(segment.width);
+                if (!string.IsNullOrEmpty(segment.name)) json.Key("name").String(segment.name);
+                json.Key("points").Open('[');
                 foreach (Vec3 point in SampleBezier(segment.a, segment.b, segment.c, segment.d)) json.Position(point);
                 json.Close(']').Close('}');
             }

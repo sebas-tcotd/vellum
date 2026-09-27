@@ -1,3 +1,4 @@
+import { resolveRoadWidthPx } from '../expressions/road-width-curve';
 import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_LAYER_OPTIONS,
@@ -104,12 +105,14 @@ function build(
   cityData: CityData,
   overrides: Parameters<typeof snapshot>[1] = {},
   roadWidthFactor = 7.25,
+  roadWorldLock?: boolean,
 ): CartographicScene {
   return buildCartographicScene({
     snapshot: snapshot(cityData, overrides),
     background: 'white',
     roadWidthFactor,
     roadCasingAddPx: 1.1,
+    ...(roadWorldLock === undefined ? {} : { roadWorldLock }),
   });
 }
 
@@ -415,8 +418,25 @@ describe('buildCartographicScene', () => {
     expect(localFill.stroke!.color).toBe('#ffffff');
   });
 
+  it('grows detail-scale streets into their real width, like the live map', () => {
+    // Factor 16 is z18; a 16-unit Small Road spans ≈ 53.6px there.
+    const fill = layerEntities(
+      build(roadCity('Small Road'), {}, 16),
+      'roads',
+    ).find((entity) => !entity.id.endsWith('-casing'))!;
+    expect(fill.stroke!.widthPx).toBeCloseTo(
+      resolveRoadWidthPx(0.2, 0.8, 16, 16),
+      10,
+    );
+    expect(fill.stroke!.widthPx).toBeGreaterThan(0.2 + 0.8 * 16);
+  });
+
   it('bakes the caller policy into a literal stroke width, casing under fill', () => {
-    const roads = layerEntities(build(roadCity('Small Road')), 'roads');
+    // A pinned width is a constant weight: the world lock stays out of it.
+    const roads = layerEntities(
+      build(roadCity('Small Road'), {}, 7.25, false),
+      'roads',
+    );
     const casing = roads.find((entity) => entity.id.endsWith('-casing'))!;
     const fill = roads.find((entity) => !entity.id.endsWith('-casing'))!;
     // ROAD_WIDTH_STYLES.local = { fixed: 0.2, scaled: 0.8 }; factor 7.25 → 6px.

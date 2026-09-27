@@ -24,6 +24,7 @@
  */
 
 import type { RenderStyleParams } from '@vellum/core';
+import { readableInk } from './expressions/color-mix';
 import type { RoadTier } from './geojson';
 
 /** Grid visual properties resolved from `RenderStyleParams.grid`. */
@@ -81,6 +82,12 @@ export interface ResolvedColors {
   roadFill: Record<RoadTier, string>;
   /** Road casing (outline) color per tier, keyed by `RoadTier`. */
   roadCasing: Record<RoadTier, string>;
+  /**
+   * Street-name text color per tier: the theme's `roadLabels.color`,
+   * auto-tinted to white/near-black where it would not read on that tier's
+   * fill (see `readableInk`).
+   */
+  roadLabel: Record<RoadTier, string>;
   /** Ferry / ship path line color. */
   ferry: string;
   /** Grid visual properties for the projection grid overlay. */
@@ -113,6 +120,20 @@ export function resolveColors(style: RenderStyleParams): ResolvedColors {
 
   const { grid } = style;
 
+  const roadFill: Record<RoadTier, string> = {
+    highway: roads.highway.generic.fill,
+    largeArterial: roads.largeArterial.generic.fill,
+    mediumArterial: roads.mediumArterial.generic.fill,
+    local: roads.local.generic.fill,
+    gravel: roads.local.gravel.fill,
+    pedestrian: roads.pedestrian.path.fill,
+    pedestrianStreet: roads.pedestrian.street.fill,
+    pedestrianWay: roads.pedestrian.way.fill,
+    train: roads.rail.train.fill,
+    metro: roads.rail.metro.fill,
+  };
+  const labelInk = style.roadLabels?.color ?? '#3d3a35';
+
   return {
     background: style.mapBackground,
     mapFrame: style.mapFrame,
@@ -135,18 +156,7 @@ export function resolveColors(style: RenderStyleParams): ResolvedColors {
     },
     districtFill: style.districts.fill,
     districtLabel: style.districts.label,
-    roadFill: {
-      highway: roads.highway.generic.fill,
-      largeArterial: roads.largeArterial.generic.fill,
-      mediumArterial: roads.mediumArterial.generic.fill,
-      local: roads.local.generic.fill,
-      gravel: roads.local.gravel.fill,
-      pedestrian: roads.pedestrian.path.fill,
-      pedestrianStreet: roads.pedestrian.street.fill,
-      pedestrianWay: roads.pedestrian.way.fill,
-      train: roads.rail.train.fill,
-      metro: roads.rail.metro.fill,
-    },
+    roadFill,
     roadCasing: {
       highway: roads.highway.generic.casing,
       largeArterial: roads.largeArterial.generic.casing,
@@ -159,6 +169,12 @@ export function resolveColors(style: RenderStyleParams): ResolvedColors {
       train: roads.rail.train.casing,
       metro: roads.rail.metro.casing,
     },
+    roadLabel: Object.fromEntries(
+      Object.entries(roadFill).map(([tier, fill]) => [
+        tier,
+        readableInk(labelInk, fill),
+      ]),
+    ) as Record<RoadTier, string>,
     ferry: roads.ferry.fill,
     grid: {
       line: grid.color,

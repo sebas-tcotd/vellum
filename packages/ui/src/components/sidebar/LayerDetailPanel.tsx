@@ -1,11 +1,13 @@
 import { useTranslation } from 'react-i18next';
 import { ChevronLeft } from 'lucide-react';
-import type { LayerName } from '@vellum/core';
+import type { CitySource, LayerName } from '@vellum/core';
 import { useVellumStore } from '../../store/vellum-store';
 import { AdvancedOptionsPanel } from '../panels/AdvancedOptionsPanel';
 
 export interface LayerDetailPanelProps {
   layer: LayerName;
+  /** Format of the open document; options that need native data hide for `.cslmap`. */
+  source?: CitySource | undefined;
   /** Returns to the overview. Focus restoration is handled by the sidebar. */
   onBack: () => void;
 }
@@ -20,7 +22,11 @@ export interface LayerDetailPanelProps {
  * menu uses. Nothing here changes the layer's visibility — a hidden layer
  * stays hidden while you configure it (AD-11).
  */
-export function LayerDetailPanel({ layer, onBack }: LayerDetailPanelProps) {
+export function LayerDetailPanel({
+  layer,
+  source,
+  onBack,
+}: LayerDetailPanelProps) {
   const { t } = useTranslation();
   const layerOptions = useVellumStore((s) => s.layerOptions);
   const toggleTransitMode = useVellumStore((s) => s.toggleTransitMode);
@@ -33,9 +39,10 @@ export function LayerDetailPanel({ layer, onBack }: LayerDetailPanelProps) {
   const setBuildingColorByCategory = useVellumStore(
     (s) => s.setBuildingColorByCategory,
   );
-  const setDistrictsShowNameOnMap = useVellumStore(
-    (s) => s.setDistrictsShowNameOnMap,
+  const setDistrictsShowAsMarker = useVellumStore(
+    (s) => s.setDistrictsShowAsMarker,
   );
+  const setDistrictsShowFill = useVellumStore((s) => s.setDistrictsShowFill);
   const setDistrictsShowParkAreas = useVellumStore(
     (s) => s.setDistrictsShowParkAreas,
   );
@@ -49,6 +56,9 @@ export function LayerDetailPanel({ layer, onBack }: LayerDetailPanelProps) {
     (s) => s.setTerrainShowHillshade,
   );
   const setBasemapShowGrid = useVellumStore((s) => s.setBasemapShowGrid);
+  const setRoadsShowStreetNames = useVellumStore(
+    (s) => s.setRoadsShowStreetNames,
+  );
   const layerName = t(`layers.${layer}`);
 
   return (
@@ -78,8 +88,11 @@ export function LayerDetailPanel({ layer, onBack }: LayerDetailPanelProps) {
         onToggleCategory={toggleBuildingCategory}
         colorByCategory={layerOptions.buildings.colorByCategory}
         onToggleColorByCategory={setBuildingColorByCategory}
-        showDistrictNamesOnMap={layerOptions.districts.showNameOnMap}
-        onToggleShowDistrictNamesOnMap={setDistrictsShowNameOnMap}
+        showDistrictsAsMarkers={layerOptions.districts.showAsMarker}
+        onToggleShowDistrictsAsMarkers={setDistrictsShowAsMarker}
+        showDistrictFill={layerOptions.districts.showFill}
+        onToggleShowDistrictFill={setDistrictsShowFill}
+        source={source}
         showParkAreas={layerOptions.districts.showParkAreas}
         onToggleShowParkAreas={setDistrictsShowParkAreas}
         showContourLines={layerOptions.terrain.showContourLines}
@@ -90,6 +103,8 @@ export function LayerDetailPanel({ layer, onBack }: LayerDetailPanelProps) {
         onToggleHillshade={setTerrainShowHillshade}
         showGrid={layerOptions.basemap.showGrid}
         onToggleShowGrid={setBasemapShowGrid}
+        showStreetNames={layerOptions.roads.showStreetNames}
+        onToggleShowStreetNames={setRoadsShowStreetNames}
       />
     </section>
   );

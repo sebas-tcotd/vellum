@@ -67,8 +67,11 @@ export function useMenuAction({
   const setBuildingColorByCategory = useVellumStore(
     (state) => state.setBuildingColorByCategory,
   );
-  const setDistrictsShowNameOnMap = useVellumStore(
-    (state) => state.setDistrictsShowNameOnMap,
+  const setDistrictsShowAsMarker = useVellumStore(
+    (state) => state.setDistrictsShowAsMarker,
+  );
+  const setDistrictsShowFill = useVellumStore(
+    (state) => state.setDistrictsShowFill,
   );
   const setDistrictsShowParkAreas = useVellumStore(
     (state) => state.setDistrictsShowParkAreas,
@@ -172,8 +175,10 @@ export function useMenuAction({
             toggleBuildingCategory(option);
           }
         } else if (layer === 'districts') {
-          if (option === 'show-names') {
-            setDistrictsShowNameOnMap(!layerOptions.districts.showNameOnMap);
+          if (option === 'show-as-marker') {
+            setDistrictsShowAsMarker(!layerOptions.districts.showAsMarker);
+          } else if (option === 'show-fill') {
+            setDistrictsShowFill(!layerOptions.districts.showFill);
           } else if (option === 'show-park-areas') {
             setDistrictsShowParkAreas(!layerOptions.districts.showParkAreas);
           }
@@ -193,7 +198,8 @@ export function useMenuAction({
       layerOptions,
       setBasemapShowGrid,
       setBuildingColorByCategory,
-      setDistrictsShowNameOnMap,
+      setDistrictsShowAsMarker,
+      setDistrictsShowFill,
       setDistrictsShowParkAreas,
       setTerrainShowColorRelief,
       setTerrainShowContourLines,

@@ -13,6 +13,8 @@
  * the way it is (cartographic floor below z14, geographic `2^(z−14)` above).
  */
 
+import { CS1_EXTENT_DEG, CS1_WORLD_SIZE } from '@vellum/core';
+
 /** `[zoom, factor]` anchors of the width curve, in ascending zoom order. */
 export const ROAD_WIDTH_FACTOR_STOPS: ReadonlyArray<
   readonly [zoom: number, factor: number]
@@ -108,26 +110,76 @@ function interpolateAtZoom(zoom: number, outputs: readonly number[]): number {
   return lastOut;
 }
 
+/** First zoom stop at which road widths follow the real `worldWidth`. */
+export const WORLD_LOCK_ZOOM = 18;
+
 /**
- * Resolves one tier's stroke width in pixels at a given curve factor.
+ * Screen px per CS1 world unit at each width stop, or `null` where the stop
+ * keeps the cartographic tier weight (below {@link WORLD_LOCK_ZOOM}).
+ *
+ * @remarks
+ * 512px tiles; the city sits on the equator, so Mercator scale is 1.
+ */
+export const ROAD_WORLD_LOCK_PX_PER_UNIT: ReadonlyArray<number | null> =
+  Object.freeze(
+    ROAD_WIDTH_FACTOR_STOPS.map(([zoom]) =>
+      zoom >= WORLD_LOCK_ZOOM
+        ? ((512 * 2 ** zoom) / 360) * (CS1_EXTENT_DEG / CS1_WORLD_SIZE)
+        : null,
+    ),
+  );
+
+/**
+ * Resolves one road's fill width in pixels at a given curve factor.
  *
  * @remarks
  * The `fixed` and `scaled` components stay separate right up to this call —
  * nothing upstream is allowed to collapse them into a single pre-multiplied
  * number, which is what keeps the tier hierarchy intact across scales.
  *
+ * **World lock.** From {@link WORLD_LOCK_ZOOM} a stop's fill is raised so fill
+ * + casing spans the road's real `worldWidth`, so streets meet the building
+ * frontage. This is the same per-stop rule `road-width.ts` bakes into the
+ * MapLibre expression. Between the stops that carry it (z14→z18→z22) the
+ * factor is exactly `2^(z−14)`, so MapLibre's exponential-base-2 blend in zoom
+ * is a *linear* blend in the factor — which is why a factor alone (an
+ * exporter's, even a pinned one) is enough to reproduce the live width.
+ *
  * @param fixed - Tier's zoom-independent width component.
  * @param scaled - Tier's zoom-scaled width component.
  * @param factor - Curve multiplier, from {@link roadWidthFactorAtZoom} or an
  *   exporter's own cartographic policy.
- * @returns Total stroke width in pixels.
+ * @param worldWidth - The road's real width in CS1 units; `0` (default) keeps
+ *   the tier weight at every scale (highways, non-road ways).
+ * @returns Fill stroke width in pixels (casing border not included).
  */
 export function resolveRoadWidthPx(
   fixed: number,
   scaled: number,
   factor: number,
+  worldWidth = 0,
 ): number {
-  return fixed + scaled * factor;
+  const cartographic = fixed + scaled * factor;
+  if (!(worldWidth > 0)) return cartographic;
+
+  const stops = ROAD_WIDTH_FACTOR_STOPS;
+  const stopFill = (i: number): number => {
+    const lock = ROAD_WORLD_LOCK_PX_PER_UNIT[i];
+    const tierFill = fixed + scaled * stops[i]![1];
+    return lock === null || lock === undefined
+      ? tierFill
+      : Math.max(tierFill, worldWidth * lock - ROAD_CASING_ADD_PX[i]!);
+  };
+  if (factor <= stops[0]![1]) return cartographic;
+  for (let i = 1; i < stops.length; i += 1) {
+    const low = stops[i - 1]![1];
+    const high = stops[i]![1];
+    if (factor > high) continue;
+    const t = (factor - low) / (high - low);
+    return stopFill(i - 1) + t * (stopFill(i) - stopFill(i - 1));
+  }
+  // Past the last stop MapLibre holds the last output.
+  return stopFill(stops.length - 1);
 }
 
 /**

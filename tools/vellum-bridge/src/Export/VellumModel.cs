@@ -70,6 +70,8 @@ namespace VellumBridge.Export
         public int startNode, endNode;
         public string itemClass;
         public float width;
+        // Nombre visible de la calle (GetSegmentName); null si la red no tiene nombre.
+        public string name;
         // Curva Bézier cúbica del segmento: a = inicio, b y c = puntos medios
         // (NetSegment.CalculateMiddlePoints), d = fin.
         public Vec3 a, b, c, d;

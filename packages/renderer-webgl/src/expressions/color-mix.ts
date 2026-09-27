@@ -158,3 +158,51 @@ export function mixColorTokens(from: string, to: string, t: number): string {
     start.g + (end.g - start.g) * ratio,
   )}${toHex(start.b + (end.b - start.b) * ratio)}`;
 }
+
+/** WCAG 2 relative luminance in `[0, 1]`. */
+function relativeLuminance({ r, g, b }: Rgb): number {
+  const channel = (value: number) => {
+    const c = value / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
+}
+
+/** WCAG 2 contrast ratio between two parsed colours, in `[1, 21]`. */
+function contrastRatio(a: Rgb, b: Rgb): number {
+  const [hi, lo] = [relativeLuminance(a), relativeLuminance(b)].sort(
+    (x, y) => y - x,
+  );
+  return (hi! + 0.05) / (lo! + 0.05);
+}
+
+/** Contrast under which a label on a road stops reading. */
+const MIN_LABEL_CONTRAST = 3;
+const LIGHT_INK = '#ffffff';
+const DARK_INK = '#1c1c1c';
+
+/**
+ * Auto-tint: the text colour to print on `background`.
+ *
+ * @remarks
+ * Keeps the theme's `preferred` ink while it reads (≥ 3:1, the WCAG floor for
+ * large or bold text — labels here are haloed in the road colour, so the
+ * halo adds nothing). Otherwise switches to white or near-black, whichever
+ * contrasts more, so a dark label on a dark highway turns light.
+ *
+ * @param preferred - The theme's label colour.
+ * @param background - The road fill the label sits on.
+ * @returns `preferred`, or the better of white/near-black; `preferred` when
+ * either colour is unparseable.
+ */
+export function readableInk(preferred: string, background: string): string {
+  const text = parseColorToken(preferred);
+  const bg = parseColorToken(background);
+  if (!text || !bg) return preferred;
+  if (contrastRatio(text, bg) >= MIN_LABEL_CONTRAST) return preferred;
+  const light = parseColorToken(LIGHT_INK)!;
+  const dark = parseColorToken(DARK_INK)!;
+  return contrastRatio(light, bg) >= contrastRatio(dark, bg)
+    ? LIGHT_INK
+    : DARK_INK;
+}

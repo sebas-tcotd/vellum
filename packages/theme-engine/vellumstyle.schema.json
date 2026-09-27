@@ -685,6 +685,16 @@
         }
       },
       "required": ["fill", "stroke"]
+    },
+    "roadLabels": {
+      "type": "object",
+      "properties": {
+        "color": {
+          "$ref": "#/$defs/colorToken",
+          "default": "#3d3a35"
+        }
+      },
+      "required": ["color"]
     }
   },
   "required": ["name"]

@@ -18,13 +18,18 @@ export { buildBuildingsGeoJson } from './builders/buildings.builder';
 export { buildGridGeoJson } from './builders/grid.builder';
 export {
   buildAreaBoundariesGeoJson,
+  buildDistrictAreasGeoJson,
   buildDistrictsGeoJson,
+  districtLabelScale,
   buildForestsGeoJson,
   buildParkAreasGeoJson,
   buildWaterSurfaceGeoJson,
   buildWorldExtentGeoJson,
 } from './builders/environment.builder';
-export { buildRoadsGeoJson } from './builders/roads.builder';
+export {
+  buildRoadLabelsGeoJson,
+  buildRoadsGeoJson,
+} from './builders/roads.builder';
 export {
   buildCoastlineGeoJson,
   buildContourLinesGeoJson,
@@ -49,6 +54,8 @@ export type {
   AreaBoundaryFeatureProperties,
   DistrictFeature,
   DistrictFeatureProperties,
+  DistrictAreaFeature,
+  DistrictAreasFeatureCollection,
   DistrictsFeatureCollection,
   Feature,
   FeatureCollection,

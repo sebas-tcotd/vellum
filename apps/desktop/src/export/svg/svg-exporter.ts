@@ -70,6 +70,7 @@ export type CartographicSceneBuilder = (input: {
   readonly background: SvgExportSnapshot['request']['background'];
   readonly roadWidthFactor: number;
   readonly roadCasingAddPx: number;
+  readonly roadWorldLock: boolean;
   readonly marginalia?: MarginaliaLayout | null;
 }) => CartographicScene;
 
@@ -183,6 +184,7 @@ export class SvgExporter implements SvgExportPort {
       background: snapshot.request.background,
       roadWidthFactor: policy.roadWidthFactor,
       roadCasingAddPx: policy.roadCasingAddPx,
+      roadWorldLock: policy.roadWorldLock,
       marginalia: layoutSnapshotMarginalia(snapshot),
     });
     throwIfAborted(signal);

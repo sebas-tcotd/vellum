@@ -2,6 +2,7 @@ import { Separator } from '../../lib/separator';
 import { Switch } from '../../lib/switch';
 import type {
   BuildingServiceCategory,
+  CitySource,
   LayerName,
   TransitMode,
 } from '@vellum/core';
@@ -55,9 +56,14 @@ export interface AdvancedOptionsPanelProps {
   /** Whether R/I/C/O buildings render in fixed RICO colors instead of the theme default. */
   colorByCategory: boolean;
   onToggleColorByCategory: (enabled: boolean) => void;
-  /** Whether districts render as a text label on the map instead of the default marker circle. */
-  showDistrictNamesOnMap: boolean;
-  onToggleShowDistrictNamesOnMap: (enabled: boolean) => void;
+  /** Whether districts render as a marker circle instead of the default name label. */
+  showDistrictsAsMarkers: boolean;
+  onToggleShowDistrictsAsMarkers: (enabled: boolean) => void;
+  /** Whether district areas get a light tint (native documents only). */
+  showDistrictFill: boolean;
+  onToggleShowDistrictFill: (enabled: boolean) => void;
+  /** Format of the open document; the fill needs areas only `.vellummap` has. */
+  source?: CitySource | undefined;
   /** Whether DLC park areas are rendered as labeled points. */
   showParkAreas: boolean;
   onToggleShowParkAreas: (enabled: boolean) => void;
@@ -73,13 +79,16 @@ export interface AdvancedOptionsPanelProps {
   /** Whether the basemap 9×9 projection grid is visible. */
   showGrid: boolean;
   onToggleShowGrid: (enabled: boolean) => void;
+  /** Whether street names are drawn along the roads. */
+  showStreetNames: boolean;
+  onToggleShowStreetNames: (enabled: boolean) => void;
 }
 
 /**
  * Content of the advanced-options floating panel (see `FloatingLayerPanel.tsx`
  * for the panel chrome). Renders terrain sub-element toggles, the transit-mode
- * filter, the buildings' RICO filter + "color by category" toggle, or the
- * district label toggle, depending on `layer`.
+ * filter, the buildings' RICO filter + "color by category" toggle, the
+ * district label toggle, or the street-names toggle, depending on `layer`.
  */
 export function AdvancedOptionsPanel({
   layer,
@@ -91,8 +100,11 @@ export function AdvancedOptionsPanel({
   onToggleCategory,
   colorByCategory,
   onToggleColorByCategory,
-  showDistrictNamesOnMap,
-  onToggleShowDistrictNamesOnMap,
+  showDistrictsAsMarkers,
+  onToggleShowDistrictsAsMarkers,
+  showDistrictFill,
+  onToggleShowDistrictFill,
+  source,
   showParkAreas,
   onToggleShowParkAreas,
   showContourLines,
@@ -103,6 +115,8 @@ export function AdvancedOptionsPanel({
   onToggleHillshade,
   showGrid,
   onToggleShowGrid,
+  showStreetNames,
+  onToggleShowStreetNames,
 }: AdvancedOptionsPanelProps) {
   const { t } = useTranslation();
 
@@ -179,16 +193,33 @@ export function AdvancedOptionsPanel({
     return (
       <div>
         <OptionRow
-          label={t('layerOptionsPanel.showDistrictNamesOnMap')}
-          checked={showDistrictNamesOnMap}
-          onCheckedChange={onToggleShowDistrictNamesOnMap}
+          label={t('layerOptionsPanel.showDistrictsAsMarkers')}
+          checked={showDistrictsAsMarkers}
+          onCheckedChange={onToggleShowDistrictsAsMarkers}
         />
+        {source === 'vellummap' && (
+          <OptionRow
+            label={t('layerOptionsPanel.showDistrictFill')}
+            checked={showDistrictFill}
+            onCheckedChange={onToggleShowDistrictFill}
+          />
+        )}
         <OptionRow
           label={t('layerOptionsPanel.showParkAreas')}
           checked={showParkAreas}
           onCheckedChange={onToggleShowParkAreas}
         />
       </div>
+    );
+  }
+
+  if (layer === 'roads') {
+    return (
+      <OptionRow
+        label={t('layerOptionsPanel.showStreetNames')}
+        checked={showStreetNames}
+        onCheckedChange={onToggleShowStreetNames}
+      />
     );
   }
 

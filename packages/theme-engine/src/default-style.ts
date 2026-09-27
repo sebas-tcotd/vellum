@@ -91,4 +91,7 @@ export const DEFAULT_RENDER_STYLE_PARAMS: RenderStyleParams = {
     fill: '#f2b705',
     stroke: '#8a5a00',
   },
+  roadLabels: {
+    color: '#3d3a35',
+  },
 };

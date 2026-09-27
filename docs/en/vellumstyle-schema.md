@@ -171,24 +171,25 @@ that doesn't match either pattern fails validation for the **entire file** — s
 
 ## `RenderStyleParams` fields
 
-| Field               | Type                  | Description                                                                                                   |
-| ------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `mapBackground`     | `ColorToken`          | Background color behind the terrain (visible outside the map bounds).                                         |
-| `mapFrame`          | `ColorToken`          | Color of the decorative frame around the world extent.                                                        |
-| `terrain.base`      | `ColorToken`          | Base/flat elevation color.                                                                                    |
-| `terrain.low`       | `ColorToken`          | Low elevation color.                                                                                          |
-| `terrain.mid`       | `ColorToken`          | Mid elevation color.                                                                                          |
-| `terrain.high`      | `ColorToken`          | High elevation color.                                                                                         |
-| `contourLine`       | `ColorToken`          | Color of terrain contour lines.                                                                               |
-| `water`             | `ColorToken`          | Color of water bodies (sea and inland water).                                                                 |
-| `forests`           | `ColorToken`          | Color of forest/vegetation density markers.                                                                   |
-| `transitBackground` | `ColorToken`          | Background used for dark exports and reserved for transit-focused presentation. Every built-in theme sets it. |
-| `roads`             | `RoadColorParams`     | Road network colors, grouped by tier — see below.                                                             |
-| `buildings`         | `BuildingColorParams` | Building colors, grouped by zoning category — see below.                                                      |
-| `districts.fill`    | `ColorToken`          | Fill color of the district marker.                                                                            |
-| `districts.label`   | `ColorToken`          | Text color of the district label.                                                                             |
-| `grid`              | `GridStyle`           | Style of the optional 9×9 projection grid overlay.                                                            |
-| `parkAreas`         | `ParkAreaColors`      | Optional colors for DLC park-area markers; omitted values fall back to built-in defaults.                     |
+| Field               | Type                  | Description                                                                                                                                      |
+| ------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `mapBackground`     | `ColorToken`          | Background color behind the terrain (visible outside the map bounds).                                                                            |
+| `mapFrame`          | `ColorToken`          | Color of the decorative frame around the world extent.                                                                                           |
+| `terrain.base`      | `ColorToken`          | Base/flat elevation color.                                                                                                                       |
+| `terrain.low`       | `ColorToken`          | Low elevation color.                                                                                                                             |
+| `terrain.mid`       | `ColorToken`          | Mid elevation color.                                                                                                                             |
+| `terrain.high`      | `ColorToken`          | High elevation color.                                                                                                                            |
+| `contourLine`       | `ColorToken`          | Color of terrain contour lines.                                                                                                                  |
+| `water`             | `ColorToken`          | Color of water bodies (sea and inland water).                                                                                                    |
+| `forests`           | `ColorToken`          | Color of forest/vegetation density markers.                                                                                                      |
+| `transitBackground` | `ColorToken`          | Background used for dark exports and reserved for transit-focused presentation. Every built-in theme sets it.                                    |
+| `roads`             | `RoadColorParams`     | Road network colors, grouped by tier — see below.                                                                                                |
+| `buildings`         | `BuildingColorParams` | Building colors, grouped by zoning category — see below.                                                                                         |
+| `districts.fill`    | `ColorToken`          | Fill color of the district marker.                                                                                                               |
+| `districts.label`   | `ColorToken`          | Text color of the district label.                                                                                                                |
+| `grid`              | `GridStyle`           | Style of the optional 9×9 projection grid overlay.                                                                                               |
+| `parkAreas`         | `ParkAreaColors`      | Optional colors for DLC park-area markers; omitted values fall back to built-in defaults.                                                        |
+| `roadLabels.color`  | `ColorToken`          | Optional. Preferred ink of street names; where it would not read on a road (under 3:1), that tier switches to white or near-black automatically. |
 
 `grid` contains `color`, `opacity`, `width` and `dasharray`. `parkAreas` contains the
 optional marker colors `generic`, `university`, `tradeSchool`, `industry` and `forestry`.

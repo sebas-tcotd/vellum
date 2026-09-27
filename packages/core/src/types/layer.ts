@@ -1,4 +1,4 @@
-import type { TransitMode } from './city-data';
+import type { CitySource, TransitMode } from './city-data';
 
 /** Defines the unique identifier for a logical map layer.
  * @remarks
@@ -97,10 +97,14 @@ export const BUILDING_SERVICE_CATEGORIES: BuildingServiceCategory[] = [
  * a single on/off switch — see `future-work-panel-opciones-avanzadas.md`.
  * @remarks
  * Only layers with an actual filterable dimension get an entry here; layers
- * like `roads` have no sub-filter and are fully covered by `LayerVisibility`
+ * like `forests` have no sub-filter and are fully covered by `LayerVisibility`
  * alone.
  */
 export interface LayerOptions {
+  roads: {
+    /** Whether street names are drawn along the roads (`.vellummap` only). */
+    showStreetNames: boolean;
+  };
   transit: {
     /** Transit lines/stops whose `mode` is not in this list are hidden. */
     visibleModes: TransitMode[];
@@ -124,11 +128,17 @@ export interface LayerOptions {
   };
   districts: {
     /**
-     * When `true`, each district renders its name as a text label anchored to
-     * its `.cslmap` point instead of the default marker circle. Alternative
-     * display modes — never both at once.
+     * When `true`, each district renders as a marker circle at its anchor point
+     * instead of the default name label. Alternative display modes — never both
+     * at once. The name is the default because a bare circle says nothing about
+     * what it marks.
      */
-    showNameOnMap: boolean;
+    showAsMarker: boolean;
+    /**
+     * When `true`, each district's area gets a light tint. Only native
+     * `.vellummap` documents have areas; a `.cslmap` has nothing to fill.
+     */
+    showFill: boolean;
     /**
      * When `true`, DLC park areas (University, Industry, Forestry, etc.)
      * are rendered as labeled points on the map. Gated by the `districts`
@@ -152,23 +162,40 @@ export interface LayerOptions {
   };
 }
 
-/** Layers whose toggle row shows a chevron that opens an advanced-options sub-panel (terrain sub-elements, transit-mode filter, buildings RICO filter, districts label mode, basemap grid toggle). */
+/** Layers whose toggle row shows a chevron that opens an advanced-options sub-panel (terrain sub-elements, street names, transit-mode filter, buildings RICO filter, districts label mode, basemap grid toggle). */
 export const LAYERS_WITH_ADVANCED_OPTIONS = new Set<LayerName>([
   'terrain',
+  'roads',
   'transit',
   'buildings',
   'districts',
   'basemap',
 ]);
 
-/** `LayerOptions` with every mode/category visible, RICO coloring off, district markers (not names) shown, and all terrain sub-layers on — the app's starting state. */
+/**
+ * Whether `layer` offers its advanced-options panel for the open document.
+ *
+ * @remarks
+ * Street names only exist in a `.vellummap`, so the roads panel — whose only
+ * option is showing them — is offered for that source alone.
+ */
+export function hasAdvancedOptions(
+  layer: LayerName,
+  source: CitySource | undefined,
+): boolean {
+  if (layer === 'roads') return source === 'vellummap';
+  return LAYERS_WITH_ADVANCED_OPTIONS.has(layer);
+}
+
+/** `LayerOptions` with every mode/category visible, RICO coloring off, district names (not markers) shown, no district fill, and all terrain sub-layers and street names on — the app's starting state. */
 export const DEFAULT_LAYER_OPTIONS: LayerOptions = {
+  roads: { showStreetNames: true },
   transit: { visibleModes: [...TRANSIT_MODES], showConfirmedTransfers: true },
   buildings: {
     visibleCategories: [...BUILDING_SERVICE_CATEGORIES],
     colorByCategory: false,
   },
-  districts: { showNameOnMap: false, showParkAreas: false },
+  districts: { showAsMarker: false, showFill: false, showParkAreas: false },
   terrain: {
     showContourLines: true,
     showColorRelief: true,
