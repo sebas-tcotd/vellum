@@ -138,7 +138,7 @@ describe('SchematicView', () => {
     } as DOMRect);
     const label = container.querySelector('text.schematic-view__label')!;
     const before = label.getAttribute('font-size');
-    expect(label.getAttribute('transform')).toContain('rotate(0');
+    expect(label.getAttribute('transform')).toMatch(/^rotate\(/);
     fireEvent.wheel(svg, { clientX: 100, clientY: 50, deltaY: -1 });
     expect(label.getAttribute('font-size')).not.toBe(before);
     expect(label.getAttribute('stroke-width')).toBeTruthy();

@@ -13,17 +13,18 @@ export interface SchematicCamera {
 }
 
 type Box = SchematicCamera['viewBox'];
-const VISUAL_SCALE_MIN = 0.35;
-const VISUAL_SCALE_MAX = 3;
+// Matches the wheel's own limits (4 % of the diagram to 4× it), so type and
+// strokes keep their screen size across the whole zoom range instead of
+// growing once a clamp is hit.
+const VISUAL_SCALE_MIN = 0.04;
+const VISUAL_SCALE_MAX = 4;
+/** Quarter-octave steps: every zoom step is one label pass, at any depth. */
 const quantizeVisualScale = (base: Box, current: Box): number => {
   const raw = Math.sqrt(
     (current.width * current.height) / (base.width * base.height),
   );
-  return (
-    Math.round(
-      Math.min(VISUAL_SCALE_MAX, Math.max(VISUAL_SCALE_MIN, raw)) * 8,
-    ) / 8
-  );
+  const bounded = Math.min(VISUAL_SCALE_MAX, Math.max(VISUAL_SCALE_MIN, raw));
+  return 2 ** (Math.round(Math.log2(bounded) * 4) / 4);
 };
 const padded = (width: number, height: number): Box => ({
   x: -width * 0.05,

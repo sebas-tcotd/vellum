@@ -546,7 +546,8 @@
 /* A line label is centred on its run: the anchor is the optical middle of the
    stroke it names, in both axes, so the placement pass does not have to guess a
    baseline offset inside a rotated frame. */
-.schematic-view__label--line {
+.schematic-view__label--line,
+.schematic-view__label--station {
   dominant-baseline: central;
 }
 
