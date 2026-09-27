@@ -202,6 +202,79 @@ function readableAngle(from: SchematicPoint, to: SchematicPoint): number {
   return angle;
 }
 
+/**
+ * Uniform grid over oriented boxes, so a candidate label is only tested
+ * against the obstacles around it. Without it every candidate was tested
+ * against every stroke piece — ~140 ms per zoom step on a geographic layout
+ * of 11k points, paid on nearly every wheel tick.
+ */
+class BoxGrid {
+  private readonly cells = new Map<number, number[]>();
+  private readonly boxes: LabelBox[] = [];
+  private readonly owners: (string | null)[] = [];
+  private readonly seen: number[] = [];
+  private stamp = 0;
+
+  constructor(private readonly cell: number) {}
+
+  add(box: LabelBox, owner: string | null = null): void {
+    const index = this.boxes.length;
+    this.boxes.push(box);
+    this.owners.push(owner);
+    this.seen.push(0);
+    this.forCells(box, (key) => {
+      const bucket = this.cells.get(key);
+      if (bucket) bucket.push(index);
+      else this.cells.set(key, [index]);
+    });
+  }
+
+  /** Whether `box` overlaps anything stored, ignoring boxes owned by `owner`. */
+  hits(box: LabelBox, owner: string | null = null): boolean {
+    const stamp = ++this.stamp;
+    let hit = false;
+    this.forCells(box, (key) => {
+      if (hit) return;
+      for (const index of this.cells.get(key) ?? []) {
+        if (this.seen[index] === stamp) continue;
+        this.seen[index] = stamp;
+        if (owner !== null && this.owners[index] === owner) continue;
+        if (overlaps(box, this.boxes[index])) {
+          hit = true;
+          return;
+        }
+      }
+    });
+    return hit;
+  }
+
+  /** Indices of the stored boxes whose cells `box` touches. */
+  near(box: LabelBox): number[] {
+    const stamp = ++this.stamp;
+    const found: number[] = [];
+    this.forCells(box, (key) => {
+      for (const index of this.cells.get(key) ?? []) {
+        if (this.seen[index] === stamp) continue;
+        this.seen[index] = stamp;
+        found.push(index);
+      }
+    });
+    return found;
+  }
+
+  private forCells(box: LabelBox, visit: (key: number) => void): void {
+    const reachX = box.hu * Math.abs(box.ux) + box.hv * Math.abs(box.uy);
+    const reachY = box.hu * Math.abs(box.uy) + box.hv * Math.abs(box.ux);
+    const i0 = Math.floor((box.cx - reachX) / this.cell);
+    const i1 = Math.floor((box.cx + reachX) / this.cell);
+    const j0 = Math.floor((box.cy - reachY) / this.cell);
+    const j1 = Math.floor((box.cy + reachY) / this.cell);
+    for (let i = i0; i <= i1; i++) {
+      for (let j = j0; j <= j1; j++) visit((i + 32768) * 65536 + (j + 32768));
+    }
+  }
+}
+
 /** Text box of `width × height` centred on a point and rotated by `angle`. */
 function rotatedBox(
   centreX: number,
@@ -360,7 +433,6 @@ export function placeSchematicLabels(
   const widthOf = (text: string, size: number): number =>
     text.length * size * GLYPH_ADVANCE;
 
-  const occupied: LabelBox[] = [];
   const result: SchematicLabel[] = [];
 
   // ── Stations first. A named stop is the detail a reader is looking for, and
@@ -395,28 +467,44 @@ export function placeSchematicLabels(
       lineId: segment.lineId,
     })),
   );
-  const strokeBoxes = pieces.map((piece) =>
-    pieceBox(piece.from, piece.to, strokeReach),
-  );
-  const markers = new Map(
-    layout.stations.map((station) => [
-      station.id,
-      markerBox(station, strokeReach),
-    ]),
-  );
   const stationTypeDesign = stationTypeSize(layout.stations, scale);
   const stationSize = stationTypeDesign * scale;
+  // ponytail: cell floor at 1/200 of the diagram keeps a long octilinear run
+  // from filling thousands of cells at deep zoom.
+  const cell = Math.max(
+    stationSize * 2,
+    Math.max(layout.bounds.width, layout.bounds.height) / 200,
+  );
+  // Strokes and everything claimed (markers, placed labels) apart: a line
+  // label sits beside its own stroke, so only the claimed grid applies to it.
+  const strokes = new BoxGrid(cell);
+  const claimed = new BoxGrid(cell);
+  for (const piece of pieces) {
+    strokes.add(pieceBox(piece.from, piece.to, strokeReach));
+  }
+  for (const station of layout.stations) {
+    claimed.add(markerBox(station, strokeReach), station.id);
+  }
   const blocked = (box: LabelBox, ownId: string): boolean =>
-    occupied.some((other) => overlaps(box, other)) ||
-    strokeBoxes.some((other) => overlaps(box, other)) ||
-    [...markers].some(([id, other]) => id !== ownId && overlaps(box, other));
+    claimed.hits(box, ownId) || strokes.hits(box);
 
   for (const station of ordered) {
     const name = stationById.get(station.id)?.name?.trim();
     // An absent real name intentionally remains a symbol with no fabricated id.
     if (!name) continue;
     const width = widthOf(name, stationSize);
-    const axis = stationAxis(station, pieces, strokeReach * 3) ?? 0;
+    const probe = strokeReach * 3;
+    const nearby = strokes
+      .near({
+        cx: station.x,
+        cy: station.y,
+        ux: 1,
+        uy: 0,
+        hu: probe,
+        hv: probe,
+      })
+      .map((index) => pieces[index]);
+    const axis = stationAxis(station, nearby, probe) ?? 0;
     const perpendicular = axis + Math.PI / 2;
     // The two perpendicular rays first, then the eight octilinear directions
     // ordered by how far they turn from perpendicular (octi §5). Same turn:
@@ -469,7 +557,7 @@ export function placeSchematicLabels(
         angle = angle > 0 ? angle - 180 : angle + 180;
         anchor = 'end';
       }
-      occupied.push(box);
+      claimed.add(box);
       result.push({
         id: `station:${station.id}`,
         kind: 'station',
@@ -502,9 +590,6 @@ export function placeSchematicLabels(
       color: null,
     });
   }
-  // Line labels may not sit on a stop either.
-  occupied.push(...markers.values());
-
   // ── Line labels, on the strokes that are alone on their corridor.
   const strokesPerCorridor = new Map<string, number>();
   for (const segment of layout.segments) {
@@ -586,7 +671,8 @@ export function placeSchematicLabels(
       const centreX = midX + normalX * gap * hand;
       const centreY = midY + normalY * gap * hand;
       const box = rotatedBox(centreX, centreY, width, lineSize, angle);
-      if (occupied.some((other) => overlaps(box, other))) continue;
+      // Markers are already in `claimed`: a line label may not sit on a stop.
+      if (claimed.hits(box)) continue;
       // The anchor is the optical centre of the run; the view centres the
       // glyphs on it vertically (`dominant-baseline`) rather than this module
       // guessing at a baseline offset in a rotated frame.
@@ -594,7 +680,7 @@ export function placeSchematicLabels(
       break;
     }
     if (chosen === null) continue;
-    occupied.push(chosen.box);
+    claimed.add(chosen.box);
     result.push({
       id: `line:${line.id}`,
       kind: 'line',
