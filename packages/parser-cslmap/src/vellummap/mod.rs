@@ -21,7 +21,7 @@ pub use read::parse_vellummap_bytes;
 pub(crate) use read::parse_vellummap_observed;
 pub use write::cslmap_to_vellummap;
 
-use crate::city_data::{District, Vec3};
+use crate::city_data::{District, DistrictJobs, Vec3};
 use crate::errors::VellumError;
 use crate::parser::builder::RawCity;
 use crate::parser::handlers::buildings::RawBuilding;
@@ -200,12 +200,23 @@ impl Document {
                 .buildings
                 .buildings
                 .into_iter()
-                .map(|b| RawBuilding {
-                    id: b.source_id.to_string(),
-                    name: b.name,
-                    item_class: b.item_class,
-                    service_type: b.service_type,
-                    footprint: b.footprint.into_iter().map(Vec3::from).collect(),
+                .map(|b| {
+                    // `1.1`: `prefab` is the asset and `name` the visible name.
+                    // `1.0`: `name` is the asset. `validate` guarantees one of them.
+                    let (name, display_name) = match b.prefab {
+                        Some(prefab) => (prefab, b.name),
+                        None => (b.name.unwrap_or_default(), None),
+                    };
+                    RawBuilding {
+                        id: b.source_id.to_string(),
+                        name,
+                        display_name,
+                        custom_name: b.custom_name,
+                        historical: b.historical,
+                        item_class: b.item_class,
+                        service_type: b.service_type,
+                        footprint: b.footprint.into_iter().map(Vec3::from).collect(),
+                    }
                 })
                 .collect(),
             districts: self
@@ -217,6 +228,14 @@ impl Document {
                     name: d.name,
                     position: d.label_position.into(),
                     boundary: None,
+                    population: d.population,
+                    homes: d.homes,
+                    jobs: d.jobs.map(|j| DistrictJobs {
+                        commercial: j.commercial,
+                        industrial: j.industrial,
+                        office: j.office,
+                    }),
+                    specializations: d.specializations,
                 })
                 .collect(),
             park_areas: self

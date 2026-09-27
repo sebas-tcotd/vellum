@@ -4,9 +4,9 @@ use super::manifest::{
     parse_manifest, spec_of, CityInfo, Codec, GameInfo, Manifest, Producer, MODULES,
 };
 use super::modules::{
-    BuildingsModule, DepthProvenance, DistrictDoc, DistrictsModule, ParkDoc, ParksModule, Position,
-    RoadNodeDoc, RoadSegmentDoc, RoadsModule, TransitLineDoc, TransitModule, TransitStopDoc,
-    WaterModule,
+    BuildingDoc, BuildingsModule, DepthProvenance, DistrictDoc, DistrictJobsDoc, DistrictsModule,
+    ParkDoc, ParksModule, Position, RoadNodeDoc, RoadSegmentDoc, RoadsModule, TransitLineDoc,
+    TransitModule, TransitStopDoc, WaterModule,
 };
 use super::read::{read_document, sha256_hex};
 use super::write::{write_document, write_zip};
@@ -141,6 +141,10 @@ fn bridge_document() -> Document {
                 source_id: 1,
                 name: "Downtown".to_owned(),
                 label_position: pos(50.0, 0.0, 50.0),
+                population: None,
+                homes: None,
+                jobs: None,
+                specializations: None,
             }],
         },
         parks: ParksModule {
@@ -511,6 +515,252 @@ fn native_parse_warnings_reach_the_observer() {
     assert!(seen[0].contains("Some Modded Road"), "{seen:?}");
 }
 
+// ─── Story 5.6: datos de lugar (buildings/districts 1.1) ──────────────────────
+
+fn building(source_id: u32, name: Option<&str>, prefab: Option<&str>) -> BuildingDoc {
+    BuildingDoc {
+        source_id,
+        name: name.map(str::to_owned),
+        prefab: prefab.map(str::to_owned),
+        custom_name: None,
+        historical: None,
+        item_class: "Education Facility".to_owned(),
+        service_type: "None".to_owned(),
+        footprint: vec![pos(0.0, 0.0, 0.0)],
+    }
+}
+
+/// A document mixing module-1.0 records (prefab in `name`, no place data) and
+/// module-1.1 records (Bridge 0.8): the reader needs no version dispatch.
+fn place_data_document() -> Document {
+    let mut document = bridge_document();
+    let mut renamed = building(812, Some("Administração"), Some("Library"));
+    renamed.custom_name = Some(true);
+    let mut historical = building(36, None, Some("EU LD 15A"));
+    historical.historical = Some(true);
+    document.buildings.buildings = vec![
+        building(12, Some("H1 1x1 Sweatshop01"), None),
+        renamed,
+        historical,
+        building(813, Some("Fire Station 3"), Some("Fire Station")),
+    ];
+    let populated = DistrictDoc {
+        population: Some(1234),
+        homes: Some(500),
+        jobs: Some(DistrictJobsDoc {
+            commercial: 120,
+            industrial: 80,
+            office: 300,
+        }),
+        specializations: Some(vec!["Tourist".to_owned(), "Hightech".to_owned()]),
+        ..document.districts.districts[0].clone()
+    };
+    let fresh = DistrictDoc {
+        source_id: 2,
+        name: "Centro".to_owned(),
+        label_position: pos(0.0, 0.0, 0.0),
+        population: Some(0),
+        homes: Some(0),
+        jobs: Some(DistrictJobsDoc {
+            commercial: 0,
+            industrial: 0,
+            office: 0,
+        }),
+        specializations: Some(Vec::new()),
+    };
+    let legacy = DistrictDoc {
+        source_id: 3,
+        name: "Old Town".to_owned(),
+        label_position: pos(10.0, 0.0, 10.0),
+        population: None,
+        homes: None,
+        jobs: None,
+        specializations: None,
+    };
+    document.districts.districts = vec![populated, fresh, legacy];
+    document
+}
+
+#[test]
+fn place_data_reaches_city_data() {
+    let city = parse_vellummap_bytes(&write_document(&place_data_document()).unwrap())
+        .expect("a document with place data must open");
+    let by_id = |id: &str| city.buildings.iter().find(|b| b.id == id).unwrap();
+
+    // 1.1: `prefab` → `name`, `name` → `displayName`.
+    let renamed = by_id("812");
+    assert_eq!(renamed.name, "Library");
+    assert_eq!(renamed.display_name.as_deref(), Some("Administração"));
+    assert_eq!(renamed.custom_name, Some(true));
+    assert_eq!(renamed.historical, None);
+    let service = by_id("813");
+    assert_eq!(service.name, "Fire Station");
+    assert_eq!(service.display_name.as_deref(), Some("Fire Station 3"));
+    assert_eq!(service.custom_name, None);
+    let rico = by_id("36");
+    assert_eq!(rico.name, "EU LD 15A");
+    assert_eq!(rico.display_name, None);
+    assert_eq!(rico.historical, Some(true));
+
+    let populated = &city.districts[0];
+    assert_eq!(populated.population, Some(1234));
+    assert_eq!(populated.homes, Some(500));
+    let jobs = populated.jobs.expect("jobs");
+    assert_eq!(
+        (jobs.commercial, jobs.industrial, jobs.office),
+        (120, 80, 300)
+    );
+    assert_eq!(
+        populated.specializations.as_deref(),
+        Some(&["Tourist".to_owned(), "Hightech".to_owned()][..])
+    );
+
+    // Zero is a value, not absence: it reaches CityData and the wire.
+    let json = serde_json::to_value(&city).unwrap();
+    let fresh = &json["districts"][1];
+    assert_eq!(fresh["population"], 0);
+    assert_eq!(fresh["homes"], 0);
+    assert_eq!(
+        fresh["jobs"],
+        serde_json::json!({ "commercial": 0, "industrial": 0, "office": 0 })
+    );
+    assert_eq!(fresh["specializations"], serde_json::json!([]));
+    let renamed_json = json["buildings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|b| b["id"] == "812")
+        .unwrap();
+    assert_eq!(renamed_json["displayName"], "Administração");
+    assert_eq!(renamed_json["customName"], true);
+}
+
+#[test]
+fn module_1_0_records_open_as_before() {
+    let city = parse_vellummap_bytes(&write_document(&place_data_document()).unwrap()).unwrap();
+    let legacy = city.buildings.iter().find(|b| b.id == "12").unwrap();
+    assert_eq!(
+        legacy.name, "H1 1x1 Sweatshop01",
+        "1.0: `name` is the prefab"
+    );
+    assert_eq!(legacy.display_name, None);
+
+    let json = serde_json::to_value(&city).unwrap();
+    let legacy_json = json["buildings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|b| b["id"] == "12")
+        .unwrap();
+    let old_district = &json["districts"][2];
+    for key in ["displayName", "customName", "historical"] {
+        assert!(
+            legacy_json.get(key).is_none(),
+            "1.0 building has no `{key}`"
+        );
+    }
+    for key in ["population", "homes", "jobs", "specializations"] {
+        assert!(
+            old_district.get(key).is_none(),
+            "1.0 district has no `{key}`"
+        );
+    }
+
+    // The reference converter keeps writing module 1.0: the prefab in `name`.
+    let converted = cslmap_to_vellummap(&fixture("altavento.cslmap")).unwrap();
+    let (_, bytes, _) = entries(&converted)
+        .into_iter()
+        .find(|(p, _, _)| p == "buildings.json")
+        .unwrap();
+    let module: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    let first = &module["buildings"][0];
+    assert!(first.get("prefab").is_none() && first["name"].is_string());
+}
+
+#[test]
+fn cslmap_fixtures_never_carry_place_data() {
+    let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("fixtures");
+    let mut parsed = 0;
+    for entry in std::fs::read_dir(&dir).unwrap() {
+        let path = entry.unwrap().path();
+        if path.extension().is_none_or(|e| e != "cslmap") {
+            continue;
+        }
+        let Ok(city) = parse_cslmap_bytes(&std::fs::read(&path).unwrap()) else {
+            continue; // corrupted.cslmap
+        };
+        parsed += 1;
+        let name = path.display();
+        for b in &city.buildings {
+            assert!(
+                b.display_name.is_none() && b.custom_name.is_none() && b.historical.is_none(),
+                "{name}: building {} has place data",
+                b.id
+            );
+        }
+        for d in &city.districts {
+            assert!(
+                d.population.is_none()
+                    && d.homes.is_none()
+                    && d.jobs.is_none()
+                    && d.specializations.is_none(),
+                "{name}: district {} has place data",
+                d.id
+            );
+        }
+    }
+    assert!(parsed >= 8, "expected the real fixtures, parsed {parsed}");
+}
+
+#[test]
+fn building_without_name_or_prefab_is_invalid() {
+    let bytes = edit_json_module(
+        &write_document(&place_data_document()).unwrap(),
+        "buildings.json",
+        |v| {
+            v["buildings"][0].as_object_mut().unwrap().remove("name");
+        },
+    );
+    assert_invalid(
+        parse_vellummap_bytes(&bytes),
+        "buildings.json building 12: needs `prefab` or `name`",
+    );
+}
+
+#[test]
+fn malformed_district_place_data_is_invalid() {
+    let zip = write_document(&place_data_document()).unwrap();
+    for (edit, needle) in [
+        (
+            serde_json::json!({ "population": -1 }),
+            "districts.json: invalid value: integer `-1`",
+        ),
+        (
+            serde_json::json!({ "homes": null }),
+            "districts.json: invalid type: null",
+        ),
+        (
+            serde_json::json!({ "jobs": { "commercial": 0, "industrial": 0, "office": 0, "farm": 1 } }),
+            "districts.json: unknown field `farm`",
+        ),
+        (
+            serde_json::json!({ "population": 1.0 }),
+            "districts.json: invalid type: floating point",
+        ),
+        (
+            serde_json::json!({ "specializations": ["Tourist", ""] }),
+            "a specialization must not be empty",
+        ),
+    ] {
+        let bytes = edit_json_module(&zip, "districts.json", |v| {
+            for (key, value) in edit.as_object().unwrap() {
+                v["districts"][0][key] = value.clone();
+            }
+        });
+        assert_invalid(parse_vellummap_bytes(&bytes), needle);
+    }
+}
+
 // ─── Matrix: "Áreas" — sin grilla, solo etiqueta ──────────────────────────────
 
 #[test]
@@ -577,6 +827,21 @@ fn future_module_major_is_unsupported() {
         Err(VellumError::UnsupportedVersion { found }) => assert_eq!(found, "2.0"),
         other => panic!("expected UnsupportedVersion, got {other:?}"),
     }
+}
+
+#[test]
+fn bridge_0_8_module_versions_open() {
+    // Bridge 0.8 declara `buildings` y `districts` en 1.1; el resto sigue en 1.0.
+    let zip = write_document(&place_data_document()).unwrap();
+    let bytes = with_manifest(&zip, |m| {
+        for module in m["modules"].as_array_mut().unwrap() {
+            if module["id"] == "buildings" || module["id"] == "districts" {
+                module["version"] = "1.1".into();
+            }
+        }
+    });
+    let city = parse_vellummap_bytes(&bytes).expect("a 1.1 module must open");
+    assert_eq!(city.districts[0].population, Some(1234));
 }
 
 #[test]

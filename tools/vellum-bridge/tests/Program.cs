@@ -72,7 +72,7 @@ namespace VellumBridge.Tests
                 gameTime = "2031-05-17T08:00:00",
                 gameVersion = "1.21.1-f9",
                 gameInstanceId = "3f2504e0-4f89-11d3-9a0c-0305e82c3301",
-                producerVersion = "0.6.0-experimental",
+                producerVersion = "0.8.0-experimental",
                 cityName = "Harness: City/Test",
                 seaLevel = 40f,
                 simulationPaused = paused,
@@ -116,10 +116,20 @@ namespace VellumBridge.Tests
             m.lines.Add(bus);
             m.lines.Add(metro);
 
-            m.buildings.Add(new BuildingModel { sourceId = 36, name = "EU LD 15A", itemClass = "Low Residential - Level2", serviceType = "ResidentialLow", position = new Vec3(841.8f, 206.7f, 2459.1f), angle = 0f, width = 4, length = 4 });
-            m.buildings.Add(new BuildingModel { sourceId = 40, name = "Water Pipe Junction", itemClass = "Water Pipe", serviceType = "None", position = new Vec3(10f, 60f, 10f), angle = 1.2f, width = 1, length = 1 });
+            // RICO histórico sin renombrar: sin nombre visible, con historical.
+            m.buildings.Add(new BuildingModel { sourceId = 36, prefab = "EU LD 15A", itemClass = "Low Residential - Level2", serviceType = "ResidentialLow", position = new Vec3(841.8f, 206.7f, 2459.1f), angle = 0f, width = 4, length = 4, historical = true });
+            m.buildings.Add(new BuildingModel { sourceId = 40, prefab = "Water Pipe Junction", itemClass = "Water Pipe", serviceType = "None", position = new Vec3(10f, 60f, 10f), angle = 1.2f, width = 1, length = 1 });
+            // Servicio renombrado por el jugador.
+            m.buildings.Add(new BuildingModel { sourceId = 812, prefab = "Library", name = "Administração", customName = true, itemClass = "Education Facility", serviceType = "None", position = new Vec3(20f, 60f, 20f), angle = 0f, width = 3, length = 3 });
+            // Servicio sin renombrar: nombre generado por el juego, sin customName.
+            m.buildings.Add(new BuildingModel { sourceId = 813, prefab = "Opera House", name = "Opera House", itemClass = "Monument Facility", serviceType = "None", position = new Vec3(30f, 60f, 30f), angle = 0f, width = 2, length = 2 });
+            // Renombrado, pero el nombre no se pudo leer: ni name ni customName.
+            m.buildings.Add(new BuildingModel { sourceId = 814, prefab = "H1 2x2 Shop", customName = true, itemClass = "Low Commercial", serviceType = "CommercialLow", position = new Vec3(40f, 60f, 40f), angle = 0f, width = 2, length = 2 });
 
-            m.districts.Add(new AreaModel { sourceId = 1, name = "Downtown", labelPosition = new Vec3(0, 0, 0) });
+            var downtown = new AreaModel { sourceId = 1, name = "Downtown", labelPosition = new Vec3(0, 0, 0), population = 1234, homes = 500, commercialJobs = 120, industrialJobs = 80, officeJobs = 300 };
+            downtown.specializations.AddRange(new[] { "Tourist", "", "Hightech" });
+            m.districts.Add(downtown);
+            // Distrito recién creado: todo en cero y sin especialización.
             m.districts.Add(new AreaModel { sourceId = 2, name = "Harbor", labelPosition = new Vec3(500, 0, 500) });
             m.parks.Add(new AreaModel { sourceId = 3, name = "City Zoo", labelPosition = new Vec3(-50, 0, -50), parkType = "Zoo" });
             m.parks.Add(new AreaModel { sourceId = 4, name = "Old Park", labelPosition = new Vec3(0, 0, 0) });
@@ -287,10 +297,18 @@ namespace VellumBridge.Tests
                 }
                 using (JsonDocument buildings = Json(zip, "buildings.json"))
                 {
-                    JsonElement anchor = buildings.RootElement.GetProperty("buildings")[0].GetProperty("footprint")[0];
+                    JsonElement list = buildings.RootElement.GetProperty("buildings");
+                    JsonElement anchor = list[0].GetProperty("footprint")[0];
                     Check(Math.Abs(anchor.GetProperty("x").GetDouble() - 825.8) < 0.01 && Math.Abs(anchor.GetProperty("z").GetDouble() - 2475.1) < 0.01,
                         "Footprint en buildings.json empieza por el ancla");
+                    BuildingPlaceData(list);
                 }
+                using (JsonDocument districtsJson = Json(zip, "districts.json"))
+                    DistrictPlaceData(districtsJson.RootElement.GetProperty("districts"));
+                using (JsonDocument parks = Json(zip, "parks.json"))
+                    foreach (JsonElement park in parks.RootElement.GetProperty("parks").EnumerateArray())
+                        Check(!park.TryGetProperty("population", out _) && !park.TryGetProperty("specializations", out _),
+                            "Parques sin datos de lugar");
                 using (JsonDocument manifest = Json(zip, "manifest.json"))
                 {
                     JsonElement root = manifest.RootElement;
@@ -313,11 +331,63 @@ namespace VellumBridge.Tests
             Check(!summary.limits.Exists(l => l.Contains("Profundidad")), "En pausa: sin límite de profundidad");
         }
 
+        // buildings 1.1: prefab propio, name visible opcional, customName/historical solo si true.
+        private static void BuildingPlaceData(JsonElement list)
+        {
+            var byId = new Dictionary<int, JsonElement>();
+            foreach (JsonElement building in list.EnumerateArray()) byId[building.GetProperty("sourceId").GetInt32()] = building;
+            JsonElement value;
+
+            JsonElement rico = byId[36];
+            Check(rico.GetProperty("prefab").GetString() == "EU LD 15A", "RICO: prefab en su campo");
+            Check(!rico.TryGetProperty("name", out value) && !rico.TryGetProperty("customName", out value), "RICO sin renombrar: sin name ni customName");
+            Check(rico.GetProperty("historical").GetBoolean(), "RICO histórico: historical true");
+
+            JsonElement renamed = byId[812];
+            Check(renamed.GetProperty("prefab").GetString() == "Library" && renamed.GetProperty("name").GetString() == "Administração",
+                "Servicio renombrado: prefab Library, name Administração");
+            Check(renamed.GetProperty("customName").GetBoolean() && !renamed.TryGetProperty("historical", out value),
+                "Servicio renombrado: customName true, sin historical");
+
+            JsonElement unique = byId[813];
+            Check(unique.GetProperty("name").GetString() == "Opera House" && !unique.TryGetProperty("customName", out value),
+                "Edificio único sin renombrar: name visible sin customName");
+
+            JsonElement unreadable = byId[814];
+            Check(!unreadable.TryGetProperty("name", out value) && !unreadable.TryGetProperty("customName", out value),
+                "Nombre ilegible: sin name ni customName");
+            Check(!byId[40].TryGetProperty("name", out value), "Sin nombre propio (estructura de red): sin name");
+        }
+
+        // districts 1.1: los cuatro campos siempre presentes; cero y [] son datos.
+        private static void DistrictPlaceData(JsonElement list)
+        {
+            JsonElement downtown = list[0], harbor = list[1];
+            JsonElement jobs = downtown.GetProperty("jobs");
+            Check(downtown.GetProperty("population").GetInt64() == 1234 && downtown.GetProperty("homes").GetInt64() == 500,
+                "Distrito poblado: population y homes");
+            Check(jobs.GetProperty("commercial").GetInt64() == 120 && jobs.GetProperty("industrial").GetInt64() == 80
+                && jobs.GetProperty("office").GetInt64() == 300, "Distrito poblado: empleos por sector");
+            int sectors = 0;
+            foreach (JsonProperty ignored in jobs.EnumerateObject()) sectors++;
+            Check(sectors == 3, "jobs: solo commercial, industrial y office");
+            JsonElement specializations = downtown.GetProperty("specializations");
+            Check(specializations.GetArrayLength() == 2 && specializations[0].GetString() == "Tourist" && specializations[1].GetString() == "Hightech",
+                "Especializaciones en orden y sin vacíos");
+
+            JsonElement zeroJobs = harbor.GetProperty("jobs");
+            Check(harbor.GetProperty("population").GetInt64() == 0 && harbor.GetProperty("homes").GetInt64() == 0
+                && zeroJobs.GetProperty("commercial").GetInt64() == 0 && zeroJobs.GetProperty("industrial").GetInt64() == 0
+                && zeroJobs.GetProperty("office").GetInt64() == 0, "Distrito recién creado: ceros presentes");
+            Check(harbor.GetProperty("specializations").GetArrayLength() == 0, "Distrito sin especialización: []");
+        }
+
         // Tabla «Módulos v1» de docs/es/vellummap-format.md: id → archivo y forma de la grilla
         // (resolución, celda, muestra, escala; null = módulo JSON sin `grid`).
         private sealed class Spec
         {
             public string path, sample;
+            public string version = "1.0";
             public int resolution;
             public double cellSize;
             public double? scale;
@@ -332,8 +402,8 @@ namespace VellumBridge.Tests
             { "vegetation", new Spec { path = "vegetation.bin", resolution = 512, cellSize = 33.75, sample = "u8" } },
             { "roads", new Spec { path = "roads.json" } },
             { "transit", new Spec { path = "transit.json" } },
-            { "buildings", new Spec { path = "buildings.json" } },
-            { "districts", new Spec { path = "districts.json" } },
+            { "buildings", new Spec { path = "buildings.json", version = "1.1" } },
+            { "districts", new Spec { path = "districts.json", version = "1.1" } },
             { "parks", new Spec { path = "parks.json" } },
             { "district-grid", new Spec { path = "districts.bin", resolution = 900, cellSize = 19.2, sample = "u8x8" } },
             { "park-grid", new Spec { path = "parks.bin", resolution = 900, cellSize = 19.2, sample = "u8x8" } },
@@ -349,7 +419,7 @@ namespace VellumBridge.Tests
                 Spec spec;
                 if (!Modules.TryGetValue(id, out spec)) { Check(false, "Módulo desconocido en el manifest: " + id); continue; }
                 Check(module.GetProperty("path").GetString() == spec.path, id + ": path " + spec.path);
-                Check(module.GetProperty("version").GetString() == "1.0", id + ": version 1.0");
+                Check(module.GetProperty("version").GetString() == spec.version, id + ": version " + spec.version);
                 JsonElement grid;
                 bool hasGrid = module.TryGetProperty("grid", out grid);
                 if (spec.sample == null) { Check(!hasGrid, id + ": módulo JSON sin grid"); continue; }
@@ -405,8 +475,8 @@ namespace VellumBridge.Tests
             var duplicate = new LineModel { sourceId = 4, name = "Duplicate", transportType = "Tram", alpha = 255 };
             duplicate.stops.Add(Stop(5, "Main St", null));                                                 // no debe contar para numerar
             model.lines.Add(duplicate);
-            model.buildings.Add(new BuildingModel { sourceId = 36, name = "Duplicate", itemClass = "x", serviceType = "None", width = 1, length = 1 });
-            model.buildings.Add(new BuildingModel { sourceId = 41, name = "NaN", itemClass = "x", serviceType = "None", position = new Vec3(0f, float.NaN, 0f), width = 1, length = 1 });
+            model.buildings.Add(new BuildingModel { sourceId = 36, prefab = "Duplicate", itemClass = "x", serviceType = "None", width = 1, length = 1 });
+            model.buildings.Add(new BuildingModel { sourceId = 41, prefab = "NaN", itemClass = "x", serviceType = "None", position = new Vec3(0f, float.NaN, 0f), width = 1, length = 1 });
             model.districts.Add(new AreaModel { sourceId = 1, name = "Duplicate District", labelPosition = new Vec3(0, 0, 0) });
             model.parks.Add(new AreaModel { sourceId = 7, name = "NaN Park", labelPosition = new Vec3(float.PositiveInfinity, 0, 0) });
 
@@ -434,7 +504,7 @@ namespace VellumBridge.Tests
                 {
                     JsonElement list = buildings.RootElement.GetProperty("buildings");
                     List<int> ids = Ids(list);
-                    Check(ids.Count == 2 && !ids.Contains(41) && list[0].GetProperty("name").GetString() == "EU LD 15A",
+                    Check(ids.Count == 5 && !ids.Contains(41) && list[0].GetProperty("prefab").GetString() == "EU LD 15A",
                         "Edificios: sin el repetido ni el NaN");
                 }
                 using (JsonDocument districts = Json(zip, "districts.json"))

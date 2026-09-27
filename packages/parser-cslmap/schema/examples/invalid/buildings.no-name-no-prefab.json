@@ -1,0 +1,10 @@
+{
+  "buildings": [
+    {
+      "sourceId": 12,
+      "itemClass": "Low Commercial",
+      "serviceType": "CommercialLow",
+      "footprint": []
+    }
+  ]
+}

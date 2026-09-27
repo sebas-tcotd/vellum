@@ -377,6 +377,9 @@ fn build_building(building: RawBuilding) -> Building {
     Building {
         id: building.id,
         name: building.name,
+        display_name: building.display_name,
+        custom_name: building.custom_name,
+        historical: building.historical,
         position,
         item_class: building.item_class,
         service_type: building.service_type,

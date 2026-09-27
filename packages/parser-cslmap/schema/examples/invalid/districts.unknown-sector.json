@@ -1,0 +1,13 @@
+{
+  "districts": [
+    {
+      "sourceId": 1,
+      "name": "Downtown",
+      "labelPosition": { "x": 50, "y": 0, "z": 50 },
+      "population": 10,
+      "homes": 4,
+      "jobs": { "commercial": 0, "industrial": 0, "office": 0, "farm": 3 },
+      "specializations": []
+    }
+  ]
+}

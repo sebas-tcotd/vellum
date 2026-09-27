@@ -91,14 +91,14 @@
     {
       "id": "buildings",
       "path": "buildings.json",
-      "version": "1.0",
+      "version": "1.1",
       "codec": "deflate",
       "sha256": "7777777777777777777777777777777777777777777777777777777777777777"
     },
     {
       "id": "districts",
       "path": "districts.json",
-      "version": "1.0",
+      "version": "1.1",
       "codec": "deflate",
       "sha256": "8888888888888888888888888888888888888888888888888888888888888888"
     },

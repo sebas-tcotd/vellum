@@ -251,12 +251,43 @@ pub(crate) struct BuildingsModule {
     pub(crate) buildings: Vec<BuildingDoc>,
 }
 
+/// A building. Module `1.0` writes the prefab in `name`; `1.1` (Bridge 0.8) moves
+/// the prefab to `prefab` and uses `name` for the visible name, when there is one.
+/// The presence of `prefab` tells them apart — no dispatch on the module version.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct BuildingDoc {
     pub(crate) source_id: u32,
-    /// Prefab (asset) name.
-    pub(crate) name: String,
+    /// With `prefab`: the visible name (`GetBuildingName`), never empty; only for
+    /// renamed buildings and unique ones (`Monument` service). Without `prefab`: the prefab
+    /// (asset) name, required.
+    #[serde(
+        default,
+        deserialize_with = "non_null",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub(crate) name: Option<String>,
+    /// Prefab (asset) name (`1.1`).
+    #[serde(
+        default,
+        deserialize_with = "non_null",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub(crate) prefab: Option<String>,
+    /// `Building.Flags.CustomName`: the player renamed it. Requires `name` and `prefab`.
+    #[serde(
+        default,
+        deserialize_with = "non_null",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub(crate) custom_name: Option<bool>,
+    /// `Building.Flags.Historical`. Requires `prefab`.
+    #[serde(
+        default,
+        deserialize_with = "non_null",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub(crate) historical: Option<bool>,
     pub(crate) item_class: String,
     /// The prefab's sub-service (`ResidentialLow`, …).
     pub(crate) service_type: String,
@@ -278,6 +309,43 @@ pub(crate) struct DistrictDoc {
     pub(crate) source_id: u32,
     pub(crate) name: String,
     pub(crate) label_position: Position,
+    /// Residents (`m_populationData.m_finalCount`). Module `1.1`.
+    #[serde(
+        default,
+        deserialize_with = "non_null",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub(crate) population: Option<u32>,
+    /// Homes (`m_residentialData.m_finalHomeOrWorkCount`). Module `1.1`.
+    #[serde(
+        default,
+        deserialize_with = "non_null",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub(crate) homes: Option<u32>,
+    /// Jobs per zoned sector. Module `1.1`.
+    #[serde(
+        default,
+        deserialize_with = "non_null",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub(crate) jobs: Option<DistrictJobsDoc>,
+    /// Active `DistrictPolicies.Specialization` names, unreduced. Module `1.1`.
+    #[serde(
+        default,
+        deserialize_with = "non_null",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub(crate) specializations: Option<Vec<String>>,
+}
+
+/// `m_{commercial,industrial,office}Data.m_finalHomeOrWorkCount`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct DistrictJobsDoc {
+    pub(crate) commercial: u32,
+    pub(crate) industrial: u32,
+    pub(crate) office: u32,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -302,14 +370,52 @@ pub(crate) struct ParkDoc {
 }
 
 impl BuildingsModule {
+    /// Unique ids (reader-only) and the `name`/`prefab` shape (also in the schema):
+    /// with `prefab`, `name` is optional and never empty; without it, `name` is
+    /// required and `customName`/`historical` are not allowed. `customName` needs `name`.
     pub(crate) fn validate(&self) -> Result<(), VellumError> {
-        check_unique_ids("buildings.json", self.buildings.iter().map(|b| b.source_id)).map(|_| ())
+        check_unique_ids("buildings.json", self.buildings.iter().map(|b| b.source_id))?;
+        for b in &self.buildings {
+            let fail =
+                |why: &str| invalid(format!("buildings.json building {}: {why}", b.source_id));
+            if b.prefab.is_some() {
+                if b.prefab.as_deref() == Some("") {
+                    return Err(fail("`prefab` must not be empty"));
+                }
+                if b.name.as_deref() == Some("") {
+                    return Err(fail("`name` must not be empty (omit it instead)"));
+                }
+            } else {
+                if b.name.is_none() {
+                    return Err(fail("needs `prefab` or `name`"));
+                }
+                if b.custom_name.is_some() || b.historical.is_some() {
+                    return Err(fail("`customName` and `historical` require `prefab`"));
+                }
+            }
+            if b.custom_name.is_some() && b.name.is_none() {
+                return Err(fail("`customName` requires `name`"));
+            }
+        }
+        Ok(())
     }
 }
 
 impl DistrictsModule {
     pub(crate) fn validate(&self) -> Result<(), VellumError> {
-        check_unique_ids("districts.json", self.districts.iter().map(|d| d.source_id)).map(|_| ())
+        check_unique_ids("districts.json", self.districts.iter().map(|d| d.source_id))?;
+        for d in &self.districts {
+            if d.specializations
+                .as_ref()
+                .is_some_and(|all| all.iter().any(String::is_empty))
+            {
+                return Err(invalid(format!(
+                    "districts.json district {}: a specialization must not be empty",
+                    d.source_id
+                )));
+            }
+        }
+        Ok(())
     }
 }
 

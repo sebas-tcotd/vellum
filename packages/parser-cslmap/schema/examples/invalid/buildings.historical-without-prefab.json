@@ -1,0 +1,12 @@
+{
+  "buildings": [
+    {
+      "sourceId": 36,
+      "name": "EU LD 15A",
+      "historical": true,
+      "itemClass": "Low Residential - Level2",
+      "serviceType": "ResidentialLow",
+      "footprint": []
+    }
+  ]
+}

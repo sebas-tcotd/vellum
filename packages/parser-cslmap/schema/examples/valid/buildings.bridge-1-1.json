@@ -1,0 +1,29 @@
+{
+  "buildings": [
+    {
+      "sourceId": 812,
+      "prefab": "Library",
+      "name": "Administração",
+      "customName": true,
+      "itemClass": "Education Facility",
+      "serviceType": "None",
+      "footprint": [{ "x": 20, "y": 60, "z": 20 }]
+    },
+    {
+      "sourceId": 813,
+      "prefab": "Opera House",
+      "name": "Opera House",
+      "itemClass": "Monument Facility",
+      "serviceType": "None",
+      "footprint": [{ "x": 30, "y": 60, "z": 30 }]
+    },
+    {
+      "sourceId": 36,
+      "prefab": "EU LD 15A",
+      "historical": true,
+      "itemClass": "Low Residential - Level2",
+      "serviceType": "ResidentialLow",
+      "footprint": [{ "x": 825.8, "y": 206.7, "z": 2475.1 }]
+    }
+  ]
+}

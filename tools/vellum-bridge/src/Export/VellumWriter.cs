@@ -47,11 +47,16 @@ namespace VellumBridge.Export
         private const int VanillaAreaResolution = 512;
         private const int WetDepth = 16;                // mojado = profundidad > 16 (25 cm)
         private const float PointSpacing = 25f;         // metros entre puntos de la curva
+        private const string ModuleVersion = "1.0";
+        // buildings 1.1: `prefab` propio, `name` visible opcional, `customName`/`historical`.
+        // districts 1.1: población, hogares, empleos por sector y especializaciones.
+        private const string PlaceDataVersion = "1.1";
 
         // Una entrada del zip ya preparada: bytes descomprimidos, hash y codec real.
         private sealed class Entry
         {
             public string id, path, grid;               // grid: JSON del objeto `grid` o null
+            public string version = ModuleVersion;      // `version` del módulo en el manifest
             public byte[] raw, stored;
             public bool deflated;
             public uint crc;
@@ -138,11 +143,15 @@ namespace VellumBridge.Export
 
             entries.Add(JsonEntry("roads", "roads.json", Roads(model, summary)));
             entries.Add(JsonEntry("transit", "transit.json", Transit(model, summary)));
-            entries.Add(JsonEntry("buildings", "buildings.json", Buildings(model, summary)));
+            Entry buildings = JsonEntry("buildings", "buildings.json", Buildings(model, summary));
+            buildings.version = PlaceDataVersion;
+            entries.Add(buildings);
             var districtIds = new Dictionary<int, bool>();
             var parkIds = new Dictionary<int, bool>();
-            entries.Add(JsonEntry("districts", "districts.json", Areas("districts", model.districts, districtIds, summary)));
-            entries.Add(JsonEntry("parks", "parks.json", Areas("parks", model.parks, parkIds, summary)));
+            Entry districts = JsonEntry("districts", "districts.json", Areas("districts", model.districts, districtIds, true, summary));
+            districts.version = PlaceDataVersion;
+            entries.Add(districts);
+            entries.Add(JsonEntry("parks", "parks.json", Areas("parks", model.parks, parkIds, false, summary)));
             summary.districts = districtIds.Count;
             summary.parks = parkIds.Count;
 
@@ -359,8 +368,16 @@ namespace VellumBridge.Export
                     continue;
                 }
                 seen[building.sourceId] = true;
-                json.Open('{').Key("sourceId").Int(building.sourceId).Key("name").String(building.name ?? "")
-                    .Key("itemClass").String(building.itemClass ?? "").Key("serviceType").String(building.serviceType ?? "")
+                // buildings 1.1: el prefab en su campo y `name` solo con nombre visible.
+                // `customName` y `historical` se escriben solo si son true; `customName` exige `name`.
+                json.Open('{').Key("sourceId").Int(building.sourceId).Key("prefab").String(building.prefab ?? "");
+                if (!string.IsNullOrEmpty(building.name))
+                {
+                    json.Key("name").String(building.name);
+                    if (building.customName) json.Key("customName").Bool(true);
+                }
+                if (building.historical) json.Key("historical").Bool(true);
+                json.Key("itemClass").String(building.itemClass ?? "").Key("serviceType").String(building.serviceType ?? "")
                     .Key("footprint").Open('[');
                 foreach (Vec3 corner in Footprint(building.position, building.angle, building.width, building.length))
                     json.Position(corner);
@@ -388,7 +405,9 @@ namespace VellumBridge.Export
             };
         }
 
-        private static Json Areas(string module, List<AreaModel> areas, Dictionary<int, bool> ids, ExportSummary summary)
+        // placeData: districts 1.1 escribe siempre población, hogares, empleos y especializaciones
+        // (cero y [] son datos). Los parques no los llevan.
+        private static Json Areas(string module, List<AreaModel> areas, Dictionary<int, bool> ids, bool placeData, ExportSummary summary)
         {
             var json = new Json();
             int invalid = 0;
@@ -400,6 +419,17 @@ namespace VellumBridge.Export
                 json.Open('{').Key("sourceId").Int(area.sourceId).Key("name").String(area.name ?? "")
                     .Key("labelPosition").Position(area.labelPosition);
                 if (!string.IsNullOrEmpty(area.parkType)) json.Key("parkType").String(area.parkType);
+                if (placeData)
+                {
+                    json.Key("population").Int(area.population).Key("homes").Int(area.homes)
+                        .Key("jobs").Open('{').Key("commercial").Int(area.commercialJobs)
+                        .Key("industrial").Int(area.industrialJobs).Key("office").Int(area.officeJobs).Close('}')
+                        .Key("specializations").Open('[');
+                    if (area.specializations != null)
+                        foreach (string specialization in area.specializations)
+                            if (!string.IsNullOrEmpty(specialization)) json.String(specialization);
+                    json.Close(']');
+                }
                 json.Close('}');
             }
             json.Close(']').Close('}');
@@ -484,7 +514,7 @@ namespace VellumBridge.Export
                 .Key("modules").Open('[');
             foreach (Entry entry in entries)
             {
-                json.Open('{').Key("id").String(entry.id).Key("path").String(entry.path).Key("version").String("1.0")
+                json.Open('{').Key("id").String(entry.id).Key("path").String(entry.path).Key("version").String(entry.version)
                     .Key("codec").String(entry.deflated ? "deflate" : "stored").Key("sha256").String(entry.sha256);
                 if (entry.grid != null) json.Key("grid").Raw(entry.grid);
                 json.Close('}');

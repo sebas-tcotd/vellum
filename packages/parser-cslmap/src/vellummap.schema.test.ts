@@ -114,6 +114,20 @@ describe('vellummap.schema.json', () => {
       },
     ],
     [
+      'población con parte decimal',
+      'districts',
+      {
+        districts: [
+          {
+            sourceId: 1,
+            name: 'a',
+            labelPosition: { x: 0, y: 0, z: 0 },
+            population: 1.0,
+          },
+        ],
+      },
+    ],
+    [
       'sourceId duplicado',
       'districts',
       {

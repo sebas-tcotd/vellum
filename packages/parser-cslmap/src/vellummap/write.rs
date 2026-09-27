@@ -320,9 +320,14 @@ fn areas_from_raw(
             .buildings
             .iter()
             .map(|b| {
+                // The converter writes module 1.0: `name` is the prefab and nothing
+                // else. `.cslmap` has no visible names.
                 Ok(BuildingDoc {
                     source_id: source_id(&b.id)?,
-                    name: b.name.clone(),
+                    name: Some(b.name.clone()),
+                    prefab: None,
+                    custom_name: None,
+                    historical: None,
                     item_class: b.item_class.clone(),
                     service_type: b.service_type.clone(),
                     footprint: b.footprint.iter().map(Position::from).collect(),
@@ -339,6 +344,10 @@ fn areas_from_raw(
                     source_id: source_id(&d.id)?,
                     name: d.name.clone(),
                     label_position: (&d.position).into(),
+                    population: None,
+                    homes: None,
+                    jobs: None,
+                    specializations: None,
                 })
             })
             .collect::<Result<_, VellumError>>()?,
