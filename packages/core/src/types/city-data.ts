@@ -260,8 +260,8 @@ export interface Building {
   name: string;
   /**
    * Name the player sees in game (`GetBuildingName`). Only the native document
-   * (`buildings` 1.1) carries it, and only for non-RICO, non-`Untouchable` buildings
-   * or renamed ones. Absent when unknown.
+   * (`buildings` 1.1) carries it, and only for renamed buildings
+   * or unique ones (monuments, wonders, landmarks). Absent when unknown.
    */
   displayName?: string;
   /** `true` when the player renamed the building. Native document only. */

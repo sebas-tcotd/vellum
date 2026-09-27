@@ -11,9 +11,9 @@
     },
     {
       "sourceId": 813,
-      "prefab": "Fire Station",
-      "name": "Fire Station 3",
-      "itemClass": "Fire Department Facility",
+      "prefab": "Opera House",
+      "name": "Opera House",
+      "itemClass": "Monument Facility",
       "serviceType": "None",
       "footprint": [{ "x": 30, "y": 60, "z": 30 }]
     },

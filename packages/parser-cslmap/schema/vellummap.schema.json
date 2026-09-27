@@ -790,7 +790,7 @@
               },
               "name": {
                 "type": "string",
-                "description": "Module 1.0 (no prefab): the prefab (asset) name, required. Module 1.1 (with prefab): optional visible name (GetBuildingName), never empty; absent for unrenamed RICO and Untouchable structures."
+                "description": "Module 1.0 (no prefab): the prefab (asset) name, required. Module 1.1 (with prefab): optional visible name (GetBuildingName), never empty; only for renamed buildings and unique ones (Monument service)."
               },
               "prefab": {
                 "type": "string",

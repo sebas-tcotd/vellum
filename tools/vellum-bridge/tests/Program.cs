@@ -122,7 +122,7 @@ namespace VellumBridge.Tests
             // Servicio renombrado por el jugador.
             m.buildings.Add(new BuildingModel { sourceId = 812, prefab = "Library", name = "Administração", customName = true, itemClass = "Education Facility", serviceType = "None", position = new Vec3(20f, 60f, 20f), angle = 0f, width = 3, length = 3 });
             // Servicio sin renombrar: nombre generado por el juego, sin customName.
-            m.buildings.Add(new BuildingModel { sourceId = 813, prefab = "Fire Station", name = "Fire Station 3", itemClass = "Fire Department Facility", serviceType = "None", position = new Vec3(30f, 60f, 30f), angle = 0f, width = 2, length = 2 });
+            m.buildings.Add(new BuildingModel { sourceId = 813, prefab = "Opera House", name = "Opera House", itemClass = "Monument Facility", serviceType = "None", position = new Vec3(30f, 60f, 30f), angle = 0f, width = 2, length = 2 });
             // Renombrado, pero el nombre no se pudo leer: ni name ni customName.
             m.buildings.Add(new BuildingModel { sourceId = 814, prefab = "H1 2x2 Shop", customName = true, itemClass = "Low Commercial", serviceType = "CommercialLow", position = new Vec3(40f, 60f, 40f), angle = 0f, width = 2, length = 2 });
 
@@ -349,14 +349,14 @@ namespace VellumBridge.Tests
             Check(renamed.GetProperty("customName").GetBoolean() && !renamed.TryGetProperty("historical", out value),
                 "Servicio renombrado: customName true, sin historical");
 
-            JsonElement service = byId[813];
-            Check(service.GetProperty("name").GetString() == "Fire Station 3" && !service.TryGetProperty("customName", out value),
-                "Servicio sin renombrar: name visible sin customName");
+            JsonElement unique = byId[813];
+            Check(unique.GetProperty("name").GetString() == "Opera House" && !unique.TryGetProperty("customName", out value),
+                "Edificio único sin renombrar: name visible sin customName");
 
             JsonElement unreadable = byId[814];
             Check(!unreadable.TryGetProperty("name", out value) && !unreadable.TryGetProperty("customName", out value),
                 "Nombre ilegible: sin name ni customName");
-            Check(!byId[40].TryGetProperty("name", out value), "Untouchable: sin name");
+            Check(!byId[40].TryGetProperty("name", out value), "Sin nombre propio (estructura de red): sin name");
         }
 
         // districts 1.1: los cuatro campos siempre presentes; cero y [] son datos.

@@ -211,8 +211,8 @@ pub struct Building {
     /// Asset (prefab) name as exported from the game, in both formats.
     pub name: String,
     /// Name the player sees in game (`GetBuildingName`). Only the native document
-    /// (`buildings` 1.1) carries it, and only for non-RICO, non-`Untouchable`
-    /// buildings or renamed ones. Omitted when unknown.
+    /// (`buildings` 1.1) carries it, and only for renamed buildings or
+    /// unique ones (monuments, wonders, landmarks). Omitted when unknown.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
     /// `true` when the player renamed the building. Native document only.

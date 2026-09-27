@@ -258,8 +258,8 @@ pub(crate) struct BuildingsModule {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct BuildingDoc {
     pub(crate) source_id: u32,
-    /// With `prefab`: the visible name (`GetBuildingName`), never empty; absent for
-    /// unrenamed RICO and `Untouchable` structures. Without `prefab`: the prefab
+    /// With `prefab`: the visible name (`GetBuildingName`), never empty; only for
+    /// renamed buildings and unique ones (`Monument` service). Without `prefab`: the prefab
     /// (asset) name, required.
     #[serde(
         default,

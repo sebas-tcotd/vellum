@@ -343,9 +343,10 @@ versión: la presencia de `prefab` basta para leer cada edificio sin ambigüedad
 - **Con `prefab` (módulo `1.1`):**
   - `prefab`: el nombre del prefab.
   - `name` (opcional, nunca vacío): el nombre que ve el jugador (`GetBuildingName`). Solo
-    lo llevan los edificios que no son RICO ni `Untouchable` (servicios, únicos,
-    monumentos) y los que el jugador renombró. El nombre de un RICO sin renombrar es
-    aleatorio y no se exporta.
+    lo llevan los edificios que el jugador renombró y los únicos (servicio `Monument`:
+    monumentos, maravillas, landmarks). Para el resto el juego solo da el título del
+    tipo («Police Station», «Boulder #4») o, en un RICO, un nombre aleatorio: no se
+    exporta, y Vellum muestra la categoría del edificio.
   - `customName` (opcional): `true` si el jugador lo renombró (`Building.Flags.CustomName`).
     Exige `name`. Bridge lo escribe solo cuando es `true`.
   - `historical` (opcional): `true` si es histórico (`Building.Flags.Historical`). Bridge

@@ -99,8 +99,8 @@ namespace VellumBridge.Export
     {
         public int sourceId;
         public string prefab;              // nombre del prefab (asset)
-        // Nombre visible (GetBuildingName). Solo si no es RICO ni Untouchable, o si el jugador lo
-        // renombró; null en otro caso (el de un RICO es aleatorio y no aporta).
+        // Nombre visible (GetBuildingName). Solo si el jugador lo renombró o es un edificio único
+        // (servicio Monument); null en otro caso (sería el título del tipo o uno aleatorio).
         public string name;
         public bool customName;            // Building.Flags.CustomName
         public bool historical;            // Building.Flags.Historical

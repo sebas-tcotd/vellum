@@ -282,13 +282,13 @@ namespace VellumBridge.Export
                     length = building.m_length,
                     historical = (building.m_flags & Building.Flags.Historical) != 0,
                 };
-                // Nombre visible solo para lo que el jugador reconoce: servicios, únicos y
-                // monumentos, o cualquier edificio renombrado. El de un RICO sin renombrar es
-                // aleatorio, y una estructura Untouchable no tiene nombre propio.
+                // Nombre visible solo si es un nombre propio: el que puso el jugador, o el de un
+                // edificio único (monumentos, maravillas, landmarks: servicio Monument). Para el
+                // resto el juego devuelve el título del tipo («Police Station», «Boulder #4») o,
+                // en un RICO, uno aleatorio; Vellum muestra su categoría en su lugar.
                 bool renamed = (building.m_flags & Building.Flags.CustomName) != 0;
-                bool rico = info.m_buildingAI is PrivateBuildingAI;
-                bool untouchable = (building.m_flags & Building.Flags.Untouchable) != 0;
-                if (renamed || (!rico && !untouchable))
+                bool unique = info.m_class.m_service == ItemClass.Service.Monument;
+                if (renamed || unique)
                 {
                     try
                     {
