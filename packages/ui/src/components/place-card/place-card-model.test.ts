@@ -306,6 +306,69 @@ describe('building card', () => {
       isNotableBuilding(makeBuilding({ itemClass: 'Monument Facility' })),
     ).toBe(true);
   });
+
+  it('a sub-building never shows its localization key as a name', () => {
+    const city = makeCityData({
+      buildings: [
+        makeBuilding({
+          name: 'Soccer Large Stadium 02 Sub Building 6',
+          itemClass: 'Monument Facility',
+          displayName:
+            'BUILDING_TITLE[Soccer Large Stadium 02 Sub Building 6]:0',
+        }),
+      ],
+    });
+    const card = buildPlaceCard(city, { kind: 'building', id: 'b1' }, t)!;
+    expect(card.title).toBe('serviceGroups.monuments');
+  });
+});
+
+describe('park area card', () => {
+  const park = {
+    id: 'p1',
+    name: 'Strawberry Pit',
+    position: { x: 0, y: 0, z: 0 },
+    parkType: 'Industry' as const,
+  };
+
+  it('shows its name, its type, its area and its district', () => {
+    const city = makeCityData({
+      districts: [makeDistrict({ boundary: squareAroundOrigin(0.02) })],
+      parkAreas: [{ ...park, boundary: squareAroundOrigin(0.01) }],
+    });
+    const card = buildPlaceCard(city, { kind: 'park', id: 'p1' }, t)!;
+    expect(card.title).toBe('Strawberry Pit');
+    expect(card.subtitle).toBe('parkTypes.Industry');
+    expect(card.keyFacts.map((f) => f.label)).toEqual(['placeCard.area']);
+    expect(card.sections).toEqual([
+      expect.objectContaining({
+        kind: 'rows',
+        rows: [expect.objectContaining({ value: 'Centro' })],
+      }),
+    ]);
+  });
+
+  it('a .cslmap park: name and type only, no invented area', () => {
+    const city = makeCityData({ parkAreas: [park] });
+    const card = buildPlaceCard(city, { kind: 'park', id: 'p1' }, t)!;
+    expect(card.keyFacts).toEqual([]);
+    expect(card.sections).toEqual([]);
+  });
+
+  it('an unnamed area is known by its type', () => {
+    const city = makeCityData({
+      parkAreas: [{ ...park, name: 'AREA_PATTERN[Industry]:0' }],
+    });
+    const card = buildPlaceCard(city, { kind: 'park', id: 'p1' }, t)!;
+    expect(card.title).toBe('parkTypes.Industry');
+    expect(card.subtitle).toBeUndefined();
+  });
+
+  it('centers on its label point', () => {
+    const city = makeCityData({ parkAreas: [park] });
+    const { lng, lat } = csToGeo(park.position);
+    expect(placeAnchor(city, { kind: 'park', id: 'p1' })).toEqual([lng, lat]);
+  });
 });
 
 describe('helpers', () => {

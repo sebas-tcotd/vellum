@@ -368,5 +368,13 @@
     "selfsufficient": "Hogares autosuficientes",
     "hightech": "Alta tecnología",
     "financial": "Financiero"
+  },
+  "parkTypes": {
+    "Generic": "Parque",
+    "University": "Campus universitario",
+    "TradeSchool": "Escuela de oficios",
+    "Industry": "Área industrial",
+    "Forestry": "Área forestal",
+    "None": "Área"
   }
 }

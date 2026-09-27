@@ -46,6 +46,9 @@ const DISTRICT_SELECT_LAYERS = [
   'district-selected',
 ];
 
+/** Park-area layers a click can select; hidden unless park areas are on. */
+const PARK_SELECT_LAYERS = ['park-areas-labels', 'park-areas-points'];
+
 /** Narrows a raw feature-property value to a known `ServiceGroup`, rejecting anything else. */
 function isServiceGroup(value: unknown): value is ServiceGroup {
   return (
@@ -334,6 +337,8 @@ export function subscribeSelect(
       if (!buildingIds.includes(key)) buildingIds.push(key);
     }
     if (buildingIds.length > 0) hit.buildingIds = buildingIds;
+    const parkId: unknown = query(PARK_SELECT_LAYERS)[0]?.properties?.['id'];
+    if (parkId !== undefined && parkId !== null) hit.parkId = String(parkId);
     for (const layer of DISTRICT_SELECT_LAYERS) {
       const districtId: unknown = query([layer])[0]?.properties?.['id'];
       if (districtId !== undefined && districtId !== null) {

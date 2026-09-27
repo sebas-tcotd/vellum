@@ -11,6 +11,7 @@ import {
   BUILDING_SERVICE_TYPE_CATEGORY,
   csToGeo,
   districtAreaKm2,
+  isLocalizationKey,
   isPointInBoundary,
   resolveServiceGroup,
   RICO_COLORS,
@@ -19,6 +20,7 @@ import {
   type RicoZone,
   type CityData,
   type District,
+  type ParkArea,
   type ServiceGroup,
 } from '@vellum/core';
 import type { ParseKeys } from 'i18next';
@@ -106,29 +108,72 @@ function toLngLat(position: { x: number; z: number }): [number, number] {
 }
 
 /**
- * The district a building stands in, by point in polygon on the districts'
- * boundaries. `undefined` without boundaries (`.cslmap`) or outside every one.
+ * The district a building or park area stands in, by point in polygon on the
+ * districts' boundaries. `undefined` without boundaries (`.cslmap`) or
+ * outside every one.
  */
 export function districtOfBuilding(
   cityData: CityData,
-  building: Building,
+  place: { position: { x: number; z: number } },
 ): District | undefined {
-  const [lng, lat] = toLngLat(building.position);
+  const [lng, lat] = toLngLat(place.position);
   return cityData.districts.find((district) =>
     isPointInBoundary(lng, lat, district.boundary),
   );
 }
 
-/** Where "Center on map" goes: the district's label anchor or the building. */
+/** The pinned place in the city, whatever its kind. */
+function findPlace(
+  cityData: CityData,
+  pinned: PinnedEntity,
+): { position: { x: number; z: number } } | undefined {
+  switch (pinned.kind) {
+    case 'district':
+      return cityData.districts.find((d) => d.id === pinned.id);
+    case 'park':
+      return cityData.parkAreas.find((p) => p.id === pinned.id);
+    case 'building':
+      return cityData.buildings.find((b) => b.id === pinned.id);
+  }
+}
+
+/** Where "Center on map" goes: the place's label anchor or position. */
 export function placeAnchor(
   cityData: CityData,
   pinned: PinnedEntity,
 ): [number, number] | null {
-  const place =
-    pinned.kind === 'district'
-      ? cityData.districts.find((d) => d.id === pinned.id)
-      : cityData.buildings.find((b) => b.id === pinned.id);
+  const place = findPlace(cityData, pinned);
   return place ? toLngLat(place.position) : null;
+}
+
+/** A game name worth showing: trimmed, and never an unresolved localization key. */
+function readableName(name: string | undefined): string | undefined {
+  const trimmed = name?.trim();
+  return trimmed && !isLocalizationKey(trimmed) ? trimmed : undefined;
+}
+
+/** The "District: X" details row, when the place stands in a known district. */
+function districtSection(
+  cityData: CityData,
+  place: { position: { x: number; z: number } },
+  t: Translate,
+): PlaceCardSection[] {
+  const district = districtOfBuilding(cityData, place);
+  return district
+    ? [
+        {
+          kind: 'rows',
+          heading: t('placeCard.details'),
+          rows: [
+            {
+              label: t('placeCard.district'),
+              value: district.name,
+              icon: MapPin,
+            },
+          ],
+        },
+      ]
+    : [];
 }
 
 /** Localized specialization names; unknown ones as-is, empty ones dropped. */
@@ -247,7 +292,9 @@ function buildingCard(
   t: Translate,
 ): PlaceCardData {
   const prefab = cleanPrefabName(building.name);
-  const displayName = building.displayName?.trim() || undefined;
+  // A sub-building of a unique building has no name of its own: CS1 hands
+  // back `BUILDING_TITLE[…]:0`, which is not a name (Bridge 0.8.2 drops it).
+  const displayName = readableName(building.displayName);
   const group = cardServiceGroup(building);
   const zone = group === null ? ricoZone(building) : null;
   const type =
@@ -272,17 +319,7 @@ function buildingCard(
     keyFacts.push({ label: t('placeCard.type'), value: type, icon: Tag });
   }
 
-  const sections: PlaceCardSection[] = [];
-  const district = districtOfBuilding(cityData, building);
-  if (district) {
-    sections.push({
-      kind: 'rows',
-      heading: t('placeCard.details'),
-      rows: [
-        { label: t('placeCard.district'), value: district.name, icon: MapPin },
-      ],
-    });
-  }
+  const sections = districtSection(cityData, building, t);
 
   return {
     title,
@@ -292,6 +329,37 @@ function buildingCard(
       : {}),
     keyFacts,
     sections,
+    actions: [],
+  };
+}
+
+function parkCard(
+  cityData: CityData,
+  park: ParkArea,
+  t: Translate,
+  locale: string | undefined,
+): PlaceCardData {
+  const type = t(`parkTypes.${park.parkType}`);
+  const name = readableName(park.name);
+  const keyFacts: PlaceCardFact[] = [];
+  const area = districtAreaKm2(park.boundary);
+  if (area !== undefined) {
+    const oneDecimal = new Intl.NumberFormat(locale, {
+      minimumFractionDigits: 1,
+      maximumFractionDigits: 1,
+    });
+    keyFacts.push({
+      label: t('placeCard.area'),
+      value: t('placeCard.areaValue', { value: oneDecimal.format(area) }),
+      icon: Ruler,
+    });
+  }
+  return {
+    // An unnamed area is known by its type, like an unnamed service building.
+    title: name ?? type,
+    ...(name !== undefined ? { subtitle: type } : {}),
+    keyFacts,
+    sections: districtSection(cityData, park, t),
     actions: [],
   };
 }
@@ -316,6 +384,10 @@ export function buildPlaceCard(
   if (pinned.kind === 'district') {
     const district = cityData.districts.find((d) => d.id === pinned.id);
     return district ? districtCard(district, cityData.source, t, locale) : null;
+  }
+  if (pinned.kind === 'park') {
+    const park = cityData.parkAreas.find((p) => p.id === pinned.id);
+    return park ? parkCard(cityData, park, t, locale) : null;
   }
   const building = cityData.buildings.find((b) => b.id === pinned.id);
   if (!building || !isNotableBuilding(building)) return null;

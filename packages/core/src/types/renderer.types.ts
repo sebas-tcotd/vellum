@@ -78,6 +78,8 @@ export interface MapSelectHit {
    * picks the first notable one, so a landmark beside a RICO lot still opens.
    */
   buildingIds?: string[];
+  /** Id of the park area (label or marker) under the click, if any. */
+  parkId?: string;
   /** Id of the district (label, marker or area) under the click, if any. */
   districtId?: string;
 }

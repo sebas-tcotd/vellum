@@ -22,7 +22,7 @@ export type ActiveModal =
  * Transit stops are never pinned — their tooltip owns them.
  */
 export interface PinnedEntity {
-  kind: 'district' | 'building';
+  kind: 'district' | 'park' | 'building';
   id: string;
 }
 

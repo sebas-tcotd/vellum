@@ -213,10 +213,15 @@ export function MapViewport({
     () => new Set((cityData?.districts ?? []).map((d) => d.id)),
     [cityData],
   );
+  const parkIds = useMemo(
+    () => new Set((cityData?.parkAreas ?? []).map((p) => p.id)),
+    [cityData],
+  );
 
   // One click event; the viewport arbitrates, because only `CityData` knows
   // whether a building is notable. The first notable building in the hit
-  // (nearest first), then the district, else the click clears the card.
+  // (nearest first), then the park area (it sits inside a district), then the
+  // district, else the click clears the card.
   const selectRef = useRef<(hit: MapSelectHit) => void>(() => {});
   selectRef.current = (hit) => {
     if (!shellDispatch) return;
@@ -225,9 +230,11 @@ export function MapViewport({
       .find((b) => b !== undefined && isNotableBuilding(b));
     const entity = building
       ? ({ kind: 'building', id: building.id } as const)
-      : hit.districtId !== undefined && districtIds.has(hit.districtId)
-        ? ({ kind: 'district', id: hit.districtId } as const)
-        : null;
+      : hit.parkId !== undefined && parkIds.has(hit.parkId)
+        ? ({ kind: 'park', id: hit.parkId } as const)
+        : hit.districtId !== undefined && districtIds.has(hit.districtId)
+          ? ({ kind: 'district', id: hit.districtId } as const)
+          : null;
     if (entity === null) {
       clickPointRef.current = null;
       shellDispatch({ type: 'place/clear' });
@@ -252,8 +259,12 @@ export function MapViewport({
 
   // Hiding the place's layer, or starting another load, invalidates the card.
   const activeLayers = useVellumStore((s) => s.activeLayers);
+  const showParkAreas = useVellumStore(
+    (s) => s.layerOptions.districts.showParkAreas,
+  );
   const pinnedLayerHidden =
     (pinned?.kind === 'district' && !activeLayers.districts) ||
+    (pinned?.kind === 'park' && !(activeLayers.districts && showParkAreas)) ||
     (pinned?.kind === 'building' && !activeLayers.buildings);
   useEffect(() => {
     if (pinnedLayerHidden || loadingState === 'loading') {

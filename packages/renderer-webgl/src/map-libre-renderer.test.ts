@@ -1916,6 +1916,22 @@ describe('MapLibreRenderer', () => {
         });
       });
 
+      it('reports the park area under the click alongside its district', () => {
+        const cb = vi.fn();
+        const click = subscribe(cb);
+        featuresByLayer({
+          'park-areas-labels': [{ properties: { id: 'p1' } }],
+          'districts-labels': [{ properties: { id: 'd1' } }],
+        });
+        click({ point: { x: 10, y: 20 } });
+        expect(cb).toHaveBeenCalledWith({
+          screenX: 10,
+          screenY: 20,
+          parkId: 'p1',
+          districtId: 'd1',
+        });
+      });
+
       it('reports every building in the hit box, the one under the pointer first', () => {
         const cb = vi.fn();
         const click = subscribe(cb);

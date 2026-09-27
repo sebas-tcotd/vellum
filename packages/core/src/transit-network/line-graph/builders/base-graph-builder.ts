@@ -6,21 +6,12 @@
 import type { CityData } from '../../../types/city-data';
 import type { LineInfo, BaseSegment } from '../../../types/transit-network';
 import { getOrCreate } from '../utils/collections';
-
-/**
- * A line the player never renamed keeps CS1's own localization key instead of
- * a name — `TRANSPORT_LINE_PATTERN[Evacuation Bus]:0`. The bracketed part is
- * the asset it came from and is the only readable thing in there.
- *
- * The trailing `:0` is the index of a pattern variant, not the line's number,
- * so it is dropped rather than shown: turning it into "Evacuation Bus 0" would
- * put a number on screen that means nothing to the player.
- */
-const LOCALIZATION_KEY = /^[A-Z][A-Z0-9_]*\[(.+)\](?::\d+)?$/;
+import { LOCALIZATION_KEY } from '../../../localization-key';
 
 /**
  * The name to show for a line: what the player called it, or the readable part
- * of the localization key CS1 leaves behind when they never named it.
+ * of the localization key CS1 leaves behind when they never named it. The
+ * trailing `:0` is a pattern variant, not the line's number, so it is dropped.
  *
  * @remarks
  * Normalising here rather than at each surface means the legend, the map and

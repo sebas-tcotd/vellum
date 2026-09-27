@@ -87,6 +87,14 @@ const building = (overrides: Partial<Building>): Building => ({
 const city = makeCityData({
   cityName: 'Altavento',
   districts: [district],
+  parkAreas: [
+    {
+      id: 'p1',
+      name: 'Strawberry Pit',
+      position: { x: 0, y: 0, z: 0 },
+      parkType: 'Industry',
+    },
+  ],
   buildings: [
     building({ displayName: 'Biblioteca' }),
     building({
@@ -244,6 +252,29 @@ describe('place card wiring', () => {
 
     click({ buildingIds: ['b1'] });
     act(() => handle.current!.dispatch({ type: 'viewMode/toggle' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('opens a park area over its district, and closes when park areas hide', () => {
+    renderHarness();
+    act(() =>
+      useVellumStore.setState((s) => ({
+        layerOptions: {
+          ...s.layerOptions,
+          districts: { ...s.layerOptions.districts, showParkAreas: true },
+        },
+      })),
+    );
+    click({ parkId: 'p1', districtId: 'd1' });
+    expect(screen.getByRole('dialog', { name: 'Strawberry Pit' })).toBeTruthy();
+    act(() =>
+      useVellumStore.setState((s) => ({
+        layerOptions: {
+          ...s.layerOptions,
+          districts: { ...s.layerOptions.districts, showParkAreas: false },
+        },
+      })),
+    );
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 

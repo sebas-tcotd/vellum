@@ -368,5 +368,13 @@
     "selfsufficient": "Self-sufficient homes",
     "hightech": "High tech",
     "financial": "Financial"
+  },
+  "parkTypes": {
+    "Generic": "Park",
+    "University": "University campus",
+    "TradeSchool": "Trade school",
+    "Industry": "Industrial area",
+    "Forestry": "Forestry area",
+    "None": "Area"
   }
 }

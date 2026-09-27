@@ -10,6 +10,7 @@ export * from './export/output-density';
 export * from './export/output-surface';
 export * from './export/terrain-relief-domain';
 export * from './ipc-contract';
+export * from './localization-key';
 export * from './rico-colors';
 export * from './road-classification';
 export * from './service-icons';
