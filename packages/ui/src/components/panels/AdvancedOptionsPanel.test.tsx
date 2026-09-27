@@ -20,8 +20,8 @@ function makeProps(
     onToggleCategory: vi.fn(),
     colorByCategory: false,
     onToggleColorByCategory: vi.fn(),
-    showDistrictNamesOnMap: false,
-    onToggleShowDistrictNamesOnMap: vi.fn(),
+    showDistrictsAsMarkers: false,
+    onToggleShowDistrictsAsMarkers: vi.fn(),
     showParkAreas: false,
     onToggleShowParkAreas: vi.fn(),
     showContourLines: true,
@@ -77,12 +77,12 @@ describe('AdvancedOptionsPanel — districts', () => {
   it('renders district-name and park-area switches', () => {
     render(<AdvancedOptionsPanel {...makeProps({ layer: 'districts' })} />);
     expect(
-      screen.getByText('layerOptionsPanel.showDistrictNamesOnMap'),
+      screen.getByText('layerOptionsPanel.showDistrictsAsMarkers'),
     ).toBeTruthy();
     expect(screen.getByText('layerOptionsPanel.showParkAreas')).toBeTruthy();
     expect(
       screen.getByRole('switch', {
-        name: 'layerOptionsPanel.showDistrictNamesOnMap',
+        name: 'layerOptionsPanel.showDistrictsAsMarkers',
       }),
     ).toBeTruthy();
     expect(
@@ -90,10 +90,10 @@ describe('AdvancedOptionsPanel — districts', () => {
     ).toBeTruthy();
   });
 
-  it('reflects showDistrictNamesOnMap as the switch checked state', () => {
+  it('reflects showDistrictsAsMarkers as the switch checked state', () => {
     render(
       <AdvancedOptionsPanel
-        {...makeProps({ layer: 'districts', showDistrictNamesOnMap: true })}
+        {...makeProps({ layer: 'districts', showDistrictsAsMarkers: true })}
       />,
     );
     expect(screen.getAllByRole('switch')[0]).toHaveAttribute(
@@ -102,14 +102,14 @@ describe('AdvancedOptionsPanel — districts', () => {
     );
   });
 
-  it('calls onToggleShowDistrictNamesOnMap with the flipped value on click', async () => {
+  it('calls onToggleShowDistrictsAsMarkers with the flipped value on click', async () => {
     const onToggle = vi.fn();
     render(
       <AdvancedOptionsPanel
         {...makeProps({
           layer: 'districts',
-          showDistrictNamesOnMap: false,
-          onToggleShowDistrictNamesOnMap: onToggle,
+          showDistrictsAsMarkers: false,
+          onToggleShowDistrictsAsMarkers: onToggle,
         })}
       />,
     );

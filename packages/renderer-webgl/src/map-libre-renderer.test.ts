@@ -1188,7 +1188,7 @@ describe('MapLibreRenderer', () => {
       roads: { showStreetNames },
       transit: { visibleModes: [], showConfirmedTransfers: true },
       buildings: { visibleCategories: [], colorByCategory: false },
-      districts: { showNameOnMap: false, showParkAreas: false },
+      districts: { showAsMarker: true, showFill: false, showParkAreas: false },
       terrain: {
         showContourLines: true,
         showColorRelief: true,
@@ -1242,7 +1242,11 @@ describe('MapLibreRenderer', () => {
         roads: { showStreetNames: true },
         transit: { visibleModes: [], showConfirmedTransfers: true },
         buildings: { visibleCategories: [], colorByCategory: false },
-        districts: { showNameOnMap: true, showParkAreas: true },
+        districts: {
+          showAsMarker: false,
+          showFill: false,
+          showParkAreas: true,
+        },
         terrain: {
           showContourLines: true,
           showColorRelief: true,
@@ -1263,7 +1267,7 @@ describe('MapLibreRenderer', () => {
       );
     });
 
-    it('shows districts-points and hides districts-labels by default', async () => {
+    it('shows district names, not markers or fill, by default', async () => {
       const renderer = makeRenderer();
       mockMap.getLayer.mockReturnValue({ id: 'any' } as unknown as undefined);
       await renderer.render(makeCityData(), {
@@ -1273,10 +1277,15 @@ describe('MapLibreRenderer', () => {
       expect(mockMap.setLayoutProperty).toHaveBeenCalledWith(
         'districts-points',
         'visibility',
-        'visible',
+        'none',
       );
       expect(mockMap.setLayoutProperty).toHaveBeenCalledWith(
         'districts-labels',
+        'visibility',
+        'visible',
+      );
+      expect(mockMap.setLayoutProperty).toHaveBeenCalledWith(
+        'district-fill',
         'visibility',
         'none',
       );
@@ -1292,7 +1301,7 @@ describe('MapLibreRenderer', () => {
       );
     });
 
-    it('setLayerOptions with showNameOnMap swaps to labels and hides points', async () => {
+    it('setLayerOptions with showAsMarker swaps to markers and hides names', async () => {
       const renderer = makeRenderer();
       mockMap.getLayer.mockReturnValue({ id: 'any' } as unknown as undefined);
       await renderer.render(makeCityData(), {
@@ -1305,7 +1314,11 @@ describe('MapLibreRenderer', () => {
         roads: { showStreetNames: true },
         transit: { visibleModes: [], showConfirmedTransfers: true },
         buildings: { visibleCategories: [], colorByCategory: false },
-        districts: { showNameOnMap: true, showParkAreas: false },
+        districts: {
+          showAsMarker: true,
+          showFill: true,
+          showParkAreas: false,
+        },
         terrain: {
           showContourLines: true,
           showColorRelief: true,
@@ -1317,12 +1330,17 @@ describe('MapLibreRenderer', () => {
       expect(mockMap.setLayoutProperty).toHaveBeenCalledWith(
         'districts-labels',
         'visibility',
-        'visible',
+        'none',
       );
       expect(mockMap.setLayoutProperty).toHaveBeenCalledWith(
         'districts-points',
         'visibility',
-        'none',
+        'visible',
+      );
+      expect(mockMap.setLayoutProperty).toHaveBeenCalledWith(
+        'district-fill',
+        'visibility',
+        'visible',
       );
     });
 
@@ -1339,7 +1357,7 @@ describe('MapLibreRenderer', () => {
         roads: { showStreetNames: true },
         transit: { visibleModes: [], showConfirmedTransfers: true },
         buildings: { visibleCategories: [], colorByCategory: false },
-        districts: { showNameOnMap: false, showParkAreas: true },
+        districts: { showAsMarker: true, showFill: false, showParkAreas: true },
         terrain: {
           showContourLines: true,
           showColorRelief: true,
@@ -1370,7 +1388,11 @@ describe('MapLibreRenderer', () => {
         roads: { showStreetNames: true },
         transit: { visibleModes: [], showConfirmedTransfers: true },
         buildings: { visibleCategories: [], colorByCategory: false },
-        districts: { showNameOnMap: true, showParkAreas: true },
+        districts: {
+          showAsMarker: false,
+          showFill: false,
+          showParkAreas: true,
+        },
         terrain: {
           showContourLines: true,
           showColorRelief: true,
@@ -1509,7 +1531,11 @@ describe('MapLibreRenderer', () => {
         roads: { showStreetNames: true },
         transit: { visibleModes: [], showConfirmedTransfers: true },
         buildings: { visibleCategories: [], colorByCategory: false },
-        districts: { showNameOnMap: false, showParkAreas: false },
+        districts: {
+          showAsMarker: true,
+          showFill: false,
+          showParkAreas: false,
+        },
         terrain: {
           showContourLines: false,
           showColorRelief: true,
@@ -1539,7 +1565,11 @@ describe('MapLibreRenderer', () => {
         roads: { showStreetNames: true },
         transit: { visibleModes: [], showConfirmedTransfers: true },
         buildings: { visibleCategories: [], colorByCategory: false },
-        districts: { showNameOnMap: false, showParkAreas: false },
+        districts: {
+          showAsMarker: true,
+          showFill: false,
+          showParkAreas: false,
+        },
         terrain: {
           showContourLines: true,
           showColorRelief: true,

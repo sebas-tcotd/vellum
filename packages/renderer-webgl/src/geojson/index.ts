@@ -18,7 +18,9 @@ export { buildBuildingsGeoJson } from './builders/buildings.builder';
 export { buildGridGeoJson } from './builders/grid.builder';
 export {
   buildAreaBoundariesGeoJson,
+  buildDistrictAreasGeoJson,
   buildDistrictsGeoJson,
+  districtLabelScale,
   buildForestsGeoJson,
   buildParkAreasGeoJson,
   buildWaterSurfaceGeoJson,
@@ -52,6 +54,8 @@ export type {
   AreaBoundaryFeatureProperties,
   DistrictFeature,
   DistrictFeatureProperties,
+  DistrictAreaFeature,
+  DistrictAreasFeatureCollection,
   DistrictsFeatureCollection,
   Feature,
   FeatureCollection,

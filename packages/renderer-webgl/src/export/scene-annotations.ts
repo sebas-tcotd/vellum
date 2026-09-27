@@ -30,7 +30,7 @@
  * into `<defs>` so a designer can place markers by hand.
  *
  * **The two interactive display toggles are deliberately ignored.**
- * `districts.showNameOnMap` and `districts.showParkAreas` govern how much
+ * `districts.showAsMarker` and `districts.showParkAreas` govern how much
  * marker clutter the *interactive* map carries; a print export exists to
  * carry the names. District and park names therefore appear on the same
  * footing whenever the districts layer is visible.

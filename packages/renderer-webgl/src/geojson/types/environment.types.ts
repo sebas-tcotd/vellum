@@ -21,6 +21,11 @@ export interface DistrictFeatureProperties {
   id: string;
   /** Name assigned to the district in-game. */
   name: string;
+  /**
+   * Label size multiplier from the district's real area (1 when it has none,
+   * i.e. every `.cslmap` district), so a large district reads larger.
+   */
+  labelScale: number;
 }
 
 /** Properties attached to each park area GeoJSON feature. */
@@ -63,6 +68,11 @@ export type AreaBoundariesFeatureCollection =
 export type ForestFeature = Feature<PointGeometry, ForestFeatureProperties>;
 /** A GeoJSON Feature wrapping a district label point. */
 export type DistrictFeature = Feature<PointGeometry, DistrictFeatureProperties>;
+/** A GeoJSON Feature wrapping one polygon of a district's area. */
+export type DistrictAreaFeature = Feature<PolygonGeometry, { id: string }>;
+/** A GeoJSON FeatureCollection of district area polygons. */
+export type DistrictAreasFeatureCollection =
+  FeatureCollection<DistrictAreaFeature>;
 /** A GeoJSON Feature wrapping a park area point. */
 export type ParkAreaFeature = Feature<PointGeometry, ParkAreaFeatureProperties>;
 /** A GeoJSON Feature wrapping a water polygon. */

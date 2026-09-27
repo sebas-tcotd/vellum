@@ -177,6 +177,7 @@ export class MapSourceManager {
       'districts',
       'parks',
       'area-boundaries',
+      'district-areas',
       'world-extent-source',
       'vellum-watermark-source',
     ];

@@ -65,7 +65,8 @@
   "layerOptionsPanel": {
     "close": "Close layer options",
     "colorByCategory": "Colour buildings by zone",
-    "showDistrictNamesOnMap": "Show name on map",
+    "showDistrictFill": "Show district fill",
+    "showDistrictsAsMarkers": "Show as markers",
     "showParkAreas": "Show park areas",
     "showContourLines": "Contour lines",
     "showColorRelief": "Color relief",

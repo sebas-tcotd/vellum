@@ -28,8 +28,10 @@ import { resolveAirshipColor } from '../expressions/transit-color';
 export class MapLayerManager {
   /** Whether the `districts` layer is currently toggled on via `setVisibility`. */
   private districtsVisible = false;
-  /** Current `LayerOptions.districts.showNameOnMap` — mirrors `DEFAULT_LAYER_OPTIONS`. */
-  private districtsShowNameOnMap = false;
+  /** Current `LayerOptions.districts.showAsMarker` — mirrors `DEFAULT_LAYER_OPTIONS`. */
+  private districtsShowAsMarker = false;
+  /** Current `LayerOptions.districts.showFill` — mirrors its default. */
+  private districtsShowFill = false;
   /** Current `LayerOptions.districts.showParkAreas` — mirrors its default. */
   private districtsShowParkAreas = false;
   /** Whether the `roads` layer is toggled on; street names follow it. */
@@ -107,14 +109,19 @@ export class MapLayerManager {
    * Reconciles districts display mode and the independent park-area sublayer.
    */
   private applyDistrictsVisibility(): void {
+    this.setLayoutIfExists(
+      'district-fill',
+      'visibility',
+      this.districtsVisible && this.districtsShowFill ? 'visible' : 'none',
+    );
     // Outlines are independent of the point/label display mode.
     this.setLayoutIfExists(
       'district-boundaries',
       'visibility',
       this.districtsVisible ? 'visible' : 'none',
     );
-    const showPoints = this.districtsVisible && !this.districtsShowNameOnMap;
-    const showLabels = this.districtsVisible && this.districtsShowNameOnMap;
+    const showPoints = this.districtsVisible && this.districtsShowAsMarker;
+    const showLabels = this.districtsVisible && !this.districtsShowAsMarker;
     this.setLayoutIfExists(
       'districts-points',
       'visibility',
@@ -240,7 +247,8 @@ export class MapLayerManager {
     this.roadsShowStreetNames = options.roads.showStreetNames;
     this.applyStreetNamesVisibility();
 
-    this.districtsShowNameOnMap = options.districts.showNameOnMap;
+    this.districtsShowAsMarker = options.districts.showAsMarker;
+    this.districtsShowFill = options.districts.showFill;
     this.districtsShowParkAreas = options.districts.showParkAreas;
     this.applyDistrictsVisibility();
   }
@@ -350,6 +358,7 @@ export class MapLayerManager {
     );
 
     this.setPaintIfExists('district-boundaries', 'line-color', c.districtLabel);
+    this.setPaintIfExists('district-fill', 'fill-color', c.districtFill);
     this.setPaintIfExists(
       'park-boundaries',
       'line-color',

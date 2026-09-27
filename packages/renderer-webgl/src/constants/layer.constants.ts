@@ -37,6 +37,8 @@ export const FORESTS_TREES_OPACITY = 1;
 export const HILLSHADE_EXAGGERATION =
   HILLSHADE_EXAGGERATION_M / ELEVATION_UNITS_PER_METER;
 
+/** Opacity of the optional district tint — light enough to leave the map's colours alone. */
+export const DISTRICT_FILL_OPACITY = 0.14;
 /** Baseline opacity of the native district outline (also the dimming baseline). */
 export const DISTRICT_BOUNDARY_OPACITY = 0.55;
 /** Baseline opacity of the native park outline (also the dimming baseline). */
@@ -83,6 +85,7 @@ export const LAYER_ID_MAP: Record<LayerName, string[]> = {
   buildings: ['buildings-fill', 'buildings-outline', 'service-icons'],
   forests: ['forests-canopy', 'forests-trees'],
   districts: [
+    'district-fill',
     'district-boundaries',
     'park-boundaries',
     'districts-points',
@@ -190,6 +193,7 @@ export const NON_TRANSIT_OPACITY: Record<
   'service-icons': { prop: 'icon-opacity', base: 1 },
   'forests-canopy': { prop: 'raster-opacity', base: FORESTS_CANOPY_OPACITY },
   'forests-trees': { prop: 'raster-opacity', base: FORESTS_TREES_OPACITY },
+  'district-fill': { prop: 'fill-opacity', base: DISTRICT_FILL_OPACITY },
   'district-boundaries': {
     prop: 'line-opacity',
     base: DISTRICT_BOUNDARY_OPACITY,

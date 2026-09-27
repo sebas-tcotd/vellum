@@ -206,6 +206,7 @@ export function MapAppearanceSidebar({
         ) : (
           <LayerDetailPanel
             layer={view.layerId}
+            source={source}
             onBack={() => dispatch({ type: 'sidebar/closeDetail' })}
           />
         )}

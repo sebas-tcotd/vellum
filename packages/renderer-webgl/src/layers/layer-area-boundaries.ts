@@ -11,10 +11,14 @@ import type { CityData } from '@vellum/core';
 import type * as maplibregl from 'maplibre-gl';
 import {
   DISTRICT_BOUNDARY_OPACITY,
+  DISTRICT_FILL_OPACITY,
   PARK_BOUNDARY_OPACITY,
 } from '../constants/layer.constants';
 import { buildParkColorExpression } from '../expressions/park-color';
-import { buildAreaBoundariesGeoJson } from '../geojson';
+import {
+  buildAreaBoundariesGeoJson,
+  buildDistrictAreasGeoJson,
+} from '../geojson';
 import { addLayerIfAbsent, addSourceIfAbsent } from '../helpers';
 import type { ResolvedColors } from '../style-adapter';
 
@@ -31,6 +35,24 @@ export function addAreaBoundariesLayer(
   addSourceIfAbsent(map, 'area-boundaries', {
     type: 'geojson',
     data: buildAreaBoundariesGeoJson(cityData),
+  });
+
+  // The optional light tint, under the dashed outline. Hidden until
+  // `districts.showFill` is on; `.cslmap` has no areas, so it stays empty.
+  addSourceIfAbsent(map, 'district-areas', {
+    type: 'geojson',
+    data: buildDistrictAreasGeoJson(cityData),
+  });
+  addLayerIfAbsent(map, {
+    id: 'district-fill',
+    type: 'fill',
+    source: 'district-areas',
+    layout: { visibility: 'none' },
+    paint: {
+      'fill-color': colors.districtFill,
+      'fill-opacity': DISTRICT_FILL_OPACITY,
+      'fill-opacity-transition': { duration: 300 },
+    },
   });
 
   addLayerIfAbsent(map, {
