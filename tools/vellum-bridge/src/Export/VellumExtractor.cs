@@ -259,8 +259,10 @@ namespace VellumBridge.Export
 
         private static void ReadBuildings(VellumModel model)
         {
-            var buffer = Singleton<BuildingManager>.instance.m_buildings.m_buffer;
-            int withoutPrefab = 0;
+            var manager = Singleton<BuildingManager>.instance;
+            var buffer = manager.m_buildings.m_buffer;
+            int withoutPrefab = 0, nameErrors = 0;
+            string firstNameError = null;
             for (int i = 1; i < buffer.Length; i++)
             {
                 if ((buffer[i].m_flags & Building.Flags.Created) == 0) continue;
@@ -268,19 +270,49 @@ namespace VellumBridge.Export
                 var info = building.Info;
                 if (info == null || info.m_class == null) { withoutPrefab++; continue; }
                 // Las estructuras Untouchable (pilares, uniones, postes) también se exportan.
-                model.buildings.Add(new BuildingModel
+                var record = new BuildingModel
                 {
                     sourceId = i,
-                    name = info.name,
+                    prefab = info.name,
                     itemClass = info.m_class.name,
                     serviceType = info.m_class.m_subService.ToString(),
                     position = V(building.m_position),
                     angle = building.m_angle,
                     width = building.m_width,
                     length = building.m_length,
-                });
+                    historical = (building.m_flags & Building.Flags.Historical) != 0,
+                };
+                // Nombre visible solo para lo que el jugador reconoce: servicios, únicos y
+                // monumentos, o cualquier edificio renombrado. El de un RICO sin renombrar es
+                // aleatorio, y una estructura Untouchable no tiene nombre propio.
+                bool renamed = (building.m_flags & Building.Flags.CustomName) != 0;
+                bool rico = info.m_buildingAI is PrivateBuildingAI;
+                bool untouchable = (building.m_flags & Building.Flags.Untouchable) != 0;
+                if (renamed || (!rico && !untouchable))
+                {
+                    try
+                    {
+                        record.name = manager.GetBuildingName((ushort)i, InstanceID.Empty);
+                        record.customName = renamed;
+                        if (string.IsNullOrEmpty(record.name))
+                        {
+                            // Sin excepción pero sin nombre: también es un límite, no un silencio.
+                            record.name = null;
+                            record.customName = false;
+                            if (nameErrors++ == 0) firstNameError = "edificio " + i + ": nombre vacío";
+                        }
+                    }
+                    catch (Exception error)
+                    {
+                        // Un nombre ilegible no aborta: el edificio sale sin nombre y se cuenta.
+                        if (nameErrors++ == 0) firstNameError = "edificio " + i + ": " + error.Message;
+                    }
+                }
+                model.buildings.Add(record);
             }
             if (withoutPrefab > 0) model.limits.Add(withoutPrefab + " edificios omitidos por no tener prefab cargado.");
+            if (nameErrors > 0)
+                model.limits.Add(nameErrors + " edificios sin nombre visible por un error al leerlo (" + firstNameError + ").");
         }
 
         private static void ReadDistricts(VellumModel model)
@@ -290,12 +322,27 @@ namespace VellumBridge.Export
             for (int i = 1; i < buffer.Length; i++)
             {
                 if ((buffer[i].m_flags & District.Flags.Created) == 0) continue;
-                model.districts.Add(new AreaModel
+                var district = buffer[i];
+                var area = new AreaModel
                 {
                     sourceId = i,
                     name = manager.GetDistrictName((byte)i),
-                    labelPosition = V(buffer[i].m_nameLocation),
-                });
+                    labelPosition = V(district.m_nameLocation),
+                    // Datos de atlas. Políticas, felicidad, crimen, consumo, valor del suelo,
+                    // edades y educación son mecánicas del juego: no se exportan.
+                    population = (uint)district.m_populationData.m_finalCount,
+                    homes = (uint)district.m_residentialData.m_finalHomeOrWorkCount,
+                    commercialJobs = (uint)district.m_commercialData.m_finalHomeOrWorkCount,
+                    industrialJobs = (uint)district.m_industrialData.m_finalHomeOrWorkCount,
+                    officeJobs = (uint)district.m_officeData.m_finalHomeOrWorkCount,
+                };
+                // Enum de flags: ToString() da "Leisure, Tourist", o "None" sin especialización.
+                foreach (string name in district.m_specializationPolicies.ToString().Split(new[] { ", " }, StringSplitOptions.RemoveEmptyEntries))
+                {
+                    string trimmed = name.Trim();
+                    if (trimmed.Length > 0 && trimmed != "None") area.specializations.Add(trimmed);
+                }
+                model.districts.Add(area);
             }
         }
 

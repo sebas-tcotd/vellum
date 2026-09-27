@@ -98,7 +98,12 @@ namespace VellumBridge.Export
     internal sealed class BuildingModel
     {
         public int sourceId;
-        public string name;                // prefab
+        public string prefab;              // nombre del prefab (asset)
+        // Nombre visible (GetBuildingName). Solo si no es RICO ni Untouchable, o si el jugador lo
+        // renombró; null en otro caso (el de un RICO es aleatorio y no aporta).
+        public string name;
+        public bool customName;            // Building.Flags.CustomName
+        public bool historical;            // Building.Flags.Historical
         public string itemClass;
         public string serviceType;         // sub-servicio
         public Vec3 position;
@@ -112,5 +117,15 @@ namespace VellumBridge.Export
         public string name;
         public Vec3 labelPosition;
         public string parkType;            // solo parques; null o vacío se omite
+
+        // Datos de lugar: solo distritos (el escritor los ignora en parques). Cero es un dato,
+        // no una ausencia: el escritor los escribe siempre en districts.json.
+        public uint population;            // m_populationData.m_finalCount
+        public uint homes;                 // m_residentialData.m_finalHomeOrWorkCount
+        public uint commercialJobs;        // m_commercialData.m_finalHomeOrWorkCount
+        public uint industrialJobs;        // m_industrialData.m_finalHomeOrWorkCount
+        public uint officeJobs;            // m_officeData.m_finalHomeOrWorkCount
+        // Nombres de DistrictPolicies.Specialization activos (m_specializationPolicies), sin None.
+        public List<string> specializations = new List<string>();
     }
 }

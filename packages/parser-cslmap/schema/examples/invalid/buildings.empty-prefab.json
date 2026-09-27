@@ -1,0 +1,11 @@
+{
+  "buildings": [
+    {
+      "sourceId": 7,
+      "prefab": "",
+      "itemClass": "Beautification Item",
+      "serviceType": "None",
+      "footprint": []
+    }
+  ]
+}

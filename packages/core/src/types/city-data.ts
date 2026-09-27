@@ -256,8 +256,18 @@ export type BuildingServiceType =
 export interface Building {
   /** Unique identifier for the building. */
   id: string;
-  /** Asset name as exported from the game. */
+  /** Asset (prefab) name as exported from the game, in both formats. */
   name: string;
+  /**
+   * Name the player sees in game (`GetBuildingName`). Only the native document
+   * (`buildings` 1.1) carries it, and only for non-RICO, non-`Untouchable` buildings
+   * or renamed ones. Absent when unknown.
+   */
+  displayName?: string;
+  /** `true` when the player renamed the building. Native document only. */
+  customName?: boolean;
+  /** `true` for a historical building (its level is locked). Native document only. */
+  historical?: boolean;
   /** Anchor position of the building in the 3D space. */
   position: Vec3;
   /** The original asset class, used to filter out entities like 'Beautification Item'. */
@@ -298,6 +308,24 @@ export interface District {
    * Absent for `.cslmap`, which only exports the label point.
    */
   boundary?: TerrainPolygon[];
+  /** Residents. Native document (`districts` 1.1) only; `0` is a value, not absence. */
+  population?: number;
+  /** Homes (residential units). Native document only. */
+  homes?: number;
+  /** Jobs per zoned sector. Native document only. */
+  jobs?: DistrictJobs;
+  /**
+   * Active specialization names as the game calls them (`Tourist`, `Hightech`, …),
+   * unreduced. Native document only; empty when the district has none.
+   */
+  specializations?: string[];
+}
+
+/** Jobs of a district per zoned sector. */
+export interface DistrictJobs {
+  commercial: number;
+  industrial: number;
+  office: number;
 }
 
 /**

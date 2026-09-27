@@ -38,6 +38,7 @@ DLCs y mods figuran explícitamente en `diagnostics.unsupported`. El reporte com
 - **Flujo:** aparece la ventana «Exportando…». Los datos se copian en el hilo de simulación (o en el acto, con el juego en pausa). Serializar, comprimir y escribir ocurre en un hilo aparte, así que la simulación no se detiene. Al terminar, la ventana muestra la ruta, el tamaño, los conteos, los módulos con su codec y los límites. Cada fase queda en el log con el prefijo `[VellumBridge] Exportación:`.
 - **Publicación atómica:** el archivo se escribe como `.part` en la misma carpeta y luego se renombra. Ante cualquier error el `.part` se borra. Si empieza un guardado, la exportación se descarta y hay que repetirla.
 - **Qué se exporta:** solo elementos con el flag `Created`, sin las líneas `Temporary`. Las redes no viales (tuberías, rutas de avión y barco, conexiones) y las estructuras `Untouchable` se exportan clasificadas por `itemClass`. Las paradas se nombran por su calle (`<calle>` o `<calle> N` por `sourceId`), salvo que un mod les haya dado nombre.
+- **Datos de lugar (desde Bridge 0.8.0, módulos `buildings` y `districts` 1.1):** cada distrito lleva `population`, `homes`, `jobs` (`commercial`, `industrial`, `office`) y `specializations`, siempre presentes (un distrito recién creado escribe ceros y `[]`). Cada edificio lleva su prefab en `prefab` y, en `name`, el nombre visible (`GetBuildingName`) de los que no son RICO ni `Untouchable` o que el jugador renombró; `customName` e `historical` se escriben solo cuando son `true`. Un nombre que no se puede leer no aborta la exportación: el edificio sale sin nombre y se cuenta en los límites. Políticas, felicidad, crimen, consumo, valor del suelo, edades, educación y superficie no se exportan: son mecánicas del juego, no datos de atlas.
 - **Codec:** deflate por módulo. Si `DeflateStream` falla en el Mono del juego (o no reproduce los bytes), ese módulo se guarda `stored` y el manifest lo declara.
 
 Un módulo obligatorio que falla (terreno, agua, vegetación, calles, tránsito, edificios, distritos o parques) cancela la exportación: no se escribe ningún archivo y la ventana dice qué falló. Lo parcial que no bloquea se cuenta y aparece en la lista de **límites**, nunca en silencio:
@@ -46,6 +47,7 @@ Un módulo obligatorio que falla (terreno, agua, vegetación, calles, tránsito,
 - Tramos de línea sin ruta calculada: la ruta de esa línea queda incompleta.
 - Paradas sin calle con nombre: quedan sin nombre.
 - Segmentos, edificios o líneas sin prefab cargado: se omiten.
+- Edificios cuyo nombre visible no se pudo leer: salen sin `name`.
 - Grilla de distritos o parques de 512² (vanilla) centrada con ceros en 900², u omitida si tiene otra resolución.
 - DLC y mods activos: no forman parte del documento.
 

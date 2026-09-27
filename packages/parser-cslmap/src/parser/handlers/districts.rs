@@ -50,6 +50,10 @@ impl DistrictBuilder {
                 name: std::mem::take(&mut self.current_name),
                 position,
                 boundary: None,
+                population: None,
+                homes: None,
+                jobs: None,
+                specializations: None,
             });
             self.in_dist = false;
         }

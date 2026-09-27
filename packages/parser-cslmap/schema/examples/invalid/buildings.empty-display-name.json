@@ -1,0 +1,12 @@
+{
+  "buildings": [
+    {
+      "sourceId": 812,
+      "prefab": "Library",
+      "name": "",
+      "itemClass": "Education Facility",
+      "serviceType": "None",
+      "footprint": []
+    }
+  ]
+}

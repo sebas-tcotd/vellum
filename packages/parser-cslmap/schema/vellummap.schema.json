@@ -783,20 +783,27 @@
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": [
-              "sourceId",
-              "name",
-              "itemClass",
-              "serviceType",
-              "footprint"
-            ],
+            "required": ["sourceId", "itemClass", "serviceType", "footprint"],
             "properties": {
               "sourceId": {
                 "$ref": "#/$defs/sourceId"
               },
               "name": {
                 "type": "string",
-                "description": "Prefab (asset) name."
+                "description": "Module 1.0 (no prefab): the prefab (asset) name, required. Module 1.1 (with prefab): optional visible name (GetBuildingName), never empty; absent for unrenamed RICO and Untouchable structures."
+              },
+              "prefab": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Module 1.1. Prefab (asset) name. Its presence means name is the visible name."
+              },
+              "customName": {
+                "type": "boolean",
+                "description": "Module 1.1. Building.Flags.CustomName: the player renamed it. Requires name and prefab; written only when true."
+              },
+              "historical": {
+                "type": "boolean",
+                "description": "Module 1.1. Building.Flags.Historical. Requires prefab; written only when true."
               },
               "itemClass": {
                 "type": "string"
@@ -812,6 +819,34 @@
                 },
                 "description": "Footprint polygon; its first point is the anchor."
               }
+            },
+            "dependentRequired": {
+              "customName": ["name", "prefab"],
+              "historical": ["prefab"]
+            },
+            "if": {
+              "properties": {
+                "prefab": {
+                  "type": "string"
+                }
+              },
+              "required": ["prefab"]
+            },
+            "then": {
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "name": {
+                  "type": "string"
+                }
+              },
+              "required": ["name"]
             }
           }
         }
@@ -838,6 +873,49 @@
               },
               "labelPosition": {
                 "$ref": "#/$defs/position"
+              },
+              "population": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4294967295,
+                "description": "Module 1.1. Residents (m_populationData.m_finalCount). 0 is a value, not absence."
+              },
+              "homes": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4294967295,
+                "description": "Module 1.1. Homes (m_residentialData.m_finalHomeOrWorkCount)."
+              },
+              "jobs": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["commercial", "industrial", "office"],
+                "description": "Module 1.1. Jobs per zoned sector (m_{commercial,industrial,office}Data.m_finalHomeOrWorkCount).",
+                "properties": {
+                  "commercial": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                  },
+                  "industrial": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                  },
+                  "office": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                  }
+                }
+              },
+              "specializations": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "description": "Module 1.1. Active DistrictPolicies.Specialization names (Tourist, Hightech, …), unreduced. Empty when the district has none."
               }
             }
           }

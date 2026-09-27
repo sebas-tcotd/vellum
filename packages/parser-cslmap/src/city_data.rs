@@ -208,8 +208,19 @@ pub struct PathSegment {
 #[serde(rename_all = "camelCase")]
 pub struct Building {
     pub id: String,
-    /// Asset name as exported from the game.
+    /// Asset (prefab) name as exported from the game, in both formats.
     pub name: String,
+    /// Name the player sees in game (`GetBuildingName`). Only the native document
+    /// (`buildings` 1.1) carries it, and only for non-RICO, non-`Untouchable`
+    /// buildings or renamed ones. Omitted when unknown.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display_name: Option<String>,
+    /// `true` when the player renamed the building. Native document only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub custom_name: Option<bool>,
+    /// `true` for a historical building (its level is locked). Native document only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub historical: Option<bool>,
     /// Anchor position derived from the first footprint point.
     pub position: Vec3,
     pub item_class: String,
@@ -241,6 +252,28 @@ pub struct District {
     /// Absent for `.cslmap`, which only exports the label point.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub boundary: Option<Vec<TerrainPolygon>>,
+    /// Residents. Native document (`districts` 1.1) only; `0` is a value, not absence.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub population: Option<u32>,
+    /// Homes (residential units). Native document only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub homes: Option<u32>,
+    /// Jobs per zoned sector. Native document only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub jobs: Option<DistrictJobs>,
+    /// Active specialization names as the game calls them (`Tourist`, `Hightech`, …),
+    /// unreduced. Native document only; empty when the district has none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub specializations: Option<Vec<String>>,
+}
+
+/// Jobs of a district per zoned sector.
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct DistrictJobs {
+    pub commercial: u32,
+    pub industrial: u32,
+    pub office: u32,
 }
 
 /// Serializes as `PascalCase` to match the TypeScript union.

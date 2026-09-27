@@ -7,7 +7,12 @@ use super::super::utils::{attr_f64, attr_str};
 #[derive(Debug, Clone)]
 pub(crate) struct RawBuilding {
     pub(crate) id: String,
+    /// Prefab (asset) name.
     pub(crate) name: String,
+    /// Visible name; only the native document (`buildings` 1.1) has it.
+    pub(crate) display_name: Option<String>,
+    pub(crate) custom_name: Option<bool>,
+    pub(crate) historical: Option<bool>,
     pub(crate) item_class: String,
     pub(crate) service_type: String,
     pub(crate) footprint: Vec<Vec3>,
@@ -68,6 +73,9 @@ impl BuildingBuilder {
                 self.buildings.push(RawBuilding {
                     id: std::mem::take(&mut self.current_id),
                     name: std::mem::take(&mut self.current_name),
+                    display_name: None,
+                    custom_name: None,
+                    historical: None,
                     item_class: std::mem::take(&mut self.current_icls),
                     service_type: std::mem::take(&mut self.current_subsrv),
                     footprint: std::mem::take(&mut self.current_footprint),

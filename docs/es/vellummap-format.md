@@ -80,7 +80,8 @@ lector las rechaza (con `InvalidFile`):
   `parks.json`) debe caber en un byte de la grilla: 1–255.
 - Fechas: `exportedAtUtc` debe ser un día que exista en su mes (`2026-02-30` se rechaza).
   El `pattern` del schema exige la forma y la `Z`; el calendario lo comprueba el lector.
-- Enteros: `sourceId`, `elevation`, `frameIndex` y `resolution` no admiten parte decimal.
+- Enteros: `sourceId`, `elevation`, `frameIndex`, `resolution` y los conteos de distrito
+  (`population`, `homes`, `jobs.*`) no admiten parte decimal.
   `1.0` es válido para el tipo `integer` de JSON Schema, pero el lector lo rechaza.
 - Agua: máscara igual a `profundidad > 16` y `depth` presente exactamente cuando está
   `water-depth.bin` (ver [Agua](#agua)).
@@ -141,7 +142,7 @@ Cada registro de `modules`:
 | --------- | --------------------------------------------------------------------------------------------------------------------- |
 | `id`      | Uno de los módulos de la tabla de abajo.                                                                              |
 | `path`    | Fijo por `id` en v1.                                                                                                  |
-| `version` | Versión del módulo, `MAJOR.MINOR`. Hoy `1.0`.                                                                         |
+| `version` | Versión del módulo, `MAJOR.MINOR`. `1.0`, salvo `buildings` y `districts`: `1.1` desde Bridge 0.8.                    |
 | `codec`   | `deflate` o `stored`. Debe coincidir con el método real de la entrada zip. Un lector v1 rechaza cualquier otro valor. |
 | `sha256`  | SHA-256 de los bytes **descomprimidos** de la entrada, en hex minúscula.                                              |
 | `grid`    | Solo en grillas. Forma exacta fijada por el módulo (ver tabla).                                                       |
@@ -174,8 +175,8 @@ después:
 | `vegetation`    | `vegetation.bin`  | sí     | `NaturalResourceManager.m_tree`, u8 (0–255), 512², celda 33,75.                                |
 | `roads`         | `roads.json`      | sí     | `{ nodes, segments }`.                                                                         |
 | `transit`       | `transit.json`    | sí     | `{ lines }`.                                                                                   |
-| `buildings`     | `buildings.json`  | sí     | `{ buildings }`.                                                                               |
-| `districts`     | `districts.json`  | sí     | `{ districts }`: `sourceId`, `name`, `labelPosition`.                                          |
+| `buildings`     | `buildings.json`  | sí     | `{ buildings }`. `1.1`: prefab en `prefab`, nombre visible en `name`.                          |
+| `districts`     | `districts.json`  | sí     | `{ districts }`: `sourceId`, `name`, `labelPosition`; `1.1`: datos de lugar.                   |
 | `parks`         | `parks.json`      | sí     | `{ parks }`: `sourceId`, `name`, `labelPosition`, `parkType?`.                                 |
 | `district-grid` | `districts.bin`   | no     | u8x8, 900², celda 19,2: por celda, 4 ids de distrito y luego sus 4 alphas.                     |
 | `park-grid`     | `parks.bin`       | no     | u8x8, 900², celda 19,2: por celda, 4 ids de parque y luego sus 4 alphas.                       |
@@ -331,15 +332,82 @@ La vista esquemática puede abreviar el nombre al mostrarlo.
 }
 ```
 
-- `name`: el nombre del prefab.
 - `serviceType`: el sub-servicio del prefab.
 - `footprint`: el polígono de la planta. Su primer punto es el ancla del edificio.
+
+El nombre cambió de sentido en el módulo `1.1` (Bridge 0.8). El lector no despacha por
+versión: la presencia de `prefab` basta para leer cada edificio sin ambigüedad.
+
+- **Sin `prefab` (módulo `1.0`: Bridge 0.7, conversor de referencia):** `name` es
+  obligatorio y es el nombre del prefab. `customName` e `historical` no se admiten.
+- **Con `prefab` (módulo `1.1`):**
+  - `prefab`: el nombre del prefab.
+  - `name` (opcional, nunca vacío): el nombre que ve el jugador (`GetBuildingName`). Solo
+    lo llevan los edificios que no son RICO ni `Untouchable` (servicios, únicos,
+    monumentos) y los que el jugador renombró. El nombre de un RICO sin renombrar es
+    aleatorio y no se exporta.
+  - `customName` (opcional): `true` si el jugador lo renombró (`Building.Flags.CustomName`).
+    Exige `name`. Bridge lo escribe solo cuando es `true`.
+  - `historical` (opcional): `true` si es histórico (`Building.Flags.Historical`). Bridge
+    lo escribe solo cuando es `true`, también en un RICO sin nombre.
+
+```json
+{
+  "sourceId": 812,
+  "prefab": "Library",
+  "name": "Administração",
+  "customName": true,
+  "itemClass": "Education Facility",
+  "serviceType": "None",
+  "footprint": [{ "x": 20, "y": 60, "z": 20 }]
+}
+```
+
+En `CityData`, `Building.name` sigue siendo el prefab en ambos formatos. El lector lleva el
+`name` de un módulo `1.1` a `displayName`, y `customName` e `historical` a los campos del
+mismo nombre. Los tres se omiten cuando faltan, y un `.cslmap` nunca los produce.
 
 ### `districts.json` y `parks.json`
 
 Cada área lleva `sourceId`, `name` y `labelPosition`, el ancla de la etiqueta. Los parques
 añaden `parkType`, el nombre de tipo del juego sin reducir (`Generic`, `Zoo`, `Airport`,
 …); se omite si no se conoce. Vellum reduce hoy los tipos que no soporta a `None`.
+
+Desde el módulo `districts` `1.1` (Bridge 0.8), cada distrito trae además sus datos de
+lugar. Los cuatro campos son opcionales para el lector (un documento `1.0` no los tiene),
+pero Bridge los escribe siempre: cero es un dato, no una ausencia.
+
+| Campo             | Contenido                                                                                                                                            |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `population`      | Habitantes (`m_populationData.m_finalCount`). Entero ≥ 0.                                                                                            |
+| `homes`           | Hogares (`m_residentialData.m_finalHomeOrWorkCount`). Entero ≥ 0.                                                                                    |
+| `jobs`            | `{ commercial, industrial, office }`: empleos por sector (`m_<sector>Data.m_finalHomeOrWorkCount`). Los tres son obligatorios; otro sector es error. |
+| `specializations` | Nombres de las especializaciones activas del juego sin reducir (`Tourist`, `Hightech`, …), sin `None`. `[]` si no hay ninguna; ningún nombre vacío.  |
+
+```json
+{
+  "sourceId": 3,
+  "name": "Centro",
+  "labelPosition": { "x": 0, "y": 0, "z": 0 },
+  "population": 0,
+  "homes": 0,
+  "jobs": { "commercial": 0, "industrial": 0, "office": 0 },
+  "specializations": []
+}
+```
+
+Un valor negativo, `null` o con parte decimal es `InvalidFile`. En `CityData`, `District`
+expone `population`, `homes`, `jobs` y `specializations` tal cual: presentes (con ceros y
+`[]`) si el documento los trae, omitidos si no. Los parques no llevan datos de lugar.
+
+#### Prueba del atlas
+
+Vellum es un mapa, no un panel del juego. Un dato entra en el documento si describe el
+lugar como lo haría un atlas: población, hogares, empleos por sector, especialización,
+nombres. Las mecánicas del juego no pasan esa prueba y no se exportan aunque la captura
+cruda (`raw` del Raw Snapshot) las exponga: políticas, felicidad, crimen, consumo, valor
+del suelo, edades y educación. La superficie tampoco se exporta: se deriva de la grilla de
+áreas.
 
 ## Qué debe capturar Bridge (Story 5.3)
 
@@ -351,7 +419,12 @@ añaden `parkType`, el nombre de tipo del juego sin reducir (`Generic`, `Zoo`, `
   renderer decide si las dibuja.
 - Por nodo: posición, `elevation` y `underground`.
 - Por edificio: `itemClass`, sub-servicio y el **footprint** como polígono en coordenadas
-  del mundo, empezando por la esquina que servirá de ancla.
+  del mundo, empezando por la esquina que servirá de ancla. Desde Bridge 0.8, el prefab en
+  `prefab`, el nombre visible y las marcas `customName` e `historical` (ver
+  [`buildings.json`](#buildingsjson)). Un nombre que no se puede leer no aborta la
+  exportación: el edificio sale sin `name` y se cuenta como límite.
+- Por distrito, desde Bridge 0.8: población, hogares, empleos por sector y
+  especializaciones (ver [`districts.json` y `parks.json`](#districtsjson-y-parksjson)).
 - Por línea: `GetLineName`, `displayColor`, tipo de transporte, paradas con su posición y
   nombre derivado según la regla de arriba, y la ruta.
 - Terreno `RawHeights2`, máscara de agua, `seaLevel` y, si la simulación está en pausa, la
@@ -370,6 +443,8 @@ da el mismo `CityData` que el `.cslmap`, salvo `fileName` y `generatedAt` (que p
 Lo que `.cslmap` no trae se escribe tal cual es:
 
 - `game.version` queda en `"unknown"`.
+- Todos los módulos se escriben en `1.0`: los edificios llevan el prefab en `name` y los
+  distritos no llevan datos de lugar, porque `.cslmap` no los tiene.
 - La profundidad lleva `simulationPaused: false` y ningún `frameIndex`. Aquí `false`
   significa «desconocido, no garantizado en pausa»: `.cslmap` no dice si la simulación
   estaba detenida.
