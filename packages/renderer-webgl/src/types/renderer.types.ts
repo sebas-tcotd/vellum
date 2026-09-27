@@ -10,6 +10,7 @@
  */
 export type {
   DistrictTooltipInfo,
+  MapSelectHit,
   ServiceIconLegendState,
   TooltipInfo,
   TransitLineInfo,

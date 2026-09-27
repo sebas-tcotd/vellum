@@ -52,6 +52,7 @@ import {
 } from './export/export-snapshot-builder';
 import {
   subscribeHover as subscribeHoverImpl,
+  subscribeSelect as subscribeSelectImpl,
   subscribeServiceIconLegend as subscribeServiceIconLegendImpl,
   subscribeViewport as subscribeViewportImpl,
 } from './interactions';
@@ -68,6 +69,7 @@ import {
   toPreviewSnapshot,
 } from './preview/preview-export-capture';
 import type {
+  MapSelectHit,
   ServiceIconLegendState,
   TooltipInfo,
   ViewportBounds,
@@ -676,6 +678,15 @@ export class MapLibreRenderer implements IRenderer {
     this.layerManager.setWatermarkVisibility(visible);
   }
 
+  /**
+   * Tints one district area as the current selection, or clears the tint.
+   *
+   * @param id - District id to tint, or `null` to clear it.
+   */
+  setSelectedDistrict(id: string | null): void {
+    this.layerManager.setSelectedDistrict(id);
+  }
+
   // ─── Navigation API Delegation ──────────────────────────────────────────
 
   /** Fits the MapLibre viewport to the city's geographic bounding box. */
@@ -762,6 +773,16 @@ export class MapLibreRenderer implements IRenderer {
     this.navigationManager.navigateTo(lng, lat);
   }
 
+  /**
+   * Shifts the view by a screen offset with a short animation.
+   *
+   * @param dx - Horizontal offset in CSS pixels.
+   * @param dy - Vertical offset in CSS pixels.
+   */
+  panBy(dx: number, dy: number): void {
+    this.navigationManager.panBy(dx, dy);
+  }
+
   /** Returns the current viewport bounds, or `null` if the map is not ready. */
   getInitialViewportBounds(): ViewportBounds | null {
     return this.navigationManager.getInitialBounds();
@@ -808,6 +829,16 @@ export class MapLibreRenderer implements IRenderer {
    */
   subscribeHover(callback: (info: TooltipInfo | null) => void): () => void {
     return subscribeHoverImpl(this.map, callback);
+  }
+
+  /**
+   * Subscribes to clicks on the map, for the place card.
+   *
+   * @param callback - Called with what each click landed on.
+   * @returns Cleanup function that unregisters the listener.
+   */
+  subscribeSelect(callback: (hit: MapSelectHit) => void): () => void {
+    return subscribeSelectImpl(this.map, callback);
   }
 
   /**

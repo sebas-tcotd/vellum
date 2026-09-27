@@ -12,6 +12,7 @@ import type * as maplibregl from 'maplibre-gl';
 import {
   DISTRICT_BOUNDARY_OPACITY,
   DISTRICT_FILL_OPACITY,
+  DISTRICT_SELECTED_OPACITY,
   PARK_BOUNDARY_OPACITY,
 } from '../constants/layer.constants';
 import { buildParkColorExpression } from '../expressions/park-color';
@@ -21,6 +22,21 @@ import {
 } from '../geojson';
 import { addLayerIfAbsent, addSourceIfAbsent } from '../helpers';
 import type { ResolvedColors } from '../style-adapter';
+
+/**
+ * Filter of the `district-selected` layer for a given selection.
+ *
+ * @param id - Selected district id, or `null` to match nothing.
+ */
+export function selectedDistrictFilter(
+  id: string | null,
+): maplibregl.FilterSpecification {
+  // `null` matches nothing: no id value can be used as a sentinel, since any
+  // string could be a real district id.
+  return (
+    id === null ? ['boolean', false] : ['==', ['get', 'id'], id]
+  ) as maplibregl.FilterSpecification;
+}
 
 /**
  * Adds the boundary source plus one line layer per area kind. Both start
@@ -52,6 +68,21 @@ export function addAreaBoundariesLayer(
       'fill-color': colors.districtFill,
       'fill-opacity': DISTRICT_FILL_OPACITY,
       'fill-opacity-transition': { duration: 300 },
+    },
+  });
+
+  // The selection tint: same areas, filtered to the selected id. Independent of
+  // `showFill` — `MapLayerManager.setSelectedDistrict` drives its filter and
+  // visibility. Matches nothing until a district is selected.
+  addLayerIfAbsent(map, {
+    id: 'district-selected',
+    type: 'fill',
+    source: 'district-areas',
+    filter: selectedDistrictFilter(null),
+    layout: { visibility: 'none' },
+    paint: {
+      'fill-color': colors.districtFill,
+      'fill-opacity': DISTRICT_SELECTED_OPACITY,
     },
   });
 

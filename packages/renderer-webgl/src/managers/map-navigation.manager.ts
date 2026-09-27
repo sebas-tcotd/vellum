@@ -203,6 +203,17 @@ export class MapNavigationManager {
     this.map.flyTo({ center: [lng, lat], animate: false });
   }
 
+  /**
+   * Shifts the view by a screen offset with a short animation (instant under
+   * reduced motion).
+   *
+   * @param dx - Horizontal offset in CSS pixels.
+   * @param dy - Vertical offset in CSS pixels.
+   */
+  panBy(dx: number, dy: number): void {
+    this.map.panBy([dx, dy], { duration: prefersReducedMotion() ? 0 : 250 });
+  }
+
   /** Returns the current viewport bounds, or `null` if the map is not ready. */
   getInitialBounds(): ViewportBounds | null {
     try {

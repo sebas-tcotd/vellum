@@ -848,3 +848,315 @@
   border: 1.5px solid var(--color-text);
   border-radius: 50%;
 }
+
+/* ─── Place card (Story 3.6) ─────────────────────────────────────────────────
+   One component tree; the compositions differ only here. Linux/unknown is the
+   Windows (Google Maps–like) layout on a solid surface; Windows puts it on
+   Acrylic; macOS recomposes it Apple Maps–like on a Liquid Glass more marked
+   than the sidebar. The map behind stays opaque — only the card is material. */
+.place-card {
+  position: absolute;
+  top: calc(var(--shell-overlay-inset) + var(--shell-titlebar-inset));
+  z-index: 15;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 320px;
+  max-width: calc(100% - 2 * var(--shell-overlay-inset));
+  max-height: calc(
+    100% - 2 * var(--shell-overlay-inset) - var(--shell-titlebar-inset)
+  );
+  padding: 16px;
+  overflow-y: auto;
+  font-family: var(--font-shell);
+  color: var(--shell-text-primary);
+  background: var(--shell-solid-surface);
+  border: 1px solid var(--shell-separator);
+  border-radius: var(--shell-radius-overlay);
+  box-shadow: var(--shell-shadow-floating);
+  isolation: isolate;
+  corner-shape: var(--shell-corner-shape, round);
+}
+
+.place-card__header {
+  position: relative;
+  padding-right: 32px;
+}
+
+.place-card__close {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--shell-control-size);
+  height: var(--shell-control-size);
+  color: var(--shell-text-muted);
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.place-card__close:hover,
+.place-card__action:hover {
+  background: color-mix(in srgb, currentColor 9%, transparent);
+}
+
+.place-card__title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.place-card__subtitle {
+  margin: 4px 0 0;
+  font-size: 0.875rem;
+  color: var(--shell-text-muted);
+}
+
+.place-card__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.place-card__badge {
+  padding: 2px 8px;
+  font-size: 0.75rem;
+  border: 1px solid var(--shell-separator);
+  border-radius: 999px;
+}
+
+.place-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.place-card__action {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  min-height: var(--shell-row-height);
+  padding: 0 12px;
+  font: inherit;
+  font-size: 0.8125rem;
+  color: var(--shell-text-primary);
+  background: transparent;
+  border: 1px solid var(--shell-separator);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+/* Windows/Linux: facts are rows with a leading icon — value, then label. */
+.place-card__facts {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+}
+
+.place-card__fact {
+  display: grid;
+  grid-template-columns: 16px auto 1fr;
+  gap: 12px;
+  align-items: center;
+  font-size: 0.875rem;
+}
+
+.place-card__fact-value {
+  grid-column: 2;
+  grid-row: 1;
+  margin: 0;
+}
+
+.place-card__fact-label {
+  grid-column: 3;
+  grid-row: 1;
+  color: var(--shell-text-muted);
+}
+
+.place-card__icon {
+  flex: 0 0 auto;
+  color: var(--shell-text-muted);
+}
+
+.place-card__section {
+  padding-top: 12px;
+  border-top: 1px solid var(--shell-separator);
+}
+
+.place-card__section:focus-visible,
+.place-card__close:focus-visible,
+.place-card__action:focus-visible {
+  outline: 2px solid var(--shell-focus);
+  outline-offset: 2px;
+}
+
+.place-card__section-heading {
+  margin: 0 0 8px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.place-card__rows,
+.place-card__legend {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  font-size: 0.875rem;
+  list-style: none;
+}
+
+.place-card__row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.place-card__row-label {
+  color: var(--shell-text-muted);
+}
+
+.place-card__bar {
+  display: flex;
+  height: 8px;
+  margin-bottom: 8px;
+  overflow: hidden;
+  background: color-mix(in srgb, currentColor 10%, transparent);
+  border-radius: 4px;
+}
+
+.place-card__bar-segment {
+  flex-basis: 0;
+  min-width: 2px;
+}
+
+.place-card__legend-item {
+  display: grid;
+  grid-template-columns: 10px 1fr auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.place-card__swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.place-card__legend-value {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Windows: Acrylic — a translucent, blurred surface over the (opaque) map. */
+[data-platform='windows'] .place-card {
+  background: var(--shell-surface);
+  backdrop-filter: blur(var(--shell-backdrop-blur))
+    saturate(var(--shell-backdrop-saturate));
+}
+
+/* macOS: Apple Maps composition on a Liquid Glass more marked than the
+   sidebar's — more blur and saturation, a stronger inner highlight. */
+[data-platform='macos'] .place-card {
+  gap: 16px;
+  background: var(--shell-surface-popover);
+  border-color: var(--shell-stroke-light, var(--shell-separator));
+  box-shadow:
+    var(--shell-shadow-panel),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(calc(var(--shell-backdrop-blur) * 1.5))
+    saturate(calc(var(--shell-backdrop-saturate) + 25%))
+    brightness(var(--shell-backdrop-brightness));
+}
+
+[data-platform='macos'] .place-card__header {
+  padding: 0 32px;
+  text-align: center;
+}
+
+[data-platform='macos'] .place-card__title {
+  font-size: 1.625rem;
+  font-weight: 700;
+}
+
+[data-platform='macos'] .place-card__badges {
+  justify-content: center;
+}
+
+/* Actions and leading icons belong to the Windows/Linux composition. */
+[data-platform='macos'] .place-card__actions,
+[data-platform='macos'] .place-card__icon {
+  display: none;
+}
+
+/* Key facts side by side, the small label above its value. */
+[data-platform='macos'] .place-card__facts {
+  flex-direction: row;
+  justify-content: space-around;
+  gap: 16px;
+}
+
+[data-platform='macos'] .place-card__fact {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: center;
+}
+
+[data-platform='macos'] .place-card__fact-label {
+  order: -1;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+[data-platform='macos'] .place-card__fact-value {
+  font-size: 1.0625rem;
+  font-weight: 600;
+}
+
+[data-platform='macos'] .place-card__section {
+  padding: 12px;
+  background: color-mix(in srgb, currentColor 5%, transparent);
+  border-top: none;
+  border-radius: var(--shell-radius-control);
+}
+
+[data-platform='macos'] .place-card__section-heading {
+  font-size: 0.6875rem;
+  color: var(--shell-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+/* No material, no translucency: a solid surface that stays legible. */
+@supports not ((backdrop-filter: blur(1px))) {
+  .place-card,
+  [data-platform='windows'] .place-card,
+  [data-platform='macos'] .place-card {
+    background: var(--shell-solid-surface);
+  }
+}
+
+@media (forced-colors: active) {
+  .place-card,
+  [data-platform='windows'] .place-card,
+  [data-platform='macos'] .place-card {
+    color: CanvasText;
+    background: Canvas;
+    border-color: CanvasText;
+    box-shadow: none;
+    backdrop-filter: none;
+  }
+}

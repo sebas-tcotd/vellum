@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   initialShellSession,
+  MAP_FOCUS_ID,
   shellSessionReducer,
   SIDEBAR_WIDTH,
   type ShellSessionState,
@@ -530,5 +531,73 @@ describe('schematic layout (Story 4.3)', () => {
         windowWidth: 1440,
       }).schematic.layoutId,
     ).toBe('geographic');
+  });
+});
+
+describe('pinned place (Story 3.6)', () => {
+  const district = { kind: 'district', id: 'd1' } as const;
+  const building = { kind: 'building', id: 'b9' } as const;
+
+  it('selects a place and replaces it with another — never two', () => {
+    const one = shellSessionReducer(base(), {
+      type: 'place/select',
+      entity: district,
+    });
+    expect(one.pinnedEntity).toEqual(district);
+    const two = shellSessionReducer(one, {
+      type: 'place/select',
+      entity: building,
+    });
+    expect(two.pinnedEntity).toEqual(building);
+    expect(
+      shellSessionReducer(two, { type: 'place/select', entity: building }),
+    ).toBe(two);
+  });
+
+  it('Escape clears the place first and sends focus back to the map', () => {
+    const state = base({ pinnedEntity: district, cleanView: true });
+    const escaped = shellSessionReducer(state, { type: 'escape' });
+    expect(escaped.pinnedEntity).toBeNull();
+    expect(escaped.cleanView).toBe(true);
+    expect(escaped.restoreFocus).toBe(MAP_FOCUS_ID);
+  });
+
+  it('with a layer detail also open, Escape closes the place first and keeps the detail invoker', () => {
+    const state = base({
+      pinnedEntity: district,
+      restoreFocus: 'disclosure-transit',
+      sidebar: {
+        ...base().sidebar,
+        view: { kind: 'detail', layerId: 'transit' },
+      },
+    });
+    const first = shellSessionReducer(state, { type: 'escape' });
+    expect(first.pinnedEntity).toBeNull();
+    expect(first.sidebar.view).toEqual({ kind: 'detail', layerId: 'transit' });
+    expect(first.restoreFocus).toBe('disclosure-transit');
+
+    const second = shellSessionReducer(first, { type: 'escape' });
+    expect(second.sidebar.view.kind).toBe('overview');
+    expect(second.restoreFocus).toBe('disclosure-transit');
+  });
+
+  it('a plain clear leaves focus where it is, and is a no-op when empty', () => {
+    const state = base({ pinnedEntity: district });
+    const cleared = shellSessionReducer(state, { type: 'place/clear' });
+    expect(cleared.pinnedEntity).toBeNull();
+    expect(cleared.restoreFocus).toBeNull();
+    const empty = base();
+    expect(shellSessionReducer(empty, { type: 'place/clear' })).toBe(empty);
+  });
+
+  it('switching or resetting the view clears the place', () => {
+    const state = base({ pinnedEntity: building });
+    expect(
+      shellSessionReducer(state, { type: 'viewMode/toggle' }).pinnedEntity,
+    ).toBeNull();
+    const schematic = base({ viewMode: 'schematic', pinnedEntity: building });
+    expect(
+      shellSessionReducer(schematic, { type: 'viewMode/reset' }).pinnedEntity,
+    ).toBeNull();
   });
 });

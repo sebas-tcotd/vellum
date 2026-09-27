@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Network } from 'lucide-react';
-import type { ServiceIconLegendState } from '@vellum/core';
+import { Copy, Crosshair, Network } from 'lucide-react';
+import type { MapSelectHit, ServiceIconLegendState } from '@vellum/core';
 import type {
   MapLibreRootProps,
   MapViewportPort,
@@ -16,7 +16,17 @@ import {
   type SchematicNetworkModel,
 } from '../../hooks/use-schematic-network';
 import type { CommandRegistry } from '../../shell/commands';
-import type { ViewMode } from '../../shell/shell-session';
+import {
+  MAP_FOCUS_ID,
+  type ShellSession,
+  type ViewMode,
+} from '../../shell/shell-session';
+import { PlaceCard, type PlaceCardData } from '../place-card/PlaceCard';
+import {
+  buildPlaceCard,
+  isNotableBuilding,
+  placeAnchor,
+} from '../place-card/place-card-model';
 import { DEFAULT_RENDER_STYLE_PARAMS } from '@vellum/theme-engine';
 import { useVellumStore } from '../../store/vellum-store';
 import { cn } from '../../lib/utils';
@@ -62,9 +72,19 @@ export interface MapViewportProps {
     ((callback: (state: ServiceIconLegendState) => void) => () => void) | null
   >;
   iconLegendToggleRef: React.RefObject<(() => void) | null>;
+  /**
+   * The shell session, for the place card: which place is pinned, and the
+   * actions that pin and clear it. Without it the map has no place card.
+   */
+  shell?: ShellSession;
   /** Extra content layered over the map, e.g. the empty state during no-map. */
   children?: React.ReactNode;
 }
+
+/** Distance the card keeps from the viewport edges, mirroring `--shell-overlay-inset`. */
+const CARD_EDGE_INSET = 12;
+/** Room left between the card and a place the map is panned to reveal. */
+const CARD_PAN_MARGIN = 24;
 
 /**
  * The map region: the renderer plus every overlay that sits on it.
@@ -87,9 +107,10 @@ export function MapViewport({
   onShowAllSchematicModes,
   subscribeServiceIconLegendRef,
   iconLegendToggleRef,
+  shell,
   children,
 }: MapViewportProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const viewportRef = useRef<HTMLElement>(null);
   const portRef = useRef<MapViewportPort | null>(null);
   const toggleRef = useRef<HTMLButtonElement>(null);
@@ -170,7 +191,173 @@ export function MapViewport({
     return () => observer.disconnect();
   }, []);
 
+  // ─── Place card (Story 3.6) ────────────────────────────────────────────
+  const pinned = shell?.state.pinnedEntity ?? null;
+  const restoreFocus = shell?.state.restoreFocus ?? null;
+  const shellDispatch = shell?.dispatch;
+  const cardRef = useRef<HTMLElement>(null);
+  /** Where the latest selecting click landed, for the minimal pan. */
+  const clickPointRef = useRef<{ x: number; y: number } | null>(null);
+  /**
+   * Bumped on every selecting click — re-clicking the place already pinned
+   * included — so the pan is re-evaluated even when the selection is unchanged.
+   */
+  const [selectSeq, setSelectSeq] = useState(0);
+  /** Whether focus was inside the card when it went away. */
+  const cardHadFocusRef = useRef(false);
+  const buildingsById = useMemo(
+    () => new Map((cityData?.buildings ?? []).map((b) => [b.id, b])),
+    [cityData],
+  );
+  const districtIds = useMemo(
+    () => new Set((cityData?.districts ?? []).map((d) => d.id)),
+    [cityData],
+  );
+
+  // One click event; the viewport arbitrates, because only `CityData` knows
+  // whether a building is notable. The first notable building in the hit
+  // (nearest first), then the district, else the click clears the card.
+  const selectRef = useRef<(hit: MapSelectHit) => void>(() => {});
+  selectRef.current = (hit) => {
+    if (!shellDispatch) return;
+    const building = (hit.buildingIds ?? [])
+      .map((id) => buildingsById.get(id))
+      .find((b) => b !== undefined && isNotableBuilding(b));
+    const entity = building
+      ? ({ kind: 'building', id: building.id } as const)
+      : hit.districtId !== undefined && districtIds.has(hit.districtId)
+        ? ({ kind: 'district', id: hit.districtId } as const)
+        : null;
+    if (entity === null) {
+      clickPointRef.current = null;
+      shellDispatch({ type: 'place/clear' });
+      return;
+    }
+    clickPointRef.current = { x: hit.screenX, y: hit.screenY };
+    shellDispatch({ type: 'place/select', entity });
+    setSelectSeq((n) => n + 1);
+  };
+  useEffect(() => {
+    const unsubscribe =
+      portRef.current?.subscribeSelect((hit) => selectRef.current(hit)) ??
+      (() => {});
+    return unsubscribe;
+  }, []);
+
+  // The tint follows the pinned district, and nothing else.
+  const tintedDistrict = pinned?.kind === 'district' ? pinned.id : null;
+  useEffect(() => {
+    portRef.current?.setSelectedDistrict(tintedDistrict);
+  }, [tintedDistrict]);
+
+  // Hiding the place's layer, or starting another load, invalidates the card.
+  const activeLayers = useVellumStore((s) => s.activeLayers);
+  const pinnedLayerHidden =
+    (pinned?.kind === 'district' && !activeLayers.districts) ||
+    (pinned?.kind === 'building' && !activeLayers.buildings);
+  useEffect(() => {
+    if (pinnedLayerHidden || loadingState === 'loading') {
+      shellDispatch?.({ type: 'place/clear' });
+    }
+  }, [pinnedLayerHidden, loadingState, shellDispatch]);
+
+  const closeCard = useCallback(
+    () => shellDispatch?.({ type: 'place/clear', returnFocus: true }),
+    [shellDispatch],
+  );
+  const handleCardUnmount = useCallback((hadFocus: boolean) => {
+    cardHadFocusRef.current = hadFocus;
+  }, []);
+
+  // Optional: test doubles of `useTranslation` often leave `i18n` out.
+  const language = (i18n as typeof i18n | undefined)?.language;
+  const cardData = useMemo<PlaceCardData | null>(() => {
+    const data = buildPlaceCard(cityData, pinned, t, language);
+    if (!data || !cityData || !pinned) return null;
+    const anchor = placeAnchor(cityData, pinned);
+    return {
+      ...data,
+      actions: [
+        ...(anchor
+          ? [
+              {
+                id: 'center',
+                label: t('placeCard.centerOnMap'),
+                icon: Crosshair,
+                onSelect: () => portRef.current?.navigateTo(...anchor),
+              },
+            ]
+          : []),
+        {
+          id: 'copy',
+          label: t('placeCard.copyName'),
+          icon: Copy,
+          onSelect: () => {
+            void navigator.clipboard?.writeText(data.title).catch(() => {});
+          },
+        },
+      ],
+    };
+  }, [cityData, pinned, t, language]);
+
   const isSchematic = viewMode === 'schematic' && cityData !== null;
+  const showPlaceCard = cardData !== null && !isSchematic;
+  const cardLeft = CARD_EDGE_INSET + (mapInset?.left ?? 0);
+
+  // Closed from the keyboard or its button: focus goes back to the map — but
+  // only if it was in the card or on the map. Focus the user has put in the
+  // sidebar or the toolbar is theirs, and is never taken away.
+  const wasCardShown = useRef(showPlaceCard);
+  useEffect(() => {
+    const closed = wasCardShown.current && !showPlaceCard;
+    wasCardShown.current = showPlaceCard;
+    const requested = restoreFocus === MAP_FOCUS_ID;
+    if (closed || requested) {
+      const hadFocus = cardHadFocusRef.current;
+      cardHadFocusRef.current = false;
+      const active = document.activeElement;
+      const mapWrapper = viewportRef.current?.querySelector(
+        '[data-testid="canvas-wrapper"]',
+      );
+      const onMap =
+        active === null ||
+        active === document.body ||
+        (mapWrapper?.contains(active) ?? false);
+      if (closed && pinned === null && (hadFocus || (requested && onMap))) {
+        mapWrapper?.querySelector<HTMLElement>('canvas')?.focus();
+      }
+    }
+    if (requested && pinned === null) {
+      shellDispatch?.({ type: 'focus/consume' });
+    }
+  }, [showPlaceCard, restoreFocus, pinned, shellDispatch]);
+
+  // The minimal nudge: if the card covers the point that was clicked, pan
+  // horizontally just enough (plus a margin) to bring it back into view —
+  // never so far that the point would leave the viewport on the right.
+  useEffect(() => {
+    const point = clickPointRef.current;
+    clickPointRef.current = null;
+    const card = cardRef.current;
+    const viewport = viewportRef.current;
+    if (!showPlaceCard || !point || !card || !viewport) return;
+    const origin = viewport.getBoundingClientRect();
+    const box = card.getBoundingClientRect();
+    const right = box.right - origin.left;
+    const top = box.top - origin.top;
+    const bottom = box.bottom - origin.top;
+    const covered =
+      point.x < right + CARD_PAN_MARGIN &&
+      point.y >= top - CARD_PAN_MARGIN &&
+      point.y <= bottom + CARD_PAN_MARGIN;
+    if (!covered) return;
+    const target = Math.min(
+      right + CARD_PAN_MARGIN,
+      origin.width - CARD_EDGE_INSET,
+    );
+    const dx = point.x - target;
+    if (dx < 0) portRef.current?.panBy(dx, 0);
+  }, [selectSeq, showPlaceCard]);
   // In schematic mode the toggle is the on-screen way back, so it survives
   // Clean view; the geographic overlays never show there.
   const showTools = cityData !== null && (!isCleanView || isSchematic);
@@ -301,6 +488,15 @@ export function MapViewport({
               </div>
             )}
           </MapTools>
+        )}
+        {showPlaceCard && (
+          <PlaceCard
+            ref={cardRef}
+            data={cardData}
+            onClose={closeCard}
+            onUnmount={handleCardUnmount}
+            style={{ left: cardLeft }}
+          />
         )}
         {showOverlays && (
           <>

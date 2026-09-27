@@ -1,5 +1,5 @@
 import type { LayerName, TransitMode } from '@vellum/core';
-import { useReducer } from 'react';
+import { useEffect, useReducer } from 'react';
 
 /**
  * Which body the appearance sidebar is showing. Exactly one layer detail can
@@ -16,6 +16,21 @@ export type ActiveModal =
   | 'about'
   | 'partialParse'
   | null;
+
+/**
+ * The place the card is showing: a district or a notable building, by id.
+ * Transit stops are never pinned — their tooltip owns them.
+ */
+export interface PinnedEntity {
+  kind: 'district' | 'building';
+  id: string;
+}
+
+/**
+ * `restoreFocus` value that sends focus back to the map canvas once the
+ * place card closes from the keyboard or its close button.
+ */
+export const MAP_FOCUS_ID = 'map-canvas';
 
 /** Which surface the viewport shows. `geographic` (MapLibre) is the default. */
 export type ViewMode = 'geographic' | 'schematic';
@@ -137,11 +152,11 @@ export interface ShellSessionState {
   viewMode: ViewMode;
   activeModal: ActiveModal;
   /**
-   * Pinned map entity. Always `null` until a keyboard-navigable selection
-   * primitive exists in the renderer — see AD-12; the slot is kept so the
-   * escape ladder and card invalidation are already wired for it.
+   * The place the card is showing, or `null`. There is never more than one:
+   * selecting another place replaces it. Cleared by Escape (first rung of the
+   * ladder), by switching the view and by loading another city.
    */
-  pinnedEntity: null;
+  pinnedEntity: PinnedEntity | null;
   /**
    * `data-focus-id` of the control that opened the current transient state.
    * Restoring focus by id (rather than by holding an element reference) keeps
@@ -171,6 +186,12 @@ export type ShellSessionAction =
   | { type: 'schematic/reset'; windowWidth: number }
   | { type: 'modal/open'; modal: NonNullable<ActiveModal>; invoker?: string }
   | { type: 'modal/close' }
+  | { type: 'place/select'; entity: PinnedEntity }
+  | {
+      type: 'place/clear';
+      /** `true` when the user closed the card, so focus goes back to the map. */
+      returnFocus?: boolean;
+    }
   | { type: 'focus/consume' }
   | { type: 'escape' };
 
@@ -346,15 +367,41 @@ export function shellSessionReducer(
     case 'viewMode/toggle':
       // Like Clean view, the view cannot switch under a blocking surface.
       if (state.activeModal !== null) return state;
+      // The card belongs to the geographic map; the schematic has no places.
       return {
         ...state,
         viewMode: state.viewMode === 'schematic' ? 'geographic' : 'schematic',
+        pinnedEntity: null,
       };
 
     case 'viewMode/reset':
       return state.viewMode === 'geographic'
         ? state
-        : { ...state, viewMode: 'geographic' };
+        : { ...state, viewMode: 'geographic', pinnedEntity: null };
+
+    case 'place/select': {
+      const current = state.pinnedEntity;
+      if (
+        current !== null &&
+        current.kind === action.entity.kind &&
+        current.id === action.entity.id
+      ) {
+        return state;
+      }
+      return { ...state, pinnedEntity: action.entity };
+    }
+
+    case 'place/clear':
+      if (state.pinnedEntity === null) return state;
+      return {
+        ...state,
+        pinnedEntity: null,
+        // Never overwrite a pending return, such as the invoker of an open
+        // layer detail: the next rung of the ladder still needs it.
+        ...(action.returnFocus && state.restoreFocus === null
+          ? { restoreFocus: MAP_FOCUS_ID }
+          : {}),
+      };
 
     case 'schematic/toggleMode': {
       // `Unknown` is not offered as a control anywhere; refusing it here means
@@ -484,7 +531,12 @@ export function shellSessionReducer(
       // their own focus trap, so this only runs with no modal open; the order
       // below is pinned entity, then layer detail, then Clean view.
       if (state.activeModal !== null) return state;
-      if (state.pinnedEntity !== null) return { ...state, pinnedEntity: null };
+      if (state.pinnedEntity !== null) {
+        return shellSessionReducer(state, {
+          type: 'place/clear',
+          returnFocus: true,
+        });
+      }
       // Only the body actually on screen answers Escape. A layer detail left
       // open behind the schematic is hidden, not offered, so it is not what
       // the key is aimed at.
@@ -521,4 +573,31 @@ export function useShellSession(windowWidth: number): ShellSession {
     initialShellSession,
   );
   return { state, dispatch };
+}
+
+/**
+ * Resets the per-city part of the session whenever the city changes — loaded,
+ * replaced or closed.
+ *
+ * @remarks
+ * The view lands on the geographic map (Story 4.1): the schematic mode is
+ * ephemeral and never carries over. Its filters go with it (Story 4.2): they
+ * name lines and modes of the city that is leaving. So does the pinned place
+ * (Story 3.6): it names a place of that city.
+ *
+ * @param cityData - The city on screen; any identity change triggers a reset.
+ * @param dispatch - The session's dispatch.
+ */
+export function useResetSessionOnCityChange(
+  cityData: unknown,
+  dispatch: React.Dispatch<ShellSessionAction>,
+): void {
+  useEffect(() => {
+    dispatch({ type: 'place/clear' });
+    dispatch({ type: 'viewMode/reset' });
+    dispatch({
+      type: 'schematic/reset',
+      windowWidth: typeof window === 'undefined' ? 1440 : window.innerWidth,
+    });
+  }, [cityData, dispatch]);
 }

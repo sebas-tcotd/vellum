@@ -242,6 +242,7 @@ export function AppSurface({
               onShowAllSchematicModes={showAllSchematicModes}
               subscribeServiceIconLegendRef={subscribeServiceIconLegendRef}
               iconLegendToggleRef={iconLegendToggleRef}
+              shell={shell}
             />
           </div>
         </DesktopShell>

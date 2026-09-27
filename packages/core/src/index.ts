@@ -2,6 +2,7 @@
 export * from './assets/vellum-logo';
 export * from './constants';
 export * from './coordinate-transform';
+export * from './district-area';
 export * from './export/map-frame-metrics';
 export * from './export/marginalia-layout';
 export * from './export/marginalia-paint';
@@ -9,6 +10,7 @@ export * from './export/output-density';
 export * from './export/output-surface';
 export * from './export/terrain-relief-domain';
 export * from './ipc-contract';
+export * from './rico-colors';
 export * from './road-classification';
 export * from './service-icons';
 export * from './transit-network';
