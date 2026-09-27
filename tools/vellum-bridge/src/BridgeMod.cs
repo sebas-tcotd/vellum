@@ -14,8 +14,10 @@ namespace VellumBridge
 {
     public sealed class BridgeMod : IUserMod
     {
-        public string Name { get { return "Vellum Bridge (experimental)"; } }
-        public string Description { get { return "Captura diagnóstica local de la ciudad para Vellum."; } }
+        // La versión en el nombre: es lo único que el Content Manager y la pestaña de opciones
+        // muestran, y así se ve qué DLL cargó el juego.
+        public string Name { get { return "Vellum Bridge " + BridgeCapture.Version; } }
+        public string Description { get { return "Exporta tu ciudad a .vellummap para abrirla en Vellum Desktop."; } }
 
         public void OnSettingsUI(UIHelperBase helper)
         {
