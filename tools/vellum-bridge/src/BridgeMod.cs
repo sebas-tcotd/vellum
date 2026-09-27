@@ -19,6 +19,25 @@ namespace VellumBridge
         public string Name { get { return "Vellum Bridge " + BridgeCapture.Version; } }
         public string Description { get { return "Exporta tu ciudad a .vellummap para abrirla en Vellum Desktop."; } }
 
+        // Al recargar el mod en caliente, CS1 llama OnDisabled en la instancia vieja y OnEnabled en
+        // la nueva, pero el ensamblado viejo sigue en memoria y, con una ciudad cargada, su
+        // BridgeThreading sigue registrado hasta que se descarga (el nuevo entra con la próxima
+        // carga). `Active` es estático por ensamblado: apaga los atajos del viejo, así nunca
+        // corren dos copias ni código viejo. El log deja ver qué DLL quedó cargado.
+        internal static bool Active;
+
+        public void OnEnabled()
+        {
+            Active = true;
+            Debug.Log("[VellumBridge] Mod activado: " + BridgeCapture.Version + " (ensamblado " + Assembly.GetExecutingAssembly().GetName().Version + ").");
+        }
+
+        public void OnDisabled()
+        {
+            Active = false;
+            Debug.Log("[VellumBridge] Mod desactivado: " + BridgeCapture.Version + " (ensamblado " + Assembly.GetExecutingAssembly().GetName().Version + ").");
+        }
+
         public void OnSettingsUI(UIHelperBase helper)
         {
             helper.AddButton("Capturar Raw Snapshot", delegate { BridgeCapture.Request(); });
@@ -47,6 +66,7 @@ namespace VellumBridge
         // OnUpdate corre en el hilo principal cada frame, también con la simulación en pausa.
         public override void OnUpdate(float realTimeDelta, float simulationTimeDelta)
         {
+            if (!BridgeMod.Active) return;
             // Ctrl+Shift+V captura sin abrir el menú, que pausa el juego: así se puede
             // capturar con la simulación corriendo. Con la ciudad en pausa, igual que el botón.
             bool ctrl = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
