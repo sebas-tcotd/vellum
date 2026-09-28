@@ -39,8 +39,16 @@ export const HILLSHADE_EXAGGERATION =
 
 /** Opacity of the optional district tint — light enough to leave the map's colours alone. */
 export const DISTRICT_FILL_OPACITY = 0.14;
-/** Opacity of the selected-district tint — twice the optional fill so it reads over it. */
-export const DISTRICT_SELECTED_OPACITY = DISTRICT_FILL_OPACITY * 2;
+/**
+ * Opacity of the selected-district tint. It sits over buildings, roads and
+ * transit, so it stays light: enough to mark the place, not to wash it out.
+ */
+export const DISTRICT_SELECTED_OPACITY = 0.2;
+/**
+ * Accent of the selected district's outline — fixed, theme-independent, like
+ * the red dashed outline a map app draws around a selected area.
+ */
+export const DISTRICT_SELECTED_OUTLINE_COLOR = '#e5484d';
 /** Baseline opacity of the native district outline (also the dimming baseline). */
 export const DISTRICT_BOUNDARY_OPACITY = 0.55;
 /** Baseline opacity of the native park outline (also the dimming baseline). */
@@ -89,6 +97,7 @@ export const LAYER_ID_MAP: Record<LayerName, string[]> = {
   districts: [
     'district-fill',
     'district-selected',
+    'district-selected-outline',
     'district-boundaries',
     'park-boundaries',
     'districts-points',
@@ -201,6 +210,7 @@ export const NON_TRANSIT_OPACITY: Record<
     prop: 'fill-opacity',
     base: DISTRICT_SELECTED_OPACITY,
   },
+  'district-selected-outline': { prop: 'line-opacity', base: 1 },
   'district-boundaries': {
     prop: 'line-opacity',
     base: DISTRICT_BOUNDARY_OPACITY,

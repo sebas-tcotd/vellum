@@ -1094,10 +1094,29 @@
   justify-content: center;
 }
 
-/* Actions and leading icons belong to the Windows/Linux composition. */
-[data-platform='macos'] .place-card__actions,
+/* Leading icons belong to the Windows/Linux composition. */
 [data-platform='macos'] .place-card__icon {
   display: none;
+}
+
+/* Actions move to a footer row, as in Apple Maps: equal-width labelled
+   buttons under a hairline. Same markup — only the visual order changes. */
+[data-platform='macos'] .place-card__actions {
+  order: 1;
+  flex-wrap: nowrap;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--shell-separator);
+}
+
+[data-platform='macos'] .place-card__action {
+  flex: 1 1 0;
+  justify-content: center;
+  min-height: 32px;
+  font-weight: 500;
+  background: color-mix(in srgb, currentColor 7%, transparent);
+  border: none;
+  border-radius: var(--shell-radius-control);
 }
 
 /* Key facts side by side, the small label above its value. */

@@ -367,7 +367,10 @@
     "organic": "Productos orgánicos y locales",
     "selfsufficient": "Hogares autosuficientes",
     "hightech": "Alta tecnología",
-    "financial": "Financiero"
+    "financial": "Financiero",
+    "residentialwalltowall": "Residencial adosado",
+    "commercialwalltowall": "Comercial adosado",
+    "officewalltowall": "Oficinas adosadas"
   },
   "parkTypes": {
     "Generic": "Parque",

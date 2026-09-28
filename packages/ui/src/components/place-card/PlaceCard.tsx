@@ -81,9 +81,9 @@ export interface PlaceCardProps {
  * @remarks
  * One component tree for every platform: the macOS (Apple Maps–like) and the
  * Windows/Linux (Google Maps–like) compositions differ only in CSS keyed on
- * `[data-platform]`. What the user can reach is not identical: the actions
- * belong to the Windows/Linux composition only, so macOS hides them (and the
- * leading icons) by design. A non-modal dialog: the map stays interactive
+ * `[data-platform]`: macOS moves the actions to a footer row and hides the
+ * leading icons; Windows/Linux keep the actions under the title. A non-modal
+ * dialog: the map stays interactive
  * behind it, focus is never moved into it, and the tab order is the DOM order
  * — close, actions, then the sections that have a heading. Opening, or
  * replacing the place, is announced through a polite live region.

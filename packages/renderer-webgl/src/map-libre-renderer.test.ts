@@ -1793,11 +1793,18 @@ describe('MapLibreRenderer', () => {
         ['get', 'id'],
         'd-7',
       ]);
-      expect(mockMap.setLayoutProperty).toHaveBeenLastCalledWith(
-        'district-selected',
-        'visibility',
-        'visible',
-      );
+      for (const id of ['district-selected', 'district-selected-outline']) {
+        expect(mockMap.setFilter).toHaveBeenCalledWith(id, [
+          '==',
+          ['get', 'id'],
+          'd-7',
+        ]);
+        expect(mockMap.setLayoutProperty).toHaveBeenCalledWith(
+          id,
+          'visibility',
+          'visible',
+        );
+      }
 
       renderer.setLayerVisibility('districts', false);
       expect(mockMap.setLayoutProperty).toHaveBeenCalledWith(
@@ -1808,12 +1815,12 @@ describe('MapLibreRenderer', () => {
 
       renderer.setLayerVisibility('districts', true);
       renderer.setSelectedDistrict(null);
-      expect(mockMap.setFilter).toHaveBeenLastCalledWith('district-selected', [
+      expect(mockMap.setFilter).toHaveBeenCalledWith('district-selected', [
         'boolean',
         false,
       ]);
-      expect(mockMap.setLayoutProperty).toHaveBeenLastCalledWith(
-        'district-selected',
+      expect(mockMap.setLayoutProperty).toHaveBeenCalledWith(
+        'district-selected-outline',
         'visibility',
         'none',
       );

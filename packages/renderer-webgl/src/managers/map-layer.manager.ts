@@ -123,17 +123,17 @@ export class MapLayerManager {
   }
 
   private applySelectedDistrict(): void {
-    this.setFilterIfExists(
-      'district-selected',
-      selectedDistrictFilter(this.selectedDistrictId),
-    );
-    this.setLayoutIfExists(
-      'district-selected',
-      'visibility',
+    const visibility =
       this.districtsVisible && this.selectedDistrictId !== null
         ? 'visible'
-        : 'none',
-    );
+        : 'none';
+    for (const id of ['district-selected', 'district-selected-outline']) {
+      this.setFilterIfExists(
+        id,
+        selectedDistrictFilter(this.selectedDistrictId),
+      );
+      this.setLayoutIfExists(id, 'visibility', visibility);
+    }
   }
 
   /**

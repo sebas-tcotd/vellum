@@ -117,15 +117,22 @@ describe('district card', () => {
     );
   });
 
-  it('localizes known specializations, keeps unknown ones, drops empty ones', () => {
+  it('localizes known specializations, humanizes unknown ones, drops empty ones', () => {
     const city = makeCityData({
       districts: [
-        makeDistrict({ specializations: ['Selfsufficient', 'Moon', ' '] }),
+        makeDistrict({
+          specializations: [
+            'Selfsufficient',
+            'ResidentialWallToWall',
+            'MoonBase',
+            ' ',
+          ],
+        }),
       ],
     });
     const card = buildPlaceCard(city, { kind: 'district', id: 'd1' }, t)!;
     expect(card.subtitle).toBe(
-      'placeCard.district · specializations.selfsufficient, Moon',
+      'placeCard.district · specializations.selfsufficient, specializations.residentialwalltowall, Moon Base',
     );
   });
 

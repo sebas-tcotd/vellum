@@ -367,7 +367,10 @@
     "organic": "Organic and local produce",
     "selfsufficient": "Self-sufficient homes",
     "hightech": "High tech",
-    "financial": "Financial"
+    "financial": "Financial",
+    "residentialwalltowall": "Wall-to-wall residential",
+    "commercialwalltowall": "Wall-to-wall commercial",
+    "officewalltowall": "Wall-to-wall offices"
   },
   "parkTypes": {
     "Generic": "Park",

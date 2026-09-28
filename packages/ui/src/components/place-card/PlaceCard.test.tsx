@@ -82,9 +82,8 @@ describe('PlaceCard', () => {
   });
 
   it('keeps one component tree on every platform', () => {
-    // Only the tree is identical: macOS hides the actions and leading icons in
-    // CSS by design (the spec asks for actions on Windows/Linux only), so the
-    // reachable text is deliberately not the same everywhere.
+    // The compositions differ only in CSS: macOS moves the actions to a
+    // footer and hides the leading icons.
     const trees = (['macos', 'windows', 'linux'] as const).map((platform) => {
       const { container, unmount } = renderOn(platform);
       // `useId` values differ per root; everything else must be identical.

@@ -51,6 +51,9 @@ const KNOWN_SPECIALIZATIONS = [
   'selfsufficient',
   'hightech',
   'financial',
+  'residentialwalltowall',
+  'commercialwalltowall',
+  'officewalltowall',
 ] as const;
 type KnownSpecialization = (typeof KNOWN_SPECIALIZATIONS)[number];
 
@@ -176,7 +179,17 @@ function districtSection(
     : [];
 }
 
-/** Localized specialization names; unknown ones as-is, empty ones dropped. */
+/**
+ * A game identifier made readable — `SomeNewPolicy` → `Some New Policy` — for
+ * a specialization Vellum does not localize yet, rather than raw CamelCase.
+ */
+export function humanizeIdentifier(name: string): string {
+  return name
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2');
+}
+
+/** Localized specialization names; unknown ones humanized, empty ones dropped. */
 function specializationLabels(
   names: readonly string[] | undefined,
   t: Translate,
@@ -186,7 +199,9 @@ function specializationLabels(
     .filter((name) => name.length > 0)
     .map((name) => {
       const key = name.toLowerCase();
-      return isKnownSpecialization(key) ? t(`specializations.${key}`) : name;
+      return isKnownSpecialization(key)
+        ? t(`specializations.${key}`)
+        : humanizeIdentifier(name);
     });
 }
 
