@@ -961,7 +961,7 @@ describe('district specialization fills', () => {
     }
     expect(fills[0].fill).toEqual({
       color: STYLE.buildings.industry.forestry.fill,
-      opacity: 0.24,
+      opacity: 0.5,
       fillRule: 'evenodd',
     });
     expect(
