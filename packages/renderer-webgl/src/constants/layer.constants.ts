@@ -37,8 +37,8 @@ export const FORESTS_TREES_OPACITY = 1;
 export const HILLSHADE_EXAGGERATION =
   HILLSHADE_EXAGGERATION_M / ELEVATION_UNITS_PER_METER;
 
-/** Opacity of the optional district tint — light enough to leave the map's colours alone. */
-export const DISTRICT_FILL_OPACITY = 0.14;
+/** Opacidad del relleno de distrito: distingue colores sin cubrir la red vial. */
+export const DISTRICT_FILL_OPACITY = 0.5;
 /**
  * Opacity of the selected-district tint. It sits over buildings, roads and
  * transit, so it stays light: enough to mark the place, not to wash it out.

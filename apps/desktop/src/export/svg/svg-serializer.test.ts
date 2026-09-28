@@ -688,7 +688,7 @@ it('serializes district fill holes with evenodd winding and snapshot color', () 
   const fill = document.querySelector('[id="district-fill-d-0"]');
   expect(fill).not.toBeNull();
   expect(fill?.getAttribute('fill-rule')).toBe('evenodd');
-  expect(fill?.getAttribute('fill-opacity')).toBe('0.14');
+  expect(fill?.getAttribute('fill-opacity')).toBe('0.24');
   expect(fill?.getAttribute('fill')).toBe(
     style.buildings.industry.forestry.fill,
   );

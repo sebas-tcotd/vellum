@@ -249,7 +249,7 @@ it('applies a new theme to active specialization without rebuilding or losing se
   );
   expect(paints.get('district-fill:fill-opacity')).toEqual([
     '*',
-    0.14,
+    0.24,
     TRANSIT_DIM_FACTOR,
   ]);
   expect(map.setFilter).toHaveBeenCalledWith('district-selected', [
@@ -265,5 +265,5 @@ it('applies a new theme to active specialization without rebuilding or losing se
   expect(map.addSource).not.toHaveBeenCalled();
   expect(map.addLayer).not.toHaveBeenCalled();
   manager.setTransitDimming(false);
-  expect(paints.get('district-fill:fill-opacity')).toBe(0.14);
+  expect(paints.get('district-fill:fill-opacity')).toBe(0.24);
 });
