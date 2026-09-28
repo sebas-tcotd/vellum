@@ -11,6 +11,7 @@ import type {
   TooltipInfo,
   ViewportBounds,
   LayerVisibility,
+  MapSelectHit,
 } from '@vellum/core';
 import {
   DEFAULT_RENDER_STYLE_PARAMS,
@@ -36,8 +37,14 @@ const EMPTY_THEMES: readonly LoadedTheme[] = [];
 export interface MapViewportPort {
   subscribeViewport: (callback: (bounds: ViewportBounds) => void) => () => void;
   subscribeHover: (callback: (info: TooltipInfo | null) => void) => () => void;
+  /** Observes map clicks, for the place card. */
+  subscribeSelect: (callback: (hit: MapSelectHit) => void) => () => void;
   getInitialViewportBounds: () => ViewportBounds | null;
   navigateTo: (lng: number, lat: number) => void;
+  /** Nudges the view by a screen offset, with a short animation. */
+  panBy: (dx: number, dy: number) => void;
+  /** Tints the selected district, or clears the tint with `null`. */
+  setSelectedDistrict: (id: string | null) => void;
   getBearing: () => number;
 }
 
@@ -297,9 +304,13 @@ export function MapLibreRoot({
         rendererRef.current?.subscribeViewport(cb) ?? (() => {}),
       subscribeHover: (cb) =>
         rendererRef.current?.subscribeHover(cb) ?? (() => {}),
+      subscribeSelect: (cb) =>
+        rendererRef.current?.subscribeSelect(cb) ?? (() => {}),
       getInitialViewportBounds: () =>
         rendererRef.current?.getInitialViewportBounds() ?? null,
       navigateTo: (lng, lat) => rendererRef.current?.navigateTo(lng, lat),
+      panBy: (dx, dy) => rendererRef.current?.panBy(dx, dy),
+      setSelectedDistrict: (id) => rendererRef.current?.setSelectedDistrict(id),
       getBearing: () => rendererRef.current?.getBearing() ?? 0,
     };
     portRef.current = port;

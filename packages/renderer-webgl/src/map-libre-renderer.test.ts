@@ -47,6 +47,7 @@ const mockMap = vi.hoisted(() => ({
   on: vi.fn(),
   off: vi.fn(),
   flyTo: vi.fn(),
+  panBy: vi.fn(),
   queryRenderedFeatures: vi.fn(() => []),
   getBounds: vi.fn(() => ({
     getWest: vi.fn(() => -0.08),
@@ -1765,6 +1766,244 @@ describe('MapLibreRenderer', () => {
       expect(mockMap.flyTo).toHaveBeenCalledWith({
         center: [1.5, -0.5],
         animate: false,
+      });
+    });
+  });
+
+  describe('place selection', () => {
+    beforeEach(() => {
+      vi.clearAllMocks();
+      mockMap.getLayer.mockReturnValue(undefined);
+      mockMap.getSource.mockReturnValue(undefined);
+      mockMap.isStyleLoaded.mockReturnValue(true);
+    });
+
+    it('tints the selected district only while the districts layer is on', async () => {
+      const renderer = makeRenderer();
+      await renderer.render(makeCityData(), {
+        activeLayers: ALL_LAYERS_VISIBLE,
+      });
+      mockMap.getLayer.mockReturnValue({ id: 'any' } as unknown as undefined);
+      vi.clearAllMocks();
+      mockMap.getLayer.mockReturnValue({ id: 'any' } as unknown as undefined);
+
+      renderer.setSelectedDistrict('d-7');
+      expect(mockMap.setFilter).toHaveBeenCalledWith('district-selected', [
+        '==',
+        ['get', 'id'],
+        'd-7',
+      ]);
+      for (const id of ['district-selected', 'district-selected-outline']) {
+        expect(mockMap.setFilter).toHaveBeenCalledWith(id, [
+          '==',
+          ['get', 'id'],
+          'd-7',
+        ]);
+        expect(mockMap.setLayoutProperty).toHaveBeenCalledWith(
+          id,
+          'visibility',
+          'visible',
+        );
+      }
+
+      renderer.setLayerVisibility('districts', false);
+      expect(mockMap.setLayoutProperty).toHaveBeenCalledWith(
+        'district-selected',
+        'visibility',
+        'none',
+      );
+
+      renderer.setLayerVisibility('districts', true);
+      renderer.setSelectedDistrict(null);
+      expect(mockMap.setFilter).toHaveBeenCalledWith('district-selected', [
+        'boolean',
+        false,
+      ]);
+      expect(mockMap.setLayoutProperty).toHaveBeenCalledWith(
+        'district-selected-outline',
+        'visibility',
+        'none',
+      );
+    });
+
+    it('re-applies the current selection when the layer stack is rebuilt', async () => {
+      const renderer = makeRenderer();
+      mockMap.getLayer.mockReturnValue({ id: 'any' } as unknown as undefined);
+      renderer.setSelectedDistrict('d-7');
+      vi.clearAllMocks();
+      mockMap.getLayer.mockReturnValue({ id: 'any' } as unknown as undefined);
+
+      // A fresh render recreates every city layer; the tint must come back
+      // with the selection that was in force, not with the empty filter.
+      await renderer.render(makeCityData(), {
+        activeLayers: ALL_LAYERS_VISIBLE,
+      });
+      expect(mockMap.setFilter).toHaveBeenCalledWith('district-selected', [
+        '==',
+        ['get', 'id'],
+        'd-7',
+      ]);
+      expect(mockMap.setLayoutProperty).toHaveBeenCalledWith(
+        'district-selected',
+        'visibility',
+        'visible',
+      );
+    });
+
+    it('repaints the tint with the new theme', async () => {
+      const renderer = makeRenderer();
+      await renderer.render(makeCityData(), {
+        activeLayers: ALL_LAYERS_VISIBLE,
+      });
+      mockMap.getLayer.mockReturnValue({ id: 'any' } as unknown as undefined);
+      await renderer.applyTheme(MOCK_STYLE);
+      expect(mockMap.setPaintProperty).toHaveBeenCalledWith(
+        'district-selected',
+        'fill-color',
+        resolveColors(MOCK_STYLE).districtFill,
+      );
+    });
+
+    it('panBy animates a screen offset', () => {
+      const renderer = makeRenderer();
+      renderer.panBy(40, 0);
+      expect(mockMap.panBy).toHaveBeenCalledWith([40, 0], expect.any(Object));
+    });
+
+    describe('subscribeSelect', () => {
+      type ClickHandler = (e: { point: { x: number; y: number } }) => void;
+      /** Registers the subscription and returns its click handler. */
+      function subscribe(cb: (hit: unknown) => void): ClickHandler {
+        const renderer = makeRenderer();
+        renderer.subscribeSelect(cb);
+        const call = mockMap.on.mock.calls.find(
+          (c: unknown[]) => c[0] === 'click',
+        ) as unknown as [string, ClickHandler];
+        return call[1];
+      }
+      /** Makes `queryRenderedFeatures` answer per layer. */
+      function featuresByLayer(byLayer: Record<string, object[]>): void {
+        mockMap.getLayer.mockReturnValue({ id: 'any' } as unknown as undefined);
+        mockMap.queryRenderedFeatures.mockImplementation(((
+          _bbox: unknown,
+          opts: { layers: string[] },
+        ) =>
+          opts.layers.flatMap(
+            (l) => byLayer[l] ?? [],
+          )) as unknown as () => never[]);
+      }
+      afterEach(() => {
+        mockMap.queryRenderedFeatures.mockImplementation(() => []);
+      });
+
+      it('ignores clicks on transit stops', () => {
+        const cb = vi.fn();
+        const click = subscribe(cb);
+        featuresByLayer({
+          'transit-stops': [{ properties: { id: 's' } }],
+          'buildings-fill': [{ properties: { id: 'b1' } }],
+        });
+        click({ point: { x: 10, y: 20 } });
+        expect(cb).not.toHaveBeenCalled();
+      });
+
+      it('reports the building and the district under the click', () => {
+        const cb = vi.fn();
+        const click = subscribe(cb);
+        featuresByLayer({
+          'buildings-fill': [{ properties: { id: 'b1' } }],
+          'district-fill': [{ properties: { id: 'd-area' } }],
+        });
+        click({ point: { x: 10, y: 20 } });
+        expect(cb).toHaveBeenCalledWith({
+          screenX: 10,
+          screenY: 20,
+          buildingIds: ['b1'],
+          districtId: 'd-area',
+        });
+      });
+
+      it('reports the park area under the click alongside its district', () => {
+        const cb = vi.fn();
+        const click = subscribe(cb);
+        featuresByLayer({
+          'park-areas-labels': [{ properties: { id: 'p1' } }],
+          'districts-labels': [{ properties: { id: 'd1' } }],
+        });
+        click({ point: { x: 10, y: 20 } });
+        expect(cb).toHaveBeenCalledWith({
+          screenX: 10,
+          screenY: 20,
+          parkId: 'p1',
+          districtId: 'd1',
+        });
+      });
+
+      it('reports every building in the hit box, the one under the pointer first', () => {
+        const cb = vi.fn();
+        const click = subscribe(cb);
+        mockMap.getLayer.mockReturnValue({ id: 'any' } as unknown as undefined);
+        mockMap.queryRenderedFeatures.mockImplementation(((
+          geometry: unknown,
+          opts: { layers: string[] },
+        ) => {
+          if (!opts.layers.includes('buildings-fill')) return [];
+          // The exact-point query sees only the lot under the pointer.
+          return Array.isArray(geometry)
+            ? [{ properties: { id: 'rico' } }, { properties: { id: 'museum' } }]
+            : [{ properties: { id: 'museum' } }];
+        }) as unknown as () => never[]);
+        click({ point: { x: 10, y: 20 } });
+        expect(cb).toHaveBeenCalledWith({
+          screenX: 10,
+          screenY: 20,
+          buildingIds: ['museum', 'rico'],
+        });
+      });
+
+      it('keeps selecting a tinted district with the optional fill off', () => {
+        const cb = vi.fn();
+        const click = subscribe(cb);
+        featuresByLayer({
+          'district-selected': [{ properties: { id: 'd-tinted' } }],
+        });
+        click({ point: { x: 3, y: 4 } });
+        expect(cb).toHaveBeenCalledWith({
+          screenX: 3,
+          screenY: 4,
+          districtId: 'd-tinted',
+        });
+      });
+
+      it('prefers the district label over its marker and area', () => {
+        const cb = vi.fn();
+        const click = subscribe(cb);
+        featuresByLayer({
+          'districts-labels': [{ properties: { id: 'd-label' } }],
+          'districts-points': [{ properties: { id: 'd-point' } }],
+          'district-fill': [{ properties: { id: 'd-area' } }],
+        });
+        click({ point: { x: 1, y: 2 } });
+        expect(cb).toHaveBeenCalledWith({
+          screenX: 1,
+          screenY: 2,
+          districtId: 'd-label',
+        });
+      });
+
+      it('emits a hit without ids on empty map', () => {
+        const cb = vi.fn();
+        const click = subscribe(cb);
+        featuresByLayer({});
+        click({ point: { x: 5, y: 6 } });
+        expect(cb).toHaveBeenCalledWith({ screenX: 5, screenY: 6 });
+      });
+
+      it('unsubscribes the click listener', () => {
+        const renderer = makeRenderer();
+        const unsub = renderer.subscribeSelect(vi.fn());
+        unsub();
+        expect(mockMap.off).toHaveBeenCalledWith('click', expect.any(Function));
       });
     });
   });

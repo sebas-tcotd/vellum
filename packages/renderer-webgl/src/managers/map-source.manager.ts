@@ -3,6 +3,7 @@ import type { CityData } from '@vellum/core';
 import type { ResolvedColors } from '../style-adapter';
 import {
   addAreaBoundariesLayer,
+  addDistrictSelectionLayers,
   addBasemapLandLayer,
   addBasemapWaterLayers,
   addBuildingsLayer,
@@ -120,6 +121,10 @@ export class MapSourceManager {
     // Sits above every other data layer but below districts/park-areas, per product request.
     await step('grid', () =>
       addGridLayer(this.map, cityData, this.colors.grid),
+    );
+    // The selection reads over the whole map, but under the district names.
+    await step('district-selection', () =>
+      addDistrictSelectionLayers(this.map, this.colors),
     );
     await step('districts', () =>
       addDistrictsLayer(this.map, cityData, this.colors),

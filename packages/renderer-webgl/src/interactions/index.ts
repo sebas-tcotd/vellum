@@ -14,6 +14,7 @@ import { SERVICE_GROUPS, SERVICE_ICONS_MIN_ZOOM } from '../service-icons';
 import type { ServiceGroup } from '../service-icons';
 import type {
   DistrictTooltipInfo,
+  MapSelectHit,
   ServiceIconLegendState,
   TooltipInfo,
   TransitLineInfo,
@@ -26,6 +27,27 @@ const STATION_HIT_LAYERS = ['transit-stops', 'transit-stops-dot'];
 
 /** District hover hit-test layer — only active in the default "points" display mode. */
 const DISTRICT_HIT_LAYER = 'districts-points';
+
+/** Building hit-test layer for the place card. */
+const BUILDING_HIT_LAYER = 'buildings-fill';
+
+/**
+ * District hit-test layers for the place card, in priority order: the label
+ * or marker the user aimed at, then the area under the pointer (the optional
+ * fill or the selection tint). Hidden layers render nothing, so they are
+ * never hit.
+ */
+const DISTRICT_SELECT_LAYERS = [
+  'districts-labels',
+  'districts-points',
+  'district-fill',
+  // The selection tint is visible with the fill off, so a click inside the
+  // tinted district must keep selecting it rather than read as empty map.
+  'district-selected',
+];
+
+/** Park-area layers a click can select; hidden unless park areas are on. */
+const PARK_SELECT_LAYERS = ['park-areas-labels', 'park-areas-points'];
 
 /** Narrows a raw feature-property value to a known `ServiceGroup`, rejecting anything else. */
 function isServiceGroup(value: unknown): value is ServiceGroup {
@@ -264,5 +286,71 @@ export function subscribeHover(
     }
     map.off('mousemove', DISTRICT_HIT_LAYER, handleDistrictMove);
     map.off('mouseleave', DISTRICT_HIT_LAYER, handleLeave);
+  };
+}
+
+/**
+ * Subscribes to clicks on the map and reports what each one landed on.
+ *
+ * @remarks
+ * One click event; the UI arbitrates, since only `CityData` knows whether a
+ * building is notable. A ±6px bbox query finds the candidates. A click on a
+ * transit stop is ignored entirely — the stop tooltip owns stops. A click on
+ * nothing selectable still emits a hit without ids, meaning "empty map".
+ * Only rendered layers are hit: a district area is selectable while its
+ * optional fill is on, its name or marker whenever it is shown.
+ *
+ * @returns Cleanup function that unregisters the listener.
+ */
+export function subscribeSelect(
+  map: maplibregl.Map,
+  callback: (hit: MapSelectHit) => void,
+): () => void {
+  const handleClick = (e: maplibregl.MapMouseEvent) => {
+    const bbox: [maplibregl.PointLike, maplibregl.PointLike] = [
+      [e.point.x - 6, e.point.y - 6],
+      [e.point.x + 6, e.point.y + 6],
+    ];
+    const query = (
+      layers: string[],
+      geometry: maplibregl.PointLike | typeof bbox = bbox,
+    ) => {
+      const present = layers.filter((id) => map.getLayer(id));
+      return present.length === 0
+        ? []
+        : map.queryRenderedFeatures(geometry, { layers: present });
+    };
+
+    if (query(STATION_HIT_LAYERS).length > 0) return;
+
+    const hit: MapSelectHit = { screenX: e.point.x, screenY: e.point.y };
+    // Nearest first: buildings right under the pointer, then the rest of the
+    // hit box in render order.
+    const buildingIds: string[] = [];
+    for (const feature of [
+      ...query([BUILDING_HIT_LAYER], e.point),
+      ...query([BUILDING_HIT_LAYER]),
+    ]) {
+      const id: unknown = feature.properties?.['id'];
+      if (id === undefined || id === null) continue;
+      const key = String(id);
+      if (!buildingIds.includes(key)) buildingIds.push(key);
+    }
+    if (buildingIds.length > 0) hit.buildingIds = buildingIds;
+    const parkId: unknown = query(PARK_SELECT_LAYERS)[0]?.properties?.['id'];
+    if (parkId !== undefined && parkId !== null) hit.parkId = String(parkId);
+    for (const layer of DISTRICT_SELECT_LAYERS) {
+      const districtId: unknown = query([layer])[0]?.properties?.['id'];
+      if (districtId !== undefined && districtId !== null) {
+        hit.districtId = String(districtId);
+        break;
+      }
+    }
+    callback(hit);
+  };
+
+  map.on('click', handleClick);
+  return () => {
+    map.off('click', handleClick);
   };
 }

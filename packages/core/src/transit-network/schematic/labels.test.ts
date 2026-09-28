@@ -181,4 +181,23 @@ describe('schematic label presentation', () => {
     );
     expect(labels[0].id).toBe('station:hub');
   });
+
+  it('sets a stop name perpendicular to its line, clear of other strokes', () => {
+    const labels = placeSchematicLabels(
+      layout(
+        [
+          run('a', 'e1', [0, 500], [1000, 500]),
+          // A parallel line just above: the upward ray would cross it.
+          run('b', 'e2', [0, 480], [1000, 480]),
+        ],
+        [station('stop', ['a'], false, [500, 500])],
+      ),
+      [],
+      [{ id: 'stop', name: 'Stop' }],
+    );
+    const label = labels.find((entry) => entry.id === 'station:stop');
+    expect(label).toMatchObject({ text: 'Stop', angle: 90, anchor: 'start' });
+    // Downward, away from line b.
+    expect(label!.y).toBeGreaterThan(500);
+  });
 });

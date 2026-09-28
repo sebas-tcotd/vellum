@@ -5,26 +5,9 @@
  * Internal module — not exported from the package barrel.
  */
 
-import type { BuildingServiceCategory } from '@vellum/core';
+import { RICO_COLORS, type BuildingServiceCategory } from '@vellum/core';
 import type * as maplibregl from 'maplibre-gl';
 import type { ResolvedColors } from '../style-adapter';
-
-/**
- * Fixed, theme-independent RICO zoning colors — mirrors Cities: Skylines' own
- * zoning-tool convention (green residential, blue commercial, yellow
- * industrial, cyan office), so the "color by category" overlay stays
- * recognizable across every Vellum theme. Same rationale as the fixed
- * station-marker colors in `layers/layer-transit.ts`.
- */
-const RICO_COLORS: Record<
-  'residential' | 'commercial' | 'industry' | 'office',
-  { fill: string; stroke: string }
-> = {
-  residential: { fill: '#66bb6a', stroke: '#2e7d32' },
-  commercial: { fill: '#42a5f5', stroke: '#1565c0' },
-  industry: { fill: '#ffca28', stroke: '#f57f17' },
-  office: { fill: '#4dd0e1', stroke: '#00838f' },
-};
 
 /**
  * Resolves one building's fill or stroke colour directly, without MapLibre.

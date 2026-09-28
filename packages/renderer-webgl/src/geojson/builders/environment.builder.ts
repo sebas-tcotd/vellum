@@ -1,6 +1,6 @@
 /** Forest cell, district label, and water-backdrop GeoJSON construction. */
 
-import type { CityData } from '@vellum/core';
+import { districtAreaKm2, type CityData } from '@vellum/core';
 import { CS1_WORLD_HALF, csToGeoArray } from '../../coordinate-transform';
 import type {
   AreaBoundariesFeatureCollection,
@@ -66,25 +66,10 @@ const LABEL_SCALE_MAX = 1.6;
 export function districtLabelScale(
   boundary: CityData['districts'][number]['boundary'],
 ): number {
-  if (!boundary || boundary.length === 0) return 1;
-  let deg2 = 0;
-  for (const polygon of boundary) {
-    deg2 += Math.abs(ringArea(polygon.exterior));
-    for (const hole of polygon.holes) deg2 -= Math.abs(ringArea(hole));
-  }
-  // Near the equator a degree is ~111.195 km on both axes (see coordinate-transform).
-  const km2 = deg2 * 111.195 ** 2;
+  const km2 = districtAreaKm2(boundary);
+  if (km2 === undefined) return 1;
   const scale = Math.sqrt(km2 / LABEL_BASE_AREA_KM2);
   return Math.min(LABEL_SCALE_MAX, Math.max(LABEL_SCALE_MIN, scale));
-}
-
-/** Shoelace area of a `[lng, lat]` ring, in square degrees (signed). */
-function ringArea(ring: readonly (readonly number[])[]): number {
-  let sum = 0;
-  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-    sum += ring[j]![0]! * ring[i]![1]! - ring[i]![0]! * ring[j]![1]!;
-  }
-  return sum / 2;
 }
 
 /**

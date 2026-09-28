@@ -58,6 +58,32 @@ export interface DistrictTooltipInfo {
 /** Hover info emitted by `subscribeHover`, discriminated by the feature kind under the cursor. */
 export type TooltipInfo = TransitTooltipInfo | DistrictTooltipInfo;
 
+/**
+ * What a click on the map landed on, emitted by `subscribeSelect`.
+ *
+ * @remarks
+ * The renderer reports every candidate under the pointer and lets the UI
+ * arbitrate: only `CityData` knows whether a building is notable (renamed,
+ * historical or unique). A hit with neither id is a click on empty map.
+ * Clicks on transit stops are not emitted at all — the stop tooltip owns them.
+ */
+export interface MapSelectHit {
+  /** Canvas-relative X pixel of the click (matches MapLibre event.point.x). */
+  screenX: number;
+  /** Canvas-relative Y pixel of the click (matches MapLibre event.point.y). */
+  screenY: number;
+  /**
+   * Ids of every building within the hit box, nearest to the click first
+   * (those right under the pointer, then the rest in render order). The UI
+   * picks the first notable one, so a landmark beside a RICO lot still opens.
+   */
+  buildingIds?: string[];
+  /** Id of the park area (label or marker) under the click, if any. */
+  parkId?: string;
+  /** Id of the district (label, marker or area) under the click, if any. */
+  districtId?: string;
+}
+
 /** Geographic viewport state emitted by the minimap subscription. */
 export interface ViewportBounds {
   /** Western edge of the viewport, in degrees of longitude. */

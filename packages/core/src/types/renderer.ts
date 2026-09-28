@@ -12,6 +12,7 @@ import type {
 import type { LayerName, LayerOptions, LayerVisibility } from './layer';
 import type {
   ServiceIconLegendState,
+  MapSelectHit,
   TooltipInfo,
   ViewportBounds,
 } from './renderer.types';
@@ -134,6 +135,13 @@ export interface MapCameraPort {
    * @param lat - Latitude.
    */
   navigateTo(lng: number, lat: number): void;
+  /**
+   * Shifts the view by a screen offset with a short animation, for the
+   * minimal nudge that keeps a selected place clear of the place card.
+   * @param dx - Horizontal offset in CSS pixels (positive moves content left).
+   * @param dy - Vertical offset in CSS pixels (positive moves content up).
+   */
+  panBy(dx: number, dy: number): void;
   /** Current map bearing in degrees (0 = north up). */
   getBearing(): number;
   /** Current viewport bounds, or `null` while the map is not ready. */
@@ -174,6 +182,12 @@ export interface MapLayersPort {
   setTransitDimming(enabled: boolean): void;
   /** Shows or hides the Vellum watermark logo. */
   setWatermarkVisibility(visible: boolean): void;
+  /**
+   * Tints one district area as the current selection, even while the district
+   * fill is off. The tint follows the active theme.
+   * @param id - District id to tint, or `null` to clear the tint.
+   */
+  setSelectedDistrict(id: string | null): void;
 }
 
 /**
@@ -196,6 +210,12 @@ export interface MapSubscriptionsPort {
    * @returns Cleanup function that unregisters the listener.
    */
   subscribeHover(callback: (info: TooltipInfo | null) => void): () => void;
+  /**
+   * Observes clicks on the map, for the place card.
+   * @param callback - Called with what the click landed on; a hit without ids is empty map.
+   * @returns Cleanup function that unregisters the listener.
+   */
+  subscribeSelect(callback: (hit: MapSelectHit) => void): () => void;
   /**
    * Observes which service-icon groups are relevant to the current viewport.
    * @param callback - Called with the current legend state on every pan/zoom.

@@ -305,8 +305,10 @@ function isValidSegment(
  */
 /**
  * Categories whose detail-zoom width follows the segment's real width, so the
- * street edge meets the building frontage. Highways keep their cartographic
- * weight: no lots front onto them.
+ * street edge meets the building frontage. Highways follow it too: nothing
+ * fronts onto them, but a street that ends on one is world-locked, and a 16-unit
+ * local drawn wider than the 22-unit highway it meets pokes its cap out past the
+ * far kerb. The lock only ever widens (`max` with the tier weight).
  */
 const WORLD_LOCKED_CATEGORIES: ReadonlySet<RoadCategory> = new Set([
   'road',
@@ -341,10 +343,7 @@ function createChainFeature(
       isUnderground: segment.wayType.includes('Underground'),
       capEnds: capsEnds(chain, endNodes, rendered, byNode),
       width: segment.width,
-      worldWidth:
-        WORLD_LOCKED_CATEGORIES.has(category) && tier !== 'highway'
-          ? segment.width
-          : 0,
+      worldWidth: WORLD_LOCKED_CATEGORIES.has(category) ? segment.width : 0,
       wayType: segment.wayType.join(','),
       fixedWidth: fixed,
       scaledWidth: scaled,

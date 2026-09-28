@@ -337,5 +337,47 @@
     "zoomOut": "Alejar",
     "fitCity": "Ajustar ciudad",
     "resetNorth": "Restablecer el norte"
+  },
+  "placeCard": {
+    "district": "Distrito",
+    "population": "Población",
+    "area": "Superficie",
+    "areaValue": "{{value}} km²",
+    "type": "Tipo",
+    "landUse": "Uso del suelo",
+    "homes": "Hogares",
+    "commercialJobs": "Empleos comerciales",
+    "industrialJobs": "Empleos industriales",
+    "officeJobs": "Empleos de oficina",
+    "historical": "Histórico",
+    "noDistrictData": "Este archivo CSLMap no incluye datos del distrito",
+    "noDistrictDataInFile": "Este archivo no incluye datos del distrito",
+    "details": "Detalles",
+    "actions": "Acciones del lugar",
+    "centerOnMap": "Centrar en el mapa",
+    "copyName": "Copiar nombre"
+  },
+  "specializations": {
+    "forest": "Industria forestal",
+    "farming": "Agricultura",
+    "oil": "Industria petrolera",
+    "ore": "Industria minera",
+    "leisure": "Ocio",
+    "tourist": "Turismo",
+    "organic": "Productos orgánicos y locales",
+    "selfsufficient": "Hogares autosuficientes",
+    "hightech": "Alta tecnología",
+    "financial": "Financiero",
+    "residentialwalltowall": "Residencial adosado",
+    "commercialwalltowall": "Comercial adosado",
+    "officewalltowall": "Oficinas adosadas"
+  },
+  "parkTypes": {
+    "Generic": "Parque",
+    "University": "Campus universitario",
+    "TradeSchool": "Escuela de oficios",
+    "Industry": "Área industrial",
+    "Forestry": "Área forestal",
+    "None": "Área"
   }
 }

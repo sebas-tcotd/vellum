@@ -45,8 +45,8 @@ export interface RoadFeatureProperties {
   width: number;
   /**
    * World width (CS1 units) the line grows into at detail zoom, so the street
-   * edge meets the buildings; `0` keeps the cartographic width (highways,
-   * non-road ways). See `ROAD_WIDTH_EXPR`.
+   * edge meets the buildings; `0` keeps the cartographic width (non-road
+   * ways). See `ROAD_WIDTH_EXPR`.
    */
   worldWidth: number;
   /** Visible street name, when the source carries one (`.vellummap` only). */

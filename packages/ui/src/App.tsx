@@ -11,7 +11,11 @@ import { useExportWorkflow } from './hooks/use-export-workflow';
 import { useMenuAction } from './hooks/use-menu-action';
 import { useDesktopCommands } from './shell/commands';
 import { isDarkThemeBackground } from './lib/theme-appearance';
-import { useShellSession, type ActiveModal } from './shell/shell-session';
+import {
+  useResetSessionOnCityChange,
+  useShellSession,
+  type ActiveModal,
+} from './shell/shell-session';
 
 /**
  * Global type augmentation for i18next.
@@ -241,18 +245,9 @@ export function App({
     if (cityData !== null) shellDispatch({ type: 'cleanView/exit' });
   }, [cityData, shellDispatch]);
 
-  // Any change of city — loaded, replaced or closed — lands on the geographic
-  // map (Story 4.1): the schematic mode is ephemeral and never carries over.
-  // Its filters go with it (Story 4.2): they name lines and modes of the city
-  // that is leaving, so carrying them over would hide parts of a new network
-  // the user never chose to hide.
-  useEffect(() => {
-    shellDispatch({ type: 'viewMode/reset' });
-    shellDispatch({
-      type: 'schematic/reset',
-      windowWidth: typeof window === 'undefined' ? 1440 : window.innerWidth,
-    });
-  }, [cityData, shellDispatch]);
+  // Any change of city — loaded, replaced or closed — resets the ephemeral
+  // per-city session: view mode, schematic context and the pinned place.
+  useResetSessionOnCityChange(cityData, shellDispatch);
 
   const handleFitToScreen = useCallback(
     () => fitToScreenRef.current?.(),

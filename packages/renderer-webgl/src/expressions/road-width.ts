@@ -33,7 +33,7 @@
  * kerb. From {@link WORLD_LOCK_ZOOM} the *outer* edge of the casing follows each
  * feature's `worldWidth` (its real CS1 width) — never thinner than the tier
  * weight — and the exponential interpolation from z14 blends into it within a
- * pixel or so of the true width. Highways and non-road ways carry
+ * pixel or so of the true width. Non-road ways carry
  * `worldWidth: 0`, so they keep the cartographic weight.
  *
  * The rule itself (lock zoom, px per unit) lives in `road-width-curve.ts`

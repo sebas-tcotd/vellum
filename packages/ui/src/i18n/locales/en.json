@@ -337,5 +337,47 @@
     "zoomOut": "Zoom out",
     "fitCity": "Fit city",
     "resetNorth": "Reset north"
+  },
+  "placeCard": {
+    "district": "District",
+    "population": "Population",
+    "area": "Area",
+    "areaValue": "{{value}} km²",
+    "type": "Type",
+    "landUse": "Land use",
+    "homes": "Homes",
+    "commercialJobs": "Commercial jobs",
+    "industrialJobs": "Industrial jobs",
+    "officeJobs": "Office jobs",
+    "historical": "Historical",
+    "noDistrictData": "This CSLMap file does not include district data",
+    "noDistrictDataInFile": "This file does not include district data",
+    "details": "Details",
+    "actions": "Place actions",
+    "centerOnMap": "Center on map",
+    "copyName": "Copy name"
+  },
+  "specializations": {
+    "forest": "Forest industry",
+    "farming": "Agriculture",
+    "oil": "Oil industry",
+    "ore": "Ore industry",
+    "leisure": "Leisure",
+    "tourist": "Tourism",
+    "organic": "Organic and local produce",
+    "selfsufficient": "Self-sufficient homes",
+    "hightech": "High tech",
+    "financial": "Financial",
+    "residentialwalltowall": "Wall-to-wall residential",
+    "commercialwalltowall": "Wall-to-wall commercial",
+    "officewalltowall": "Wall-to-wall offices"
+  },
+  "parkTypes": {
+    "Generic": "Park",
+    "University": "University campus",
+    "TradeSchool": "Trade school",
+    "Industry": "Industrial area",
+    "Forestry": "Forestry area",
+    "None": "Area"
   }
 }

@@ -20,6 +20,7 @@ import {
 } from '../expressions/terrain-relief';
 import type { ResolvedColors } from '../style-adapter';
 import { retintForests } from '../layers/layer-forests';
+import { selectedDistrictFilter } from '../layers/layer-area-boundaries';
 import { resolveAirshipColor } from '../expressions/transit-color';
 
 /**
@@ -34,6 +35,8 @@ export class MapLayerManager {
   private districtsShowFill = false;
   /** Current `LayerOptions.districts.showParkAreas` — mirrors its default. */
   private districtsShowParkAreas = false;
+  /** District whose area carries the selection tint, or `null`. */
+  private selectedDistrictId: string | null = null;
   /** Whether the `roads` layer is toggled on; street names follow it. */
   private roadsVisible = true;
   /** Current `LayerOptions.roads.showStreetNames` — mirrors its default. */
@@ -106,9 +109,38 @@ export class MapLayerManager {
   }
 
   /**
+   * Tints one district area as the current selection, or clears the tint.
+   *
+   * @remarks
+   * Visible regardless of `showFill`, but only while the districts layer is
+   * on — hiding the layer hides the place it marks.
+   *
+   * @param id - District id to tint, or `null` to clear it.
+   */
+  setSelectedDistrict(id: string | null): void {
+    this.selectedDistrictId = id;
+    this.applySelectedDistrict();
+  }
+
+  private applySelectedDistrict(): void {
+    const visibility =
+      this.districtsVisible && this.selectedDistrictId !== null
+        ? 'visible'
+        : 'none';
+    for (const id of ['district-selected', 'district-selected-outline']) {
+      this.setFilterIfExists(
+        id,
+        selectedDistrictFilter(this.selectedDistrictId),
+      );
+      this.setLayoutIfExists(id, 'visibility', visibility);
+    }
+  }
+
+  /**
    * Reconciles districts display mode and the independent park-area sublayer.
    */
   private applyDistrictsVisibility(): void {
+    this.applySelectedDistrict();
     this.setLayoutIfExists(
       'district-fill',
       'visibility',
@@ -359,6 +391,7 @@ export class MapLayerManager {
 
     this.setPaintIfExists('district-boundaries', 'line-color', c.districtLabel);
     this.setPaintIfExists('district-fill', 'fill-color', c.districtFill);
+    this.setPaintIfExists('district-selected', 'fill-color', c.districtFill);
     this.setPaintIfExists(
       'park-boundaries',
       'line-color',

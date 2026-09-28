@@ -28,9 +28,31 @@ vi.mock('react-i18next', () => ({
 
 /** The renderer is the subscriber under test: record what padding it is told. */
 const viewportPaddingLeft: (number | undefined)[] = [];
+/** The map's click subscription, captured from the overlay port. */
+const mapClicks = vi.hoisted(() => ({
+  select: null as ((hit: unknown) => void) | null,
+}));
 vi.mock('./canvas/MapLibreRoot', () => ({
-  MapLibreRoot: (props: { viewportPadding?: { left: number } }) => {
+  MapLibreRoot: (props: {
+    viewportPadding?: { left: number };
+    portRef?: { current: unknown };
+  }) => {
     viewportPaddingLeft.push(props.viewportPadding?.left);
+    if (props.portRef) {
+      props.portRef.current = {
+        subscribeViewport: () => () => {},
+        subscribeHover: () => () => {},
+        subscribeSelect: (cb: (hit: unknown) => void) => {
+          mapClicks.select = cb;
+          return () => {};
+        },
+        getInitialViewportBounds: () => null,
+        navigateTo: () => {},
+        panBy: () => {},
+        setSelectedDistrict: () => {},
+        getBearing: () => 0,
+      };
+    }
     return (
       <div
         data-testid="maplibre-root"
@@ -292,5 +314,29 @@ describe('AppSurface — a layout id draws the geometry it names', () => {
     }
 
     expect(new Set(seen.map((points) => points.join('|'))).size).toBe(2);
+  });
+});
+
+// Story 3.6: the whole chain from a map click to the card — renderer port,
+// MapViewport arbitration, shell session and the card itself.
+describe('AppSurface — place card', () => {
+  it('opens the card for a district clicked on the map', () => {
+    useVellumStore.setState({
+      cityData: makeCityData({
+        cityName: 'Altavento',
+        districts: [
+          { id: 'd1', name: 'Centro', position: { x: 0, y: 0, z: 0 } },
+        ],
+      }),
+    });
+    render(<Harness />);
+    expect(mapClicks.select).not.toBeNull();
+
+    act(() =>
+      mapClicks.select?.({ screenX: 600, screenY: 100, districtId: 'd1' }),
+    );
+
+    expect(screen.getByRole('dialog')).toHaveAccessibleName('Centro');
+    expect(session.state.pinnedEntity).toEqual({ kind: 'district', id: 'd1' });
   });
 });

@@ -31,6 +31,7 @@ import {
   SCHEMATIC_LINE_WIDTH,
   type SchematicLayout,
   type SchematicPoint,
+  type SchematicStation,
 } from './contract';
 
 /** A data-backed name available to the schematic presentation layer. */
@@ -74,6 +75,14 @@ export interface SchematicLabelOptions {
 export const SCHEMATIC_LINE_LABEL_SIZE = 11;
 /** Type size of a station label, in design pixels. */
 export const SCHEMATIC_STATION_LABEL_SIZE = 12;
+/** Smallest station type the density rule may choose, in design pixels. */
+export const SCHEMATIC_STATION_LABEL_MIN_SIZE = 9;
+/**
+ * Type size per design pixel of stop spacing: at 0.45 a name set
+ * perpendicular to its line is about half as tall as the gap to the next stop,
+ * which leaves room for that stop's own name beside it.
+ */
+const STATION_SIZE_PER_SPACING = 0.45;
 /**
  * Mean glyph advance as a fraction of the type size.
  *
@@ -86,15 +95,54 @@ export const SCHEMATIC_STATION_LABEL_SIZE = 12;
  */
 const GLYPH_ADVANCE = 0.58;
 
+/**
+ * An oriented box: centre, unit axis `u` (along the text) and half extents
+ * along `u` and its normal. Labels, stop markers and stroke pieces are all
+ * one of these, so a single separating-axis test covers every collision.
+ */
 interface LabelBox {
-  readonly left: number;
-  readonly top: number;
-  readonly right: number;
-  readonly bottom: number;
+  readonly cx: number;
+  readonly cy: number;
+  readonly ux: number;
+  readonly uy: number;
+  readonly hu: number;
+  readonly hv: number;
 }
 
-const overlaps = (a: LabelBox, b: LabelBox): boolean =>
-  a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+/** Separating-axis test over the two boxes' four axes. */
+function overlaps(a: LabelBox, b: LabelBox): boolean {
+  const dx = b.cx - a.cx;
+  const dy = b.cy - a.cy;
+  for (const [ax, ay] of [
+    [a.ux, a.uy],
+    [-a.uy, a.ux],
+    [b.ux, b.uy],
+    [-b.uy, b.ux],
+  ]) {
+    const reach = (box: LabelBox): number =>
+      box.hu * Math.abs(box.ux * ax + box.uy * ay) +
+      box.hv * Math.abs(-box.uy * ax + box.ux * ay);
+    if (Math.abs(dx * ax + dy * ay) > reach(a) + reach(b)) return false;
+  }
+  return true;
+}
+
+/** The box a stroke piece of half-width `reach` paints between two points. */
+function pieceBox(
+  from: SchematicPoint,
+  to: SchematicPoint,
+  reach: number,
+): LabelBox {
+  const length = Math.hypot(to.x - from.x, to.y - from.y);
+  return {
+    cx: (from.x + to.x) / 2,
+    cy: (from.y + to.y) / 2,
+    ux: length > 0 ? (to.x - from.x) / length : 1,
+    uy: length > 0 ? (to.y - from.y) / length : 0,
+    hu: length / 2 + reach,
+    hv: reach,
+  };
+}
 
 /** Conservatively extracts a numbered line's compact, non-invented identity. */
 export function deriveSchematicLineLabel(
@@ -154,7 +202,80 @@ function readableAngle(from: SchematicPoint, to: SchematicPoint): number {
   return angle;
 }
 
-/** Axis-aligned bounds of a text box of `width × height` rotated by `angle`. */
+/**
+ * Uniform grid over oriented boxes, so a candidate label is only tested
+ * against the obstacles around it. Without it every candidate was tested
+ * against every stroke piece — ~140 ms per zoom step on a geographic layout
+ * of 11k points, paid on nearly every wheel tick.
+ */
+class BoxGrid {
+  private readonly cells = new Map<number, number[]>();
+  private readonly boxes: LabelBox[] = [];
+  private readonly owners: (string | null)[] = [];
+  private readonly seen: number[] = [];
+  private stamp = 0;
+
+  constructor(private readonly cell: number) {}
+
+  add(box: LabelBox, owner: string | null = null): void {
+    const index = this.boxes.length;
+    this.boxes.push(box);
+    this.owners.push(owner);
+    this.seen.push(0);
+    this.forCells(box, (key) => {
+      const bucket = this.cells.get(key);
+      if (bucket) bucket.push(index);
+      else this.cells.set(key, [index]);
+    });
+  }
+
+  /** Whether `box` overlaps anything stored, ignoring boxes owned by `owner`. */
+  hits(box: LabelBox, owner: string | null = null): boolean {
+    const stamp = ++this.stamp;
+    let hit = false;
+    this.forCells(box, (key) => {
+      if (hit) return;
+      for (const index of this.cells.get(key) ?? []) {
+        if (this.seen[index] === stamp) continue;
+        this.seen[index] = stamp;
+        if (owner !== null && this.owners[index] === owner) continue;
+        if (overlaps(box, this.boxes[index])) {
+          hit = true;
+          return;
+        }
+      }
+    });
+    return hit;
+  }
+
+  /** Indices of the stored boxes whose cells `box` touches. */
+  near(box: LabelBox): number[] {
+    const stamp = ++this.stamp;
+    const found: number[] = [];
+    this.forCells(box, (key) => {
+      for (const index of this.cells.get(key) ?? []) {
+        if (this.seen[index] === stamp) continue;
+        this.seen[index] = stamp;
+        found.push(index);
+      }
+    });
+    return found;
+  }
+
+  private forCells(box: LabelBox, visit: (key: number) => void): void {
+    const reachX = box.hu * Math.abs(box.ux) + box.hv * Math.abs(box.uy);
+    const reachY = box.hu * Math.abs(box.uy) + box.hv * Math.abs(box.ux);
+    const i0 = Math.floor((box.cx - reachX) / this.cell);
+    const i1 = Math.floor((box.cx + reachX) / this.cell);
+    const j0 = Math.floor((box.cy - reachY) / this.cell);
+    const j1 = Math.floor((box.cy + reachY) / this.cell);
+    for (let i = i0; i <= i1; i++) {
+      for (let j = j0; j <= j1; j++) visit((i + 32768) * 65536 + (j + 32768));
+    }
+  }
+}
+
+/** Text box of `width × height` centred on a point and rotated by `angle`. */
 function rotatedBox(
   centreX: number,
   centreY: number,
@@ -163,16 +284,128 @@ function rotatedBox(
   angle: number,
 ): LabelBox {
   const radians = (angle * Math.PI) / 180;
-  const cos = Math.abs(Math.cos(radians));
-  const sin = Math.abs(Math.sin(radians));
-  const halfX = (cos * width + sin * height) / 2;
-  const halfY = (sin * width + cos * height) / 2;
   return {
-    left: centreX - halfX,
-    right: centreX + halfX,
-    top: centreY - halfY,
-    bottom: centreY + halfY,
+    cx: centreX,
+    cy: centreY,
+    ux: Math.cos(radians),
+    uy: Math.sin(radians),
+    hu: width / 2,
+    hv: height / 2,
   };
+}
+
+/**
+ * Axis of the line(s) through a station, in radians modulo π.
+ *
+ * @remarks
+ * Taken from the drawn stroke pieces nearest the stop, so it follows the
+ * geometry the reader sees in every strategy (octilinear, orthoradial or
+ * geographic), not a grid direction. Directions are averaged on the doubled
+ * angle so a piece and its reverse agree. `null` when no stroke comes near.
+ */
+function stationAxis(
+  station: SchematicStation,
+  pieces: readonly {
+    from: SchematicPoint;
+    to: SchematicPoint;
+    lineId: string;
+  }[],
+  reach: number,
+): number | null {
+  let sumX = 0;
+  let sumY = 0;
+  for (const { from, to, lineId } of pieces) {
+    if (!station.lineIds.includes(lineId)) continue;
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    const lengthSquared = dx * dx + dy * dy;
+    if (lengthSquared === 0) continue;
+    const t = Math.max(
+      0,
+      Math.min(
+        1,
+        ((station.x - from.x) * dx + (station.y - from.y) * dy) / lengthSquared,
+      ),
+    );
+    const distance = Math.hypot(
+      from.x + dx * t - station.x,
+      from.y + dy * t - station.y,
+    );
+    if (distance > reach) continue;
+    const doubled = 2 * Math.atan2(dy, dx);
+    sumX += Math.cos(doubled);
+    sumY += Math.sin(doubled);
+  }
+  if (sumX === 0 && sumY === 0) return null;
+  return Math.atan2(sumY, sumX) / 2;
+}
+
+/** How far the stop's own symbol reaches from its centre along a direction. */
+function markerReach(
+  station: SchematicStation,
+  directionX: number,
+  directionY: number,
+): number {
+  let reach = 0;
+  for (const point of station.shape) {
+    reach = Math.max(
+      reach,
+      (point.x - station.x) * directionX + (point.y - station.y) * directionY,
+    );
+  }
+  return reach;
+}
+
+/** Axis-aligned box around a stop's symbol, the obstacle it is to other labels. */
+function markerBox(station: SchematicStation, minimum: number): LabelBox {
+  let halfX = minimum;
+  let halfY = minimum;
+  for (const point of station.shape) {
+    halfX = Math.max(halfX, Math.abs(point.x - station.x));
+    halfY = Math.max(halfY, Math.abs(point.y - station.y));
+  }
+  return { cx: station.x, cy: station.y, ux: 1, uy: 0, hu: halfX, hv: halfY };
+}
+
+/**
+ * Station type size for this view, in design pixels.
+ *
+ * @remarks
+ * Set by how far apart the stops actually are on screen: the upper quartile
+ * of each stop's distance to its nearest neighbour. Not the median — a city
+ * builder's stops come in pairs across the street, one per direction, and
+ * that pair spacing would pin the type to its minimum at every zoom. A dense fitted view gets small
+ * type that still lets most names through; zooming in spreads the stops and
+ * the type grows back to its full size. One size for every stop — mixed sizes
+ * would read as a hierarchy the data does not have.
+ */
+function stationTypeSize(
+  stations: readonly SchematicStation[],
+  scale: number,
+): number {
+  if (stations.length < 2) return SCHEMATIC_STATION_LABEL_SIZE;
+  // ponytail: O(n²) nearest neighbour; a grid index if a network ever passes a few thousand stops.
+  const nearest = stations
+    .map((station) => {
+      let best = Infinity;
+      for (const other of stations) {
+        if (other === station) continue;
+        const distance = Math.hypot(other.x - station.x, other.y - station.y);
+        if (distance > 0 && distance < best) best = distance;
+      }
+      return best;
+    })
+    .filter(Number.isFinite)
+    .sort((a, b) => a - b);
+  if (nearest.length === 0) return SCHEMATIC_STATION_LABEL_SIZE;
+  const spacing = nearest[Math.floor(nearest.length * 0.75)] / scale;
+  return Math.min(
+    SCHEMATIC_STATION_LABEL_SIZE,
+    Math.max(
+      SCHEMATIC_STATION_LABEL_MIN_SIZE,
+      spacing * STATION_SIZE_PER_SPACING,
+    ),
+  );
 }
 
 /**
@@ -196,12 +429,10 @@ export function placeSchematicLabels(
       ? (options.scale as number)
       : 1;
   const lineSize = SCHEMATIC_LINE_LABEL_SIZE * scale;
-  const stationSize = SCHEMATIC_STATION_LABEL_SIZE * scale;
   const strokeReach = (SCHEMATIC_LINE_WIDTH / 2) * scale;
   const widthOf = (text: string, size: number): number =>
     text.length * size * GLYPH_ADVANCE;
 
-  const occupied: LabelBox[] = [];
   const result: SchematicLabel[] = [];
 
   // ── Stations first. A named stop is the detail a reader is looking for, and
@@ -215,41 +446,118 @@ export function placeSchematicLabels(
     }
   }
   const ordered = [...layout.stations].sort((a, b) => {
+    // Busiest stop first (octi §5: higher line degree labels first), then the
+    // tie-breakers that make a stop the one a reader is looking for.
     const priority = (station: typeof a): number =>
+      station.lineIds.length * 8 +
       (station.confirmedTransfer ? 4 : 0) +
-      (station.lineIds.length > 1 ? 2 : 0) +
       (station.lineIds.some((lineId) => callsByLine.get(lineId) === 1) ? 1 : 0);
     return (
       priority(b) - priority(a) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
     );
   });
+
+  // Obstacles a station name may not cover: every drawn stroke piece and every
+  // other stop's symbol. A name across a line is exactly the ambiguity the
+  // diagram exists to avoid.
+  const pieces = [...layout.segments, ...layout.connectors].flatMap((segment) =>
+    segment.points.slice(1).map((to, index) => ({
+      from: segment.points[index],
+      to,
+      lineId: segment.lineId,
+    })),
+  );
+  const stationTypeDesign = stationTypeSize(layout.stations, scale);
+  const stationSize = stationTypeDesign * scale;
+  // ponytail: cell floor at 1/200 of the diagram keeps a long octilinear run
+  // from filling thousands of cells at deep zoom.
+  const cell = Math.max(
+    stationSize * 2,
+    Math.max(layout.bounds.width, layout.bounds.height) / 200,
+  );
+  // Strokes and everything claimed (markers, placed labels) apart: a line
+  // label sits beside its own stroke, so only the claimed grid applies to it.
+  const strokes = new BoxGrid(cell);
+  const claimed = new BoxGrid(cell);
+  for (const piece of pieces) {
+    strokes.add(pieceBox(piece.from, piece.to, strokeReach));
+  }
+  for (const station of layout.stations) {
+    claimed.add(markerBox(station, strokeReach), station.id);
+  }
+  const blocked = (box: LabelBox, ownId: string): boolean =>
+    claimed.hits(box, ownId) || strokes.hits(box);
+
   for (const station of ordered) {
     const name = stationById.get(station.id)?.name?.trim();
     // An absent real name intentionally remains a symbol with no fabricated id.
     if (!name) continue;
     const width = widthOf(name, stationSize);
-    const gap = strokeReach + stationSize * 0.6;
-    const candidates = [
-      { dx: gap, dy: -gap, anchor: 'start' as const },
-      { dx: -gap, dy: -gap, anchor: 'end' as const },
-      { dx: gap, dy: stationSize, anchor: 'start' as const },
-      { dx: -gap, dy: stationSize, anchor: 'end' as const },
-    ];
+    const probe = strokeReach * 3;
+    const nearby = strokes
+      .near({
+        cx: station.x,
+        cy: station.y,
+        ux: 1,
+        uy: 0,
+        hu: probe,
+        hv: probe,
+      })
+      .map((index) => pieces[index]);
+    const axis = stationAxis(station, nearby, probe) ?? 0;
+    const perpendicular = axis + Math.PI / 2;
+    // The two perpendicular rays first, then the eight octilinear directions
+    // ordered by how far they turn from perpendicular (octi §5). Same turn:
+    // the ray that reads left-to-right, then upward, so neighbouring names on
+    // one line fall on the same side of it.
+    const rays = [
+      perpendicular,
+      perpendicular + Math.PI,
+      ...Array.from({ length: 8 }, (_, k) => (k * Math.PI) / 4),
+    ]
+      .map((ray) => {
+        const turn = Math.abs(
+          Math.atan2(
+            Math.sin(ray - perpendicular),
+            Math.cos(ray - perpendicular),
+          ),
+        );
+        return {
+          ray,
+          cost:
+            Math.round(Math.min(turn, Math.PI - turn) * 1000) +
+            (Math.cos(ray) > 1e-6 ? 0 : Math.cos(ray) < -1e-6 ? 0.2 : 0.1) +
+            (Math.sin(ray) < 0 ? 0 : 0.05),
+        };
+      })
+      .sort((a, b) => a.cost - b.cost);
     let placed = false;
-    for (const candidate of candidates) {
-      const x = station.x + candidate.dx;
-      const y = station.y + candidate.dy;
-      const centreX =
-        candidate.anchor === 'start' ? x + width / 2 : x - width / 2;
+    for (const { ray } of rays) {
+      const directionX = Math.cos(ray);
+      const directionY = Math.sin(ray);
+      const start =
+        Math.max(markerReach(station, directionX, directionY), strokeReach) +
+        stationSize * 0.35;
+      const x = station.x + directionX * start;
+      const y = station.y + directionY * start;
       const box = rotatedBox(
-        centreX,
-        y - stationSize * 0.35,
+        x + (directionX * width) / 2,
+        y + (directionY * width) / 2,
         width,
         stationSize,
-        0,
+        (ray * 180) / Math.PI,
       );
-      if (occupied.some((other) => overlaps(box, other))) continue;
-      occupied.push(box);
+      if (blocked(box, station.id)) continue;
+      // Text runs along the ray, away from the stop; a ray into the left
+      // half-plane is set the other way round and anchored at its end so it
+      // never reads upside down.
+      let angle = (Math.atan2(directionY, directionX) * 180) / Math.PI;
+      let anchor: 'start' | 'end' = 'start';
+      if (angle > 90 + 1e-6 || angle <= -90 + 1e-6) {
+        angle = angle > 0 ? angle - 180 : angle + 180;
+        anchor = 'end';
+      }
+      claimed.add(box);
       result.push({
         id: `station:${station.id}`,
         kind: 'station',
@@ -258,9 +566,9 @@ export function placeSchematicLabels(
         text: name,
         x,
         y,
-        anchor: candidate.anchor,
-        angle: 0,
-        fontSize: SCHEMATIC_STATION_LABEL_SIZE,
+        anchor,
+        angle: Math.round(angle * 1000) / 1000,
+        fontSize: stationTypeDesign,
         color: null,
       });
       placed = true;
@@ -278,11 +586,10 @@ export function placeSchematicLabels(
       y: station.y,
       anchor: 'start',
       angle: 0,
-      fontSize: SCHEMATIC_STATION_LABEL_SIZE,
+      fontSize: stationTypeDesign,
       color: null,
     });
   }
-
   // ── Line labels, on the strokes that are alone on their corridor.
   const strokesPerCorridor = new Map<string, number>();
   for (const segment of layout.segments) {
@@ -364,7 +671,8 @@ export function placeSchematicLabels(
       const centreX = midX + normalX * gap * hand;
       const centreY = midY + normalY * gap * hand;
       const box = rotatedBox(centreX, centreY, width, lineSize, angle);
-      if (occupied.some((other) => overlaps(box, other))) continue;
+      // Markers are already in `claimed`: a line label may not sit on a stop.
+      if (claimed.hits(box)) continue;
       // The anchor is the optical centre of the run; the view centres the
       // glyphs on it vertically (`dominant-baseline`) rather than this module
       // guessing at a baseline offset in a rotated frame.
@@ -372,7 +680,7 @@ export function placeSchematicLabels(
       break;
     }
     if (chosen === null) continue;
-    occupied.push(chosen.box);
+    claimed.add(chosen.box);
     result.push({
       id: `line:${line.id}`,
       kind: 'line',
