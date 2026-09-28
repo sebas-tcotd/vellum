@@ -39,6 +39,15 @@ interface VellumStore {
   /** Stores the error details if the parsing or loading phase fails. */
   loadingError: VellumError | null;
 
+  /**
+   * `true` from the moment a parsed city reaches the store until the map has
+   * painted it. Parsing ends at `setCityData`, but on a large city the map
+   * still needs over a second to draw, and the loading modal covers both.
+   */
+  isDrawingMap: boolean;
+  /** Ends the drawing phase started by `setCityData`. */
+  setMapDrawn: () => void;
+
   /** Counter for anti-race-condition load requests. Incremented on each new load. */
   loadRequestId: number;
 
@@ -241,6 +250,7 @@ export const useVellumStore = create<VellumStore>((set, get) => ({
   cityData: null,
   loadingState: 'idle',
   loadingError: null,
+  isDrawingMap: false,
   loadRequestId: 0,
   activeLayers: DEFAULT_ACTIVE_LAYERS,
   activeTheme: 'day',
@@ -257,9 +267,12 @@ export const useVellumStore = create<VellumStore>((set, get) => ({
   setLoadingState: (state, error = null) =>
     set({ loadingState: state, loadingError: error }),
 
+  setMapDrawn: () => set({ isDrawingMap: false }),
+
   setCityData: (data) =>
     set({
       cityData: data,
+      isDrawingMap: true,
       loadingState: 'idle',
       loadingError: null,
       dlcWarnings: [],
@@ -450,6 +463,7 @@ export const useVellumStore = create<VellumStore>((set, get) => ({
       loadRequestId: next,
       loadingState: 'loading', // atomic: jump directly to loading, no idle flash
       loadingError: null,
+      isDrawingMap: false,
       dlcWarnings: [],
       hasPartialData: false,
     });

@@ -65,9 +65,14 @@ pub fn parse_vellummap_file(
         reason: e.to_string(),
     })?;
     let mut observer = TauriObserver::new(app_handle);
-    observer.emit_lifecycle("reading", 0.0);
+    // Its own step names, so the loading modal can tell the formats apart. The
+    // percents are the measured split: reading and validating the modules is
+    // about a fifth of the parse, deriving the terrain the rest.
+    observer.emit_lifecycle("document", 0.0);
     let city = crate::vellummap::parse_vellummap_observed(&bytes, |warnings| {
         observer.on_warnings(warnings);
+        // Called once the document is read, right before `CityData` is built.
+        observer.emit_lifecycle("terrain", 20.0);
     })?;
     observer.emit_lifecycle("done", 100.0);
     Ok(city)

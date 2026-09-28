@@ -3,7 +3,7 @@ import {
   makeRoadSegment,
   makeTransitLine,
 } from '@vellum/core/testing';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import userEvent from '@testing-library/user-event';
 import type {
   ExportProgress,
@@ -189,8 +189,8 @@ vi.mock('./components/empty-state/EmptyState', () => ({
   EmptyState: () => <div data-testid="empty-state" />,
 }));
 
-vi.mock('./components/overlays/ProgressBar', () => ({
-  ProgressBar: () => <div data-testid="progress-bar" role="progressbar" />,
+vi.mock('./components/overlays/LoadingModal', () => ({
+  LoadingModal: () => <div data-testid="progress-bar" role="progressbar" />,
 }));
 
 vi.mock('./hooks/use-keyboard-shortcuts', () => ({
@@ -259,7 +259,7 @@ describe('App — renderizado condicional', () => {
     expect(screen.queryByTestId('progress-bar')).toBeNull();
   });
 
-  it('muestra ProgressBar cuando loadingState es loading', async () => {
+  it('muestra LoadingModal cuando loadingState es loading', async () => {
     await act(async () => {
       render(<App />);
     });
@@ -969,6 +969,17 @@ async function startSvgExport(
 }
 
 describe('App — progreso, cancelación y cleanup (Story 6.2G)', () => {
+  // The map is mocked and never reports that it has drawn the city: end that
+  // phase at once, so the loading modal's bar does not sit next to the export
+  // progress bar these tests look up by role.
+  let stopEndingDrawPhase = () => {};
+  beforeEach(() => {
+    stopEndingDrawPhase = useVellumStore.subscribe((state) => {
+      if (state.isDrawingMap) state.setMapDrawn();
+    });
+  });
+  afterEach(() => stopEndingDrawPhase());
+
   it('nunca reporta aria-valuenow para la ruta legacy indeterminada', async () => {
     const user = userEvent.setup();
     useVellumStore.getState().setCityData(mockCityData);

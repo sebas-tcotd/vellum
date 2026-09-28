@@ -27,29 +27,35 @@ let mockActiveTheme = 'day';
 let mockTransitDimmingEnabled = false;
 let mockCityData: unknown = null;
 vi.mock('../../store/vellum-store', () => ({
-  useVellumStore: (selector: (s: unknown) => unknown) =>
-    selector({
-      cityData: mockCityData,
-      activeTheme: mockActiveTheme,
-      transitDimmingEnabled: mockTransitDimmingEnabled,
-      layerOptions: {
-        roads: { showStreetNames: true },
-        transit: { visibleModes: [], showConfirmedTransfers: true },
-        buildings: { visibleCategories: [] },
-        districts: {
-          showAsMarker: true,
-          showFill: false,
-          showParkAreas: false,
-        },
-        terrain: {
-          showContourLines: true,
-          showColorRelief: true,
-          showHillshade: true,
-        },
-        basemap: { showGrid: false },
-      },
-    }),
+  useVellumStore: Object.assign(
+    (selector: (s: unknown) => unknown) => selector(themeStoreState()),
+    { getState: () => themeStoreState() },
+  ),
 }));
+
+const themeStoreState = () => ({
+  cityData: mockCityData,
+  activeTheme: mockActiveTheme,
+  transitDimmingEnabled: mockTransitDimmingEnabled,
+  layerOptions: {
+    roads: { showStreetNames: true },
+    transit: { visibleModes: [], showConfirmedTransfers: true },
+    buildings: { visibleCategories: [] },
+    districts: {
+      showAsMarker: true,
+      showFill: false,
+      showParkAreas: false,
+    },
+    terrain: {
+      showContourLines: true,
+      showColorRelief: true,
+      showHillshade: true,
+    },
+    basemap: { showGrid: false },
+  },
+  activeLayers: {},
+  setMapDrawn: () => {},
+});
 
 const theme = (id: string, name: string): LoadedTheme => ({
   ...DEFAULT_RENDER_STYLE_PARAMS,

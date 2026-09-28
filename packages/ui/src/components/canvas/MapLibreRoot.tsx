@@ -215,6 +215,11 @@ export function MapLibreRoot({
           forests: true,
           districts: true,
         },
+        onDrawn: () => {
+          if (rendererRef.current === renderer) {
+            useVellumStore.getState().setMapDrawn();
+          }
+        },
       })
       .then(() => {
         // A toggle can arrive while the async style/source setup is pending.
@@ -236,6 +241,8 @@ export function MapLibreRoot({
       // must never be swallowed: `void render(...)` hid exactly that failure mode.
       .catch((err: unknown) => {
         console.error('[MapLibreRoot] render failed:', err);
+        // Nothing will be drawn: the loading modal must not wait for it.
+        useVellumStore.getState().setMapDrawn();
       });
   }, [cityData]); // activeLayers intentionally excluded — layer visibility is set separately
 

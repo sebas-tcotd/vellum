@@ -63,6 +63,7 @@ describe('useProgressEvents', () => {
     });
 
     expect(result.current.percent).toBe(60);
+    expect(result.current.step).toBe('roads');
   });
 
   it('clampea percent a 0 cuando el valor es negativo', async () => {

@@ -12,7 +12,7 @@ export { MapTooltip } from './components/overlays/MapTooltip';
 export type { MapTooltipProps } from './components/overlays/MapTooltip';
 export { PartialParseDialog } from './components/overlays/PartialParseDialog';
 export type { PartialParseDialogProps } from './components/overlays/PartialParseDialog';
-export { ProgressBar } from './components/overlays/ProgressBar';
+export { LoadingModal } from './components/overlays/LoadingModal';
 export { ThemeWarningToast } from './components/overlays/ThemeWarningToast';
 export type { ThemeWarningToastProps } from './components/overlays/ThemeWarningToast';
 export { UpdateToast } from './components/overlays/UpdateToast';
