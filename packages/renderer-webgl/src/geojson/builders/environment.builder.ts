@@ -1,6 +1,10 @@
 /** Forest cell, district label, and water-backdrop GeoJSON construction. */
 
-import { districtAreaKm2, type CityData } from '@vellum/core';
+import {
+  classifyDistrictSpecialization,
+  districtAreaKm2,
+  type CityData,
+} from '@vellum/core';
 import { CS1_WORLD_HALF, csToGeoArray } from '../../coordinate-transform';
 import type {
   AreaBoundariesFeatureCollection,
@@ -88,7 +92,13 @@ export function buildDistrictAreasGeoJson(
           type: 'Polygon',
           coordinates: [polygon.exterior, ...polygon.holes],
         },
-        properties: { id: district.id },
+        properties: {
+          id: district.id,
+          specialization:
+            cityData.source === 'vellummap'
+              ? classifyDistrictSpecialization(district)
+              : 'neutral',
+        },
       });
     }
   }

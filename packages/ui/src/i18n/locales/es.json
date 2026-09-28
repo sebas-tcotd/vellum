@@ -382,5 +382,10 @@
     "Industry": "Área industrial",
     "Forestry": "Área forestal",
     "None": "Área"
+  },
+  "districtSpecialization": {
+    "title": "Color por especialización",
+    "neutral": "Sin clasificación o ambiguo",
+    "dominance": "Cada nombre muestra los colores de los distritos donde aparece. Predomina el sector con más hogares o empleos; varias especializaciones del mismo sector comparten color. Si falta información o hay empate, se usa neutro."
   }
 }

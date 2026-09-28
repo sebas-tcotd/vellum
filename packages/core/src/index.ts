@@ -25,3 +25,5 @@ export * from './types/renderer';
 export * from './types/renderer.types';
 export * from './types/theme';
 export * from './types/transit-network';
+
+export * from './district-specialization';

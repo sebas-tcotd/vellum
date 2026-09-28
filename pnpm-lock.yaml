@@ -216,6 +216,9 @@ importers:
         specifier: ^6.9.0
         version: 6.9.0
     devDependencies:
+      '@maplibre/maplibre-gl-style-spec':
+        specifier: 26.4.2
+        version: 26.4.2
       typescript:
         specifier: ~5.8.3
         version: 5.8.3

@@ -1189,7 +1189,12 @@ describe('MapLibreRenderer', () => {
       roads: { showStreetNames },
       transit: { visibleModes: [], showConfirmedTransfers: true },
       buildings: { visibleCategories: [], colorByCategory: false },
-      districts: { showAsMarker: true, showFill: false, showParkAreas: false },
+      districts: {
+        showAsMarker: true,
+        showFill: false,
+        colorBySpecialization: false,
+        showParkAreas: false,
+      },
       terrain: {
         showContourLines: true,
         showColorRelief: true,
@@ -1246,6 +1251,7 @@ describe('MapLibreRenderer', () => {
         districts: {
           showAsMarker: false,
           showFill: false,
+          colorBySpecialization: false,
           showParkAreas: true,
         },
         terrain: {
@@ -1318,6 +1324,7 @@ describe('MapLibreRenderer', () => {
         districts: {
           showAsMarker: true,
           showFill: true,
+          colorBySpecialization: false,
           showParkAreas: false,
         },
         terrain: {
@@ -1358,7 +1365,12 @@ describe('MapLibreRenderer', () => {
         roads: { showStreetNames: true },
         transit: { visibleModes: [], showConfirmedTransfers: true },
         buildings: { visibleCategories: [], colorByCategory: false },
-        districts: { showAsMarker: true, showFill: false, showParkAreas: true },
+        districts: {
+          showAsMarker: true,
+          showFill: false,
+          colorBySpecialization: false,
+          showParkAreas: true,
+        },
         terrain: {
           showContourLines: true,
           showColorRelief: true,
@@ -1392,6 +1404,7 @@ describe('MapLibreRenderer', () => {
         districts: {
           showAsMarker: false,
           showFill: false,
+          colorBySpecialization: false,
           showParkAreas: true,
         },
         terrain: {
@@ -1535,6 +1548,7 @@ describe('MapLibreRenderer', () => {
         districts: {
           showAsMarker: true,
           showFill: false,
+          colorBySpecialization: false,
           showParkAreas: false,
         },
         terrain: {
@@ -1569,6 +1583,7 @@ describe('MapLibreRenderer', () => {
         districts: {
           showAsMarker: true,
           showFill: false,
+          colorBySpecialization: false,
           showParkAreas: false,
         },
         terrain: {

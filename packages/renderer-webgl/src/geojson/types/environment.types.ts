@@ -1,6 +1,6 @@
 /** Forest cell, district label, and water GeoJSON feature types. */
 
-import type { ParkType } from '@vellum/core';
+import type { DistrictClassification, ParkType } from '@vellum/core';
 import type {
   Feature,
   FeatureCollection,
@@ -69,7 +69,10 @@ export type ForestFeature = Feature<PointGeometry, ForestFeatureProperties>;
 /** A GeoJSON Feature wrapping a district label point. */
 export type DistrictFeature = Feature<PointGeometry, DistrictFeatureProperties>;
 /** A GeoJSON Feature wrapping one polygon of a district's area. */
-export type DistrictAreaFeature = Feature<PolygonGeometry, { id: string }>;
+export type DistrictAreaFeature = Feature<
+  PolygonGeometry,
+  { id: string; specialization: DistrictClassification }
+>;
 /** A GeoJSON FeatureCollection of district area polygons. */
 export type DistrictAreasFeatureCollection =
   FeatureCollection<DistrictAreaFeature>;

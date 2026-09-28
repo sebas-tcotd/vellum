@@ -41,6 +41,30 @@ const STYLE = {
   forests: '#3f7d3f',
   districts: { fill: '#cc4444', label: '#222222' },
   buildings: {
+    residential: {
+      low: { fill: '#c8bfb5', stroke: '#a09585' },
+      high: { fill: '#c8bfb5', stroke: '#a09585' },
+      selfSufficient: { fill: '#c8bfb5', stroke: '#a09585' },
+    },
+    commercial: {
+      low: { fill: '#c8bfb5', stroke: '#a09585' },
+      high: { fill: '#c8bfb5', stroke: '#a09585' },
+      leisure: { fill: '#c8bfb5', stroke: '#a09585' },
+      tourism: { fill: '#c8bfb5', stroke: '#a09585' },
+      organic: { fill: '#c8bfb5', stroke: '#a09585' },
+    },
+    office: {
+      generic: { fill: '#c8bfb5', stroke: '#a09585' },
+      tech: { fill: '#c8bfb5', stroke: '#a09585' },
+      financial: { fill: '#c8bfb5', stroke: '#a09585' },
+    },
+    industry: {
+      generic: { fill: '#c8bfb5', stroke: '#a09585' },
+      forestry: { fill: '#c8bfb5', stroke: '#a09585' },
+      ore: { fill: '#c8bfb5', stroke: '#a09585' },
+      oil: { fill: '#c8bfb5', stroke: '#a09585' },
+      farming: { fill: '#c8bfb5', stroke: '#a09585' },
+    },
     none: { fill: '#d0d0d0', stroke: '#909090' },
     civic: {
       publicTransport: { fill: '#8888cc', stroke: '#444488' },
@@ -889,5 +913,75 @@ describe('buildCartographicScene', () => {
     expect(center.x).toBeCloseTo(1234.5, 6);
     expect(center.z).toBeCloseTo(-6789.25, 6);
     expect(Number.isFinite(lng) && Number.isFinite(lat)).toBe(true);
+  });
+});
+
+describe('district specialization fills', () => {
+  it('retains holes, palette, opacity and paint order from the snapshot', () => {
+    const polygon = square(0);
+    const hole = [
+      { x: 300, z: 100 },
+      { x: 400, z: 100 },
+      { x: 400, z: 200 },
+      { x: 300, z: 100 },
+    ];
+    polygon.holes = [hole.map(csToGeoArray)];
+    const city = makeCityData({
+      source: 'vellummap',
+      districts: [
+        {
+          id: 'd',
+          name: 'D',
+          position: { x: 0, y: 0, z: 0 },
+          specializations: ['Forest'],
+          boundary: [polygon],
+        },
+      ],
+    });
+    const options = {
+      ...DEFAULT_LAYER_OPTIONS,
+      districts: {
+        ...DEFAULT_LAYER_OPTIONS.districts,
+        colorBySpecialization: true,
+      },
+    };
+    const scene = build(city, { layerOptions: options });
+    const fills = layerEntities(scene, 'district-fills');
+    expect(fills).toHaveLength(1);
+    expect(fills[0].geometry).toMatchObject({
+      kind: 'polygon',
+      rings: expect.any(Array),
+    });
+    if (fills[0].geometry.kind === 'polygon') {
+      expect(fills[0].geometry.rings).toHaveLength(2);
+      fills[0].geometry.rings[1].forEach((point, index) => {
+        expect(point.x).toBeCloseTo(hole[index].x, 6);
+        expect(point.z).toBeCloseTo(hole[index].z, 6);
+      });
+    }
+    expect(fills[0].fill).toEqual({
+      color: STYLE.buildings.industry.forestry.fill,
+      opacity: 0.14,
+      fillRule: 'evenodd',
+    });
+    expect(
+      scene.layers.findIndex((l) => l.id === 'district-fills'),
+    ).toBeLessThan(scene.layers.findIndex((l) => l.id === 'roads'));
+    expect(layerEntities(build(city), 'district-fills')).toEqual([]);
+    expect(
+      layerEntities(
+        build({ ...city, source: 'cslmap' }, { layerOptions: options }),
+        'district-fills',
+      ),
+    ).toEqual([]);
+    expect(
+      layerEntities(
+        build(city, {
+          layerOptions: options,
+          activeLayers: { ...ALL_VISIBLE, districts: false },
+        }),
+        'district-fills',
+      ),
+    ).toEqual([]);
   });
 });

@@ -1,3 +1,4 @@
+import { DistrictSpecializationLegend } from '../panels/DistrictSpecializationLegend';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Copy, Crosshair, Network } from 'lucide-react';
@@ -116,6 +117,9 @@ export function MapViewport({
   const toggleRef = useRef<HTMLButtonElement>(null);
   const schematicRegionRef = useRef<HTMLElement>(null);
   const cityData = useVellumStore((s) => s.cityData);
+  const colorDistricts = useVellumStore(
+    (s) => s.layerOptions.districts.colorBySpecialization,
+  );
   const activeTheme = useVellumStore((s) => s.activeTheme);
   // The minimap paints with Canvas 2D, outside the renderer's theme pipeline,
   // so it reads the active theme's colors here instead of receiving them
@@ -514,6 +518,18 @@ export function MapViewport({
         )}
         {showOverlays && (
           <>
+            {cityData?.source === 'vellummap' &&
+              activeLayers.districts &&
+              colorDistricts && (
+                <DistrictSpecializationLegend
+                  districts={cityData.districts}
+                  theme={
+                    mapProps.themes?.find(
+                      (theme) => theme.id === activeTheme,
+                    ) ?? DEFAULT_RENDER_STYLE_PARAMS
+                  }
+                />
+              )}
             <IconLegend
               subscribeRef={subscribeServiceIconLegendRef}
               toggleRef={iconLegendToggleRef}

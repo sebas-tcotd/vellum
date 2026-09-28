@@ -23,6 +23,7 @@ export const OVERLAY_PRIORITY = [
   'pinnedEntity',
   'hoverTooltip',
   'legend',
+  'districtSpecializationLegend',
   'status',
 ] as const;
 

@@ -1,4 +1,12 @@
-import { describe, expect, it } from 'vitest';
+import { createExpression } from '@maplibre/maplibre-gl-style-spec';
+import { makeCityData } from '@vellum/core/testing';
+import { buildDistrictAreasGeoJson } from './geojson/builders/environment.builder';
+import { districtFillColor } from './layers/layer-area-boundaries';
+import { TRANSIT_DIM_FACTOR } from './constants/layer.constants';
+import { DEFAULT_LAYER_OPTIONS } from '@vellum/core';
+import type { Map as MapLibreMap } from 'maplibre-gl';
+import { MapLayerManager } from './managers/map-layer.manager';
+import { describe, expect, it, vi } from 'vitest';
 import type { RenderStyleParams } from '@vellum/core';
 import { resolveColors } from './style-adapter';
 
@@ -91,4 +99,171 @@ describe('resolveColors', () => {
     expect(colors.transferMarker.fill).not.toBe('#f2b705');
     expect(colors.transferMarker.stroke).not.toBe('#8a5a00');
   });
+});
+
+it('resolves specialization variants from each theme independently of building RICO colors', () => {
+  const theme = structuredClone(STYLE);
+  theme.buildings.industry.forestry.fill = '#123456';
+  theme.buildings.office.tech.fill = '#654321';
+  const colors = resolveColors(theme);
+  expect(colors.districtSpecialization['industry.forestry']).toBe('#123456');
+  expect(colors.districtSpecialization['office.tech']).toBe('#654321');
+  expect(colors.districtSpecialization.neutral).toBe(theme.districts.fill);
+  expect(
+    resolveColors(STYLE).districtSpecialization['industry.forestry'],
+  ).not.toBe('#123456');
+});
+
+it('toggles specialization paint independently of fill and selection without rebuilding geometry', () => {
+  const map = {
+    getLayer: vi.fn(() => ({})),
+    setLayoutProperty: vi.fn(),
+    setPaintProperty: vi.fn(),
+    setFilter: vi.fn(),
+  };
+  const manager = new MapLayerManager(
+    map as unknown as MapLibreMap,
+    resolveColors(STYLE),
+  );
+  manager.setVisibility('districts', true);
+  manager.setSelectedDistrict('selected');
+  const options = {
+    ...DEFAULT_LAYER_OPTIONS,
+    districts: {
+      ...DEFAULT_LAYER_OPTIONS.districts,
+      colorBySpecialization: true,
+    },
+  };
+  manager.setOptions(options);
+  expect(map.setLayoutProperty).toHaveBeenCalledWith(
+    'district-fill',
+    'visibility',
+    'visible',
+  );
+  expect(map.setPaintProperty).toHaveBeenCalledWith(
+    'district-fill',
+    'fill-color',
+    expect.arrayContaining(['match']),
+  );
+  expect(map.setFilter).toHaveBeenLastCalledWith('district-selected-outline', [
+    '==',
+    ['get', 'id'],
+    'selected',
+  ]);
+  expect(options.districts.showFill).toBe(false);
+  manager.setVisibility('districts', false);
+  expect(map.setLayoutProperty).toHaveBeenCalledWith(
+    'district-fill',
+    'visibility',
+    'none',
+  );
+  manager.setVisibility('districts', true);
+  manager.setOptions(DEFAULT_LAYER_OPTIONS);
+  expect(map.setPaintProperty).toHaveBeenCalledWith(
+    'district-fill',
+    'fill-color',
+    STYLE.districts.fill,
+  );
+  expect(map.setLayoutProperty).toHaveBeenCalledWith(
+    'district-selected',
+    'visibility',
+    'visible',
+  );
+});
+
+it('evaluates live fill expressions against generated district properties', () => {
+  const theme = structuredClone(STYLE);
+  theme.buildings.industry.forestry.fill = '#123456';
+  theme.buildings.office.tech.fill = '#654321';
+  const city = makeCityData({
+    source: 'vellummap',
+    districts: [['Forest'], ['Hightech'], ['Forest', 'Future']].map(
+      (specializations, index) => ({
+        id: String(index),
+        name: String(index),
+        position: { x: 0, y: 0, z: 0 },
+        specializations,
+        boundary: [
+          {
+            exterior: [
+              [0, 0],
+              [1, 0],
+              [1, 1],
+              [0, 0],
+            ],
+            holes: [],
+          },
+        ],
+      }),
+    ),
+  });
+  const expression = createExpression(
+    districtFillColor(resolveColors(theme), true),
+    'fill-color',
+  );
+  expect(expression.result).toBe('success');
+  if (expression.result !== 'success')
+    throw new Error('Invalid district expression');
+  const colors = buildDistrictAreasGeoJson(city).features.map((feature) =>
+    expression.value.evaluate(
+      { zoom: 12 },
+      { type: 3, properties: feature.properties },
+    ),
+  );
+  expect(colors).toEqual(['#123456', '#654321', theme.districts.fill]);
+});
+it('applies a new theme to active specialization without rebuilding or losing selection and dimming', async () => {
+  const paints = new Map<string, unknown>();
+  const map = {
+    getLayer: vi.fn(() => ({})),
+    getSource: vi.fn(),
+    addSource: vi.fn(),
+    addLayer: vi.fn(),
+    setLayoutProperty: vi.fn(),
+    setPaintProperty: vi.fn((id: string, property: string, value: unknown) =>
+      paints.set(`${id}:${property}`, value),
+    ),
+    setFilter: vi.fn(),
+  };
+  const manager = new MapLayerManager(
+    map as unknown as MapLibreMap,
+    resolveColors(STYLE),
+  );
+  const options = {
+    ...DEFAULT_LAYER_OPTIONS,
+    districts: {
+      ...DEFAULT_LAYER_OPTIONS.districts,
+      colorBySpecialization: true,
+    },
+  };
+  manager.setVisibility('districts', true);
+  manager.setOptions(options);
+  manager.setSelectedDistrict('selected');
+  manager.setTransitDimming(true);
+  const theme = structuredClone(STYLE);
+  theme.buildings.industry.forestry.fill = '#123456';
+  manager.updateColors(resolveColors(theme));
+  await manager.applyTheme(options);
+  expect(paints.get('district-fill:fill-color')).toEqual(
+    districtFillColor(resolveColors(theme), true),
+  );
+  expect(paints.get('district-fill:fill-opacity')).toEqual([
+    '*',
+    0.14,
+    TRANSIT_DIM_FACTOR,
+  ]);
+  expect(map.setFilter).toHaveBeenCalledWith('district-selected', [
+    '==',
+    ['get', 'id'],
+    'selected',
+  ]);
+  expect(map.setLayoutProperty).toHaveBeenCalledWith(
+    'district-selected',
+    'visibility',
+    'visible',
+  );
+  expect(map.addSource).not.toHaveBeenCalled();
+  expect(map.addLayer).not.toHaveBeenCalled();
+  manager.setTransitDimming(false);
+  expect(paints.get('district-fill:fill-opacity')).toBe(0.14);
 });

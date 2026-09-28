@@ -1,3 +1,4 @@
+import { MapLibreRenderer } from '../map-libre-renderer';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   createExportSnapshot,
@@ -174,7 +175,12 @@ function makeSnapshot(
       roads: { showStreetNames: true },
       transit: { visibleModes: ['Bus'], showConfirmedTransfers: true },
       buildings: { visibleCategories: ['residential'], colorByCategory: false },
-      districts: { showAsMarker: true, showFill: false, showParkAreas: false },
+      districts: {
+        showAsMarker: true,
+        showFill: false,
+        colorBySpecialization: false,
+        showParkAreas: false,
+      },
       terrain: {
         showContourLines: true,
         showColorRelief: true,
@@ -446,4 +452,77 @@ describe('RasterTileRenderer', () => {
     const { unregisterDemProtocol } = await import('../sources/dem-protocol');
     expect(unregisterDemProtocol).not.toHaveBeenCalled();
   });
+});
+
+it('carries specialization fill options into the isolated PNG renderer', async () => {
+  const optionsSpy = vi.spyOn(MapLibreRenderer.prototype, 'setLayerOptions');
+  const base = makeSnapshot();
+  const snapshot: ExportSnapshot = {
+    ...base,
+    cityData: {
+      ...base.cityData,
+      source: 'vellummap' as const,
+      districts: [
+        {
+          id: 'forest',
+          name: 'Forest',
+          position: { x: 0, y: 0, z: 0 },
+          specializations: ['Forest'],
+          boundary: [
+            {
+              exterior: [
+                [0, 0],
+                [0.01, 0],
+                [0.01, 0.01],
+                [0, 0],
+              ],
+              holes: [
+                [
+                  [0.005, 0.001],
+                  [0.008, 0.001],
+                  [0.008, 0.003],
+                  [0.005, 0.001],
+                ],
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    layerOptions: {
+      ...base.layerOptions,
+      districts: {
+        ...base.layerOptions.districts,
+        showFill: false,
+        colorBySpecialization: true,
+      },
+    },
+  };
+  const renderer = new RasterTileRenderer(MOCK_STYLE);
+  const signal = new AbortController().signal;
+  await renderer.configure(snapshot, signal);
+  expect(optionsSpy).toHaveBeenCalledWith(snapshot.layerOptions);
+  expect(mockMap.addSource).toHaveBeenCalledWith(
+    'district-areas',
+    expect.objectContaining({
+      data: expect.objectContaining({
+        features: [
+          expect.objectContaining({
+            properties: { id: 'forest', specialization: 'industry.forestry' },
+            geometry: expect.objectContaining({
+              coordinates: [
+                snapshot.cityData.districts[0].boundary![0].exterior,
+                ...snapshot.cityData.districts[0].boundary![0].holes,
+              ],
+            }),
+          }),
+        ],
+      }),
+    }),
+  );
+  expect(await renderer.captureTile(makeTile(), signal)).toEqual(
+    new Uint8Array([137, 80, 78, 71]),
+  );
+  renderer.dispose();
+  optionsSpy.mockRestore();
 });

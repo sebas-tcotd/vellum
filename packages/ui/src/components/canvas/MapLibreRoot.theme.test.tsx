@@ -27,10 +27,29 @@ let mockActiveTheme = 'day';
 let mockTransitDimmingEnabled = false;
 let mockCityData: unknown = null;
 vi.mock('../../store/vellum-store', () => ({
-  useVellumStore: Object.assign(
-    (selector: (s: unknown) => unknown) => selector(themeStoreState()),
-    { getState: () => themeStoreState() },
-  ),
+  useVellumStore: (selector: (s: unknown) => unknown) =>
+    selector({
+      cityData: mockCityData,
+      activeTheme: mockActiveTheme,
+      transitDimmingEnabled: mockTransitDimmingEnabled,
+      layerOptions: {
+        roads: { showStreetNames: true },
+        transit: { visibleModes: [], showConfirmedTransfers: true },
+        buildings: { visibleCategories: [] },
+        districts: {
+          showAsMarker: true,
+          showFill: false,
+          colorBySpecialization: false,
+          showParkAreas: false,
+        },
+        terrain: {
+          showContourLines: true,
+          showColorRelief: true,
+          showHillshade: true,
+        },
+        basemap: { showGrid: false },
+      },
+    }),
 }));
 
 const themeStoreState = () => ({

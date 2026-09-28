@@ -175,6 +175,7 @@ export interface SceneEntity {
  * cartography, not MapLibre layer registration.
  */
 export type SceneLayerId =
+  | 'district-fills'
   | 'terrain'
   | 'water'
   | 'roads'
@@ -202,6 +203,7 @@ export const SCENE_LAYER_ORDER: readonly SceneLayerId[] = Object.freeze([
   'terrain',
   'water',
   'forests',
+  'district-fills',
   'roads',
   'buildings',
   'transit',

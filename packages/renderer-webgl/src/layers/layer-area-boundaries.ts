@@ -167,3 +167,20 @@ export function addDistrictSelectionLayers(
     },
   });
 }
+
+/** Theme-derived categorical expression, reevaluated without rebuilding geometry. */
+export function districtFillColor(
+  colors: ResolvedColors,
+  enabled: boolean,
+): string | maplibregl.ExpressionSpecification {
+  if (!enabled) return colors.districtFill;
+  return [
+    'match',
+    ['get', 'specialization'],
+    ...Object.entries(colors.districtSpecialization).flatMap(([key, color]) => [
+      key,
+      color,
+    ]),
+    colors.districtFill,
+  ] as unknown as maplibregl.ExpressionSpecification;
+}
