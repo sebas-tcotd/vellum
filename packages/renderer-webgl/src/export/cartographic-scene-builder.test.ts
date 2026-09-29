@@ -964,9 +964,13 @@ describe('district specialization fills', () => {
       opacity: 0.5,
       fillRule: 'evenodd',
     });
-    expect(
-      scene.layers.findIndex((l) => l.id === 'district-fills'),
-    ).toBeLessThan(scene.layers.findIndex((l) => l.id === 'roads'));
+    // Coloured by specialization, fills paint over everything but the names,
+    // as in the interactive map; the plain tint keeps its place under roads.
+    expect(scene.layers.map((l) => l.id).slice(-2)).toEqual([
+      'district-fills',
+      'districts',
+    ]);
+    expect(build(city).layers.map((l) => l.id)).toEqual([...SCENE_LAYER_ORDER]);
     expect(layerEntities(build(city), 'district-fills')).toEqual([]);
     expect(
       layerEntities(

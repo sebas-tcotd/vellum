@@ -198,6 +198,8 @@ export type SceneLayerId =
  * better the other way round — building blocks stay legible and roads behave
  * like the gaps between them — so buildings paint last here. Everything else
  * matches the registration order in `managers/map-source.manager.ts`.
+ * District fills coloured by specialization move up to just under
+ * `districts` at build time, as `MapLayerManager` moves them on the map.
  */
 export const SCENE_LAYER_ORDER: readonly SceneLayerId[] = Object.freeze([
   'terrain',

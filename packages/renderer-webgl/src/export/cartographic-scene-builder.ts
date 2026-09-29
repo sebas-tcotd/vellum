@@ -185,7 +185,7 @@ export function buildCartographicScene(
     snapshot.surface.width,
   );
 
-  const layers = SCENE_LAYER_ORDER.map((id) =>
+  const layers = sceneLayerOrder(snapshot).map((id) =>
     buildLayer(id, {
       snapshot,
       colors,
@@ -992,4 +992,21 @@ function buildDistrictFills({
       ];
     }),
   );
+}
+
+/**
+ * {@link SCENE_LAYER_ORDER}, except that districts coloured by specialization
+ * paint over roads, buildings and transit — under the district names — as
+ * `MapLayerManager` does in the interactive map.
+ */
+function sceneLayerOrder(
+  snapshot: ExportSnapshotBase,
+): readonly SceneLayerId[] {
+  if (!snapshot.layerOptions.districts.colorBySpecialization)
+    return SCENE_LAYER_ORDER;
+  const order: SceneLayerId[] = SCENE_LAYER_ORDER.filter(
+    (id) => id !== 'district-fills',
+  );
+  order.splice(order.indexOf('districts'), 0, 'district-fills');
+  return order;
 }
