@@ -35,6 +35,11 @@ function makeMap() {
       zoom = 10;
       endMove();
     }),
+    /** Simulates any user zoom (wheel, button, key) ending at `z`. */
+    zoomTo: (z: number) => {
+      zoom = z;
+      endMove();
+    },
   };
   return map;
 }
@@ -46,6 +51,7 @@ describe('MapNavigationManager zoom controls', () => {
     manager.fitAndConstrain(city);
 
     expect(manager.getZoomState()).toEqual({ zoom: 10, min: 10, max: 18 });
+    expect(map.setMinZoom).toHaveBeenLastCalledWith(9.5);
   });
 
   it('clamps requested zoom between the fit and the max without changing the center', () => {
@@ -60,6 +66,26 @@ describe('MapNavigationManager zoom controls', () => {
     manager.setZoom(1);
     expect(map.setZoom).toHaveBeenLastCalledWith(10);
   });
+
+  it.each(['soft', 'strict'])(
+    'settles back onto the fit after zooming out past it (%s)',
+    (mode) => {
+      const map = makeMap();
+      const manager = new MapNavigationManager(
+        map as unknown as maplibregl.Map,
+      );
+      if (mode === 'strict') manager.toggleMode();
+      manager.fitAndConstrain(city);
+      map.fitBounds.mockClear();
+
+      map.zoomTo(9.5);
+      expect(map.fitBounds).toHaveBeenCalledTimes(1);
+      expect(manager.getZoomState()?.zoom).toBe(10);
+
+      map.zoomTo(12);
+      expect(map.fitBounds).toHaveBeenCalledTimes(1);
+    },
+  );
 
   it('ignores non-finite zoom requests', () => {
     const map = makeMap();

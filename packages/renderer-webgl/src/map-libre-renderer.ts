@@ -703,8 +703,8 @@ export class MapLibreRenderer implements IRenderer {
    * Toggles between strict and soft navigation boundary modes.
    *
    * @remarks
-   * Strict mode: hard pan/zoom bounds. Soft mode: allows overpanning with
-   * snap-back and underzooming down to 25% of fit-to-screen zoom.
+   * Strict mode: hard pan bounds. Soft mode: allows overpanning with
+   * snap-back. Zooming out past the fit settles back onto the city in both.
    */
   toggleNavigationMode(): void {
     this.navigationManager.toggleMode();

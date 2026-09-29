@@ -2517,9 +2517,10 @@ describe('MapLibreRenderer', () => {
       await renderer.render(makeCityData(), {
         activeLayers: ALL_LAYERS_VISIBLE,
       });
-      // Soft mode: minZoom = fitToScreenZoom * 0.25 = 12 * 0.25 = 3
-      expect(mockMap.setMinZoom).toHaveBeenCalledOnce();
-      expect(mockMap.setMinZoom).toHaveBeenCalledWith(3);
+      // Floor lifted for the fit, then fitToScreenZoom - 0.5 = 11.5
+      expect(mockMap.setMinZoom).toHaveBeenCalledTimes(2);
+      expect(mockMap.setMinZoom).toHaveBeenNthCalledWith(1, null);
+      expect(mockMap.setMinZoom).toHaveBeenLastCalledWith(11.5);
     });
 
     it('updates constraints when rendering a new city', async () => {
@@ -2535,8 +2536,8 @@ describe('MapLibreRenderer', () => {
         activeLayers: ALL_LAYERS_VISIBLE,
       });
       expect(mockMap.setMaxBounds).toHaveBeenCalledTimes(2);
-      // Soft mode: minZoom = 14 * 0.25 = 3.5
-      expect(mockMap.setMinZoom).toHaveBeenLastCalledWith(3.5);
+      // minZoom = 14 - 0.5
+      expect(mockMap.setMinZoom).toHaveBeenLastCalledWith(13.5);
     });
 
     it('re-applies constraints on fitToScreen()', async () => {
@@ -2548,9 +2549,9 @@ describe('MapLibreRenderer', () => {
 
       renderer.fitToScreen();
       expect(mockMap.fitBounds).toHaveBeenCalledOnce();
-      // Soft mode (default): setMaxBounds(undefined) + setMinZoom
+      // Soft mode (default): setMaxBounds(undefined) + floor lifted, then set
       expect(mockMap.setMaxBounds).toHaveBeenCalledOnce();
-      expect(mockMap.setMinZoom).toHaveBeenCalledOnce();
+      expect(mockMap.setMinZoom).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -2594,7 +2595,7 @@ describe('MapLibreRenderer', () => {
       expect(mockMap.project).toHaveBeenCalled();
       expect(mockMap.unproject).toHaveBeenCalled();
       // minZoom derived from fitToScreenZoom (12), not current camera zoom
-      expect(mockMap.setMinZoom).toHaveBeenCalledWith(3);
+      expect(mockMap.setMinZoom).toHaveBeenCalledWith(11.5);
     });
 
     it('toggleNavigationMode switches back to soft mode', async () => {
@@ -2610,14 +2611,14 @@ describe('MapLibreRenderer', () => {
       expect(mockMap.setMaxBounds).toHaveBeenCalledWith(undefined);
     });
 
-    it('soft mode sets minZoom to 25% of fit-to-screen zoom', async () => {
+    it('sets minZoom half a level below the fit-to-screen zoom', async () => {
       const renderer = makeRenderer();
       mockMap.getZoom.mockReturnValue(12);
       await renderer.render(makeCityData(), {
         activeLayers: ALL_LAYERS_VISIBLE,
       });
-      // fitToScreenZoom = 12, minZoom = 12 * 0.25 = 3
-      expect(mockMap.setMinZoom).toHaveBeenCalledWith(3);
+      // fitToScreenZoom = 12, minZoom = 12 - 0.5
+      expect(mockMap.setMinZoom).toHaveBeenLastCalledWith(11.5);
     });
 
     it('registers moveend listener on render', async () => {
