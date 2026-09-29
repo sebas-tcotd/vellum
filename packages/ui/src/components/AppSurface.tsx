@@ -199,13 +199,16 @@ export function AppSurface({
     loadingState === 'error' &&
     loadingError != null &&
     loadingError.type !== 'PartialParse';
+  // Toasts wait for the loading modal to close instead of appearing under it.
   const showDlcWarningToast =
     cityData !== null &&
     loadingState === 'idle' &&
+    !isDrawingMap &&
     (dlcWarnings.length > 0 || hasPartialData);
   const showUpdateToast =
     updateInfo !== null &&
     loadingState === 'idle' &&
+    !isDrawingMap &&
     !exportWorkflow.isExporting;
 
   return (
