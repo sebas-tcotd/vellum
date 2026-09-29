@@ -161,6 +161,12 @@ vi.mock('../sources/dem-protocol', async (importOriginal) => ({
   unregisterDemProtocol: vi.fn(),
 }));
 
+// jsdom never settles the logo image, so each capture would sit out the real
+// 2 s watermark load timeout (see map-libre-renderer.test.ts).
+vi.mock('../layers/layer-watermark', () => ({
+  addWatermarkLayer: vi.fn(async () => undefined),
+}));
+
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
 
 function makeSnapshot(

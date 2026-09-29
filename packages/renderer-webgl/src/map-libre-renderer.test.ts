@@ -109,6 +109,13 @@ vi.mock('./sources/dem-protocol', async (importOriginal) => ({
   unregisterDemProtocol: vi.fn(),
 }));
 
+// jsdom fires neither onload nor onerror for the logo's data URI, so every
+// PNG export here would sit out the real 2 s load timeout in `waitForIdle` —
+// enough to cross Vitest's 5 s limit on a busy CI runner.
+vi.mock('./layers/layer-watermark', () => ({
+  addWatermarkLayer: vi.fn(async () => undefined),
+}));
+
 // ─── Test theme ───────────────────────────────────────────────────────────────
 
 function roadColors(fill: string, casing: string): RoadCategoryColors {
