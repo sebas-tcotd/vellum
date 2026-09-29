@@ -61,6 +61,8 @@ export interface AdvancedOptionsPanelProps {
   onToggleShowDistrictsAsMarkers: (enabled: boolean) => void;
   /** Whether district areas get a light tint (native documents only). */
   showDistrictFill: boolean;
+  colorDistrictsBySpecialization?: boolean;
+  onToggleDistrictsColorBySpecialization?: (enabled: boolean) => void;
   onToggleShowDistrictFill: (enabled: boolean) => void;
   /** Format of the open document; the fill needs areas only `.vellummap` has. */
   source?: CitySource | undefined;
@@ -103,6 +105,8 @@ export function AdvancedOptionsPanel({
   showDistrictsAsMarkers,
   onToggleShowDistrictsAsMarkers,
   showDistrictFill,
+  colorDistrictsBySpecialization = false,
+  onToggleDistrictsColorBySpecialization,
   onToggleShowDistrictFill,
   source,
   showParkAreas,
@@ -202,6 +206,13 @@ export function AdvancedOptionsPanel({
             label={t('layerOptionsPanel.showDistrictFill')}
             checked={showDistrictFill}
             onCheckedChange={onToggleShowDistrictFill}
+          />
+        )}
+        {source === 'vellummap' && onToggleDistrictsColorBySpecialization && (
+          <OptionRow
+            label={t('districtSpecialization.title')}
+            checked={colorDistrictsBySpecialization}
+            onCheckedChange={onToggleDistrictsColorBySpecialization}
           />
         )}
         <OptionRow

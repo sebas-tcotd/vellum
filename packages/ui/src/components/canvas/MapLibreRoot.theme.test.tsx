@@ -44,6 +44,7 @@ const themeStoreState = () => ({
     districts: {
       showAsMarker: true,
       showFill: false,
+      colorBySpecialization: false,
       showParkAreas: false,
     },
     terrain: {

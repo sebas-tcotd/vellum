@@ -1,3 +1,7 @@
+import {
+  districtSpecializationPalette,
+  type DistrictClassification,
+} from '@vellum/core';
 /**
  * Flattens the grouped `RenderStyleParams` contract into the simple per-layer
  * color lookup that `renderer-webgl`'s layer registration functions consume.
@@ -76,6 +80,7 @@ export interface ResolvedColors {
   };
   /** District marker fill color. */
   districtFill: string;
+  districtSpecialization: Record<DistrictClassification, string>;
   /** District label/stroke color. */
   districtLabel: string;
   /** Road fill color per tier, keyed by `RoadTier`. */
@@ -155,6 +160,7 @@ export function resolveColors(style: RenderStyleParams): ResolvedColors {
       services: buildings.civic.services,
     },
     districtFill: style.districts.fill,
+    districtSpecialization: districtSpecializationPalette(style),
     districtLabel: style.districts.label,
     roadFill,
     roadCasing: {

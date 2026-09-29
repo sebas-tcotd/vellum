@@ -155,3 +155,23 @@ describe('AdvancedOptionsPanel — roads', () => {
     expect(onToggle).toHaveBeenCalledWith(false);
   });
 });
+
+describe('specialization source gate', () => {
+  it('offers an accessible native switch and omits it for CSL', () => {
+    const callback = vi.fn();
+    const props = makeProps({
+      layer: 'districts',
+      source: 'vellummap',
+      onToggleDistrictsColorBySpecialization: callback,
+    });
+    const { rerender } = render(<AdvancedOptionsPanel {...props} />);
+    screen
+      .getByRole('switch', { name: 'districtSpecialization.title' })
+      .click();
+    expect(callback).toHaveBeenCalledWith(true);
+    rerender(<AdvancedOptionsPanel {...props} source="cslmap" />);
+    expect(
+      screen.queryByRole('switch', { name: 'districtSpecialization.title' }),
+    ).toBeNull();
+  });
+});

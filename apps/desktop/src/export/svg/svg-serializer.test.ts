@@ -1,3 +1,4 @@
+import { buildCartographicScene } from '@vellum/renderer-webgl';
 import { describe, expect, it } from 'vitest';
 import {
   composeMarginalia,
@@ -624,4 +625,72 @@ describe('serializeSceneToSvg', () => {
   it('sin marginalia no emite el grupo', () => {
     expect(render(scene())).not.toContain('vellum-marginalia');
   });
+});
+
+it('serializes district fill holes with evenodd winding and snapshot color', () => {
+  const cityData = makeCityData({
+    source: 'vellummap',
+    districts: [
+      {
+        id: 'd',
+        name: 'D',
+        position: { x: 0, y: 0, z: 0 },
+        specializations: ['Forest'],
+        boundary: [
+          {
+            exterior: [
+              [0, 0],
+              [0.01, 0],
+              [0.01, 0.01],
+              [0, 0],
+            ],
+            holes: [
+              [
+                [0.005, 0.001],
+                [0.008, 0.001],
+                [0.008, 0.003],
+                [0.005, 0.001],
+              ],
+            ],
+          },
+        ],
+      },
+    ],
+  });
+  const style = makeRenderStyle();
+  const cartography = buildCartographicScene({
+    snapshot: {
+      snapshotId: 'district-hole',
+      cityData,
+      style,
+      activeLayers: makeLayerVisibility(),
+      layerOptions: {
+        ...DEFAULT_LAYER_OPTIONS,
+        districts: {
+          ...DEFAULT_LAYER_OPTIONS.districts,
+          colorBySpecialization: true,
+        },
+      },
+      transitDimming: false,
+      watermarkVisible: false,
+      camera: { longitude: 0, latitude: 0, zoom: 12, bearing: 0, pitch: 0 },
+      extent: { minX: -8640, maxX: 8640, minZ: -8640, maxZ: 8640 },
+      surface: { width: 1000, height: 1000 },
+    },
+    background: 'white',
+    roadWidthFactor: 7.25,
+    roadCasingAddPx: 1.1,
+  });
+  const document = new DOMParser().parseFromString(
+    [...serializeSceneToSvg(cartography)].join(''),
+    'image/svg+xml',
+  );
+  const fill = document.querySelector('[id="district-fill-d-0"]');
+  expect(fill).not.toBeNull();
+  expect(fill?.getAttribute('fill-rule')).toBe('evenodd');
+  expect(fill?.getAttribute('fill-opacity')).toBe('0.5');
+  expect(fill?.getAttribute('fill')).toBe(
+    style.buildings.industry.forestry.fill,
+  );
+  expect(fill?.getAttribute('d')?.match(/M/g)).toHaveLength(2);
 });

@@ -38,6 +38,7 @@ const mockMap = vi.hoisted(() => ({
   addLayer: vi.fn(),
   getLayer: vi.fn(() => undefined),
   removeLayer: vi.fn(),
+  moveLayer: vi.fn(),
   setLayoutProperty: vi.fn(),
   setPaintProperty: vi.fn(),
   setFilter: vi.fn(),
@@ -106,6 +107,13 @@ vi.mock('./sources/dem-protocol', async (importOriginal) => ({
   ...(await importOriginal<typeof import('./sources/dem-protocol')>()),
   registerDemProtocol: vi.fn(async () => undefined),
   unregisterDemProtocol: vi.fn(),
+}));
+
+// jsdom fires neither onload nor onerror for the logo's data URI, so every
+// PNG export here would sit out the real 2 s load timeout in `waitForIdle` —
+// enough to cross Vitest's 5 s limit on a busy CI runner.
+vi.mock('./layers/layer-watermark', () => ({
+  addWatermarkLayer: vi.fn(async () => undefined),
 }));
 
 // ─── Test theme ───────────────────────────────────────────────────────────────
@@ -1189,7 +1197,12 @@ describe('MapLibreRenderer', () => {
       roads: { showStreetNames },
       transit: { visibleModes: [], showConfirmedTransfers: true },
       buildings: { visibleCategories: [], colorByCategory: false },
-      districts: { showAsMarker: true, showFill: false, showParkAreas: false },
+      districts: {
+        showAsMarker: true,
+        showFill: false,
+        colorBySpecialization: false,
+        showParkAreas: false,
+      },
       terrain: {
         showContourLines: true,
         showColorRelief: true,
@@ -1246,6 +1259,7 @@ describe('MapLibreRenderer', () => {
         districts: {
           showAsMarker: false,
           showFill: false,
+          colorBySpecialization: false,
           showParkAreas: true,
         },
         terrain: {
@@ -1318,6 +1332,7 @@ describe('MapLibreRenderer', () => {
         districts: {
           showAsMarker: true,
           showFill: true,
+          colorBySpecialization: false,
           showParkAreas: false,
         },
         terrain: {
@@ -1358,7 +1373,12 @@ describe('MapLibreRenderer', () => {
         roads: { showStreetNames: true },
         transit: { visibleModes: [], showConfirmedTransfers: true },
         buildings: { visibleCategories: [], colorByCategory: false },
-        districts: { showAsMarker: true, showFill: false, showParkAreas: true },
+        districts: {
+          showAsMarker: true,
+          showFill: false,
+          colorBySpecialization: false,
+          showParkAreas: true,
+        },
         terrain: {
           showContourLines: true,
           showColorRelief: true,
@@ -1392,6 +1412,7 @@ describe('MapLibreRenderer', () => {
         districts: {
           showAsMarker: false,
           showFill: false,
+          colorBySpecialization: false,
           showParkAreas: true,
         },
         terrain: {
@@ -1535,6 +1556,7 @@ describe('MapLibreRenderer', () => {
         districts: {
           showAsMarker: true,
           showFill: false,
+          colorBySpecialization: false,
           showParkAreas: false,
         },
         terrain: {
@@ -1569,6 +1591,7 @@ describe('MapLibreRenderer', () => {
         districts: {
           showAsMarker: true,
           showFill: false,
+          colorBySpecialization: false,
           showParkAreas: false,
         },
         terrain: {

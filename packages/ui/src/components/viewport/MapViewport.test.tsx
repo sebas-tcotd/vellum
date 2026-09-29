@@ -1,6 +1,7 @@
+import { DEFAULT_RENDER_STYLE_PARAMS } from '@vellum/theme-engine';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { makeCityData } from '@vellum/core/testing';
-import { cleanup, render, screen } from '../../test-utils';
+import { act, cleanup, render, screen } from '../../test-utils';
 import { MapViewport } from './MapViewport';
 import type { CommandRegistry } from '../../shell/commands';
 import type { MapLibreRootProps } from '../canvas/MapLibreRoot';
@@ -203,4 +204,113 @@ describe('schematic view — clean view and focus', () => {
     rerender(<MapViewport {...props} viewMode="geographic" />);
     expect(screen.getByTestId('schematic-toggle')).toHaveFocus();
   });
+});
+
+describe('specialization legend consumer', () => {
+  const nativeCity = makeCityData({
+    source: 'vellummap',
+    districts: [
+      {
+        id: 'd',
+        name: 'D',
+        position: { x: 0, y: 0, z: 0 },
+        specializations: ['Forest'],
+        boundary: [
+          {
+            exterior: [
+              [0, 0],
+              [1, 0],
+              [1, 1],
+              [0, 0],
+            ],
+            holes: [],
+          },
+        ],
+      },
+    ],
+  });
+  function enable() {
+    useVellumStore.setState({
+      cityData: nativeCity,
+      activeTheme: 'test-day',
+      activeLayers: {
+        ...useVellumStore.getState().activeLayers,
+        districts: true,
+      },
+      layerOptions: {
+        ...useVellumStore.getState().layerOptions,
+        districts: {
+          ...useVellumStore.getState().layerOptions.districts,
+          colorBySpecialization: true,
+        },
+      },
+    });
+  }
+  it('renders real accessible scrollable legend with the active theme and reacts to theme changes', () => {
+    enable();
+    const day = {
+      ...structuredClone(DEFAULT_RENDER_STYLE_PARAMS),
+      id: 'test-day',
+      name: 'Day',
+      schemaVersion: 1,
+      source: 'built-in' as const,
+      rawJson: '',
+    };
+    const night = { ...structuredClone(day), id: 'test-night' };
+    day.buildings.industry.forestry.fill = '#123456';
+    night.buildings.industry.forestry.fill = '#654321';
+    const originalThemes = mapProps.themes;
+    mapProps.themes = [day, night];
+    renderViewport();
+    const legend = screen.getByRole('complementary', {
+      name: 'districtSpecialization.title',
+    });
+    expect(legend).toHaveAttribute('tabindex', '0');
+    expect(legend).toHaveStyle({ overflowY: 'auto' });
+    expect(legend.style.maxHeight).toContain('100% - 12px');
+    expect(legend.textContent).toContain('specializations.forest');
+    expect(legend.textContent).toContain('districtSpecialization.dominance');
+    expect(legend.querySelector('[style*="background-color"]')).toHaveStyle({
+      backgroundColor: '#123456',
+    });
+    act(() => useVellumStore.setState({ activeTheme: 'test-night' }));
+    expect(legend.querySelector('[style*="background-color"]')).toHaveStyle({
+      backgroundColor: '#654321',
+    });
+    act(() =>
+      useVellumStore.setState({
+        activeLayers: {
+          ...useVellumStore.getState().activeLayers,
+          districts: false,
+        },
+      }),
+    );
+    expect(
+      screen.queryByRole('complementary', {
+        name: 'districtSpecialization.title',
+      }),
+    ).toBeNull();
+    mapProps.themes = originalThemes;
+  });
+  it.each(['disabled', 'cslmap', 'clean', 'schematic'] as const)(
+    'hides the legend for %s',
+    (mode) => {
+      enable();
+      if (mode === 'disabled')
+        useVellumStore.getState().setDistrictsColorBySpecialization(false);
+      if (mode === 'cslmap')
+        useVellumStore.setState({
+          cityData: { ...nativeCity, source: 'cslmap' },
+        });
+      renderViewport(
+        mode === 'schematic' ? 'schematic' : 'geographic',
+        mode === 'clean',
+      );
+      expect(
+        screen.queryByRole('complementary', {
+          name: 'districtSpecialization.title',
+        }),
+      ).toBeNull();
+    },
+  );
 });

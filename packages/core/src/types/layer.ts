@@ -139,6 +139,8 @@ export interface LayerOptions {
      * `.vellummap` documents have areas; a `.cslmap` has nothing to fill.
      */
     showFill: boolean;
+    /** Theme-based specialization tint, independent of showFill. */
+    colorBySpecialization: boolean;
     /**
      * When `true`, DLC park areas (University, Industry, Forestry, etc.)
      * are rendered as labeled points on the map. Gated by the `districts`
@@ -195,7 +197,12 @@ export const DEFAULT_LAYER_OPTIONS: LayerOptions = {
     visibleCategories: [...BUILDING_SERVICE_CATEGORIES],
     colorByCategory: false,
   },
-  districts: { showAsMarker: false, showFill: false, showParkAreas: false },
+  districts: {
+    showAsMarker: false,
+    showFill: false,
+    colorBySpecialization: false,
+    showParkAreas: false,
+  },
   terrain: {
     showContourLines: true,
     showColorRelief: true,

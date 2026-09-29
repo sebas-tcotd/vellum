@@ -42,6 +42,9 @@ export function LayerDetailPanel({
   const setDistrictsShowAsMarker = useVellumStore(
     (s) => s.setDistrictsShowAsMarker,
   );
+  const setDistrictsColorBySpecialization = useVellumStore(
+    (s) => s.setDistrictsColorBySpecialization,
+  );
   const setDistrictsShowFill = useVellumStore((s) => s.setDistrictsShowFill);
   const setDistrictsShowParkAreas = useVellumStore(
     (s) => s.setDistrictsShowParkAreas,
@@ -90,6 +93,12 @@ export function LayerDetailPanel({
         onToggleColorByCategory={setBuildingColorByCategory}
         showDistrictsAsMarkers={layerOptions.districts.showAsMarker}
         onToggleShowDistrictsAsMarkers={setDistrictsShowAsMarker}
+        colorDistrictsBySpecialization={
+          layerOptions.districts.colorBySpecialization
+        }
+        onToggleDistrictsColorBySpecialization={
+          setDistrictsColorBySpecialization
+        }
         showDistrictFill={layerOptions.districts.showFill}
         onToggleShowDistrictFill={setDistrictsShowFill}
         source={source}

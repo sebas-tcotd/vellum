@@ -1,3 +1,7 @@
+import {
+  classifyDistrictSpecialization,
+  districtSpecializationColor,
+} from '@vellum/core';
 /**
  * Derives the renderer-neutral {@link CartographicScene} from an export
  * snapshot.
@@ -42,7 +46,10 @@ import {
 import { VELLUM_LOGO_SIZE, vellumLogoInnerSvg } from '../assets/vellum-logo';
 import { geoToCs } from '../coordinate-transform';
 import { resolveBuildingColor } from '../expressions/building-color';
-import { DISTRICT_BOUNDARY_OPACITY } from '../constants/layer.constants';
+import {
+  DISTRICT_BOUNDARY_OPACITY,
+  DISTRICT_FILL_OPACITY,
+} from '../constants/layer.constants';
 import { resolveRoadWidthPx } from '../expressions/road-width-curve';
 import { resolveElevationColor } from '../expressions/terrain-relief';
 import {
@@ -140,6 +147,7 @@ const ID_PREFIX: Readonly<Record<SceneLayerId, string>> = Object.freeze({
   buildings: 'building',
   forests: 'forest',
   districts: 'district',
+  'district-fills': 'district-fill',
 });
 
 // Stroke and marker sizes the interactive layers bind into MapLibre paint
@@ -177,7 +185,7 @@ export function buildCartographicScene(
     snapshot.surface.width,
   );
 
-  const layers = SCENE_LAYER_ORDER.map((id) =>
+  const layers = sceneLayerOrder(snapshot).map((id) =>
     buildLayer(id, {
       snapshot,
       colors,
@@ -260,7 +268,8 @@ function buildLayer(id: SceneLayerId, context: LayerContext): SceneLayer {
   // Hidden layers still appear as empty groups, so a user re-enabling one in
   // an editor finds the group where the z-order says it should be.
   const entities = visible ? LAYER_BUILDERS[id](context) : [];
-  if (visible && entities.length === 0) context.warnings.add('empty-layer');
+  if (visible && entities.length === 0 && id !== 'district-fills')
+    context.warnings.add('empty-layer');
   // Transit is the layer the dimming exists to emphasise, so it keeps its own
   // opacity while everything around it is knocked back.
   const dimmed =
@@ -275,7 +284,11 @@ function isLayerVisible(
   id: SceneLayerId,
   activeLayers: Readonly<LayerVisibility>,
 ): boolean {
-  return id === 'water' ? activeLayers.basemap : activeLayers[id];
+  return id === 'water'
+    ? activeLayers.basemap
+    : id === 'district-fills'
+      ? activeLayers.districts
+      : activeLayers[id];
 }
 
 const LAYER_BUILDERS: Readonly<
@@ -288,6 +301,7 @@ const LAYER_BUILDERS: Readonly<
   buildings: buildBuildingEntities,
   forests: buildForestEntities,
   districts: buildDistrictEntities,
+  'district-fills': buildDistrictFills,
 });
 
 // ─── Layers ──────────────────────────────────────────────────────────────────
@@ -940,4 +954,59 @@ class WarningTally {
   collect(): SceneWarning[] {
     return [...this.counts].map(([code, count]) => ({ code, count }));
   }
+}
+
+/** District tints share the snapshot palette and retain every interior ring. */
+function buildDistrictFills({
+  snapshot,
+  warnings,
+}: LayerContext): SceneEntity[] {
+  const options = snapshot.layerOptions.districts;
+  if (
+    snapshot.cityData.source !== 'vellummap' ||
+    !(options.showFill || options.colorBySpecialization)
+  )
+    return [];
+  return snapshot.cityData.districts.flatMap((district) =>
+    (district.boundary ?? []).flatMap((polygon, index) => {
+      const rings = toWorldRings(
+        [polygon.exterior, ...polygon.holes],
+        warnings,
+      );
+      if (!rings.length) return [];
+      return [
+        {
+          id: `district-fill-${district.id}-${index}`,
+          geometry: { kind: 'polygon' as const, rings },
+          fill: {
+            color: options.colorBySpecialization
+              ? districtSpecializationColor(
+                  classifyDistrictSpecialization(district),
+                  snapshot.style,
+                )
+              : snapshot.style.districts.fill,
+            opacity: DISTRICT_FILL_OPACITY,
+            fillRule: 'evenodd' as const,
+          },
+        },
+      ];
+    }),
+  );
+}
+
+/**
+ * {@link SCENE_LAYER_ORDER}, except that districts coloured by specialization
+ * paint over roads, buildings and transit — under the district names — as
+ * `MapLayerManager` does in the interactive map.
+ */
+function sceneLayerOrder(
+  snapshot: ExportSnapshotBase,
+): readonly SceneLayerId[] {
+  if (!snapshot.layerOptions.districts.colorBySpecialization)
+    return SCENE_LAYER_ORDER;
+  const order: SceneLayerId[] = SCENE_LAYER_ORDER.filter(
+    (id) => id !== 'district-fills',
+  );
+  order.splice(order.indexOf('districts'), 0, 'district-fills');
+  return order;
 }

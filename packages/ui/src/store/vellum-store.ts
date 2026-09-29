@@ -156,6 +156,7 @@ interface VellumStore {
   setDistrictsShowAsMarker: (enabled: boolean) => void;
   /** Toggles the light district fill (native documents only). */
   setDistrictsShowFill: (enabled: boolean) => void;
+  setDistrictsColorBySpecialization: (enabled: boolean) => void;
 
   /** Shows or hides DLC park-area markers and labels within the districts layer. */
   setDistrictsShowParkAreas: (enabled: boolean) => void;
@@ -369,6 +370,17 @@ export const useVellumStore = create<VellumStore>((set, get) => ({
         districts: {
           ...state.layerOptions.districts,
           showAsMarker: enabled,
+        },
+      },
+    })),
+
+  setDistrictsColorBySpecialization: (enabled) =>
+    set((state) => ({
+      layerOptions: {
+        ...state.layerOptions,
+        districts: {
+          ...state.layerOptions.districts,
+          colorBySpecialization: enabled,
         },
       },
     })),

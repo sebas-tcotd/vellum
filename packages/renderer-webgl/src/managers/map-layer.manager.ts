@@ -20,7 +20,10 @@ import {
 } from '../expressions/terrain-relief';
 import type { ResolvedColors } from '../style-adapter';
 import { retintForests } from '../layers/layer-forests';
-import { selectedDistrictFilter } from '../layers/layer-area-boundaries';
+import {
+  districtFillColor,
+  selectedDistrictFilter,
+} from '../layers/layer-area-boundaries';
 import { resolveAirshipColor } from '../expressions/transit-color';
 
 /**
@@ -33,6 +36,7 @@ export class MapLayerManager {
   private districtsShowAsMarker = false;
   /** Current `LayerOptions.districts.showFill` — mirrors its default. */
   private districtsShowFill = false;
+  private districtsColorBySpecialization = false;
   /** Current `LayerOptions.districts.showParkAreas` — mirrors its default. */
   private districtsShowParkAreas = false;
   /** District whose area carries the selection tint, or `null`. */
@@ -141,10 +145,21 @@ export class MapLayerManager {
    */
   private applyDistrictsVisibility(): void {
     this.applySelectedDistrict();
+    // Coloured by specialization, the fill is the map's subject: it paints
+    // over buildings, roads and transit, just under the selection tint (and
+    // so under the district names). The plain tint stays under the streets.
+    const fillAbove = this.districtsColorBySpecialization
+      ? 'district-selected'
+      : 'district-boundaries';
+    if (this.map.getLayer('district-fill') && this.map.getLayer(fillAbove))
+      this.map.moveLayer('district-fill', fillAbove);
     this.setLayoutIfExists(
       'district-fill',
       'visibility',
-      this.districtsVisible && this.districtsShowFill ? 'visible' : 'none',
+      this.districtsVisible &&
+        (this.districtsShowFill || this.districtsColorBySpecialization)
+        ? 'visible'
+        : 'none',
     );
     // Outlines are independent of the point/label display mode.
     this.setLayoutIfExists(
@@ -281,6 +296,13 @@ export class MapLayerManager {
 
     this.districtsShowAsMarker = options.districts.showAsMarker;
     this.districtsShowFill = options.districts.showFill;
+    this.districtsColorBySpecialization =
+      options.districts.colorBySpecialization;
+    this.setPaintIfExists(
+      'district-fill',
+      'fill-color',
+      districtFillColor(this.colors, this.districtsColorBySpecialization),
+    );
     this.districtsShowParkAreas = options.districts.showParkAreas;
     this.applyDistrictsVisibility();
   }
@@ -390,7 +412,11 @@ export class MapLayerManager {
     );
 
     this.setPaintIfExists('district-boundaries', 'line-color', c.districtLabel);
-    this.setPaintIfExists('district-fill', 'fill-color', c.districtFill);
+    this.setPaintIfExists(
+      'district-fill',
+      'fill-color',
+      districtFillColor(c, options.districts.colorBySpecialization),
+    );
     this.setPaintIfExists('district-selected', 'fill-color', c.districtFill);
     this.setPaintIfExists(
       'park-boundaries',

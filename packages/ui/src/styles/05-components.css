@@ -413,6 +413,44 @@
   isolation: isolate;
 }
 
+.shell-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 18rem;
+}
+
+[data-platform='macos'] .shell-legend {
+  gap: 16px;
+}
+
+/* The section is the first block here: no hairline above it off macOS. */
+html:not([data-platform='macos']) .shell-legend > .place-card__section {
+  padding-top: 0;
+  border-top: none;
+}
+
+/* A row can carry several tints (one name, districts of different sectors);
+   the subgrid keeps every label on the same column regardless. */
+.shell-legend .place-card__legend {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 8px;
+}
+
+.shell-legend__row {
+  display: grid;
+  grid-template-columns: subgrid;
+  grid-column: span 2;
+  align-items: baseline;
+}
+
+.shell-legend__swatches {
+  display: flex;
+  flex-shrink: 0;
+  gap: 2px;
+}
+
 .shell-dialog-overlay {
   background: rgb(0 0 0 / var(--shell-overlay-dimming));
 }
@@ -867,8 +905,13 @@
   max-height: calc(
     100% - 2 * var(--shell-overlay-inset) - var(--shell-titlebar-inset)
   );
-  padding: 16px;
   overflow-y: auto;
+}
+
+/* PlaceCard material, shared with the map legends that float beside it. */
+.place-card,
+.shell-legend {
+  padding: 16px;
   font-family: var(--font-shell);
   color: var(--shell-text-primary);
   background: var(--shell-solid-surface);
@@ -1060,7 +1103,8 @@
 }
 
 /* Windows: Acrylic — a translucent, blurred surface over the (opaque) map. */
-[data-platform='windows'] .place-card {
+[data-platform='windows'] .place-card,
+[data-platform='windows'] .shell-legend {
   background: var(--shell-surface);
   backdrop-filter: blur(var(--shell-backdrop-blur))
     saturate(var(--shell-backdrop-saturate));
@@ -1068,7 +1112,8 @@
 
 /* macOS: Apple Maps composition on a Liquid Glass more marked than the
    sidebar's — more blur and saturation, a stronger inner highlight. */
-[data-platform='macos'] .place-card {
+[data-platform='macos'] .place-card,
+[data-platform='macos'] .shell-legend {
   gap: 16px;
   background: var(--shell-surface-popover);
   border-color: var(--shell-stroke-light, var(--shell-separator));
@@ -1163,16 +1208,22 @@
 /* No material, no translucency: a solid surface that stays legible. */
 @supports not ((backdrop-filter: blur(1px))) {
   .place-card,
+  .shell-legend,
   [data-platform='windows'] .place-card,
-  [data-platform='macos'] .place-card {
+  [data-platform='windows'] .shell-legend,
+  [data-platform='macos'] .place-card,
+  [data-platform='macos'] .shell-legend {
     background: var(--shell-solid-surface);
   }
 }
 
 @media (forced-colors: active) {
   .place-card,
+  .shell-legend,
   [data-platform='windows'] .place-card,
-  [data-platform='macos'] .place-card {
+  [data-platform='windows'] .shell-legend,
+  [data-platform='macos'] .place-card,
+  [data-platform='macos'] .shell-legend {
     color: CanvasText;
     background: Canvas;
     border-color: CanvasText;

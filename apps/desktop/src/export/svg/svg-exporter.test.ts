@@ -13,6 +13,7 @@ import {
   makeCityData,
   makeMarginaliaLabels,
   makePresentationOptions,
+  makeRenderStyle,
 } from '@vellum/core/testing';
 import { buildCartographicScene } from '@vellum/renderer-webgl';
 import { SvgExportCapabilityError, SvgExporter } from './svg-exporter';
@@ -44,6 +45,7 @@ const STYLE = {
   forests: '#3f7d3f',
   districts: { fill: '#cc4444', label: '#222222' },
   buildings: {
+    ...makeRenderStyle().buildings,
     none: { fill: '#d0d0d0', stroke: '#909090' },
     civic: {
       publicTransport: { fill: '#8888cc', stroke: '#444488' },
