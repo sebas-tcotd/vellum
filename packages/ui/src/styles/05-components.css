@@ -527,7 +527,6 @@ html:not([data-platform='macos']) .shell-legend > .place-card__section {
   width: 20px;
   height: 128px;
   margin: 0;
-  accent-color: var(--shell-accent);
 }
 
 .shell-camera-zoom__number {
@@ -548,9 +547,11 @@ html:not([data-platform='macos']) .shell-legend > .place-card__section {
   border-color: var(--shell-separator);
 }
 
+/* It is focused on open, so a full ring would greet every opening; a
+   focus-colored border is enough to show where typing goes. */
 .shell-camera-zoom__number:focus-visible {
-  outline: 2px solid var(--shell-focus);
-  outline-offset: -2px;
+  outline: none;
+  border-color: var(--shell-focus);
 }
 
 .shell-floating-button + .shell-floating-button,
