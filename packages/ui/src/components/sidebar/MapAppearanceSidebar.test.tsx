@@ -300,6 +300,33 @@ describe('compact rail', () => {
   });
 });
 
+describe('compact rail shift+click', () => {
+  const collapsed = {
+    sidebar: { width: 272, collapsed: true, view: { kind: 'overview' } },
+  } as const;
+
+  it("expands into the layer's detail without toggling it", () => {
+    const stateRef = { current: null as ShellSessionState | null };
+    render(<Harness initial={collapsed} stateRef={stateRef} />);
+
+    fireEvent.click(compactLayerToggle('transit'), { shiftKey: true });
+
+    expect(useVellumStore.getState().activeLayers.transit).toBe(true);
+    expect(stateRef.current?.sidebar).toMatchObject({
+      collapsed: false,
+      view: { kind: 'detail', layerId: 'transit' },
+    });
+    expect(screen.getByTestId('layer-detail-back')).toBeInTheDocument();
+  });
+
+  it('falls back to toggling a layer that has no detail', () => {
+    // Street names are the roads panel's only option, and a .cslmap has none.
+    render(<Harness initial={collapsed} source="cslmap" />);
+    fireEvent.click(compactLayerToggle('roads'), { shiftKey: true });
+    expect(useVellumStore.getState().activeLayers.roads).toBe(false);
+  });
+});
+
 describe('clean view', () => {
   it('is present and operable in the normal loaded state', () => {
     render(<Harness />);

@@ -16,7 +16,10 @@ import type {
 import { LAYER_ICONS } from './layer-presentation';
 import { DocumentContextHeader } from './DocumentContextHeader';
 import { LayerDetailPanel } from './LayerDetailPanel';
-import { MapAppearanceOverview } from './MapAppearanceOverview';
+import {
+  MapAppearanceOverview,
+  layerDisclosureFocusId,
+} from './MapAppearanceOverview';
 import { useVellumStore } from '../../store/vellum-store';
 import { SidebarResizeHandle } from './SidebarResizeHandle';
 
@@ -200,7 +203,11 @@ export function MapAppearanceSidebar({
               : { onRelayout: onRelayoutSchematic })}
           />
         ) : collapsed ? (
-          <CompactLayerRail commands={commands} />
+          <CompactLayerRail
+            commands={commands}
+            source={source}
+            dispatch={dispatch}
+          />
         ) : view.kind === 'overview' ? (
           <MapAppearanceOverview commands={commands} source={source} />
         ) : (
@@ -228,10 +235,18 @@ export function MapAppearanceSidebar({
 }
 
 /**
- * The 56 px rail. It keeps layer visibility reachable and nothing else —
- * style and detail need the expanded sidebar, per the width model.
+ * The 56 px rail. A click keeps layer visibility reachable; Shift+Click jumps
+ * to that layer's detail, expanding the sidebar it needs to render in.
  */
-function CompactLayerRail({ commands }: { commands: CommandRegistry }) {
+function CompactLayerRail({
+  commands,
+  source,
+  dispatch,
+}: {
+  commands: CommandRegistry;
+  source: CitySource | undefined;
+  dispatch: ShellSession['dispatch'];
+}) {
   const { t } = useTranslation();
   const activeLayers = useVellumStore((s) => s.activeLayers);
 
@@ -249,7 +264,19 @@ function CompactLayerRail({ commands }: { commands: CommandRegistry }) {
             aria-label={name}
             aria-pressed={activeLayers[layer]}
             title={name}
-            onClick={() => commands['layer.toggle'].execute(layer)}
+            onClick={(event) => {
+              if (!event.shiftKey || !hasAdvancedOptions(layer, source)) {
+                commands['layer.toggle'].execute(layer);
+                return;
+              }
+              dispatch({ type: 'sidebar/setCollapsed', collapsed: false });
+              // Back returns focus to the layer's disclosure in the overview.
+              dispatch({
+                type: 'sidebar/openDetail',
+                layerId: layer,
+                invoker: layerDisclosureFocusId(layer),
+              });
+            }}
           >
             <span aria-hidden="true" className="shell-rail__icon">
               <Icon size={20} strokeWidth={1.5} />
