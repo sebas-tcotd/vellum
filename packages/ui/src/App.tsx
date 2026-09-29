@@ -133,6 +133,7 @@ export function App({
   const [i18nReady, setI18nReady] = useState(false);
   const [isPreferencesOpen, setIsPreferencesOpen] = useState(false);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
+  const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
   // Ephemeral desktop-shell session (AD-10): sidebar context, Clean view,
   // modal exclusivity and focus restoration. Cartographic state stays in the
   // store; nothing here is duplicated from it.
@@ -272,6 +273,10 @@ export function App({
     () => toggleNavigationModeRef.current?.(),
     [toggleNavigationModeRef],
   );
+  const handleToggleShortcuts = useCallback(
+    () => setIsShortcutsOpen((open) => !open),
+    [],
+  );
   const handleToggleIconLegend = useCallback(
     () => iconLegendToggleRef.current?.(),
     [iconLegendToggleRef],
@@ -331,7 +336,9 @@ export function App({
           ? 'preferences'
           : isAboutOpen
             ? 'about'
-            : null;
+            : isShortcutsOpen
+              ? 'shortcuts'
+              : null;
 
   useEffect(() => {
     if (blockingModal === null) {
@@ -367,6 +374,7 @@ export function App({
     rotateBy: handleRotateBy,
     toggleIconLegend: handleToggleIconLegend,
     toggleNavigationMode: handleToggleNavigationMode,
+    toggleShortcuts: handleToggleShortcuts,
     toggleLayer,
     setActiveTheme,
     setTransitDimmingEnabled,
@@ -436,7 +444,11 @@ export function App({
       : {}),
     // Escape is only offered while no dialog owns focus — dialogs trap and
     // consume it themselves, so the ladder never has two listeners racing.
-    ...(!isExportDialogOpen && !isPreferencesOpen && !isAboutOpen
+    onShowShortcuts: commands['view.shortcuts'].execute,
+    ...(!isExportDialogOpen &&
+    !isPreferencesOpen &&
+    !isAboutOpen &&
+    !isShortcutsOpen
       ? { onEscape: handleEscape }
       : {}),
     enabled: loadingState !== 'loading' && !isExportDialogOpen,
@@ -539,6 +551,8 @@ export function App({
       setIsPreferencesOpen={setIsPreferencesOpen}
       isAboutOpen={isAboutOpen}
       setIsAboutOpen={setIsAboutOpen}
+      isShortcutsOpen={isShortcutsOpen}
+      setIsShortcutsOpen={setIsShortcutsOpen}
       version={version}
       schematicLayoutClient={schematicLayoutClient}
       loadFilePartial={loadFilePartial}

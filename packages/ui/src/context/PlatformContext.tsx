@@ -59,3 +59,34 @@ export function usePlatform(): PlatformMeta {
     throw new Error('usePlatform must be used within <PlatformProvider>');
   return ctx;
 }
+
+/** How the platform names the keyboard modifiers, in the order it writes them. */
+export interface ModifierCaps {
+  mod: string;
+  alt: string;
+  shift: string;
+  order: readonly ('mod' | 'alt' | 'shift')[];
+}
+
+const MAC_CAPS: ModifierCaps = {
+  mod: '⌘',
+  alt: '⌥',
+  shift: '⇧',
+  order: ['alt', 'shift', 'mod'],
+};
+const PC_CAPS: ModifierCaps = {
+  mod: 'Ctrl',
+  alt: 'Alt',
+  shift: 'Shift',
+  order: ['mod', 'alt', 'shift'],
+};
+
+/**
+ * Modifier key caps for the current platform: text, not structure, so it is
+ * resolved here like the platform itself. Falls back to the PC names outside
+ * `<PlatformProvider>` rather than throwing, since it only labels keys.
+ */
+export function useModifierCaps(): ModifierCaps {
+  const ctx = useContext(PlatformContext);
+  return ctx?.platform === 'macos' ? MAC_CAPS : PC_CAPS;
+}

@@ -24,6 +24,7 @@ export type CommandId =
   | 'view.sidebar'
   | 'view.mapSymbols'
   | 'view.mapBounds'
+  | 'view.shortcuts'
   | 'layer.toggle'
   | 'layer.detail'
   | 'style.set'
@@ -44,6 +45,7 @@ export interface CommandPayloads {
   'view.sidebar': void;
   'view.mapSymbols': void;
   'view.mapBounds': void;
+  'view.shortcuts': void;
   'layer.toggle': LayerName;
   'layer.detail': LayerName;
   'style.set': string;
@@ -96,6 +98,8 @@ export interface CommandDeps {
   rotateBy: (delta: number) => void;
   toggleIconLegend: () => void;
   toggleNavigationMode: () => void;
+  /** Opens or closes the keyboard shortcuts sheet. */
+  toggleShortcuts: () => void;
   toggleLayer: (layer: LayerName) => void;
   setActiveTheme: (theme: string) => void;
   setTransitDimmingEnabled: (enabled: boolean) => void;
@@ -135,6 +139,7 @@ export function useDesktopCommands(deps: CommandDeps): CommandRegistry {
     rotateBy,
     toggleIconLegend,
     toggleNavigationMode,
+    toggleShortcuts,
     toggleLayer,
     setActiveTheme,
     setTransitDimmingEnabled,
@@ -235,6 +240,8 @@ export function useDesktopCommands(deps: CommandDeps): CommandRegistry {
         toggleSidebar,
       ),
       'view.mapBounds': make('view.mapBounds', mapReason, toggleNavigationMode),
+      // The keymap applies to every surface, schematic included.
+      'view.shortcuts': make('view.shortcuts', null, toggleShortcuts),
       'layer.toggle': make('layer.toggle', mapReason, (layer) =>
         toggleLayer(layer),
       ),
@@ -273,6 +280,7 @@ export function useDesktopCommands(deps: CommandDeps): CommandRegistry {
     toggleLayerDetail,
     toggleNavigationMode,
     togglePreciseZoom,
+    toggleShortcuts,
     transitDimmingEnabled,
     zoomIn,
     zoomOut,

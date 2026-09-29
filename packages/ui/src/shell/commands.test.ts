@@ -10,6 +10,7 @@ function deps(overrides: Partial<CommandDeps> = {}): CommandDeps {
     zoomIn: vi.fn(),
     zoomOut: vi.fn(),
     togglePreciseZoom: vi.fn(),
+    toggleShortcuts: vi.fn(),
     resetBearing: vi.fn(),
     rotateBy: vi.fn(),
     toggleIconLegend: vi.fn(),

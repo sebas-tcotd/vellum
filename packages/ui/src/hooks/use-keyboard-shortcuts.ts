@@ -32,6 +32,8 @@ export interface UseKeyboardShortcutsOptions {
   onRotateBy?: (deltaDegrees: number) => void;
   /** Called when the user presses R (no modifiers) to reset the map bearing to north. */
   onResetBearing?: () => void;
+  /** Called when the user presses `?` to open or close the shortcuts sheet. */
+  onShowShortcuts?: () => void;
   /** Called when the user presses Shift+1..7 to open a layer's advanced options panel. */
   onOpenAdvancedOptions?: (layer: LayerName) => void;
   /**

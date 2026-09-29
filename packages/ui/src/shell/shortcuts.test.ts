@@ -59,6 +59,15 @@ describe('SHORTCUTS', () => {
     ).toBe('preciseZoom');
   });
 
+  it('opens the sheet with ? whichever key and Shift produce it', () => {
+    expect(
+      matchShortcut(press({ key: '?', code: 'Slash', shiftKey: true }))?.id,
+    ).toBe('shortcuts');
+    expect(
+      matchShortcut(press({ key: '?', code: 'Minus', shiftKey: true }))?.id,
+    ).toBe('shortcuts');
+  });
+
   it('does not match when an extra modifier is held', () => {
     expect(matchShortcut(press({ key: 'h', ctrlKey: true }))).toBeUndefined();
     expect(

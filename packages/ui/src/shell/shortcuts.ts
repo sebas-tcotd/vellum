@@ -34,7 +34,8 @@ export type ShortcutHandler =
   | 'onResetBearing'
   | 'onToggleLayer'
   | 'onOpenAdvancedOptions'
-  | 'onEscape';
+  | 'onEscape'
+  | 'onShowShortcuts';
 
 export type ShortcutGroup = 'file' | 'map' | 'layers' | 'view';
 
@@ -257,6 +258,16 @@ export const SHORTCUTS: readonly Shortcut[] = [
     keys: ['l'],
     cap: 'L',
     accelerator: 'KeyL',
+  },
+  // `?` sits on a different key per layout (Shift+/ in US, Shift+' in Latin
+  // American), so it matches the character, with or without Shift.
+  {
+    id: 'shortcuts',
+    handler: 'onShowShortcuts',
+    group: 'view',
+    anyShift: true,
+    keys: ['?'],
+    cap: '?',
   },
 ];
 

@@ -390,5 +390,48 @@
     "title": "Color por especialización",
     "neutral": "Sin clasificación o ambiguo",
     "dominance": "Cada nombre muestra los colores de los distritos donde aparece. Predomina el sector con más hogares o empleos; varias especializaciones del mismo sector comparten color. Si falta información o hay empate, se usa neutro."
+  },
+  "shortcuts": {
+    "title": "Atajos de teclado",
+    "description": "Todo lo que puedes hacer sin soltar el teclado. Pulsa ? para abrir o cerrar esta hoja.",
+    "share": {
+      "title": "¿Vas a compartir tu ciudad?",
+      "hide": "oculta la interfaz (vuelve a presionar {{key}} para retornarla)",
+      "export": "exporta el mapa en alta resolución"
+    },
+    "groups": {
+      "map": "Mapa",
+      "layers": "Capas",
+      "file": "Archivo",
+      "view": "Vista",
+      "gestures": "Gestos"
+    },
+    "actions": {
+      "escape": "Cerrar lo que esté abierto",
+      "openFile": "Abrir mapa",
+      "export": "Exportar mapa",
+      "preferences": "Preferencias",
+      "fitCity": "Ajustar ciudad",
+      "zoomIn": "Acercar",
+      "zoomOut": "Alejar",
+      "preciseZoom": "Zoom preciso",
+      "rotateLeft": "Girar a la izquierda",
+      "rotateRight": "Girar a la derecha",
+      "resetNorth": "Restablecer el norte",
+      "mapBounds": "Modo de navegación",
+      "layerToggle": "Mostrar u ocultar una capa",
+      "layerDetail": "Opciones de una capa",
+      "cleanView": "Vista limpia",
+      "sidebar": "Barra lateral",
+      "mapSymbols": "Símbolos del mapa",
+      "shortcuts": "Esta hoja de atajos"
+    },
+    "gestures": {
+      "preciseZoom": "Zoom preciso",
+      "clickZoom": "+ clic en + o −",
+      "layerDetail": "Opciones de una capa",
+      "clickRail": "+ clic en el rail"
+    },
+    "open": "Atajos de teclado"
   }
 }

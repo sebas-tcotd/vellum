@@ -14,6 +14,7 @@ export type ActiveModal =
   | 'export'
   | 'preferences'
   | 'about'
+  | 'shortcuts'
   | 'partialParse'
   | null;
 
