@@ -71,33 +71,37 @@ export function DistrictSpecializationLegend({
       }}
       tabIndex={0}
       aria-label={t('districtSpecialization.title')}
-      className="max-w-72 rounded-lg border bg-background/95 p-3 text-xs shadow-sm"
+      className="shell-legend"
     >
-      <h3 className="font-medium">{t('districtSpecialization.title')}</h3>
-      <ul className="my-2 space-y-1">
-        {groups.map(({ colors, names, neutral }) => (
-          <li key={colors.join('|')} className="flex items-start gap-2">
-            <span aria-hidden="true" className="flex shrink-0 gap-0.5">
-              {colors.map((color) => (
-                <span
-                  key={color}
-                  className="mt-0.5 h-3 w-3 rounded-sm"
-                  style={{ backgroundColor: color }}
-                />
-              ))}
-            </span>
-            <span>
-              {[
-                ...names.map((name) =>
-                  t(`specializations.${name}`, { defaultValue: name }),
-                ),
-                ...(neutral ? [t('districtSpecialization.neutral')] : []),
-              ].join(', ')}
-            </span>
-          </li>
-        ))}
-      </ul>
-      <p className="text-muted-foreground">
+      <section className="place-card__section">
+        <h3 className="place-card__section-heading">
+          {t('districtSpecialization.title')}
+        </h3>
+        <ul className="place-card__legend">
+          {groups.map(({ colors, names, neutral }) => (
+            <li key={colors.join('|')} className="shell-legend__row">
+              <span aria-hidden="true" className="shell-legend__swatches">
+                {colors.map((color) => (
+                  <span
+                    key={color}
+                    className="place-card__swatch"
+                    style={{ backgroundColor: color }}
+                  />
+                ))}
+              </span>
+              <span>
+                {[
+                  ...names.map((name) =>
+                    t(`specializations.${name}`, { defaultValue: name }),
+                  ),
+                  ...(neutral ? [t('districtSpecialization.neutral')] : []),
+                ].join(', ')}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </section>
+      <p className="place-card__row-label">
         {t('districtSpecialization.dominance')}
       </p>
     </aside>
