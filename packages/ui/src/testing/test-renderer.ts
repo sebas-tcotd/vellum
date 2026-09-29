@@ -54,6 +54,8 @@ export function createRendererHarness(
     fitToScreen: vi.fn(),
     zoomIn: vi.fn(),
     zoomOut: vi.fn(),
+    getZoomState: vi.fn().mockReturnValue(null),
+    setZoom: vi.fn(),
     rotateBy: vi.fn(),
     resetBearing: vi.fn(),
     toggleNavigationMode: vi.fn(),

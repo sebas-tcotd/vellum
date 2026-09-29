@@ -723,6 +723,16 @@ export class MapLibreRenderer implements IRenderer {
     this.navigationManager.zoomOut();
   }
 
+  /** Reads the current zoom and its effective bounds. */
+  getZoomState() {
+    return this.navigationManager.getZoomState();
+  }
+
+  /** Sets zoom while preserving center and respecting MapLibre's live limits. */
+  setZoom(zoom: number): void {
+    this.navigationManager.setZoom(zoom);
+  }
+
   /**
    * Rotates the map by the given delta in degrees.
    *

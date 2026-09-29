@@ -62,6 +62,7 @@ const mockMap = vi.hoisted(() => ({
   setMinZoom: vi.fn(),
   setMaxZoom: vi.fn(),
   getZoom: vi.fn(() => 12),
+  setZoom: vi.fn(),
   getBearing: vi.fn(() => 25),
   getCenter: vi.fn(() => ({ lng: 1, lat: 2 })),
   getPitch: vi.fn(() => 3),

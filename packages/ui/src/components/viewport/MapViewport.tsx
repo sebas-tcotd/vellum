@@ -73,6 +73,8 @@ export interface MapViewportProps {
     ((callback: (state: ServiceIconLegendState) => void) => () => void) | null
   >;
   iconLegendToggleRef: React.RefObject<(() => void) | null>;
+  /** Filled by the camera controls so the precise zoom command can toggle its popover. */
+  preciseZoomToggleRef?: React.RefObject<(() => void) | null>;
   /**
    * The shell session, for the place card: which place is pinned, and the
    * actions that pin and clear it. Without it the map has no place card.
@@ -108,6 +110,7 @@ export function MapViewport({
   onShowAllSchematicModes,
   subscribeServiceIconLegendRef,
   iconLegendToggleRef,
+  preciseZoomToggleRef,
   shell,
   children,
 }: MapViewportProps) {
@@ -152,6 +155,17 @@ export function MapViewport({
     () => portRef.current?.getInitialViewportBounds() ?? null,
     [],
   );
+  const getZoomState = useCallback(
+    () => portRef.current?.getZoomState() ?? null,
+    [],
+  );
+  const subscribeZoom = useCallback(
+    (cb: () => void) => subscribeViewport(() => cb()),
+    [subscribeViewport],
+  );
+  const setZoom = useCallback((zoom: number) => {
+    portRef.current?.setZoom(zoom);
+  }, []);
   const navigateTo = useCallback((lng: number, lat: number) => {
     portRef.current?.navigateTo(lng, lat);
   }, []);
@@ -495,7 +509,16 @@ export function MapViewport({
             </div>
             {showOverlays && (
               <div className="map-tools__navigation">
-                <CameraControlGroup commands={commands} bearing={bearing} />
+                <CameraControlGroup
+                  commands={commands}
+                  bearing={bearing}
+                  getZoomState={getZoomState}
+                  subscribeZoom={subscribeZoom}
+                  onZoomChange={setZoom}
+                  {...(preciseZoomToggleRef
+                    ? { toggleRef: preciseZoomToggleRef }
+                    : {})}
+                />
                 <Minimap
                   cityData={cityData}
                   palette={minimapPalette}

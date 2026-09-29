@@ -2,6 +2,7 @@ import * as maplibregl from 'maplibre-gl';
 import type { CityData } from '@vellum/core';
 import { getCityBoundsGeoJSON } from '../helpers';
 import type { ViewportBounds } from '../types/renderer.types';
+import type { MapZoomState } from '@vellum/core';
 
 /**
  * Handles camera movements, bounds constraints, and viewport snap-back logic.
@@ -169,6 +170,27 @@ export class MapNavigationManager {
   /** Zooms the map out by one step. */
   zoomOut(): void {
     this.map.zoomOut();
+  }
+
+  /** Reads the live zoom; `min` is the fit-to-screen zoom, the floor zoom settles on. */
+  getZoomState(): MapZoomState | null {
+    try {
+      return {
+        zoom: this.map.getZoom(),
+        min: this.fitToScreenZoom,
+        max: this.map.getMaxZoom(),
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  /** Sets only zoom, clamped between the fit-to-screen zoom and the MapLibre max. */
+  setZoom(zoom: number): void {
+    if (!Number.isFinite(zoom)) return;
+    const state = this.getZoomState();
+    if (!state) return;
+    this.map.setZoom(Math.min(state.max, Math.max(state.min, zoom)));
   }
 
   /**

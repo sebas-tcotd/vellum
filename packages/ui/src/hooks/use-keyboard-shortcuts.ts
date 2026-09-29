@@ -28,6 +28,8 @@ interface UseKeyboardShortcutsOptions {
   onZoomIn?: () => void;
   /** Called when the user presses Ctrl/Cmd + - to zoom out. */
   onZoomOut?: () => void;
+  /** Called when the user presses Ctrl/Cmd + Alt/Option + Z to toggle precise zoom. */
+  onPreciseZoom?: () => void;
   /** Called when the user presses H (no modifiers) to toggle clean mode. */
   onHidePanel?: () => void;
   /** Called when the user presses Ctrl/Cmd + B to toggle navigation mode. */
@@ -64,6 +66,7 @@ export function useKeyboardShortcuts({
   onFitToScreen,
   onZoomIn,
   onZoomOut,
+  onPreciseZoom,
   onHidePanel,
   onToggleNavigationMode,
   onToggleIconLegend,
@@ -138,6 +141,16 @@ export function useKeyboardShortcuts({
       if (isModKey && !e.shiftKey && !e.altKey && e.key === '-') {
         e.preventDefault();
         onZoomOut?.();
+        return;
+      }
+
+      // Precise zoom: Ctrl/Cmd + Alt/Option + Z. `code`, because Option
+      // rewrites `key` on macOS (⌥Z is "Ω").
+      if (isModKey && e.altKey && !e.shiftKey && e.code === 'KeyZ') {
+        if (onPreciseZoom) {
+          e.preventDefault();
+          onPreciseZoom();
+        }
         return;
       }
 
@@ -249,6 +262,7 @@ export function useKeyboardShortcuts({
     onFitToScreen,
     onZoomIn,
     onZoomOut,
+    onPreciseZoom,
     onHidePanel,
     onToggleNavigationMode,
     onToggleIconLegend,

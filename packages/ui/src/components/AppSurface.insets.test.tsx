@@ -47,6 +47,7 @@ vi.mock('./canvas/MapLibreRoot', () => ({
           return () => {};
         },
         getInitialViewportBounds: () => null,
+        getZoomState: () => null,
         navigateTo: () => {},
         panBy: () => {},
         setSelectedDistrict: () => {},

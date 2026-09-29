@@ -338,6 +338,9 @@
   "camera": {
     "zoomIn": "Zoom in",
     "zoomOut": "Zoom out",
+    "preciseZoom": "Precise zoom",
+    "zoomSlider": "Zoom level slider",
+    "zoomInput": "Zoom level value",
     "fitCity": "Fit city",
     "resetNorth": "Reset north"
   },

@@ -164,6 +164,7 @@ export function App({
     ((callback: (state: ServiceIconLegendState) => void) => () => void) | null
   >(null);
   const iconLegendToggleRef = useRef<(() => void) | null>(null);
+  const preciseZoomToggleRef = useRef<(() => void) | null>(null);
   const syncActiveLanguage = useVellumStore((s) => s.syncActiveLanguage);
   const hydratePreferences = useVellumStore((s) => s.hydratePreferences);
   const cityData = useVellumStore((s) => s.cityData);
@@ -275,6 +276,10 @@ export function App({
     () => iconLegendToggleRef.current?.(),
     [iconLegendToggleRef],
   );
+  const handleTogglePreciseZoom = useCallback(
+    () => preciseZoomToggleRef.current?.(),
+    [preciseZoomToggleRef],
+  );
   const handleRotateBy = useCallback(
     (delta: number) => rotateByRef.current?.(delta),
     [rotateByRef],
@@ -357,6 +362,7 @@ export function App({
     fitToScreen: handleFitToScreen,
     zoomIn: handleZoomIn,
     zoomOut: handleZoomOut,
+    togglePreciseZoom: handleTogglePreciseZoom,
     resetBearing: handleResetBearing,
     rotateBy: handleRotateBy,
     toggleIconLegend: handleToggleIconLegend,
@@ -400,6 +406,9 @@ export function App({
       : {}),
     ...(commands['view.zoomOut'].canExecute
       ? { onZoomOut: commands['view.zoomOut'].execute }
+      : {}),
+    ...(commands['view.preciseZoom'].canExecute
+      ? { onPreciseZoom: commands['view.preciseZoom'].execute }
       : {}),
     ...(commands['view.cleanView'].canExecute
       ? { onHidePanel: commands['view.cleanView'].execute }
@@ -518,6 +527,7 @@ export function App({
       }}
       subscribeServiceIconLegendRef={subscribeServiceIconLegendRef}
       iconLegendToggleRef={iconLegendToggleRef}
+      preciseZoomToggleRef={preciseZoomToggleRef}
       exportWorkflow={exportWorkflow}
       commands={commands}
       shell={shell}
