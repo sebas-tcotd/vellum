@@ -378,7 +378,8 @@ fn build_layer_menu<R: Runtime>(
     app: &AppHandle<R>,
     layer: &str,
     label: &str,
-    shortcut: Option<&str>,
+    toggle_shortcut: &str,
+    open_shortcut: Option<&str>,
     options: &[(&str, &str, bool)],
 ) -> tauri::Result<Submenu<R>> {
     let visible = checked_item(
@@ -386,14 +387,14 @@ fn build_layer_menu<R: Runtime>(
         &format!("menu.toggle-layer.{layer}"),
         &format!("Show {label}"),
         true,
-        shortcut,
+        Some(toggle_shortcut),
     )?;
     if !options.is_empty() {
         let open_sidebar = custom_item(
             app,
             &format!("menu.open-advanced.{layer}"),
             "Open in Sidebar…",
-            None,
+            open_shortcut,
         )?;
         let mut builder =
             SubmenuBuilder::with_id(app, format!("{MENU_ID_LAYER_PREFIX}{layer}"), label)
@@ -428,7 +429,8 @@ fn build_layers_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>
         app,
         "terrain",
         "Terrain Options",
-        Some("Shift+1"),
+        "Digit1",
+        Some("Shift+Digit1"),
         &[
             ("contour-lines", "Show Contour Lines", true),
             ("color-relief", "Show Color Relief", true),
@@ -439,14 +441,16 @@ fn build_layers_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>
         app,
         "basemap",
         "Basemap Options",
-        Some("Shift+2"),
+        "Digit2",
+        Some("Shift+Digit2"),
         &[("grid", "Show Projection Grid", false)],
     )?;
     let transit = build_layer_menu(
         app,
         "transit",
         "Transit Options",
-        Some("Shift+4"),
+        "Digit4",
+        Some("Shift+Digit4"),
         &[
             ("Bus", "Bus", true),
             ("Tram", "Tram", true),
@@ -463,7 +467,8 @@ fn build_layers_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>
         app,
         "buildings",
         "Building Options",
-        Some("Shift+5"),
+        "Digit5",
+        Some("Shift+Digit5"),
         &[
             ("color-by-category", "Color by Category", false),
             ("residential", "Residential", true),
@@ -476,7 +481,8 @@ fn build_layers_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>
         app,
         "districts",
         "District Options",
-        Some("Shift+7"),
+        "Digit7",
+        Some("Shift+Digit7"),
         &[
             ("show-as-marker", "Show as Markers", false),
             ("show-fill", "Show District Fill", false),
@@ -484,8 +490,8 @@ fn build_layers_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>
         ],
     )?;
 
-    let roads = build_layer_menu(app, "roads", "Roads", Some("Digit3"), &[])?;
-    let forests = build_layer_menu(app, "forests", "Forests", Some("Digit6"), &[])?;
+    let roads = build_layer_menu(app, "roads", "Roads", "Digit3", None, &[])?;
+    let forests = build_layer_menu(app, "forests", "Forests", "Digit6", None, &[])?;
 
     SubmenuBuilder::with_id(app, "menu.layers", "Layers")
         .item(&terrain)

@@ -413,6 +413,9 @@ export function App({
     ...(commands['view.cleanView'].canExecute
       ? { onHidePanel: commands['view.cleanView'].execute }
       : {}),
+    ...(commands['view.sidebar'].canExecute
+      ? { onToggleSidebar: commands['view.sidebar'].execute }
+      : {}),
     ...(commands['view.mapBounds'].canExecute
       ? { onToggleNavigationMode: commands['view.mapBounds'].execute }
       : {}),

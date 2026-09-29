@@ -45,6 +45,19 @@ describe('published schematic layouts', () => {
 });
 
 describe('sidebar context', () => {
+  it('brings a collapsed sidebar back to show a layer detail', () => {
+    const collapsed = shellSessionReducer(base(), {
+      type: 'sidebar/setCollapsed',
+      collapsed: true,
+    });
+    const state = shellSessionReducer(collapsed, {
+      type: 'sidebar/toggleDetail',
+      layerId: 'terrain',
+    });
+    expect(state.sidebar.collapsed).toBe(false);
+    expect(state.sidebar.view).toEqual({ kind: 'detail', layerId: 'terrain' });
+  });
+
   it('keeps exactly one layer detail open', () => {
     let state = shellSessionReducer(base(), {
       type: 'sidebar/openDetail',

@@ -1,20 +1,10 @@
 import { hasAdvancedOptions } from '@vellum/core';
-import { useVellumStore } from '../store/vellum-store';
 import type { LayerName } from '@vellum/core';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
+import { useVellumStore } from '../store/vellum-store';
+import { matchShortcut } from '../shell/shortcuts';
 
-/** Layer order matching the FloatingLayerPanel visual order (not z-index order). */
-const LAYER_SHORTCUT_MAP: LayerName[] = [
-  'terrain',
-  'basemap',
-  'roads',
-  'transit',
-  'buildings',
-  'forests',
-  'districts',
-];
-
-interface UseKeyboardShortcutsOptions {
+export interface UseKeyboardShortcutsOptions {
   onOpenFile: () => void;
   /** Called when the user presses Ctrl/Cmd + , to open preferences. */
   onOpenPreferences?: () => void;
@@ -32,6 +22,8 @@ interface UseKeyboardShortcutsOptions {
   onPreciseZoom?: () => void;
   /** Called when the user presses H (no modifiers) to toggle clean mode. */
   onHidePanel?: () => void;
+  /** Called when the user presses Ctrl/Cmd + Alt/Option + S to toggle the sidebar. */
+  onToggleSidebar?: () => void;
   /** Called when the user presses Ctrl/Cmd + B to toggle navigation mode. */
   onToggleNavigationMode?: () => void;
   /** Called when the user presses L (no modifiers) to toggle the IconLegend. */
@@ -58,220 +50,51 @@ interface UseKeyboardShortcutsOptions {
   enabled?: boolean;
 }
 
-export function useKeyboardShortcuts({
-  onOpenFile,
-  onOpenPreferences,
-  onOpenExport,
-  onToggleLayer,
-  onFitToScreen,
-  onZoomIn,
-  onZoomOut,
-  onPreciseZoom,
-  onHidePanel,
-  onToggleNavigationMode,
-  onToggleIconLegend,
-  onRotateBy,
-  onResetBearing,
-  onOpenAdvancedOptions,
-  onEscape,
-  enabled = true,
-}: UseKeyboardShortcutsOptions) {
+/**
+ * Dispatches the webview keymap (`SHORTCUTS`) to the given callbacks.
+ *
+ * @remarks
+ * The table decides which key means what; this hook only adds the runtime
+ * rules: nothing fires while typing in a field or while `enabled` is false,
+ * and a layer's detail opens only when that layer has options for the loaded
+ * city (the key is still swallowed so it does nothing else).
+ */
+export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions) {
+  // Latest callbacks without re-registering the listener on every render.
+  const optionsRef = useRef(options);
+  optionsRef.current = options;
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (!enabled) return;
+      const current = optionsRef.current;
+      if (current.enabled === false) return;
       if (isEditableTarget(e.target)) return;
-      const isModKey = e.ctrlKey || e.metaKey;
 
-      if (e.key === 'Escape' && !isModKey && !e.altKey) {
-        if (onEscape) {
-          e.preventDefault();
-          onEscape();
-        }
-        return;
-      }
+      const shortcut = matchShortcut(e);
+      if (!shortcut) return;
+      const callback = current[shortcut.handler] as
+        | ((payload?: number | LayerName) => void)
+        | undefined;
 
-      if (isModKey && !e.shiftKey && !e.altKey && e.key === 'o') {
+      if (shortcut.handler === 'onOpenAdvancedOptions') {
         e.preventDefault();
-        onOpenFile();
-        return;
-      }
-
-      // The native Tauri accelerator is not consistently delivered by WebView2
-      // on Windows. Keep the browser-side route as a fallback for Ctrl+,.
-      if (
-        isModKey &&
-        !e.shiftKey &&
-        !e.altKey &&
-        (e.key === ',' || e.code === 'Comma')
-      ) {
-        if (onOpenPreferences) {
-          e.preventDefault();
-          onOpenPreferences();
+        const layer = shortcut.payload as LayerName;
+        if (
+          hasAdvancedOptions(layer, useVellumStore.getState().cityData?.source)
+        ) {
+          callback?.(layer);
         }
         return;
       }
 
-      if (isModKey && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'e') {
-        if (onOpenExport) {
-          e.preventDefault();
-          onOpenExport();
-        }
-        return;
-      }
-
-      if (
-        isModKey &&
-        !e.shiftKey &&
-        !e.altKey &&
-        (e.key === '0' || e.key === '9')
-      ) {
-        e.preventDefault();
-        onFitToScreen?.();
-        return;
-      }
-
-      // Zoom in: Ctrl/Cmd + + (also covers Ctrl+= for keyboards without numpad)
-      if (isModKey && !e.altKey && (e.key === '+' || e.key === '=')) {
-        e.preventDefault();
-        onZoomIn?.();
-        return;
-      }
-
-      // Zoom out: Ctrl/Cmd + - (no shift to avoid conflict)
-      if (isModKey && !e.shiftKey && !e.altKey && e.key === '-') {
-        e.preventDefault();
-        onZoomOut?.();
-        return;
-      }
-
-      // Precise zoom: Ctrl/Cmd + Alt/Option + Z. `code`, because Option
-      // rewrites `key` on macOS (⌥Z is "Ω").
-      if (isModKey && e.altKey && !e.shiftKey && e.code === 'KeyZ') {
-        if (onPreciseZoom) {
-          e.preventDefault();
-          onPreciseZoom();
-        }
-        return;
-      }
-
-      // Clean mode: H without any modifiers
-      if (
-        !isModKey &&
-        !e.shiftKey &&
-        !e.altKey &&
-        e.key.toLowerCase() === 'h'
-      ) {
-        if (onHidePanel) {
-          e.preventDefault();
-          onHidePanel();
-        }
-        return;
-      }
-
-      // Rotate counter-clockwise: Shift + Left Arrow
-      if (e.shiftKey && !isModKey && !e.altKey && e.key === 'ArrowLeft') {
-        e.preventDefault();
-        onRotateBy?.(-15);
-        return;
-      }
-
-      // Rotate clockwise: Shift + Right Arrow
-      if (e.shiftKey && !isModKey && !e.altKey && e.key === 'ArrowRight') {
-        e.preventDefault();
-        onRotateBy?.(15);
-        return;
-      }
-
-      // Reset bearing to north: R without any modifiers
-      if (
-        !isModKey &&
-        !e.shiftKey &&
-        !e.altKey &&
-        e.key.toLowerCase() === 'r'
-      ) {
-        if (onResetBearing) {
-          e.preventDefault();
-          onResetBearing();
-        }
-        return;
-      }
-
-      // Toggle navigation mode: Ctrl/Cmd + B
-      if (isModKey && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'b') {
-        if (onToggleNavigationMode) {
-          e.preventDefault();
-          onToggleNavigationMode();
-        }
-        return;
-      }
-
-      // Toggle IconLegend: L without any modifiers
-      if (
-        !isModKey &&
-        !e.shiftKey &&
-        !e.altKey &&
-        e.key.toLowerCase() === 'l'
-      ) {
-        if (onToggleIconLegend) {
-          e.preventDefault();
-          onToggleIconLegend();
-        }
-        return;
-      }
-
-      // Shift+1..7 to open advanced options panel for layers that have them
-      if (!isModKey && e.shiftKey && !e.altKey) {
-        const layerIdx = parseInt(e.key, 10) - 1;
-        if (layerIdx >= 0 && layerIdx < LAYER_SHORTCUT_MAP.length) {
-          const layer = LAYER_SHORTCUT_MAP[layerIdx];
-          if (layer) {
-            e.preventDefault();
-            if (
-              hasAdvancedOptions(
-                layer,
-                useVellumStore.getState().cityData?.source,
-              )
-            ) {
-              onOpenAdvancedOptions?.(layer);
-            }
-            return;
-          }
-        }
-      }
-
-      // Layer shortcuts 1–7 — no modifier keys
-      if (!isModKey && !e.shiftKey && !e.altKey) {
-        const layerIdx = parseInt(e.key, 10) - 1;
-        if (layerIdx >= 0 && layerIdx < LAYER_SHORTCUT_MAP.length) {
-          const layer = LAYER_SHORTCUT_MAP[layerIdx];
-          if (layer) {
-            e.preventDefault();
-            onToggleLayer?.(layer);
-          }
-        }
-      }
+      if (callback || shortcut.reserved) e.preventDefault();
+      if (shortcut.payload === undefined) callback?.();
+      else callback?.(shortcut.payload);
     };
 
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
-  }, [
-    onOpenFile,
-    onOpenPreferences,
-    onOpenExport,
-    onToggleLayer,
-    onFitToScreen,
-    onZoomIn,
-    onZoomOut,
-    onPreciseZoom,
-    onHidePanel,
-    onToggleNavigationMode,
-    onToggleIconLegend,
-    onRotateBy,
-    onResetBearing,
-    onOpenAdvancedOptions,
-    onEscape,
-    enabled,
-  ]);
+  }, []);
 }
 
 function isEditableTarget(target: EventTarget | null): boolean {
