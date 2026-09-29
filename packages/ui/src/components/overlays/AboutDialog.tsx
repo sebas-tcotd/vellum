@@ -33,9 +33,9 @@ export function AboutDialog({
       <DialogContent
         aria-modal="true"
         aria-labelledby={titleId}
-        className="about-dialog max-w-120 overflow-hidden rounded-(--shell-radius-popover) border-(--about-border) p-0 text-(--shell-text-primary) shadow-(--shell-shadow-popover) backdrop-blur-(--shell-blur)"
+        className="max-w-120 overflow-hidden p-0"
       >
-        <div className="relative overflow-hidden border-b border-(--about-divider) bg-(--color-bg) px-7 pb-7 pt-8">
+        <div className="relative overflow-hidden border-b border-(--shell-dialog-divider) px-7 pb-7 pt-8">
           <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(105deg,transparent_0%,transparent_49%,var(--ui-decoration-primary)_49%,var(--ui-decoration-primary)_50%,transparent_50%),linear-gradient(25deg,transparent_0%,transparent_68%,var(--ui-decoration-water)_68%,var(--ui-decoration-water)_69%,transparent_69%)]" />
           <div className="pointer-events-none absolute -right-14 -top-20 size-52 rounded-full border border-(--ui-accent-water)/25" />
           <div className="pointer-events-none absolute -right-5 -top-11 size-32 rounded-full border border-(--ui-accent-water)/15" />
@@ -69,7 +69,7 @@ export function AboutDialog({
             {t('about.description')}
           </p>
 
-          <div className="grid grid-cols-2 divide-x divide-(--about-border) rounded-(--shell-radius-interactive) border border-(--about-border) bg-(--shell-surface)">
+          <div className="grid grid-cols-2 divide-x divide-(--shell-dialog-border) rounded-(--shell-radius-interactive) border border-(--shell-dialog-border) bg-(--shell-surface)">
             <div className="px-4 py-3.5">
               <div className="text-[0.62rem] font-medium uppercase tracking-[0.16em] text-(--shell-text-muted)">
                 {t('about.versionLabel')}
@@ -92,7 +92,7 @@ export function AboutDialog({
           </div>
         </div>
 
-        <DialogFooter className="flex-row items-center justify-between border-t border-(--about-divider) bg-(--color-bg) px-7 py-4">
+        <DialogFooter className="flex-row items-center justify-between border-t border-(--shell-dialog-divider) px-7 py-4">
           <button
             type="button"
             className="inline-flex items-center gap-1.5 rounded-(--shell-radius-interactive) px-2 py-1.5 text-xs text-(--shell-text-muted) transition-colors hover:bg-black/5 hover:text-(--shell-text-primary) focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-(--shell-focus)"

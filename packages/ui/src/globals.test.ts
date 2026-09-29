@@ -33,8 +33,8 @@ describe('globals.css design tokens', () => {
     expect(css).toContain('--ui-accent-rule');
     expect(css).toContain('--ui-decoration-primary');
     expect(css).toContain('--ui-decoration-water');
-    expect(css).toContain('--about-border');
-    expect(css).toContain('--about-divider');
+    expect(css).toContain('--shell-dialog-border');
+    expect(css).toContain('--shell-dialog-divider');
     expect(css).toContain('--shell-surface-dialog');
     expect(css).not.toMatch(
       /--color-(terrain|water|green|building|district|road|transit)/,
@@ -44,6 +44,12 @@ describe('globals.css design tokens', () => {
   it('usa una superficie opaca para todos los diálogos modales', () => {
     expect(css).toMatch(
       /\.shell-dialog-content\s*\{[^}]*background:\s*var\(--shell-surface-dialog\)/,
+    );
+  });
+
+  it('desenfoca el mapa detrás de todos los diálogos modales', () => {
+    expect(css).toMatch(
+      /\.shell-dialog-overlay\s*\{[^}]*backdrop-filter:\s*blur\(var\(--shell-overlay-blur\)\)/,
     );
   });
 

@@ -453,20 +453,17 @@ html:not([data-platform='macos']) .shell-legend > .place-card__section {
 
 .shell-dialog-overlay {
   background: rgb(0 0 0 / var(--shell-overlay-dimming));
+  backdrop-filter: blur(var(--shell-overlay-blur));
 }
 
 .shell-dialog-content {
   color: var(--shell-text-primary);
   background: var(--shell-surface-dialog);
-  border-color: var(--shell-border);
+  border-color: var(--shell-dialog-border);
   border-radius: var(--shell-radius-popover);
   box-shadow: var(--shell-shadow-popover);
   backdrop-filter: var(--shell-popover-backdrop-filter);
   corner-shape: var(--shell-corner-shape, round);
-}
-
-.shell-dialog-content.about-dialog {
-  border-color: var(--about-border);
 }
 
 .shell-document-commands {
