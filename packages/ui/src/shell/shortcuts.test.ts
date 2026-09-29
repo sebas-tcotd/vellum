@@ -68,6 +68,19 @@ describe('SHORTCUTS', () => {
     ).toBe('shortcuts');
   });
 
+  it('zooms with + and - alone too, and pans with the arrows', () => {
+    expect(matchShortcut(press({ key: '+', shiftKey: true }))?.id).toBe(
+      'zoomIn',
+    );
+    expect(matchShortcut(press({ key: '-' }))?.id).toBe('zoomOut');
+    expect(matchShortcut(press({ key: 'ArrowUp' }))?.payload).toEqual([
+      0, -100,
+    ]);
+    expect(
+      matchShortcut(press({ key: 'ArrowUp', shiftKey: true })),
+    ).toBeUndefined();
+  });
+
   it('does not match when an extra modifier is held', () => {
     expect(matchShortcut(press({ key: 'h', ctrlKey: true }))).toBeUndefined();
     expect(

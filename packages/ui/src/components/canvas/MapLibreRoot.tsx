@@ -83,6 +83,7 @@ export interface MapLibreRootProps {
   toggleNavigationModeRef?: React.RefObject<(() => void) | null>;
   /** Ref populated with a `rotateBy(delta)` callback. */
   rotateByRef?: React.RefObject<((delta: number) => void) | null>;
+  panByRef?: React.RefObject<((dx: number, dy: number) => void) | null>;
   /** Ref populated with a `resetBearing()` callback. */
   resetBearingRef?: React.RefObject<(() => void) | null>;
   /** Area of the canvas covered by shell chrome, so framing avoids it. */
@@ -140,6 +141,7 @@ export function MapLibreRoot({
   zoomOutRef,
   toggleNavigationModeRef,
   rotateByRef,
+  panByRef,
   resetBearingRef,
   portRef,
   viewportPadding,
@@ -161,6 +163,7 @@ export function MapLibreRoot({
     zoomOutRef,
     toggleNavigationModeRef,
     rotateByRef,
+    panByRef,
     resetBearingRef,
     previewCaptureRef,
     snapshotCaptureRef,

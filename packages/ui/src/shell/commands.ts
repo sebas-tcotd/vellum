@@ -19,6 +19,7 @@ export type CommandId =
   | 'view.preciseZoom'
   | 'view.resetNorth'
   | 'view.rotate'
+  | 'view.pan'
   | 'view.cleanView'
   | 'view.schematic'
   | 'view.sidebar'
@@ -40,6 +41,8 @@ export interface CommandPayloads {
   'view.preciseZoom': void;
   'view.resetNorth': void;
   'view.rotate': number;
+  /** Screen offset in CSS pixels, `[dx, dy]`. */
+  'view.pan': readonly [number, number];
   'view.cleanView': void;
   'view.schematic': void;
   'view.sidebar': void;
@@ -96,6 +99,7 @@ export interface CommandDeps {
   togglePreciseZoom: () => void;
   resetBearing: () => void;
   rotateBy: (delta: number) => void;
+  panBy: (offset: readonly [number, number]) => void;
   toggleIconLegend: () => void;
   toggleNavigationMode: () => void;
   /** Opens or closes the keyboard shortcuts sheet. */
@@ -137,6 +141,7 @@ export function useDesktopCommands(deps: CommandDeps): CommandRegistry {
     togglePreciseZoom,
     resetBearing,
     rotateBy,
+    panBy,
     toggleIconLegend,
     toggleNavigationMode,
     toggleShortcuts,
@@ -217,6 +222,12 @@ export function useDesktopCommands(deps: CommandDeps): CommandRegistry {
       // the menu route keeps working exactly as before.
       'view.resetNorth': make('view.resetNorth', mapReason, resetBearing),
       'view.rotate': make('view.rotate', mapReason, (delta) => rotateBy(delta)),
+      // Arrows belong to a dialog while one is open (it may need to scroll).
+      'view.pan': make(
+        'view.pan',
+        mapReason ?? (hasBlockingModal ? 'modal' : null),
+        (offset) => panBy(offset),
+      ),
       'view.cleanView': make(
         'view.cleanView',
         cleanViewReason,
@@ -270,6 +281,7 @@ export function useDesktopCommands(deps: CommandDeps): CommandRegistry {
     openFileDialog,
     resetBearing,
     rotateBy,
+    panBy,
     setActiveTheme,
     setTransitDimmingEnabled,
     toggleCleanView,

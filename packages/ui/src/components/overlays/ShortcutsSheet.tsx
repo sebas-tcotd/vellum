@@ -64,13 +64,27 @@ export function ShortcutsSheet({ open, onOpenChange }: ShortcutsSheetProps) {
 
   const rowsOf = (group: ShortcutGroup): Row[] => {
     const rows = SHORTCUTS.filter(
-      (s) => s.group === group && !s.id.startsWith('layer.'),
+      (s) =>
+        s.group === group &&
+        !s.id.startsWith('layer.') &&
+        !s.id.startsWith('pan'),
     ).map((s) => ({
       id: s.id,
       label: t(`shortcuts.actions.${s.id}` as ParseKeys),
       mods: s,
       cap: s.cap,
     }));
+    if (group === 'map') {
+      return [
+        {
+          id: 'pan',
+          label: t('shortcuts.actions.pan'),
+          mods: byId('panLeft'),
+          cap: '← ↑ → ↓',
+        },
+        ...rows,
+      ];
+    }
     if (group !== 'layers') return rows;
     const toggle = byId('layer.toggle.terrain');
     const detail = byId('layer.detail.terrain');
@@ -175,6 +189,13 @@ export function ShortcutsSheet({ open, onOpenChange }: ShortcutsSheetProps) {
                       <span className="shell-keys">
                         <kbd className="shell-kbd">{names.shift}</kbd>
                         <span>{t('shortcuts.gestures.clickRail')}</span>
+                      </span>
+                    </dd>
+                    <dt>{t('shortcuts.gestures.boxZoom')}</dt>
+                    <dd>
+                      <span className="shell-keys">
+                        <kbd className="shell-kbd">{names.shift}</kbd>
+                        <span>{t('shortcuts.gestures.dragMap')}</span>
                       </span>
                     </dd>
                   </dl>

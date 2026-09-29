@@ -424,13 +424,16 @@
       "cleanView": "Clean view",
       "sidebar": "Sidebar",
       "mapSymbols": "Map symbols",
-      "shortcuts": "This shortcuts sheet"
+      "shortcuts": "This shortcuts sheet",
+      "pan": "Pan the map"
     },
     "gestures": {
       "preciseZoom": "Precise zoom",
       "clickZoom": "+ click on + or −",
       "layerDetail": "A layer's options",
-      "clickRail": "+ click on the rail"
+      "clickRail": "+ click on the rail",
+      "boxZoom": "Zoom to an area",
+      "dragMap": "+ drag on the map"
     },
     "open": "Keyboard shortcuts"
   }

@@ -2,7 +2,7 @@ import { hasAdvancedOptions } from '@vellum/core';
 import type { LayerName } from '@vellum/core';
 import { useEffect, useRef } from 'react';
 import { useVellumStore } from '../store/vellum-store';
-import { matchShortcut } from '../shell/shortcuts';
+import { matchShortcut, type ShortcutPayload } from '../shell/shortcuts';
 
 export interface UseKeyboardShortcutsOptions {
   onOpenFile: () => void;
@@ -30,6 +30,8 @@ export interface UseKeyboardShortcutsOptions {
   onToggleIconLegend?: () => void;
   /** Called when the user presses Shift + Left/Right arrow to rotate the map. */
   onRotateBy?: (deltaDegrees: number) => void;
+  /** Called when the user presses an arrow key (no modifiers) to pan the map, with `[dx, dy]` in CSS pixels. */
+  onPanBy?: (offset: readonly [number, number]) => void;
   /** Called when the user presses R (no modifiers) to reset the map bearing to north. */
   onResetBearing?: () => void;
   /** Called when the user presses `?` to open or close the shortcuts sheet. */
@@ -75,7 +77,7 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions) {
       const shortcut = matchShortcut(e);
       if (!shortcut) return;
       const callback = current[shortcut.handler] as
-        | ((payload?: number | LayerName) => void)
+        | ((payload?: ShortcutPayload) => void)
         | undefined;
 
       if (shortcut.handler === 'onOpenAdvancedOptions') {

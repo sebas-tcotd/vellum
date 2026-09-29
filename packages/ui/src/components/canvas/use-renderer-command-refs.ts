@@ -16,6 +16,7 @@ interface RendererCommandRefs {
   zoomOutRef?: RefObject<(() => void) | null> | undefined;
   toggleNavigationModeRef?: RefObject<(() => void) | null> | undefined;
   rotateByRef?: RefObject<((delta: number) => void) | null> | undefined;
+  panByRef?: RefObject<((dx: number, dy: number) => void) | null> | undefined;
   resetBearingRef?: RefObject<(() => void) | null> | undefined;
   previewCaptureRef?:
     | RefObject<
@@ -52,6 +53,7 @@ export function useRendererCommandRefs(
     zoomOutRef,
     toggleNavigationModeRef,
     rotateByRef,
+    panByRef,
     resetBearingRef,
     previewCaptureRef,
     snapshotCaptureRef,
@@ -100,6 +102,15 @@ export function useRendererCommandRefs(
       rotateByRef.current = null;
     };
   }, [rendererRef, rotateByRef]);
+
+  useEffect(() => {
+    if (!panByRef) return;
+    panByRef.current = (dx: number, dy: number) =>
+      rendererRef.current?.panBy(dx, dy);
+    return () => {
+      panByRef.current = null;
+    };
+  }, [panByRef, rendererRef]);
 
   useEffect(() => {
     if (!resetBearingRef) return;

@@ -238,6 +238,11 @@ export class MapLibreRenderer implements IRenderer {
       container,
       dragRotate: false,
       pitchWithRotate: false,
+      // The shell owns the keymap (SHORTCUTS in @vellum/ui), so every key is
+      // listed in the shortcuts sheet and never fires twice. MapLibre's own
+      // keys also pitched the map (Shift+↑/↓), which stays off until 3D;
+      // docs/architecture/maplibre-default-interactions.md lists them.
+      keyboard: false,
       attributionControl: false,
       renderWorldCopies: false,
       maxZoom,

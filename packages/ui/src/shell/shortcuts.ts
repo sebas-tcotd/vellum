@@ -31,11 +31,15 @@ export type ShortcutHandler =
   | 'onToggleNavigationMode'
   | 'onToggleIconLegend'
   | 'onRotateBy'
+  | 'onPanBy'
   | 'onResetBearing'
   | 'onToggleLayer'
   | 'onOpenAdvancedOptions'
   | 'onEscape'
   | 'onShowShortcuts';
+
+/** Argument a shortcut passes to its handler: rotation delta, layer, or pan offset. */
+export type ShortcutPayload = number | LayerName | readonly [number, number];
 
 export type ShortcutGroup = 'file' | 'map' | 'layers' | 'view';
 
@@ -44,7 +48,7 @@ export interface Shortcut {
   id: string;
   handler: ShortcutHandler;
   /** Argument passed to the handler (rotation delta or layer). */
-  payload?: number | LayerName;
+  payload?: ShortcutPayload;
   group: ShortcutGroup;
   /** Required modifiers. Any modifier not listed blocks the match. */
   mod?: boolean;
@@ -52,6 +56,8 @@ export interface Shortcut {
   alt?: boolean;
   /** Matches whether Shift is held or not (`+` needs Shift on many layouts). */
   anyShift?: boolean;
+  /** Matches with or without Ctrl/Cmd; the sheet shows the Ctrl/Cmd form. */
+  anyMod?: boolean;
   /** `KeyboardEvent.key` values, lower-case. Layout-aware, so preferred. */
   keys?: readonly string[];
   /**
@@ -69,6 +75,9 @@ export interface Shortcut {
   /** Tauri accelerator of the native menu item for the same action, if any. */
   accelerator?: string;
 }
+
+/** Arrow-key pan distance in CSS pixels, MapLibre's own default step. */
+const PAN_STEP = 100;
 
 const digit = (n: number) => ({
   keys: [String(n)],
@@ -167,6 +176,8 @@ export const SHORTCUTS: readonly Shortcut[] = [
     handler: 'onZoomIn',
     group: 'map',
     mod: true,
+    // The bare key too, as MapLibre's own keyboard handler used to offer.
+    anyMod: true,
     anyShift: true,
     keys: ['+', '='],
     cap: '+',
@@ -178,6 +189,7 @@ export const SHORTCUTS: readonly Shortcut[] = [
     handler: 'onZoomOut',
     group: 'map',
     mod: true,
+    anyMod: true,
     keys: ['-'],
     cap: '−',
     reserved: true,
@@ -193,6 +205,23 @@ export const SHORTCUTS: readonly Shortcut[] = [
     cap: 'Z',
     accelerator: 'CmdOrCtrl+Alt+KeyZ',
   },
+  ...(
+    [
+      ['panLeft', 'arrowleft', '←', [-PAN_STEP, 0]],
+      ['panRight', 'arrowright', '→', [PAN_STEP, 0]],
+      ['panUp', 'arrowup', '↑', [0, -PAN_STEP]],
+      ['panDown', 'arrowdown', '↓', [0, PAN_STEP]],
+    ] as const
+  ).map(
+    ([id, key, cap, offset]): Shortcut => ({
+      id,
+      handler: 'onPanBy',
+      payload: offset,
+      group: 'map',
+      keys: [key],
+      cap,
+    }),
+  ),
   {
     id: 'rotateLeft',
     handler: 'onRotateBy',
@@ -277,7 +306,7 @@ export function matchShortcut(e: KeyboardEvent): Shortcut | undefined {
   const key = e.key.toLowerCase();
   return SHORTCUTS.find(
     (s) =>
-      !!s.mod === mod &&
+      (s.anyMod || !!s.mod === mod) &&
       !!s.alt === e.altKey &&
       (s.anyShift || !!s.shift === e.shiftKey) &&
       (s.keys?.includes(key) || s.codes?.includes(e.code)),

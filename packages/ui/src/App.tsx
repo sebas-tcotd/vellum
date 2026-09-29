@@ -148,6 +148,7 @@ export function App({
   const zoomOutRef = useRef<(() => void) | null>(null);
   const toggleNavigationModeRef = useRef<(() => void) | null>(null);
   const rotateByRef = useRef<((delta: number) => void) | null>(null);
+  const panByRef = useRef<((dx: number, dy: number) => void) | null>(null);
   const resetBearingRef = useRef<(() => void) | null>(null);
   const previewCaptureRef = useRef<
     | ((options: ExportPreviewOptions) => Promise<ExportPreviewSnapshot | null>)
@@ -285,6 +286,10 @@ export function App({
     () => preciseZoomToggleRef.current?.(),
     [preciseZoomToggleRef],
   );
+  const handlePanBy = useCallback(
+    ([dx, dy]: readonly [number, number]) => panByRef.current?.(dx, dy),
+    [panByRef],
+  );
   const handleRotateBy = useCallback(
     (delta: number) => rotateByRef.current?.(delta),
     [rotateByRef],
@@ -372,6 +377,7 @@ export function App({
     togglePreciseZoom: handleTogglePreciseZoom,
     resetBearing: handleResetBearing,
     rotateBy: handleRotateBy,
+    panBy: handlePanBy,
     toggleIconLegend: handleToggleIconLegend,
     toggleNavigationMode: handleToggleNavigationMode,
     toggleShortcuts: handleToggleShortcuts,
@@ -432,6 +438,9 @@ export function App({
       : {}),
     ...(commands['view.rotate'].canExecute
       ? { onRotateBy: commands['view.rotate'].execute }
+      : {}),
+    ...(commands['view.pan'].canExecute
+      ? { onPanBy: commands['view.pan'].execute }
       : {}),
     ...(commands['view.resetNorth'].canExecute
       ? { onResetBearing: commands['view.resetNorth'].execute }
@@ -533,6 +542,7 @@ export function App({
         zoomOutRef,
         toggleNavigationModeRef,
         rotateByRef,
+        panByRef,
         resetBearingRef,
         themes,
         subscribeServiceIconLegendRef,

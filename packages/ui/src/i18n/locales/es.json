@@ -424,13 +424,16 @@
       "cleanView": "Vista limpia",
       "sidebar": "Barra lateral",
       "mapSymbols": "Símbolos del mapa",
-      "shortcuts": "Esta hoja de atajos"
+      "shortcuts": "Esta hoja de atajos",
+      "pan": "Desplazar el mapa"
     },
     "gestures": {
       "preciseZoom": "Zoom preciso",
       "clickZoom": "+ clic en + o −",
       "layerDetail": "Opciones de una capa",
-      "clickRail": "+ clic en el rail"
+      "clickRail": "+ clic en el rail",
+      "boxZoom": "Zoom a un área",
+      "dragMap": "+ arrastrar en el mapa"
     },
     "open": "Atajos de teclado"
   }
