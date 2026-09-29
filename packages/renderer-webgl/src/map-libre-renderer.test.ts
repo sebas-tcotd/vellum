@@ -38,6 +38,7 @@ const mockMap = vi.hoisted(() => ({
   addLayer: vi.fn(),
   getLayer: vi.fn(() => undefined),
   removeLayer: vi.fn(),
+  moveLayer: vi.fn(),
   setLayoutProperty: vi.fn(),
   setPaintProperty: vi.fn(),
   setFilter: vi.fn(),

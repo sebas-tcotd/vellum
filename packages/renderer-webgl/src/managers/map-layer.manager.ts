@@ -145,6 +145,14 @@ export class MapLayerManager {
    */
   private applyDistrictsVisibility(): void {
     this.applySelectedDistrict();
+    // Coloured by specialization, the fill is the map's subject: it paints
+    // over buildings, roads and transit, just under the selection tint (and
+    // so under the district names). The plain tint stays under the streets.
+    const fillAbove = this.districtsColorBySpecialization
+      ? 'district-selected'
+      : 'district-boundaries';
+    if (this.map.getLayer('district-fill') && this.map.getLayer(fillAbove))
+      this.map.moveLayer('district-fill', fillAbove);
     this.setLayoutIfExists(
       'district-fill',
       'visibility',

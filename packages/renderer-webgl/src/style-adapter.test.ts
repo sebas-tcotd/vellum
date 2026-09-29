@@ -117,6 +117,7 @@ it('resolves specialization variants from each theme independently of building R
 it('toggles specialization paint independently of fill and selection without rebuilding geometry', () => {
   const map = {
     getLayer: vi.fn(() => ({})),
+    moveLayer: vi.fn(),
     setLayoutProperty: vi.fn(),
     setPaintProperty: vi.fn(),
     setFilter: vi.fn(),
@@ -151,6 +152,11 @@ it('toggles specialization paint independently of fill and selection without reb
     'selected',
   ]);
   expect(options.districts.showFill).toBe(false);
+  // Coloured by specialization, the fill rises to just under the selection.
+  expect(map.moveLayer).toHaveBeenLastCalledWith(
+    'district-fill',
+    'district-selected',
+  );
   manager.setVisibility('districts', false);
   expect(map.setLayoutProperty).toHaveBeenCalledWith(
     'district-fill',
@@ -163,6 +169,10 @@ it('toggles specialization paint independently of fill and selection without reb
     'district-fill',
     'fill-color',
     STYLE.districts.fill,
+  );
+  expect(map.moveLayer).toHaveBeenLastCalledWith(
+    'district-fill',
+    'district-boundaries',
   );
   expect(map.setLayoutProperty).toHaveBeenCalledWith(
     'district-selected',
@@ -219,6 +229,7 @@ it('applies a new theme to active specialization without rebuilding or losing se
     getSource: vi.fn(),
     addSource: vi.fn(),
     addLayer: vi.fn(),
+    moveLayer: vi.fn(),
     setLayoutProperty: vi.fn(),
     setPaintProperty: vi.fn((id: string, property: string, value: unknown) =>
       paints.set(`${id}:${property}`, value),
