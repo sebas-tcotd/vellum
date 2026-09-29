@@ -84,6 +84,7 @@ export type MenuAction =
   | 'menu.fit-to-screen'
   | 'menu.zoom-in'
   | 'menu.zoom-out'
+  | 'menu.precise-zoom'
   | 'menu.clean-mode'
   | 'menu.schematic-view'
   | 'menu.toggle-sidebar'

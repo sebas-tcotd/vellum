@@ -2,13 +2,15 @@ import * as maplibregl from 'maplibre-gl';
 import type { CityData } from '@vellum/core';
 import { getCityBoundsGeoJSON } from '../helpers';
 import type { ViewportBounds } from '../types/renderer.types';
+import type { MapZoomState } from '@vellum/core';
 
 /**
  * Handles camera movements, bounds constraints, and viewport snap-back logic.
  *
  * @remarks
- * Strict mode: hard pan/zoom bounds. Soft mode: allows overpanning with
- * snap-back and underzooming down to 25% of fit-to-screen zoom.
+ * Strict mode: hard pan bounds. Soft mode: allows overpanning with snap-back.
+ * Both modes let every zoom input (wheel, buttons, keyboard) step just past
+ * the fit-to-screen zoom and then settle back onto the whole city.
  */
 /**
  * Whether the user has asked for reduced motion.
@@ -56,7 +58,7 @@ export class MapNavigationManager {
   fitAndConstrain(cityData: CityData): void {
     this.currentCityData = cityData;
     this.fitToCityBounds(cityData);
-    this.fitToScreenZoom = this.map.getZoom();
+    this.recalculateFitZoom();
     this.applyConstraints(cityData);
   }
 
@@ -96,6 +98,8 @@ export class MapNavigationManager {
 
   /** Fits the MapLibre viewport to the city's geographic bounding box. */
   fitToCityBounds(cityData: CityData): void {
+    // The previous floor may sit above the new fit (a smaller window).
+    this.map.setMinZoom(null);
     this.map.fitBounds(getCityBoundsGeoJSON(cityData), {
       padding: this.framePadding(),
       animate: false,
@@ -111,18 +115,21 @@ export class MapNavigationManager {
    *
    * In strict mode: sets `maxBounds` to city bounds (hard pan limit) with a
    * small inset so the city never touches the viewport edge.
-   * In soft mode: removes `maxBounds` (allows overpanning) and sets `minZoom`
-   * to 25% of the fit-to-screen zoom.
+   * In soft mode: removes `maxBounds` (allows overpanning).
+   * Both modes floor zoom at {@link UNDERZOOM} below the fit, so one zoom-out
+   * step overshoots and {@link handleMoveEnd} settles back onto the fit.
    */
   applyConstraints(cityData: CityData): void {
-    if (this.navigationMode === 'strict') {
-      this.map.setMaxBounds(this.getPaddedStrictBounds(cityData));
-      this.map.setMinZoom(Math.max(this.fitToScreenZoom * 0.25, 0));
-    } else {
-      this.map.setMaxBounds(undefined);
-      this.map.setMinZoom(Math.max(this.fitToScreenZoom * 0.25, 0));
-    }
+    this.map.setMaxBounds(
+      this.navigationMode === 'strict'
+        ? this.getPaddedStrictBounds(cityData)
+        : undefined,
+    );
+    this.map.setMinZoom(Math.max(this.fitToScreenZoom - this.UNDERZOOM, 0));
   }
+
+  /** How far below the fit zoom the camera may go before settling back. */
+  private readonly UNDERZOOM = 0.5;
 
   private readonly BOUNDS_PADDING_PX = 20;
 
@@ -169,6 +176,27 @@ export class MapNavigationManager {
   /** Zooms the map out by one step. */
   zoomOut(): void {
     this.map.zoomOut();
+  }
+
+  /** Reads the live zoom; `min` is the fit-to-screen zoom, the floor zoom settles on. */
+  getZoomState(): MapZoomState | null {
+    try {
+      return {
+        zoom: this.map.getZoom(),
+        min: this.fitToScreenZoom,
+        max: this.map.getMaxZoom(),
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  /** Sets only zoom, clamped between the fit-to-screen zoom and the MapLibre max. */
+  setZoom(zoom: number): void {
+    if (!Number.isFinite(zoom)) return;
+    const state = this.getZoomState();
+    if (!state) return;
+    this.map.setZoom(Math.min(state.max, Math.max(state.min, zoom)));
   }
 
   /**
@@ -235,16 +263,11 @@ export class MapNavigationManager {
   }
 
   /**
-   * In soft mode, when the user releases the pan and the map center is outside
-   * the city bounds, the map snaps back to fit the city at the current zoom.
+   * Snaps back to fit the city when a move ends zoomed out past the fit (any
+   * mode, any input) or, in soft mode, with the center outside the city bounds.
    */
   private handleMoveEnd(): void {
-    if (
-      this.navigationMode !== 'soft' ||
-      !this.currentCityData ||
-      this.isSnappingBack
-    )
-      return;
+    if (!this.currentCityData || this.isSnappingBack) return;
 
     const center = this.map.getCenter();
     const [[swLng, swLat], [neLng, neLat]] = getCityBoundsGeoJSON(
@@ -252,13 +275,24 @@ export class MapNavigationManager {
     );
 
     const isOutside =
-      center.lng < swLng ||
-      center.lng > neLng ||
-      center.lat < swLat ||
-      center.lat > neLat;
+      this.navigationMode === 'soft' &&
+      (center.lng < swLng ||
+        center.lng > neLng ||
+        center.lat < swLat ||
+        center.lat > neLat);
+    // ponytail: epsilon absorbs float drift between fitBounds and getZoom.
+    const isUnderzoomed = this.map.getZoom() < this.fitToScreenZoom - 1e-3;
 
-    if (isOutside) {
+    if (isOutside || isUnderzoomed) {
+      const cityData = this.currentCityData;
       this.isSnappingBack = true;
+      // Registered first: an instant fit (reduced motion) ends synchronously.
+      this.map.once('moveend', () => {
+        this.recalculateFitZoom();
+        this.applyConstraints(cityData);
+        this.isSnappingBack = false;
+      });
+      this.map.setMinZoom(null);
       this.map.fitBounds(
         [
           [swLng, swLat],
@@ -270,9 +304,6 @@ export class MapNavigationManager {
           duration: prefersReducedMotion() ? 0 : 300,
         },
       );
-      this.map.once('moveend', () => {
-        this.isSnappingBack = false;
-      });
     }
   }
 }

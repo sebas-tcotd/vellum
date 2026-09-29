@@ -486,6 +486,64 @@ html:not([data-platform='macos']) .shell-legend > .place-card__section {
   cursor: pointer;
 }
 
+.shell-camera-anchor {
+  position: relative;
+}
+
+/* Glass matches the camera group; sits to its left, bottom-aligned with it
+   so it grows upward, away from the minimap below. */
+.shell-camera-zoom {
+  position: absolute;
+  bottom: 0;
+  right: calc(100% + 8px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 44px;
+  padding: 10px 4px 6px;
+  color: var(--shell-text-primary);
+  background: var(--shell-surface-floating);
+  border: 1px solid var(--shell-separator);
+  border-radius: var(--shell-radius-overlay);
+  box-shadow: var(--shell-shadow-floating);
+  backdrop-filter: var(--shell-floating-backdrop-filter);
+  corner-shape: var(--shell-corner-shape, round);
+}
+
+.shell-camera-zoom__range {
+  /* Native vertical range: max at the top, like the + above the −. */
+  writing-mode: vertical-lr;
+  direction: rtl;
+  width: 20px;
+  height: 128px;
+  margin: 0;
+  accent-color: var(--shell-accent);
+}
+
+.shell-camera-zoom__number {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 2px 0;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: inherit;
+  text-align: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--shell-radius-control);
+}
+
+.shell-camera-zoom__number:hover,
+.shell-camera-zoom__number:focus {
+  border-color: var(--shell-separator);
+}
+
+.shell-camera-zoom__number:focus-visible {
+  outline: 2px solid var(--shell-focus);
+  outline-offset: -2px;
+}
+
 .shell-floating-button + .shell-floating-button,
 .shell-camera-button + .shell-camera-button {
   border-top: 1px solid var(--shell-separator);

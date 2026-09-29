@@ -59,6 +59,7 @@ const MENU_ID_OPEN_EXPORT: &str = "menu.open-export";
 const MENU_ID_FIT_TO_SCREEN: &str = "menu.fit-to-screen";
 const MENU_ID_ZOOM_IN: &str = "menu.zoom-in";
 const MENU_ID_ZOOM_OUT: &str = "menu.zoom-out";
+const MENU_ID_PRECISE_ZOOM: &str = "menu.precise-zoom";
 const MENU_ID_CLEAN_MODE: &str = "menu.clean-mode";
 const MENU_ID_SCHEMATIC_VIEW: &str = "menu.schematic-view";
 const MENU_ID_TOGGLE_SIDEBAR: &str = "menu.toggle-sidebar";
@@ -89,6 +90,7 @@ struct MenuLocale {
     fit_to_screen: &'static str,
     zoom_in: &'static str,
     zoom_out: &'static str,
+    precise_zoom: &'static str,
     clean_view: &'static str,
     schematic_view: &'static str,
     sidebar: &'static str,
@@ -120,6 +122,7 @@ fn menu_locale(language: &str) -> Result<MenuLocale, String> {
             fit_to_screen: "Fit to Screen",
             zoom_in: "Zoom In",
             zoom_out: "Zoom Out",
+            precise_zoom: "Precise Zoom…",
             clean_view: "Clean View",
             schematic_view: "Schematic View",
             sidebar: "Sidebar",
@@ -148,6 +151,7 @@ fn menu_locale(language: &str) -> Result<MenuLocale, String> {
             fit_to_screen: "Ajustar a la pantalla",
             zoom_in: "Acercar",
             zoom_out: "Alejar",
+            precise_zoom: "Zoom preciso…",
             clean_view: "Vista limpia",
             schematic_view: "Vista esquemática",
             sidebar: "Barra lateral",
@@ -299,6 +303,12 @@ fn build_view_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> 
     )?;
     let zoom_in = custom_item(app, MENU_ID_ZOOM_IN, "Zoom In", Some("CmdOrCtrl+Equal"))?;
     let zoom_out = custom_item(app, MENU_ID_ZOOM_OUT, "Zoom Out", Some("CmdOrCtrl+Minus"))?;
+    let precise_zoom = custom_item(
+        app,
+        MENU_ID_PRECISE_ZOOM,
+        "Precise Zoom…",
+        Some("CmdOrCtrl+Alt+KeyZ"),
+    )?;
     // Names the user-facing result, per the UX writing contract. The action id
     // is unchanged, so shortcuts and handlers keep working.
     let clean_mode = custom_item(app, MENU_ID_CLEAN_MODE, "Clean View", Some("KeyH"))?;
@@ -349,6 +359,7 @@ fn build_view_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> 
         .item(&fit_to_screen)
         .item(&zoom_in)
         .item(&zoom_out)
+        .item(&precise_zoom)
         .separator()
         .item(&rotate_left)
         .item(&rotate_right)
@@ -649,6 +660,7 @@ pub fn update_menu_language(app_handle: AppHandle, language: String) -> Result<(
         (MENU_ID_FIT_TO_SCREEN, locale.fit_to_screen),
         (MENU_ID_ZOOM_IN, locale.zoom_in),
         (MENU_ID_ZOOM_OUT, locale.zoom_out),
+        (MENU_ID_PRECISE_ZOOM, locale.precise_zoom),
         (MENU_ID_CLEAN_MODE, locale.clean_view),
         (MENU_ID_SCHEMATIC_VIEW, locale.schematic_view),
         (MENU_ID_TOGGLE_SIDEBAR, locale.sidebar),
@@ -785,6 +797,7 @@ mod tests {
             super::MENU_ID_FIT_TO_SCREEN,
             super::MENU_ID_ZOOM_IN,
             super::MENU_ID_ZOOM_OUT,
+            super::MENU_ID_PRECISE_ZOOM,
             super::MENU_ID_CLEAN_MODE,
             super::MENU_ID_SCHEMATIC_VIEW,
             super::MENU_ID_TOGGLE_SIDEBAR,
@@ -815,6 +828,7 @@ mod tests {
             "CmdOrCtrl+Digit0",
             "CmdOrCtrl+Equal",
             "CmdOrCtrl+Minus",
+            "CmdOrCtrl+Alt+KeyZ",
             "KeyH",
             "CmdOrCtrl+Alt+KeyS",
             "CmdOrCtrl+KeyB",

@@ -107,6 +107,9 @@ export function useMenuAction({
         case 'menu.zoom-out':
           commands['view.zoomOut'].execute();
           return;
+        case 'menu.precise-zoom':
+          commands['view.preciseZoom'].execute();
+          return;
         case 'menu.clean-mode':
           commands['view.cleanView'].execute();
           return;

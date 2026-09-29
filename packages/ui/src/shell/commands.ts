@@ -16,6 +16,7 @@ export type CommandId =
   | 'view.fitCity'
   | 'view.zoomIn'
   | 'view.zoomOut'
+  | 'view.preciseZoom'
   | 'view.resetNorth'
   | 'view.rotate'
   | 'view.cleanView'
@@ -35,6 +36,7 @@ export interface CommandPayloads {
   'view.fitCity': void;
   'view.zoomIn': void;
   'view.zoomOut': void;
+  'view.preciseZoom': void;
   'view.resetNorth': void;
   'view.rotate': number;
   'view.cleanView': void;
@@ -88,6 +90,8 @@ export interface CommandDeps {
   fitToScreen: () => void;
   zoomIn: () => void;
   zoomOut: () => void;
+  /** Opens or closes the precise zoom popover beside the camera controls. */
+  togglePreciseZoom: () => void;
   resetBearing: () => void;
   rotateBy: (delta: number) => void;
   toggleIconLegend: () => void;
@@ -126,6 +130,7 @@ export function useDesktopCommands(deps: CommandDeps): CommandRegistry {
     fitToScreen,
     zoomIn,
     zoomOut,
+    togglePreciseZoom,
     resetBearing,
     rotateBy,
     toggleIconLegend,
@@ -196,6 +201,11 @@ export function useDesktopCommands(deps: CommandDeps): CommandRegistry {
       'view.fitCity': make('view.fitCity', mapReason, fitToScreen),
       'view.zoomIn': make('view.zoomIn', mapReason, zoomIn),
       'view.zoomOut': make('view.zoomOut', mapReason, zoomOut),
+      'view.preciseZoom': make(
+        'view.preciseZoom',
+        mapReason,
+        togglePreciseZoom,
+      ),
       // Availability is the plain map guard the menu and `R` always had. The
       // camera group hides its button while bearing is 0 — that is a
       // presentation rule ("appears only when rotated"), not availability, so
@@ -262,6 +272,7 @@ export function useDesktopCommands(deps: CommandDeps): CommandRegistry {
     toggleSidebar,
     toggleLayerDetail,
     toggleNavigationMode,
+    togglePreciseZoom,
     transitDimmingEnabled,
     zoomIn,
     zoomOut,

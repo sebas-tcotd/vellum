@@ -338,6 +338,9 @@
   "camera": {
     "zoomIn": "Acercar",
     "zoomOut": "Alejar",
+    "preciseZoom": "Zoom preciso",
+    "zoomSlider": "Deslizador del nivel de zoom",
+    "zoomInput": "Valor numérico del zoom",
     "fitCity": "Ajustar ciudad",
     "resetNorth": "Restablecer el norte"
   },

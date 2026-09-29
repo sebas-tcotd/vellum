@@ -171,12 +171,15 @@ beforeEach(() => {
     'panBy',
     'setSelectedDistrict',
     'getBearing',
+    'getZoomState',
+    'setZoom',
   ];
   port.value = Object.fromEntries(
     methods.map((name) => [name, vi.fn(() => () => {})]),
   );
   port.value['getInitialViewportBounds'] = vi.fn(() => null);
   port.value['getBearing'] = vi.fn(() => 0);
+  port.value['getZoomState'] = vi.fn(() => null);
   port.value['subscribeSelect'] = vi.fn((cb: (hit: unknown) => void) => {
     port.select = cb;
     return () => {};

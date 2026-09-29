@@ -127,6 +127,10 @@ export interface MapCameraPort {
   zoomIn(): void;
   /** Zooms one step out. */
   zoomOut(): void;
+  /** Reads the live zoom and its precise-control range, or `null` before the map is ready. */
+  getZoomState(): MapZoomState | null;
+  /** Sets zoom within that range while preserving the geographic center. */
+  setZoom(zoom: number): void;
   /**
    * Rotates the map by a relative amount.
    * @param deltaDegrees - Signed rotation to add to the current bearing, in degrees.
@@ -165,6 +169,14 @@ export interface MapCameraPort {
       left: number;
     }>,
   ): void;
+}
+
+/** Current zoom and the range a precise zoom control should offer. */
+export interface MapZoomState {
+  zoom: number;
+  /** The fit-to-screen zoom: going below it settles back onto the whole city. */
+  min: number;
+  max: number;
 }
 
 /**

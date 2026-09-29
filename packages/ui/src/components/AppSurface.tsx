@@ -72,6 +72,7 @@ interface AppSurfaceProps {
     ((callback: (state: ServiceIconLegendState) => void) => () => void) | null
   >;
   iconLegendToggleRef: RefObject<(() => void) | null>;
+  preciseZoomToggleRef: RefObject<(() => void) | null>;
   exportWorkflow: ReturnType<typeof useExportWorkflow>;
   commands: CommandRegistry;
   shell: ShellSession;
@@ -93,6 +94,7 @@ export function AppSurface({
   mapProps,
   subscribeServiceIconLegendRef,
   iconLegendToggleRef,
+  preciseZoomToggleRef,
   exportWorkflow,
   commands,
   shell,
@@ -246,6 +248,7 @@ export function AppSurface({
               onShowAllSchematicModes={showAllSchematicModes}
               subscribeServiceIconLegendRef={subscribeServiceIconLegendRef}
               iconLegendToggleRef={iconLegendToggleRef}
+              preciseZoomToggleRef={preciseZoomToggleRef}
               shell={shell}
             />
           </div>

@@ -12,6 +12,7 @@ import type {
   ViewportBounds,
   LayerVisibility,
   MapSelectHit,
+  MapZoomState,
 } from '@vellum/core';
 import {
   DEFAULT_RENDER_STYLE_PARAMS,
@@ -46,6 +47,8 @@ export interface MapViewportPort {
   /** Tints the selected district, or clears the tint with `null`. */
   setSelectedDistrict: (id: string | null) => void;
   getBearing: () => number;
+  getZoomState: () => MapZoomState | null;
+  setZoom: (zoom: number) => void;
 }
 
 /** Props for the `MapLibreRoot` component. Mirrors `CanvasRoot` props for drop-in replacement. */
@@ -330,6 +333,8 @@ export function MapLibreRoot({
       panBy: (dx, dy) => rendererRef.current?.panBy(dx, dy),
       setSelectedDistrict: (id) => rendererRef.current?.setSelectedDistrict(id),
       getBearing: () => rendererRef.current?.getBearing() ?? 0,
+      getZoomState: () => rendererRef.current?.getZoomState() ?? null,
+      setZoom: (zoom) => rendererRef.current?.setZoom(zoom),
     };
     portRef.current = port;
     return () => {

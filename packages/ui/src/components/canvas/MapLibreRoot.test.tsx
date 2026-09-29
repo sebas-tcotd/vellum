@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, act } from '../../test-utils';
 import { MapLibreRoot } from './MapLibreRoot';
+import type { MapViewportPort } from './MapLibreRoot';
 import { createRendererHarness } from '../../testing/test-renderer';
 import { createPlatformServicesHarness } from '../../testing/test-platform-services';
 
@@ -159,6 +160,18 @@ describe('MapLibreRoot — AC2: ARIA en contenedor canvas', () => {
     });
 
     expect(mockResize).toHaveBeenCalledWith(742, 600);
+  });
+
+  it('forwards the viewport zoom request to the renderer', async () => {
+    const portRef = {
+      current: null,
+    } as React.RefObject<MapViewportPort | null>;
+    render(<MapLibreRoot createRenderer={createRenderer} portRef={portRef} />);
+    await act(async () => {});
+
+    act(() => portRef.current?.setZoom(12.5));
+
+    expect(rendererHarness.renderer.setZoom).toHaveBeenCalledWith(12.5);
   });
 });
 
