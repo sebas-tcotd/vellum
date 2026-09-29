@@ -2,6 +2,78 @@
 
 All notable changes to Vellum will be documented here.
 
+## [0.11.0](https://github.com/sebas-tcotd/vellum/compare/v0.10.0...v0.11.0) (2026-09-29)
+
+
+### Features
+
+* colorear distritos por especialización (Story 3.7) ([8f618cd](https://github.com/sebas-tcotd/vellum/commit/8f618cd947e5e4d3ec39fdb3a3c52d0207337023))
+* **desktop:** abrir en Vellum una ciudad exportada por Bridge (Story 5.4) ([c15418f](https://github.com/sebas-tcotd/vellum/commit/c15418f58da9219e549437e57dd1b2a64d73a8e2))
+* **desktop:** abrir en Vellum una ciudad exportada por Bridge (Story 5.4) ([276bcda](https://github.com/sebas-tcotd/vellum/commit/276bcda81a9e74ac04cc18f5631fae620d5e0172))
+* **districts:** colorear distritos por especialización ([dbe6580](https://github.com/sebas-tcotd/vellum/commit/dbe6580391f5307242e4b770cbd091be2e4a25c6))
+* **districts:** pintar el relleno por especialización sobre el mapa ([eb2e87b](https://github.com/sebas-tcotd/vellum/commit/eb2e87bbbfeccb41969ca6d01f61bae0caa56ff2))
+* **export:** seguir en el SVG el orden del relleno por especialización ([1d702a8](https://github.com/sebas-tcotd/vellum/commit/1d702a8b71a3c4bb074697ce5a04beae8eddacb6))
+* inspeccionar un lugar en una tarjeta lateral (Story 3.6) ([fa9092a](https://github.com/sebas-tcotd/vellum/commit/fa9092a4352064b5610d3e76e4b9a78d030b46b5))
+* nombre del distrito por defecto, marcador opcional y relleno leve ([755e547](https://github.com/sebas-tcotd/vellum/commit/755e5470179df787eab4a825f9edbab15fb982df))
+* nombres de calles y ancho real de las vías ([7c95fc6](https://github.com/sebas-tcotd/vellum/commit/7c95fc6ebcf76a05f533407d75c4e5057082966c))
+* **parser-cslmap:** definir el documento de ciudad .vellummap (Story 5.2) ([ca1e8b6](https://github.com/sebas-tcotd/vellum/commit/ca1e8b683f59697188a9c22759065a76c1242f36))
+* **renderer:** bosques como una capa de copa en vez de un círculo por celda ([fb5d579](https://github.com/sebas-tcotd/vellum/commit/fb5d579d9529b21a856cecc25ac14d728e4fa1fc))
+* **renderer:** nombres de calles y ancho real de las vías a zoom de detalle ([b59840f](https://github.com/sebas-tcotd/vellum/commit/b59840ffa03923effad40d514895c33da8b0a197))
+* **renderer:** render individual tree crowns at detail zoom ([9d6a878](https://github.com/sebas-tcotd/vellum/commit/9d6a8784936aef3f50cd250ee6753d57c9170756))
+* **schematic:** nombres de paraderos perpendiculares a la línea, con colisiones ([3ce7dfe](https://github.com/sebas-tcotd/vellum/commit/3ce7dfe3e87c85eb7390fa04114f9f68452aa30b))
+* **sidebar:** abrir las opciones de la capa con Shift+Click en el rail ([e199c5d](https://github.com/sebas-tcotd/vellum/commit/e199c5d9256810ed87a4e30dff46d3ca32c9397e))
+* **ui:** add a keyboard shortcuts sheet, opened with ? (Story 3.9) ([d79aff2](https://github.com/sebas-tcotd/vellum/commit/d79aff266e5ae3e0dc72108ccae9f2f5239ab53f))
+* **ui:** add precise zoom popover to the camera controls ([1bc6fdf](https://github.com/sebas-tcotd/vellum/commit/1bc6fdf9f19cbfa475713c19b503b866b579e8aa))
+* **ui:** hoja de atajos de teclado (Story 3.9) ([c9f8f19](https://github.com/sebas-tcotd/vellum/commit/c9f8f1922f1c3c2adf3d605f20e9a78cf3e5e422))
+* **ui:** inspeccionar un lugar en una tarjeta lateral (3.6) ([a8e7879](https://github.com/sebas-tcotd/vellum/commit/a8e78796e39f451b855809058e8cf915b5025f7b))
+* **ui:** modal de carga que dura hasta que el mapa está dibujado ([9762bf3](https://github.com/sebas-tcotd/vellum/commit/9762bf3f288b7ce67fdd4f4cdba762df73c62e5d))
+* **ui:** selección de distrito sobre el mapa y acciones al pie en macOS ([546ed1d](https://github.com/sebas-tcotd/vellum/commit/546ed1da692277cd9e31625e12987d20a33175d5))
+* **ui:** take over MapLibre's keys in the shortcuts keymap ([bddae26](https://github.com/sebas-tcotd/vellum/commit/bddae26be6e5b9d56c747f8bb5057287bd10b624))
+* **ui:** tarjeta de áreas de parque y nombres sin claves de localización ([ea29581](https://github.com/sebas-tcotd/vellum/commit/ea29581dc8fb0270581b49371138dfca15c34487))
+* **ui:** zoom preciso + rebote al encuadre de la ciudad (Story 3.8) ([d911ea1](https://github.com/sebas-tcotd/vellum/commit/d911ea159448c0d15dc4afab8129d571faf81433))
+* **vellum-bridge:** arnés de corpus y comparación con .cslmap ([db7bf30](https://github.com/sebas-tcotd/vellum/commit/db7bf302749349135d5b42a642d7cb0bf52b16b2))
+* **vellum-bridge:** bridge 0.5 con agua, capas de alturas, vegetación y color de línea ([4e98c6b](https://github.com/sebas-tcotd/vellum/commit/4e98c6bfe916538ab3411f9addc50373ca575ce0))
+* **vellum-bridge:** comparar agua, terreno, vegetación y líneas contra .cslmap ([e50b5ae](https://github.com/sebas-tcotd/vellum/commit/e50b5ae28e2e6cc81a8eefe818949caaef4851f4))
+* **vellum-bridge:** derivar polígonos de distritos y parques desde la grilla cruda ([16e1528](https://github.com/sebas-tcotd/vellum/commit/16e15280f1d6d3d4a0ceaeee2c9ab6822044ab37))
+* **vellum-bridge:** exportar el nombre de cada calle en .vellummap ([da600a5](https://github.com/sebas-tcotd/vellum/commit/da600a5c0be5ff413857e8940a193789bcd3ad2a))
+* **vellum-bridge:** exportar la ciudad a .vellummap desde el juego (Story 5.3) ([e23f213](https://github.com/sebas-tcotd/vellum/commit/e23f21347c7a8aaeb8a6b1f428fbbbee8dcb997d))
+* **vellum-bridge:** exportar la ciudad a .vellummap desde el juego (Story 5.3) ([ba17366](https://github.com/sebas-tcotd/vellum/commit/ba173663c89b28ad4fafec480e1a3bf00e1a6871))
+* **vellum-bridge:** exportar los datos de lugar de distritos y edificios (Story 5.6) ([a583f33](https://github.com/sebas-tcotd/vellum/commit/a583f336282b48285016c9f94b5fa43e8714b9be))
+* **vellum-bridge:** exportar los datos de lugar de distritos y edificios (Story 5.6) ([2bdb099](https://github.com/sebas-tcotd/vellum/commit/2bdb099de20aa17baa48c042aaefd829642605ac))
+* **vellum-bridge:** mod local de CS1 para capturar un Raw Snapshot ([89dd424](https://github.com/sebas-tcotd/vellum/commit/89dd424e51a2ccdfc9c40fa2765c17c73bcb6a67))
+* **vellum-bridge:** mostrar la versión en el nombre del mod ([e2d96db](https://github.com/sebas-tcotd/vellum/commit/e2d96dbef9f4c8533fe175a2768c080261342b54))
+* **vellum-bridge:** volcar los datos de distritos y parques en el Raw Snapshot (0.7.0) ([cae037d](https://github.com/sebas-tcotd/vellum/commit/cae037dd29ec22b9cc3086579e5413a482d646af))
+
+
+### Bug Fixes
+
+* **desktop:** importar el worker de árboles por el paquete, no por ruta interna ([b81d0de](https://github.com/sebas-tcotd/vellum/commit/b81d0dea801f95dc3ea4b865304b75bd52fc271e))
+* **districts:** reforzar la opacidad del relleno ([b45361a](https://github.com/sebas-tcotd/vellum/commit/b45361ab97bda1963f9ca2f2706111c4ef254e26))
+* **parser-cslmap:** clasificar agua por profundidad, no contra SeaLevel ([abd6c04](https://github.com/sebas-tcotd/vellum/commit/abd6c0488edf623649578b972a42eea707119143))
+* **parser-cslmap:** clasificar agua por profundidad, no contra SeaLevel ([6a41c83](https://github.com/sebas-tcotd/vellum/commit/6a41c836f360e6f3f5c341be44ce9472a6e6f8ac))
+* **renderer:** el export SVG sigue el ancho real de las vías como el mapa ([dcead45](https://github.com/sebas-tcotd/vellum/commit/dcead4501b3b1233bfc917868b337ae3446eda95))
+* **renderer:** keep contour line opacity consistent ([c7cf7f3](https://github.com/sebas-tcotd/vellum/commit/c7cf7f304caa16d68f0570827e77c906520d998f))
+* **renderer:** la calle menor termina bajo la vía mayor en los cruces ([cf6ee48](https://github.com/sebas-tcotd/vellum/commit/cf6ee48071a652aad9a8eaa6e1d3427b06744d97))
+* **renderer:** settle every zoom-out past the fit back onto the city ([1ec6343](https://github.com/sebas-tcotd/vellum/commit/1ec634363c86224d61b562ddf197b42cf13851c6))
+* **theme-engine:** sincronizar el ejemplo completo con el verde de bosque de Day ([456e1d8](https://github.com/sebas-tcotd/vellum/commit/456e1d85e8dbe2a6695045d95e8c69845202650c))
+* **themes:** verde de bosque más legible en Day ([a1260b3](https://github.com/sebas-tcotd/vellum/commit/a1260b3624d2456f9153278809f75c127e0dff12))
+* **ui:** el mapa se declara listo cuando está dibujado, con tope de 15 s ([5029568](https://github.com/sebas-tcotd/vellum/commit/50295681295d7013c421f78b19542a9c3e3b7e87))
+* **ui:** los avisos esperan a que se cierre el modal de carga ([9200c25](https://github.com/sebas-tcotd/vellum/commit/9200c25753191a7508dcbd73183ef8e1da6fd704))
+* **ui:** ofrecer el panel de Vías solo para .vellummap ([f7e8bfa](https://github.com/sebas-tcotd/vellum/commit/f7e8bfa91d9f9909d6d322caf96c25cd9ec015fa))
+* **ui:** open layer options with Shift+1–7 from any keyboard row ([f0b78c3](https://github.com/sebas-tcotd/vellum/commit/f0b78c39996466416855985656700c56339f0b7d))
+* **ui:** stop promising the native exporter for v2 on the welcome screen ([17799ef](https://github.com/sebas-tcotd/vellum/commit/17799efad86afb5af99da415178ddb0a23e64663))
+* **vellum-bridge:** conservar las grillas de áreas con ids huérfanos sin peso ([3f9ab27](https://github.com/sebas-tcotd/vellum/commit/3f9ab27bfee70cf701c129630dd399c7672987fd))
+* **vellum-bridge:** nombre visible solo para edificios renombrados y únicos ([e7b126e](https://github.com/sebas-tcotd/vellum/commit/e7b126e0675d3927ed0c6aae7b8c2201d8bf451b))
+* **vellum-bridge:** recarga en caliente reemplazando la carpeta del mod ([e7024d5](https://github.com/sebas-tcotd/vellum/commit/e7024d572086424c8927e2aac3216e6161107018))
+* **vellum-bridge:** silenciar CS0649 en WriterOptions.compress ([d8afca8](https://github.com/sebas-tcotd/vellum/commit/d8afca8d46ba3211306326a0d16c048cbf7d6244))
+* **vellum-bridge:** sin nombre para los sub-edificios de un edificio único (0.8.2) ([4472c16](https://github.com/sebas-tcotd/vellum/commit/4472c16a0e5e912b551bffcce029e5b6d2d1f767))
+
+
+### Performance Improvements
+
+* **parser:** leer módulos y derivar el terreno en paralelo ([e5ff5ea](https://github.com/sebas-tcotd/vellum/commit/e5ff5eac090131c6198cfa65a8b6328441f4f364))
+* **schematic:** índice espacial para colocar las etiquetas de paraderos ([5818d6f](https://github.com/sebas-tcotd/vellum/commit/5818d6f393da5aa6d410fefd53564c1f8cdfec92))
+
 ## [0.10.0](https://github.com/sebas-tcotd/vellum/compare/v0.9.0...v0.10.0) (2026-09-22)
 
 
