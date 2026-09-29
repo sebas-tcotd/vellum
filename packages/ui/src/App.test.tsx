@@ -3,7 +3,7 @@ import {
   makeRoadSegment,
   makeTransitLine,
 } from '@vellum/core/testing';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import userEvent from '@testing-library/user-event';
 import type {
   ExportProgress,
@@ -189,8 +189,8 @@ vi.mock('./components/empty-state/EmptyState', () => ({
   EmptyState: () => <div data-testid="empty-state" />,
 }));
 
-vi.mock('./components/overlays/ProgressBar', () => ({
-  ProgressBar: () => <div data-testid="progress-bar" role="progressbar" />,
+vi.mock('./components/overlays/LoadingModal', () => ({
+  LoadingModal: () => <div data-testid="progress-bar" role="progressbar" />,
 }));
 
 vi.mock('./hooks/use-keyboard-shortcuts', () => ({
@@ -250,6 +250,18 @@ beforeEach(() => {
   resetStore();
 });
 
+// The map is mocked and never reports that it has drawn the city. End that
+// phase at once so the loading modal closes, as it does in the app: otherwise
+// its bar would sit next to the export progress bar these tests look up by
+// role, and the toasts that wait for it would never appear.
+let stopEndingDrawPhase = () => {};
+beforeEach(() => {
+  stopEndingDrawPhase = useVellumStore.subscribe((state) => {
+    if (state.isDrawingMap) state.setMapDrawn();
+  });
+});
+afterEach(() => stopEndingDrawPhase());
+
 describe('App — renderizado condicional', () => {
   it('muestra EmptyState cuando loadingState es idle y no hay cityData', async () => {
     await act(async () => {
@@ -259,7 +271,7 @@ describe('App — renderizado condicional', () => {
     expect(screen.queryByTestId('progress-bar')).toBeNull();
   });
 
-  it('muestra ProgressBar cuando loadingState es loading', async () => {
+  it('muestra LoadingModal cuando loadingState es loading', async () => {
     await act(async () => {
       render(<App />);
     });

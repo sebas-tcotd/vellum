@@ -40,6 +40,7 @@ let mockLoadingState = 'idle';
 const storeState = () => ({
   cityData: mockCityData,
   loadingState: mockLoadingState,
+  setMapDrawn: () => {},
 });
 
 vi.mock('../../store/vellum-store', () => ({

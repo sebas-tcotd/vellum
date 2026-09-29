@@ -20,7 +20,7 @@ import {
 import type { MapLibreRootProps } from './canvas/MapLibreRoot';
 import { MapViewport } from './viewport/MapViewport';
 import { EmptyState } from './empty-state/EmptyState';
-import { ProgressBar } from './overlays/ProgressBar';
+import { LoadingModal } from './overlays/LoadingModal';
 import { ErrorToast } from './overlays/ErrorToast';
 import { PartialParseDialog } from './overlays/PartialParseDialog';
 import { DlcWarningToast } from './overlays/DlcWarningToast';
@@ -113,6 +113,7 @@ export function AppSurface({
   const activeTheme = useVellumStore((state) => state.activeTheme);
   const loadingState = useVellumStore((state) => state.loadingState);
   const loadingError = useVellumStore((state) => state.loadingError);
+  const isDrawingMap = useVellumStore((state) => state.isDrawingMap);
   const dlcWarnings = useVellumStore((state) => state.dlcWarnings);
   const hasPartialData = useVellumStore((state) => state.hasPartialData);
   const setLoadingState = useVellumStore((state) => state.setLoadingState);
@@ -198,13 +199,16 @@ export function AppSurface({
     loadingState === 'error' &&
     loadingError != null &&
     loadingError.type !== 'PartialParse';
+  // Toasts wait for the loading modal to close instead of appearing under it.
   const showDlcWarningToast =
     cityData !== null &&
     loadingState === 'idle' &&
+    !isDrawingMap &&
     (dlcWarnings.length > 0 || hasPartialData);
   const showUpdateToast =
     updateInfo !== null &&
     loadingState === 'idle' &&
+    !isDrawingMap &&
     !exportWorkflow.isExporting;
 
   return (
@@ -247,7 +251,7 @@ export function AppSurface({
           </div>
         </DesktopShell>
         {showEmptyState && <EmptyState />}
-        {loadingState === 'loading' && <ProgressBar />}
+        {(loadingState === 'loading' || isDrawingMap) && <LoadingModal />}
         {isSchematic && (
           <SchematicLayoutStatusOverlay
             progress={schematicModel.layoutProgress}

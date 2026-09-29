@@ -27,6 +27,13 @@ import type { RenderStyleParams } from './theme';
 export interface RenderParams {
   /** Determines which logical map layers are actively processed and drawn onto the canvas. */
   activeLayers: LayerVisibility;
+  /**
+   * Called once the city is fully painted: every source processed and the first
+   * complete frame drawn. `render()` itself resolves earlier, as soon as the
+   * sources and layers exist, which on a large city is over half a second before
+   * anything is on screen.
+   */
+  onDrawn?: () => void;
 }
 
 /**

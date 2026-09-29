@@ -6,8 +6,11 @@
     "firstUseHint": "Export your city with CSL Map View · Vellum's native exporter coming in v2 →"
   },
   "loading": {
-    "parsing": "Loading city...",
-    "rendering": "Rendering map..."
+    "title": "Opening city",
+    "cslmap": "Loading cslmap",
+    "document": "Reading the file",
+    "terrain": "Building the terrain",
+    "drawing": "Drawing the map"
   },
   "errors": {
     "InvalidFile": "This file couldn't be read. It may be corrupted or not a valid .vellummap or .cslmap.",

@@ -4,7 +4,7 @@
 //! its limit before a single byte is inflated (anti zip bomb).
 
 use super::areas::area_boundaries;
-use super::manifest::{parse_manifest, spec_of, Codec, ModuleId, MODULES};
+use super::manifest::{parse_manifest, spec_of, Codec, Manifest, ModuleId, MODULES};
 use super::{
     invalid, Document, MANIFEST_PATH, MAX_DOCUMENT_BYTES, MAX_JSON_BYTES, MAX_MANIFEST_BYTES,
     MODULE_ORDER,
@@ -127,25 +127,7 @@ pub(crate) fn read_document(bytes: &[u8]) -> Result<Document, VellumError> {
         )));
     }
 
-    let mut data: HashMap<ModuleId, Vec<u8>> = HashMap::new();
-    for id in MODULE_ORDER {
-        let Some(entry) = manifest.entry(id) else {
-            continue;
-        };
-        let rule = match spec_of(id).grid {
-            Some(grid) => SizeRule::Exactly(grid.byte_len()),
-            None => SizeRule::AtMost(MAX_JSON_BYTES),
-        };
-        let bytes = read_entry(&mut archive, &entry.path, rule, Some(entry.codec))?;
-        let digest = sha256_hex(&bytes);
-        if digest != entry.sha256 {
-            return Err(invalid(format!(
-                "`{}` does not match its sha256 (manifest {}, content {digest})",
-                entry.path, entry.sha256
-            )));
-        }
-        data.insert(id, bytes);
-    }
+    let mut data = read_modules(&archive, &manifest)?;
 
     let mut take = |id: ModuleId| data.remove(&id);
     let required = |bytes: Option<Vec<u8>>, id: ModuleId| {
@@ -188,6 +170,51 @@ pub(crate) fn read_document(bytes: &[u8]) -> Result<Document, VellumError> {
     };
     document.validate()?;
     Ok(document)
+}
+
+/// Inflates and hash-checks every declared module, each on its own thread: they
+/// share only the read-only zip bytes. Results are checked in `MODULE_ORDER`, so
+/// a broken document reports the same first error a sequential read would.
+fn read_modules(
+    archive: &Archive<'_>,
+    manifest: &Manifest,
+) -> Result<HashMap<ModuleId, Vec<u8>>, VellumError> {
+    let jobs: Vec<_> = MODULE_ORDER
+        .into_iter()
+        .filter_map(|id| manifest.entry(id).map(|entry| (id, entry)))
+        .collect();
+    let results: Vec<Result<(ModuleId, Vec<u8>), VellumError>> = std::thread::scope(|scope| {
+        let handles: Vec<_> = jobs
+            .iter()
+            .map(|&(id, entry)| {
+                let mut archive = (*archive).clone();
+                scope.spawn(move || {
+                    let rule = match spec_of(id).grid {
+                        Some(grid) => SizeRule::Exactly(grid.byte_len()),
+                        None => SizeRule::AtMost(MAX_JSON_BYTES),
+                    };
+                    let bytes = read_entry(&mut archive, &entry.path, rule, Some(entry.codec))?;
+                    let digest = sha256_hex(&bytes);
+                    if digest != entry.sha256 {
+                        return Err(invalid(format!(
+                            "`{}` does not match its sha256 (manifest {}, content {digest})",
+                            entry.path, entry.sha256
+                        )));
+                    }
+                    Ok((id, bytes))
+                })
+            })
+            .collect();
+        handles
+            .into_iter()
+            .map(|handle| {
+                handle
+                    .join()
+                    .unwrap_or_else(|panic| std::panic::resume_unwind(panic))
+            })
+            .collect()
+    });
+    results.into_iter().collect()
 }
 
 /// Upper bound of the buffer allocated up front for an entry.

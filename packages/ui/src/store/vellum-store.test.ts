@@ -140,6 +140,15 @@ describe('vellum-store — setUpdateInfo (Story 7.4)', () => {
 });
 
 describe('load transactions (AD-13)', () => {
+  it('keeps the load open until the map has drawn the parsed city', () => {
+    const city = { cityName: 'Altavento', fileName: 'a.cslmap' } as never;
+    useVellumStore.getState().setCityData(city);
+    expect(useVellumStore.getState().isDrawingMap).toBe(true);
+
+    useVellumStore.getState().setMapDrawn();
+    expect(useVellumStore.getState().isDrawingMap).toBe(false);
+  });
+
   it('keeps the open document while a replacement is being parsed', () => {
     const city = { cityName: 'Altavento', fileName: 'a.cslmap' } as never;
     useVellumStore.getState().setCityData(city);

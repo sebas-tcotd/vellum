@@ -278,6 +278,7 @@ export class MapLibreRenderer implements IRenderer {
       // produced the "opens zoomed all the way out" first load.
       this.map.resize();
       this.navigationManager.fitAndConstrain(cityData);
+      if (params.onDrawn) this.map.once('idle', params.onDrawn);
     };
 
     return this.whenStyleReady().then(executeRender);

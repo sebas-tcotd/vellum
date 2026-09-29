@@ -81,8 +81,27 @@ describe('map readiness signal', () => {
     );
   });
 
-  it('reports `ready` once city data is in the store', () => {
-    useVellumStore.setState({ cityData: someCity, loadingState: 'idle' });
+  it('reports `loading` while the parsed city is still being drawn', () => {
+    useVellumStore.setState({
+      cityData: someCity,
+      loadingState: 'idle',
+      isDrawingMap: true,
+    });
+
+    renderViewport();
+
+    expect(screen.getByTestId('map-surface')).toHaveAttribute(
+      'data-map-state',
+      'loading',
+    );
+  });
+
+  it('reports `ready` once the city is drawn', () => {
+    useVellumStore.setState({
+      cityData: someCity,
+      loadingState: 'idle',
+      isDrawingMap: false,
+    });
 
     renderViewport();
 
