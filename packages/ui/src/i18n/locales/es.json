@@ -3,7 +3,7 @@
     "title": "Vellum",
     "dropHint": "Arrastra tu ciudad (.vellummap o .cslmap) aquí",
     "orOpenWith": "o presiona",
-    "firstUseHint": "Exporta tu ciudad con CSL Map View · El exportador nativo de Vellum viene en v2 →"
+    "firstUseHint": "¿Aún no tienes el archivo? Expórtalo desde Cities: Skylines con CSL Map View (.cslmap)"
   },
   "loading": {
     "title": "Abriendo ciudad",

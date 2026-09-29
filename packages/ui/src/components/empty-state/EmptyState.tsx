@@ -54,6 +54,11 @@ export function EmptyState() {
           </p>
         </DropZone>
 
+        {/* TODO(Story 5.5): once Vellum Bridge is public on the Workshop, name
+            it in emptyState.firstUseHint too. Copy approved by Sebas:
+            es: "¿Aún no tienes el archivo? Expórtalo desde Cities: Skylines con Vellum Bridge (.vellummap) o CSL Map View (.cslmap)"
+            en: "No file yet? Export it from Cities: Skylines with Vellum Bridge (.vellummap) or CSL Map View (.cslmap)"
+            Until then the hint names only what a player can download today. */}
         {hintPhase !== 'hidden' && (
           <ContextualHint phase={hintPhase}>
             {t('emptyState.firstUseHint')}
