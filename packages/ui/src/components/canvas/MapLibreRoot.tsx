@@ -125,6 +125,9 @@ export interface MapLibreRootProps {
  * only on viewport changes. Drag-drop is replicated from `CanvasRoot` so the
  * Tauri file-drop workflow is preserved.
  */
+/** Longest the loading modal waits for the map to report it has drawn a city. */
+const MAX_DRAWING_MS = 15_000;
+
 export function MapLibreRoot({
   createRenderer,
   loadFile,
@@ -204,6 +207,18 @@ export function MapLibreRoot({
     // The layer ids are fixed, so re-adding them over a live style would fail
     // every step and strand the old geometry.
     renderer.clear();
+    // Ends the loading modal's drawing phase, once, and only for this city.
+    let drawn = false;
+    const endDrawing = (): void => {
+      if (drawn || useVellumStore.getState().cityData !== cityData) return;
+      drawn = true;
+      clearTimeout(drawingCap);
+      useVellumStore.getState().setMapDrawn();
+    };
+    // ponytail: a fixed cap, in case MapLibre never reports idle (a source that
+    // keeps re-dirtying itself has been seen in exports). The map is usable
+    // either way; the cap only keeps the modal from hiding it forever.
+    const drawingCap = setTimeout(endDrawing, MAX_DRAWING_MS);
     renderer
       .render(cityData, {
         activeLayers: activeLayers ?? {
@@ -215,11 +230,7 @@ export function MapLibreRoot({
           forests: true,
           districts: true,
         },
-        onDrawn: () => {
-          if (rendererRef.current === renderer) {
-            useVellumStore.getState().setMapDrawn();
-          }
-        },
+        onDrawn: endDrawing,
       })
       .then(() => {
         // A toggle can arrive while the async style/source setup is pending.
@@ -242,7 +253,7 @@ export function MapLibreRoot({
       .catch((err: unknown) => {
         console.error('[MapLibreRoot] render failed:', err);
         // Nothing will be drawn: the loading modal must not wait for it.
-        useVellumStore.getState().setMapDrawn();
+        endDrawing();
       });
   }, [cityData]); // activeLayers intentionally excluded — layer visibility is set separately
 

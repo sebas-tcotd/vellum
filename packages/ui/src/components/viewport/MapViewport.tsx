@@ -172,6 +172,7 @@ export function MapViewport({
 
   // A load invalidates whatever the pointer was over.
   const loadingState = useVellumStore((s) => s.loadingState);
+  const isDrawingMap = useVellumStore((s) => s.isDrawingMap);
   useEffect(() => {
     if (loadingState === 'loading') setTooltipInfo(null);
   }, [loadingState]);
@@ -395,9 +396,11 @@ export function MapViewport({
   // transparent frame. `loading` wins over a still-present `cityData` because
   // a second load leaves the previous city on screen while the new one parses:
   // reporting `ready` there would let a driver act on a map that is about to
-  // be replaced. Nothing else derives from this — it is read, never rendered.
+  // be replaced. A parsed city the map has not painted yet is still `loading`:
+  // the loading modal covers it, so nothing on screen can be acted on until
+  // then. Nothing else derives from this — it is read, never rendered.
   const mapState =
-    loadingState === 'loading'
+    loadingState === 'loading' || isDrawingMap
       ? 'loading'
       : cityData !== null
         ? 'ready'
