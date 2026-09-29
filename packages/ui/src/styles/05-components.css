@@ -57,6 +57,18 @@
   overflow-y: auto;
 }
 
+.shell-sidebar__footer {
+  display: flex;
+  flex: 0 0 auto;
+  padding: 6px 8px 10px;
+  border-top: 1px solid var(--shell-separator);
+}
+
+/* The rail item fills the rail; in the wide sidebar it stays a rail-sized key. */
+.shell-sidebar__help {
+  width: 40px;
+}
+
 .shell-context-header {
   display: flex;
   flex: 0 0 auto;
@@ -453,20 +465,17 @@ html:not([data-platform='macos']) .shell-legend > .place-card__section {
 
 .shell-dialog-overlay {
   background: rgb(0 0 0 / var(--shell-overlay-dimming));
+  backdrop-filter: blur(var(--shell-overlay-blur));
 }
 
 .shell-dialog-content {
   color: var(--shell-text-primary);
   background: var(--shell-surface-dialog);
-  border-color: var(--shell-border);
+  border-color: var(--shell-dialog-border);
   border-radius: var(--shell-radius-popover);
   box-shadow: var(--shell-shadow-popover);
   backdrop-filter: var(--shell-popover-backdrop-filter);
   corner-shape: var(--shell-corner-shape, round);
-}
-
-.shell-dialog-content.about-dialog {
-  border-color: var(--about-border);
 }
 
 .shell-document-commands {
@@ -518,7 +527,6 @@ html:not([data-platform='macos']) .shell-legend > .place-card__section {
   width: 20px;
   height: 128px;
   margin: 0;
-  accent-color: var(--shell-accent);
 }
 
 .shell-camera-zoom__number {
@@ -539,9 +547,11 @@ html:not([data-platform='macos']) .shell-legend > .place-card__section {
   border-color: var(--shell-separator);
 }
 
+/* It is focused on open, so a full ring would greet every opening; a
+   focus-colored border is enough to show where typing goes. */
 .shell-camera-zoom__number:focus-visible {
-  outline: 2px solid var(--shell-focus);
-  outline-offset: -2px;
+  outline: none;
+  border-color: var(--shell-focus);
 }
 
 .shell-floating-button + .shell-floating-button,
@@ -1287,5 +1297,82 @@ html:not([data-platform='macos']) .shell-legend > .place-card__section {
     border-color: CanvasText;
     box-shadow: none;
     backdrop-filter: none;
+  }
+}
+
+/* Keyboard shortcuts sheet (Story 3.9) */
+.shell-keys {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+  justify-content: flex-end;
+  color: var(--shell-text-muted);
+  font-size: 12px;
+}
+
+.shell-kbd {
+  min-width: 22px;
+  padding: 2px 6px;
+  font-family: var(--font-shell);
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--shell-text-primary);
+  text-align: center;
+  background: var(--shell-surface);
+  border: 1px solid var(--shell-dialog-border);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+}
+
+.shell-shortcuts__share {
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px;
+  /* The About dialog's water accent: the one cartographic note in the shell. */
+  background: color-mix(in srgb, var(--ui-accent-water) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ui-accent-water) 45%, transparent);
+  border-radius: var(--shell-radius-panel);
+}
+
+.shell-shortcuts__share-line {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  font-size: 13px;
+}
+
+.shell-shortcuts__columns {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 28px;
+}
+
+.shell-shortcuts__column {
+  display: grid;
+  gap: 22px;
+  align-content: start;
+}
+
+.shell-shortcuts__heading {
+  margin-bottom: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--shell-text-muted);
+}
+
+.shell-shortcuts__list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px 12px;
+  align-items: center;
+  font-size: 13px;
+}
+
+@media (max-width: 760px) {
+  .shell-shortcuts__columns {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

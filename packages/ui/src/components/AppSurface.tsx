@@ -27,6 +27,7 @@ import { DlcWarningToast } from './overlays/DlcWarningToast';
 import { ThemeWarningToast } from './overlays/ThemeWarningToast';
 import { UpdateToast } from './overlays/UpdateToast';
 import { AboutDialog } from './overlays/AboutDialog';
+import { ShortcutsSheet } from './overlays/ShortcutsSheet';
 import { ExportStatusOverlay } from './overlays/ExportStatusOverlay';
 import { SchematicLayoutStatusOverlay } from './overlays/SchematicLayoutStatusOverlay';
 import { ExportDialog } from './panels/ExportDialog';
@@ -81,6 +82,8 @@ interface AppSurfaceProps {
   setIsPreferencesOpen: Dispatch<SetStateAction<boolean>>;
   isAboutOpen: boolean;
   setIsAboutOpen: Dispatch<SetStateAction<boolean>>;
+  isShortcutsOpen: boolean;
+  setIsShortcutsOpen: Dispatch<SetStateAction<boolean>>;
   version?: string | undefined;
   loadFilePartial: () => Promise<void>;
   onOpenExportFolder?: (folderPath: string) => Promise<void>;
@@ -103,6 +106,8 @@ export function AppSurface({
   setIsPreferencesOpen,
   isAboutOpen,
   setIsAboutOpen,
+  isShortcutsOpen,
+  setIsShortcutsOpen,
   version,
   loadFilePartial,
   onOpenExportFolder,
@@ -345,6 +350,10 @@ export function AppSurface({
           open={isAboutOpen}
           onOpenChange={setIsAboutOpen}
           version={version}
+        />
+        <ShortcutsSheet
+          open={isShortcutsOpen}
+          onOpenChange={setIsShortcutsOpen}
         />
         <ExportStatusOverlay
           isExporting={exportWorkflow.isExporting}

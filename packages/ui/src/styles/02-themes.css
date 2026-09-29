@@ -18,6 +18,8 @@
   --shell-noise-opacity: 0;
   --shell-inner-highlight: none;
   --shell-overlay-dimming: 0.45;
+  /* Every modal blurs the map behind it, so it stays present but out of focus. */
+  --shell-overlay-blur: 2px;
   --shell-sidebar-backdrop-filter: none;
   --shell-floating-backdrop-filter: blur(var(--shell-backdrop-blur));
   --shell-popover-backdrop-filter: blur(var(--shell-backdrop-blur));
@@ -186,8 +188,8 @@
   --ui-accent-rule: #f09a92;
   --ui-decoration-primary: rgb(233 231 226 / 0.08);
   --ui-decoration-water: rgb(141 201 200 / 0.24);
-  --about-border: rgb(255 255 255 / 0.16);
-  --about-divider: rgb(255 255 255 / 0.14);
+  --shell-dialog-border: rgb(255 255 255 / 0.16);
+  --shell-dialog-divider: rgb(255 255 255 / 0.14);
   --shell-solid-surface: #1b1b25;
   --shell-surface: rgba(27, 27, 37, 0.94);
   --shell-surface-sidebar: var(--shell-surface);

@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
+import { CircleQuestionMark } from 'lucide-react';
 import {
   LAYER_NAMES,
   hasAdvancedOptions,
@@ -217,6 +218,21 @@ export function MapAppearanceSidebar({
             onBack={() => dispatch({ type: 'sidebar/closeDetail' })}
           />
         )}
+      </div>
+      {/* Always in view, with the rail's weight, never behind Preferences (Story 3.9). */}
+      <div className="shell-sidebar__footer">
+        <button
+          type="button"
+          className="shell-rail__item shell-sidebar__help"
+          aria-label={t('shortcuts.open')}
+          title={t('shortcuts.open')}
+          aria-haspopup="dialog"
+          onClick={() => commands['view.shortcuts'].execute()}
+        >
+          <span aria-hidden="true" className="shell-rail__icon">
+            <CircleQuestionMark size={20} strokeWidth={1.5} />
+          </span>
+        </button>
       </div>
       {!collapsed && (
         <SidebarResizeHandle

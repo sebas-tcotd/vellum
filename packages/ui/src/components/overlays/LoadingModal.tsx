@@ -61,19 +61,22 @@ export function LoadingModal() {
   return (
     <div
       data-testid="loading-modal"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 backdrop-blur-[2px]"
+      className="shell-dialog-overlay fixed inset-0 z-50 flex items-center justify-center"
     >
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="w-[min(26rem,calc(100vw-2rem))] rounded-xl border border-border bg-background p-6 shadow-2xl"
+        className="shell-dialog-content w-[min(26rem,calc(100vw-2rem))] border p-6"
       >
         <h2 id={titleId} className="text-base font-semibold">
           {t('loading.title')}
         </h2>
         {/* Non-breaking space keeps the line's height before the first step arrives. */}
-        <p className="mt-1 text-sm text-muted-foreground" aria-live="polite">
+        <p
+          className="mt-1 text-sm text-(--shell-text-muted)"
+          aria-live="polite"
+        >
           {label || ' '}
         </p>
         <Progress

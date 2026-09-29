@@ -82,10 +82,10 @@
   --ui-accent-rule: #d2938e;
   --ui-decoration-primary: rgb(74 64 53 / 0.06);
   --ui-decoration-water: rgb(109 184 183 / 0.14);
-  /* The About dialog is an opaque reading surface. Its borders need contrast
-     against parchment, unlike the white strokes used by translucent chrome. */
-  --about-border: rgb(51 51 51 / 0.16);
-  --about-divider: rgb(51 51 51 / 0.12);
+  /* Dialogs are opaque reading surfaces. Their borders need contrast against
+     parchment, unlike the white strokes used by translucent chrome. */
+  --shell-dialog-border: rgb(51 51 51 / 0.16);
+  --shell-dialog-divider: rgb(51 51 51 / 0.12);
 
   --font-wordmark: 'Cormorant Garamond', 'Georgia', serif;
   --font-ui: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;

@@ -14,6 +14,7 @@ export type ActiveModal =
   | 'export'
   | 'preferences'
   | 'about'
+  | 'shortcuts'
   | 'partialParse'
   | null;
 
@@ -237,10 +238,14 @@ export function shellSessionReducer(
 ): ShellSessionState {
   switch (action.type) {
     case 'sidebar/openDetail':
+      // A detail has nowhere to render on the rail, so asking for one (menu,
+      // Shift+N, Shift+click) brings the sidebar back — as a deliberate choice.
       return {
         ...state,
         sidebar: {
           ...state.sidebar,
+          collapsed: false,
+          autoCollapsed: false,
           view: { kind: 'detail', layerId: action.layerId },
         },
         restoreFocus: action.invoker ?? null,

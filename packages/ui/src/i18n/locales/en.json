@@ -3,7 +3,7 @@
     "title": "Vellum",
     "dropHint": "Drop your city (.vellummap or .cslmap) here",
     "orOpenWith": "or press",
-    "firstUseHint": "Export your city with CSL Map View · Vellum's native exporter coming in v2 →"
+    "firstUseHint": "No file yet? Export it from Cities: Skylines with CSL Map View (.cslmap)"
   },
   "loading": {
     "title": "Opening city",
@@ -390,5 +390,51 @@
     "title": "Color by specialization",
     "neutral": "Unclassified or ambiguous",
     "dominance": "Each name shows the colors of districts where it appears. The sector with the most homes or jobs prevails; specializations in the same sector share a color. Missing information or a tie uses the neutral color."
+  },
+  "shortcuts": {
+    "title": "Keyboard shortcuts",
+    "description": "Everything you can do without leaving the keyboard. Press ? to open or close this sheet.",
+    "share": {
+      "title": "Sharing your city?",
+      "hide": "hides the interface (press {{key}} again to bring it back)",
+      "export": "exports the map in high resolution"
+    },
+    "groups": {
+      "map": "Map",
+      "layers": "Layers",
+      "file": "File",
+      "view": "View",
+      "gestures": "Gestures"
+    },
+    "actions": {
+      "escape": "Close whatever is open",
+      "openFile": "Open map",
+      "export": "Export map",
+      "preferences": "Preferences",
+      "fitCity": "Fit city",
+      "zoomIn": "Zoom in",
+      "zoomOut": "Zoom out",
+      "preciseZoom": "Precise zoom",
+      "rotateLeft": "Rotate left",
+      "rotateRight": "Rotate right",
+      "resetNorth": "Reset north",
+      "mapBounds": "Navigation mode",
+      "layerToggle": "Show or hide a layer",
+      "layerDetail": "A layer's options",
+      "cleanView": "Clean view",
+      "sidebar": "Sidebar",
+      "mapSymbols": "Map symbols",
+      "shortcuts": "This shortcuts sheet",
+      "pan": "Pan the map"
+    },
+    "gestures": {
+      "preciseZoom": "Precise zoom",
+      "clickZoom": "+ click on + or −",
+      "layerDetail": "A layer's options",
+      "clickRail": "+ click on the rail",
+      "boxZoom": "Zoom to an area",
+      "dragMap": "+ drag on the map"
+    },
+    "open": "Keyboard shortcuts"
   }
 }

@@ -133,6 +133,7 @@ export function App({
   const [i18nReady, setI18nReady] = useState(false);
   const [isPreferencesOpen, setIsPreferencesOpen] = useState(false);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
+  const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
   // Ephemeral desktop-shell session (AD-10): sidebar context, Clean view,
   // modal exclusivity and focus restoration. Cartographic state stays in the
   // store; nothing here is duplicated from it.
@@ -147,6 +148,7 @@ export function App({
   const zoomOutRef = useRef<(() => void) | null>(null);
   const toggleNavigationModeRef = useRef<(() => void) | null>(null);
   const rotateByRef = useRef<((delta: number) => void) | null>(null);
+  const panByRef = useRef<((dx: number, dy: number) => void) | null>(null);
   const resetBearingRef = useRef<(() => void) | null>(null);
   const previewCaptureRef = useRef<
     | ((options: ExportPreviewOptions) => Promise<ExportPreviewSnapshot | null>)
@@ -272,6 +274,10 @@ export function App({
     () => toggleNavigationModeRef.current?.(),
     [toggleNavigationModeRef],
   );
+  const handleToggleShortcuts = useCallback(
+    () => setIsShortcutsOpen((open) => !open),
+    [],
+  );
   const handleToggleIconLegend = useCallback(
     () => iconLegendToggleRef.current?.(),
     [iconLegendToggleRef],
@@ -279,6 +285,10 @@ export function App({
   const handleTogglePreciseZoom = useCallback(
     () => preciseZoomToggleRef.current?.(),
     [preciseZoomToggleRef],
+  );
+  const handlePanBy = useCallback(
+    ([dx, dy]: readonly [number, number]) => panByRef.current?.(dx, dy),
+    [panByRef],
   );
   const handleRotateBy = useCallback(
     (delta: number) => rotateByRef.current?.(delta),
@@ -331,7 +341,9 @@ export function App({
           ? 'preferences'
           : isAboutOpen
             ? 'about'
-            : null;
+            : isShortcutsOpen
+              ? 'shortcuts'
+              : null;
 
   useEffect(() => {
     if (blockingModal === null) {
@@ -365,8 +377,10 @@ export function App({
     togglePreciseZoom: handleTogglePreciseZoom,
     resetBearing: handleResetBearing,
     rotateBy: handleRotateBy,
+    panBy: handlePanBy,
     toggleIconLegend: handleToggleIconLegend,
     toggleNavigationMode: handleToggleNavigationMode,
+    toggleShortcuts: handleToggleShortcuts,
     toggleLayer,
     setActiveTheme,
     setTransitDimmingEnabled,
@@ -413,6 +427,9 @@ export function App({
     ...(commands['view.cleanView'].canExecute
       ? { onHidePanel: commands['view.cleanView'].execute }
       : {}),
+    ...(commands['view.sidebar'].canExecute
+      ? { onToggleSidebar: commands['view.sidebar'].execute }
+      : {}),
     ...(commands['view.mapBounds'].canExecute
       ? { onToggleNavigationMode: commands['view.mapBounds'].execute }
       : {}),
@@ -421,6 +438,9 @@ export function App({
       : {}),
     ...(commands['view.rotate'].canExecute
       ? { onRotateBy: commands['view.rotate'].execute }
+      : {}),
+    ...(commands['view.pan'].canExecute
+      ? { onPanBy: commands['view.pan'].execute }
       : {}),
     ...(commands['view.resetNorth'].canExecute
       ? { onResetBearing: commands['view.resetNorth'].execute }
@@ -433,7 +453,11 @@ export function App({
       : {}),
     // Escape is only offered while no dialog owns focus — dialogs trap and
     // consume it themselves, so the ladder never has two listeners racing.
-    ...(!isExportDialogOpen && !isPreferencesOpen && !isAboutOpen
+    onShowShortcuts: commands['view.shortcuts'].execute,
+    ...(!isExportDialogOpen &&
+    !isPreferencesOpen &&
+    !isAboutOpen &&
+    !isShortcutsOpen
       ? { onEscape: handleEscape }
       : {}),
     enabled: loadingState !== 'loading' && !isExportDialogOpen,
@@ -518,6 +542,7 @@ export function App({
         zoomOutRef,
         toggleNavigationModeRef,
         rotateByRef,
+        panByRef,
         resetBearingRef,
         themes,
         subscribeServiceIconLegendRef,
@@ -536,6 +561,8 @@ export function App({
       setIsPreferencesOpen={setIsPreferencesOpen}
       isAboutOpen={isAboutOpen}
       setIsAboutOpen={setIsAboutOpen}
+      isShortcutsOpen={isShortcutsOpen}
+      setIsShortcutsOpen={setIsShortcutsOpen}
       version={version}
       schematicLayoutClient={schematicLayoutClient}
       loadFilePartial={loadFilePartial}

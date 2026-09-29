@@ -19,11 +19,13 @@ export type CommandId =
   | 'view.preciseZoom'
   | 'view.resetNorth'
   | 'view.rotate'
+  | 'view.pan'
   | 'view.cleanView'
   | 'view.schematic'
   | 'view.sidebar'
   | 'view.mapSymbols'
   | 'view.mapBounds'
+  | 'view.shortcuts'
   | 'layer.toggle'
   | 'layer.detail'
   | 'style.set'
@@ -39,11 +41,14 @@ export interface CommandPayloads {
   'view.preciseZoom': void;
   'view.resetNorth': void;
   'view.rotate': number;
+  /** Screen offset in CSS pixels, `[dx, dy]`. */
+  'view.pan': readonly [number, number];
   'view.cleanView': void;
   'view.schematic': void;
   'view.sidebar': void;
   'view.mapSymbols': void;
   'view.mapBounds': void;
+  'view.shortcuts': void;
   'layer.toggle': LayerName;
   'layer.detail': LayerName;
   'style.set': string;
@@ -94,8 +99,11 @@ export interface CommandDeps {
   togglePreciseZoom: () => void;
   resetBearing: () => void;
   rotateBy: (delta: number) => void;
+  panBy: (offset: readonly [number, number]) => void;
   toggleIconLegend: () => void;
   toggleNavigationMode: () => void;
+  /** Opens or closes the keyboard shortcuts sheet. */
+  toggleShortcuts: () => void;
   toggleLayer: (layer: LayerName) => void;
   setActiveTheme: (theme: string) => void;
   setTransitDimmingEnabled: (enabled: boolean) => void;
@@ -133,8 +141,10 @@ export function useDesktopCommands(deps: CommandDeps): CommandRegistry {
     togglePreciseZoom,
     resetBearing,
     rotateBy,
+    panBy,
     toggleIconLegend,
     toggleNavigationMode,
+    toggleShortcuts,
     toggleLayer,
     setActiveTheme,
     setTransitDimmingEnabled,
@@ -212,6 +222,12 @@ export function useDesktopCommands(deps: CommandDeps): CommandRegistry {
       // the menu route keeps working exactly as before.
       'view.resetNorth': make('view.resetNorth', mapReason, resetBearing),
       'view.rotate': make('view.rotate', mapReason, (delta) => rotateBy(delta)),
+      // Arrows belong to a dialog while one is open (it may need to scroll).
+      'view.pan': make(
+        'view.pan',
+        mapReason ?? (hasBlockingModal ? 'modal' : null),
+        (offset) => panBy(offset),
+      ),
       'view.cleanView': make(
         'view.cleanView',
         cleanViewReason,
@@ -235,6 +251,8 @@ export function useDesktopCommands(deps: CommandDeps): CommandRegistry {
         toggleSidebar,
       ),
       'view.mapBounds': make('view.mapBounds', mapReason, toggleNavigationMode),
+      // The keymap applies to every surface, schematic included.
+      'view.shortcuts': make('view.shortcuts', null, toggleShortcuts),
       'layer.toggle': make('layer.toggle', mapReason, (layer) =>
         toggleLayer(layer),
       ),
@@ -263,6 +281,7 @@ export function useDesktopCommands(deps: CommandDeps): CommandRegistry {
     openFileDialog,
     resetBearing,
     rotateBy,
+    panBy,
     setActiveTheme,
     setTransitDimmingEnabled,
     toggleCleanView,
@@ -273,6 +292,7 @@ export function useDesktopCommands(deps: CommandDeps): CommandRegistry {
     toggleLayerDetail,
     toggleNavigationMode,
     togglePreciseZoom,
+    toggleShortcuts,
     transitDimmingEnabled,
     zoomIn,
     zoomOut,
