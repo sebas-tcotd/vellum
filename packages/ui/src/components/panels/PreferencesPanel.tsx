@@ -35,6 +35,7 @@ export function PreferencesPanel({
   const setLanguage = useVellumStore((s) => s.setLanguage);
   const autoUpdateEnabled = useVellumStore((s) => s.autoUpdateEnabled);
   const setAutoUpdateEnabled = useVellumStore((s) => s.setAutoUpdateEnabled);
+  const updatesManagedByStore = useVellumStore((s) => s.updatesManagedByStore);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -81,13 +82,24 @@ export function PreferencesPanel({
             "automatic updates" would have promised the wrong thing in both
             directions (Story 1.8 AC4).
           */}
-          <label className="flex items-center justify-between gap-2 text-xs font-semibold">
-            <span>{t('preferences.autoUpdate')}</span>
-            <Switch
-              checked={autoUpdateEnabled}
-              onCheckedChange={setAutoUpdateEnabled}
-            />
-          </label>
+          {/*
+            A Store install never checks (the Store updates it), so the switch
+            would do nothing. The note stays in its place so someone coming from
+            the NSIS build still finds where the setting went.
+          */}
+          {updatesManagedByStore ? (
+            <p className="text-xs text-muted-foreground">
+              {t('preferences.autoUpdateManagedByStore')}
+            </p>
+          ) : (
+            <label className="flex items-center justify-between gap-2 text-xs font-semibold">
+              <span>{t('preferences.autoUpdate')}</span>
+              <Switch
+                checked={autoUpdateEnabled}
+                onCheckedChange={setAutoUpdateEnabled}
+              />
+            </label>
+          )}
         </div>
       </DialogContent>
     </Dialog>

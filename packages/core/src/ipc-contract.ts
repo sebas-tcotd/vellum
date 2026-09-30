@@ -20,6 +20,8 @@ export const IPC_COMMANDS = {
    * install fails (e.g. a declined Windows UAC prompt).
    */
   INSTALL_UPDATE: 'install_update',
+  /** Whether updates belong to the Microsoft Store (MSIX package identity); the shell then never runs its own updater. */
+  UPDATES_MANAGED_BY_STORE: 'updates_managed_by_store',
   /** Returns (and clears) the `.cslmap` path the app was launched with via the OS file association, if any. */
   GET_STARTUP_FILE_PATH: 'get_startup_file_path',
   PARSE_CSLMAP: 'parse_cslmap',

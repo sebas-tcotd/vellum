@@ -106,6 +106,8 @@ pub fn run() {
             updater::get_pending_update,
             #[cfg(desktop)]
             updater::install_update,
+            #[cfg(desktop)]
+            updater::updates_managed_by_store,
             startup::get_startup_file_path,
         ])
         .setup(|app| {
@@ -138,8 +140,10 @@ pub fn run() {
                 }
             });
 
+            // A packaged (MSIX) install is updated by the Store: no plugin,
+            // no check, so no toast can ever offer the NSIS installer.
             #[cfg(desktop)]
-            {
+            if !updater::is_packaged() {
                 app.handle()
                     .plugin(tauri_plugin_updater::Builder::new().build())?;
 

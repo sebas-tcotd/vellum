@@ -16,6 +16,7 @@ const storeState = {
   setLanguage,
   autoUpdateEnabled: false,
   setAutoUpdateEnabled,
+  updatesManagedByStore: false,
 };
 
 vi.mock('../../store/vellum-store', () => ({
@@ -30,6 +31,17 @@ describe('PreferencesPanel', () => {
     vi.clearAllMocks();
     storeState.activeLanguage = 'en';
     storeState.autoUpdateEnabled = false;
+    storeState.updatesManagedByStore = false;
+  });
+
+  it('en una instalación de la Store muestra la nota en lugar del switch de auto-update', () => {
+    storeState.updatesManagedByStore = true;
+    render(<PreferencesPanel open onOpenChange={onOpenChange} />);
+
+    expect(
+      screen.getByText('preferences.autoUpdateManagedByStore'),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('switch')).not.toBeInTheDocument();
   });
 
   it('renderiza el selector de idioma y el switch de auto-update con los valores actuales', () => {

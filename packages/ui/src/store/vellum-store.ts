@@ -102,6 +102,10 @@ interface VellumStore {
    */
   autoUpdateEnabled: boolean;
 
+  /** `true` in a Microsoft Store (MSIX) install: the Store updates Vellum, so the
+   * shell never checks and Preferences shows a note instead of the switch. */
+  updatesManagedByStore: boolean;
+
   /** The currently active application language code. */
   activeLanguage: 'en' | 'es';
 
@@ -227,6 +231,8 @@ interface VellumStore {
   /** Sets (or clears, with `null`) the pending update notification. No persistence
    * — this is a session event, not a preference. */
   setUpdateInfo: (info: UpdatePayload | null) => void;
+
+  setUpdatesManagedByStore: (managed: boolean) => void;
 }
 
 /**
@@ -260,6 +266,7 @@ export const useVellumStore = create<VellumStore>((set, get) => ({
   availableThemes: [],
   themeWarnings: [],
   autoUpdateEnabled: true,
+  updatesManagedByStore: false,
   activeLanguage: 'en',
   updateInfo: null,
   dlcWarnings: [],
@@ -495,4 +502,7 @@ export const useVellumStore = create<VellumStore>((set, get) => ({
     })),
 
   setUpdateInfo: (info) => set({ updateInfo: info }),
+
+  setUpdatesManagedByStore: (managed) =>
+    set({ updatesManagedByStore: managed }),
 }));
