@@ -160,6 +160,29 @@ Aun así, una build de Store necesita como mínimo:
 2. Gestionar en la app la ausencia de WebView2 (decidido: se soporta Windows 10 y `MinVersion` sigue en `10.0.17763.0`).
 3. Aceptar que la asociación `.cslmap` deja de ser opt-in, y añadir `.vellummap`.
 4. Decidir las arquitecturas: solo x64 o un `.msixbundle` con arm64.
-5. Reservar el nombre en Partner Center.
+5. ~~Reservar el nombre en Partner Center.~~ Hecho el 2026-09-30; ver [Identidad en la Store](#identidad-en-la-store).
 
 Nada de eso entra en este spike.
+
+## Identidad en la Store
+
+Reservada en Partner Center el 2026-09-30. «Vellum» a secas no estaba disponible: lo tiene reservado otro, aunque no hay ninguna app publicada con ese nombre. El producto usa estos nombres:
+
+- **Vellum City Maps**: principal, se usa como `Properties/DisplayName`.
+- **Vellum Atlas**: respaldo, reservado en el mismo producto.
+
+«Cities: Skylines» no va en el nombre porque es marca de Paradox. La compatibilidad se indica en la descripción.
+
+La reserva caduca si no se envía la app antes de unos tres meses (hacia el **2026-12-30**).
+
+Valores para el manifiesto de la build de Store (no son secretos: van dentro de cada paquete):
+
+| Campo                                     | Valor                                                             |
+| ----------------------------------------- | ----------------------------------------------------------------- |
+| `Package/Identity/Name`                   | `SebastianVargasPizango.VellumCityMaps`                           |
+| `Package/Identity/Publisher`              | `CN=F93C1C62-364D-4C65-83BA-6DDD8A04B97F`                         |
+| `Package/Properties/PublisherDisplayName` | `Sebastian Vargas Pizango`                                        |
+| Package Family Name                       | `SebastianVargasPizango.VellumCityMaps_4vm01np6btxc4`             |
+| Store ID                                  | `9N65WG3V160T` (<https://apps.microsoft.com/detail/9N65WG3V160T>) |
+
+`PublisherDisplayName` («Sebastian Vargas Pizango») no coincide con `bundle.publisher` de `tauri.conf.json` («Sebastian Enrique Vargas Pizango»), y está bien así. **`bundle.publisher` no se toca**: en el `.nsi` es `MANUFACTURER`, que sirve para encontrar el MSI antiguo (`MigrateLegacyMsi`) y forma la clave `HKCU\Software\<publisher>` de donde se restaura el directorio de instalación. Por eso la build de Store tampoco puede reutilizar la comprobación `Publisher == CN=<bundle.publisher>` de `build.ps1`.
