@@ -109,6 +109,7 @@ Page custom SplashPage SplashLeave
 !define MUI_PAGE_CUSTOMFUNCTION_SHOW StyleInstFilesPage
 !insertmacro MUI_PAGE_INSTFILES
 !define MUI_PAGE_CUSTOMFUNCTION_PRE SkipIfPassive
+!define MUI_PAGE_CUSTOMFUNCTION_SHOW ShowFinishButton
 !insertmacro MUI_PAGE_FINISH
 
 !insertmacro MUI_UNPAGE_CONFIRM
@@ -251,6 +252,14 @@ Function StyleInstFilesPage
   GetDlgItem $0 $HWNDPARENT 1004
   SendMessage $0 ${PBM_SETBARCOLOR} 0 0x35404A
   SetCtlColors $HWNDPARENT "4a4035" "f7f6f1"
+FunctionEnd
+
+; StyleInstFilesPage hides the shared Next button (ID 1) and nothing showed it
+; again. The finish page reuses that button as "Finish" and MUI disables Cancel
+; there, so the installer ended with no way to close it, not even the X.
+Function ShowFinishButton
+  GetDlgItem $0 $HWNDPARENT 1
+  ShowWindow $0 ${SW_SHOW}
 FunctionEnd
 
 Function .onInit
