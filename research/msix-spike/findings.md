@@ -37,7 +37,7 @@ La asociación usa `uap3:FileTypeAssociation` y no `uap:FileTypeAssociation`. `u
 
 Certificado de esta corrida: huella `E4FDAA2B3E6766E4C7B00B65A4DF2F64A2861F0E`, válido 3 meses. El script lo reutiliza en corridas siguientes mientras siga vigente.
 
-Efecto secundario: la compilación de release reescribe `Cargo.lock` (paquete `vellum` 0.10.0 → 0.11.1), porque el bump de release-please no actualizó el lockfile. Se revirtió con `git checkout -- Cargo.lock` y queda anotado como hallazgo fuera del spike.
+Efecto secundario: la compilación de release reescribe `Cargo.lock` (paquete `vellum` 0.10.0 → 0.11.1), porque el bump de release-please no actualizó el lockfile. Se revirtió con `git checkout -- Cargo.lock`. Después se corrigió fuera del spike: `release-please-config.json` incluye ahora `Cargo.lock` en `extra-files`.
 
 ## Resultado del WACK
 
@@ -55,7 +55,7 @@ Lo confirmado: pasaron todos los demás tests, entre ellos los obligatorios «Ma
 
 ## Pasos manuales
 
-El humano ejecutó estos pasos el 2026-09-30; los resultados están en la tabla de veredictos. No informó de forma explícita la comprobación de los 5 temas (paso 3) ni el listado de `LocalCache` (paso 5), solo que no observó ningún comportamiento inesperado. Por eso el riesgo «Escrituras de archivos» sigue sin verificar.
+El humano ejecutó estos pasos el 2026-09-30; los resultados están en la tabla de veredictos. Después confirmó que el selector muestra los 5 temas integrados (paso 3), así que `resource_dir()` resuelve dentro de `WindowsApps`. No informó del listado de `LocalCache` (paso 5), así que la parte de temas de usuario del riesgo «Escrituras de archivos» sigue sin verificar.
 
 Todos los paths son relativos a la raíz del repo. En esta máquina ya hay un Vellum NSIS instalado (`%LOCALAPPDATA%\Vellum`), así que en Inicio aparecerán dos entradas «Vellum». La del MSIX es la que Windows asocia al paquete `VellumSpike.Vellum`. Hoy no existe ninguna asociación `.cslmap` en `HKCR`, así que la del paquete no compite con nada.
 
@@ -139,6 +139,7 @@ Salen de leer el código contra el modelo de MSIX, salvo el primero, que confirm
   - Desactivarlo contradice el `longDescription` de `tauri.conf.json` («the only network request … is the update check») y deja sin sentido el ajuste «Buscar actualizaciones al iniciar» (`preferences.autoUpdate`): la ficha de la Store y ese ajuste tienen que cambiar en esa build.
 - **El paquete no incluye WebView2.** Depende del runtime evergreen, que Windows 11 trae (aquí, 154.0.4258.37). En un Windows 10 sin WebView2, el paquete instalaría pero la ventana no abriría. La Store no tiene una dependencia declarativa para WebView2: habría que exigir Windows 11 o gestionar en la app la ausencia del runtime. La `Section WebView2` de NSIS no tiene equivalente en el MSIX.
   - La decisión se traduce en el `MinVersion` del manifiesto: hoy es `10.0.17763.0` (Windows 10 1809); exigir Windows 11 es `10.0.22000.0`.
+  - **Decidido (2026-09-30):** se soporta Windows 10, porque parte de la comunidad de CS1 sigue en él. `MinVersion` se queda en `10.0.17763.0` y la app tiene que detectar la ausencia del runtime antes de crear la ventana y avisar al usuario con un mensaje nativo que enlace al instalador de WebView2.
 - **Solo x64.** El paquete es `ProcessorArchitecture="x64"`. No hay build arm64 ni `.msixbundle`; para la Store hay que decidir si se publica solo x64 o se añade arm64 en un bundle.
 - **Escrituras de archivos.**
   - `app_data_dir/themes` (`%APPDATA%\com.vellum.desktop`) y el perfil de WebView2 se redirigen por paquete. Funciona, pero los temas de usuario de una instalación NSIS/MSI previa no se ven desde el MSIX, y desinstalar el paquete los borra.
@@ -156,7 +157,7 @@ La vía Store es viable. El binario de Tauri se empaqueta y se firma sin cambios
 Aun así, una build de Store necesita como mínimo:
 
 1. Desactivar el updater, y ajustar la descripción de la ficha (`longDescription`) y el ajuste «Buscar actualizaciones al iniciar» (`preferences.autoUpdate`) a esa build.
-2. Decidir la política de WebView2 (exigir Windows 11 con `MinVersion 10.0.22000.0` o gestionar la ausencia del runtime).
+2. Gestionar en la app la ausencia de WebView2 (decidido: se soporta Windows 10 y `MinVersion` sigue en `10.0.17763.0`).
 3. Aceptar que la asociación `.cslmap` deja de ser opt-in, y añadir `.vellummap`.
 4. Decidir las arquitecturas: solo x64 o un `.msixbundle` con arm64.
 5. Reservar el nombre en Partner Center.
