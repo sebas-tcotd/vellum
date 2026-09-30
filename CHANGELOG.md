@@ -2,6 +2,24 @@
 
 All notable changes to Vellum will be documented here.
 
+## [0.12.0](https://github.com/sebas-tcotd/vellum/compare/v0.11.1...v0.12.0) (2026-09-30)
+
+
+### Features
+
+* **updater:** ceder las actualizaciones a la Microsoft Store en instalaciones MSIX ([1499855](https://github.com/sebas-tcotd/vellum/commit/14998558cdafc9554ccd01e5d3ffb9b0f0a191d7))
+* **updater:** ceder las actualizaciones a la Microsoft Store en instalaciones MSIX ([572f07a](https://github.com/sebas-tcotd/vellum/commit/572f07a20211de8aadba4e98521d6efdca70d6ee))
+* **windows:** avisar cuando falta el runtime de WebView2 ([6cc19db](https://github.com/sebas-tcotd/vellum/commit/6cc19dbfdf53eee58dc9f309822b413f804a1808))
+* **windows:** avisar cuando falta el runtime de WebView2 ([b2f80f7](https://github.com/sebas-tcotd/vellum/commit/b2f80f78ad457d93b17b68749d6983ff554b19f8))
+
+
+### Bug Fixes
+
+* **release:** actualizar Cargo.lock en el bump de release-please ([884b9fd](https://github.com/sebas-tcotd/vellum/commit/884b9fd24e357a15b66ac7fa8deb69398af2b9cc))
+* **release:** actualizar Cargo.lock en el bump de release-please ([51f3fcf](https://github.com/sebas-tcotd/vellum/commit/51f3fcf90d2f2c56fca68b90d0b770bdb0f0351d))
+* **windows:** mostrar el botón Finalizar del instalador NSIS ([e9f424b](https://github.com/sebas-tcotd/vellum/commit/e9f424b362eaff3780875a4eb5cb5777bf96f05f))
+* **windows:** mostrar el botón Finalizar del instalador NSIS ([1c84772](https://github.com/sebas-tcotd/vellum/commit/1c847721fad5d9cac7b21ae7aa0e7c5b95c959d8))
+
 ## [0.11.1](https://github.com/sebas-tcotd/vellum/compare/v0.11.0...v0.11.1) (2026-09-30)
 
 
