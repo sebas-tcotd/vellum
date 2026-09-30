@@ -112,7 +112,7 @@ Estos comandos dejan la máquina sin el paquete ni el certificado de prueba:
 ```powershell
 # PowerShell normal
 Get-AppxPackage VellumSpike.Vellum | Remove-AppxPackage
-Get-ChildItem Cert:\CurrentUser\My | Where-Object FriendlyName -eq 'Vellum MSIX spike (test only)' | Remove-Item -DeleteKey
+Get-ChildItem Cert:\CurrentUser\My | Where-Object FriendlyName -eq 'Vellum MSIX spike (test only)' | ForEach-Object { Remove-Item -Path "Cert:\CurrentUser\My\$($_.Thumbprint)" -DeleteKey }
 
 # PowerShell elevado
 Get-ChildItem Cert:\LocalMachine\TrustedPeople | Where-Object Subject -eq 'CN=Sebastian Enrique Vargas Pizango' | Remove-Item
@@ -121,7 +121,7 @@ Get-ChildItem Cert:\LocalMachine\TrustedPeople | Where-Object Subject -eq 'CN=Se
 Remove-Item target\msix-spike -Recurse -Force
 ```
 
-`-DeleteKey` borra también la clave privada. El filtro por Subject cubre cualquier certificado regenerado; la huella de esta corrida (`E4FDAA2B3E6766E4C7B00B65A4DF2F64A2861F0E`) queda solo como referencia, y `build.ps1` imprime la vigente al final («Certificate: ... thumbprint ...»).
+`-DeleteKey` borra también la clave privada. Es un parámetro dinámico del proveedor `Cert:`, así que solo existe cuando `Remove-Item` recibe una ruta `Cert:\...`; si se le pasa el certificado por tubería, falla con «No se encuentra ningún parámetro… 'DeleteKey'». El filtro por Subject cubre cualquier certificado regenerado; la huella de esta corrida (`E4FDAA2B3E6766E4C7B00B65A4DF2F64A2861F0E`) queda solo como referencia, y `build.ps1` imprime la vigente al final («Certificate: ... thumbprint ...»).
 
 Para comprobar la limpieza: `Get-AppxPackage *Vellum*` no devuelve nada, y `Get-ChildItem Cert:\LocalMachine\TrustedPeople, Cert:\CurrentUser\My | Where-Object Subject -eq 'CN=Sebastian Enrique Vargas Pizango'` tampoco.
 
