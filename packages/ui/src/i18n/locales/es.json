@@ -194,6 +194,7 @@
     "title": "Preferencias",
     "language": "Idioma",
     "autoUpdate": "Buscar actualizaciones al iniciar",
+    "autoUpdateManagedByStore": "Las actualizaciones las gestiona Microsoft Store.",
     "language_en": "Inglés",
     "language_es": "Español"
   },

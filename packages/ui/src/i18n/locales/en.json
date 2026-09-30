@@ -194,6 +194,7 @@
     "title": "Preferences",
     "language": "Language",
     "autoUpdate": "Check for updates at startup",
+    "autoUpdateManagedByStore": "Updates are managed by the Microsoft Store.",
     "language_en": "English",
     "language_es": "Spanish"
   },

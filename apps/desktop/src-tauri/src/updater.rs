@@ -27,6 +27,39 @@ pub fn get_pending_update() -> Option<UpdatePayload> {
     pending_update().lock().ok()?.take()
 }
 
+/// Whether Vellum runs with MSIX package identity (Microsoft Store or a sideloaded package).
+///
+/// # Remarks
+/// A packaged install is updated by the Store. Running the NSIS installer from
+/// [`install_update`] would put a second per-user copy next to the package and leave the
+/// package on the old version (spike 6.2), so the shell skips the updater entirely when
+/// this is `true`. This is the only place that asks Windows; everywhere else takes the
+/// answer as a plain `bool`. Always `false` off Windows.
+#[must_use]
+pub fn is_packaged() -> bool {
+    #[cfg(windows)]
+    {
+        use windows_sys::Win32::Foundation::APPMODEL_ERROR_NO_PACKAGE;
+        use windows_sys::Win32::Storage::Packaging::Appx::GetCurrentPackageFullName;
+
+        let mut length = 0u32;
+        // SAFETY: a zero length with a null buffer is the documented way to ask only
+        // whether the process has a package identity; Windows writes nothing to it.
+        let result = unsafe { GetCurrentPackageFullName(&mut length, std::ptr::null_mut()) };
+        result != APPMODEL_ERROR_NO_PACKAGE
+    }
+    #[cfg(not(windows))]
+    false
+}
+
+/// Tells the frontend whether updates belong to the Microsoft Store, so Preferences can
+/// say so instead of offering a startup check that would never run.
+#[must_use]
+#[tauri::command]
+pub fn updates_managed_by_store() -> bool {
+    is_packaged()
+}
+
 /// Builds the GitHub Release notes URL for a given app version.
 ///
 /// # Remarks

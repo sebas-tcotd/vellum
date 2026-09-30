@@ -179,6 +179,9 @@ export function App({
   const toggleLayer = useVellumStore((s) => s.toggleLayer);
   const setThemeWarnings = useVellumStore((s) => s.setThemeWarnings);
   const setUpdateInfo = useVellumStore((s) => s.setUpdateInfo);
+  const setUpdatesManagedByStore = useVellumStore(
+    (s) => s.setUpdatesManagedByStore,
+  );
 
   // Load all .vellumstyle themes once at startup (populates the store + returns full styles).
   const themes = useThemes();
@@ -491,6 +494,16 @@ export function App({
         console.warn('App: failed to load pending update notification', error);
       });
   }, [invoke, updateListenerSettled, setUpdateInfo]);
+
+  useEffect(() => {
+    void invoke<boolean>(IPC_COMMANDS.UPDATES_MANAGED_BY_STORE)
+      // `=== true`: the no-op default adapter resolves to `undefined`, which
+      // must read as the regular (non-Store) build.
+      .then((managed) => setUpdatesManagedByStore(managed === true))
+      .catch((error: unknown) => {
+        console.warn('App: failed to read the update channel', error);
+      });
+  }, [invoke, setUpdatesManagedByStore]);
 
   useEffect(() => {
     Promise.all([initI18n(), loadPersistedPreferences()])
