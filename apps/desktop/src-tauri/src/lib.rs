@@ -20,6 +20,8 @@ pub mod startup;
 /// dependency it wraps (there is no updater on mobile).
 #[cfg(desktop)]
 pub mod updater;
+/// Native notice when the WebView2 runtime is missing (Windows 10 without it).
+mod webview2;
 
 use export::session::{sweep_stale_temp_files, ExportSessionManager};
 use std::sync::Arc;
@@ -83,6 +85,14 @@ fn update_check_enabled_from(stored: Option<&serde_json::Value>) -> bool {
 /// project expand to mobile platforms in the future.
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Without the runtime Tauri cannot create the window and, with no console,
+    // Vellum would just not open. Say why instead (Windows 10, MSIX build).
+    #[cfg(windows)]
+    if tauri::webview_version().is_err() {
+        webview2::notify_missing_runtime();
+        return;
+    }
+
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_store::Builder::new().build())
