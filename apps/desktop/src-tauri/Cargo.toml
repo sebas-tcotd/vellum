@@ -30,7 +30,11 @@ parser-cslmap = { path = "../../../packages/parser-cslmap" }
 tokio = { version = "1", features = ["rt"] }
 png = "0.18"
 
-# Only for `updater::is_packaged` (MSIX package identity, spike 6.2).
+# `updater::is_packaged` (MSIX identity) and the missing-WebView2 notice.
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Storage_Packaging_Appx"] }
+windows-sys = { version = "0.61", features = [
+  "Win32_Foundation",
+  "Win32_Storage_Packaging_Appx",
+  "Win32_UI_WindowsAndMessaging",
+] }
 
