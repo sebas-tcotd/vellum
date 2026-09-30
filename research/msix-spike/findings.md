@@ -156,8 +156,8 @@ La vía Store es viable. El binario de Tauri se empaqueta y se firma sin cambios
 
 Aun así, una build de Store necesita como mínimo:
 
-1. Desactivar el updater, y ajustar la descripción de la ficha (`longDescription`) y el ajuste «Buscar actualizaciones al iniciar» (`preferences.autoUpdate`) a esa build.
-2. Gestionar en la app la ausencia de WebView2 (decidido: se soporta Windows 10 y `MinVersion` sigue en `10.0.17763.0`).
+1. Desactivar el updater, y ajustar la descripción de la ficha (`longDescription`) y el ajuste «Buscar actualizaciones al iniciar» (`preferences.autoUpdate`) a esa build. Hecho en [#122](https://github.com/sebas-tcotd/vellum/pull/122): el updater no arranca si hay identidad de paquete y Preferencias muestra una nota. La descripción de la Store se escribe en Partner Center y no es `longDescription`.
+2. Gestionar en la app la ausencia de WebView2 (decidido: se soporta Windows 10 y `MinVersion` sigue en `10.0.17763.0`). Hecho en `src-tauri/src/webview2.rs`: aviso nativo con enlace de descarga, probado en Windows simulando la falta del runtime con `WEBVIEW2_BROWSER_EXECUTABLE_FOLDER`.
 3. Aceptar que la asociación `.cslmap` deja de ser opt-in, y añadir `.vellummap`.
 4. Decidir las arquitecturas: solo x64 o un `.msixbundle` con arm64.
 5. ~~Reservar el nombre en Partner Center.~~ Hecho el 2026-09-30; ver [Identidad en la Store](#identidad-en-la-store).
