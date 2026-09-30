@@ -2,6 +2,15 @@
 
 All notable changes to Vellum will be documented here.
 
+## [0.11.1](https://github.com/sebas-tcotd/vellum/compare/v0.11.0...v0.11.1) (2026-09-30)
+
+
+### Bug Fixes
+
+* **renderer:** árboles que no cargan tras pan y fit de regreso a tirones ([92646e9](https://github.com/sebas-tcotd/vellum/commit/92646e9627e8b0ebc707efaf0ab178b9ae9da616))
+* **renderer:** keep tree crowns loading after panning at detail zoom ([646e699](https://github.com/sebas-tcotd/vellum/commit/646e699bc267c0a207b7d628b2c178a4e60136a6))
+* **renderer:** return to the fit in one animation after panning off the city ([2f73aab](https://github.com/sebas-tcotd/vellum/commit/2f73aabb34be83686fb8923022834d6f5a343403))
+
 ## [0.11.0](https://github.com/sebas-tcotd/vellum/compare/v0.10.0...v0.11.0) (2026-09-29)
 
 
