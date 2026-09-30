@@ -4,9 +4,13 @@
 //! little-endian `.bin` grids for rasters. The contract is published as JSON Schema
 //! in `schema/vellummap.schema.json` and documented in `docs/es/vellummap-format.md`.
 //!
-//! Reading is strict: anything the contract does not declare is a `VellumError`,
-//! never a silent reinterpretation. A valid document is turned into a `RawCity` and
-//! goes through the same `build_city_data` path as a `.cslmap`.
+//! Reading is strict with every version it knows: anything the contract does
+//! not declare is a `VellumError`, never a silent reinterpretation. The one
+//! tolerance is the minor rule: a manifest or module with a minor newer than this
+//! reader knows may carry fields it does not know, and those are ignored.
+//! Unknown modules, paths or enum values stay errors — the v1 container has fixed
+//! paths. A valid document is turned into a `RawCity` and goes through the same
+//! `build_city_data` path as a `.cslmap`.
 
 mod areas;
 mod manifest;
@@ -38,7 +42,8 @@ use std::collections::HashSet;
 
 /// Value of the manifest's `format` field.
 pub(crate) const FORMAT: &str = "vellummap";
-/// `exportSchemaVersion` written by this crate.
+/// `exportSchemaVersion` written by this crate. Stays `1.0`: the converter has no
+/// city identity, the one field `1.1` adds.
 pub(crate) const EXPORT_SCHEMA_VERSION: &str = "1.0";
 /// Version written for every module by this crate.
 pub(crate) const MODULE_VERSION: &str = "1.0";

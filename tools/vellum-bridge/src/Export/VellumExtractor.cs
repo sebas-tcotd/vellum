@@ -12,11 +12,14 @@ namespace VellumBridge.Export
     internal static class VellumExtractor
     {
         // Un fallo en un módulo obligatorio lanza ExportFailedException: la exportación se aborta.
-        internal static VellumModel Extract(string producerVersion)
+        // `cityId` y `parentSnapshotId` vienen de la identidad guardada en la partida (BridgeIdentity).
+        internal static VellumModel Extract(string producerVersion, string cityId, string parentSnapshotId)
         {
             var simulation = Singleton<SimulationManager>.instance;
             var model = new VellumModel();
             model.snapshotId = Guid.NewGuid().ToString();
+            model.cityId = cityId;
+            model.parentSnapshotId = parentSnapshotId;
             model.exportedAtUtc = DateTime.UtcNow;
             model.producerVersion = producerVersion;
             model.gameVersion = BuildConfig.applicationVersion;

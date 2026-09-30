@@ -296,6 +296,8 @@ pub(crate) fn build_city_data(mut raw: RawCity) -> Result<CityData, VellumError>
         city_name: raw.city_name,
         // The native adapter overrides this after the shared construction.
         source: CitySource::Cslmap,
+        // Likewise: only a `.vellummap` with `city.id` sets it.
+        city_id: None,
         file_name: String::new(),
         generated_at: raw.generated_at,
         bounds,

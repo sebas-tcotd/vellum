@@ -93,6 +93,10 @@ pub struct CityData {
     /// Document this city was read from. Drives the sidebar chip shown for `.cslmap`.
     #[serde(default)]
     pub source: CitySource,
+    /// Stable identity of the city across exports (`.vellummap` manifest `city.id`,
+    /// Bridge 0.9). Absent for `.cslmap` and for documents without one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub city_id: Option<String>,
     pub file_name: String,
     pub generated_at: String,
     pub bounds: MapBounds,

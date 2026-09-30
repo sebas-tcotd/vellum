@@ -501,17 +501,20 @@ namespace VellumBridge.Export
         {
             if (string.IsNullOrEmpty(model.snapshotId)) throw new ExportFailedException("manifest: falta snapshotId.");
             var json = new Json();
-            json.Open('{').Key("format").String("vellummap").Key("exportSchemaVersion").String("1.0")
-                .Key("snapshotId").String(model.snapshotId)
-                .Key("exportedAtUtc").String(Utc(model.exportedAtUtc).ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture));
+            // 1.1: `city.id`. `parentSnapshotId` ya era del contrato 1.0.
+            json.Open('{').Key("format").String("vellummap").Key("exportSchemaVersion").String("1.1")
+                .Key("snapshotId").String(model.snapshotId);
+            if (!string.IsNullOrEmpty(model.parentSnapshotId)) json.Key("parentSnapshotId").String(model.parentSnapshotId);
+            json.Key("exportedAtUtc").String(Utc(model.exportedAtUtc).ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture));
             if (!string.IsNullOrEmpty(model.gameTime)) json.Key("gameTime").String(model.gameTime);
             json.Key("game").Open('{').Key("version").String(string.IsNullOrEmpty(model.gameVersion) ? "unknown" : model.gameVersion);
             if (!string.IsNullOrEmpty(model.gameInstanceId)) json.Key("instanceId").String(model.gameInstanceId);
             json.Close('}')
                 .Key("producer").Open('{').Key("name").String(ProducerName)
                 .Key("version").String(string.IsNullOrEmpty(model.producerVersion) ? "unknown" : model.producerVersion).Close('}')
-                .Key("city").Open('{').Key("name").String(string.IsNullOrEmpty(model.cityName) ? "Sin nombre" : model.cityName).Close('}')
-                .Key("modules").Open('[');
+                .Key("city").Open('{').Key("name").String(string.IsNullOrEmpty(model.cityName) ? "Sin nombre" : model.cityName);
+            if (!string.IsNullOrEmpty(model.cityId)) json.Key("id").String(model.cityId);
+            json.Close('}').Key("modules").Open('[');
             foreach (Entry entry in entries)
             {
                 json.Open('{').Key("id").String(entry.id).Key("path").String(entry.path).Key("version").String(entry.version)

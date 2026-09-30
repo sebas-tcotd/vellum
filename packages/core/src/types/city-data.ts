@@ -379,6 +379,12 @@ export interface CityData {
   cityName: string;
   /** Document this city was read from. Drives the sidebar's «CSLMap» chip. */
   source: CitySource;
+  /**
+   * Stable identity of the city across exports: the `.vellummap` manifest's
+   * `city.id` (manifest `1.1`, Vellum Bridge 0.9). Absent for `.cslmap` and for
+   * documents without one.
+   */
+  cityId?: string;
   /** The original filename of the opened document. */
   fileName: string;
   /** ISO 8601 timestamp representing when this data was parsed. */

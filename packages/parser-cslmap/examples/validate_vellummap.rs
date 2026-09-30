@@ -40,7 +40,12 @@ fn main() {
 
     let stops: usize = city.transit_lines.iter().map(|l| l.stops.len()).sum();
     println!("{input}: valid ({} bytes)", bytes.len());
-    println!("city={} generatedAt={}", city.city_name, city.generated_at);
+    println!(
+        "city={} cityId={} generatedAt={}",
+        city.city_name,
+        city.city_id.as_deref().unwrap_or("-"),
+        city.generated_at
+    );
     println!(
         "roadNodes={} roadSegments={} transitLines={} stops={} buildings={} districts={} parks={} forestCells={}",
         city.road_nodes.len(),

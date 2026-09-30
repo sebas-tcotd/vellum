@@ -1,5 +1,7 @@
-//! JSON modules of a `.vellummap`. Every type denies unknown fields: the
-//! document is strict, a field v1 does not declare is an error.
+//! JSON modules of a `.vellummap`. The types accept unknown fields at the serde
+//! level; the reader collects them with `serde_ignored` and applies the minor
+//! rule (`manifest::deserialize_scope`): with a minor it knows, an unknown field
+//! is an error; with a newer minor, it is ignored.
 
 use super::invalid;
 use crate::errors::VellumError;
@@ -38,7 +40,6 @@ where
 
 /// World-space position, in game units (x/z horizontal, y vertical).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
 pub(crate) struct Position {
     pub(crate) x: f64,
     pub(crate) y: f64,
@@ -48,7 +49,7 @@ pub(crate) struct Position {
 // ─── water.json ──────────────────────────────────────────────────────────────
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct WaterModule {
     /// Sea level in metres.
     pub(crate) sea_level: f64,
@@ -62,7 +63,7 @@ pub(crate) struct WaterModule {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct DepthProvenance {
     /// Whether the water simulation was paused at capture. Depth captured with the
     /// simulation running is not comparable cell by cell with another capture.
@@ -79,14 +80,14 @@ pub(crate) struct DepthProvenance {
 // ─── roads.json ──────────────────────────────────────────────────────────────
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct RoadsModule {
     pub(crate) nodes: Vec<RoadNodeDoc>,
     pub(crate) segments: Vec<RoadSegmentDoc>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct RoadNodeDoc {
     pub(crate) source_id: u32,
     pub(crate) position: Position,
@@ -97,7 +98,7 @@ pub(crate) struct RoadNodeDoc {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct RoadSegmentDoc {
     pub(crate) source_id: u32,
     pub(crate) start_node_source_id: u32,
@@ -119,13 +120,13 @@ pub(crate) struct RoadSegmentDoc {
 // ─── transit.json ────────────────────────────────────────────────────────────
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct TransitModule {
     pub(crate) lines: Vec<TransitLineDoc>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct TransitLineDoc {
     pub(crate) source_id: u32,
     pub(crate) name: String,
@@ -139,7 +140,7 @@ pub(crate) struct TransitLineDoc {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct TransitStopDoc {
     /// `sourceId` of the stop's node.
     pub(crate) source_id: u32,
@@ -246,7 +247,7 @@ fn is_rgba_hex(color: &str) -> bool {
 // ─── buildings.json ──────────────────────────────────────────────────────────
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct BuildingsModule {
     pub(crate) buildings: Vec<BuildingDoc>,
 }
@@ -255,7 +256,7 @@ pub(crate) struct BuildingsModule {
 /// the prefab to `prefab` and uses `name` for the visible name, when there is one.
 /// The presence of `prefab` tells them apart — no dispatch on the module version.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct BuildingDoc {
     pub(crate) source_id: u32,
     /// With `prefab`: the visible name (`GetBuildingName`), never empty; only for
@@ -293,18 +294,26 @@ pub(crate) struct BuildingDoc {
     pub(crate) service_type: String,
     /// Footprint polygon; its first point is the building's anchor.
     pub(crate) footprint: Vec<Position>,
+    /// Reserved: height in metres, finite and ≥ 0. Validated but not used yet,
+    /// and no producer writes it.
+    #[serde(
+        default,
+        deserialize_with = "non_null",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub(crate) height: Option<f64>,
 }
 
 // ─── districts.json / parks.json ─────────────────────────────────────────────
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct DistrictsModule {
     pub(crate) districts: Vec<DistrictDoc>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct DistrictDoc {
     pub(crate) source_id: u32,
     pub(crate) name: String,
@@ -341,7 +350,7 @@ pub(crate) struct DistrictDoc {
 
 /// `m_{commercial,industrial,office}Data.m_finalHomeOrWorkCount`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct DistrictJobsDoc {
     pub(crate) commercial: u32,
     pub(crate) industrial: u32,
@@ -349,13 +358,13 @@ pub(crate) struct DistrictJobsDoc {
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct ParksModule {
     pub(crate) parks: Vec<ParkDoc>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct ParkDoc {
     pub(crate) source_id: u32,
     pub(crate) name: String,
@@ -373,6 +382,7 @@ impl BuildingsModule {
     /// Unique ids (reader-only) and the `name`/`prefab` shape (also in the schema):
     /// with `prefab`, `name` is optional and never empty; without it, `name` is
     /// required and `customName`/`historical` are not allowed. `customName` needs `name`.
+    /// `height`, when present, is finite and ≥ 0 (also in the schema).
     pub(crate) fn validate(&self) -> Result<(), VellumError> {
         check_unique_ids("buildings.json", self.buildings.iter().map(|b| b.source_id))?;
         for b in &self.buildings {
@@ -395,6 +405,13 @@ impl BuildingsModule {
             }
             if b.custom_name.is_some() && b.name.is_none() {
                 return Err(fail("`customName` requires `name`"));
+            }
+            if let Some(height) = b.height {
+                if !height.is_finite() || height < 0.0 {
+                    return Err(fail(&format!(
+                        "`height` {height} must be a finite number ≥ 0"
+                    )));
+                }
             }
         }
         Ok(())

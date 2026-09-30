@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/sebas-tcotd/vellum/main/packages/parser-cslmap/schema/vellummap.schema.json",
   "title": "Vellum .vellummap document",
-  "description": "Contract of Vellum's stable city document. A .vellummap is a zip with a manifest.json (validated by this root schema) and one entry per module. JSON modules are validated by the $defs of the same name; grid modules are raw little-endian samples whose shape the manifest declares and the reader verifies. Unknown properties are rejected at every level. See docs/es/vellummap-format.md.",
+  "description": "Contract of Vellum's stable city document. A .vellummap is a zip with a manifest.json (validated by this root schema) and one entry per module. JSON modules are validated by the $defs of the same name; grid modules are raw little-endian samples whose shape the manifest declares and the reader verifies. Unknown properties are rejected at every level. The reader is more tolerant than this schema: with a minor newer than the one it knows (manifest: exportSchemaVersion; each JSON module: its own version) it ignores unknown fields; JSON Schema cannot express that rule. See docs/es/vellummap-format.md.",
   "$ref": "#/$defs/manifest",
   "$defs": {
     "sourceId": {
@@ -12,7 +12,7 @@
       "maximum": 4294967295
     },
     "version": {
-      "description": "MAJOR.MINOR. This reader supports major 1 only; any minor is accepted.",
+      "description": "MAJOR.MINOR. This reader supports major 1 only; any minor is accepted. With a minor newer than the one it knows, the reader ignores unknown fields (reader-only rule).",
       "type": "string",
       "pattern": "^1\\.(0|[1-9][0-9]*)$"
     },
@@ -473,6 +473,11 @@
           "properties": {
             "name": {
               "type": "string"
+            },
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Optional (manifest 1.1, Bridge 0.9). Stable identity of the city across exports: an opaque non-empty string (Bridge writes a UUID; the reader does not require that format). Kept by the producer in the save game; lost if the player does not save after exporting."
             }
           }
         },
@@ -818,6 +823,11 @@
                   "$ref": "#/$defs/position"
                 },
                 "description": "Footprint polygon; its first point is the anchor."
+              },
+              "height": {
+                "type": "number",
+                "minimum": 0,
+                "description": "Reserved. Building height in metres, finite and ≥ 0. Validated but not used yet; no producer writes it."
               }
             },
             "dependentRequired": {

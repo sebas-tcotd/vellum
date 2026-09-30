@@ -203,6 +203,7 @@ fn document_from_raw(raw: RawCity, snapshot_id: String) -> Result<Document, Vell
             },
             city: CityInfo {
                 name: raw.city_name,
+                id: None,
             },
             modules: Vec::new(),
         },
@@ -331,6 +332,7 @@ fn areas_from_raw(
                     item_class: b.item_class.clone(),
                     service_type: b.service_type.clone(),
                     footprint: b.footprint.iter().map(Position::from).collect(),
+                    height: None,
                 })
             })
             .collect::<Result<_, VellumError>>()?,
