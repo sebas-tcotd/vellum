@@ -115,14 +115,23 @@ function hash(col: number, row: number, k: number, ch: number): number {
   return h - Math.floor(h);
 }
 
-/** Paints the crowns of `tile` as PNG bytes (an empty 1 × 1 PNG when there are none). */
-export async function paintTreeTile(
+/**
+ * Paints the crowns of `tile`, or returns `null` when there are none (MapLibre draws
+ * a `null` tile as transparent).
+ *
+ * @remarks
+ * Synchronous on purpose: an earlier version encoded a PNG with `convertToBlob`, and
+ * on WebView2 that promise could stay pending. MapLibre holds one of its 16 shared
+ * image-request slots per tile until the protocol answers, so a handful of stuck
+ * tiles starved every later request and panned-to areas never got their crowns.
+ */
+export function paintTreeTile(
   density: Float32Array,
   tile: TileAddress,
   color: string,
-): Promise<ArrayBuffer> {
+): ImageBitmap | null {
   const crowns = treesInTile(density, tile);
-  if (crowns.length === 0) return encode(new OffscreenCanvas(1, 1));
+  if (crowns.length === 0) return null;
 
   const canvas = new OffscreenCanvas(TREES_TILE_SIZE, TREES_TILE_SIZE);
   const ctx = canvas.getContext('2d');
@@ -137,7 +146,7 @@ export async function paintTreeTile(
     ctx.lineWidth = Math.max(0.75, r * 0.12);
     ctx.stroke();
   }
-  return encode(canvas);
+  return canvas.transferToImageBitmap();
 }
 
 function disc(
@@ -149,10 +158,6 @@ function disc(
   ctx.beginPath();
   ctx.arc(x, y, r, 0, Math.PI * 2);
   ctx.fill();
-}
-
-async function encode(canvas: OffscreenCanvas): Promise<ArrayBuffer> {
-  return (await canvas.convertToBlob({ type: 'image/png' })).arrayBuffer();
 }
 
 export function parseTileUrl(url: string): TileAddress {
