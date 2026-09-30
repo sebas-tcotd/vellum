@@ -267,7 +267,14 @@ export class MapNavigationManager {
    * mode, any input) or, in soft mode, with the center outside the city bounds.
    */
   private handleMoveEnd(): void {
-    if (!this.currentCityData || this.isSnappingBack) return;
+    if (!this.currentCityData) return;
+    // The snap-back's own moveend: when its animation ends, when a gesture cuts
+    // it short, or inside fitBounds itself when the fit is instant.
+    if (this.isSnappingBack) {
+      this.isSnappingBack = false;
+      this.applyConstraints(this.currentCityData);
+      return;
+    }
 
     const center = this.map.getCenter();
     const [[swLng, swLat], [neLng, neLat]] = getCityBoundsGeoJSON(
@@ -284,26 +291,27 @@ export class MapNavigationManager {
     const isUnderzoomed = this.map.getZoom() < this.fitToScreenZoom - 1e-3;
 
     if (isOutside || isUnderzoomed) {
-      const cityData = this.currentCityData;
+      const bounds: maplibregl.LngLatBoundsLike = [
+        [swLng, swLat],
+        [neLng, neLat],
+      ];
+      const padding = this.framePadding();
+      // Measured up front rather than read back once the camera stops: a
+      // gesture can cut the animation short of the fit.
+      this.fitToScreenZoom =
+        this.map.cameraForBounds(bounds, { padding })?.zoom ??
+        this.fitToScreenZoom;
+      // No `once('moveend')` for the ending: MapLibre runs one-time listeners
+      // added from inside a moveend in that same moveend, so it fired before
+      // the animation began and raised minZoom mid-flight. The fit then stalled
+      // half a level at a time on its way out.
       this.isSnappingBack = true;
-      // Registered first: an instant fit (reduced motion) ends synchronously.
-      this.map.once('moveend', () => {
-        this.recalculateFitZoom();
-        this.applyConstraints(cityData);
-        this.isSnappingBack = false;
-      });
       this.map.setMinZoom(null);
-      this.map.fitBounds(
-        [
-          [swLng, swLat],
-          [neLng, neLat],
-        ],
-        {
-          padding: this.framePadding(),
-          animate: !prefersReducedMotion(),
-          duration: prefersReducedMotion() ? 0 : 300,
-        },
-      );
+      this.map.fitBounds(bounds, {
+        padding,
+        animate: !prefersReducedMotion(),
+        duration: prefersReducedMotion() ? 0 : 300,
+      });
     }
   }
 }
