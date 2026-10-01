@@ -67,6 +67,10 @@ Abre el archivo con el lector de Vellum e imprime el `cityId`, los conteos, cada
 
 ### Harness del escritor
 
+El código del mod se organiza en tres partes: los callbacks de CS1 en `src/Bridge*.cs`, la exportación pública en `src/Export/` y la captura de diagnóstico en `src/Capture/`. `src/UI/` presenta resultados y formatea el resumen de exportación. Los coordinadores `BridgeExport` y `BridgeCapture` conservan el estado de sus operaciones; los extractores leen el juego y los escritores reciben datos ya copiados. La versión compartida está en `BridgeInfo.Version`.
+
+El harness también enlaza el modelo, el escritor y los serializadores del Raw Snapshot, sin dependencias del juego. Comprueba la distinción entre secciones fallidas y vacías, escapes JSON, números no finitos, datos por reflexión, diagnósticos y publicación con limpieza de temporales ante errores. Los campos del modelo que solo asigna el extractor del juego pueden producir advertencias CS0649 en este harness.
+
 El escritor (`src/Export/VellumWriter.cs`) y el modelo (`src/Export/VellumModel.cs`) no dependen del juego. `tests/` los enlaza en un programa de .NET moderno con C# 7.3, el mismo lenguaje del mod, que comprueba la matriz de la story (nombres de parada, relleno 512→900, `stored` forzado, fallos de IO sin `.part`, pausa frente a simulación corriendo, `city.id` y `parentSnapshotId` en el manifest `1.1` y su omisión cuando faltan, `stationId` en `transit` 1.1, carpeta por ciudad con hora local y ` (2)` dentro de ella), las grillas y rutas del manifest contra la tabla del formato y el filtrado de registros inválidos (nodos inexistentes o con NaN, ids repetidos). Escribe cuatro documentos sintéticos (`stations.vellummap` trae las estaciones con `stationId`):
 
 ```bash

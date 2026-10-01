@@ -7,13 +7,13 @@
     <!-- Versión de ensamblado nueva en cada compilación (build = días desde 2000, revisión =
          segundos/2 desde medianoche): Mono no descarga un ensamblado ya cargado y resuelve el
          mismo nombre+versión al viejo, así que sin esto CS1 no recarga el mod sin reiniciar.
-         La versión visible de Bridge es BridgeCapture.Version. -->
+         La versión visible de Bridge es BridgeInfo.Version. -->
     <AssemblyVersion>1.0.*</AssemblyVersion>
     <FileVersion>1.0.0.0</FileVersion>
     <Deterministic>false</Deterministic>
   </PropertyGroup>
   <ItemGroup>
-    <!-- El harness de pruebas (tests/) es otro proyecto: enlaza solo el escritor puro. -->
+    <!-- El harness de pruebas (tests/) es otro proyecto: enlaza los módulos puros. -->
     <Compile Remove="tests/**" />
   </ItemGroup>
   <ItemGroup>

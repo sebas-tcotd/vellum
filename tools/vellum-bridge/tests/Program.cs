@@ -35,6 +35,7 @@ namespace VellumBridge.Tests
             Geometry();
             AreaGrids();
             Identity();
+            SnapshotChecks.Run(Check, Path.Combine(scratch, "snapshots"));
             StopNamesAndDepth(Path.Combine(scratch, "paused"));
             RunningOmitsDepth(Path.Combine(scratch, "running"));
             FirstExportOmitsIdentity(Path.Combine(scratch, "first"));
