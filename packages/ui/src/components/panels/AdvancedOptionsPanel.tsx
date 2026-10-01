@@ -6,7 +6,7 @@ import type {
   LayerName,
   TransitMode,
 } from '@vellum/core';
-import { TOGGLABLE_TRANSIT_MODES } from '@vellum/core';
+import { PUBLIC_TRANSPORT_MODES, TOUR_TRANSIT_MODES } from '@vellum/core';
 import { useTranslation } from 'react-i18next';
 
 /** The 4 zoning categories CSLMapView's "Ocultar Edificios R/I/C/O" option exposes.
@@ -127,7 +127,19 @@ export function AdvancedOptionsPanel({
   if (layer === 'transit') {
     return (
       <div className="min-w-0">
-        {TOGGLABLE_TRANSIT_MODES.map((mode) => (
+        {PUBLIC_TRANSPORT_MODES.map((mode) => (
+          <OptionRow
+            key={mode}
+            label={t(`transitModes.${mode}`)}
+            checked={visibleModes.includes(mode)}
+            onCheckedChange={() => onToggleMode(mode)}
+          />
+        ))}
+        <Separator className="h-px my-1 w-full" />
+        <h3 className="shell-section__subheading">
+          {t('layerOptionsPanel.tours')}
+        </h3>
+        {TOUR_TRANSIT_MODES.map((mode) => (
           <OptionRow
             key={mode}
             label={t(`transitModes.${mode}`)}

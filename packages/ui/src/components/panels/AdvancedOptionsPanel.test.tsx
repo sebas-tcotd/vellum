@@ -73,6 +73,38 @@ describe('AdvancedOptionsPanel — terrain', () => {
   });
 });
 
+describe('AdvancedOptionsPanel — transit', () => {
+  it('lists the tours after public transport, under their own heading', () => {
+    render(<AdvancedOptionsPanel {...makeProps({ layer: 'transit' })} />);
+    const heading = screen.getByRole('heading', {
+      name: 'layerOptionsPanel.tours',
+    });
+    const trolleybus = screen.getByText('transitModes.Trolleybus');
+    const walkingTour = screen.getByText('transitModes.WalkingTour');
+    expect(
+      trolleybus.compareDocumentPosition(heading) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      heading.compareDocumentPosition(walkingTour) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(screen.getByText('transitModes.SightseeingBus')).toBeTruthy();
+    expect(screen.getByText('transitModes.HotAirBalloon')).toBeTruthy();
+  });
+
+  it('toggles a tour mode like any other', () => {
+    const onToggleMode = vi.fn();
+    render(
+      <AdvancedOptionsPanel
+        {...makeProps({ layer: 'transit', onToggleMode })}
+      />,
+    );
+    screen.getByRole('switch', { name: 'transitModes.SightseeingBus' }).click();
+    expect(onToggleMode).toHaveBeenCalledWith('SightseeingBus');
+  });
+});
+
 describe('AdvancedOptionsPanel — districts', () => {
   it('renders district-name and park-area switches', () => {
     render(<AdvancedOptionsPanel {...makeProps({ layer: 'districts' })} />);

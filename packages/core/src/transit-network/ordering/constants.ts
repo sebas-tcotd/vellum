@@ -24,5 +24,8 @@ export const MODE_PRIORITY: Record<TransitMode, number> = {
   Ferry: 6,
   Blimp: 7,
   Bus: 8,
-  Unknown: 9,
+  SightseeingBus: 9,
+  WalkingTour: 10,
+  HotAirBalloon: 11,
+  Unknown: 12,
 };

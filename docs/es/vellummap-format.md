@@ -341,7 +341,9 @@ son `sourceId` enteros ≥ 0, únicos dentro de su colección.
 
 - `name`: `GetLineName`.
 - `transportType`: el nombre de `TransportInfo.TransportType` del juego, sin reducir
-  (`Bus`, `EvacuationBus`, `Ship`, …). Vellum lo traduce a su modo de tránsito.
+  (`Bus`, `EvacuationBus`, `Ship`, …). Vellum lo traduce a su modo de tránsito;
+  los tours de Parklife (`Pedestrian`, `TouristBus`, `HotAirBalloon`) tienen modos
+  propios, y un tipo que Vellum no reconoce cae en `Unknown`.
 - `color`: el color visible (`displayColor`), `#RRGGBBAA` en hex mayúscula.
 - `stops[].sourceId`: el nodo de la parada. `name` es opcional y nunca vacío;
   `nameDerived` exige `name`.

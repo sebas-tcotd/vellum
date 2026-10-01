@@ -138,7 +138,8 @@ normalización vive en `seenFrom` y en la geometría del line graph.
 - **Componentes grandes:** orden inicial determinista por prioridad de modo e ID,
   seguido de greedy dirigido por score y hill climbing.
 - **Desempate:** Metro, Train, Monorail, Tram, Trolleybus, CableCar, Ferry,
-  Blimp, Bus y Unknown; dentro del mismo modo se usa el ID.
+  Blimp, Bus, luego los tours (SightseeingBus, WalkingTour, HotAirBalloon) y
+  Unknown; dentro del mismo modo se usa el ID.
 - **Expansión:** después de ordenar bundles, sus líneas se expanden conservando
   la prioridad de modo e ID.
 

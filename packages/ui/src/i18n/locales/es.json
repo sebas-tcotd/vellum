@@ -77,6 +77,7 @@
     "showGrid": "Cuadrícula de proyección",
     "showStreetNames": "Nombres de calles",
     "buildingZones": "Zonas de edificios (RICO)",
+    "tours": "Tours",
     "showConfirmedTransfers": "Mostrar transferencias confirmadas"
   },
   "export": {
@@ -311,6 +312,9 @@
     "Ferry": "Ferry",
     "Blimp": "Dirigible",
     "Trolleybus": "Trolebús",
+    "WalkingTour": "Tour a pie",
+    "SightseeingBus": "Bus turístico",
+    "HotAirBalloon": "Globo aerostático",
     "Unknown": ""
   },
   "exportWarnings": {

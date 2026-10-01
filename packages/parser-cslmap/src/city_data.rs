@@ -175,6 +175,12 @@ pub enum TransitMode {
     Ferry,
     Blimp,
     Trolleybus,
+    /// Tours (Parklife): walking tour, the game's `Pedestrian` transport type.
+    WalkingTour,
+    /// Tours (Parklife): sightseeing bus, the game's `TouristBus`.
+    SightseeingBus,
+    /// Tours (Parklife): hot air balloon, the game's `HotAirBalloon`.
+    HotAirBalloon,
     Unknown,
 }
 

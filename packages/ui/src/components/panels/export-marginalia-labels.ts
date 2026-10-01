@@ -44,6 +44,9 @@ export function resolveMarginaliaLabels(
       Ferry: t('transitModes.Ferry'),
       Blimp: t('transitModes.Blimp'),
       Trolleybus: t('transitModes.Trolleybus'),
+      WalkingTour: t('transitModes.WalkingTour'),
+      SightseeingBus: t('transitModes.SightseeingBus'),
+      HotAirBalloon: t('transitModes.HotAirBalloon'),
       Unknown: t('transitModes.Unknown'),
     },
     transitMore: {

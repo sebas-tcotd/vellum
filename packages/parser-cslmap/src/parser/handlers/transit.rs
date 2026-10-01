@@ -15,6 +15,9 @@ pub fn parse_transit_mode(s: &str) -> crate::city_data::TransitMode {
         "Ferry" | "Ship" => TransitMode::Ferry,
         "Blimp" | "Airplane" => TransitMode::Blimp,
         "Trolleybus" => TransitMode::Trolleybus,
+        "Pedestrian" => TransitMode::WalkingTour,
+        "TouristBus" => TransitMode::SightseeingBus,
+        "HotAirBalloon" => TransitMode::HotAirBalloon,
         _ => TransitMode::Unknown,
     }
 }
@@ -172,5 +175,32 @@ impl TransitBuilder {
             route: all_seg_ids,
         });
         self.in_trans = false;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_transit_mode;
+    use crate::city_data::TransitMode;
+
+    #[test]
+    fn tour_transport_types_map_to_tour_modes() {
+        assert!(matches!(
+            parse_transit_mode("Pedestrian"),
+            TransitMode::WalkingTour
+        ));
+        assert!(matches!(
+            parse_transit_mode("TouristBus"),
+            TransitMode::SightseeingBus
+        ));
+        assert!(matches!(
+            parse_transit_mode("HotAirBalloon"),
+            TransitMode::HotAirBalloon
+        ));
+    }
+
+    #[test]
+    fn unrecognized_transport_type_falls_back_to_unknown() {
+        assert!(matches!(parse_transit_mode("Taxi"), TransitMode::Unknown));
     }
 }

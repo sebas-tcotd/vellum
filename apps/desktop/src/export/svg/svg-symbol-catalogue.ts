@@ -63,6 +63,18 @@ const SYMBOL_BODY: Readonly<Record<SceneSymbolId, string>> = Object.freeze({
   'transit-trolleybus':
     '<rect x="5" y="8" width="14" height="12" rx="3" fill="currentColor"/>' +
     '<path d="M9 8 L4 2 M15 8 L20 2" stroke="currentColor" stroke-width="1.6" fill="none"/>',
+  // Walking figure: head over a striding body.
+  'transit-walkingtour':
+    '<circle cx="12" cy="4" r="2.5" fill="currentColor"/>' +
+    '<path d="M12 8 L12 15 M12 15 L8 22 M12 15 L16 22 M7 12 L17 11" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" fill="none"/>',
+  // Open-top bus: the bus body with a railed upper deck.
+  'transit-sightseeingbus':
+    '<rect x="5" y="9" width="14" height="11" rx="3" fill="currentColor"/>' +
+    '<path d="M5 6 L19 6 M8 6 L8 9 M12 6 L12 9 M16 6 L16 9" stroke="currentColor" stroke-width="1.6" fill="none"/>',
+  // Envelope over a basket.
+  'transit-hotairballoon':
+    '<path d="M12 2 C6 2 4 7 5 10 C6 13 10 15 10 17 L14 17 C14 15 18 13 19 10 C20 7 18 2 12 2 Z" fill="currentColor"/>' +
+    '<rect x="10" y="19" width="4" height="3" rx="0.5" fill="currentColor"/>',
   // Neutral marker for a mode the catalogue does not cover.
   'transit-unknown':
     '<circle cx="12" cy="12" r="8" fill="currentColor"/>' +

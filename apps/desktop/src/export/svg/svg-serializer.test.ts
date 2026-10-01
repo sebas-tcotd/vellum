@@ -447,6 +447,9 @@ describe('serializeSceneToSvg', () => {
       'transit-ferry',
       'transit-blimp',
       'transit-trolleybus',
+      'transit-walkingtour',
+      'transit-sightseeingbus',
+      'transit-hotairballoon',
     ]) {
       expect(xml).toContain(`<symbol id="${id}"`);
     }
