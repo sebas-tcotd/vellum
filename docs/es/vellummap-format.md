@@ -27,15 +27,16 @@ Un `.vellummap` es un zip con:
 - `manifest.json`: metadatos y la tabla de módulos.
 - Un archivo por módulo: JSON para entidades y `.bin` para grillas.
 
-El documento es **estricto**. Estos casos son error, nunca se interpretan en silencio:
+El documento es **estricto** con todo lo que el lector conoce. Estos casos son error,
+nunca se interpretan en silencio:
 
 | Caso                                                                                                  | Error                          |
 | ----------------------------------------------------------------------------------------------------- | ------------------------------ |
-| Bytes que no son zip, zip sin `manifest.json` o con más de 13 entradas                                | `InvalidFile`                  |
+| Bytes que no son zip, zip sin `manifest.json` o con más de 13 entradas (manifest + 12 módulos)        | `InvalidFile`                  |
 | `exportSchemaVersion` o `version` de un módulo con major ≠ 1                                          | `UnsupportedVersion { found }` |
 | Versión que no tiene la forma `MAJOR.MINOR`                                                           | `InvalidFile`                  |
 | `exportedAtUtc` que no es RFC 3339 en UTC con sufijo `Z` (sin zona, con offset, fecha inexistente)    | `InvalidFile`                  |
-| Campo desconocido o `null` explícito en el manifest o en un módulo JSON                               | `InvalidFile`                  |
+| Campo desconocido con un minor conocido, o `null` explícito, en el manifest o en un módulo JSON       | `InvalidFile`                  |
 | Módulo desconocido, repetido, obligatorio ausente o con un `path` distinto del fijado                 | `InvalidFile`                  |
 | Entrada del zip que el manifest no declara, o módulo declarado que no está en el zip                  | `InvalidFile`                  |
 | `codec` distinto del método real de la entrada zip                                                    | `InvalidFile`                  |
@@ -64,6 +65,32 @@ Luego verifica que la entrada inflada mida lo declarado. El búfer no se reserva
 tamaño declarado (como mucho 1 MiB de entrada) y crece con lo que realmente se infla. Todo
 se lee en memoria; nada se extrae a disco.
 
+### Regla del minor
+
+Un Desktop instalado tiene que abrir lo que escriba un Bridge más nuevo del mismo major.
+Por eso el lector es estricto con los minors que conoce y tolerante con los que no:
+
+- El minor se evalúa **por ámbito**. Los campos del manifest (incluidos `game`, `producer`,
+  `city`, las entradas de `modules` y su `grid`) dependen de `exportSchemaVersion`. Los de
+  cada módulo JSON, de la `version` de ese módulo en el manifest.
+- Minor conocido: manifest `1`; módulos `buildings` y `districts` `1`; el resto `0`.
+- Con un minor **menor o igual** al conocido, un campo desconocido es `InvalidFile`. El
+  mensaje dice `unknown field` y la ruta del campo
+  (``roads.json: unknown field `segments.0.lanes` ``).
+- Con un minor **mayor**, el campo se ignora: la ciudad se dibuja igual que sin él.
+- La tolerancia es solo para **campos**. Un `id` de módulo desconocido, un `path` distinto,
+  más de 13 entradas en el zip (el manifest más los 12 módulos) o un valor desconocido de un enum (`codec`, `sample`) siguen siendo
+  `InvalidFile` en cualquier minor: el contenedor v1 es de rutas fijas, y un lector v1 no
+  admite módulos ni rutas nuevos.
+- Un campo que el lector sí conoce se valida igual en cualquier minor 1.x (p. ej.
+  `city.id` o `buildings[].height` en un documento `1.0`, o `height: -1` en un
+  `buildings` `1.5`).
+
+**Compatibilidad.** La regla del minor existe desde la versión de Vellum Desktop siguiente
+a 0.12.0. Un Desktop 0.12.0 o anterior es estricto con cualquier minor: **rechaza** los
+archivos de Bridge 0.9 (manifest `1.1` con `city.id`) por el campo desconocido. Esos
+archivos se abren a partir de la versión siguiente.
+
 ### Reglas solo del lector
 
 JSON Schema no puede expresar estas reglas, así que el schema las deja pasar y solo el
@@ -88,12 +115,18 @@ lector las rechaza (con `InvalidFile`):
 - Contenedor: `codec` igual al método real de la entrada, `sha256` de los bytes
   descomprimidos, tamaños declarados y presupuesto del documento.
 
+Y una en sentido contrario, en la que el lector es **más tolerante** que el schema: la
+[regla del minor](#regla-del-minor). El schema rechaza cualquier campo que no declara
+(`additionalProperties: false`) porque no puede condicionarlo a la versión; el lector
+ignora los campos desconocidos de un minor más nuevo. Un test de ajv fija que el schema
+rechaza un manifest `1.7` con un campo nuevo, y los tests de Rust, que el lector lo abre.
+
 ## Manifest
 
 ```json
 {
   "format": "vellummap",
-  "exportSchemaVersion": "1.0",
+  "exportSchemaVersion": "1.1",
   "snapshotId": "0f8fad5b-d9cb-469f-a165-70867728950e",
   "parentSnapshotId": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
   "exportedAtUtc": "2026-09-23T14:05:00Z",
@@ -102,8 +135,11 @@ lector las rechaza (con `InvalidFile`):
     "version": "1.21.1-f9",
     "instanceId": "3f2504e0-4f89-11d3-9a0c-0305e82c3301"
   },
-  "producer": { "name": "Vellum Bridge", "version": "0.5.0" },
-  "city": { "name": "Sample City" },
+  "producer": { "name": "Vellum Bridge", "version": "0.9.0-experimental" },
+  "city": {
+    "name": "Sample City",
+    "id": "5b8a3c1e-2f47-4d0a-9e61-7c3f0d2b4a95"
+  },
   "modules": [
     {
       "id": "terrain",
@@ -122,19 +158,20 @@ lector las rechaza (con `InvalidFile`):
 }
 ```
 
-| Campo                 | Obligatorio | Contenido                                                                                                                                                                                                                      |
-| --------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `format`              | sí          | Siempre `"vellummap"`.                                                                                                                                                                                                         |
-| `exportSchemaVersion` | sí          | Versión del documento, `MAJOR.MINOR`. Hoy `1.0`.                                                                                                                                                                               |
-| `snapshotId`          | sí          | ID único de esta exportación (Bridge: un UUID).                                                                                                                                                                                |
-| `parentSnapshotId`    | no          | `snapshotId` del que desciende esta exportación. Permite representar ramas del historial.                                                                                                                                      |
-| `exportedAtUtc`       | sí          | Momento de la exportación en RFC 3339 UTC: `T` y `Z` en mayúscula, sin offset (`2026-06-10T17:35:58Z`, fracción de segundo opcional). Obligatorio y validado. Vellum lo usa tal cual como fecha de generación (`generatedAt`). |
-| `gameTime`            | no          | Fecha dentro del juego (`SimulationManager.m_currentGameTime`). No es un orden fiable.                                                                                                                                         |
-| `game.version`        | sí          | Versión del juego, o `"unknown"` si la fuente no la registra.                                                                                                                                                                  |
-| `game.instanceId`     | no          | `m_metaData.m_gameInstanceIdentifier`. Algunos mods lo regeneran: no basta como identidad única.                                                                                                                               |
-| `producer`            | sí          | `name` y `version` del programa que escribió el archivo.                                                                                                                                                                       |
-| `city.name`           | sí          | Nombre de la ciudad.                                                                                                                                                                                                           |
-| `modules`             | sí          | Un registro por módulo presente.                                                                                                                                                                                               |
+| Campo                 | Obligatorio | Contenido                                                                                                                                                                                                                                        |
+| --------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `format`              | sí          | Siempre `"vellummap"`.                                                                                                                                                                                                                           |
+| `exportSchemaVersion` | sí          | Versión del documento, `MAJOR.MINOR`. `1.1` desde Bridge 0.9 (añade `city.id`); el conversor de referencia escribe `1.0`.                                                                                                                        |
+| `snapshotId`          | sí          | ID único de esta exportación (Bridge: un UUID).                                                                                                                                                                                                  |
+| `parentSnapshotId`    | no          | `snapshotId` de la exportación anterior de la misma partida (Bridge 0.9). Permite representar ramas del historial (ver abajo).                                                                                                                   |
+| `exportedAtUtc`       | sí          | Momento de la exportación en RFC 3339 UTC: `T` y `Z` en mayúscula, sin offset (`2026-06-10T17:35:58Z`, fracción de segundo opcional). Obligatorio y validado. Vellum lo usa tal cual como fecha de generación (`generatedAt`).                   |
+| `gameTime`            | no          | Fecha dentro del juego (`SimulationManager.m_currentGameTime`). No es un orden fiable.                                                                                                                                                           |
+| `game.version`        | sí          | Versión del juego, o `"unknown"` si la fuente no la registra.                                                                                                                                                                                    |
+| `game.instanceId`     | no          | `m_metaData.m_gameInstanceIdentifier`. Algunos mods lo regeneran: no basta como identidad única.                                                                                                                                                 |
+| `producer`            | sí          | `name` y `version` del programa que escribió el archivo.                                                                                                                                                                                         |
+| `city.name`           | sí          | Nombre de la ciudad.                                                                                                                                                                                                                             |
+| `city.id`             | no          | Manifest `1.1` (Bridge 0.9). Identidad estable de la ciudad entre exportaciones: un string opaco no vacío. Bridge escribe un UUID, pero el lector no exige ese formato. Bridge la guarda en la partida. Vellum la expone como `CityData.cityId`. |
+| `modules`             | sí          | Un registro por módulo presente.                                                                                                                                                                                                                 |
 
 Cada registro de `modules`:
 
@@ -150,19 +187,33 @@ Cada registro de `modules`:
 ### Campos pensados para el timelapse
 
 El timelapse no entra en v1, pero el manifest ya guarda lo que no se puede recuperar
-después:
+después. Cada `.vellummap` es una **instantánea** independiente e inmutable: Bridge escribe
+un archivo nuevo por exportación. El historial (varias instantáneas de una ciudad en un solo
+contenedor) irá en `.quire`, después de v1.0.
 
 1. `snapshotId`, `parentSnapshotId`, `exportedAtUtc` y `gameTime` van por separado. El
    orden de las capturas no se deduce de la fecha del juego.
-2. El `codec` por módulo permite añadir otra compresión (zstd) sin cambiar la
-   estructura del manifest.
-3. El `sha256` de cada módulo es la base para deduplicar módulos que no cambiaron entre
+2. `city.id` agrupa las instantáneas de una misma ciudad. Bridge 0.9 lo genera en la
+   primera exportación y lo guarda en la partida (serialización de mods de CS1, clave
+   `VellumBridge.Identity`), junto con la última `snapshotId` publicada. **Límite
+   conocido:** si el jugador no guarda la partida después de exportar, esa identidad se
+   pierde; la próxima carga vuelve a la que estaba guardada (o a ninguna, y la siguiente
+   exportación estrena un `city.id`).
+3. `parentSnapshotId` es la última exportación publicada de esa partida. Si el jugador
+   carga una partida guardada antes de una exportación y vuelve a exportar, dos
+   instantáneas comparten padre: el historial se **ramifica**, y el grafo de padres lo
+   representa sin perder ninguna rama.
+4. El `codec` por módulo permite añadir otra compresión (zstd) sin cambiar la
+   estructura del manifest. Un lector v1 rechaza un codec que no conoce, en cualquier
+   minor.
+5. El `sha256` de cada módulo es la base para deduplicar módulos que no cambiaron entre
    capturas.
-4. Los IDs de CS1 se guardan como `sourceId`. CS1 reutiliza posiciones de buffer, así que
+6. Los IDs de CS1 se guardan como `sourceId`. CS1 reutiliza posiciones de buffer, así que
    un `sourceId` no es una identidad histórica: comparar dos exportaciones exige el
    `sourceId` más una huella (prefab y posiciones). El nombre `lineageId` queda libre para
    esa identidad futura.
-5. `exportSchemaVersion` más una `version` por módulo.
+7. `exportSchemaVersion` más una `version` por módulo, con la
+   [regla del minor](#regla-del-minor).
 
 ## Módulos v1
 
@@ -334,6 +385,9 @@ La vista esquemática puede abreviar el nombre al mostrarlo.
 
 - `serviceType`: el sub-servicio del prefab.
 - `footprint`: el polígono de la planta. Su primer punto es el ancla del edificio.
+- `height` (opcional, **reservado**): altura del edificio en metros, un número finito ≥ 0.
+  El lector lo valida con cualquier minor 1.x y no lo usa. Todavía no lo escribe ningún
+  productor (Bridge tampoco).
 
 El nombre cambió de sentido en el módulo `1.1` (Bridge 0.8). El lector no despacha por
 versión: la presencia de `prefab` basta para leer cada edificio sin ambigüedad.
@@ -429,11 +483,16 @@ del suelo, edades y educación. La superficie tampoco se exporta: se deriva de l
   especializaciones (ver [`districts.json` y `parks.json`](#districtsjson-y-parksjson)).
 - Por línea: `GetLineName`, `displayColor`, tipo de transporte, paradas con su posición y
   nombre derivado según la regla de arriba, y la ruta.
-- Terreno `RawHeights2`, máscara de agua, `seaLevel` y, si la simulación está en pausa, la
-  profundidad con su procedencia.
+- Terreno `RawHeights2`, máscara de agua, `seaLevel` y la profundidad con su procedencia.
+  Desde Bridge 0.9, si el juego está en marcha Bridge pausa la simulación durante la
+  extracción (mensaje «Capturando tu ciudad…») y la reanuda al terminar, aunque falle; si
+  el jugador ya lo tenía en pausa, lo deja en pausa. Así `water-depth.bin` sale siempre de
+  un estado quieto (`simulationPaused: true`). La escritura corre en otro hilo, ya con el
+  juego reanudado.
 - `m_tree` completo. Los árboles individuales no entran en v1.
 - Manifest: `snapshotId`, `exportedAtUtc` en UTC, `gameTime`, `game.version` y
-  `game.instanceId`.
+  `game.instanceId`. Desde Bridge 0.9 (manifest `1.1`): `city.id` y, desde la segunda
+  exportación de la partida, `parentSnapshotId`.
 
 ## Conversor de referencia
 
@@ -445,6 +504,8 @@ da el mismo `CityData` que el `.cslmap`, salvo `fileName` y `generatedAt` (que p
 Lo que `.cslmap` no trae se escribe tal cual es:
 
 - `game.version` queda en `"unknown"`.
+- El manifest se escribe en `1.0`, sin `city.id` ni `parentSnapshotId`: un `.cslmap` no
+  tiene identidad de ciudad.
 - Todos los módulos se escriben en `1.0`: los edificios llevan el prefab en `name` y los
   distritos no llevan datos de lugar, porque `.cslmap` no los tiene.
 - La profundidad lleva `simulationPaused: false` y ningún `frameIndex`. Aquí `false`

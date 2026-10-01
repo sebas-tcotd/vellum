@@ -1,0 +1,12 @@
+{
+  "buildings": [
+    {
+      "sourceId": 813,
+      "prefab": "Opera House",
+      "itemClass": "Monument Facility",
+      "serviceType": "None",
+      "footprint": [{ "x": 30, "y": 60, "z": 30 }],
+      "height": -1
+    }
+  ]
+}

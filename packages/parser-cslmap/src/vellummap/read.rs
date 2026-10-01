@@ -1,10 +1,14 @@
-//! Strict `.vellummap` reader: zip → validated `Document` → `CityData`.
+//! `.vellummap` reader: zip → validated `Document` → `CityData`.
 //!
-//! Everything is read in memory. Each entry's declared size is checked against
-//! its limit before a single byte is inflated (anti zip bomb).
+//! Strict with every minor it knows; a newer minor may add fields, which are
+//! ignored (never new modules, paths or enum values). Everything is read in
+//! memory. Each entry's declared size is checked against its limit before a
+//! single byte is inflated (anti zip bomb).
 
 use super::areas::area_boundaries;
-use super::manifest::{parse_manifest, spec_of, Codec, Manifest, ModuleId, MODULES};
+use super::manifest::{
+    deserialize_scope, is_newer_minor, parse_manifest, spec_of, Codec, Manifest, ModuleId, MODULES,
+};
 use super::{
     invalid, Document, MANIFEST_PATH, MAX_DOCUMENT_BYTES, MAX_JSON_BYTES, MAX_MANIFEST_BYTES,
     MODULE_ORDER,
@@ -42,11 +46,13 @@ pub(crate) fn parse_vellummap_observed(
     let mut document = read_document(bytes)?;
     let district_grid = document.district_grid.take();
     let park_grid = document.park_grid.take();
+    let city_id = document.manifest.city.id.take();
 
     let raw = document.into_raw();
     on_warnings(&raw.warnings());
     let mut city = build_city_data(raw)?;
     city.source = CitySource::Vellummap;
+    city.city_id = city_id;
 
     // Area ids are `sourceId`s (1–255, checked by `Document::validate`), which
     // the adapter turned into the `id` strings.
@@ -128,6 +134,12 @@ pub(crate) fn read_document(bytes: &[u8]) -> Result<Document, VellumError> {
     }
 
     let mut data = read_modules(&archive, &manifest)?;
+    // Each JSON module's fields follow that module's own `version`.
+    let tolerant = |id: ModuleId| {
+        manifest
+            .entry(id)
+            .is_some_and(|entry| is_newer_minor(&entry.version, spec_of(id).known_minor))
+    };
 
     let mut take = |id: ModuleId| data.remove(&id);
     let required = |bytes: Option<Vec<u8>>, id: ModuleId| {
@@ -140,6 +152,7 @@ pub(crate) fn read_document(bytes: &[u8]) -> Result<Document, VellumError> {
         water: parse_json(
             "water.json",
             &required(take(ModuleId::Water), ModuleId::Water)?,
+            tolerant(ModuleId::Water),
         )?,
         water_mask: required(take(ModuleId::WaterMask), ModuleId::WaterMask)?,
         water_depth: take(ModuleId::WaterDepth).map(|b| decode_u16le(&b)),
@@ -147,22 +160,27 @@ pub(crate) fn read_document(bytes: &[u8]) -> Result<Document, VellumError> {
         roads: parse_json(
             "roads.json",
             &required(take(ModuleId::Roads), ModuleId::Roads)?,
+            tolerant(ModuleId::Roads),
         )?,
         transit: parse_json(
             "transit.json",
             &required(take(ModuleId::Transit), ModuleId::Transit)?,
+            tolerant(ModuleId::Transit),
         )?,
         buildings: parse_json(
             "buildings.json",
             &required(take(ModuleId::Buildings), ModuleId::Buildings)?,
+            tolerant(ModuleId::Buildings),
         )?,
         districts: parse_json(
             "districts.json",
             &required(take(ModuleId::Districts), ModuleId::Districts)?,
+            tolerant(ModuleId::Districts),
         )?,
         parks: parse_json(
             "parks.json",
             &required(take(ModuleId::Parks), ModuleId::Parks)?,
+            tolerant(ModuleId::Parks),
         )?,
         district_grid: take(ModuleId::DistrictGrid),
         park_grid: take(ModuleId::ParkGrid),
@@ -301,8 +319,17 @@ fn read_entry(
     Ok(buf)
 }
 
-fn parse_json<T: DeserializeOwned>(file: &str, bytes: &[u8]) -> Result<T, VellumError> {
-    serde_json::from_slice(bytes).map_err(|e| invalid(format!("{file}: {e}")))
+/// Deserializes a JSON module in one pass. `tolerant` (a minor newer than the one
+/// this reader knows) ignores unknown fields; otherwise the first is an error.
+pub(crate) fn parse_json<T: DeserializeOwned>(
+    file: &str,
+    bytes: &[u8],
+    tolerant: bool,
+) -> Result<T, VellumError> {
+    let mut de = serde_json::Deserializer::from_slice(bytes);
+    let value = deserialize_scope(file, &mut de, tolerant)?;
+    de.end().map_err(|e| invalid(format!("{file}: {e}")))?;
+    Ok(value)
 }
 
 fn decode_u16le(bytes: &[u8]) -> Vec<u16> {

@@ -15,7 +15,8 @@
       "name": "Opera House",
       "itemClass": "Monument Facility",
       "serviceType": "None",
-      "footprint": [{ "x": 30, "y": 60, "z": 30 }]
+      "footprint": [{ "x": 30, "y": 60, "z": 30 }],
+      "height": 42.5
     },
     {
       "sourceId": 36,

@@ -9,9 +9,9 @@ use std::collections::HashSet;
 // ─── Serde types ──────────────────────────────────────────────────────────────
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct Manifest {
-    /// Always `"vellummap"`; checked before strict deserialization.
+    /// Always `"vellummap"`; checked before deserialization.
     pub(crate) format: String,
     pub(crate) export_schema_version: String,
     pub(crate) snapshot_id: String,
@@ -35,7 +35,7 @@ pub(crate) struct Manifest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct GameInfo {
     pub(crate) version: String,
     #[serde(
@@ -47,20 +47,28 @@ pub(crate) struct GameInfo {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct Producer {
     pub(crate) name: String,
     pub(crate) version: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct CityInfo {
     pub(crate) name: String,
+    /// Stable identity of the city across exports (manifest `1.1`, Bridge 0.9).
+    /// Kept by Bridge in the save game; the reference converter has none.
+    #[serde(
+        default,
+        deserialize_with = "non_null",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub(crate) id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct ModuleEntry {
     pub(crate) id: String,
     pub(crate) path: String,
@@ -94,7 +102,7 @@ impl std::fmt::Display for Codec {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct Grid {
     /// Cells per side; the grid is `resolution²` samples, row-major.
     pub(crate) resolution: u32,
@@ -164,6 +172,9 @@ pub(crate) struct ModuleSpec {
     pub(crate) path: &'static str,
     pub(crate) required: bool,
     pub(crate) grid: Option<Grid>,
+    /// Highest minor of this module this reader knows. Up to it, an unknown field
+    /// is an error; above it, unknown fields are ignored.
+    pub(crate) known_minor: u32,
 }
 
 const HEIGHT_SCALE: f64 = 1.0 / 64.0;
@@ -194,6 +205,8 @@ const AREA_GRID: Grid = Grid {
     scale: None,
 };
 
+/// Known minors: `buildings` and `districts` are at `1.1` (Bridge 0.8); every other
+/// module is at `1.0`.
 pub(crate) const MODULES: [ModuleSpec; 12] = [
     spec(
         ModuleId::Terrain,
@@ -201,14 +214,16 @@ pub(crate) const MODULES: [ModuleSpec; 12] = [
         "terrain.bin",
         true,
         Some(TERRAIN_GRID),
+        0,
     ),
-    spec(ModuleId::Water, "water", "water.json", true, None),
+    spec(ModuleId::Water, "water", "water.json", true, None, 0),
     spec(
         ModuleId::WaterMask,
         "water-mask",
         "water-mask.bin",
         true,
         Some(MASK_GRID),
+        0,
     ),
     spec(
         ModuleId::WaterDepth,
@@ -216,6 +231,7 @@ pub(crate) const MODULES: [ModuleSpec; 12] = [
         "water-depth.bin",
         false,
         Some(TERRAIN_GRID),
+        0,
     ),
     spec(
         ModuleId::Vegetation,
@@ -223,15 +239,17 @@ pub(crate) const MODULES: [ModuleSpec; 12] = [
         "vegetation.bin",
         true,
         Some(VEGETATION_GRID),
+        0,
     ),
-    spec(ModuleId::Roads, "roads", "roads.json", true, None),
-    spec(ModuleId::Transit, "transit", "transit.json", true, None),
+    spec(ModuleId::Roads, "roads", "roads.json", true, None, 0),
+    spec(ModuleId::Transit, "transit", "transit.json", true, None, 0),
     spec(
         ModuleId::Buildings,
         "buildings",
         "buildings.json",
         true,
         None,
+        1,
     ),
     spec(
         ModuleId::Districts,
@@ -239,14 +257,16 @@ pub(crate) const MODULES: [ModuleSpec; 12] = [
         "districts.json",
         true,
         None,
+        1,
     ),
-    spec(ModuleId::Parks, "parks", "parks.json", true, None),
+    spec(ModuleId::Parks, "parks", "parks.json", true, None, 0),
     spec(
         ModuleId::DistrictGrid,
         "district-grid",
         "districts.bin",
         false,
         Some(AREA_GRID),
+        0,
     ),
     spec(
         ModuleId::ParkGrid,
@@ -254,6 +274,7 @@ pub(crate) const MODULES: [ModuleSpec; 12] = [
         "parks.bin",
         false,
         Some(AREA_GRID),
+        0,
     ),
 ];
 
@@ -263,6 +284,7 @@ const fn spec(
     path: &'static str,
     required: bool,
     grid: Option<Grid>,
+    known_minor: u32,
 ) -> ModuleSpec {
     ModuleSpec {
         id,
@@ -270,6 +292,7 @@ const fn spec(
         path,
         required,
         grid,
+        known_minor,
     }
 }
 
@@ -291,6 +314,43 @@ fn is_version_shape(s: &str) -> bool {
     };
     s.split_once('.')
         .is_some_and(|(major, minor)| canonical(major) && canonical(minor))
+}
+
+/// Highest `exportSchemaVersion` minor this reader knows (`1.1`: `city.id`).
+pub(crate) const MANIFEST_KNOWN_MINOR: u32 = 1;
+
+/// Whether a version already checked by `check_version` has a minor above
+/// `known_minor`. A minor too large for u32 is newer than any known one.
+pub(crate) fn is_newer_minor(version: &str, known_minor: u32) -> bool {
+    version
+        .split_once('.')
+        .is_some_and(|(_, minor)| minor.parse::<u32>().map_or(true, |m| m > known_minor))
+}
+
+/// Deserializes one scope (the manifest or a JSON module) under the minor rule:
+/// with a minor this reader knows (`tolerant == false`), the first ignored field
+/// is an error naming its path (e.g. `nodes.0.name`); with a newer minor, ignored
+/// fields are what a newer producer added and are dropped.
+pub(crate) fn deserialize_scope<'de, D, T>(
+    file: &str,
+    deserializer: D,
+    tolerant: bool,
+) -> Result<T, VellumError>
+where
+    D: serde::Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    let mut first_ignored = None;
+    let value = serde_ignored::deserialize(deserializer, |path| {
+        if !tolerant && first_ignored.is_none() {
+            first_ignored = Some(path.to_string());
+        }
+    })
+    .map_err(|e| invalid(format!("{file}: {e}")))?;
+    match first_ignored {
+        Some(path) => Err(invalid(format!("{file}: unknown field `{path}`"))),
+        None => Ok(value),
+    }
 }
 
 /// A malformed version is an invalid file; a well-formed one of another major —
@@ -317,7 +377,8 @@ pub(crate) fn check_version(field: &str, found: &str) -> Result<(), VellumError>
 ///
 /// `format` and `exportSchemaVersion` are checked on the untyped JSON first, so a
 /// document from a future major is reported as `UnsupportedVersion` even when it
-/// carries fields v1 does not know.
+/// carries fields v1 does not know. A future minor of major 1 may carry fields
+/// this reader does not know: they are ignored (see `is_newer_minor`).
 ///
 /// # Errors
 /// `UnsupportedVersion` for a document or module of another major; `InvalidFile`
@@ -342,9 +403,11 @@ pub(crate) fn parse_manifest(bytes: &[u8]) -> Result<Manifest, VellumError> {
         ));
     };
     check_version("exportSchemaVersion", version)?;
+    // Every manifest field (`game`, `producer`, `city`, module entries, `grid`)
+    // follows `exportSchemaVersion`.
+    let tolerant = is_newer_minor(version, MANIFEST_KNOWN_MINOR);
 
-    let manifest: Manifest =
-        serde_json::from_value(value).map_err(|e| invalid(format!("manifest.json: {e}")))?;
+    let manifest: Manifest = deserialize_scope("manifest.json", value, tolerant)?;
     manifest.validate()?;
     Ok(manifest)
 }
@@ -366,6 +429,7 @@ impl Manifest {
             ("parentSnapshotId", &self.parent_snapshot_id),
             ("gameTime", &self.game_time),
             ("game.instanceId", &self.game.instance_id),
+            ("city.id", &self.city.id),
         ] {
             if let Some(value) = value {
                 non_empty(field, value)?;

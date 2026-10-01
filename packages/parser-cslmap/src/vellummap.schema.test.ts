@@ -99,6 +99,25 @@ describe('vellummap.schema.json', () => {
     );
   });
 
+  // La regla del minor es la única en la que el reader es más tolerante que el
+  // schema: con un minor más nuevo que el que conoce, ignora los campos que no
+  // conoce. JSON Schema no puede condicionar `additionalProperties` a la versión,
+  // así que ajv sigue rechazándolos. Que el reader lo acepta lo afirma Rust
+  // (`future_manifest_minor_ignores_unknown_fields` en `src/vellummap/tests.rs`).
+  it('rechaza un campo desconocido aunque el minor sea futuro (el reader lo ignora)', () => {
+    const validate = validatorFor('manifest');
+    const example = examples('valid').find(
+      (e) => e.file === 'manifest.bridge.json',
+    );
+    const data = structuredClone(example?.data) as Record<string, unknown>;
+    data.exportSchemaVersion = '1.7';
+    data.lineage = { id: 'x' };
+    expect(validate(data)).toBe(false);
+    expect(validate.errors).toContainEqual(
+      expect.objectContaining({ keyword: 'additionalProperties' }),
+    );
+  });
+
   // Reglas solo del reader (documentadas en docs/es/vellummap-format.md): JSON
   // Schema no puede expresarlas, así que ajv acepta estas entradas y los tests de
   // Rust asertan que el reader las rechaza. Si un día ajv las rechaza, hay que

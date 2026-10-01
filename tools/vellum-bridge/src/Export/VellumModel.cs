@@ -17,6 +17,8 @@ namespace VellumBridge.Export
     {
         // ─── Metadatos ──────────────────────────────────────────────────────────
         public string snapshotId;          // UUID nuevo por exportación
+        public string parentSnapshotId;    // snapshotId de la exportación anterior de esta partida; null en la primera
+        public string cityId;              // identidad estable de la ciudad (guardada en la partida); null si no hay
         public DateTime exportedAtUtc;     // DateTimeKind.Utc
         public string gameTime;            // m_currentGameTime, "yyyy-MM-ddTHH:mm:ss"; null si no se conoce
         public string gameVersion;         // BuildConfig.applicationVersion

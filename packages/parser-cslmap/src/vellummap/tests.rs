@@ -8,7 +8,7 @@ use super::modules::{
     ParkDoc, ParksModule, Position, RoadNodeDoc, RoadSegmentDoc, RoadsModule, TransitLineDoc,
     TransitModule, TransitStopDoc, WaterModule,
 };
-use super::read::{read_document, sha256_hex};
+use super::read::{parse_json, read_document, sha256_hex};
 use super::write::{write_document, write_zip};
 use super::*;
 use crate::city_data::{CityData, CitySource};
@@ -73,6 +73,7 @@ fn bridge_document() -> Document {
             },
             city: CityInfo {
                 name: "Sample City".to_owned(),
+                id: None,
             },
             modules: Vec::new(),
         },
@@ -527,6 +528,7 @@ fn building(source_id: u32, name: Option<&str>, prefab: Option<&str>) -> Buildin
         item_class: "Education Facility".to_owned(),
         service_type: "None".to_owned(),
         footprint: vec![pos(0.0, 0.0, 0.0)],
+        height: None,
     }
 }
 
@@ -741,7 +743,7 @@ fn malformed_district_place_data_is_invalid() {
         ),
         (
             serde_json::json!({ "jobs": { "commercial": 0, "industrial": 0, "office": 0, "farm": 1 } }),
-            "districts.json: unknown field `farm`",
+            "districts.json: unknown field `districts.0.jobs.farm`",
         ),
         (
             serde_json::json!({ "population": 1.0 }),
@@ -818,6 +820,204 @@ fn future_major_is_unsupported_even_with_unknown_fields() {
 fn future_minor_of_major_one_is_accepted() {
     let bytes = with_manifest(&bridge_zip(), |m| m["exportSchemaVersion"] = "1.7".into());
     assert!(read_document(&bytes).is_ok());
+}
+
+// ─── Story 5.7: la regla del minor ────────────────────────────────────────────
+
+/// Sets the declared `version` of a module in the manifest.
+fn with_module_version(zip_bytes: &[u8], id: &str, version: &str) -> Vec<u8> {
+    with_manifest(zip_bytes, |m| {
+        for module in m["modules"].as_array_mut().unwrap() {
+            if module["id"] == id {
+                module["version"] = version.into();
+            }
+        }
+    })
+}
+
+fn city_json(bytes: &[u8]) -> serde_json::Value {
+    serde_json::to_value(parse_vellummap_bytes(bytes).expect("the document must open")).unwrap()
+}
+
+#[test]
+fn future_manifest_minor_ignores_unknown_fields() {
+    let baseline = city_json(&bridge_zip());
+    let bytes = with_manifest(&bridge_zip(), |m| {
+        m["exportSchemaVersion"] = "1.7".into();
+        m["city"]["foo"] = "bar".into();
+        m["lineage"] = serde_json::json!({ "id": "x", "depth": 3 });
+        m["game"]["build"] = 42.into();
+        m["modules"][0]["compressedSize"] = 10.into();
+        m["modules"][0]["grid"]["origin"] = serde_json::json!([0, 0]);
+    });
+    assert_eq!(city_json(&bytes), baseline, "the city must draw the same");
+}
+
+#[test]
+fn future_module_minor_ignores_unknown_fields() {
+    let baseline = city_json(&bridge_zip());
+    let edited = edit_json_module(&bridge_zip(), "roads.json", |v| {
+        v["segments"][0]["lanes"] = serde_json::json!([{ "direction": "forward" }]);
+        v["junctions"] = serde_json::json!([]);
+    });
+    let bytes = with_module_version(&edited, "roads", "1.3");
+    assert_eq!(city_json(&bytes), baseline, "the city must draw the same");
+}
+
+#[test]
+fn unknown_field_at_a_known_minor_is_invalid() {
+    // manifest 1.1 is known: `city.id` is its only new field.
+    let bytes = with_manifest(&bridge_zip(), |m| {
+        m["exportSchemaVersion"] = "1.1".into();
+        m["city"]["foo"] = "bar".into();
+    });
+    assert_invalid(
+        parse_vellummap_bytes(&bytes),
+        "manifest.json: unknown field `city.foo`",
+    );
+
+    // A newer module minor does not relax the manifest, nor the other way round.
+    let bytes = with_module_version(
+        &with_manifest(&bridge_zip(), |m| m["modules"][0]["foo"] = 1.into()),
+        "terrain",
+        "1.9",
+    );
+    assert_invalid(
+        parse_vellummap_bytes(&bytes),
+        "manifest.json: unknown field `modules.0.foo`",
+    );
+    let edited = edit_json_module(&bridge_zip(), "roads.json", |v| {
+        v["segments"][0]["lanes"] = 2.into();
+    });
+    let bytes = with_manifest(&edited, |m| m["exportSchemaVersion"] = "1.7".into());
+    assert_invalid(
+        parse_vellummap_bytes(&bytes),
+        "roads.json: unknown field `segments.0.lanes`",
+    );
+
+    // buildings and districts know minor 1.
+    let edited = edit_json_module(
+        &write_document(&place_data_document()).unwrap(),
+        "districts.json",
+        |v| v["districts"][0]["area"] = 12.into(),
+    );
+    let bytes = with_module_version(&edited, "districts", "1.1");
+    assert_invalid(
+        parse_vellummap_bytes(&bytes),
+        "districts.json: unknown field `districts.0.area`",
+    );
+    let edited = edit_json_module(
+        &write_document(&place_data_document()).unwrap(),
+        "buildings.json",
+        |v| v["buildings"][0]["foo"] = 1.into(),
+    );
+    let bytes = with_module_version(&edited, "buildings", "1.1");
+    assert_invalid(
+        parse_vellummap_bytes(&bytes),
+        "buildings.json: unknown field `buildings.0.foo`",
+    );
+}
+
+#[test]
+fn known_field_is_validated_at_a_future_minor() {
+    let edited = edit_json_module(
+        &write_document(&place_data_document()).unwrap(),
+        "buildings.json",
+        |v| v["buildings"][0]["height"] = (-1).into(),
+    );
+    let bytes = with_module_version(&edited, "buildings", "1.5");
+    assert_invalid(
+        parse_vellummap_bytes(&bytes),
+        "`height` -1 must be a finite number ≥ 0",
+    );
+}
+
+#[test]
+fn city_id_and_height_are_accepted_in_1_0_documents() {
+    let edited = edit_json_module(
+        &write_document(&place_data_document()).unwrap(),
+        "buildings.json",
+        |v| v["buildings"][0]["height"] = 12.into(),
+    );
+    let bytes = with_manifest(&edited, |m| {
+        assert_eq!(m["exportSchemaVersion"], "1.0");
+        m["city"]["id"] = "abc".into();
+    });
+    let city = parse_vellummap_bytes(&bytes).expect("known fields open at any 1.x minor");
+    assert_eq!(city.city_id.as_deref(), Some("abc"));
+}
+
+#[test]
+fn future_minor_does_not_relax_modules_paths_or_enums() {
+    let at_1_7 = |edit: fn(&mut serde_json::Value)| {
+        with_manifest(&bridge_zip(), |m| {
+            m["exportSchemaVersion"] = "1.7".into();
+            edit(m);
+        })
+    };
+    assert_invalid(
+        parse_vellummap_bytes(&at_1_7(|m| m["modules"][0]["id"] = "heights".into())),
+        "unknown module `heights`",
+    );
+    assert_invalid(
+        parse_vellummap_bytes(&at_1_7(|m| m["modules"][0]["path"] = "t.bin".into())),
+        "must live at `terrain.bin`",
+    );
+    assert_invalid(
+        parse_vellummap_bytes(&at_1_7(|m| m["modules"][0]["codec"] = "zstd".into())),
+        "unknown variant `zstd`",
+    );
+    assert_invalid(
+        parse_vellummap_bytes(&at_1_7(|m| {
+            m["modules"][0]["grid"]["sample"] = "f32le".into();
+        })),
+        "unknown variant `f32le`",
+    );
+}
+
+#[test]
+fn city_id_reaches_city_data() {
+    let bytes = with_manifest(&bridge_zip(), |m| {
+        m["exportSchemaVersion"] = "1.1".into();
+        m["city"]["id"] = "abc".into();
+    });
+    let city = parse_vellummap_bytes(&bytes).expect("a 1.1 manifest with city.id opens");
+    assert_eq!(city.city_id.as_deref(), Some("abc"));
+    assert_eq!(serde_json::to_value(&city).unwrap()["cityId"], "abc");
+
+    let bytes = with_manifest(&bridge_zip(), |m| {
+        m["exportSchemaVersion"] = "1.1".into();
+        m["city"]["id"] = "".into();
+    });
+    assert_invalid(parse_vellummap_bytes(&bytes), "`city.id` must not be empty");
+}
+
+#[test]
+fn documents_without_city_id_have_none() {
+    let city = parse_vellummap_bytes(&bridge_zip()).unwrap();
+    assert_eq!(city.city_id, None);
+    assert!(serde_json::to_value(&city).unwrap().get("cityId").is_none());
+}
+
+#[test]
+fn building_height_is_validated_and_ignored() {
+    let zip = write_document(&place_data_document()).unwrap();
+    let with_height = |height: serde_json::Value| {
+        let edited = edit_json_module(&zip, "buildings.json", |v| {
+            v["buildings"][0]["height"] = height;
+        });
+        with_module_version(&edited, "buildings", "1.1")
+    };
+    assert_eq!(
+        city_json(&with_height(42.5.into())),
+        city_json(&with_module_version(&zip, "buildings", "1.1")),
+        "height is not used yet"
+    );
+    assert!(parse_vellummap_bytes(&with_height(0.into())).is_ok());
+    assert_invalid(
+        parse_vellummap_bytes(&with_height((-1).into())),
+        "`height` -1 must be a finite number ≥ 0",
+    );
 }
 
 #[test]
@@ -915,7 +1115,7 @@ fn unknown_module_field_is_invalid() {
     });
     assert_invalid(
         parse_vellummap_bytes(&bytes),
-        "roads.json: unknown field `name`",
+        "roads.json: unknown field `nodes.0.name`",
     );
 }
 
@@ -1473,10 +1673,12 @@ fn exported_at_must_be_rfc3339_utc() {
 // ─── Schema examples (anti-drift with ajv) ────────────────────────────────────
 
 /// Validates one example the way the reader would: the manifest through
-/// `parse_manifest`, JSON modules through serde plus their module rules.
+/// `parse_manifest`, JSON modules through `parse_json` plus their module rules.
+/// A module example has no version of its own: it is read as a minor this reader
+/// knows, so an unknown field is an error.
 fn check_example(def: &str, bytes: &[u8]) -> Result<(), String> {
     fn de<T: serde::de::DeserializeOwned>(bytes: &[u8]) -> Result<T, String> {
-        serde_json::from_slice(bytes).map_err(|e| e.to_string())
+        parse_json("example", bytes, false).map_err(|e| e.to_string())
     }
     match def {
         "manifest" => parse_manifest(bytes).map(|_| ()).map_err(|e| e.to_string()),

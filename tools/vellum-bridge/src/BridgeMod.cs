@@ -58,6 +58,94 @@ namespace VellumBridge
         {
             BridgeCapture.SetLoaded(false);
             BridgeExport.SetLoaded(false);
+            // La próxima partida trae la suya en OnLoadData; así nunca hereda la de esta.
+            BridgeIdentity.Reset();
+        }
+    }
+
+    // Identidad de la ciudad para Vellum, guardada en la partida con la serialización de mods de
+    // CS1 (clave "VellumBridge.Identity", formato en VellumIdentity). Con ella cada
+    // exportación lleva `city.id` y, desde la segunda, `parentSnapshotId`. Límite conocido: si el
+    // jugador no guarda la partida después de exportar, la identidad nueva se pierde y la próxima
+    // carga vuelve a la guardada (o a ninguna).
+    public sealed class BridgeIdentity : SerializableDataExtensionBase
+    {
+        private const string Key = "VellumBridge.Identity";
+
+        // `cityId` se lee y se escribe en el hilo de simulación (extracción, OnLoadData,
+        // OnSaveData) y `lastSnapshotId` también desde el hilo de escritura: todo bajo `gate`.
+        private static readonly object gate = new object();
+        private static string cityId;
+        private static string lastSnapshotId;
+
+        internal static void Reset()
+        {
+            lock (gate)
+            {
+                cityId = null;
+                lastSnapshotId = null;
+            }
+        }
+
+        public override void OnLoadData()
+        {
+            string loadedCity = null, loadedSnapshot = null;
+            try
+            {
+                byte[] data = serializableDataManager.LoadData(Key);
+                // Una entrada corrupta (sin cityId, ids inválidos) cuenta como vacía.
+                if (data != null && !VellumIdentity.TryDecode(data, out loadedCity, out loadedSnapshot))
+                    Debug.LogWarning("[VellumBridge] Identidad de la partida ilegible: se ignora.");
+            }
+            catch (Exception error)
+            {
+                Debug.LogWarning("[VellumBridge] No se pudo leer la identidad de la partida: " + error.Message);
+                loadedCity = null;
+                loadedSnapshot = null;
+            }
+            lock (gate)
+            {
+                cityId = loadedCity;
+                lastSnapshotId = loadedSnapshot;
+            }
+            Debug.Log("[VellumBridge] Identidad de la ciudad: " + (loadedCity ?? "ninguna todavía") + ".");
+        }
+
+        public override void OnSaveData()
+        {
+            string city, snapshot;
+            lock (gate)
+            {
+                city = cityId;
+                snapshot = lastSnapshotId;
+            }
+            if (city == null) return;
+            try
+            {
+                serializableDataManager.SaveData(Key, VellumIdentity.Encode(city, snapshot));
+            }
+            catch (Exception error)
+            {
+                Debug.LogWarning("[VellumBridge] No se pudo guardar la identidad en la partida: " + error.Message);
+            }
+        }
+
+        // La identidad para una exportación: genera `cityId` en la primera. Devuelve la última
+        // `snapshotId` publicada (el padre de la nueva), o null.
+        internal static string ForExport(out string parentSnapshotId)
+        {
+            lock (gate)
+            {
+                if (cityId == null) cityId = Guid.NewGuid().ToString();
+                parentSnapshotId = lastSnapshotId;
+                return cityId;
+            }
+        }
+
+        // Solo tras publicar el archivo, y solo si la ciudad no cambió (lo comprueba el llamador).
+        internal static void Published(string snapshotId)
+        {
+            lock (gate) lastSnapshotId = snapshotId;
         }
     }
 
@@ -118,11 +206,24 @@ namespace VellumBridge
                 exporting = true;
                 ticket = generation;
             }
-            BridgeCapture.ShowResult("Exportando para Vellum…\n\nLa ventana mostrará el resultado al terminar.");
             Debug.Log("[VellumBridge] Exportación: solicitada.");
             var simulation = Singleton<SimulationManager>.instance;
-            if (simulation.SimulationPaused || simulation.ForcedSimulationPaused) Extract(ticket);
-            else simulation.AddAction(delegate { Extract(ticket); });
+            if (IsPaused(simulation))
+            {
+                BridgeCapture.ShowResult("Exportando para Vellum…\n\nLa ventana mostrará el resultado al terminar.");
+                Extract(ticket, false);
+            }
+            else
+            {
+                // Con el juego en marcha, la extracción pausa la simulación y la reanuda al terminar.
+                BridgeCapture.ShowResult("Capturando tu ciudad…\n\nEl juego se pausa un momento y sigue solo. La ventana mostrará el resultado al terminar.");
+                simulation.AddAction(delegate { Extract(ticket, true); });
+            }
+        }
+
+        private static bool IsPaused(SimulationManager simulation)
+        {
+            return simulation.SimulationPaused || simulation.ForcedSimulationPaused;
         }
 
         internal static void ShowPendingResult()
@@ -131,6 +232,17 @@ namespace VellumBridge
             if (message == null) return;
             pendingResult = null;
             BridgeCapture.ShowResult(message);
+        }
+
+        // El archivo ya está publicado: su `snapshotId` pasa a ser el padre de la próxima
+        // exportación, salvo que la ciudad haya cambiado (sería la identidad de otra partida).
+        private static void PublishedSnapshot(int ticket, string snapshotId)
+        {
+            lock (gate)
+            {
+                if (ticket == generation) BridgeIdentity.Published(snapshotId);
+                else Debug.Log("[VellumBridge] Exportación: la ciudad cambió; su snapshotId no se registra como padre.");
+            }
         }
 
         // Termina la operación dueña de `exporting`. El mensaje solo se publica si la ciudad no cambió.
@@ -145,7 +257,10 @@ namespace VellumBridge
             }
         }
 
-        private static void Extract(int ticket)
+        // `pauseIfRunning`: la acción corre en el hilo de simulación, entre dos pasos. Si el juego
+        // sigue en marcha, se pausa solo durante la extracción, así `water-depth.bin` sale de un
+        // estado quieto; la escritura (otro hilo) ya corre con el juego reanudado.
+        private static void Extract(int ticket, bool pauseIfRunning)
         {
             VellumModel model;
             try
@@ -168,9 +283,22 @@ namespace VellumBridge
                     Finish(ticket, "Exportación cancelada: no hay ciudad cargada o hay un guardado en curso. No se escribió nada. Inténtalo de nuevo.");
                     return;
                 }
+                string parentSnapshotId;
+                string cityId = BridgeIdentity.ForExport(out parentSnapshotId);
                 var watch = System.Diagnostics.Stopwatch.StartNew();
-                Debug.Log("[VellumBridge] Exportación: extracción iniciada.");
-                model = VellumExtractor.Extract(BridgeCapture.Version);
+                var simulation = Singleton<SimulationManager>.instance;
+                // Solo se reanuda si la pausó Bridge: una pausa del jugador (o forzada) se respeta.
+                bool pausedHere = pauseIfRunning && !IsPaused(simulation);
+                if (pausedHere) simulation.SimulationPaused = true;
+                Debug.Log("[VellumBridge] Exportación: extracción iniciada" + (pausedHere ? " (simulación pausada por Bridge)." : "."));
+                try
+                {
+                    model = VellumExtractor.Extract(BridgeCapture.Version, cityId, parentSnapshotId);
+                }
+                finally
+                {
+                    if (pausedHere) simulation.SimulationPaused = false;
+                }
                 Debug.Log("[VellumBridge] Exportación: extracción terminada en " + watch.ElapsedMilliseconds + " ms ("
                     + model.nodes.Count + " nodos, " + model.segments.Count + " segmentos, " + model.lines.Count + " líneas, "
                     + model.buildings.Count + " edificios; simulación " + (model.simulationPaused ? "en pausa" : "en marcha") + ").");
@@ -220,6 +348,7 @@ namespace VellumBridge
                 options.isSaving = delegate { return SavePanel.isSaving; };
                 summary = VellumWriter.Export(model, folder, options);
                 published = true;
+                PublishedSnapshot(ticket, model.snapshotId);
                 Debug.Log("[VellumBridge] Exportación: publicada " + summary.path + " (" + summary.bytes + " bytes) en "
                     + watch.ElapsedMilliseconds + " ms. Módulos: " + string.Join(", ", summary.modules.ToArray())
                     + ". Límites: " + summary.limits.Count + ".");
@@ -298,7 +427,7 @@ namespace VellumBridge
 
     internal static class BridgeCapture
     {
-        internal const string Version = "0.8.2-experimental";
+        internal const string Version = "0.9.0-experimental";
 
         private static bool loaded;
         private static volatile bool capturing;

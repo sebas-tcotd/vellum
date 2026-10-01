@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text;
 using System.IO.Compression;
 using System.Text.Json;
 using VellumBridge.Export;
@@ -33,8 +34,10 @@ namespace VellumBridge.Tests
             Checksums();
             Geometry();
             AreaGrids();
+            Identity();
             StopNamesAndDepth(Path.Combine(scratch, "paused"));
             RunningOmitsDepth(Path.Combine(scratch, "running"));
+            FirstExportOmitsIdentity(Path.Combine(scratch, "first"));
             ForcedStored(Path.Combine(scratch, "stored"));
             NumberingSkipsNonFinite(Path.Combine(scratch, "numbering"));
             ExportSummary filtered = InvalidRecordsFiltered(Path.Combine(scratch, "filtered"));
@@ -68,11 +71,13 @@ namespace VellumBridge.Tests
             var m = new VellumModel
             {
                 snapshotId = Guid.NewGuid().ToString(),
+                parentSnapshotId = "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+                cityId = "5b8a3c1e-2f47-4d0a-9e61-7c3f0d2b4a95",
                 exportedAtUtc = new DateTime(2026, 9, 23, 14, 5, 0, DateTimeKind.Utc),
                 gameTime = "2031-05-17T08:00:00",
                 gameVersion = "1.21.1-f9",
                 gameInstanceId = "3f2504e0-4f89-11d3-9a0c-0305e82c3301",
-                producerVersion = "0.8.0-experimental",
+                producerVersion = "0.9.0-experimental",
                 cityName = "Harness: City/Test",
                 seaLevel = 40f,
                 simulationPaused = paused,
@@ -208,6 +213,34 @@ namespace VellumBridge.Tests
             Check(huge.Count == 4097, "Bézier: tope de 4096 pasos, hay " + huge.Count);
         }
 
+        // Entrada de la identidad en la partida: `cityId\nlastSnapshotId`.
+        private static void Identity()
+        {
+            string city, snapshot;
+            Check(VellumIdentity.TryDecode(VellumIdentity.Encode("c-1", "s-1"), out city, out snapshot)
+                && city == "c-1" && snapshot == "s-1", "Identidad: ida y vuelta con snapshot");
+            Check(VellumIdentity.TryDecode(VellumIdentity.Encode("c-1", null), out city, out snapshot)
+                && city == "c-1" && snapshot == null, "Identidad: ida y vuelta sin snapshot");
+            Check(Encoding.UTF8.GetString(VellumIdentity.Encode("c-1", null)) == "c-1\n", "Identidad: sin snapshot, campo vacío");
+            Check(VellumIdentity.TryDecode(Encoding.UTF8.GetBytes("c-1\ns-1\nlineage\nmore"), out city, out snapshot)
+                && city == "c-1" && snapshot == "s-1", "Identidad: campos extra de un Bridge futuro ignorados");
+            foreach (var bad in new[] {
+                new KeyValuePair<string, byte[]>("vacía", new byte[0]),
+                new KeyValuePair<string, byte[]>("sin separador", Encoding.UTF8.GetBytes("c-1")),
+                new KeyValuePair<string, byte[]>("sin cityId", Encoding.UTF8.GetBytes("\ns-1")),
+                new KeyValuePair<string, byte[]>("cityId con control", Encoding.UTF8.GetBytes("c\t1\ns-1")),
+                new KeyValuePair<string, byte[]>("snapshot con control", Encoding.UTF8.GetBytes("c-1\ns\u00011")),
+                new KeyValuePair<string, byte[]>("cityId de 129", Encoding.UTF8.GetBytes(new string('a', 129) + "\n")),
+                new KeyValuePair<string, byte[]>("snapshot de 129", Encoding.UTF8.GetBytes("c-1\n" + new string('a', 129))),
+                new KeyValuePair<string, byte[]>("UTF-8 inválido", new byte[] { 0xFF, 0x0A, 0x41 }),
+                new KeyValuePair<string, byte[]>("nula", null),
+            })
+                Check(!VellumIdentity.TryDecode(bad.Value, out city, out snapshot) && city == null && snapshot == null,
+                    "Identidad corrupta (" + bad.Key + ") cuenta como vacía");
+            Check(VellumIdentity.TryDecode(Encoding.UTF8.GetBytes(new string('a', 128) + "\n"), out city, out snapshot),
+                "Identidad: cityId de 128 aceptado");
+        }
+
         private static void AreaGrids()
         {
             var ids = new Dictionary<int, bool> { { 1, true } };
@@ -237,6 +270,26 @@ namespace VellumBridge.Tests
             limits.Clear();
             Check(VellumWriter.AreaGridBytes("parques", null, ids, limits) == null && limits.Count == 1,
                 "Grilla ilegible: módulo omitido con límite");
+        }
+
+        // Primera exportación de una partida sin identidad: ni `city.id` ni `parentSnapshotId`
+        // (nulos o vacíos), nunca claves vacías.
+        private static void FirstExportOmitsIdentity(string folder)
+        {
+            VellumModel model = Model(true);
+            model.cityId = null;
+            model.parentSnapshotId = "";
+            ExportSummary summary = VellumWriter.Export(model, folder, null);
+            using (ZipArchive zip = ZipFile.OpenRead(summary.path))
+            using (JsonDocument manifest = Json(zip, "manifest.json"))
+            {
+                JsonElement root = manifest.RootElement;
+                JsonElement value;
+                Check(root.GetProperty("exportSchemaVersion").GetString() == "1.1", "Sin identidad: manifest 1.1 igual");
+                Check(!root.GetProperty("city").TryGetProperty("id", out value), "Sin cityId: se omite city.id");
+                Check(root.GetProperty("city").GetProperty("name").GetString() == "Harness: City/Test", "Sin cityId: city.name intacto");
+                Check(!root.TryGetProperty("parentSnapshotId", out value), "Sin exportación anterior: se omite parentSnapshotId");
+            }
         }
 
         private static void StopNamesAndDepth(string folder)
@@ -313,6 +366,9 @@ namespace VellumBridge.Tests
                 {
                     JsonElement root = manifest.RootElement;
                     Check(root.GetProperty("exportedAtUtc").GetString() == "2026-09-23T14:05:00Z", "exportedAtUtc en UTC con Z");
+                    Check(root.GetProperty("exportSchemaVersion").GetString() == "1.1", "Manifest 1.1");
+                    Check(root.GetProperty("city").GetProperty("id").GetString() == "5b8a3c1e-2f47-4d0a-9e61-7c3f0d2b4a95", "city.id escrito");
+                    Check(root.GetProperty("parentSnapshotId").GetString() == "7c9e6679-7425-40de-944b-e07fc1f90ae7", "parentSnapshotId escrito");
                     Check(root.GetProperty("modules").GetArrayLength() == 12, "En pausa: 12 módulos");
                     ModuleTable(root);
                     foreach (JsonElement module in root.GetProperty("modules").EnumerateArray())
