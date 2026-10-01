@@ -149,7 +149,8 @@ namespace VellumBridge.Export
             var lines = manager.m_lines.m_buffer;
             var nodes = Singleton<NetManager>.instance.m_nodes.m_buffer;
             var lanes = Singleton<NetManager>.instance.m_lanes.m_buffer;
-            int withoutPrefab = 0, missingLegs = 0, nameErrors = 0;
+            var segments = Singleton<NetManager>.instance.m_segments.m_buffer;
+            int withoutPrefab = 0, missingLegs = 0, nameErrors = 0, ownerMissing = 0, ownerErrors = 0;
             var corrupt = new List<int>();
             for (int i = 1; i < lines.Length; i++)
             {
@@ -184,6 +185,7 @@ namespace VellumBridge.Export
                         {
                             try { record.streetName = Singleton<NetManager>.instance.GetSegmentName(street); }
                             catch (Exception) { nameErrors++; }
+                            record.stationBuildingId = StationBuilding(street, segments, ref ownerMissing, ref ownerErrors);
                         }
                         line.stops.Add(record);
                         stop = TransportLine.GetNextStop(stop);
@@ -205,12 +207,55 @@ namespace VellumBridge.Export
             if (withoutPrefab > 0) model.limits.Add(withoutPrefab + " líneas omitidas por no tener prefab cargado.");
             if (missingLegs > 0) model.limits.Add(missingLegs + " tramos de línea sin ruta calculada: la ruta de esas líneas queda incompleta.");
             if (nameErrors > 0) model.limits.Add(nameErrors + " paradas sin nombre porque no se pudo leer el nombre de su calle.");
+            if (ownerMissing > 0) model.limits.Add(ownerMissing + " paradas en vías de un edificio sin dueño encontrado: siguen la regla de calle.");
+            if (ownerErrors > 0) model.limits.Add(ownerErrors + " paradas sin estación porque falló la búsqueda de su edificio: siguen la regla de calle.");
             if (corrupt.Count > 0)
             {
                 var ids = new string[corrupt.Count];
                 for (int k = 0; k < ids.Length; k++) ids[k] = corrupt[k].ToString(System.Globalization.CultureInfo.InvariantCulture);
                 model.limits.Add(corrupt.Count + " líneas omitidas por una lista de paradas cíclica o corrupta (ids: " + string.Join(", ", ids) + ").");
             }
+        }
+
+        // Edificio de estación dueño del segmento de la parada: las vías de una estación (metro,
+        // tren, terminal de bus) son segmentos Untouchable del edificio. Se sube a la raíz porque
+        // el jugador renombra el edificio principal, no sus piezas, y solo cuenta si es una
+        // estación (TransportStationAI: metro, tren, terminales, puertos, puertas de aeropuerto;
+        // no correos ni depósitos). 0 si es una calle o si no hay estación: la parada sigue la
+        // regla de calle.
+        private static int StationBuilding(ushort segment, NetSegment[] segments, ref int missing, ref int errors)
+        {
+            if ((segments[segment].m_flags & NetSegment.Flags.Untouchable) == 0) return 0;
+            try
+            {
+                ushort owner = NetSegment.FindOwnerBuilding(segment, 256f);
+                ushort root = owner != 0 ? Building.FindParentBuilding(owner) : (ushort)0;
+                if (root == 0) root = owner;
+                if (root == 0) { missing++; return 0; }
+                // Una vía de transporte (metro, tren, monorriel) de un edificio es una estación
+                // integrada aunque el edificio no sea TransportStationAI (la terminal de un
+                // aeropuerto con su metro). Una calle propia de un monumento o un parque no: es
+                // una parada de calle normal, no un límite.
+                NetInfo track = segments[segment].Info;
+                bool onTrack = track != null && track.m_class != null && track.m_class.m_service == ItemClass.Service.PublicTransport;
+                return onTrack || IsTransitStation(Singleton<BuildingManager>.instance.m_buildings.m_buffer[root]) ? root : 0;
+            }
+            catch (Exception) { errors++; return 0; }
+        }
+
+        // Servicios que pueden nombrar una estación cercana con su título: los que la gente
+        // visita. Electricidad y agua no (una central o una torre de vigilancia no orientan al
+        // pasajero; en Villa Coronada le ganaban a la calle).
+        private static bool IsNamingService(ItemClass.Service service)
+        {
+            return service == ItemClass.Service.PoliceDepartment || service == ItemClass.Service.FireDepartment
+                || service == ItemClass.Service.HealthCare || service == ItemClass.Service.Education;
+        }
+
+        private static bool IsTransitStation(Building building)
+        {
+            BuildingInfo info = building.Info;
+            return info != null && info.m_buildingAI is TransportStationAI;
         }
 
         // Añade a la ruta los segmentos del camino del pathfinder del tramo que parte de `stop`
@@ -283,7 +328,9 @@ namespace VellumBridge.Export
                     angle = building.m_angle,
                     width = building.m_width,
                     length = building.m_length,
+                    accessSegment = building.m_accessSegment,
                     historical = (building.m_flags & Building.Flags.Historical) != 0,
+                    transitStation = building.m_parentBuilding == 0 && IsTransitStation(building),
                 };
                 // Nombre visible solo si es un nombre propio: el que puso el jugador, o el de un
                 // edificio único (monumentos, maravillas, landmarks: servicio Monument) que no sea
@@ -313,6 +360,20 @@ namespace VellumBridge.Export
                         // Un nombre ilegible no aborta: el edificio sale sin nombre y se cuenta.
                         if (nameErrors++ == 0) firstNameError = "edificio " + i + ": " + error.Message;
                     }
+                }
+                else if (building.m_parentBuilding == 0 && IsNamingService(info.m_class.m_service)
+                    && info.m_buildingAI is PlayerBuildingAI && !(info.m_buildingAI is FirewatchTowerAI)
+                    && (building.m_flags & Building.Flags.Untouchable) == 0)
+                {
+                    // Servicio sin renombrar: su título genérico solo sirve para nombrar una
+                    // estación cercana; no se exporta. Solo cuentan edificios de servicio de
+                    // verdad (PlayerBuildingAI), no piezas Untouchable ni torres de vigilancia
+                    // forestal (de bomberos, pero nadie las visita). Un error aquí no es un límite.
+                    try { record.serviceTitle = manager.GetBuildingName((ushort)i, InstanceID.Empty); }
+                    catch (Exception) { }
+                    // Sin traducción el juego devuelve la clave («BUILDING_TITLE[…]:0»): no es un nombre.
+                    if (record.serviceTitle != null && record.serviceTitle.StartsWith("BUILDING_TITLE[", StringComparison.Ordinal))
+                        record.serviceTitle = null;
                 }
                 model.buildings.Add(record);
             }

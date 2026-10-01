@@ -358,14 +358,67 @@ CS1 base no nombra paradas. El nombre se deriva de la calle de la parada y se ma
 valida:
 
 1. Si un mod asignó un nombre (`stopCustomNames`), se usa ese con `nameDerived: false`.
-2. Si no, se toma el nombre visible de la calle del segmento de la parada
+2. Si la parada pertenece a un edificio de estación (metro, tren, terminal: el segmento de
+   la parada es `Untouchable` y `NetSegment.FindOwnerBuilding` devuelve su dueño, subido a
+   la raíz con `Building.FindParentBuilding`; cuenta si tiene IA `TransportStationAI`
+   (metro, tren, terminales, puertos y puertas de aeropuerto, no correos ni depósitos) o si
+   el segmento es una vía de transporte, como la estación integrada en la terminal de un
+   aeropuerto), se nombra por estación con las reglas de
+   abajo. Todas las paradas del mismo edificio llevan el mismo nombre, aunque sean de
+   líneas distintas.
+3. Si no, se toma el nombre visible de la calle del segmento de la parada
    (`stopRoadSegments` + `GetSegmentName`).
-3. Se agrupan todas las paradas del documento que resuelven a la misma calle, con
+4. Se agrupan todas las paradas de calle del documento que resuelven a la misma calle, con
    comparación exacta del nombre y sin importar la línea:
    - una sola parada: `<calle>`;
    - varias: `<calle> N`, con `N` desde 1 por orden ascendente del `sourceId` del nodo de
      la parada.
-4. Sin calle con nombre, la parada no lleva `name` ni `nameDerived`.
+5. Sin calle con nombre, la parada no lleva `name` ni `nameDerived`.
+
+Nombre de una estación, en orden:
+
+1. El nombre propio del edificio, con `nameDerived: false` si lo puso el jugador
+   (`Building.Flags.CustomName`) y `nameDerived: true` si es un edificio único que
+   integra la estación. El nombre por defecto de una estación («Underground Metro
+   Station») nunca se usa.
+2. Un landmark a 150 m o menos (plano XZ), con `nameDerived: true`. Son landmarks los
+   edificios con `name` en `buildings.json` (renombrados o únicos) que no sean
+   estaciones (tengan o no paradas), y los parques con nombre (en su `labelPosition`).
+   Cada landmark pertenece solo a la estación más cercana entre las que todavía no
+   tienen nombre del jugador (si empatan, a la de menor `sourceId`); cada estación usa
+   el más cercano de los suyos (si empatan, el primero del modelo, con los edificios
+   antes que los parques). Una estación cuyas paradas llevan todas un nombre de mod no
+   compite por landmarks.
+3. El título genérico del edificio de servicio sin renombrar más cercano a 150 m o menos
+   (policía, bomberos, salud y educación; sin piezas `Untouchable` ni torres de
+   vigilancia forestal; si empatan, el de menor `sourceId`), con `nameDerived: true`. Un
+   servicio renombrado ya es un landmark y gana en el paso 2. El título es el del idioma
+   del juego al exportar.
+4. El nombre del área de `parks.json` que contiene a la estación (parques de Parklife,
+   campus, áreas industriales, zonas peatonales, aeropuertos), según la grilla de
+   parques: el área con nombre de más peso en la celda; si empatan, la primera ranura.
+   Con `nameDerived: true`. El distrito no se usa.
+5. La calle de acceso del edificio (`m_accessSegment`) o, si no tiene una con nombre, la
+   calle con nombre más cercana a 50 m o menos (sin autopistas ni represas; si empatan,
+   la de menor `sourceId`), con `nameDerived: true`. Si varias estaciones tienen la
+   misma calle, cada una lleva `<calle> / <cruce>`, donde el cruce es la calle (sin
+   autopistas ni represas) con otro nombre que llega al extremo de ese segmento más
+   cercano a la estación (si hay varias, la primera en orden ordinal; si en ese extremo
+   no hay ninguna, se mira el otro). Las que no tienen cruce, o cuyo `<calle> / <cruce>`
+   se repite, llevan `<calle> N` desde 1 por `sourceId` ascendente del edificio; si
+   queda una sola, lleva `<calle>` a secas.
+6. Sin nada de lo anterior, la estación no lleva `name` ni `nameDerived`.
+
+En los pasos 2, 3 y 4, un nombre que terminaría en más de una estación, o que ya lleva
+otra estación por un paso anterior, no se usa: esas estaciones pasan al paso siguiente.
+En el paso 4, además, ese nombre de área pasa a ser un prefijo: las estaciones que lo
+comparten se llaman `<área> - <nombre del paso 5>` (por ejemplo, `Huanacaure - Jackson
+Street`). Si el área tiene tres palabras o más, el prefijo son sus iniciales en mayúscula
+(`Laurel City Airport` → `LCA - Webb Street`). Las de esa área sin calle llevan el nombre
+del área a secas o, si quedan varias, `<área> N` desde 1 por `sourceId` ascendente del
+edificio; no cuentan como estaciones sin nombre.
+
+Estos nombres de estación no se agrupan con los de las paradas de calle.
 
 La vista esquemática puede abreviar el nombre al mostrarlo.
 
