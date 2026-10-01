@@ -217,19 +217,6 @@ impl RoadsModule {
 }
 
 impl TransitModule {
-    /// Under transit `1.0`, `stationId` is an unknown field (it arrives with
-    /// `1.1`): same message as the minor rule.
-    pub(crate) fn reject_station_ids(&self) -> Result<(), VellumError> {
-        for (l, line) in self.lines.iter().enumerate() {
-            if let Some(s) = line.stops.iter().position(|s| s.station_id.is_some()) {
-                return Err(invalid(format!(
-                    "transit.json: unknown field `lines.{l}.stops.{s}.stationId`"
-                )));
-            }
-        }
-        Ok(())
-    }
-
     pub(crate) fn validate(&self) -> Result<(), VellumError> {
         check_unique_ids("transit.json lines", self.lines.iter().map(|l| l.source_id))?;
         for line in &self.lines {

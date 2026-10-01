@@ -1277,10 +1277,12 @@ fn writer_declares_transit_1_1_for_station_ids() {
 }
 
 #[test]
-fn station_id_is_unknown_with_transit_1_0() {
-    assert_invalid(
-        parse_vellummap_bytes(&station_zip("1.0")),
-        "transit.json: unknown field `lines.0.stops.0.stationId`",
+fn station_id_is_accepted_with_transit_1_0() {
+    // A known field is validated the same under any 1.x minor (minor rule).
+    let city = parse_vellummap_bytes(&station_zip("1.0")).expect("stationId is a known field");
+    assert_eq!(
+        city.transit_lines[0].stops[0].station_id.as_deref(),
+        Some("1001")
     );
 }
 

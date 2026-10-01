@@ -84,10 +84,7 @@ Por eso el lector es estricto con los minors que conoce y tolerante con los que 
   admite módulos ni rutas nuevos.
 - Un campo que el lector sí conoce se valida igual en cualquier minor 1.x (p. ej.
   `city.id` o `buildings[].height` en un documento `1.0`, o `height: -1` en un
-  `buildings` `1.5`).
-- Excepción: `stationId` (`transit` `1.1`) sigue siendo un campo desconocido en un
-  `transit` `1.0` (``transit.json: unknown field `lines.0.stops.0.stationId` ``), porque
-  ningún productor `1.0` lo escribe. Con `1.1` o un minor mayor se valida y se expone.
+  `buildings` `1.5`). Vale también para `stationId` en un `transit` `1.0`.
 
 **Compatibilidad.** La regla del minor existe desde la versión de Vellum Desktop siguiente
 a 0.12.0. Un Desktop 0.12.0 o anterior es estricto con cualquier minor: **rechaza** los
@@ -117,9 +114,6 @@ lector las rechaza (con `InvalidFile`):
   `water-depth.bin` (ver [Agua](#agua)).
 - Contenedor: `codec` igual al método real de la entrada, `sha256` de los bytes
   descomprimidos, tamaños declarados y presupuesto del documento.
-- Versión de `stationId`: el schema lo acepta en cualquier parada, pero el lector lo
-  rechaza como campo desconocido si el módulo `transit` es `1.0` (ver
-  [Regla del minor](#regla-del-minor)).
 
 Y una en sentido contrario, en la que el lector es **más tolerante** que el schema: la
 [regla del minor](#regla-del-minor). El schema rechaza cualquier campo que no declara
