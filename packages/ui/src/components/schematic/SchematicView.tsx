@@ -12,6 +12,13 @@ import { useTranslation } from 'react-i18next';
 import type { SchematicNetworkModel } from '../../hooks/use-schematic-network';
 import { useSchematicCamera } from './use-schematic-camera';
 
+/**
+ * Station outline width at scale 1, in viewBox units. Scaled by the camera like
+ * every other metric: a constant in the stylesheet stayed the same number of
+ * *viewBox* units, so the black ring swelled as the diagram was zoomed into.
+ */
+const STATION_OUTLINE_WIDTH = 1.2;
+
 const pointsAttribute = (points: readonly SchematicPoint[]): string =>
   points.map((p) => `${p.x},${p.y}`).join(' ');
 
@@ -75,7 +82,16 @@ const SchematicLayers = memo(function SchematicLayers({
           />
         ))}
       </g>
-      <g className="schematic-view__stations">
+      <g
+        className="schematic-view__stations"
+        // Read by the outline and by the focus ring in the stylesheet; `px` in
+        // SVG user space is one viewBox unit.
+        style={
+          {
+            '--schematic-station-outline': `${STATION_OUTLINE_WIDTH * visualScale}px`,
+          } as React.CSSProperties
+        }
+      >
         {layout.stations.map((station) => (
           <polygon
             key={station.id}

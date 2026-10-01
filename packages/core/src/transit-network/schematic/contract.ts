@@ -233,6 +233,19 @@ export const SCHEMATIC_STATION_ACROSS_MARGIN =
 export const SCHEMATIC_STATION_CORNER_STEPS = STATION_CORNER_STEPS;
 
 /**
+ * Range of the presentation scale a redraw honours: the view's inverse zoom.
+ *
+ * @remarks
+ * It has to be the *camera's* range, end to end. The view scales the stroke
+ * width by the same factor without a clamp, so a narrower range here let the
+ * lines keep thinning as the camera zoomed in while slots, clearances and
+ * station capsules stopped at the clamp — stations grew huge next to their
+ * lines and parallel lines drifted apart.
+ */
+export const SCHEMATIC_PRESENTATION_SCALE_MIN = 0.04;
+export const SCHEMATIC_PRESENTATION_SCALE_MAX = 4;
+
+/**
  * Whether a stop served by a single line still draws as a **circle**.
  *
  * @remarks

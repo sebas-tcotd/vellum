@@ -394,6 +394,25 @@ describe('SchematicView — camera outside React', () => {
     expect(fontSize(container)).toBe(refittedSize);
   });
 
+  it('thins the station outline with the camera instead of keeping it in viewBox units', () => {
+    useCameraClock();
+    const { svg, container } = mount();
+    const outline = () =>
+      parseFloat(
+        (
+          container.querySelector('.schematic-view__stations') as SVGGElement
+        ).style.getPropertyValue('--schematic-station-outline'),
+      );
+    const fitted = outline();
+    for (let tick = 0; tick < 8; tick += 1) {
+      fireEvent.wheel(svg, { clientX: 100, clientY: 50, deltaY: -1 });
+      nextFrame();
+    }
+    settleZoom();
+    // Eight ticks in is about a third of the fitted box: the outline follows.
+    expect(outline()).toBeLessThan(fitted / 2);
+  });
+
   it('keeps the live box when something else re-renders mid-gesture', () => {
     useCameraClock();
     const { svg, rerenderWith } = mount();

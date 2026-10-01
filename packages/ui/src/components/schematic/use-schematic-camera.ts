@@ -1,3 +1,7 @@
+import {
+  SCHEMATIC_PRESENTATION_SCALE_MAX,
+  SCHEMATIC_PRESENTATION_SCALE_MIN,
+} from '@vellum/core';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 export interface SchematicCamera {
@@ -31,8 +35,10 @@ type Box = SchematicCamera['viewBox'];
 // Matches the wheel's own limits (4 % of the diagram to 4× it), so type and
 // strokes keep their screen size across the whole zoom range instead of
 // growing once a clamp is hit.
-const VISUAL_SCALE_MIN = 0.04;
-const VISUAL_SCALE_MAX = 4;
+// The redraw honours the same range (`renderSchematic`), so geometry and stroke
+// never part ways at one end of the zoom.
+const VISUAL_SCALE_MIN = SCHEMATIC_PRESENTATION_SCALE_MIN;
+const VISUAL_SCALE_MAX = SCHEMATIC_PRESENTATION_SCALE_MAX;
 /**
  * How long the wheel has to rest before a zoom gesture is considered over and
  * the diagram is rematerialized at the new scale. Long enough to bridge the gap

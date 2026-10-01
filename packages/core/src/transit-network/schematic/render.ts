@@ -54,6 +54,8 @@ import {
   byString,
   SCHEMATIC_SLOT,
   SCHEMATIC_NODE_PAD,
+  SCHEMATIC_PRESENTATION_SCALE_MAX,
+  SCHEMATIC_PRESENTATION_SCALE_MIN,
   SCHEMATIC_STATION_ACROSS_MARGIN,
   SCHEMATIC_STATION_CORNER_STEPS,
   SCHEMATIC_STATION_HALF_THICKNESS,
@@ -370,7 +372,10 @@ export function renderSchematic(
 ): SchematicRenderOutput {
   const requested = input.presentationScale ?? 1;
   const scale = Number.isFinite(requested)
-    ? Math.min(3, Math.max(0.35, requested))
+    ? Math.min(
+        SCHEMATIC_PRESENTATION_SCALE_MAX,
+        Math.max(SCHEMATIC_PRESENTATION_SCALE_MIN, requested),
+      )
     : 1;
   const visible = input.visibleLineIds;
   const isVisible = (lineId: string): boolean =>

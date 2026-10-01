@@ -80,6 +80,14 @@ canónica que el mapa, y no de una deduplicación local por `stopId`.
   salto visible. Es el precio aceptado de no reconciliar el diagrama en cada
   tick; el resultado final es idéntico al de aplicar cada paso por separado.
   Sigue sin usarse `vector-effect: non-scaling-stroke`, por la razón de arriba.
+- **Un solo rango de escala para trazo y geometría.** La rematerialización
+  acepta el mismo rango que la cámara (`SCHEMATIC_PRESENTATION_SCALE_MIN`/`MAX`,
+  0,04–4). Antes se limitaba a 0,35–3 mientras el grosor de línea seguía la
+  cámara sin límite: al acercarse, las líneas adelgazaban y las cápsulas de
+  estación y los huecos entre slots no, así que las estaciones quedaban enormes
+  junto a sus líneas. El borde de la estación y su anillo de foco también se
+  escalan con la cámara (variable `--schematic-station-outline`), y la estación
+  no usa `outline` de CSS, que en SVG se mide en unidades del `viewBox`.
 
 ## Evidencia
 

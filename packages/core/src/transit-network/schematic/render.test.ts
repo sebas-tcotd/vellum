@@ -10,6 +10,7 @@ import { deriveTransitNetwork } from '../index';
 import { rightOf } from '../render-geometry/utils/vector';
 import {
   SCHEMATIC_LINE_WIDTH,
+  SCHEMATIC_PRESENTATION_SCALE_MIN,
   SCHEMATIC_SLOT,
   SCHEMATIC_STATION_HALF_THICKNESS,
   type SchematicLayout,
@@ -72,6 +73,29 @@ describe('semantic presentation rematerialization', () => {
       layout.segments[0]?.points,
     );
     expect(enlarged.stations[0]?.shape).not.toEqual(layout.stations[0]?.shape);
+  });
+
+  it('shrinks station capsules with the stroke across the whole camera range', () => {
+    // The view scales the stroke width by the same factor with no clamp, so a
+    // capsule that stopped shrinking at some scale outgrew its lines when the
+    // camera zoomed in past it.
+    const layout = geographicSchematicLayout(
+      deriveTransitNetwork(sharedCorridorCity()),
+    );
+    const extent = (scale: number): number => {
+      const shape = rematerializeSchematicLayout(layout, scale).stations[0]!
+        .shape;
+      const xs = shape.map((point) => point.x);
+      const ys = shape.map((point) => point.y);
+      return Math.hypot(
+        Math.max(...xs) - Math.min(...xs),
+        Math.max(...ys) - Math.min(...ys),
+      );
+    };
+    const atOne = extent(1);
+    for (const scale of [0.25, 0.1, SCHEMATIC_PRESENTATION_SCALE_MIN]) {
+      expect(extent(scale) / scale).toBeCloseTo(atOne, 6);
+    }
   });
 
   it('survives structured clone and does not restore filtered lines', () => {
