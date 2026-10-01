@@ -1,5 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <!-- Harness del escritor .vellummap fuera de CS1. Enlaza solo el modelo, el escritor y la identidad puros
+  <!-- Harness de exportación y captura fuera de CS1. Enlaza modelos, escritores y serializadores puros
        (sin dependencias del juego) y usa C# 7.3, el mismo lenguaje que el mod net35. -->
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -14,5 +14,9 @@
     <Compile Include="../src/Export/VellumModel.cs" Link="Export/VellumModel.cs" />
     <Compile Include="../src/Export/VellumWriter.cs" Link="Export/VellumWriter.cs" />
     <Compile Include="../src/Export/VellumIdentity.cs" Link="Export/VellumIdentity.cs" />
+    <Compile Include="../src/Capture/SnapshotModel.cs" Link="Capture/SnapshotModel.cs" />
+    <Compile Include="../src/Capture/SnapshotJson.cs" Link="Capture/SnapshotJson.cs" />
+    <Compile Include="../src/Capture/RawFieldSerializer.cs" Link="Capture/RawFieldSerializer.cs" />
+    <Compile Include="../src/Capture/SnapshotWriter.cs" Link="Capture/SnapshotWriter.cs" />
   </ItemGroup>
 </Project>
