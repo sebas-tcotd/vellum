@@ -53,7 +53,21 @@ export const TRANSIT_MODES: readonly TransitMode[] = [
   'Ferry',
   'Blimp',
   'Trolleybus',
+  'WalkingTour',
+  'SightseeingBus',
+  'HotAirBalloon',
   'Unknown',
+];
+
+/**
+ * The game's Tours category (Parklife): walking tours, sightseeing buses and
+ * hot air balloons. They are lines like any other, but not public transport,
+ * so every per-mode surface lists them in a section of their own.
+ */
+export const TOUR_TRANSIT_MODES: readonly TransitMode[] = [
+  'WalkingTour',
+  'SightseeingBus',
+  'HotAirBalloon',
 ];
 
 /**
@@ -67,6 +81,10 @@ export const TRANSIT_MODES: readonly TransitMode[] = [
  */
 export const TOGGLABLE_TRANSIT_MODES: readonly TransitMode[] =
   TRANSIT_MODES.filter((mode) => mode !== 'Unknown');
+
+/** Togglable public-transport modes: {@link TOGGLABLE_TRANSIT_MODES} minus the tours. */
+export const PUBLIC_TRANSPORT_MODES: readonly TransitMode[] =
+  TOGGLABLE_TRANSIT_MODES.filter((mode) => !TOUR_TRANSIT_MODES.includes(mode));
 
 /** Top-level zoning group a building belongs to, derived from `Building.serviceType`
  * via `BUILDING_SERVICE_TYPE_CATEGORY` (the substring before the first `.`).

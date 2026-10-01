@@ -1,6 +1,6 @@
 import { useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { TransitMode } from '@vellum/core';
+import { TOUR_TRANSIT_MODES, type TransitMode } from '@vellum/core';
 import { Switch } from '../../lib/switch';
 import type {
   SchematicLegendLine,
@@ -74,6 +74,29 @@ export function SchematicSidebarContent({
   const visibleLineIds = legend.flatMap((group) =>
     group.lines.map((line) => line.lineId),
   );
+  // Tours are not public transport: they get a heading of their own, as in
+  // the transit layer's advanced options.
+  const publicModes = availableModes.filter(
+    (mode) => !TOUR_TRANSIT_MODES.includes(mode),
+  );
+  const tourModes = availableModes.filter((mode) =>
+    TOUR_TRANSIT_MODES.includes(mode),
+  );
+  const renderModeSwitch = (mode: TransitMode) => {
+    const label = t(`transitModes.${mode}`);
+    return (
+      <div className="schematic-panel__switch-row" key={mode}>
+        <span className="schematic-panel__switch-label">{label}</span>
+        <Switch
+          className="shrink-0"
+          aria-label={label}
+          data-testid={`schematic-mode-${mode}`}
+          checked={!hiddenModes.has(mode)}
+          onCheckedChange={() => onToggleMode(mode)}
+        />
+      </div>
+    );
+  };
 
   return (
     <div className="schematic-panel" data-testid="schematic-sidebar">
@@ -115,21 +138,13 @@ export function SchematicSidebarContent({
           <h3 className="schematic-panel__heading">
             {t('schematicSidebar.modes')}
           </h3>
-          {availableModes.map((mode) => {
-            const label = t(`transitModes.${mode}`);
-            return (
-              <div className="schematic-panel__switch-row" key={mode}>
-                <span className="schematic-panel__switch-label">{label}</span>
-                <Switch
-                  className="shrink-0"
-                  aria-label={label}
-                  data-testid={`schematic-mode-${mode}`}
-                  checked={!hiddenModes.has(mode)}
-                  onCheckedChange={() => onToggleMode(mode)}
-                />
-              </div>
-            );
-          })}
+          {publicModes.map(renderModeSwitch)}
+          {tourModes.length > 0 && (
+            <h4 className="schematic-panel__heading">
+              {t('layerOptionsPanel.tours')}
+            </h4>
+          )}
+          {tourModes.map(renderModeSwitch)}
           {canRestore && (
             <button
               type="button"

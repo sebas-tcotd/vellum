@@ -374,6 +374,9 @@ fn build_view_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> 
         .build()
 }
 
+/// Option entry that `build_layer_menu` renders as a separator between sections.
+const OPTION_SECTION_BREAK: (&str, &str, bool) = ("", "", false);
+
 fn build_layer_menu<R: Runtime>(
     app: &AppHandle<R>,
     layer: &str,
@@ -404,6 +407,10 @@ fn build_layer_menu<R: Runtime>(
 
         let mut items = Vec::with_capacity(options.len());
         for (id, text, checked) in options {
+            if id.is_empty() {
+                items.push(None);
+                continue;
+            }
             let item = checked_item(
                 app,
                 &format!("menu.toggle-advanced.{layer}.{id}"),
@@ -411,10 +418,13 @@ fn build_layer_menu<R: Runtime>(
                 *checked,
                 None,
             )?;
-            items.push(item);
+            items.push(Some(item));
         }
         for item in &items {
-            builder = builder.item(item);
+            builder = match item {
+                Some(item) => builder.item(item),
+                None => builder.separator(),
+            };
         }
         return builder.build();
     }
@@ -461,6 +471,11 @@ fn build_layers_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>
             ("Ferry", "Ferry", true),
             ("Blimp", "Blimp", true),
             ("Trolleybus", "Trolleybus", true),
+            // Tours (Parklife) are not public transport: their own section.
+            OPTION_SECTION_BREAK,
+            ("WalkingTour", "Walking Tour", true),
+            ("SightseeingBus", "Sightseeing Bus", true),
+            ("HotAirBalloon", "Hot Air Balloon", true),
         ],
     )?;
     let buildings = build_layer_menu(
@@ -746,6 +761,9 @@ pub fn update_menu_language(app_handle: AppHandle, language: String) -> Result<(
             ("transit", "Ferry", "Ferry"),
             ("transit", "Blimp", "Blimp"),
             ("transit", "Trolleybus", "Trolleybus"),
+            ("transit", "WalkingTour", "Walking Tour"),
+            ("transit", "SightseeingBus", "Sightseeing Bus"),
+            ("transit", "HotAirBalloon", "Hot Air Balloon"),
             ("buildings", "color-by-category", "Color by Category"),
             ("buildings", "residential", "Residential"),
             ("buildings", "industry", "Industry"),
@@ -769,6 +787,9 @@ pub fn update_menu_language(app_handle: AppHandle, language: String) -> Result<(
             ("transit", "Ferry", "Ferri"),
             ("transit", "Blimp", "Dirigible"),
             ("transit", "Trolleybus", "Trolebús"),
+            ("transit", "WalkingTour", "Tour a pie"),
+            ("transit", "SightseeingBus", "Bus turístico"),
+            ("transit", "HotAirBalloon", "Globo aerostático"),
             ("buildings", "color-by-category", "Colorear por categoría"),
             ("buildings", "residential", "Residencial"),
             ("buildings", "industry", "Industria"),

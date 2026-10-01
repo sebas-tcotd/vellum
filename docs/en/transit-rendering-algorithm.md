@@ -137,7 +137,8 @@ lives in `seenFrom` and the line-graph geometry.
 - **Large components:** deterministic mode-and-ID initialization, followed by
   score-driven greedy search and hill climbing.
 - **Tie-break priority:** Metro, Train, Monorail, Tram, Trolleybus, CableCar,
-  Ferry, Blimp, Bus and Unknown; IDs break ties within a mode.
+  Ferry, Blimp, Bus, then the tours (SightseeingBus, WalkingTour,
+  HotAirBalloon) and Unknown; IDs break ties within a mode.
 - **Expansion:** after bundles are ordered, their lines are expanded using the
   same mode-and-ID priority.
 

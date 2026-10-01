@@ -147,6 +147,9 @@ export type TransitMode =
   | 'Ferry'
   | 'Blimp'
   | 'Trolleybus'
+  | 'WalkingTour'
+  | 'SightseeingBus'
+  | 'HotAirBalloon'
   | 'Unknown';
 
 /**
