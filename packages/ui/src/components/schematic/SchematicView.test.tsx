@@ -7,8 +7,10 @@ import {
   transitFixture,
 } from '@vellum/core/testing';
 import { SCHEMATIC_LINE_WIDTH, type TransitMode } from '@vellum/core';
-import { cleanup, fireEvent, render, screen } from '../../test-utils';
+import { Profiler } from 'react';
+import { act, cleanup, fireEvent, render, screen } from '../../test-utils';
 import { SchematicView } from './SchematicView';
+import { ZOOM_SETTLE_MS } from './use-schematic-camera';
 import {
   EMPTY_SCHEMATIC_MODEL,
   useSchematicNetwork,
@@ -21,7 +23,32 @@ vi.mock('react-i18next', () => ({
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  vi.useRealTimers();
 });
+
+/**
+ * The camera writes the SVG once per animation frame and commits a zoom after
+ * the wheel rests (Story 4.5), so camera tests drive frames and timers by hand.
+ */
+const useCameraClock = () =>
+  vi.useFakeTimers({
+    toFake: [
+      'requestAnimationFrame',
+      'cancelAnimationFrame',
+      'setTimeout',
+      'clearTimeout',
+    ],
+  });
+const nextFrame = () => act(() => void vi.advanceTimersToNextFrame());
+const settleZoom = () => act(() => void vi.advanceTimersByTime(ZOOM_SETTLE_MS));
+
+const mockRect = (svg: HTMLElement) =>
+  vi.spyOn(svg, 'getBoundingClientRect').mockReturnValue({
+    left: 0,
+    top: 0,
+    width: 200,
+    height: 100,
+  } as DOMRect);
 
 const transitCity = makeCityData({
   roadNodes: [
@@ -49,6 +76,7 @@ const modelFor = (hiddenModes: TransitMode[] = []) =>
 
 describe('SchematicView', () => {
   it('zooms around the pointer, pans, and restores the fitted camera', () => {
+    useCameraClock();
     render(
       <SchematicView
         model={modelFor()}
@@ -57,18 +85,16 @@ describe('SchematicView', () => {
       />,
     );
     const svg = screen.getByTestId('schematic-diagram');
-    vi.spyOn(svg, 'getBoundingClientRect').mockReturnValue({
-      left: 0,
-      top: 0,
-      width: 200,
-      height: 100,
-    } as DOMRect);
+    mockRect(svg);
     const fitted = svg.getAttribute('viewBox');
+    expect(fitted).toBeTruthy();
     fireEvent.wheel(svg, { clientX: 150, clientY: 50, deltaY: -1 });
+    nextFrame();
     const zoomed = svg.getAttribute('viewBox');
     expect(zoomed).not.toBe(fitted);
     fireEvent.pointerDown(svg, { pointerId: 1, clientX: 100, clientY: 50 });
     fireEvent.pointerMove(svg, { pointerId: 1, clientX: 120, clientY: 50 });
+    nextFrame();
     expect(svg.getAttribute('viewBox')).not.toBe(zoomed);
     fireEvent.pointerUp(svg, { pointerId: 1 });
     fireEvent.click(screen.getByRole('button', { name: 'schematic.fit' }));
@@ -122,6 +148,7 @@ describe('SchematicView', () => {
   });
 
   it('rematerializes label text and halo with the quantized visual scale', () => {
+    useCameraClock();
     const { container } = render(
       <SchematicView
         model={modelFor()}
@@ -130,16 +157,13 @@ describe('SchematicView', () => {
       />,
     );
     const svg = screen.getByTestId('schematic-diagram');
-    vi.spyOn(svg, 'getBoundingClientRect').mockReturnValue({
-      left: 0,
-      top: 0,
-      width: 200,
-      height: 100,
-    } as DOMRect);
+    mockRect(svg);
     const label = container.querySelector('text.schematic-view__label')!;
     const before = label.getAttribute('font-size');
     expect(label.getAttribute('transform')).toMatch(/^rotate\(/);
     fireEvent.wheel(svg, { clientX: 100, clientY: 50, deltaY: -1 });
+    nextFrame();
+    settleZoom();
     expect(label.getAttribute('font-size')).not.toBe(before);
     expect(label.getAttribute('stroke-width')).toBeTruthy();
   });
@@ -190,6 +214,251 @@ describe('SchematicView', () => {
     expect(container.querySelectorAll('polyline')).toHaveLength(0);
     screen.getByRole('button', { name: 'schematic.showAllModes' }).click();
     expect(onShowAllModes).toHaveBeenCalledTimes(1);
+  });
+});
+
+// Story 4.5: the camera writes the SVG itself, once per frame, and React only
+// hears about it when a gesture ends.
+describe('SchematicView — camera outside React', () => {
+  const mount = () => {
+    const onRender = vi.fn();
+    const full = modelFor();
+    const view = (
+      hovered: string | null,
+      model: ReturnType<typeof modelFor> = full,
+    ) => (
+      <Profiler id="schematic" onRender={onRender}>
+        <SchematicView
+          model={model}
+          onBack={() => {}}
+          onShowAllModes={() => {}}
+          hoveredLineId={hovered}
+        />
+      </Profiler>
+    );
+    const result = render(view(null));
+    const svg = screen.getByTestId('schematic-diagram');
+    mockRect(svg);
+    return {
+      ...result,
+      svg,
+      onRender,
+      rerenderWith: (hovered: string | null) => result.rerender(view(hovered)),
+      rerenderModel: (model: ReturnType<typeof modelFor>) =>
+        result.rerender(view(null, model)),
+      full,
+    };
+  };
+  const viewBoxWrites = (spy: { mock: { calls: unknown[][] } }) =>
+    spy.mock.calls.filter(([name]) => name === 'viewBox');
+  const fontSize = (container: HTMLElement) =>
+    container
+      .querySelector('text.schematic-view__label')!
+      .getAttribute('font-size');
+
+  it('collapses several moves in one frame into one write of the latest box', () => {
+    useCameraClock();
+    const { svg } = mount();
+    const writes = vi.spyOn(svg, 'setAttribute');
+    fireEvent.pointerDown(svg, { pointerId: 1, clientX: 100, clientY: 50 });
+    fireEvent.pointerMove(svg, { pointerId: 1, clientX: 110, clientY: 50 });
+    fireEvent.pointerMove(svg, { pointerId: 1, clientX: 120, clientY: 50 });
+    const afterTwo = svg.getAttribute('viewBox');
+    fireEvent.pointerMove(svg, { pointerId: 1, clientX: 130, clientY: 50 });
+    expect(viewBoxWrites(writes)).toHaveLength(0);
+    nextFrame();
+    expect(viewBoxWrites(writes)).toHaveLength(1);
+    const drawn = svg.getAttribute('viewBox')!;
+    expect(drawn).not.toBe(afterTwo);
+    // The last move, 30 px across a 200 px-wide SVG, not the first.
+    const [fittedX, , width] = afterTwo!.split(' ').map(Number);
+    const [x] = drawn.split(' ').map(Number);
+    expect(x).toBeCloseTo(fittedX - (30 / 200) * width);
+    fireEvent.pointerUp(svg, { pointerId: 1 });
+    expect(svg.getAttribute('viewBox')).toBe(drawn);
+  });
+
+  it('pans without rendering, and commits once on release', () => {
+    useCameraClock();
+    const { svg, onRender } = mount();
+    const commitsBefore = onRender.mock.calls.length;
+    const fitted = svg.getAttribute('viewBox');
+    fireEvent.pointerDown(svg, { pointerId: 1, clientX: 100, clientY: 50 });
+    for (let step = 1; step <= 5; step += 1) {
+      fireEvent.pointerMove(svg, {
+        pointerId: 1,
+        clientX: 100 + step * 10,
+        clientY: 50,
+      });
+      nextFrame();
+    }
+    expect(svg.getAttribute('viewBox')).not.toBe(fitted);
+    expect(onRender.mock.calls.length).toBe(commitsBefore);
+    fireEvent.pointerUp(svg, { pointerId: 1 });
+
+    expect(onRender.mock.calls.length).toBe(commitsBefore + 1);
+  });
+
+  it('rescales strokes and labels only after the wheel rests, in one pass', () => {
+    useCameraClock();
+    const { svg, container, onRender } = mount();
+    const before = fontSize(container);
+    const fitted = svg.getAttribute('viewBox');
+    const commitsBefore = onRender.mock.calls.length;
+    for (let tick = 0; tick < 4; tick += 1) {
+      fireEvent.wheel(svg, { clientX: 100, clientY: 50, deltaY: -1 });
+      nextFrame();
+      act(() => void vi.advanceTimersByTime(ZOOM_SETTLE_MS / 2));
+    }
+    // The box followed every tick; the metrics have not moved yet.
+    expect(svg.getAttribute('viewBox')).not.toBe(fitted);
+    expect(fontSize(container)).toBe(before);
+    expect(onRender.mock.calls.length).toBe(commitsBefore);
+    settleZoom();
+    expect(fontSize(container)).not.toBe(before);
+    expect(onRender.mock.calls.length).toBe(commitsBefore + 1);
+  });
+
+  it('ends in the same drawing whether a zoom settles per tick or once', () => {
+    useCameraClock();
+    const stepwise = mount();
+    for (let tick = 0; tick < 5; tick += 1) {
+      fireEvent.wheel(stepwise.svg, { clientX: 150, clientY: 30, deltaY: -1 });
+      nextFrame();
+      settleZoom();
+    }
+    const expected = {
+      viewBox: stepwise.svg.getAttribute('viewBox'),
+      drawing: stepwise.svg.innerHTML,
+    };
+    cleanup();
+
+    const gesture = mount();
+    for (let tick = 0; tick < 5; tick += 1) {
+      fireEvent.wheel(gesture.svg, { clientX: 150, clientY: 30, deltaY: -1 });
+      nextFrame();
+    }
+    settleZoom();
+    expect(gesture.svg.getAttribute('viewBox')).toBe(expected.viewBox);
+    expect(gesture.svg.innerHTML).toBe(expected.drawing);
+  });
+
+  it('fits at once and cancels a pending settle', () => {
+    useCameraClock();
+    const { svg, container } = mount();
+    const fitted = svg.getAttribute('viewBox');
+    const before = fontSize(container);
+    fireEvent.wheel(svg, { clientX: 100, clientY: 50, deltaY: -1 });
+    nextFrame();
+    fireEvent.click(screen.getByRole('button', { name: 'schematic.fit' }));
+    expect(svg.getAttribute('viewBox')).toBe(fitted);
+    settleZoom();
+    expect(svg.getAttribute('viewBox')).toBe(fitted);
+    expect(fontSize(container)).toBe(before);
+  });
+
+  it('refits at once to a new layout and cancels a pending settle', () => {
+    useCameraClock();
+    const { svg, container, rerender } = mount();
+    // Another layout of a different shape: only its bounds matter to the camera.
+    const base = modelFor();
+    const widerModel = {
+      ...base,
+      layout: {
+        ...base.layout,
+        bounds: {
+          ...base.layout.bounds,
+          width: base.layout.bounds.width * 2,
+        },
+      },
+    };
+    fireEvent.wheel(svg, { clientX: 100, clientY: 50, deltaY: -1 });
+    nextFrame();
+    // Same tree as `mount`, so the view updates in place instead of remounting.
+    rerender(
+      <Profiler id="schematic" onRender={() => {}}>
+        <SchematicView
+          model={widerModel}
+          onBack={() => {}}
+          onShowAllModes={() => {}}
+        />
+      </Profiler>,
+    );
+    expect(screen.getByTestId('schematic-diagram')).toBe(svg);
+    const { width, height } = widerModel.layout.bounds;
+    const refitted = `${-width * 0.05} ${-height * 0.05} ${width * 1.1} ${height * 1.1}`;
+    expect(svg.getAttribute('viewBox')).toBe(refitted);
+    const refittedSize = fontSize(container);
+    settleZoom();
+    expect(svg.getAttribute('viewBox')).toBe(refitted);
+    expect(fontSize(container)).toBe(refittedSize);
+  });
+
+  it('keeps the live box when something else re-renders mid-gesture', () => {
+    useCameraClock();
+    const { svg, rerenderWith } = mount();
+    fireEvent.pointerDown(svg, { pointerId: 1, clientX: 100, clientY: 50 });
+    fireEvent.pointerMove(svg, { pointerId: 1, clientX: 140, clientY: 70 });
+    nextFrame();
+    const live = svg.getAttribute('viewBox');
+    rerenderWith('L1');
+    expect(svg.getAttribute('viewBox')).toBe(live);
+    fireEvent.pointerUp(svg, { pointerId: 1 });
+    rerenderWith(null);
+    expect(svg.getAttribute('viewBox')).toBe(live);
+  });
+
+  it('wheel then drag: the settle waits for the release', () => {
+    useCameraClock();
+    const { svg, container, onRender } = mount();
+    const before = fontSize(container);
+    fireEvent.wheel(svg, { clientX: 100, clientY: 50, deltaY: -1 });
+    nextFrame();
+    const commitsBefore = onRender.mock.calls.length;
+    fireEvent.pointerDown(svg, { pointerId: 1, clientX: 100, clientY: 50 });
+    // The settle comes due mid-drag and must not re-render the layers.
+    for (let step = 1; step <= 4; step += 1) {
+      fireEvent.pointerMove(svg, {
+        pointerId: 1,
+        clientX: 100 + step * 10,
+        clientY: 50,
+      });
+      nextFrame();
+      act(() => void vi.advanceTimersByTime(ZOOM_SETTLE_MS));
+    }
+    expect(onRender.mock.calls.length).toBe(commitsBefore);
+    expect(fontSize(container)).toBe(before);
+    fireEvent.pointerUp(svg, { pointerId: 1 });
+    expect(onRender.mock.calls.length).toBe(commitsBefore + 1);
+    expect(fontSize(container)).not.toBe(before);
+  });
+
+  it('restores the live box on an SVG remounted with the same bounds', () => {
+    useCameraClock();
+    const { svg, rerenderModel, full } = mount();
+    fireEvent.wheel(svg, { clientX: 150, clientY: 30, deltaY: -1 });
+    nextFrame();
+    settleZoom();
+    const recorded = svg.getAttribute('viewBox');
+    // Hiding every mode unmounts the SVG; showing them again mounts a new one.
+    rerenderModel(modelFor(['Bus']));
+    expect(screen.queryByTestId('schematic-diagram')).toBeNull();
+    rerenderModel(full);
+    const remounted = screen.getByTestId('schematic-diagram');
+    expect(remounted).not.toBe(svg);
+    expect(remounted.getAttribute('viewBox')).toBe(recorded);
+  });
+
+  it('cancels its frame and its settle when the view goes away', () => {
+    useCameraClock();
+    const { svg, unmount } = mount();
+    const writes = vi.spyOn(svg, 'setAttribute');
+    fireEvent.wheel(svg, { clientX: 100, clientY: 50, deltaY: -1 });
+    expect(vi.getTimerCount()).toBe(2);
+    unmount();
+    expect(vi.getTimerCount()).toBe(0);
+    act(() => void vi.advanceTimersByTime(ZOOM_SETTLE_MS * 2));
+    expect(viewBoxWrites(writes)).toHaveLength(0);
   });
 });
 

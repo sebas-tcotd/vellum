@@ -2,16 +2,132 @@ import {
   placeSchematicLabels,
   rematerializeSchematicLayout,
   SCHEMATIC_LINE_WIDTH,
+  type SchematicLabel,
+  type SchematicLayout,
   type SchematicPoint,
 } from '@vellum/core';
 import { Maximize } from 'lucide-react';
-import { forwardRef, useMemo, useState } from 'react';
+import { forwardRef, memo, useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { SchematicNetworkModel } from '../../hooks/use-schematic-network';
 import { useSchematicCamera } from './use-schematic-camera';
 
 const pointsAttribute = (points: readonly SchematicPoint[]): string =>
   points.map((p) => `${p.x},${p.y}`).join(' ');
+
+interface SchematicLayersProps {
+  readonly layout: SchematicLayout;
+  readonly labels: readonly SchematicLabel[];
+  readonly visualScale: number;
+  readonly hoveredLineId: string | null;
+  readonly stationNameById: ReadonlyMap<string, string>;
+  readonly onSelectStation: (stationId: string) => void;
+}
+
+/**
+ * Everything drawn inside the diagram's `<svg>`, memoized on stable inputs.
+ *
+ * @remarks
+ * Story 4.5: San Rico is ~6,500 elements, and reconciling them was the whole
+ * cost of a pan step. Every prop here changes only when what is drawn does —
+ * the layout and labels with the committed scale, the highlight with the
+ * legend — so committing a camera that kept its scale reconciles nothing.
+ */
+const SchematicLayers = memo(function SchematicLayers({
+  layout,
+  labels,
+  visualScale,
+  hoveredLineId,
+  stationNameById,
+  onSelectStation,
+}: SchematicLayersProps) {
+  return (
+    <>
+      <g className="schematic-view__connectors">
+        {layout.connectors.map((connector, index) => (
+          <polyline
+            key={`${connector.lineId}:${index}`}
+            data-line-id={connector.lineId}
+            className={
+              hoveredLineId !== null && connector.lineId !== hoveredLineId
+                ? 'schematic-view__dimmed'
+                : undefined
+            }
+            points={pointsAttribute(connector.points)}
+            stroke={connector.color}
+            strokeWidth={SCHEMATIC_LINE_WIDTH * visualScale}
+          />
+        ))}
+      </g>
+      <g className="schematic-view__segments">
+        {layout.segments.map((segment, index) => (
+          <polyline
+            key={`${segment.lineId}:${index}`}
+            data-line-id={segment.lineId}
+            className={
+              hoveredLineId !== null && segment.lineId !== hoveredLineId
+                ? 'schematic-view__dimmed'
+                : undefined
+            }
+            points={pointsAttribute(segment.points)}
+            stroke={segment.color}
+            strokeWidth={SCHEMATIC_LINE_WIDTH * visualScale}
+          />
+        ))}
+      </g>
+      <g className="schematic-view__stations">
+        {layout.stations.map((station) => (
+          <polygon
+            key={station.id}
+            data-station-id={station.id}
+            points={pointsAttribute(station.shape)}
+            // Station membership is what `lineIds` is for: a stop the
+            // highlighted line does not call at recedes with the rest.
+            className={
+              hoveredLineId !== null && !station.lineIds.includes(hoveredLineId)
+                ? 'schematic-view__dimmed'
+                : undefined
+            }
+            tabIndex={stationNameById.has(station.id) ? 0 : undefined}
+            aria-label={stationNameById.get(station.id)}
+            onFocus={() => onSelectStation(station.id)}
+            onClick={() => onSelectStation(station.id)}
+          >
+            {stationNameById.has(station.id) && (
+              <title>{stationNameById.get(station.id)}</title>
+            )}
+          </polygon>
+        ))}
+      </g>
+      <g className="schematic-view__labels" aria-hidden="true">
+        {labels
+          .filter((label) => label.text !== null)
+          .map((label) => {
+            // Both in viewBox units, both from the same scale the placement
+            // used, and both as *attributes*: a `font-size` in the stylesheet
+            // would be a constant number of viewBox units, which is what made
+            // a label grow to fill the screen as the camera zoomed in.
+            const size = label.fontSize * visualScale;
+            return (
+              <text
+                key={label.id}
+                x={label.x}
+                y={label.y}
+                textAnchor={label.anchor}
+                transform={`rotate(${label.angle} ${label.x} ${label.y})`}
+                fontSize={size}
+                strokeWidth={size * 0.3}
+                fill={label.color ?? 'currentColor'}
+                className={`schematic-view__label schematic-view__label--${label.kind}`}
+              >
+                {label.text}
+              </text>
+            );
+          })}
+      </g>
+    </>
+  );
+});
 
 export interface SchematicViewProps {
   /**
@@ -76,7 +192,8 @@ export const SchematicView = forwardRef<HTMLElement, SchematicViewProps>(
     // Placed here, not in the model: how many names fit is a function of the
     // camera, and the camera lives on this surface. Both inputs are quantised —
     // the layout changes only when the selection does, `visualScale` only in
-    // eighths — so panning never moves a label and a zoom step is one pass.
+    // quarter octaves and only once a zoom gesture settles — so panning never
+    // moves a label and a whole zoom gesture is one pass.
     const labels = useMemo(
       () =>
         placeSchematicLabels(
@@ -98,6 +215,11 @@ export const SchematicView = forwardRef<HTMLElement, SchematicViewProps>(
     );
     const [selectedStationId, setSelectedStationId] = useState<string | null>(
       null,
+    );
+    // Stable, so the memoized layers are not re-rendered for a new closure.
+    const selectStation = useCallback(
+      (stationId: string) => setSelectedStationId(stationId),
+      [],
     );
     const selectedStationName = selectedStationId
       ? (stationNameById.get(selectedStationId) ?? null)
@@ -184,7 +306,10 @@ export const SchematicView = forwardRef<HTMLElement, SchematicViewProps>(
             <svg
               className="schematic-view__diagram"
               data-testid="schematic-diagram"
-              viewBox={`${camera.viewBox.x} ${camera.viewBox.y} ${camera.viewBox.width} ${camera.viewBox.height}`}
+              // No `viewBox` here: the camera writes it straight to the node,
+              // once per frame, so a gesture never re-renders the diagram and a
+              // re-render never snaps a gesture back (Story 4.5).
+              ref={camera.svgRef}
               preserveAspectRatio="xMidYMid meet"
               aria-label={t('schematic.region')}
               onWheel={camera.onWheel}
@@ -194,91 +319,14 @@ export const SchematicView = forwardRef<HTMLElement, SchematicViewProps>(
               onPointerCancel={camera.onPointerCancel}
               onLostPointerCapture={camera.onPointerCancel}
             >
-              <g className="schematic-view__connectors">
-                {renderedLayout.connectors.map((connector, index) => (
-                  <polyline
-                    key={`${connector.lineId}:${index}`}
-                    data-line-id={connector.lineId}
-                    className={
-                      hoveredLineId !== null &&
-                      connector.lineId !== hoveredLineId
-                        ? 'schematic-view__dimmed'
-                        : undefined
-                    }
-                    points={pointsAttribute(connector.points)}
-                    stroke={connector.color}
-                    strokeWidth={SCHEMATIC_LINE_WIDTH * camera.visualScale}
-                  />
-                ))}
-              </g>
-              <g className="schematic-view__segments">
-                {renderedLayout.segments.map((segment, index) => (
-                  <polyline
-                    key={`${segment.lineId}:${index}`}
-                    data-line-id={segment.lineId}
-                    className={
-                      hoveredLineId !== null && segment.lineId !== hoveredLineId
-                        ? 'schematic-view__dimmed'
-                        : undefined
-                    }
-                    points={pointsAttribute(segment.points)}
-                    stroke={segment.color}
-                    strokeWidth={SCHEMATIC_LINE_WIDTH * camera.visualScale}
-                  />
-                ))}
-              </g>
-              <g className="schematic-view__stations">
-                {renderedLayout.stations.map((station) => (
-                  <polygon
-                    key={station.id}
-                    data-station-id={station.id}
-                    points={pointsAttribute(station.shape)}
-                    // Station membership is what `lineIds` is for: a stop the
-                    // highlighted line does not call at recedes with the rest.
-                    className={
-                      hoveredLineId !== null &&
-                      !station.lineIds.includes(hoveredLineId)
-                        ? 'schematic-view__dimmed'
-                        : undefined
-                    }
-                    tabIndex={stationNameById.has(station.id) ? 0 : undefined}
-                    aria-label={stationNameById.get(station.id)}
-                    onFocus={() => setSelectedStationId(station.id)}
-                    onClick={() => setSelectedStationId(station.id)}
-                  >
-                    {stationNameById.has(station.id) && (
-                      <title>{stationNameById.get(station.id)}</title>
-                    )}
-                  </polygon>
-                ))}
-              </g>
-              <g className="schematic-view__labels" aria-hidden="true">
-                {labels
-                  .filter((label) => label.text !== null)
-                  .map((label) => {
-                    // Both in viewBox units, both from the same scale the
-                    // placement used, and both as *attributes*: a `font-size`
-                    // in the stylesheet would be a constant number of viewBox
-                    // units, which is what made a label grow to fill the screen
-                    // as the camera zoomed in.
-                    const size = label.fontSize * camera.visualScale;
-                    return (
-                      <text
-                        key={label.id}
-                        x={label.x}
-                        y={label.y}
-                        textAnchor={label.anchor}
-                        transform={`rotate(${label.angle} ${label.x} ${label.y})`}
-                        fontSize={size}
-                        strokeWidth={size * 0.3}
-                        fill={label.color ?? 'currentColor'}
-                        className={`schematic-view__label schematic-view__label--${label.kind}`}
-                      >
-                        {label.text}
-                      </text>
-                    );
-                  })}
-              </g>
+              <SchematicLayers
+                layout={renderedLayout}
+                labels={labels}
+                visualScale={camera.visualScale}
+                hoveredLineId={hoveredLineId}
+                stationNameById={stationNameById}
+                onSelectStation={selectStation}
+              />
             </svg>
             <button
               type="button"

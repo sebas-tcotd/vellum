@@ -65,6 +65,21 @@ canónica que el mapa, y no de una deduplicación local por `stopId`.
 - La rematerialización conserva los corredores y bounds y sólo recrea la
   presentación derivada, por lo que no ejecuta el router ni el solver al mover
   el puntero.
+- **Escala transitoria durante el gesto (Story 4.5).** La cámara escribe el
+  `viewBox` directamente en el SVG, una vez por frame, y sólo entrega la cámara
+  a React al terminar el gesto: al soltar el puntero, o tras un breve reposo de
+  la rueda (`ZOOM_SETTLE_MS`). Mientras dura un zoom, las métricas —grosor,
+  hueco entre slots, cápsulas y tamaño de etiqueta— no se rematerializan: siguen
+  en unidades de `viewBox` y por tanto crecen o encogen con él. Antes esa deriva
+  se limitaba a un cuarto de octava; ahora se acumula durante todo el gesto,
+  hasta 1,18ⁿ tras n ticks seguidos (unas 7× en 12 ticks). Las etiquetas
+  conservan además la colocación y las colisiones de la escala anterior, así
+  que durante el gesto pueden solaparse o dejar huecos. Al asentarse, la escala
+  cuantizada se compromete una vez y se rematerializa una vez: trazos y
+  etiquetas vuelven de golpe a su tamaño de pantalla y se recolocan, con un
+  salto visible. Es el precio aceptado de no reconciliar el diagrama en cada
+  tick; el resultado final es idéntico al de aplicar cada paso por separado.
+  Sigue sin usarse `vector-effect: non-scaling-stroke`, por la razón de arriba.
 
 ## Evidencia
 
