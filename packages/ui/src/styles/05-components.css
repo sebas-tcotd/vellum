@@ -679,10 +679,18 @@ html:not([data-platform='macos']) .shell-legend > .place-card__section {
   cursor: pointer;
 }
 
+/* No CSS `outline` on a station, focused by keyboard or by click: on an SVG
+   shape it is drawn in viewBox units, so zoomed in it became a ring wider than
+   the screen. The focus cue is the shape's own stroke, scaled by the camera
+   through `--schematic-station-outline` like the rest of the diagram. */
+.schematic-view__stations polygon:focus,
 .schematic-view__stations polygon:focus-visible {
   outline: none;
+}
+
+.schematic-view__stations polygon:focus-visible {
   stroke: var(--shell-focus);
-  stroke-width: 3px;
+  stroke-width: calc(var(--schematic-station-outline, 1.2px) * 2.5);
 }
 
 .schematic-view__dimmed {
@@ -698,7 +706,7 @@ html:not([data-platform='macos']) .shell-legend > .place-card__section {
 .schematic-view__stations polygon {
   fill: #ffffff;
   stroke: #111111;
-  stroke-width: 1.2;
+  stroke-width: var(--schematic-station-outline, 1.2px);
 }
 
 .schematic-view__empty {
