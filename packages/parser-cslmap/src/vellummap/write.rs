@@ -97,7 +97,7 @@ pub(crate) fn write_document(document: &Document) -> Result<Vec<u8>, VellumError
             ModuleEntry {
                 id: spec.name.to_owned(),
                 path: spec.path.to_owned(),
-                version: MODULE_VERSION.to_owned(),
+                version: module_version(document, *id).to_owned(),
                 codec: Codec::Deflate,
                 sha256: sha256_hex(bytes),
                 grid: spec.grid,
@@ -299,6 +299,7 @@ fn transit_from_raw(raw: &RawCity) -> Result<TransitModule, VellumError> {
                                 position: (&stop.position).into(),
                                 name: Some(stop.name.clone()).filter(|n| !n.is_empty()),
                                 name_derived: None,
+                                station_id: None,
                             })
                         })
                         .collect::<Result<_, VellumError>>()?,
@@ -463,5 +464,23 @@ fn to_u8(value: f64) -> Result<u8, VellumError> {
         Err(invalid(format!(
             "the .cslmap node elevation {value} does not fit a u8"
         )))
+    }
+}
+
+/// Module `version` the writer declares: `1.0`, except a transit module whose
+/// stops carry `stationId`, which needs `1.1` (a `1.0` reader rejects it).
+fn module_version(document: &Document, id: ModuleId) -> &'static str {
+    let station_ids = || {
+        document
+            .transit
+            .lines
+            .iter()
+            .flat_map(|line| &line.stops)
+            .any(|stop| stop.station_id.is_some())
+    };
+    if id == ModuleId::Transit && station_ids() {
+        "1.1"
+    } else {
+        MODULE_VERSION
     }
 }

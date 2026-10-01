@@ -56,6 +56,7 @@ mod tests {
             },
             name: "Central".to_string(),
             name_derived: false,
+            station_id: None,
         };
         let json = serde_json::to_value(&stop).expect("serialization must not fail");
         assert_eq!(json["mode"], "Metro");

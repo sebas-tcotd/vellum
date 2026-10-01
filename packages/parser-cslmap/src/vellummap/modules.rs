@@ -159,6 +159,15 @@ pub(crate) struct TransitStopDoc {
         skip_serializing_if = "Option::is_none"
     )]
     pub(crate) name_derived: Option<bool>,
+    /// Module `1.1`: `sourceId` of the station building the stop belongs to,
+    /// shared by every stop of that building. Absent for street stops. The
+    /// reader does not require it to exist in `buildings.json`.
+    #[serde(
+        default,
+        deserialize_with = "non_null",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub(crate) station_id: Option<u32>,
 }
 
 impl WaterModule {

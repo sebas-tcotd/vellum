@@ -7,7 +7,7 @@ using System.Text.Json;
 using VellumBridge.Export;
 
 // Harness del escritor .vellummap fuera de CS1 (Story 5.3). Comprueba la matriz de la spec con un
-// modelo sintético y deja en <salida> deflate, stored y filtered.vellummap para validarlos con el
+// modelo sintético y deja en <salida> deflate, stored, filtered y stations.vellummap para validarlos con el
 // lector Rust:
 //   dotnet run --project tools/vellum-bridge/tests -- $TMPDIR/vb
 //   cargo run -p parser-cslmap --example validate_vellummap -- $TMPDIR/vb/deflate.vellummap
@@ -40,7 +40,9 @@ namespace VellumBridge.Tests
             FirstExportOmitsIdentity(Path.Combine(scratch, "first"));
             ForcedStored(Path.Combine(scratch, "stored"));
             NumberingSkipsNonFinite(Path.Combine(scratch, "numbering"));
-            StationNames(Path.Combine(scratch, "stations"));
+            ExportSummary stations = StationNames(Path.Combine(scratch, "stations"));
+            File.Copy(stations.path, Path.Combine(output, "stations.vellummap"), true);
+            CityFolders(Path.Combine(scratch, "cities"));
             ExportSummary filtered = InvalidRecordsFiltered(Path.Combine(scratch, "filtered"));
             File.Copy(filtered.path, Path.Combine(output, "filtered.vellummap"), true);
             Failures(scratch);
@@ -61,7 +63,7 @@ namespace VellumBridge.Tests
                 Console.Error.WriteLine(failures + " aserciones fallidas");
                 return 1;
             }
-            Console.WriteLine("OK: aserciones superadas; escritos deflate.vellummap, stored.vellummap y filtered.vellummap en " + output);
+            Console.WriteLine("OK: aserciones superadas; escritos deflate.vellummap, stored.vellummap, filtered.vellummap y stations.vellummap en " + output);
             return 0;
         }
 
@@ -298,7 +300,13 @@ namespace VellumBridge.Tests
             ExportSummary summary = VellumWriter.Export(Model(true), folder, null);
             using (ZipArchive zip = ZipFile.OpenRead(summary.path))
             {
-                Check(Path.GetFileName(summary.path) == "Harness_ City_Test 2026-09-23 140500.vellummap", "Nombre del archivo publicado: " + Path.GetFileName(summary.path));
+                // Hora local del equipo en el nombre, con la misma conversión que el escritor.
+                string local = new DateTime(2026, 9, 23, 14, 5, 0, DateTimeKind.Utc).ToLocalTime()
+                    .ToString("yyyy-MM-dd HHmmss", System.Globalization.CultureInfo.InvariantCulture);
+                Check(Path.GetFileName(summary.path) == "Harness_ City_Test " + local + ".vellummap", "Nombre del archivo publicado (hora local): " + Path.GetFileName(summary.path));
+                Check(Path.GetDirectoryName(summary.path) == Path.Combine(folder, "Harness_ City_Test"), "Publicado en la carpeta de la ciudad: " + summary.path);
+                ZipArchiveEntry first = zip.Entries[0];
+                Check(first.LastWriteTime.DateTime == new DateTime(2026, 9, 23, 14, 5, 0), "Fecha DOS del zip sigue en UTC: " + first.LastWriteTime);
                 Check(zip.GetEntry("water-depth.bin") != null, "En pausa: water-depth.bin presente");
                 using (JsonDocument water = Json(zip, "water.json"))
                 {
@@ -458,7 +466,7 @@ namespace VellumBridge.Tests
             { "water-depth", new Spec { path = "water-depth.bin", resolution = 1081, cellSize = 16, sample = "u16le", scale = 1.0 / 64 } },
             { "vegetation", new Spec { path = "vegetation.bin", resolution = 512, cellSize = 33.75, sample = "u8" } },
             { "roads", new Spec { path = "roads.json" } },
-            { "transit", new Spec { path = "transit.json" } },
+            { "transit", new Spec { path = "transit.json", version = "1.1" } },
             { "buildings", new Spec { path = "buildings.json", version = "1.1" } },
             { "districts", new Spec { path = "districts.json", version = "1.1" } },
             { "parks", new Spec { path = "parks.json" } },
@@ -518,7 +526,7 @@ namespace VellumBridge.Tests
 
         // Paradas de un edificio de estación: nombre del jugador, landmark, calle de acceso y choques
         // (vellummap-format.md, «Nombres de parada»).
-        private static void StationNames(string folder)
+        private static ExportSummary StationNames(string folder)
         {
             VellumModel model = Model(true);
             var metro = new LineModel { sourceId = 20, name = "Metro Line 20", transportType = "Metro", r = 1, g = 2, b = 3, alpha = 255 };
@@ -758,6 +766,74 @@ namespace VellumBridge.Tests
             Check(summary.limits.Contains("1 paradas sin calle con nombre: se exportan sin nombre."), "Las paradas de estación sin nombre no cuentan como paradas de calle (solo la 7)");
             Check(names[513] == "Far St", "Landmark a 200 m: fuera del radio");
             Check(names[10] == "Main St 1", "Paradas de calle: regla sin cambios");
+
+            // transit 1.1: stationId = sourceId del edificio de estación, el mismo para todas sus
+            // paradas (aunque sean de otro modo o lleven nombre de mod); sin clave en la calle.
+            Dictionary<int, int> stationIds = StopStationIds(summary.path);
+            Check(stationIds[501] == 1001 && stationIds[502] == 1001, "Estación multimodal: metro y tren con el mismo stationId");
+            Check(stationIds[509] == 1008 && stationIds[511] == 1008, "Parada con nombre de mod en una estación: también lleva stationId");
+            Check(stationIds[545] == 1120 && stationIds[512] == 1009, "stationId en estación integrada y en parada de estación con calle");
+            Check(!stationIds.ContainsKey(510), "Edificio de estación no exportado: sin stationId");
+            Check(!stationIds.ContainsKey(10) && !stationIds.ContainsKey(5) && !stationIds.ContainsKey(7), "Parada de calle: sin stationId");
+            return summary;
+        }
+
+        private static Dictionary<int, int> StopStationIds(string path)
+        {
+            var ids = new Dictionary<int, int>();
+            using (ZipArchive zip = ZipFile.OpenRead(path))
+            using (JsonDocument transit = Json(zip, "transit.json"))
+                foreach (JsonElement line in transit.RootElement.GetProperty("lines").EnumerateArray())
+                    foreach (JsonElement stop in line.GetProperty("stops").EnumerateArray())
+                    {
+                        JsonElement value;
+                        if (stop.TryGetProperty("stationId", out value)) ids[stop.GetProperty("sourceId").GetInt32()] = value.GetInt32();
+                    }
+            return ids;
+        }
+
+        // Carpeta por ciudad: `<raíz>/<ciudad saneada>/`, ` (2)` dentro de ella si el nombre ya
+        // existe, y los nombres que Windows no admite saneados.
+        private static void CityFolders(string folder)
+        {
+            VellumModel model = Model(true);
+            model.cityName = "San Rico";
+            ExportSummary first = VellumWriter.Export(model, folder, null);
+            ExportSummary second = VellumWriter.Export(model, folder, null);
+            string city = Path.Combine(folder, "San Rico");
+            Check(Path.GetDirectoryName(first.path) == city, "Ciudad nueva: crea su carpeta");
+            Check(Path.GetDirectoryName(second.path) == city && Path.GetFileName(second.path)
+                == Path.GetFileNameWithoutExtension(first.path) + " (2).vellummap", "Colisión: (2) en la carpeta de la ciudad: " + second.path);
+            Check(File.Exists(first.path) && File.Exists(second.path), "Colisión: no sobrescribe");
+            Check(Directory.GetFiles(folder).Length == 0, "Nada suelto en la raíz");
+
+            Check(VellumWriter.CityFolder(folder, new VellumModel { cityName = "con" }) == Path.Combine(folder, "con_"), "Ciudad «con»: carpeta con_");
+            Check(VellumWriter.CityFolder(folder, new VellumModel { cityName = "" }) == Path.Combine(folder, "Ciudad"), "Ciudad sin nombre: carpeta Ciudad");
+            Check(VellumWriter.CityFolder(folder, new VellumModel { cityName = "a/b" }) == Path.Combine(folder, "a_b"), "Ciudad «a/b»: carpeta a_b");
+            // Windows quita espacios y puntos finales de un segmento de ruta: el nombre no los lleva.
+            Check(VellumWriter.SafeFileName("Foo .") == "Foo", "Ciudad «Foo .»: Foo, sin espacio final");
+            Check(VellumWriter.SafeFileName(". .") == "Ciudad", "Ciudad «. .»: Ciudad");
+
+            // Renombrada en el juego: carpeta nueva, la anterior intacta.
+            model.cityName = "San Rico Nuevo";
+            ExportSummary renamed = VellumWriter.Export(model, folder, null);
+            Check(Path.GetDirectoryName(renamed.path) == Path.Combine(folder, "San Rico Nuevo"), "Ciudad renombrada: carpeta con el nombre nuevo");
+            Check(Directory.GetFiles(city).Length == 2, "Ciudad renombrada: la carpeta anterior no cambia");
+
+            // La carpeta de la ciudad no se puede crear (la ocupa un archivo): error claro.
+            string blocked = Path.Combine(folder, "blocked");
+            Directory.CreateDirectory(blocked);
+            File.WriteAllText(Path.Combine(blocked, "San Rico"), "x");
+            model.cityName = "San Rico";
+            try
+            {
+                VellumWriter.Export(model, blocked, null);
+                Check(false, "Carpeta de ciudad ocupada: se esperaba ExportFailedException");
+            }
+            catch (ExportFailedException error)
+            {
+                Check(error.Message.Contains(Path.Combine(blocked, "San Rico")), "Carpeta de ciudad ocupada: el mensaje nombra la carpeta: " + error.Message);
+            }
         }
 
         private static void AddStation(VellumModel model, int id, float x, float z, int accessSegment, string playerName)
@@ -1037,7 +1113,8 @@ namespace VellumBridge.Tests
 
         private static void Empty(string folder, string label)
         {
-            string[] files = Directory.Exists(folder) ? Directory.GetFileSystemEntries(folder) : new string[0];
+            // Recursivo: la carpeta de la ciudad puede quedar creada (vacía) si la exportación falla al escribir.
+            string[] files = Directory.Exists(folder) ? Directory.GetFiles(folder, "*", SearchOption.AllDirectories) : new string[0];
             Check(files.Length == 0, label + ": ni archivo final ni .part (" + string.Join(", ", files) + ")");
         }
 

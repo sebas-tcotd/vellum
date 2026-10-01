@@ -196,6 +196,7 @@ impl Document {
                             position: stop.position.into(),
                             name: stop.name.unwrap_or_default(),
                             name_derived: stop.name_derived.unwrap_or(false),
+                            station_id: stop.station_id.map(|id| id.to_string()),
                         })
                         .collect(),
                     route: line.route.iter().map(u32::to_string).collect(),

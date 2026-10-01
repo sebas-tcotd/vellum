@@ -242,7 +242,7 @@ pub(crate) const MODULES: [ModuleSpec; 12] = [
         0,
     ),
     spec(ModuleId::Roads, "roads", "roads.json", true, None, 0),
-    spec(ModuleId::Transit, "transit", "transit.json", true, None, 0),
+    spec(ModuleId::Transit, "transit", "transit.json", true, None, 1),
     spec(
         ModuleId::Buildings,
         "buildings",

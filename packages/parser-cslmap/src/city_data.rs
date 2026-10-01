@@ -206,6 +206,11 @@ pub struct TransitStop {
     /// Only the native document sets it; omitted when `false`.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub name_derived: bool,
+    /// Id of the station building the stop belongs to; every stop of that
+    /// building (any line or mode) shares it. Only the native document
+    /// (`transit` 1.1) sets it; omitted for street stops and `.cslmap`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub station_id: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

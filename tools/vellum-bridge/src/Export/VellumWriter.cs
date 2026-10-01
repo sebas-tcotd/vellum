@@ -51,6 +51,8 @@ namespace VellumBridge.Export
         // buildings 1.1: `prefab` propio, `name` visible opcional, `customName`/`historical`.
         // districts 1.1: población, hogares, empleos por sector y especializaciones.
         private const string PlaceDataVersion = "1.1";
+        // transit 1.1: `stationId` en las paradas de un edificio de estación.
+        private const string TransitVersion = "1.1";
 
         // Una entrada del zip ya preparada: bytes descomprimidos, hash y codec real.
         private sealed class Entry
@@ -142,7 +144,9 @@ namespace VellumBridge.Export
             entries.Add(Grid("vegetation", "vegetation.bin", model.vegetation, GridJson(VegetationResolution, "33.75", "u8", null)));
 
             entries.Add(JsonEntry("roads", "roads.json", Roads(model, summary)));
-            entries.Add(JsonEntry("transit", "transit.json", Transit(model, summary)));
+            Entry transit = JsonEntry("transit", "transit.json", Transit(model, summary));
+            transit.version = TransitVersion;
+            entries.Add(transit);
             Entry buildings = JsonEntry("buildings", "buildings.json", Buildings(model, summary));
             buildings.version = PlaceDataVersion;
             entries.Add(buildings);
@@ -333,6 +337,9 @@ namespace VellumBridge.Export
                     if (!IsFinite(stop.position)) continue;
                     summary.stops++;
                     json.Open('{').Key("sourceId").Int(stop.sourceId).Key("position").Position(stop.position);
+                    // Misma frontera que el nombre por estación: todas las paradas del edificio
+                    // llevan su sourceId, sean de la línea o el modo que sean.
+                    if (stations.ContainsKey(stop.stationBuildingId)) json.Key("stationId").Int(stop.stationBuildingId);
                     string stationName;
                     if (!string.IsNullOrEmpty(stop.customName))
                         json.Key("name").String(stop.customName).Key("nameDerived").Bool(false);
@@ -908,14 +915,15 @@ namespace VellumBridge.Export
         private static void Publish(List<Entry> entries, string folder, VellumModel model, WriterOptions options, ExportSummary summary)
         {
             string target, part;
+            string cityFolder = CityFolder(folder, model);
             try
             {
-                Directory.CreateDirectory(folder);
-                target = UniqueTarget(folder, model);
+                Directory.CreateDirectory(cityFolder);
+                target = UniqueTarget(cityFolder, model);
             }
             catch (Exception error)
             {
-                throw new ExportFailedException("No se pudo preparar la carpeta " + folder + ": " + Reason(error)
+                throw new ExportFailedException("No se pudo preparar la carpeta " + cityFolder + ": " + Reason(error)
                     + ". Comprueba que existe y que tienes permiso de escritura.", error);
             }
             part = target + ".part";
@@ -946,9 +954,18 @@ namespace VellumBridge.Export
 
         private static string Reason(Exception error) { return error.Message.TrimEnd('.', ' '); }
 
+        // Carpeta de la ciudad dentro de `root` (Documentos/Vellum Bridge/<ciudad>). Una ciudad
+        // renombrada en el juego estrena carpeta; la anterior no se toca.
+        internal static string CityFolder(string root, VellumModel model)
+        {
+            return Path.Combine(root, SafeFileName(model.cityName));
+        }
+
+        // Nombre con la hora local del equipo, para que el jugador reconozca la exportación. El
+        // manifest (`exportedAtUtc`) y la fecha DOS del zip siguen en UTC.
         private static string UniqueTarget(string folder, VellumModel model)
         {
-            string stem = SafeFileName(model.cityName) + " " + Utc(model.exportedAtUtc)
+            string stem = SafeFileName(model.cityName) + " " + Utc(model.exportedAtUtc).ToLocalTime()
                 .ToString("yyyy-MM-dd HHmmss", CultureInfo.InvariantCulture);
             string target = Path.Combine(folder, stem + FileExtension);
             for (int n = 2; File.Exists(target) || File.Exists(target + ".part") || Directory.Exists(target); n++)
@@ -962,12 +979,12 @@ namespace VellumBridge.Export
             if (name != null)
                 foreach (char c in name)
                     result.Append(c < 0x20 || "<>:\"/\\|?*".IndexOf(c) >= 0 ? '_' : c);
-            string clean = result.ToString().Trim().TrimEnd('.');
+            string clean = result.ToString().Trim().TrimEnd('.', ' ');
             if (clean.Length > 80)
             {
                 // Sin partir un par sustituto (emoji, CJK extendido) en el corte.
                 int cut = char.IsHighSurrogate(clean[79]) ? 79 : 80;
-                clean = clean.Substring(0, cut).Trim().TrimEnd('.');
+                clean = clean.Substring(0, cut).Trim().TrimEnd('.', ' ');
             }
             if (clean.Length == 0) return "Ciudad";
             return IsReservedWindowsName(clean) ? clean + "_" : clean;
