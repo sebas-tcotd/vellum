@@ -40,6 +40,7 @@ namespace VellumBridge.Tests
             FirstExportOmitsIdentity(Path.Combine(scratch, "first"));
             ForcedStored(Path.Combine(scratch, "stored"));
             NumberingSkipsNonFinite(Path.Combine(scratch, "numbering"));
+            StationNames(Path.Combine(scratch, "stations"));
             ExportSummary filtered = InvalidRecordsFiltered(Path.Combine(scratch, "filtered"));
             File.Copy(filtered.path, Path.Combine(output, "filtered.vellummap"), true);
             Failures(scratch);
@@ -513,6 +514,304 @@ namespace VellumBridge.Tests
             Check(names.ContainsKey(42) && names[42] == "Elm St 2", "Parada no finita en la calle: sin hueco («Elm St 2», no 3)");
             Check(!names.ContainsKey(41) && !StopIds(summary.path).Contains(41), "Parada no finita omitida");
             Check(summary.limits.Exists(l => l.Contains("paradas omitidas por posición no finita")), "Límite: parada no finita");
+        }
+
+        // Paradas de un edificio de estación: nombre del jugador, landmark, calle de acceso y choques
+        // (vellummap-format.md, «Nombres de parada»).
+        private static void StationNames(string folder)
+        {
+            VellumModel model = Model(true);
+            var metro = new LineModel { sourceId = 20, name = "Metro Line 20", transportType = "Metro", r = 1, g = 2, b = 3, alpha = 255 };
+            var train = new LineModel { sourceId = 21, name = "Train Line 21", transportType = "Train", r = 4, g = 5, b = 6, alpha = 255 };
+            model.lines.Add(metro);
+            model.lines.Add(train);
+
+            // Renombrada por el jugador, con transbordo: dos líneas, dos nodos, el mismo edificio.
+            AddStation(model, 1001, 5000f, 5000f, 0, "Gray Station");
+            metro.stops.Add(StationStop(501, 1001, null));
+            train.stops.Add(StationStop(502, 1001, null));
+            // Un parque compartido: lo usa la más cercana (1002, a 50 m); 1003 (a 100 m) usa su calle.
+            model.parks.Add(new AreaModel { sourceId = 30, name = "Riverside Park", labelPosition = new Vec3(6000f, 0f, 6000f) });
+            AddStation(model, 1002, 6050f, 6000f, 0, null);
+            AddStation(model, 1003, 6000f, 6100f, 2001, null);
+            model.segments.Add(Street(2001, 3020, 3021, "Pine St", 5900f, 6150f, 6100f, 6150f));
+            metro.stops.Add(StationStop(503, 1002, null));
+            metro.stops.Add(StationStop(504, 1003, null));
+            // Choque de calle resuelto por el cruce más cercano a cada estación.
+            AddStation(model, 1004, 8000f, 8000f, 2002, null);
+            AddStation(model, 1005, 8380f, 8000f, 2004, null);   // más cerca del extremo d
+            model.segments.Add(Street(2002, 3001, 3002, "Long Ave", 7900f, 8000f, 8100f, 8000f));
+            model.segments.Add(Street(2003, 3001, 3010, "First St", 7900f, 8000f, 7900f, 8200f));
+            model.segments.Add(Street(2004, 3003, 3004, "Long Ave", 8200f, 8000f, 8400f, 8000f));
+            model.segments.Add(Street(2005, 3003, 3011, "Third St", 8200f, 8000f, 8200f, 8200f));
+            model.segments.Add(Street(2008, 3004, 3012, "Zed St", 8400f, 8000f, 8400f, 8200f));
+            metro.stops.Add(StationStop(505, 1004, null));
+            metro.stops.Add(StationStop(506, 1005, null));
+            // Choque sin cruce: se numera por sourceId.
+            AddStation(model, 1006, 10000f, 10000f, 2006, null);
+            AddStation(model, 1007, 10100f, 10000f, 2006, null);
+            model.segments.Add(Street(2006, 3005, 3006, "Short Rd", 9950f, 10000f, 10150f, 10000f));
+            train.stops.Add(StationStop(508, 1007, null));
+            train.stops.Add(StationStop(507, 1006, null));
+            // Sin landmark ni calle de acceso: sin nombre; el nombre de mod de otro nodo sigue ganando.
+            AddStation(model, 1008, 12000f, 12000f, 0, null);
+            metro.stops.Add(StationStop(509, 1008, null));
+            metro.stops.Add(StationStop(511, 1008, "Mod Name"));
+            // Edificio de estación que no se exportó: regla de calle.
+            StopModel orphan = StationStop(510, 9999, null);
+            orphan.streetName = "Elm Lane";
+            metro.stops.Add(orphan);
+            // Edificio renombrado como landmark; uno sin nombre más cerca no cuenta.
+            model.buildings.Add(new BuildingModel { sourceId = 1100, prefab = "Office", name = "Clock Tower", customName = true, itemClass = "Office", serviceType = "None", position = new Vec3(14000f, 60f, 14000f), width = 2, length = 2 });
+            model.buildings.Add(new BuildingModel { sourceId = 1101, prefab = "Office", itemClass = "Office", serviceType = "None", position = new Vec3(14050f, 60f, 14000f), width = 2, length = 2 });
+            AddStation(model, 1009, 14100f, 14000f, 0, null);
+            // La parada lleva una calle (como en un terminal): no debe numerar «Oak Ave».
+            StopModel onStreet = StationStop(512, 1009, null);
+            onStreet.streetName = "Oak Ave";
+            metro.stops.Add(onStreet);
+            // Un parque a 200 m queda fuera del radio.
+            model.parks.Add(new AreaModel { sourceId = 31, name = "Far Park", labelPosition = new Vec3(16200f, 0f, 16000f) });
+            AddStation(model, 1010, 16000f, 16000f, 2007, null);
+            model.segments.Add(Street(2007, 3007, 3008, "Far St", 15900f, 16050f, 16100f, 16050f));
+            metro.stops.Add(StationStop(513, 1010, null));
+            // Grupo mixto: 1011 no tiene cruce en su extremo cercano y usa el del otro (el menor en
+            // orden ordinal); 1012 no tiene cruce y se numera.
+            AddStation(model, 1011, 20010f, 20000f, 2010, null);
+            AddStation(model, 1012, 20500f, 20000f, 2013, null);
+            model.segments.Add(Street(2010, 3030, 3031, "Ring Rd", 20000f, 20000f, 20200f, 20000f));
+            model.segments.Add(Street(2011, 3031, 3034, "Spoke St", 20200f, 20000f, 20200f, 20200f));
+            model.segments.Add(Street(2012, 3031, 3035, "Alpha St", 20200f, 20000f, 20200f, 19800f));
+            model.segments.Add(Street(2013, 3032, 3033, "Ring Rd", 20400f, 20000f, 20600f, 20000f));
+            train.stops.Add(StationStop(514, 1011, null));
+            train.stops.Add(StationStop(515, 1012, null));
+            // El mismo par calle / cruce: se numera.
+            AddStation(model, 1013, 22010f, 22000f, 2014, null);
+            AddStation(model, 1014, 22020f, 22000f, 2014, null);
+            model.segments.Add(Street(2014, 3040, 3041, "Twin Ave", 22000f, 22000f, 22200f, 22000f));
+            model.segments.Add(Street(2015, 3040, 3042, "Gate St", 22000f, 22000f, 22000f, 22200f));
+            train.stops.Add(StationStop(516, 1013, null));
+            train.stops.Add(StationStop(517, 1014, null));
+            // Una estación renombrada sin paradas no es landmark; de dos landmarks gana el más cercano.
+            model.buildings.Add(new BuildingModel { sourceId = 1020, prefab = "Metro Entrance", name = "Ghost Station", customName = true, transitStation = true, itemClass = "Metro Station", serviceType = "PublicTransportMetro", position = new Vec3(24000f, 60f, 24000f), width = 2, length = 2 });
+            model.buildings.Add(new BuildingModel { sourceId = 1022, prefab = "Office", name = "Far Tower", customName = true, itemClass = "Office", serviceType = "None", position = new Vec3(24150f, 60f, 24000f), width = 2, length = 2 });
+            model.buildings.Add(new BuildingModel { sourceId = 1023, prefab = "Office", name = "Near Tower", customName = true, itemClass = "Office", serviceType = "None", position = new Vec3(24110f, 60f, 24000f), width = 2, length = 2 });
+            AddStation(model, 1021, 24050f, 24000f, 0, null);
+            metro.stops.Add(StationStop(518, 1021, null));
+            // Un landmark a la misma distancia de dos estaciones: gana la de menor sourceId.
+            model.parks.Add(new AreaModel { sourceId = 32, name = "Mid Park", labelPosition = new Vec3(26000f, 0f, 26000f) });
+            AddStation(model, 1031, 26050f, 26000f, 2020, null);
+            AddStation(model, 1030, 25950f, 26000f, 0, null);
+            model.segments.Add(Street(2020, 3050, 3051, "Tie St", 26000f, 26100f, 26100f, 26100f));
+            metro.stops.Add(StationStop(519, 1031, null));
+            metro.stops.Add(StationStop(520, 1030, null));
+            // Un landmark justo a 150 m está dentro del radio.
+            model.parks.Add(new AreaModel { sourceId = 33, name = "Edge Park", labelPosition = new Vec3(28150f, 0f, 28000f) });
+            AddStation(model, 1040, 28000f, 28000f, 0, null);
+            metro.stops.Add(StationStop(521, 1040, null));
+            // Una estación con solo nombres de mod no compite por landmarks.
+            model.buildings.Add(new BuildingModel { sourceId = 1052, prefab = "Office", name = "Shared Plaza", customName = true, itemClass = "Office", serviceType = "None", position = new Vec3(30060f, 60f, 30000f), width = 2, length = 2 });
+            AddStation(model, 1050, 30030f, 30000f, 0, null);
+            AddStation(model, 1051, 30120f, 30000f, 0, null);
+            metro.stops.Add(StationStop(522, 1050, "Only Mod"));
+            metro.stops.Add(StationStop(523, 1051, null));
+            // Servicio sin renombrar: su título; un servicio renombrado gana aunque esté más lejos.
+            AddService(model, 1061, 32050f, 32000f, "Medical Clinic");
+            AddStation(model, 1060, 32000f, 32000f, 0, null);
+            AddService(model, 1063, 33020f, 33000f, "Police Station");
+            model.buildings.Add(new BuildingModel { sourceId = 1064, prefab = "Police Station", name = "Comisaría Central", customName = true, itemClass = "Police Department", serviceType = "None", position = new Vec3(33100f, 60f, 33000f), width = 2, length = 2 });
+            AddStation(model, 1062, 33000f, 33000f, 0, null);
+            metro.stops.Add(StationStop(524, 1060, null));
+            metro.stops.Add(StationStop(525, 1062, null));
+            // El mismo título en dos estaciones: ninguna lo usa; sin calle de acceso, la calle con
+            // nombre más cercana (a 30 m); la otra no tiene calle a 50 m y queda sin nombre.
+            AddService(model, 1067, 34040f, 34000f, "Fire Station");
+            AddService(model, 1068, 36040f, 36000f, "Fire Station");
+            AddStation(model, 1065, 34000f, 34000f, 0, null);
+            AddStation(model, 1066, 36000f, 36000f, 0, null);
+            model.segments.Add(Street(2030, 3060, 3061, "Ember St", 33900f, 34030f, 34100f, 34030f));
+            model.segments.Add(Street(2031, 3062, 3063, "Too Far St", 35900f, 36060f, 36100f, 36060f));
+            metro.stops.Add(StationStop(526, 1065, null));
+            metro.stops.Add(StationStop(527, 1066, null));
+            // Área de parque que contiene a la estación (su etiqueta queda fuera del radio).
+            model.parks.Add(new AreaModel { sourceId = 34, name = "Oficii Campvs", labelPosition = new Vec3(9000f, 0f, 9000f), parkType = "TradeSchool" });
+            SetCell(model.parkGrid, 550, 350, 34, 200);                      // x ∈ [−1920, −1900.8), z ∈ [1920, 1939.2)
+            AddStation(model, 1070, -1910f, 1930f, 0, null);
+            metro.stops.Add(StationStop(528, 1070, null));
+            // Orden: el servicio gana al área y a la calle; el área gana a la calle.
+            AddPark(model, 36, "Pump Campus", 606, 293);
+            AddService(model, 1085, -2950f, 3000f, "Police Post");
+            AddStation(model, 1080, -3000f, 3000f, 2040, null);
+            model.segments.Add(Street(2040, 3070, 3071, "Pump Rd", -3100f, 3020f, -2900f, 3020f));
+            AddPark(model, 37, "Area Wins Campus", 606, 241);
+            AddStation(model, 1081, -4000f, 3000f, 2041, null);
+            model.segments.Add(Street(2041, 3072, 3073, "Area Rd", -4100f, 3020f, -3900f, 3020f));
+            // Dos estaciones en la misma área: ninguna la usa y pasan a su calle.
+            AddPark(model, 38, "Shared Area", 606, 189);
+            SetCell(model.parkGrid, 611, 189, 38, 255);
+            AddStation(model, 1082, -5000f, 3000f, 2042, null);
+            AddStation(model, 1083, -5000f, 3100f, 2043, null);
+            SetCell(model.parkGrid, 616, 189, 38, 255);
+            AddStation(model, 1087, -5000f, 3200f, 0, null);                  // sin calle a 50 m
+            model.segments.Add(Street(2042, 3074, 3075, "Share A St", -5100f, 3020f, -4900f, 3020f));
+            model.segments.Add(Street(2043, 3076, 3077, "Share B St", -5100f, 3120f, -4900f, 3120f));
+            // Calle de acceso sin nombre: la calle con nombre más cercana; una autopista más
+            // cerca no cuenta.
+            AddStation(model, 1084, -6000f, -3000f, 2044, null);
+            model.segments.Add(Street(2044, 3078, 3079, null, -6100f, -2990f, -5900f, -2990f));
+            model.segments.Add(Street(2045, 3080, 3081, "Fallback Ave", -6100f, -2970f, -5900f, -2970f));
+            SegmentModel highway = Street(2046, 3082, 3083, "Big Highway", -6100f, -2995f, -5900f, -2995f);
+            highway.itemClass = "Highway";
+            model.segments.Add(highway);
+            // La ranura más pesada es un área sin nombre: cuenta la siguiente con nombre.
+            model.parks.Add(new AreaModel { sourceId = 40, name = "", labelPosition = new Vec3(-7000f, 0f, -8000f) });
+            AddPark(model, 41, "Lighter Reserve", 606, 137);
+            int slot = (606 * model.parkGrid.resolution + 137) * 8;
+            model.parkGrid.cells[slot + 1] = 41;
+            model.parkGrid.cells[slot + 5] = 100;
+            model.parkGrid.cells[slot] = 40;
+            model.parkGrid.cells[slot + 4] = 255;
+            AddStation(model, 1086, -6000f, 3000f, 0, null);
+            train.stops.Add(StationStop(539, 1086, null));
+            // Aeropuerto con cuatro estaciones: dos con calle, dos sin calle.
+            AddPark(model, 42, "Laurel City Airport", 400, 400);
+            SetCell(model.parkGrid, 400, 401, 42, 255);
+            SetCell(model.parkGrid, 401, 400, 42, 255);
+            SetCell(model.parkGrid, 401, 401, 42, 255);
+            AddStation(model, 1110, -955f, -955f, 2050, null);               // celda (400, 400)
+            AddStation(model, 1111, -935f, -955f, 2051, null);               // celda (400, 401)
+            AddStation(model, 1112, -955f, -935f, 0, null);                  // celda (401, 400)
+            AddStation(model, 1113, -935f, -935f, 0, null);                  // celda (401, 401)
+            model.segments.Add(Street(2050, 3090, 3091, "Hancock Street", -1100f, -2000f, -1000f, -2000f));
+            model.segments.Add(Street(2051, 3092, 3093, "Fairview Bridge", -1100f, -2100f, -1000f, -2100f));
+            train.stops.Add(StationStop(540, 1110, null));
+            train.stops.Add(StationStop(541, 1111, null));
+            train.stops.Add(StationStop(542, 1112, null));
+            train.stops.Add(StationStop(543, 1113, null));
+            // Estación integrada en un edificio único: su nombre propio, derivado.
+            model.buildings.Add(new BuildingModel { sourceId = 1120, prefab = "Grand Terminal", name = "Grand Terminal", itemClass = "Monument", serviceType = "None", position = new Vec3(50000f, 60f, 50000f), width = 8, length = 8 });
+            metro.stops.Add(StationStop(545, 1120, null));
+            train.stops.Add(StationStop(529, 1080, null));
+            train.stops.Add(StationStop(530, 1081, null));
+            train.stops.Add(StationStop(531, 1082, null));
+            train.stops.Add(StationStop(532, 1083, null));
+            train.stops.Add(StationStop(533, 1084, null));
+            train.stops.Add(StationStop(544, 1087, null));
+            // Empate entre landmarks: el edificio gana al parque.
+            model.buildings.Add(new BuildingModel { sourceId = 1097, prefab = "Office", name = "Tie Building", customName = true, itemClass = "Office", serviceType = "None", position = new Vec3(40100f, 60f, 40000f), width = 2, length = 2 });
+            model.parks.Add(new AreaModel { sourceId = 39, name = "Tie Park", labelPosition = new Vec3(40000f, 0f, 40100f) });
+            AddStation(model, 1090, 40000f, 40000f, 0, null);
+            metro.stops.Add(StationStop(534, 1090, null));
+            // Dos landmarks distintos con el mismo nombre: ninguna estación lo usa.
+            model.buildings.Add(new BuildingModel { sourceId = 1098, prefab = "Office", name = "Twin Plaza", customName = true, itemClass = "Office", serviceType = "None", position = new Vec3(42050f, 60f, 42000f), width = 2, length = 2 });
+            model.buildings.Add(new BuildingModel { sourceId = 1099, prefab = "Office", name = "Twin Plaza", customName = true, itemClass = "Office", serviceType = "None", position = new Vec3(44050f, 60f, 44000f), width = 2, length = 2 });
+            AddStation(model, 1091, 42000f, 42000f, 0, null);
+            AddStation(model, 1092, 44000f, 44000f, 0, null);
+            metro.stops.Add(StationStop(535, 1091, null));
+            metro.stops.Add(StationStop(536, 1092, null));
+            // Un título igual al nombre que el jugador le puso a otra estación no se usa.
+            AddStation(model, 1095, 46000f, 46000f, 0, "Fire Hall");
+            AddService(model, 1105, 48050f, 48000f, "Fire Hall");
+            AddStation(model, 1096, 48000f, 48000f, 0, null);
+            metro.stops.Add(StationStop(537, 1095, null));
+            metro.stops.Add(StationStop(538, 1096, null));
+
+            ExportSummary summary = VellumWriter.Export(model, folder, null);
+            Dictionary<int, string> names = StopNames(summary.path);
+            Dictionary<int, bool> derived = StopDerived(summary.path);
+            Check(names[501] == "Gray Station" && !derived[501], "Estación renombrada: su nombre, nameDerived false");
+            Check(names[502] == "Gray Station" && !derived[502], "Transbordo: el mismo nombre en otra línea, sin numerar");
+            Check(names[503] == "Riverside Park" && derived[503], "Landmark compartido: lo usa la estación más cercana");
+            Check(names[504] == "Pine St" && derived[504], "Landmark compartido: la otra usa su calle de acceso");
+            Check(names[505] == "Long Ave / First St" && names[506] == "Long Ave / Zed St", "Choque de calle: <calle> / <cruce del extremo más cercano>");
+            Check(names[507] == "Short Rd 1" && names[508] == "Short Rd 2" && derived[507], "Choque sin cruce: numeradas por sourceId");
+            Check(!names.ContainsKey(509) && !derived.ContainsKey(509), "Estación sin datos: sin name ni nameDerived");
+            Check(names[511] == "Mod Name" && !derived[511], "Nombre de mod del nodo gana a la estación");
+            Check(names[510] == "Elm Lane", "Edificio no exportado: regla de calle");
+            Check(names[512] == "Clock Tower" && derived[512], "Edificio renombrado como landmark");
+            Check(names[5] == "Oak Ave", "Parada de estación con calle: no numera la calle de otras paradas");
+            Check(names[514] == "Ring Rd / Alpha St", "Sin cruce en el extremo cercano: el del otro, el menor en orden ordinal");
+            Check(names[515] == "Ring Rd", "Grupo mixto: si queda una sola sin cruce, lleva la calle a secas");
+            Check(names[516] == "Twin Ave 1" && names[517] == "Twin Ave 2", "El mismo par calle / cruce: se numera");
+            Check(names[518] == "Near Tower", "Estación renombrada sin paradas no es landmark; gana el landmark más cercano");
+            Check(names[520] == "Mid Park" && names[519] == "Tie St", "Empate de distancia: el landmark va a la de menor sourceId");
+            Check(names[521] == "Edge Park", "Landmark a 150 m exactos: dentro del radio");
+            Check(names[522] == "Only Mod" && names[523] == "Shared Plaza", "Estación con solo nombres de mod no compite por landmarks");
+            Check(names[524] == "Medical Clinic" && derived[524], "Servicio sin renombrar: su título");
+            Check(names[525] == "Comisaría Central", "Servicio renombrado gana al título de uno más cercano");
+            Check(names[526] == "Ember St", "Título repetido: pasa a la calle más cercana");
+            Check(!names.ContainsKey(527), "Título repetido y sin calle a 50 m: sin nombre");
+            Check(names[528] == "Oficii Campvs" && derived[528], "Área de parque que contiene a la estación");
+            Check(names[529] == "Police Post", "Orden: el servicio gana al área y a la calle");
+            Check(names[530] == "Area Wins Campus", "Orden: el área gana a la calle");
+            Check(names.ContainsKey(539) && names[539] == "Lighter Reserve", "Área: la ranura más pesada con nombre");
+            Check(names[531] == "Shared Area - Share A St" && names[532] == "Shared Area - Share B St", "Dos estaciones en la misma área: <área> - <calle>");
+            Check(names[540] == "LCA - Hancock Street" && names[541] == "LCA - Fairview Bridge" && derived[540], "Área de tres palabras o más: iniciales como prefijo");
+            Check(names[545] == "Grand Terminal" && derived[545], "Estación integrada en un único: su nombre, derivado");
+            Check(names[544] == "Shared Area", "Una sola estación del área sin calle: el área a secas");
+            Check(names[542] == "Laurel City Airport 1" && names[543] == "Laurel City Airport 2", "Área compartida sin calle: el área numerada");
+            Check(!summary.limits.Exists(l => l.Contains("1112") || l.Contains("1113")), "Área compartida sin calle: no es una estación sin nombre");
+            Check(names[533] == "Fallback Ave", "Calle de acceso sin nombre: la más cercana, sin autopistas");
+            Check(names[534] == "Tie Building", "Empate entre landmarks: el edificio gana al parque");
+            Check(!names.ContainsKey(535) && !names.ContainsKey(536), "Landmarks homónimos: ninguna estación los usa");
+            Check(names[537] == "Fire Hall" && !names.ContainsKey(538), "Título igual al nombre de otra estación: no se usa");
+            Check(summary.limits.Exists(l => l.Contains("estaciones sin nombre") && l.Contains("1008") && l.Contains("1066")), "Límite: estaciones sin nombre con sus ids");
+            Check(summary.limits.Contains("1 paradas sin calle con nombre: se exportan sin nombre."), "Las paradas de estación sin nombre no cuentan como paradas de calle (solo la 7)");
+            Check(names[513] == "Far St", "Landmark a 200 m: fuera del radio");
+            Check(names[10] == "Main St 1", "Paradas de calle: regla sin cambios");
+        }
+
+        private static void AddStation(VellumModel model, int id, float x, float z, int accessSegment, string playerName)
+        {
+            model.buildings.Add(new BuildingModel
+            {
+                sourceId = id, prefab = "Metro Entrance", name = playerName, customName = playerName != null,
+                itemClass = "Metro Station", serviceType = "PublicTransportMetro", position = new Vec3(x, 60f, z),
+                width = 2, length = 2, accessSegment = accessSegment,
+            });
+        }
+
+        private static void AddPark(VellumModel model, int id, string name, int row, int col)
+        {
+            // La etiqueta queda lejos de toda estación: solo cuenta la celda.
+            model.parks.Add(new AreaModel { sourceId = id, name = name, labelPosition = new Vec3(-8000f + id * 10f, 0f, -8000f) });
+            SetCell(model.parkGrid, row, col, (byte)id, 255);
+        }
+
+        private static void AddService(VellumModel model, int id, float x, float z, string title)
+        {
+            model.buildings.Add(new BuildingModel
+            {
+                sourceId = id, prefab = title, itemClass = "Service", serviceType = "None",
+                position = new Vec3(x, 60f, z), width = 2, length = 2, serviceTitle = title,
+            });
+        }
+
+        private static StopModel StationStop(int id, int station, string custom)
+        {
+            StopModel stop = Stop(id, null, custom);
+            stop.stationBuildingId = station;
+            return stop;
+        }
+
+        private static SegmentModel Street(int id, int from, int to, string name, float ax, float az, float dx, float dz)
+        {
+            var a = new Vec3(ax, 70f, az);
+            var d = new Vec3(dx, 70f, dz);
+            return new SegmentModel { sourceId = id, startNode = from, endNode = to, itemClass = "Small Road", width = 16f, name = name, a = a, b = a, c = d, d = d };
+        }
+
+        private static Dictionary<int, bool> StopDerived(string path)
+        {
+            var derived = new Dictionary<int, bool>();
+            using (ZipArchive zip = ZipFile.OpenRead(path))
+            using (JsonDocument transit = Json(zip, "transit.json"))
+                foreach (JsonElement line in transit.RootElement.GetProperty("lines").EnumerateArray())
+                    foreach (JsonElement stop in line.GetProperty("stops").EnumerateArray())
+                    {
+                        JsonElement value;
+                        if (stop.TryGetProperty("nameDerived", out value)) derived[stop.GetProperty("sourceId").GetInt32()] = value.GetBoolean();
+                    }
+            return derived;
         }
 
         // Registros inválidos: el escritor los omite, los cuenta como límite y el documento sigue

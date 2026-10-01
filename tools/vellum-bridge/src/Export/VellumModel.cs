@@ -95,6 +95,9 @@ namespace VellumBridge.Export
         public Vec3 position;
         public string customName;          // stopCustomNames: null o vacío si ningún mod lo asignó
         public string streetName;          // GetSegmentName del segmento de la parada; null o vacío si no hay
+        // Edificio de estación (raíz, sin sub-edificios) dueño del segmento de la parada; 0 si la
+        // parada está en una calle. No se serializa: el escritor lo usa para nombrar la parada.
+        public int stationBuildingId;
     }
 
     internal sealed class BuildingModel
@@ -111,6 +114,12 @@ namespace VellumBridge.Export
         public Vec3 position;
         public float angle;                // radianes
         public int width, length;          // celdas de 8 m
+        public int accessSegment;          // m_accessSegment; 0 si no tiene. No se serializa.
+        // Edificio raíz de estación (TransportStationAI): nunca es landmark de otra. No se serializa.
+        public bool transitStation;
+        // Título genérico de un servicio raíz sin renombrar (policía, bomberos, salud, educación):
+        // solo para nombrar estaciones. null en el resto. No se serializa.
+        public string serviceTitle;
     }
 
     internal sealed class AreaModel

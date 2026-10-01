@@ -303,11 +303,16 @@ namespace VellumBridge.Export
             // Regla de nombres (vellummap-format.md, «Nombres de parada»): se agrupan todas las
             // paradas emitidas sin nombre de mod por nombre exacto de calle; varias en la misma
             // calle se numeran desde 1 por sourceId ascendente del nodo.
+            // Las paradas de un edificio de estación no entran: se nombran por estación.
+            Dictionary<int, BuildingModel> stations = StationBuildings(model, emitted);
+            var playerNamed = new Dictionary<int, bool>();
+            Dictionary<int, string> stationNames = StationNames(model, emitted, stations, playerNamed, summary.limits);
             var byStreet = new Dictionary<string, List<int>>(StringComparer.Ordinal);
             foreach (LineModel line in emitted)
                 foreach (StopModel stop in line.stops)
                 {
                     if (!IsFinite(stop.position) || !string.IsNullOrEmpty(stop.customName) || string.IsNullOrEmpty(stop.streetName)) continue;
+                    if (stations.ContainsKey(stop.stationBuildingId)) continue;
                     List<int> ids;
                     if (!byStreet.TryGetValue(stop.streetName, out ids)) byStreet[stop.streetName] = ids = new List<int>();
                     if (!ids.Contains(stop.sourceId)) ids.Add(stop.sourceId);
@@ -328,8 +333,15 @@ namespace VellumBridge.Export
                     if (!IsFinite(stop.position)) continue;
                     summary.stops++;
                     json.Open('{').Key("sourceId").Int(stop.sourceId).Key("position").Position(stop.position);
+                    string stationName;
                     if (!string.IsNullOrEmpty(stop.customName))
                         json.Key("name").String(stop.customName).Key("nameDerived").Bool(false);
+                    else if (stations.ContainsKey(stop.stationBuildingId))
+                    {
+                        if (stationNames.TryGetValue(stop.stationBuildingId, out stationName))
+                            json.Key("name").String(stationName)
+                                .Key("nameDerived").Bool(!playerNamed.ContainsKey(stop.stationBuildingId));
+                    }
                     else if (!string.IsNullOrEmpty(stop.streetName))
                     {
                         List<int> ids = byStreet[stop.streetName];
@@ -350,6 +362,321 @@ namespace VellumBridge.Export
             if (invalidStops > 0) summary.limits.Add(invalidStops + " paradas omitidas por posición no finita.");
             if (invalidLines > 0) summary.limits.Add(invalidLines + " líneas omitidas por tipo de transporte desconocido o id repetido.");
             return json;
+        }
+
+        // Radio en el que un landmark puede dar nombre a una estación (metros, plano XZ).
+        private const float LandmarkRadius = 150f;
+
+        // Edificios de estación con alguna parada emitida, por sourceId. Un id sin edificio
+        // exportado (o con posición no finita) no cuenta: esa parada sigue la regla de calle.
+        private static Dictionary<int, BuildingModel> StationBuildings(VellumModel model, List<LineModel> emitted)
+        {
+            var byId = new Dictionary<int, BuildingModel>();
+            foreach (BuildingModel building in model.buildings)
+                if (IsFinite(building.position) && !byId.ContainsKey(building.sourceId)) byId[building.sourceId] = building;
+            var stations = new Dictionary<int, BuildingModel>();
+            foreach (LineModel line in emitted)
+                foreach (StopModel stop in line.stops)
+                {
+                    BuildingModel building;
+                    if (stop.stationBuildingId != 0 && IsFinite(stop.position) && byId.TryGetValue(stop.stationBuildingId, out building))
+                        stations[stop.stationBuildingId] = building;
+                }
+            return stations;
+        }
+
+        // Regla de nombres de estación (vellummap-format.md, «Nombres de parada»): nombre del
+        // jugador, landmark cercano, servicio cercano, área de parque que la contiene, calle de
+        // acceso (o la más cercana) y, si dos estaciones chocan en esa calle, su cruce o un
+        // número. Solo se nombran las estaciones con alguna parada sin nombre de mod;
+        // las que nombró el jugador quedan en `playerNamed`, y las que quedan sin nombre se
+        // cuentan en `limits` con su causa.
+        private static Dictionary<int, string> StationNames(VellumModel model, List<LineModel> emitted,
+            Dictionary<int, BuildingModel> stations, Dictionary<int, bool> playerNamed, List<string> limits)
+        {
+            var pending = new List<int>();
+            foreach (LineModel line in emitted)
+                foreach (StopModel stop in line.stops)
+                    if (IsFinite(stop.position) && string.IsNullOrEmpty(stop.customName)
+                        && stations.ContainsKey(stop.stationBuildingId) && !pending.Contains(stop.stationBuildingId))
+                        pending.Add(stop.stationBuildingId);
+            pending.Sort();
+
+            var names = new Dictionary<int, string>();
+            var unnamed = new List<int>();
+            foreach (int id in pending)
+            {
+                BuildingModel building = stations[id];
+                // El nombre propio del edificio: el que puso el jugador o el de un único que
+                // integra la estación. Solo el del jugador lleva nameDerived false.
+                if (!string.IsNullOrEmpty(building.name))
+                {
+                    names[id] = building.name;
+                    if (building.customName) playerNamed[id] = true;
+                }
+                else unnamed.Add(id);
+            }
+
+            // Landmarks: edificios con nombre propio (renombrados o únicos) que no son estaciones
+            // (con o sin paradas exportadas), y parques con nombre. Cada uno pertenece a la estación sin nombre más cercana dentro
+            // del radio (empate: menor sourceId), y cada estación usa el más cercano de los suyos
+            // (empate: el primero en el modelo, edificios antes que parques).
+            var landmarks = new List<KeyValuePair<string, Vec3>>();
+            foreach (BuildingModel building in model.buildings)
+                if (!string.IsNullOrEmpty(building.name) && IsFinite(building.position) && !building.transitStation && !stations.ContainsKey(building.sourceId))
+                    landmarks.Add(new KeyValuePair<string, Vec3>(building.name, building.position));
+            foreach (AreaModel park in model.parks)
+                if (!string.IsNullOrEmpty(park.name) && IsFinite(park.labelPosition))
+                    landmarks.Add(new KeyValuePair<string, Vec3>(park.name, park.labelPosition));
+            var nearest = new Dictionary<int, KeyValuePair<float, string>>();
+            foreach (KeyValuePair<string, Vec3> landmark in landmarks)
+            {
+                int owner = 0;
+                float ownerDistance = LandmarkRadius * LandmarkRadius;
+                foreach (int id in unnamed)
+                {
+                    float d = DistanceXZ(stations[id].position, landmark.Value);
+                    if (owner == 0 ? d <= ownerDistance : d < ownerDistance) { owner = id; ownerDistance = d; }
+                }
+                KeyValuePair<float, string> current;
+                if (owner != 0 && (!nearest.TryGetValue(owner, out current) || ownerDistance < current.Key))
+                    nearest[owner] = new KeyValuePair<float, string>(ownerDistance, landmark.Key);
+            }
+
+            var landmarkNames = new Dictionary<int, string>();
+            foreach (KeyValuePair<int, KeyValuePair<float, string>> pair in nearest) landmarkNames[pair.Key] = pair.Value.Value;
+            List<int> remaining = TakeUnique(unnamed, landmarkNames, names);
+
+            // Servicio sin renombrar más cercano (empate: menor sourceId), con su título genérico.
+            var titles = new Dictionary<int, string>();
+            foreach (int id in remaining)
+            {
+                BuildingModel best = null;
+                float bestDistance = LandmarkRadius * LandmarkRadius;
+                foreach (BuildingModel building in model.buildings)
+                {
+                    if (string.IsNullOrEmpty(building.serviceTitle) || !IsFinite(building.position)) continue;
+                    float d = DistanceXZ(stations[id].position, building.position);
+                    if (best == null ? d <= bestDistance : d < bestDistance || (d == bestDistance && building.sourceId < best.sourceId))
+                    {
+                        best = building;
+                        bestDistance = d;
+                    }
+                }
+                if (best != null) titles[id] = best.serviceTitle;
+            }
+            remaining = TakeUnique(remaining, titles, names);
+
+            // Área de parque (Parklife, Campus, Industries) que contiene a la estación.
+            var parkNames = new Dictionary<int, string>();
+            foreach (AreaModel park in model.parks)
+                if (!string.IsNullOrEmpty(park.name) && !parkNames.ContainsKey(park.sourceId)) parkNames[park.sourceId] = park.name;
+            var areas = new Dictionary<int, string>();
+            foreach (int id in remaining)
+            {
+                string area;
+                if (parkNames.TryGetValue(AreaAt(model.parkGrid, stations[id].position, parkNames), out area)) areas[id] = area;
+            }
+            // Un área que comparten varias estaciones (o que ya nombra a otra) no las nombra: pasa
+            // a ser el prefijo `<área> - ` del nombre que les dé la calle.
+            var sharedArea = new Dictionary<int, string>();
+            foreach (KeyValuePair<int, string> pair in areas) sharedArea[pair.Key] = pair.Value;
+            remaining = TakeUnique(remaining, areas, names);
+            foreach (int id in new List<int>(sharedArea.Keys))
+                if (names.ContainsKey(id)) sharedArea.Remove(id);
+
+            // Calle de acceso o, si no tiene, la calle con nombre más cercana; agrupadas por nombre
+            // exacto entre las estaciones que llegan aquí.
+            var segments = new Dictionary<int, SegmentModel>();
+            foreach (SegmentModel segment in model.segments)
+                if (!segments.ContainsKey(segment.sourceId)) segments[segment.sourceId] = segment;
+            var street = new Dictionary<int, SegmentModel>();
+            var byStreet = new Dictionary<string, List<int>>(StringComparer.Ordinal);
+            var noStreet = new List<string>();
+            foreach (int id in remaining)
+            {
+                SegmentModel access;
+                if (!segments.TryGetValue(stations[id].accessSegment, out access) || string.IsNullOrEmpty(access.name))
+                    access = NearestStreet(model, stations[id].position);
+                if (access == null)
+                {
+                    if (!sharedArea.ContainsKey(id)) noStreet.Add(id.ToString(CultureInfo.InvariantCulture));
+                    continue;
+                }
+                street[id] = access;
+                List<int> ids;
+                if (!byStreet.TryGetValue(access.name, out ids)) byStreet[access.name] = ids = new List<int>();
+                ids.Add(id);
+            }
+
+            foreach (KeyValuePair<string, List<int>> group in byStreet)
+            {
+                if (group.Value.Count == 1) { names[group.Value[0]] = group.Key; continue; }
+                // Choque: `<calle> / <cruce>` si ese par es único en el grupo; si no, `<calle> N`
+                // desde 1 por sourceId ascendente entre las que no se resolvieron con el cruce. Si
+                // queda una sola sin resolver, lleva `<calle>` a secas: ya no choca con nadie.
+                var crossed = new Dictionary<int, string>();
+                var uses = new Dictionary<string, int>(StringComparer.Ordinal);
+                foreach (int id in group.Value)
+                {
+                    string cross = CrossStreet(model, street[id], stations[id].position);
+                    if (cross == null) continue;
+                    string name = group.Key + " / " + cross;
+                    crossed[id] = name;
+                    int n;
+                    uses.TryGetValue(name, out n);
+                    uses[name] = n + 1;
+                }
+                var leftover = new List<int>();
+                foreach (int id in group.Value)
+                {
+                    string name;
+                    if (crossed.TryGetValue(id, out name) && uses[name] == 1) names[id] = name;
+                    else leftover.Add(id);
+                }
+                for (int k = 0; k < leftover.Count; k++)
+                    names[leftover[k]] = leftover.Count == 1 ? group.Key
+                        : group.Key + " " + (k + 1).ToString(CultureInfo.InvariantCulture);
+            }
+
+            // Prefijo de área: `<área> - <calle>`; las de un área sin calle llevan el área a secas,
+            // numerada desde 1 por sourceId si quedan varias.
+            var areaOnly = new Dictionary<string, List<int>>(StringComparer.Ordinal);
+            foreach (KeyValuePair<int, string> pair in sharedArea)
+            {
+                string name;
+                if (names.TryGetValue(pair.Key, out name)) { names[pair.Key] = AreaPrefix(pair.Value) + " - " + name; continue; }
+                List<int> ids;
+                if (!areaOnly.TryGetValue(pair.Value, out ids)) areaOnly[pair.Value] = ids = new List<int>();
+                ids.Add(pair.Key);
+            }
+            foreach (KeyValuePair<string, List<int>> group in areaOnly)
+            {
+                group.Value.Sort();
+                for (int k = 0; k < group.Value.Count; k++)
+                    names[group.Value[k]] = group.Value.Count == 1 ? group.Key
+                        : group.Key + " " + (k + 1).ToString(CultureInfo.InvariantCulture);
+            }
+            if (noStreet.Count > 0)
+                limits.Add(noStreet.Count + " estaciones sin nombre: sin landmark, servicio, área ni calle con nombre a "
+                    + StreetRadius.ToString(CultureInfo.InvariantCulture) + " m (edificios: " + string.Join(", ", noStreet.ToArray()) + ").");
+            return names;
+        }
+
+        // Asigna a cada estación el nombre de `candidates` solo si ninguna otra estación lo tiene
+        // también, ni como candidato ni como nombre ya asignado en `names`; devuelve las que
+        // siguen sin nombre, en el mismo orden.
+        private static List<int> TakeUnique(List<int> ids, Dictionary<int, string> candidates, Dictionary<int, string> names)
+        {
+            var uses = new Dictionary<string, int>(StringComparer.Ordinal);
+            var all = new List<string>(names.Values);
+            all.AddRange(candidates.Values);
+            foreach (string name in all)
+            {
+                int n;
+                uses.TryGetValue(name, out n);
+                uses[name] = n + 1;
+            }
+            var rest = new List<int>();
+            foreach (int id in ids)
+            {
+                string name;
+                if (candidates.TryGetValue(id, out name) && uses[name] == 1) names[id] = name;
+                else rest.Add(id);
+            }
+            return rest;
+        }
+
+        // Prefijo de un área que comparten varias estaciones: el nombre completo si tiene una o dos
+        // palabras («Huanacaure»), o sus iniciales en mayúscula si tiene tres o más («Laurel City
+        // Airport» → «LCA»).
+        private static string AreaPrefix(string area)
+        {
+            string[] words = area.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+            if (words.Length < 3) return area;
+            var initials = new System.Text.StringBuilder();
+            foreach (string word in words) initials.Append(char.ToUpperInvariant(word[0]));
+            return initials.ToString();
+        }
+
+        // Id del área con nombre (en `named`) con más peso en la celda de `position` (celdas de
+        // 19,2 m centradas en el origen, como el DistrictManager; empate: la primera ranura). 0 si
+        // no hay grilla o ninguna ranura tiene un área con nombre.
+        private static int AreaAt(AreaGrid grid, Vec3 position, Dictionary<int, string> named)
+        {
+            if (grid == null || grid.cells == null || grid.cells.Length != grid.resolution * grid.resolution * 8) return 0;
+            int col = (int)Math.Floor(position.x / 19.2f + grid.resolution / 2f);
+            int row = (int)Math.Floor(position.z / 19.2f + grid.resolution / 2f);
+            if (col < 0 || row < 0 || col >= grid.resolution || row >= grid.resolution) return 0;
+            int o = (row * grid.resolution + col) * 8;
+            int id = 0, weight = 0;
+            for (int k = 0; k < 4; k++)
+                if (grid.cells[o + 4 + k] > weight && named.ContainsKey(grid.cells[o + k])) { weight = grid.cells[o + 4 + k]; id = grid.cells[o + k]; }
+            return id;
+        }
+
+        // Radio en el que se busca la calle con nombre más cercana cuando no hay calle de acceso.
+        private const float StreetRadius = 50f;
+
+        // Segmento con nombre más cercano a `position` (plano XZ, muestreando la curva) dentro de
+        // StreetRadius; empate: menor sourceId. null si no hay ninguno.
+        private static SegmentModel NearestStreet(VellumModel model, Vec3 position)
+        {
+            SegmentModel best = null;
+            float bestDistance = StreetRadius * StreetRadius;
+            foreach (SegmentModel segment in model.segments)
+            {
+                if (!IsStreet(segment)) continue;
+                for (int k = 0; k <= 8; k++)
+                {
+                    float t = k / 8f, u = 1f - t;
+                    float x = u * u * u * segment.a.x + 3f * u * u * t * segment.b.x + 3f * u * t * t * segment.c.x + t * t * t * segment.d.x;
+                    float z = u * u * u * segment.a.z + 3f * u * u * t * segment.b.z + 3f * u * t * t * segment.c.z + t * t * t * segment.d.z;
+                    float d = DistanceXZ(new Vec3(x, 0f, z), position);
+                    if (best == null ? d <= bestDistance : d < bestDistance || (d == bestDistance && segment.sourceId < best.sourceId))
+                    {
+                        best = segment;
+                        bestDistance = d;
+                    }
+                }
+            }
+            return best;
+        }
+
+        // Calle que cruza `access` en su extremo más cercano a `position` (o en el otro si ahí no
+        // hay ninguna): la menor en orden ordinal con nombre distinto al de `access`. null si no hay.
+        private static string CrossStreet(VellumModel model, SegmentModel access, Vec3 position)
+        {
+            bool startFirst = DistanceXZ(access.a, position) <= DistanceXZ(access.d, position);
+            int[] ends = startFirst ? new[] { access.startNode, access.endNode } : new[] { access.endNode, access.startNode };
+            foreach (int node in ends)
+            {
+                string cross = null;
+                foreach (SegmentModel segment in model.segments)
+                {
+                    if (segment.sourceId == access.sourceId || (segment.startNode != node && segment.endNode != node)) continue;
+                    if (!IsStreet(segment) || segment.name == access.name) continue;
+                    if (cross == null || string.CompareOrdinal(segment.name, cross) < 0) cross = segment.name;
+                }
+                if (cross != null) return cross;
+            }
+            return null;
+        }
+
+        // Una calle con nombre que puede nombrar o cruzar una estación: las autopistas y las
+        // represas también tienen nombre, pero nadie se baja del metro en ellas.
+        private static bool IsStreet(SegmentModel segment)
+        {
+            return !string.IsNullOrEmpty(segment.name) && segment.itemClass != null
+                && segment.itemClass.IndexOf("Highway", StringComparison.Ordinal) < 0
+                && segment.itemClass.IndexOf("Dam", StringComparison.Ordinal) < 0;
+        }
+
+        // Distancia al cuadrado en el plano XZ.
+        private static float DistanceXZ(Vec3 a, Vec3 b)
+        {
+            float dx = a.x - b.x, dz = a.z - b.z;
+            return dx * dx + dz * dz;
         }
 
         private static string Hex(byte value) { return value.ToString("X2", CultureInfo.InvariantCulture); }
