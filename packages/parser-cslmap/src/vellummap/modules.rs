@@ -159,6 +159,15 @@ pub(crate) struct TransitStopDoc {
         skip_serializing_if = "Option::is_none"
     )]
     pub(crate) name_derived: Option<bool>,
+    /// Module `1.1`: `sourceId` of the station building the stop belongs to,
+    /// shared by every stop of that building. Absent for street stops. The
+    /// reader does not require it to exist in `buildings.json`.
+    #[serde(
+        default,
+        deserialize_with = "non_null",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub(crate) station_id: Option<u32>,
 }
 
 impl WaterModule {
@@ -208,6 +217,19 @@ impl RoadsModule {
 }
 
 impl TransitModule {
+    /// Under transit `1.0`, `stationId` is an unknown field (it arrives with
+    /// `1.1`): same message as the minor rule.
+    pub(crate) fn reject_station_ids(&self) -> Result<(), VellumError> {
+        for (l, line) in self.lines.iter().enumerate() {
+            if let Some(s) = line.stops.iter().position(|s| s.station_id.is_some()) {
+                return Err(invalid(format!(
+                    "transit.json: unknown field `lines.{l}.stops.{s}.stationId`"
+                )));
+            }
+        }
+        Ok(())
+    }
+
     pub(crate) fn validate(&self) -> Result<(), VellumError> {
         check_unique_ids("transit.json lines", self.lines.iter().map(|l| l.source_id))?;
         for line in &self.lines {

@@ -342,8 +342,11 @@ namespace VellumBridge
             {
                 var watch = System.Diagnostics.Stopwatch.StartNew();
                 string folder = ExportFolder();
+                string cityFolder = VellumWriter.CityFolder(folder, model);
+                // La raíz por los .part de versiones anteriores a la carpeta por ciudad.
                 DeleteOrphanParts(folder);
-                Debug.Log("[VellumBridge] Exportación: escritura iniciada en " + folder + ".");
+                DeleteOrphanParts(cityFolder);
+                Debug.Log("[VellumBridge] Exportación: escritura iniciada en " + cityFolder + ".");
                 var options = new WriterOptions();
                 options.isSaving = delegate { return SavePanel.isSaving; };
                 summary = VellumWriter.Export(model, folder, options);
@@ -408,7 +411,8 @@ namespace VellumBridge
             return text.ToString();
         }
 
-        // Documentos/Vellum Bridge. Mono en macOS y Linux devuelve $HOME como MyDocuments: se usa
+        // Documentos/Vellum Bridge (la raíz; cada ciudad va en su subcarpeta, ver
+        // VellumWriter.CityFolder). Mono en macOS y Linux devuelve $HOME como MyDocuments: se usa
         // $HOME/Documents si existe y, si no, $HOME/Vellum Bridge.
         private static string ExportFolder()
         {

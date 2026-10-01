@@ -34,7 +34,8 @@
             "z": 0
           },
           "name": "Central Station",
-          "nameDerived": false
+          "nameDerived": false,
+          "stationId": 1001
         },
         {
           "sourceId": 9,

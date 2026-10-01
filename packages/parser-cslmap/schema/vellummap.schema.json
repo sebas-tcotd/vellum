@@ -761,6 +761,10 @@
                     "nameDerived": {
                       "type": "boolean",
                       "description": "Optional. true when name was derived from the street (<street> or <street> N)."
+                    },
+                    "stationId": {
+                      "$ref": "#/$defs/sourceId",
+                      "description": "Optional, transit 1.1. sourceId of the station building the stop belongs to; shared by every stop of that building. Absent for street stops. Not required to exist in buildings.json."
                     }
                   }
                 }

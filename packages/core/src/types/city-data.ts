@@ -169,6 +169,12 @@ export interface TransitStop {
    * in game. Only native `.vellummap` documents set it; absent means `false`.
    */
   nameDerived?: boolean;
+  /**
+   * Id of the station building the stop belongs to; every stop of that building
+   * (any line or mode) shares it. Only native `.vellummap` documents with
+   * `transit` 1.1 set it; absent for street stops and `.cslmap`.
+   */
+  stationId?: string;
 }
 
 /**

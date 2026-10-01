@@ -125,12 +125,14 @@ fn bridge_document() -> Document {
                         position: pos(0.0, 70.0, 0.0),
                         name: Some("Main Street".to_owned()),
                         name_derived: Some(true),
+                        station_id: None,
                     },
                     TransitStopDoc {
                         source_id: 2,
                         position: pos(100.0, 80.0, 0.0),
                         name: None,
                         name_derived: None,
+                        station_id: None,
                     },
                 ],
                 route: vec![7],
@@ -1219,6 +1221,109 @@ fn malformed_line_color_is_invalid() {
         v["lines"][0]["color"] = "#ff6600ff".into();
     });
     assert_invalid(parse_vellummap_bytes(&bytes), "uppercase hex");
+}
+
+// ─── Story 5.7: stationId (transit 1.1) ───────────────────────────────────────
+
+/// The bridge document with both stops in station building 1001, at `version`.
+fn station_zip(version: &str) -> Vec<u8> {
+    let edited = edit_json_module(&bridge_zip(), "transit.json", |v| {
+        v["lines"][0]["stops"][0]["stationId"] = 1001.into();
+        v["lines"][0]["stops"][1]["stationId"] = 1001.into();
+    });
+    with_module_version(&edited, "transit", version)
+}
+
+#[test]
+fn station_id_reaches_city_data_with_transit_1_1() {
+    let city = parse_vellummap_bytes(&station_zip("1.1")).expect("transit 1.1 knows stationId");
+    let stops = &city.transit_lines[0].stops;
+    assert_eq!(stops[0].station_id.as_deref(), Some("1001"));
+    assert_eq!(stops[1].station_id.as_deref(), Some("1001"));
+    assert_eq!(
+        serde_json::to_value(&city).unwrap()["transitLines"][0]["stops"][0]["stationId"],
+        "1001"
+    );
+
+    // A newer minor still exposes it (the field is known).
+    let city = parse_vellummap_bytes(&station_zip("1.4")).unwrap();
+    assert_eq!(
+        city.transit_lines[0].stops[0].station_id.as_deref(),
+        Some("1001")
+    );
+}
+
+#[test]
+fn writer_declares_transit_1_1_for_station_ids() {
+    let mut document = bridge_document();
+    document.transit.lines[0].stops[0].station_id = Some(1001);
+    let bytes = write_document(&document).expect("the writer accepts stationId");
+    let read = read_document(&bytes).expect("its own reader opens it");
+    assert_eq!(
+        read.manifest.entry(ModuleId::Transit).unwrap().version,
+        "1.1"
+    );
+    let city = parse_vellummap_bytes(&bytes).unwrap();
+    assert_eq!(
+        city.transit_lines[0].stops[0].station_id.as_deref(),
+        Some("1001")
+    );
+    // Without stationId the transit module stays 1.0.
+    let plain = read_document(&write_document(&bridge_document()).unwrap()).unwrap();
+    assert_eq!(
+        plain.manifest.entry(ModuleId::Transit).unwrap().version,
+        "1.0"
+    );
+}
+
+#[test]
+fn station_id_is_unknown_with_transit_1_0() {
+    assert_invalid(
+        parse_vellummap_bytes(&station_zip("1.0")),
+        "transit.json: unknown field `lines.0.stops.0.stationId`",
+    );
+}
+
+#[test]
+fn station_id_is_omitted_when_absent() {
+    let city = parse_vellummap_bytes(&with_module_version(&bridge_zip(), "transit", "1.1"))
+        .expect("transit 1.1 without stationId opens");
+    assert!(city.transit_lines[0].stops[0].station_id.is_none());
+    let json = serde_json::to_value(&city).unwrap();
+    assert!(json["transitLines"][0]["stops"][0]
+        .get("stationId")
+        .is_none());
+
+    // A `.cslmap` has no station identity.
+    let city = parse_cslmap_bytes(&fixture("with-transit.cslmap")).unwrap();
+    assert!(!city.transit_lines.is_empty());
+    assert!(city
+        .transit_lines
+        .iter()
+        .flat_map(|l| &l.stops)
+        .all(|s| s.station_id.is_none()));
+}
+
+#[test]
+fn station_id_is_validated_as_a_source_id() {
+    for bad in [
+        serde_json::json!(-1),
+        serde_json::json!(1.0),
+        serde_json::json!("1001"),
+        serde_json::Value::Null,
+    ] {
+        let edited = edit_json_module(&bridge_zip(), "transit.json", |v| {
+            v["lines"][0]["stops"][0]["stationId"] = bad.clone();
+        });
+        let bytes = with_module_version(&edited, "transit", "1.1");
+        assert!(
+            matches!(
+                parse_vellummap_bytes(&bytes),
+                Err(VellumError::InvalidFile { .. })
+            ),
+            "stationId {bad} must be invalid"
+        );
+    }
 }
 
 #[test]

@@ -73,7 +73,7 @@ Por eso el lector es estricto con los minors que conoce y tolerante con los que 
 - El minor se evalúa **por ámbito**. Los campos del manifest (incluidos `game`, `producer`,
   `city`, las entradas de `modules` y su `grid`) dependen de `exportSchemaVersion`. Los de
   cada módulo JSON, de la `version` de ese módulo en el manifest.
-- Minor conocido: manifest `1`; módulos `buildings` y `districts` `1`; el resto `0`.
+- Minor conocido: manifest `1`; módulos `transit`, `buildings` y `districts` `1`; el resto `0`.
 - Con un minor **menor o igual** al conocido, un campo desconocido es `InvalidFile`. El
   mensaje dice `unknown field` y la ruta del campo
   (``roads.json: unknown field `segments.0.lanes` ``).
@@ -85,6 +85,9 @@ Por eso el lector es estricto con los minors que conoce y tolerante con los que 
 - Un campo que el lector sí conoce se valida igual en cualquier minor 1.x (p. ej.
   `city.id` o `buildings[].height` en un documento `1.0`, o `height: -1` en un
   `buildings` `1.5`).
+- Excepción: `stationId` (`transit` `1.1`) sigue siendo un campo desconocido en un
+  `transit` `1.0` (``transit.json: unknown field `lines.0.stops.0.stationId` ``), porque
+  ningún productor `1.0` lo escribe. Con `1.1` o un minor mayor se valida y se expone.
 
 **Compatibilidad.** La regla del minor existe desde la versión de Vellum Desktop siguiente
 a 0.12.0. Un Desktop 0.12.0 o anterior es estricto con cualquier minor: **rechaza** los
@@ -114,6 +117,9 @@ lector las rechaza (con `InvalidFile`):
   `water-depth.bin` (ver [Agua](#agua)).
 - Contenedor: `codec` igual al método real de la entrada, `sha256` de los bytes
   descomprimidos, tamaños declarados y presupuesto del documento.
+- Versión de `stationId`: el schema lo acepta en cualquier parada, pero el lector lo
+  rechaza como campo desconocido si el módulo `transit` es `1.0` (ver
+  [Regla del minor](#regla-del-minor)).
 
 Y una en sentido contrario, en la que el lector es **más tolerante** que el schema: la
 [regla del minor](#regla-del-minor). El schema rechaza cualquier campo que no declara
@@ -175,14 +181,14 @@ rechaza un manifest `1.7` con un campo nuevo, y los tests de Rust, que el lector
 
 Cada registro de `modules`:
 
-| Campo     | Contenido                                                                                                             |
-| --------- | --------------------------------------------------------------------------------------------------------------------- |
-| `id`      | Uno de los módulos de la tabla de abajo.                                                                              |
-| `path`    | Fijo por `id` en v1.                                                                                                  |
-| `version` | Versión del módulo, `MAJOR.MINOR`. `1.0`, salvo `buildings` y `districts`: `1.1` desde Bridge 0.8.                    |
-| `codec`   | `deflate` o `stored`. Debe coincidir con el método real de la entrada zip. Un lector v1 rechaza cualquier otro valor. |
-| `sha256`  | SHA-256 de los bytes **descomprimidos** de la entrada, en hex minúscula.                                              |
-| `grid`    | Solo en grillas. Forma exacta fijada por el módulo (ver tabla).                                                       |
+| Campo     | Contenido                                                                                                                            |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `id`      | Uno de los módulos de la tabla de abajo.                                                                                             |
+| `path`    | Fijo por `id` en v1.                                                                                                                 |
+| `version` | Versión del módulo, `MAJOR.MINOR`. `1.0`, salvo `buildings` y `districts` (`1.1` desde Bridge 0.8) y `transit` (`1.1`: `stationId`). |
+| `codec`   | `deflate` o `stored`. Debe coincidir con el método real de la entrada zip. Un lector v1 rechaza cualquier otro valor.                |
+| `sha256`  | SHA-256 de los bytes **descomprimidos** de la entrada, en hex minúscula.                                                             |
+| `grid`    | Solo en grillas. Forma exacta fijada por el módulo (ver tabla).                                                                      |
 
 ### Campos pensados para el timelapse
 
@@ -225,7 +231,7 @@ contenedor) irá en `.quire`, después de v1.0.
 | `water-depth`   | `water-depth.bin` | no     | Profundidad del agua (`WaterSimulation.Cell.m_height`), u16le, 1081², celda 16, escala 1/64 m. |
 | `vegetation`    | `vegetation.bin`  | sí     | `NaturalResourceManager.m_tree`, u8 (0–255), 512², celda 33,75.                                |
 | `roads`         | `roads.json`      | sí     | `{ nodes, segments }`.                                                                         |
-| `transit`       | `transit.json`    | sí     | `{ lines }`.                                                                                   |
+| `transit`       | `transit.json`    | sí     | `{ lines }`. `1.1`: `stationId` en las paradas de estación.                                    |
 | `buildings`     | `buildings.json`  | sí     | `{ buildings }`. `1.1`: prefab en `prefab`, nombre visible en `name`.                          |
 | `districts`     | `districts.json`  | sí     | `{ districts }`: `sourceId`, `name`, `labelPosition`; `1.1`: datos de lugar.                   |
 | `parks`         | `parks.json`      | sí     | `{ parks }`: `sourceId`, `name`, `labelPosition`, `parkType?`.                                 |
@@ -331,6 +337,13 @@ son `sourceId` enteros ≥ 0, únicos dentro de su colección.
           "position": { "x": 0, "y": 70, "z": 0 },
           "name": "Main Street 1",
           "nameDerived": true
+        },
+        {
+          "sourceId": 2,
+          "position": { "x": 100, "y": 60, "z": 0 },
+          "name": "Central Station",
+          "nameDerived": false,
+          "stationId": 1001
         }
       ],
       "route": [7, 8]
@@ -347,6 +360,14 @@ son `sourceId` enteros ≥ 0, únicos dentro de su colección.
 - `color`: el color visible (`displayColor`), `#RRGGBBAA` en hex mayúscula.
 - `stops[].sourceId`: el nodo de la parada. `name` es opcional y nunca vacío;
   `nameDerived` exige `name`.
+- `stops[].stationId` (opcional, módulo `1.1`): `sourceId` del edificio de estación al que
+  pertenece la parada, el mismo que decide su nombre por estación (paso 2 de
+  [Nombres de parada](#nombres-de-parada)). Todas las paradas del mismo edificio llevan el
+  mismo valor, aunque sean de líneas o modos distintos (metro y tren en una estación
+  multimodal), y así se puede agrupar una estación sin adivinar por nombre o distancia. Las
+  paradas de calle no lo llevan. El lector no exige que el edificio esté en
+  `buildings.json`. En `CityData` es `TransitStop.stationId` (string, como los demás ids),
+  omitido cuando falta; un `.cslmap` nunca lo produce.
 - `route`: `sourceId` de los segmentos de toda la ruta, en orden de recorrido. El lector
   no exige que estén en `roads.json`: en el corpus del spike hay rutas con segmentos que
   ya no existen en la ciudad.
@@ -365,7 +386,9 @@ valida:
    el segmento es una vía de transporte, como la estación integrada en la terminal de un
    aeropuerto), se nombra por estación con las reglas de
    abajo. Todas las paradas del mismo edificio llevan el mismo nombre, aunque sean de
-   líneas distintas.
+   líneas distintas. Desde `transit` `1.1` también llevan `stationId` con el `sourceId`
+   de ese edificio (si el edificio no se exportó, la parada sigue la regla de calle y no
+   lleva `stationId`).
 3. Si no, se toma el nombre visible de la calle del segmento de la parada
    (`stopRoadSegments` + `GetSegmentName`).
 4. Se agrupan todas las paradas de calle del documento que resuelven a la misma calle, con
@@ -537,7 +560,8 @@ del suelo, edades y educación. La superficie tampoco se exporta: se deriva de l
 - Por distrito, desde Bridge 0.8: población, hogares, empleos por sector y
   especializaciones (ver [`districts.json` y `parks.json`](#districtsjson-y-parksjson)).
 - Por línea: `GetLineName`, `displayColor`, tipo de transporte, paradas con su posición y
-  nombre derivado según la regla de arriba, y la ruta.
+  nombre derivado según la regla de arriba, y la ruta. Desde `transit` `1.1`, las paradas
+  de un edificio de estación exportado llevan `stationId`.
 - Terreno `RawHeights2`, máscara de agua, `seaLevel` y la profundidad con su procedencia.
   Desde Bridge 0.9, si el juego está en marcha Bridge pausa la simulación durante la
   extracción (mensaje «Capturando tu ciudad…») y la reanuda al terminar, aunque falle; si
@@ -548,6 +572,23 @@ del suelo, edades y educación. La superficie tampoco se exporta: se deriva de l
 - Manifest: `snapshotId`, `exportedAtUtc` en UTC, `gameTime`, `game.version` y
   `game.instanceId`. Desde Bridge 0.9 (manifest `1.1`): `city.id` y, desde la segunda
   exportación de la partida, `parentSnapshotId`.
+
+### Dónde publica Bridge
+
+Cada exportación es un archivo nuevo en `Documentos/Vellum Bridge/<ciudad>/<ciudad> <fecha y
+hora locales>.vellummap` (p. ej. `Vellum Bridge/San Rico/San Rico 2026-10-01
+020217.vellummap`). La carpeta y el archivo usan el mismo nombre de ciudad saneado (`con` →
+`con_`, `a/b` → `a_b`, sin nombre → `Ciudad`); si el nombre ya existe se añade ` (2)`,
+` (3)`, … dentro de la carpeta de la ciudad, sin sobrescribir.
+
+- La hora del nombre es la local del equipo, solo para que el jugador reconozca el
+  archivo. `exportedAtUtc` y la fecha interna del zip siguen en UTC, y Vellum no deduce
+  orden ni fecha del nombre del archivo.
+- **Límite conocido:** una ciudad renombrada en el juego estrena carpeta con el nombre
+  nuevo; la anterior no se toca. Lo que une las exportaciones de una misma ciudad es
+  `city.id`, no la carpeta: el timeline las reunirá por ese campo.
+- Las exportaciones sueltas en `Vellum Bridge/` de versiones anteriores no se mueven ni
+  se renombran. Los `.part` huérfanos se borran de la carpeta de la ciudad y de la raíz.
 
 ## Conversor de referencia
 

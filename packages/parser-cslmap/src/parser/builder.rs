@@ -342,6 +342,7 @@ fn build_transit_line(line: RawTransitLine) -> TransitLine {
             position: stop.position,
             name: stop.name,
             name_derived: stop.name_derived,
+            station_id: stop.station_id,
         })
         .collect();
     let route = if line.route.is_empty() {

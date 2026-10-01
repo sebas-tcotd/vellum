@@ -9,6 +9,7 @@ use super::areas::area_boundaries;
 use super::manifest::{
     deserialize_scope, is_newer_minor, parse_manifest, spec_of, Codec, Manifest, ModuleId, MODULES,
 };
+use super::modules::TransitModule;
 use super::{
     invalid, Document, MANIFEST_PATH, MAX_DOCUMENT_BYTES, MAX_JSON_BYTES, MAX_MANIFEST_BYTES,
     MODULE_ORDER,
@@ -162,8 +163,8 @@ pub(crate) fn read_document(bytes: &[u8]) -> Result<Document, VellumError> {
             &required(take(ModuleId::Roads), ModuleId::Roads)?,
             tolerant(ModuleId::Roads),
         )?,
-        transit: parse_json(
-            "transit.json",
+        transit: parse_transit(
+            &manifest,
             &required(take(ModuleId::Transit), ModuleId::Transit)?,
             tolerant(ModuleId::Transit),
         )?,
@@ -188,6 +189,24 @@ pub(crate) fn read_document(bytes: &[u8]) -> Result<Document, VellumError> {
     };
     document.validate()?;
     Ok(document)
+}
+
+/// `transit.json` under the minor rule, plus one exception: `stationId` arrives
+/// with transit 1.1, so unlike other known fields a transit `1.0` keeps
+/// rejecting it as unknown (a 1.0 producer never wrote it).
+fn parse_transit(
+    manifest: &Manifest,
+    bytes: &[u8],
+    tolerant: bool,
+) -> Result<TransitModule, VellumError> {
+    let transit: TransitModule = parse_json("transit.json", bytes, tolerant)?;
+    if manifest
+        .entry(ModuleId::Transit)
+        .is_some_and(|entry| !is_newer_minor(&entry.version, 0))
+    {
+        transit.reject_station_ids()?;
+    }
+    Ok(transit)
 }
 
 /// Inflates and hash-checks every declared module, each on its own thread: they

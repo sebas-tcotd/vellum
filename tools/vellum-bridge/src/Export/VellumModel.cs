@@ -96,7 +96,8 @@ namespace VellumBridge.Export
         public string customName;          // stopCustomNames: null o vacío si ningún mod lo asignó
         public string streetName;          // GetSegmentName del segmento de la parada; null o vacío si no hay
         // Edificio de estación (raíz, sin sub-edificios) dueño del segmento de la parada; 0 si la
-        // parada está en una calle. No se serializa: el escritor lo usa para nombrar la parada.
+        // parada está en una calle. El escritor lo usa para nombrar la parada y, si el edificio se
+        // exportó, lo escribe como `stationId` (transit 1.1).
         public int stationBuildingId;
     }
 

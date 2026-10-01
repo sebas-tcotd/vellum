@@ -33,6 +33,8 @@ pub(crate) struct RawTransitStop {
     pub(crate) name: String,
     /// `true` when `name` was derived from the street (native documents only).
     pub(crate) name_derived: bool,
+    /// `sourceId` of the stop's station building (native documents, transit 1.1).
+    pub(crate) station_id: Option<String>,
 }
 
 /// A transit line as read from the source. `transport_type` is the game's raw
@@ -124,6 +126,7 @@ impl TransitBuilder {
                     position,
                     name: String::new(),
                     name_derived: false,
+                    station_id: None,
                 });
             }
             _ => {}
