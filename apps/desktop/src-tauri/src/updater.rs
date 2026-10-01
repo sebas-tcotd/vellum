@@ -45,7 +45,7 @@ pub fn is_packaged() -> bool {
         let mut length = 0u32;
         // SAFETY: a zero length with a null buffer is the documented way to ask only
         // whether the process has a package identity; Windows writes nothing to it.
-        let result = unsafe { GetCurrentPackageFullName(&mut length, std::ptr::null_mut()) };
+        let result = unsafe { GetCurrentPackageFullName(&raw mut length, std::ptr::null_mut()) };
         result != APPMODEL_ERROR_NO_PACKAGE
     }
     #[cfg(not(windows))]
