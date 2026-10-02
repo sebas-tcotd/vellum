@@ -51,6 +51,7 @@ function makeSnapshot(surface = { width: 800, height: 600 }): ExportSnapshot {
         showHillshade: true,
       },
       basemap: { showGrid: false },
+      forests: { showCircles: true, showHeatmap: true },
     },
     transitDimming: false,
     watermarkVisible: false,

@@ -1264,6 +1264,40 @@ describe('MapLibreRenderer', () => {
     });
   });
 
+  describe('forest representations', () => {
+    it('retains independent options through theme changes and city reloads', async () => {
+      const renderer = makeRenderer();
+      mockMap.getLayer.mockReturnValue({ id: 'any' } as unknown as undefined);
+      const visibility = (id: string) =>
+        mockMap.setLayoutProperty.mock.calls
+          .filter(([layer, prop]) => layer === id && prop === 'visibility')
+          .at(-1)?.[2];
+      const options = {
+        ...DEFAULT_LAYER_OPTIONS,
+        forests: { showCircles: false, showHeatmap: true },
+      };
+      renderer.setLayerOptions(options);
+      await renderer.render(makeCityData(), {
+        activeLayers: ALL_LAYERS_VISIBLE,
+      });
+      const check = (visible: boolean) => {
+        expect(visibility('forests-trees')).toBe('none');
+        expect(visibility('forests-canopy')).toBe(visible ? 'visible' : 'none');
+      };
+      check(true);
+      renderer.setLayerVisibility('forests', false);
+      renderer.setLayerOptions(options);
+      await renderer.applyTheme(MOCK_STYLE);
+      check(false);
+      renderer.setLayerVisibility('forests', true);
+      check(true);
+      await renderer.render(makeCityData(), {
+        activeLayers: ALL_LAYERS_VISIBLE,
+      });
+      check(true);
+    });
+  });
+
   describe('street names', () => {
     const lastLabelVisibility = () =>
       mockMap.setLayoutProperty.mock.calls
@@ -1290,6 +1324,7 @@ describe('MapLibreRenderer', () => {
         showHillshade: true,
       },
       basemap: { showGrid: false },
+      forests: { showCircles: true, showHeatmap: true },
     });
 
     it('follow the option and never outlive the roads layer', async () => {
@@ -1354,6 +1389,7 @@ describe('MapLibreRenderer', () => {
           showHillshade: true,
         },
         basemap: { showGrid: false },
+        forests: { showCircles: true, showHeatmap: true },
       });
       // The label display mode does not hide the outline.
       expect(mockMap.setLayoutProperty).toHaveBeenCalledWith(
@@ -1432,6 +1468,7 @@ describe('MapLibreRenderer', () => {
           showHillshade: true,
         },
         basemap: { showGrid: false },
+        forests: { showCircles: true, showHeatmap: true },
       });
 
       expect(mockMap.setLayoutProperty).toHaveBeenCalledWith(
@@ -1481,6 +1518,7 @@ describe('MapLibreRenderer', () => {
           showHillshade: true,
         },
         basemap: { showGrid: false },
+        forests: { showCircles: true, showHeatmap: true },
       });
 
       expect(mockMap.setLayoutProperty).toHaveBeenCalledWith(
@@ -1522,6 +1560,7 @@ describe('MapLibreRenderer', () => {
           showHillshade: true,
         },
         basemap: { showGrid: false },
+        forests: { showCircles: true, showHeatmap: true },
       });
       vi.clearAllMocks();
       mockMap.getLayer.mockReturnValue({ id: 'any' } as unknown as undefined);
@@ -1671,6 +1710,7 @@ describe('MapLibreRenderer', () => {
           showHillshade: true,
         },
         basemap: { showGrid: false },
+        forests: { showCircles: true, showHeatmap: true },
       });
 
       expect(mockMap.setPaintProperty).toHaveBeenCalledWith(
@@ -1711,6 +1751,7 @@ describe('MapLibreRenderer', () => {
           showHillshade: true,
         },
         basemap: { showGrid: false },
+        forests: { showCircles: true, showHeatmap: true },
       });
 
       const contourOpacities = (mockMap.setPaintProperty as Mock).mock.calls

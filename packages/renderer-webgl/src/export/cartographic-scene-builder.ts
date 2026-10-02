@@ -42,9 +42,13 @@ import {
   LINE_WIDTH_M,
   ROAD_WIDTH_STYLES,
   SLOT_M,
+  zoomForWorldUnitsPerPixel,
 } from '@vellum/core';
 import { VELLUM_LOGO_SIZE, vellumLogoInnerSvg } from '../assets/vellum-logo';
 import { geoToCs } from '../coordinate-transform';
+import { buildDensityGrid, CANOPY_GRID_SIZE } from '../sources/forest-canopy';
+import { treesInCell, TREES_MIN_ZOOM } from '../sources/tree-tiles';
+import { buildVectorCanopy } from './forest-vector-canopy';
 import { resolveBuildingColor } from '../expressions/building-color';
 import {
   DISTRICT_BOUNDARY_OPACITY,
@@ -58,7 +62,6 @@ import {
   buildContourLinesGeoJson,
   buildAreaBoundariesGeoJson,
   buildDistrictsGeoJson,
-  buildForestsGeoJson,
   buildLandPolygonGeoJson,
   buildRoadsGeoJson,
   buildTerrainBandsGeoJson,
@@ -162,10 +165,6 @@ const COASTLINE_WIDTH_PX = 4;
 const COASTLINE_OPACITY = 0.8;
 const BUILDING_STROKE_PX = 0.5;
 const BUILDING_FILL_OPACITY = 0.85;
-const FOREST_MIN_RADIUS_PX = 1;
-const FOREST_MAX_RADIUS_PX = 4;
-const FOREST_MIN_OPACITY = 0.3;
-const FOREST_MAX_OPACITY = 0.7;
 const DISTRICT_RADIUS_PX = 6;
 
 /**
@@ -693,25 +692,80 @@ function buildBuildingEntities(context: LayerContext): SceneEntity[] {
 }
 
 function buildForestEntities(context: LayerContext): SceneEntity[] {
-  const { snapshot, colors } = context;
-  return buildForestsGeoJson(snapshot.cityData).features.map(
-    (feature, index) => {
-      const [lng, lat] = feature.geometry.coordinates;
-      const density = clamp01(feature.properties.density);
-      return {
-        id: `${ID_PREFIX.forests}-${index}`,
+  const { snapshot, colors, pixelsPerWorldUnit } = context;
+  const options = snapshot.layerOptions.forests;
+  if (!options.showHeatmap && !options.showCircles) return [];
+  const density = buildDensityGrid(snapshot.cityData.forestCells);
+  const entities: SceneEntity[] = options.showHeatmap
+    ? buildVectorCanopy(density, colors.forests)
+    : [];
+  if (
+    !options.showCircles ||
+    zoomForWorldUnitsPerPixel(1 / pixelsPerWorldUnit) < TREES_MIN_ZOOM
+  )
+    return entities;
+  const extent = snapshot.extent;
+  const crowns = [];
+  for (let row = CANOPY_GRID_SIZE - 1; row >= 0; row--) {
+    for (let col = 0; col < CANOPY_GRID_SIZE; col++) {
+      for (const crown of treesInCell(
+        density[row * CANOPY_GRID_SIZE + col]!,
+        col,
+        row,
+      )) {
+        const halfStroke =
+          Math.max(0.75 / pixelsPerWorldUnit, crown.radius * 0.12) / 2;
+        const shadowOffset = crown.radius * 0.35;
+        // Clip against everything painted: the rim and the south-east shadow.
+        const minX = crown.x - crown.radius - halfStroke;
+        const maxX =
+          crown.x + crown.radius + Math.max(halfStroke, shadowOffset);
+        const minZ =
+          crown.z - crown.radius - Math.max(halfStroke, shadowOffset);
+        const maxZ = crown.z + crown.radius + halfStroke;
+        if (
+          maxX < extent.minX ||
+          minX > extent.maxX ||
+          maxZ < extent.minZ ||
+          minZ > extent.maxZ
+        )
+          continue;
+        crowns.push(crown);
+      }
+    }
+  }
+  crowns.forEach((crown, index) => {
+    const radiusPx = crown.radius * pixelsPerWorldUnit;
+    entities.push(
+      {
+        id: `forest-tree-${index}-shadow`,
         geometry: {
-          kind: 'circle' as const,
-          center: geoToCs({ lng, lat }),
-          radiusPx: lerp(FOREST_MIN_RADIUS_PX, FOREST_MAX_RADIUS_PX, density),
+          kind: 'circle',
+          center: {
+            x: crown.x + crown.radius * 0.35,
+            z: crown.z - crown.radius * 0.35,
+          },
+          radiusPx,
         },
-        fill: {
-          color: colors.forests,
-          opacity: lerp(FOREST_MIN_OPACITY, FOREST_MAX_OPACITY, density),
+        fill: { color: '#000000', opacity: 0.18 },
+      },
+      {
+        id: `forest-tree-${index}`,
+        geometry: {
+          kind: 'circle',
+          center: { x: crown.x, z: crown.z },
+          radiusPx,
         },
-      };
-    },
-  );
+        fill: { color: colors.forests },
+        stroke: {
+          color: '#000000',
+          opacity: 0.3,
+          widthPx: Math.max(0.75, radiusPx * 0.12),
+        },
+      },
+    );
+  });
+  return entities;
 }
 
 /** District outline weight and dash in output pixels (live map: 1–2.5 px, `[4, 2]` × width). */
@@ -940,15 +994,6 @@ function offsetPath(
       z: point.z - (dx / length) * offsetWorld,
     };
   });
-}
-
-function clamp01(value: number): number {
-  if (!Number.isFinite(value)) return 0;
-  return Math.min(1, Math.max(0, value));
-}
-
-function lerp(from: number, to: number, t: number): number {
-  return from + (to - from) * t;
 }
 
 /** Counts fallbacks by code so a scene reports totals, never per-entity noise. */

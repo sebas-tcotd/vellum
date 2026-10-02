@@ -42,6 +42,9 @@ export class MapLayerManager {
   /** District whose area carries the selection tint, or `null`. */
   private selectedDistrictId: string | null = null;
   /** Whether the `roads` layer is toggled on; street names follow it. */
+  private forestsVisible = true;
+  private forestsShowCircles = true;
+  private forestsShowHeatmap = true;
   private roadsVisible = true;
   /** Current `LayerOptions.roads.showStreetNames` — mirrors its default. */
   private roadsShowStreetNames = true;
@@ -84,6 +87,11 @@ export class MapLayerManager {
    * @param visible - `true` to show, `false` to hide.
    */
   setVisibility(layer: LayerName, visible: boolean): void {
+    if (layer === 'forests') {
+      this.forestsVisible = visible;
+      this.applyForestsVisibility();
+      return;
+    }
     if (layer === 'districts') {
       this.districtsVisible = visible;
       this.applyDistrictsVisibility();
@@ -105,6 +113,19 @@ export class MapLayerManager {
       this.applyStreetNamesVisibility();
       this.applyRoadCategoriesVisibility();
     }
+  }
+
+  private applyForestsVisibility(): void {
+    this.setLayoutIfExists(
+      'forests-canopy',
+      'visibility',
+      this.forestsVisible && this.forestsShowHeatmap ? 'visible' : 'none',
+    );
+    this.setLayoutIfExists(
+      'forests-trees',
+      'visibility',
+      this.forestsVisible && this.forestsShowCircles ? 'visible' : 'none',
+    );
   }
 
   private applyRoadCategoriesVisibility(): void {
@@ -253,6 +274,9 @@ export class MapLayerManager {
    * still-visible mode. Known limitation, not fixed here.
    */
   setOptions(options: LayerOptions): void {
+    this.forestsShowCircles = options.forests.showCircles;
+    this.forestsShowHeatmap = options.forests.showHeatmap;
+    this.applyForestsVisibility();
     const transitFilter = [
       'in',
       ['get', 'mode'],
@@ -424,6 +448,9 @@ export class MapLayerManager {
     }
     this.applyContourColor(options.terrain.showColorRelief);
     retintForests(this.map, c.forests);
+    this.forestsShowCircles = options.forests.showCircles;
+    this.forestsShowHeatmap = options.forests.showHeatmap;
+    this.applyForestsVisibility();
 
     const { colorByCategory } = options.buildings;
     this.setPaintIfExists(

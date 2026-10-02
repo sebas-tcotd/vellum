@@ -59,6 +59,7 @@ function snapshot(
       districts: true,
     },
     layerOptions: {
+      forests: { showCircles: true, showHeatmap: true },
       roads: {
         showStreetNames: true,
         showRailways: true,

@@ -81,17 +81,8 @@ export function treesInTile(
     for (let col = c0; col <= c1; col++) {
       const d = density[row * n + col]!;
       if (d === 0) continue;
-      const trees = Math.max(1, Math.round(d * TREES_PER_FULL_CELL));
-      for (let k = 0; k < trees; k++) {
-        const wx =
-          -CS1_WORLD_HALF +
-          (col + 0.1 + 0.8 * hash(col, row, k, 1)) * CANOPY_CELL_SIZE;
-        const wz =
-          -CS1_WORLD_HALF +
-          (row + 0.1 + 0.8 * hash(col, row, k, 2)) * CANOPY_CELL_SIZE;
-        const r =
-          (CROWN_MIN + (CROWN_MAX - CROWN_MIN) * hash(col, row, k, 3)) /
-          unitsPerPx;
+      for (const { x: wx, z: wz, radius } of treesInCell(d, col, row)) {
+        const r = radius / unitsPerPx;
         const x = (wx - nw.x) / unitsPerPx;
         const y = (down < 0 ? zTop - wz : wz - zBottom) / unitsPerPx;
         if (
@@ -106,6 +97,27 @@ export function treesInTile(
     }
   }
   return crowns;
+}
+
+/** Density-derived crowns in world coordinates, shared by tiles and vector export. */
+export function treesInCell(
+  density: number,
+  col: number,
+  row: number,
+): { x: number; z: number; radius: number }[] {
+  if (density <= 0) return [];
+  return Array.from(
+    { length: Math.max(1, Math.round(density * TREES_PER_FULL_CELL)) },
+    (_, k) => ({
+      x:
+        -CS1_WORLD_HALF +
+        (col + 0.1 + 0.8 * hash(col, row, k, 1)) * CANOPY_CELL_SIZE,
+      z:
+        -CS1_WORLD_HALF +
+        (row + 0.1 + 0.8 * hash(col, row, k, 2)) * CANOPY_CELL_SIZE,
+      radius: CROWN_MIN + (CROWN_MAX - CROWN_MIN) * hash(col, row, k, 3),
+    }),
+  );
 }
 
 /** Deterministic value in [0, 1) per cell, tree and channel. */

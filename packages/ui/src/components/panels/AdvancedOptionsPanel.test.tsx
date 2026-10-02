@@ -11,6 +11,10 @@ function makeProps(
   overrides: Partial<AdvancedOptionsPanelProps> = {},
 ): AdvancedOptionsPanelProps {
   return {
+    showForestCircles: true,
+    showForestHeatmap: true,
+    onToggleForestCircles: vi.fn(),
+    onToggleForestHeatmap: vi.fn(),
     layer: 'transit',
     visibleModes: [],
     onToggleMode: vi.fn(),
@@ -172,13 +176,6 @@ describe('AdvancedOptionsPanel — districts', () => {
       .click();
     expect(onToggle).toHaveBeenCalledWith(true);
   });
-
-  it('renders nothing for layers without advanced options', () => {
-    const { container } = render(
-      <AdvancedOptionsPanel {...makeProps({ layer: 'forests' })} />,
-    );
-    expect(container.firstChild).toBeNull();
-  });
 });
 
 describe('AdvancedOptionsPanel — roads', () => {
@@ -252,5 +249,42 @@ describe('road categories', () => {
         name: 'layerOptionsPanel.showStreetNames',
       }),
     ).toBeNull();
+  });
+});
+
+describe('AdvancedOptionsPanel — forests', () => {
+  it.each(['vellummap', 'cslmap'] as const)(
+    'offers independent accessible switches for %s',
+    (source) => {
+      const props = makeProps({ layer: 'forests', source });
+      render(<AdvancedOptionsPanel {...props} />);
+      const circles = screen.getByRole('switch', {
+        name: 'layerOptionsPanel.showForestCircles',
+      });
+      const heatmap = screen.getByRole('switch', {
+        name: 'layerOptionsPanel.showForestHeatmap',
+      });
+      expect(circles).toHaveAttribute('aria-checked', 'true');
+      expect(heatmap).toHaveAttribute('aria-checked', 'true');
+      circles.click();
+      expect(props.onToggleForestCircles).toHaveBeenCalledWith(false);
+      expect(props.onToggleForestHeatmap).not.toHaveBeenCalled();
+      heatmap.click();
+      expect(props.onToggleForestHeatmap).toHaveBeenCalledWith(false);
+    },
+  );
+  it('explains when both representations are off', () => {
+    render(
+      <AdvancedOptionsPanel
+        {...makeProps({
+          layer: 'forests',
+          showForestCircles: false,
+          showForestHeatmap: false,
+        })}
+      />,
+    );
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'layerOptionsPanel.noVegetation',
+    );
   });
 });

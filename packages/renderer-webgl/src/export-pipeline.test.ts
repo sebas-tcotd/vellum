@@ -48,6 +48,7 @@ function snapshotInput(): ExportSnapshotInput {
         showHillshade: true,
       },
       basemap: { showGrid: false },
+      forests: { showCircles: true, showHeatmap: true },
     },
     transitDimming: true,
     watermarkVisible: false,
@@ -300,5 +301,19 @@ describe('export pipeline baseline contracts', () => {
     await expect(
       probeCapabilities({ createSurface: () => surface }),
     ).resolves.toMatchObject({ unknownReason: 'webgl-context-unavailable' });
+  });
+});
+
+describe('forest export snapshot', () => {
+  it('captures nested forest options independently of later mutations', () => {
+    const input = snapshotInput();
+    const captured = createExportSnapshot(input);
+    input.layerOptions.forests.showCircles = false;
+    input.layerOptions.forests.showHeatmap = false;
+    expect(captured.layerOptions.forests).toEqual({
+      showCircles: true,
+      showHeatmap: true,
+    });
+    expect(Object.isFrozen(captured.layerOptions.forests)).toBe(true);
   });
 });

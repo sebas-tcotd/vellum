@@ -196,3 +196,29 @@ describe('load transactions (AD-13)', () => {
     expect(useVellumStore.getState().loadingState).toBe('idle');
   });
 });
+
+describe('forest options', () => {
+  it('updates options independently and immutably while the layer stays hidden', () => {
+    const before = useVellumStore.getState();
+    useVellumStore.setState({
+      activeLayers: { ...before.activeLayers, forests: false },
+    });
+    const options = useVellumStore.getState().layerOptions;
+    useVellumStore.getState().setForestsShowCircles(false);
+    expect(useVellumStore.getState().layerOptions.forests).toEqual({
+      showCircles: false,
+      showHeatmap: options.forests.showHeatmap,
+    });
+    expect(options.forests.showCircles).toBe(true);
+    useVellumStore.getState().setForestsShowHeatmap(false);
+    expect(useVellumStore.getState().layerOptions.forests).toEqual({
+      showCircles: false,
+      showHeatmap: false,
+    });
+    expect(useVellumStore.getState().activeLayers.forests).toBe(false);
+    useVellumStore.setState({
+      layerOptions: options,
+      activeLayers: before.activeLayers,
+    });
+  });
+});
