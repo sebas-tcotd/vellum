@@ -14,6 +14,7 @@ const DEFAULT_PALETTE: MinimapPalette = {
   water: DEFAULT_RENDER_STYLE_PARAMS.water,
   land: DEFAULT_RENDER_STYLE_PARAMS.terrain.base,
   highway: DEFAULT_RENDER_STYLE_PARAMS.roads.highway.generic.fill,
+  train: DEFAULT_RENDER_STYLE_PARAMS.roads.rail.train.casing,
 };
 
 /** How far one arrow-key press pans, as a fraction of the city's extent. */
@@ -27,6 +28,8 @@ export interface MinimapPalette {
   land: string;
   /** Highway strokes. */
   highway: string;
+  /** Surface train-track strokes. */
+  train: string;
 }
 
 /** Props for the Minimap component. */
@@ -126,21 +129,20 @@ export function Minimap({
       ctx.fill(path, 'evenodd');
     }
 
-    // 3. Highway roads — draw using node position lookup
+    // 3. Rail and highways — node-to-node straight strokes via node lookup.
     const nodeMap = new Map(cityData.roadNodes.map((n) => [n.id, n]));
-    // The canonical classifier, not an `itemClass === 'Highway'` literal: this
-    // is what brings in `Highway Tunnel` / `Highway Elevated` and any modded
-    // asset whose wayType says highway (ADR-0001 D6).
-    const highways = cityData.roadSegments.filter(
-      (s) => classifyRoadTier(s.itemClass, s.wayType, s.width) === 'highway',
-    );
-    if (highways.length > 0) {
+    const strokeSegments = (
+      segments: CityData['roadSegments'],
+      color: string,
+      lineWidth: number,
+    ) => {
+      if (segments.length === 0) return;
       ctx.beginPath();
-      ctx.strokeStyle = palette.highway;
-      // Muted so the highways read as context, not as the subject.
+      ctx.strokeStyle = color;
+      // Muted so these read as context, not as the subject.
       ctx.globalAlpha = 0.55;
-      ctx.lineWidth = 1;
-      for (const seg of highways) {
+      ctx.lineWidth = lineWidth;
+      for (const seg of segments) {
         const start = nodeMap.get(seg.startNodeId);
         const end = nodeMap.get(seg.endNodeId);
         if (!start || !end) continue;
@@ -157,7 +159,29 @@ export function Minimap({
       }
       ctx.stroke();
       ctx.globalAlpha = 1;
-    }
+    };
+
+    // The canonical classifier, not `itemClass` literals (ADR-0001 D6). Train
+    // is drawn first so highways stay on top; underground track is skipped,
+    // elevated track is visible from the surface and kept.
+    const tiers = cityData.roadSegments.map((s) => ({
+      seg: s,
+      tier: classifyRoadTier(s.itemClass, s.wayType, s.width),
+    }));
+    const surfaceTrain = tiers
+      .filter(
+        ({ seg, tier }) =>
+          tier === 'train' &&
+          !seg.wayType.some((w) => w === 'Tunnel' || w === 'Underground') &&
+          !seg.itemClass.endsWith(' Tunnel'),
+      )
+      .map(({ seg }) => seg);
+    strokeSegments(surfaceTrain, palette.train, 0.6);
+
+    const highways = tiers
+      .filter(({ tier }) => tier === 'highway')
+      .map(({ seg }) => seg);
+    strokeSegments(highways, palette.highway, 1);
 
     staticMapRef.current = offscreen;
     // Repaint immediately: without a viewport event (theme changes emit none)

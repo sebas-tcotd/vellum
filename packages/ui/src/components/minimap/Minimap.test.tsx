@@ -248,7 +248,12 @@ describe('Minimap', () => {
     const { rerender } = render(
       <Minimap
         {...props}
-        palette={{ water: '#111111', land: '#222222', highway: '#333333' }}
+        palette={{
+          water: '#111111',
+          land: '#222222',
+          highway: '#333333',
+          train: '#444444',
+        }}
       />,
     );
     expect(fills).toContain('#111111');
@@ -256,7 +261,12 @@ describe('Minimap', () => {
     rerender(
       <Minimap
         {...props}
-        palette={{ water: '#aabbcc', land: '#ddeeff', highway: '#445566' }}
+        palette={{
+          water: '#aabbcc',
+          land: '#ddeeff',
+          highway: '#445566',
+          train: '#778899',
+        }}
       />,
     );
     expect(fills).toContain('#aabbcc');
@@ -312,7 +322,12 @@ describe('highway pre-render', () => {
   };
 
   it('strokes every highway-tier segment, and only those, at palette.highway', () => {
-    const palette = { water: '#111111', land: '#222222', highway: '#334455' };
+    const palette = {
+      water: '#111111',
+      land: '#222222',
+      highway: '#334455',
+      train: '#556677',
+    };
 
     render(<Minimap {...props} cityData={cityWithRoads} palette={palette} />);
 
@@ -336,6 +351,169 @@ describe('highway pre-render', () => {
 
     expect(mockCtx.moveTo).not.toHaveBeenCalled();
     expect(mockCtx.lineTo).not.toHaveBeenCalled();
+  });
+});
+
+describe('train pre-render', () => {
+  const palette = {
+    water: '#111111',
+    land: '#222222',
+    highway: '#334455',
+    train: '#556677',
+  };
+  const props = {
+    subscribeViewport: vi.fn(() => vi.fn()),
+    getInitialViewportBounds: vi.fn(() => null),
+    navigateTo: vi.fn(),
+  };
+  const nodes = [0, 1, 2, 3, 4, 5].map((i) => ({
+    id: `n${i}`,
+    position: { x: i * 1000, y: 0, z: 0 },
+  }));
+  const seg = (
+    id: string,
+    itemClass: string,
+    wayType: string[],
+    start = 'n0',
+    end = 'n1',
+  ) => ({
+    id,
+    startNodeId: start,
+    endNodeId: end,
+    points: [],
+    wayType,
+    itemClass,
+    width: 8,
+  });
+  const cityWith = (roadSegments: CityData['roadSegments']): CityData => ({
+    ...mockCityData,
+    roadNodes: nodes,
+    roadSegments,
+  });
+
+  /** Records style, width, dash and alpha at each stroke() call. */
+  function captureStrokes() {
+    const strokes: { style: string; width: number; alpha: unknown }[] = [];
+    mockCtx.stroke.mockImplementation(() => {
+      strokes.push({
+        style: String(mockCtx.strokeStyle),
+        width: mockCtx.lineWidth,
+        alpha: (mockCtx as unknown as { globalAlpha?: number }).globalAlpha,
+      });
+    });
+    return strokes;
+  }
+
+  beforeEach(() => {
+    mockCtx.stroke.mockReset();
+  });
+
+  it('strokes surface and elevated track straight, thinner than highways, under them', () => {
+    const strokes = captureStrokes();
+    render(
+      <Minimap
+        {...props}
+        palette={palette}
+        cityData={cityWith([
+          seg('t1', 'Train Track', ['Train'], 'n0', 'n1'),
+          seg('t2', 'Train Track Elevated', ['Train'], 'n1', 'n2'),
+          seg('h1', 'Highway', ['Road'], 'n2', 'n3'),
+        ])}
+      />,
+    );
+
+    expect(strokes).toHaveLength(2);
+    expect(strokes[0]?.style).toBe('#556677');
+    expect(strokes[0]?.width).toBeLessThan(1);
+    expect(strokes[0]?.alpha).toBe(0.55);
+    // highways come after, so they sit on top
+    expect(strokes[1]?.style).toBe('#334455');
+    expect(strokes[1]?.width).toBe(1);
+    // 2 train + 1 highway, node to node, no dashes
+    expect(mockCtx.moveTo).toHaveBeenCalledTimes(3);
+    expect(mockCtx.lineTo).toHaveBeenCalledTimes(3);
+  });
+
+  it('skips underground train by item class and by wayType', () => {
+    const strokes = captureStrokes();
+    render(
+      <Minimap
+        {...props}
+        palette={palette}
+        cityData={cityWith([
+          seg('t1', 'Train Track Tunnel', ['Train']),
+          seg('t2', 'Train Track', ['Train', 'Tunnel'], 'n1', 'n2'),
+          seg('t3', 'Train Track', ['Train', 'Underground'], 'n2', 'n3'),
+        ])}
+      />,
+    );
+    expect(strokes).toHaveLength(0);
+    expect(mockCtx.moveTo).not.toHaveBeenCalled();
+  });
+
+  it('does not draw metro or monorail', () => {
+    const strokes = captureStrokes();
+    render(
+      <Minimap
+        {...props}
+        palette={palette}
+        cityData={cityWith([
+          seg('m1', 'Metro Track', ['Metro']),
+          seg('m2', 'Metro Track Elevated', ['Metro'], 'n1', 'n2'),
+          seg('r1', 'Monorail Track', ['Monorail'], 'n2', 'n3'),
+        ])}
+      />,
+    );
+    expect(strokes).toHaveLength(0);
+    expect(mockCtx.moveTo).not.toHaveBeenCalled();
+  });
+
+  it('makes no train stroke when the city has no train', () => {
+    const strokes = captureStrokes();
+    render(
+      <Minimap
+        {...props}
+        palette={palette}
+        cityData={cityWith([seg('s1', 'Small Road', ['Road'])])}
+      />,
+    );
+    expect(strokes).toHaveLength(0);
+  });
+
+  it('omits a train segment with a missing node without throwing', () => {
+    captureStrokes();
+    expect(() =>
+      render(
+        <Minimap
+          {...props}
+          palette={palette}
+          cityData={cityWith([
+            seg('t1', 'Train Track', ['Train'], 'n0', 'ghost'),
+            seg('t2', 'Train Track', ['Train'], 'n1', 'n2'),
+          ])}
+        />,
+      ),
+    ).not.toThrow();
+    expect(mockCtx.moveTo).toHaveBeenCalledTimes(1);
+    expect(mockCtx.lineTo).toHaveBeenCalledTimes(1);
+  });
+
+  it('repaints the offscreen with the new color when palette.train changes', () => {
+    const strokes = captureStrokes();
+    const city = cityWith([seg('t1', 'Train Track', ['Train'])]);
+    const { rerender } = render(
+      <Minimap {...props} palette={palette} cityData={city} />,
+    );
+    expect(strokes.map((s) => s.style)).toEqual(['#556677']);
+
+    rerender(
+      <Minimap
+        {...props}
+        palette={{ ...palette, train: '#abcdef' }}
+        cityData={city}
+      />,
+    );
+    expect(strokes.map((s) => s.style)).toEqual(['#556677', '#abcdef']);
   });
 });
 
