@@ -659,8 +659,9 @@ html:not([data-platform='macos']) .shell-legend > .place-card__section {
 
 .schematic-view__detail {
   position: absolute;
-  right: 12px;
+  /* Bottom-left: the camera group owns the bottom-right corner. */
   bottom: 12px;
+  left: 12px;
   display: flex;
   gap: 12px;
   align-items: center;
