@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useReducer } from 'react';
 import { fireEvent, render, screen } from '../../test-utils';
-import type { LayerName } from '@vellum/core';
+import { DEFAULT_LAYER_OPTIONS, type LayerName } from '@vellum/core';
 import { MapAppearanceSidebar } from './MapAppearanceSidebar';
 import { useVellumStore } from '../../store/vellum-store';
 import type { CommandRegistry } from '../../shell/commands';
@@ -243,19 +243,15 @@ describe('visibility and disclosure are independent (AD-11)', () => {
     expect(visibilitySwitch('forests')).toBeInTheDocument();
   });
 
-  it('offers the roads panel only for a .vellummap, which has street names', () => {
+  it('offers road categories for both document formats', () => {
     const { unmount } = render(<Harness source="cslmap" />);
-    expect(
-      screen.queryByRole('button', {
-        name: 'a11y.configureLayer:layers.roads',
-      }),
-    ).toBeNull();
+    expect(disclosure('roads')).toBeInTheDocument();
     unmount();
     render(<Harness source="vellummap" />);
     expect(disclosure('roads')).toBeInTheDocument();
   });
 
-  it('closes an open roads panel when the document has no street names', () => {
+  it('keeps the CSL roads panel open with supported categories', () => {
     render(
       <Harness
         source="cslmap"
@@ -268,7 +264,12 @@ describe('visibility and disclosure are independent (AD-11)', () => {
       />,
     );
     expect(screen.queryByText('layerOptionsPanel.showStreetNames')).toBeNull();
-    expect(visibilitySwitch('roads')).toBeInTheDocument();
+    expect(
+      screen.getByRole('switch', { name: 'layerOptionsPanel.showRailways' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('switch', { name: 'layerOptionsPanel.showFerries' }),
+    ).toBeInTheDocument();
   });
 });
 
@@ -320,10 +321,10 @@ describe('compact rail shift+click', () => {
   });
 
   it('falls back to toggling a layer that has no detail', () => {
-    // Street names are the roads panel's only option, and a .cslmap has none.
+    // Forests have no secondary options.
     render(<Harness initial={collapsed} source="cslmap" />);
-    fireEvent.click(compactLayerToggle('roads'), { shiftKey: true });
-    expect(useVellumStore.getState().activeLayers.roads).toBe(false);
+    fireEvent.click(compactLayerToggle('forests'), { shiftKey: true });
+    expect(useVellumStore.getState().activeLayers.forests).toBe(false);
   });
 });
 
@@ -540,4 +541,34 @@ describe('schematic layout selector — through the real sidebar', () => {
     fireEvent.click(screen.getByTestId('schematic-layout-octilinear'));
     expect(onSetSchematicLayout).toHaveBeenCalledWith('octilinear');
   });
+});
+
+describe('real road category controls', () => {
+  it.each(['vellummap', 'cslmap'] as const)(
+    'updates only the selected road setting for %s',
+    (source) => {
+      useVellumStore.setState({
+        layerOptions: structuredClone(DEFAULT_LAYER_OPTIONS),
+      });
+      render(<Harness source={source} />);
+      fireEvent.click(disclosure('roads'));
+      const keys =
+        source === 'vellummap'
+          ? (['showRailways', 'showFlights', 'showFerries'] as const)
+          : (['showRailways', 'showFerries'] as const);
+      for (const key of keys) {
+        const before = useVellumStore.getState();
+        fireEvent.click(
+          screen.getByRole('switch', { name: `layerOptionsPanel.${key}` }),
+        );
+        const after = useVellumStore.getState();
+        expect(after.layerOptions.roads).toEqual({
+          ...before.layerOptions.roads,
+          [key]: !before.layerOptions.roads[key],
+        });
+        expect(after.layerOptions.transit).toEqual(before.layerOptions.transit);
+        expect(after.activeLayers).toEqual(before.activeLayers);
+      }
+    },
+  );
 });

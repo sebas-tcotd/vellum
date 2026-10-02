@@ -83,6 +83,13 @@ export interface AdvancedOptionsPanelProps {
   onToggleShowGrid: (enabled: boolean) => void;
   /** Whether street names are drawn along the roads. */
   showStreetNames: boolean;
+  showRailways: boolean;
+  onToggleShowRailways: (enabled: boolean) => void;
+  showFlights: boolean;
+  onToggleShowFlights: (enabled: boolean) => void;
+  showFerries: boolean;
+  onToggleShowFerries: (enabled: boolean) => void;
+
   onToggleShowStreetNames: (enabled: boolean) => void;
 }
 
@@ -120,6 +127,13 @@ export function AdvancedOptionsPanel({
   showGrid,
   onToggleShowGrid,
   showStreetNames,
+  showRailways,
+  onToggleShowRailways,
+  showFlights,
+  onToggleShowFlights,
+  showFerries,
+  onToggleShowFerries,
+
   onToggleShowStreetNames,
 }: AdvancedOptionsPanelProps) {
   const { t } = useTranslation();
@@ -238,11 +252,32 @@ export function AdvancedOptionsPanel({
 
   if (layer === 'roads') {
     return (
-      <OptionRow
-        label={t('layerOptionsPanel.showStreetNames')}
-        checked={showStreetNames}
-        onCheckedChange={onToggleShowStreetNames}
-      />
+      <div>
+        {source === 'vellummap' && (
+          <OptionRow
+            label={t('layerOptionsPanel.showStreetNames')}
+            checked={showStreetNames}
+            onCheckedChange={onToggleShowStreetNames}
+          />
+        )}
+        <OptionRow
+          label={t('layerOptionsPanel.showRailways')}
+          checked={showRailways}
+          onCheckedChange={onToggleShowRailways}
+        />
+        {source === 'vellummap' && (
+          <OptionRow
+            label={t('layerOptionsPanel.showFlights')}
+            checked={showFlights}
+            onCheckedChange={onToggleShowFlights}
+          />
+        )}
+        <OptionRow
+          label={t('layerOptionsPanel.showFerries')}
+          checked={showFerries}
+          onCheckedChange={onToggleShowFerries}
+        />
+      </div>
     );
   }
 

@@ -32,6 +32,13 @@ function makeProps(
     onToggleHillshade: vi.fn(),
     showGrid: false,
     onToggleShowGrid: vi.fn(),
+    source: 'vellummap',
+    showRailways: true,
+    showFlights: false,
+    showFerries: true,
+    onToggleShowRailways: vi.fn(),
+    onToggleShowFlights: vi.fn(),
+    onToggleShowFerries: vi.fn(),
     showStreetNames: true,
     onToggleShowStreetNames: vi.fn(),
     ...overrides,
@@ -160,7 +167,9 @@ describe('AdvancedOptionsPanel — districts', () => {
         })}
       />,
     );
-    screen.getAllByRole('switch')[1].click();
+    screen
+      .getByRole('switch', { name: 'layerOptionsPanel.showParkAreas' })
+      .click();
     expect(onToggle).toHaveBeenCalledWith(true);
   });
 
@@ -183,7 +192,9 @@ describe('AdvancedOptionsPanel — roads', () => {
     expect(
       screen.getByText('layerOptionsPanel.showStreetNames'),
     ).toBeInTheDocument();
-    screen.getByRole('switch').click();
+    screen
+      .getByRole('switch', { name: 'layerOptionsPanel.showStreetNames' })
+      .click();
     expect(onToggle).toHaveBeenCalledWith(false);
   });
 });
@@ -204,6 +215,42 @@ describe('specialization source gate', () => {
     rerender(<AdvancedOptionsPanel {...props} source="cslmap" />);
     expect(
       screen.queryByRole('switch', { name: 'districtSpecialization.title' }),
+    ).toBeNull();
+  });
+});
+
+describe('road categories', () => {
+  it('uses category defaults and accessible switches in native documents', () => {
+    const props = makeProps({ layer: 'roads' });
+    render(<AdvancedOptionsPanel {...props} />);
+    expect(screen.getAllByRole('switch')).toHaveLength(4);
+    for (const [key, checked, callback] of [
+      ['showRailways', true, props.onToggleShowRailways],
+      ['showFlights', false, props.onToggleShowFlights],
+      ['showFerries', true, props.onToggleShowFerries],
+    ] as const) {
+      const toggle = screen.getByRole('switch', {
+        name: `layerOptionsPanel.${key}`,
+      });
+      expect(toggle).toHaveAttribute('aria-checked', String(checked));
+      toggle.click();
+      expect(callback).toHaveBeenCalledWith(!checked);
+    }
+  });
+  it('only offers railway and ferry categories for CSL documents', () => {
+    render(
+      <AdvancedOptionsPanel
+        {...makeProps({ layer: 'roads', source: 'cslmap' })}
+      />,
+    );
+    expect(screen.getAllByRole('switch')).toHaveLength(2);
+    expect(
+      screen.queryByRole('switch', { name: 'layerOptionsPanel.showFlights' }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole('switch', {
+        name: 'layerOptionsPanel.showStreetNames',
+      }),
     ).toBeNull();
   });
 });

@@ -38,7 +38,12 @@ const themeStoreState = () => ({
   activeTheme: mockActiveTheme,
   transitDimmingEnabled: mockTransitDimmingEnabled,
   layerOptions: {
-    roads: { showStreetNames: true },
+    roads: {
+      showStreetNames: true,
+      showRailways: true,
+      showFlights: false,
+      showFerries: true,
+    },
     transit: { visibleModes: [], showConfirmedTransfers: true },
     buildings: { visibleCategories: [] },
     districts: {

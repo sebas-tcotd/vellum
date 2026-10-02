@@ -298,10 +298,13 @@ interface RoadStatistics {
   readonly drawnSegments: number;
 }
 
-const roadStatisticsCache = new WeakMap<CityData, RoadStatistics>();
+const roadStatisticsCache = new WeakMap<
+  CityData,
+  Map<boolean, RoadStatistics>
+>();
 
 /**
- * Road tiers present and drawn-segment count, memoized per `CityData`.
+ * Road tiers present and drawn-segment count, memoized per `CityData` and railway visibility.
  *
  * @remarks
  * One pass, one rule for both the legend and the summary count: a segment
@@ -309,13 +312,19 @@ const roadStatisticsCache = new WeakMap<CityData, RoadStatistics>();
  * railway geometry with a tier — ferry, airship and cable-car paths, power
  * lines and every excluded class are left out of both.
  */
-function roadStatistics(cityData: CityData): RoadStatistics {
-  const cached = roadStatisticsCache.get(cityData);
+function roadStatistics(
+  cityData: CityData,
+  showRailways: boolean,
+): RoadStatistics {
+  const cache =
+    roadStatisticsCache.get(cityData) ?? new Map<boolean, RoadStatistics>();
+  const cached = cache.get(showRailways);
   if (cached) return cached;
   const tiers = new Set<RoadTier>();
   let drawnSegments = 0;
   for (const segment of cityData.roadSegments) {
     const category = classifyRoadCategory(segment.itemClass);
+    if (category === 'railway' && !showRailways) continue;
     if (category !== 'road' && category !== 'runway' && category !== 'railway')
       continue;
     const tier = classifyRoadTier(
@@ -328,7 +337,8 @@ function roadStatistics(cityData: CityData): RoadStatistics {
     drawnSegments += 1;
   }
   const statistics = { tiers, drawnSegments };
-  roadStatisticsCache.set(cityData, statistics);
+  cache.set(showRailways, statistics);
+  roadStatisticsCache.set(cityData, cache);
   return statistics;
 }
 
@@ -387,7 +397,11 @@ export function marginaliaAvailability(
       return cityData.cityName.trim() ? null : 'no-data';
     },
     get showRoadLegend() {
-      if (roadStatistics(cityData).tiers.size === 0) return 'no-data';
+      if (
+        roadStatistics(cityData, inputs.layerOptions.roads.showRailways).tiers
+          .size === 0
+      )
+        return 'no-data';
       return activeLayers.roads ? null : 'layer-hidden';
     },
     get showTransitLegend() {
@@ -530,7 +544,10 @@ export function buildMarginaliaContent(
   }
 
   if (presentation.showRoadLegend && availability.showRoadLegend === null) {
-    const present = roadStatistics(cityData).tiers;
+    const present = roadStatistics(
+      cityData,
+      inputs.layerOptions.roads.showRailways,
+    ).tiers;
     blocks.push({
       id: 'road-legend',
       title: labels.roadLegendTitle,
@@ -588,7 +605,11 @@ export function buildMarginaliaContent(
     blocks.push({
       id: 'summary',
       items: [
-        count(labels.summary.roads, roadStatistics(cityData).drawnSegments),
+        count(
+          labels.summary.roads,
+          roadStatistics(cityData, inputs.layerOptions.roads.showRailways)
+            .drawnSegments,
+        ),
         count(labels.summary.buildings, cityData.buildings.length),
         count(labels.summary.districts, cityData.districts.length),
         count(labels.summary.parks, cityData.parkAreas.length),

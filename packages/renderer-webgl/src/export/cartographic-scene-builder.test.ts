@@ -419,7 +419,15 @@ describe('buildCartographicScene', () => {
   ] as const)(
     'draws %s as one dashed stroke, as on the live map',
     (itemClass, color, opacity, dash) => {
-      const roads = layerEntities(build(roadCity(itemClass)), 'roads');
+      const roads = layerEntities(
+        build(roadCity(itemClass), {
+          layerOptions: {
+            ...DEFAULT_LAYER_OPTIONS,
+            roads: { ...DEFAULT_LAYER_OPTIONS.roads, showFlights: true },
+          },
+        }),
+        'roads',
+      );
       expect(roads).toHaveLength(1);
       const { stroke } = roads[0]!;
       expect(stroke).toMatchObject({ color, opacity });
@@ -987,5 +995,55 @@ describe('district specialization fills', () => {
         'district-fills',
       ),
     ).toEqual([]);
+  });
+});
+
+describe('road category export options', () => {
+  it.each([
+    ['showRailways', 'Train Track'],
+    ['showRailways', 'Metro Track'],
+    ['showFlights', 'Airplane Path'],
+    ['showFerries', 'Ferry Path'],
+    ['showFerries', 'Ship Path'],
+  ] as const)(
+    'filters %s using the canonical category for %s',
+    (option, itemClass) => {
+      const options = {
+        ...DEFAULT_LAYER_OPTIONS,
+        roads: { ...DEFAULT_LAYER_OPTIONS.roads, [option]: true },
+      };
+      expect(
+        layerEntities(
+          build(roadCity(itemClass), { layerOptions: options }),
+          'roads',
+        ).length,
+      ).toBeGreaterThan(0);
+      options.roads[option] = false;
+      expect(
+        layerEntities(
+          build(roadCity(itemClass), { layerOptions: options }),
+          'roads',
+        ),
+      ).toHaveLength(0);
+      for (const unaffected of [
+        'Small Road',
+        'Highway',
+        'Airplane Runway',
+        'Blimp Path',
+        'CableCar Path',
+      ]) {
+        expect(
+          layerEntities(
+            build(roadCity(unaffected), { layerOptions: options }),
+            'roads',
+          ).length,
+        ).toBeGreaterThan(0);
+      }
+    },
+  );
+  it('hides flights by default', () => {
+    expect(
+      layerEntities(build(roadCity('Airplane Path')), 'roads'),
+    ).toHaveLength(0);
   });
 });

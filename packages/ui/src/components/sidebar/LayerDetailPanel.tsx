@@ -59,6 +59,9 @@ export function LayerDetailPanel({
     (s) => s.setTerrainShowHillshade,
   );
   const setBasemapShowGrid = useVellumStore((s) => s.setBasemapShowGrid);
+  const setRoadsShowRailways = useVellumStore((s) => s.setRoadsShowRailways);
+  const setRoadsShowFlights = useVellumStore((s) => s.setRoadsShowFlights);
+  const setRoadsShowFerries = useVellumStore((s) => s.setRoadsShowFerries);
   const setRoadsShowStreetNames = useVellumStore(
     (s) => s.setRoadsShowStreetNames,
   );
@@ -112,6 +115,12 @@ export function LayerDetailPanel({
         onToggleHillshade={setTerrainShowHillshade}
         showGrid={layerOptions.basemap.showGrid}
         onToggleShowGrid={setBasemapShowGrid}
+        showRailways={layerOptions.roads.showRailways}
+        onToggleShowRailways={setRoadsShowRailways}
+        showFlights={layerOptions.roads.showFlights}
+        onToggleShowFlights={setRoadsShowFlights}
+        showFerries={layerOptions.roads.showFerries}
+        onToggleShowFerries={setRoadsShowFerries}
         showStreetNames={layerOptions.roads.showStreetNames}
         onToggleShowStreetNames={setRoadsShowStreetNames}
       />
