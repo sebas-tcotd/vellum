@@ -457,6 +457,14 @@ function buildRoadEntities(context: LayerContext): SceneEntity[] {
       roadWorldLock ? worldWidth : 0,
     );
     const { category } = feature.properties;
+    const roadOptions = snapshot.layerOptions.roads;
+    if (
+      (category === 'railway' && !roadOptions.showRailways) ||
+      (category === 'flight' && !roadOptions.showFlights) ||
+      (category === 'ferry' && !roadOptions.showFerries)
+    )
+      continue;
+
     // A runway is flat-capped for the same reason as on the interactive map:
     // round caps bulge past each threshold and round off the ends.
     const cap =

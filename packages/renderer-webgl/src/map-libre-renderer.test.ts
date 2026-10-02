@@ -5,6 +5,7 @@ import { describeIdleBlockers, MapLibreRenderer } from './map-libre-renderer';
 import { zoomForWorldUnitsPerPixel } from './export/output-density';
 import { makeCityData } from '@vellum/core/testing';
 import {
+  DEFAULT_LAYER_OPTIONS,
   NEUTRAL_MARGINALIA_LABELS,
   NEUTRAL_PRESENTATION_OPTIONS,
 } from '@vellum/core';
@@ -1189,13 +1190,92 @@ describe('MapLibreRenderer', () => {
     expect(mockMap.setLayoutProperty).not.toHaveBeenCalled();
   });
 
+  describe('road categories', () => {
+    it('shows all railway strokes and ferries but hides flights by default', async () => {
+      const renderer = makeRenderer();
+      mockMap.getLayer.mockReturnValue({ id: 'any' } as unknown as undefined);
+      await renderer.render(makeCityData(), {
+        activeLayers: ALL_LAYERS_VISIBLE,
+      });
+      for (const id of [
+        'roads-railway-surface-casing',
+        'roads-railway-surface-fill',
+        'roads-railway-elevated-casing',
+        'roads-railway-elevated-fill',
+        'roads-railway-underground-casing',
+        'roads-railway-underground-fill',
+        'roads-ferry',
+        'roads-flight',
+      ]) {
+        const last = mockMap.setLayoutProperty.mock.calls
+          .filter(([layer, prop]) => layer === id && prop === 'visibility')
+          .at(-1)?.[2];
+        expect(last).toBe(id === 'roads-flight' ? 'none' : 'visible');
+      }
+    });
+
+    it('combines category options with the parent layer and retains them across city/theme changes', async () => {
+      const renderer = makeRenderer();
+      mockMap.getLayer.mockReturnValue({ id: 'any' } as unknown as undefined);
+      const visibility = (id: string) =>
+        mockMap.setLayoutProperty.mock.calls
+          .filter(([layer, prop]) => layer === id && prop === 'visibility')
+          .at(-1)?.[2];
+      const options = {
+        ...DEFAULT_LAYER_OPTIONS,
+        roads: {
+          ...DEFAULT_LAYER_OPTIONS.roads,
+          showRailways: false,
+          showFerries: false,
+          showFlights: true,
+        },
+      };
+      renderer.setLayerOptions(options);
+      await renderer.render(makeCityData(), {
+        activeLayers: ALL_LAYERS_VISIBLE,
+      });
+      const check = () => {
+        for (const id of [
+          'roads-railway-surface-casing',
+          'roads-railway-surface-fill',
+          'roads-railway-elevated-casing',
+          'roads-railway-elevated-fill',
+          'roads-railway-underground-casing',
+          'roads-railway-underground-fill',
+          'roads-ferry',
+        ])
+          expect(visibility(id)).toBe('none');
+        expect(visibility('roads-flight')).toBe('visible');
+        for (const id of ['roads-fill', 'roads-blimp', 'roads-connection'])
+          expect(visibility(id)).toBe('visible');
+      };
+      check();
+      renderer.setLayerVisibility('roads', false);
+      renderer.setLayerOptions(options);
+      expect(visibility('roads-flight')).toBe('none');
+      renderer.setLayerVisibility('roads', true);
+      check();
+      await renderer.applyTheme(MOCK_STYLE);
+      check();
+      await renderer.render(makeCityData(), {
+        activeLayers: ALL_LAYERS_VISIBLE,
+      });
+      check();
+    });
+  });
+
   describe('street names', () => {
     const lastLabelVisibility = () =>
       mockMap.setLayoutProperty.mock.calls
         .filter(([id, prop]) => id === 'roads-labels' && prop === 'visibility')
         .at(-1)?.[2];
     const options = (showStreetNames: boolean) => ({
-      roads: { showStreetNames },
+      roads: {
+        showStreetNames,
+        showRailways: true,
+        showFlights: false,
+        showFerries: true,
+      },
       transit: { visibleModes: [], showConfirmedTransfers: true },
       buildings: { visibleCategories: [], colorByCategory: false },
       districts: {
@@ -1254,7 +1334,12 @@ describe('MapLibreRenderer', () => {
       vi.clearAllMocks();
       mockMap.getLayer.mockReturnValue({ id: 'any' } as unknown as undefined);
       renderer.setLayerOptions({
-        roads: { showStreetNames: true },
+        roads: {
+          showStreetNames: true,
+          showRailways: true,
+          showFlights: false,
+          showFerries: true,
+        },
         transit: { visibleModes: [], showConfirmedTransfers: true },
         buildings: { visibleCategories: [], colorByCategory: false },
         districts: {
@@ -1327,7 +1412,12 @@ describe('MapLibreRenderer', () => {
       mockMap.getLayer.mockReturnValue({ id: 'any' } as unknown as undefined);
 
       renderer.setLayerOptions({
-        roads: { showStreetNames: true },
+        roads: {
+          showStreetNames: true,
+          showRailways: true,
+          showFlights: false,
+          showFerries: true,
+        },
         transit: { visibleModes: [], showConfirmedTransfers: true },
         buildings: { visibleCategories: [], colorByCategory: false },
         districts: {
@@ -1371,7 +1461,12 @@ describe('MapLibreRenderer', () => {
       mockMap.getLayer.mockReturnValue({ id: 'any' } as unknown as undefined);
 
       renderer.setLayerOptions({
-        roads: { showStreetNames: true },
+        roads: {
+          showStreetNames: true,
+          showRailways: true,
+          showFlights: false,
+          showFerries: true,
+        },
         transit: { visibleModes: [], showConfirmedTransfers: true },
         buildings: { visibleCategories: [], colorByCategory: false },
         districts: {
@@ -1407,7 +1502,12 @@ describe('MapLibreRenderer', () => {
         activeLayers: ALL_LAYERS_VISIBLE,
       });
       renderer.setLayerOptions({
-        roads: { showStreetNames: true },
+        roads: {
+          showStreetNames: true,
+          showRailways: true,
+          showFlights: false,
+          showFerries: true,
+        },
         transit: { visibleModes: [], showConfirmedTransfers: true },
         buildings: { visibleCategories: [], colorByCategory: false },
         districts: {
@@ -1551,7 +1651,12 @@ describe('MapLibreRenderer', () => {
       // Toggling any option (here: contour lines) re-runs setOptions, which
       // must not reset the relief back to full opacity while dimming holds.
       renderer.setLayerOptions({
-        roads: { showStreetNames: true },
+        roads: {
+          showStreetNames: true,
+          showRailways: true,
+          showFlights: false,
+          showFerries: true,
+        },
         transit: { visibleModes: [], showConfirmedTransfers: true },
         buildings: { visibleCategories: [], colorByCategory: false },
         districts: {
@@ -1586,7 +1691,12 @@ describe('MapLibreRenderer', () => {
       mockMap.getLayer.mockReturnValue({ id: 'any' } as unknown as undefined);
       await renderer.applyTheme(MOCK_STYLE);
       renderer.setLayerOptions({
-        roads: { showStreetNames: true },
+        roads: {
+          showStreetNames: true,
+          showRailways: true,
+          showFlights: false,
+          showFerries: true,
+        },
         transit: { visibleModes: [], showConfirmedTransfers: true },
         buildings: { visibleCategories: [], colorByCategory: false },
         districts: {

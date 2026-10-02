@@ -45,6 +45,9 @@ export class MapLayerManager {
   private roadsVisible = true;
   /** Current `LayerOptions.roads.showStreetNames` — mirrors its default. */
   private roadsShowStreetNames = true;
+  private roadsShowRailways = true;
+  private roadsShowFlights = false;
+  private roadsShowFerries = true;
 
   /**
    * Mirrors the last `setTransitDimming` call, so `setOptions` (fired whenever
@@ -100,6 +103,25 @@ export class MapLayerManager {
     if (layer === 'roads') {
       this.roadsVisible = visible;
       this.applyStreetNamesVisibility();
+      this.applyRoadCategoriesVisibility();
+    }
+  }
+
+  private applyRoadCategoriesVisibility(): void {
+    for (const id of LAYER_ID_MAP.roads) {
+      const enabled = id.startsWith('roads-railway-')
+        ? this.roadsShowRailways
+        : id === 'roads-flight'
+          ? this.roadsShowFlights
+          : id === 'roads-ferry'
+            ? this.roadsShowFerries
+            : undefined;
+      if (enabled === undefined) continue;
+      this.setLayoutIfExists(
+        id,
+        'visibility',
+        this.roadsVisible && enabled ? 'visible' : 'none',
+      );
     }
   }
 
@@ -291,6 +313,10 @@ export class MapLayerManager {
       basemap.showGrid ? this.colors.grid.opacity : 0,
     );
 
+    this.roadsShowRailways = options.roads.showRailways;
+    this.roadsShowFlights = options.roads.showFlights;
+    this.roadsShowFerries = options.roads.showFerries;
+    this.applyRoadCategoriesVisibility();
     this.roadsShowStreetNames = options.roads.showStreetNames;
     this.applyStreetNamesVisibility();
 

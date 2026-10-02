@@ -631,3 +631,38 @@ describe('frame de marginalia a partir de un snapshot', () => {
     ).toBeGreaterThan(0);
   });
 });
+
+it('recomputes railway legend availability and drawn summary for the same city', () => {
+  const cityData = makeCityData({
+    roadSegments: [makeRoadSegment({ itemClass: 'Train Track' })],
+  });
+  for (const showRailways of [true, false, true, false]) {
+    const state = inputs(
+      { showRoadLegend: true, showSummary: true },
+      {
+        cityData,
+        layerOptions: {
+          ...DEFAULT_LAYER_OPTIONS,
+          roads: { ...DEFAULT_LAYER_OPTIONS.roads, showRailways },
+        },
+      },
+    );
+    expect(marginaliaAvailability(state).showRoadLegend).toBe(
+      showRailways ? null : 'no-data',
+    );
+    const content = buildMarginaliaContent(state);
+    const legend = content.blocks.find((block) => block.id === 'road-legend');
+    expect(Boolean(legend)).toBe(showRailways);
+    if (legend?.id === 'road-legend')
+      expect(legend.rows.map((row) => row.label)).toEqual(['Train track']);
+    const summary = content.blocks.find((block) => block.id === 'summary');
+    if (summary?.id !== 'summary') throw new Error('summary expected');
+    expect(summary.items[0]).toBe(
+      formatMarginaliaCount(
+        state.labels.summary.roads,
+        showRailways ? 1 : 0,
+        state.labels.thousandsSeparator,
+      ),
+    );
+  }
+});

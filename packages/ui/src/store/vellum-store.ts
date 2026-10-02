@@ -175,6 +175,9 @@ interface VellumStore {
   /** Shows or hides the 9×9 projection grid on the basemap layer. */
   setBasemapShowGrid: (enabled: boolean) => void;
   setRoadsShowStreetNames: (enabled: boolean) => void;
+  setRoadsShowRailways: (enabled: boolean) => void;
+  setRoadsShowFlights: (enabled: boolean) => void;
+  setRoadsShowFerries: (enabled: boolean) => void;
 
   /** Replaces the theme-loading warnings. Pass [] to clear. */
   setThemeWarnings: (warnings: ThemeWarning[]) => void;
@@ -463,6 +466,30 @@ export const useVellumStore = create<VellumStore>((set, get) => ({
       layerOptions: {
         ...state.layerOptions,
         roads: { ...state.layerOptions.roads, showStreetNames: enabled },
+      },
+    })),
+
+  setRoadsShowRailways: (enabled) =>
+    set((state) => ({
+      layerOptions: {
+        ...state.layerOptions,
+        roads: { ...state.layerOptions.roads, showRailways: enabled },
+      },
+    })),
+
+  setRoadsShowFlights: (enabled) =>
+    set((state) => ({
+      layerOptions: {
+        ...state.layerOptions,
+        roads: { ...state.layerOptions.roads, showFlights: enabled },
+      },
+    })),
+
+  setRoadsShowFerries: (enabled) =>
+    set((state) => ({
+      layerOptions: {
+        ...state.layerOptions,
+        roads: { ...state.layerOptions.roads, showFerries: enabled },
       },
     })),
 

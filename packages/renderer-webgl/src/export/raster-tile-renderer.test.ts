@@ -178,7 +178,12 @@ function makeSnapshot(
     style: MOCK_STYLE,
     activeLayers: makeLayerVisibility(),
     layerOptions: {
-      roads: { showStreetNames: true },
+      roads: {
+        showStreetNames: true,
+        showRailways: true,
+        showFlights: false,
+        showFerries: true,
+      },
       transit: { visibleModes: ['Bus'], showConfirmedTransfers: true },
       buildings: { visibleCategories: ['residential'], colorByCategory: false },
       districts: {
@@ -497,6 +502,12 @@ it('carries specialization fill options into the isolated PNG renderer', async (
     },
     layerOptions: {
       ...base.layerOptions,
+      roads: {
+        ...base.layerOptions.roads,
+        showRailways: false,
+        showFerries: false,
+        showFlights: true,
+      },
       districts: {
         ...base.layerOptions.districts,
         showFill: false,
@@ -508,6 +519,12 @@ it('carries specialization fill options into the isolated PNG renderer', async (
   const signal = new AbortController().signal;
   await renderer.configure(snapshot, signal);
   expect(optionsSpy).toHaveBeenCalledWith(snapshot.layerOptions);
+  expect(optionsSpy.mock.calls.at(-1)?.[0].roads).toEqual({
+    showStreetNames: true,
+    showRailways: false,
+    showFerries: false,
+    showFlights: true,
+  });
   expect(mockMap.addSource).toHaveBeenCalledWith(
     'district-areas',
     expect.objectContaining({

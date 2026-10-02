@@ -122,6 +122,9 @@ export interface LayerOptions {
   roads: {
     /** Whether street names are drawn along the roads (`.vellummap` only). */
     showStreetNames: boolean;
+    showRailways: boolean;
+    showFlights: boolean;
+    showFerries: boolean;
   };
   transit: {
     /** Transit lines/stops whose `mode` is not in this list are hidden. */
@@ -196,20 +199,25 @@ export const LAYERS_WITH_ADVANCED_OPTIONS = new Set<LayerName>([
  * Whether `layer` offers its advanced-options panel for the open document.
  *
  * @remarks
- * Street names only exist in a `.vellummap`, so the roads panel — whose only
- * option is showing them — is offered for that source alone.
+ * Road categories are available in both formats; individual controls may be
+ * restricted by the document source.
  */
 export function hasAdvancedOptions(
   layer: LayerName,
   source: CitySource | undefined,
 ): boolean {
-  if (layer === 'roads') return source === 'vellummap';
+  void source;
   return LAYERS_WITH_ADVANCED_OPTIONS.has(layer);
 }
 
-/** `LayerOptions` with every mode/category visible, RICO coloring off, district names (not markers) shown, no district fill, and all terrain sub-layers and street names on — the app's starting state. */
+/** Starting layer options: railways and ferries visible, flights hidden, all transit modes and building categories visible, and street names and terrain sub-layers on. */
 export const DEFAULT_LAYER_OPTIONS: LayerOptions = {
-  roads: { showStreetNames: true },
+  roads: {
+    showStreetNames: true,
+    showRailways: true,
+    showFlights: false,
+    showFerries: true,
+  },
   transit: { visibleModes: [...TRANSIT_MODES], showConfirmedTransfers: true },
   buildings: {
     visibleCategories: [...BUILDING_SERVICE_CATEGORIES],
