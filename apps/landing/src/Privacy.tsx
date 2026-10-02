@@ -49,6 +49,7 @@ export function Privacy() {
       <main id="main-content" className="privacy-content page-width">
         <p className="eyebrow">Vellum City Maps</p>
         <h1>{t('privacy.title')}</h1>
+        <p>{t('privacy.updated')}</p>
         <p className="privacy-lede">{t('privacy.intro')}</p>
         {(
           [
@@ -58,6 +59,10 @@ export function Privacy() {
             'files',
             'website',
             'preferences',
+            'retention',
+            'rights',
+            'children',
+            'changes',
             'contact',
           ] as const
         ).map((section) => (
@@ -65,17 +70,57 @@ export function Privacy() {
             <h2 id={`privacy-${section}`}>{t(`privacy.${section}.title`)}</h2>
             <p>{t(`privacy.${section}.body`)}</p>
             {section === 'website' && (
-              <a href="https://policies.google.com/privacy">
-                {t('privacy.googlePrivacy')}
-              </a>
+              <ul>
+                <li>
+                  <a href="https://tools.google.com/dlpage/gaoptout">
+                    {t('privacy.googleOptOut')}
+                  </a>
+                </li>
+                <li>
+                  <a href="https://policies.google.com/technologies/partner-sites">
+                    {t('privacy.googleData')}
+                  </a>
+                </li>
+                <li>
+                  <a href="https://policies.google.com/privacy">
+                    {t('privacy.googlePrivacy')}
+                  </a>
+                </li>
+              </ul>
             )}
-            {(section === 'standalone' || section === 'contact') && (
+            {section === 'standalone' && (
               <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement">
                 {t('privacy.githubPrivacy')}
               </a>
             )}
             {section === 'contact' && (
-              <a href="https://github.com/sebas-tcotd/vellum/issues">GitHub</a>
+              <ul>
+                <li>
+                  <a href="mailto:vargaspizango1@gmail.com">
+                    {t('privacy.emailContact')}
+                  </a>
+                </li>
+                <li>
+                  <a href="https://github.com/sebas-tcotd/vellum/issues">
+                    {t('privacy.repositoryContact')}
+                  </a>
+                </li>
+                <li>
+                  <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement">
+                    {t('privacy.githubPrivacy')}
+                  </a>
+                </li>
+              </ul>
+            )}
+            {section === 'store' && (
+              <a href="https://privacy.microsoft.com/privacystatement">
+                {t('privacy.microsoftPrivacy')}
+              </a>
+            )}
+            {section === 'changes' && (
+              <a href="https://github.com/sebas-tcotd/vellum/releases">
+                {t('privacy.releaseNotes')}
+              </a>
             )}
           </section>
         ))}

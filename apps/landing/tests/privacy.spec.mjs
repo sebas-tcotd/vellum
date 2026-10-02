@@ -19,6 +19,10 @@ const sections = [
   'files',
   'website',
   'preferences',
+  'retention',
+  'rights',
+  'children',
+  'changes',
   'contact',
 ];
 

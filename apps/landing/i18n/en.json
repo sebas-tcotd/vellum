@@ -16,11 +16,11 @@
     },
     "store": {
       "title": "Microsoft Store edition",
-      "body": "When running as a Microsoft Store package, Vellum makes no network requests. Its built-in updater is disabled; Microsoft Store manages package updates separately."
+      "body": "Vellum itself makes no network requests when running as a Microsoft Store package. Its built-in updater is disabled. Microsoft Store and Windows may communicate with Microsoft to manage package updates separately, under Microsoft’s privacy statement."
     },
     "standalone": {
       "title": "Standalone edition",
-      "body": "The standalone application can check GitHub for updates at startup. You can disable this optional check in Preferences. Updates are downloaded and installed only after you explicitly choose to install them. Requests go to GitHub and are subject to its privacy policy; no cities or map files are included."
+      "body": "The standalone application can check GitHub for updates at startup. You can disable this optional check in Preferences. Updates are downloaded and installed only after you explicitly choose to install them. GitHub receives your IP address and may process request metadata, such as browser or application information and the time of the request, under its privacy policy. These connections are used to check for and download releases; no cities or map files are included."
     },
     "files": {
       "title": "Maps, exports, and desktop preferences",
@@ -28,18 +28,41 @@
     },
     "website": {
       "title": "Website analytics",
-      "body": "The main Vellum landing page uses Google Analytics to measure website visits. Google Analytics may process identifiers, cookies, device/browser details, IP addresses, and usage information under Google's privacy policy. Website analytics is separate from the desktop application. This privacy page does not load Google Analytics or its own analytics scripts."
+      "body": "The main Vellum landing page uses Google Analytics 4 to measure website visits and usage. It loads when you open the landing page. Google may process cookies, identifiers, device/browser details and usage information. Google receives your IP address through the connection; Google states that Analytics uses IP addresses to derive approximate location and does not log or store individual IP addresses from users in the EU, Switzerland or the UK. Processing elsewhere is governed by Google’s policies. Website analytics is separate from the desktop application. This privacy page does not load Google Analytics or its own analytics scripts. You can restrict cookies through your browser or use Google’s Analytics opt-out add-on in supported browsers. Blocking cookies alone may not prevent all analytics requests."
     },
     "preferences": {
       "title": "Website preferences",
       "body": "The website stores your language and theme choices in browser local storage (vellum-landing-language and vellum-page-theme). These preferences stay in your browser and are not sent by Vellum to a server. You can clear them using your browser's site data controls."
     },
     "contact": {
-      "title": "Questions",
-      "body": "For questions about this policy, contact the project through GitHub. Information you choose to post there is handled under GitHub's privacy policy; avoid including personal details or private city files in public issues."
+      "title": "Responsible developer and contact",
+      "body": "Vellum City Maps is developed and maintained by Sebastian Vargas Pizango, who is responsible for the project’s data handling described here. For privacy questions or requests, email vargaspizango1@gmail.com. Your email address and the information you send are used to respond to your request. Send only the details necessary to handle it. General, non-sensitive questions can also be raised in the project’s GitHub repository. GitHub issues are public: do not include sensitive personal information, private city files or identification documents. Information you choose to post on GitHub is handled under its privacy policy."
     },
     "googlePrivacy": "Google privacy policy",
-    "githubPrivacy": "GitHub privacy policy"
+    "githubPrivacy": "GitHub privacy policy",
+    "updated": "Last updated: October 1, 2026",
+    "retention": {
+      "title": "Retention and deletion",
+      "body": "Vellum maintains no server-side accounts or copies of your cities, maps, exports, desktop preferences or themes. Local files remain until you delete them. Remove application preferences and themes by clearing the application’s local data; uninstalling may remove package data but does not necessarily delete files you saved elsewhere. Clearing this website’s browser data removes its language and theme preferences. Analytics data is retained according to the Google Analytics property settings and Google’s policies; clearing browser data does not delete analytics data already received by Google."
+    },
+    "rights": {
+      "title": "Your privacy rights",
+      "body": "Depending on the law applicable to you, you may have rights to access, correct, delete or receive your personal data, restrict or object to its processing, withdraw consent where processing relies on it, and complain to a data protection authority. You control the desktop’s local files and preferences directly; the developer cannot access or delete them remotely. For website-related requests, use the contact information below. Data handled independently by GitHub, Google or Microsoft is also subject to their privacy policies and request procedures."
+    },
+    "children": {
+      "title": "Children’s privacy",
+      "body": "Vellum does not require an account or ask desktop users for personal information, including age. The project does not knowingly request personal information from children. Avoid posting a child’s personal information in public GitHub issues. Website analytics and third-party services are described separately above."
+    },
+    "changes": {
+      "title": "Changes to this policy",
+      "body": "Updates to this policy will be published on this page with a revised last-updated date. Material changes to Vellum’s data handling will also be described in the project’s release notes. Review this page when updating the application or using the website."
+    },
+    "googleOptOut": "Google Analytics opt-out add-on",
+    "googleData": "How Google uses data from partner sites",
+    "microsoftPrivacy": "Microsoft privacy statement",
+    "repositoryContact": "General questions on GitHub",
+    "releaseNotes": "Project release notes",
+    "emailContact": "Email the developer about privacy"
   },
   "common": {
     "homeLabel": "Vellum home",
