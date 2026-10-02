@@ -58,6 +58,7 @@ const themeStoreState = () => ({
       showHillshade: true,
     },
     basemap: { showGrid: false },
+    forests: { showCircles: true, showHeatmap: true },
   },
   activeLayers: {},
   setMapDrawn: () => {},

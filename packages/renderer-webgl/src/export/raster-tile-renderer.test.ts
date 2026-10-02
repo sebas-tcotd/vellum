@@ -198,6 +198,7 @@ function makeSnapshot(
         showHillshade: true,
       },
       basemap: { showGrid: false },
+      forests: { showCircles: true, showHeatmap: true },
     },
     transitDimming: false,
     watermarkVisible: false,
@@ -549,3 +550,32 @@ it('carries specialization fill options into the isolated PNG renderer', async (
   renderer.dispose();
   optionsSpy.mockRestore();
 });
+
+it.each([
+  [true, true],
+  [true, false],
+  [false, true],
+  [false, false],
+])(
+  'captures forest circles=%s heatmap=%s in the isolated PNG renderer',
+  async (showCircles, showHeatmap) => {
+    const optionsSpy = vi.spyOn(MapLibreRenderer.prototype, 'setLayerOptions');
+    const base = makeSnapshot();
+    const captured = {
+      ...base,
+      layerOptions: {
+        ...base.layerOptions,
+        forests: { showCircles, showHeatmap },
+      },
+    };
+    const renderer = new RasterTileRenderer(MOCK_STYLE);
+    await renderer.configure(captured, new AbortController().signal);
+    expect(optionsSpy).toHaveBeenCalledWith(captured.layerOptions);
+    expect(optionsSpy.mock.calls.at(-1)?.[0].forests).toEqual({
+      showCircles,
+      showHeatmap,
+    });
+    renderer.dispose();
+    optionsSpy.mockRestore();
+  },
+);

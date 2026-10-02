@@ -175,6 +175,8 @@ interface VellumStore {
   /** Shows or hides the 9×9 projection grid on the basemap layer. */
   setBasemapShowGrid: (enabled: boolean) => void;
   setRoadsShowStreetNames: (enabled: boolean) => void;
+  setForestsShowCircles: (enabled: boolean) => void;
+  setForestsShowHeatmap: (enabled: boolean) => void;
   setRoadsShowRailways: (enabled: boolean) => void;
   setRoadsShowFlights: (enabled: boolean) => void;
   setRoadsShowFerries: (enabled: boolean) => void;
@@ -469,6 +471,20 @@ export const useVellumStore = create<VellumStore>((set, get) => ({
       },
     })),
 
+  setForestsShowCircles: (enabled) =>
+    set((state) => ({
+      layerOptions: {
+        ...state.layerOptions,
+        forests: { ...state.layerOptions.forests, showCircles: enabled },
+      },
+    })),
+  setForestsShowHeatmap: (enabled) =>
+    set((state) => ({
+      layerOptions: {
+        ...state.layerOptions,
+        forests: { ...state.layerOptions.forests, showHeatmap: enabled },
+      },
+    })),
   setRoadsShowRailways: (enabled) =>
     set((state) => ({
       layerOptions: {

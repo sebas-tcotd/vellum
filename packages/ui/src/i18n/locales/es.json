@@ -66,6 +66,9 @@
     "empty": "No hay íconos de servicio visibles en esta vista"
   },
   "layerOptionsPanel": {
+    "showForestCircles": "Círculos de vegetación",
+    "showForestHeatmap": "Mapa de calor",
+    "noVegetation": "No se muestra vegetación porque ambas opciones están desactivadas.",
     "close": "Cerrar opciones de capa",
     "colorByCategory": "Colorear edificios por zona",
     "showDistrictFill": "Mostrar relleno del distrito",

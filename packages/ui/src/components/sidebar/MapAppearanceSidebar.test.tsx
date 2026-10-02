@@ -233,13 +233,13 @@ describe('visibility and disclosure are independent (AD-11)', () => {
     expect(disclosure('transit')).toHaveAttribute('aria-expanded', 'false');
   });
 
-  it('offers a disclosure only for layers that have one', () => {
+  it('offers a disclosure for forest representation options', () => {
     render(<Harness />);
     expect(
       screen.queryByRole('button', {
         name: 'a11y.configureLayer:layers.forests',
       }),
-    ).toBeNull();
+    ).toBeInTheDocument();
     expect(visibilitySwitch('forests')).toBeInTheDocument();
   });
 
@@ -320,11 +320,11 @@ describe('compact rail shift+click', () => {
     expect(screen.getByTestId('layer-detail-back')).toBeInTheDocument();
   });
 
-  it('falls back to toggling a layer that has no detail', () => {
-    // Forests have no secondary options.
+  it('opens forest detail from the compact control without hiding the layer', () => {
     render(<Harness initial={collapsed} source="cslmap" />);
     fireEvent.click(compactLayerToggle('forests'), { shiftKey: true });
-    expect(useVellumStore.getState().activeLayers.forests).toBe(false);
+    expect(useVellumStore.getState().activeLayers.forests).toBe(true);
+    expect(screen.getByTestId('layer-detail-back')).toBeInTheDocument();
   });
 });
 

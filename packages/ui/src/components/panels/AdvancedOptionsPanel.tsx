@@ -46,6 +46,10 @@ function OptionRow({ label, checked, onCheckedChange }: OptionRowProps) {
 export interface AdvancedOptionsPanelProps {
   /** Which layer's options to render — only `'transit'`, `'buildings'`, `'districts'`, and `'terrain'` have any. */
   layer: LayerName;
+  showForestCircles: boolean;
+  onToggleForestCircles: (enabled: boolean) => void;
+  showForestHeatmap: boolean;
+  onToggleForestHeatmap: (enabled: boolean) => void;
   visibleModes: TransitMode[];
   onToggleMode: (mode: TransitMode) => void;
   /** Whether the confirmed-transfer marker is visible. */
@@ -101,6 +105,10 @@ export interface AdvancedOptionsPanelProps {
  */
 export function AdvancedOptionsPanel({
   layer,
+  showForestCircles,
+  onToggleForestCircles,
+  showForestHeatmap,
+  onToggleForestHeatmap,
   visibleModes,
   onToggleMode,
   showConfirmedTransfers,
@@ -137,6 +145,28 @@ export function AdvancedOptionsPanel({
   onToggleShowStreetNames,
 }: AdvancedOptionsPanelProps) {
   const { t } = useTranslation();
+
+  if (layer === 'forests') {
+    return (
+      <div>
+        <OptionRow
+          label={t('layerOptionsPanel.showForestCircles')}
+          checked={showForestCircles}
+          onCheckedChange={onToggleForestCircles}
+        />
+        <OptionRow
+          label={t('layerOptionsPanel.showForestHeatmap')}
+          checked={showForestHeatmap}
+          onCheckedChange={onToggleForestHeatmap}
+        />
+        {!showForestCircles && !showForestHeatmap && (
+          <p className="px-3 py-2 text-xs opacity-80" role="status">
+            {t('layerOptionsPanel.noVegetation')}
+          </p>
+        )}
+      </div>
+    );
+  }
 
   if (layer === 'transit') {
     return (

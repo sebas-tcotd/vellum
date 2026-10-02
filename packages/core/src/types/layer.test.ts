@@ -17,3 +17,18 @@ describe('road layer options', () => {
     },
   );
 });
+
+describe('forest layer options', () => {
+  it('preserves both existing representations by default', () => {
+    expect(DEFAULT_LAYER_OPTIONS.forests).toEqual({
+      showCircles: true,
+      showHeatmap: true,
+    });
+  });
+  it.each(['vellummap', 'cslmap'] as const)(
+    'offers the forest panel for %s',
+    (source) => {
+      expect(hasAdvancedOptions('forests', source)).toBe(true);
+    },
+  );
+});

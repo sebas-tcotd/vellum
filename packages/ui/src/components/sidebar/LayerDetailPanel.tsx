@@ -65,6 +65,8 @@ export function LayerDetailPanel({
   const setRoadsShowStreetNames = useVellumStore(
     (s) => s.setRoadsShowStreetNames,
   );
+  const setForestsShowCircles = useVellumStore((s) => s.setForestsShowCircles);
+  const setForestsShowHeatmap = useVellumStore((s) => s.setForestsShowHeatmap);
   const layerName = t(`layers.${layer}`);
 
   return (
@@ -86,6 +88,10 @@ export function LayerDetailPanel({
       </h2>
       <AdvancedOptionsPanel
         layer={layer}
+        showForestCircles={layerOptions.forests.showCircles}
+        onToggleForestCircles={setForestsShowCircles}
+        showForestHeatmap={layerOptions.forests.showHeatmap}
+        onToggleForestHeatmap={setForestsShowHeatmap}
         visibleModes={layerOptions.transit.visibleModes}
         onToggleMode={toggleTransitMode}
         showConfirmedTransfers={layerOptions.transit.showConfirmedTransfers}

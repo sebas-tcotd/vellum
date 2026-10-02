@@ -114,11 +114,10 @@ export const BUILDING_SERVICE_CATEGORIES: BuildingServiceCategory[] = [
  * Per-layer advanced filter options for layers whose visibility isn't just
  * a single on/off switch — see `future-work-panel-opciones-avanzadas.md`.
  * @remarks
- * Only layers with an actual filterable dimension get an entry here; layers
- * like `forests` have no sub-filter and are fully covered by `LayerVisibility`
- * alone.
+ * Options control representations independently of global visibility.
  */
 export interface LayerOptions {
+  forests: { showCircles: boolean; showHeatmap: boolean };
   roads: {
     /** Whether street names are drawn along the roads (`.vellummap` only). */
     showStreetNames: boolean;
@@ -188,6 +187,7 @@ export interface LayerOptions {
 /** Layers whose toggle row shows a chevron that opens an advanced-options sub-panel (terrain sub-elements, street names, transit-mode filter, buildings RICO filter, districts label mode, basemap grid toggle). */
 export const LAYERS_WITH_ADVANCED_OPTIONS = new Set<LayerName>([
   'terrain',
+  'forests',
   'roads',
   'transit',
   'buildings',
@@ -212,6 +212,7 @@ export function hasAdvancedOptions(
 
 /** Starting layer options: railways and ferries visible, flights hidden, all transit modes and building categories visible, and street names and terrain sub-layers on. */
 export const DEFAULT_LAYER_OPTIONS: LayerOptions = {
+  forests: { showCircles: true, showHeatmap: true },
   roads: {
     showStreetNames: true,
     showRailways: true,

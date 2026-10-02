@@ -4,6 +4,7 @@ import {
   DEFAULT_LAYER_OPTIONS,
   SCENE_LAYER_ORDER,
   SLOT_M,
+  worldUnitsPerPixelForZoom,
   projectScenePoint,
   type CartographicScene,
   type ExportSnapshotBase,
@@ -20,7 +21,14 @@ import {
 } from '@vellum/core/testing';
 import type { CityData } from '@vellum/core';
 import { buildCartographicScene } from './cartographic-scene-builder';
-import { csToGeoArray } from '../coordinate-transform';
+import { csToGeoArray, geoToCs, CS1_WORLD_HALF } from '../coordinate-transform';
+import { buildDensityGrid, CANOPY_CELL_SIZE } from '../sources/forest-canopy';
+import {
+  treesInTile,
+  treesInCell,
+  mercatorYToLat,
+  TREES_TILE_SIZE,
+} from '../sources/tree-tiles';
 import {
   AIRSHIP_LINE_DASHARRAY,
   AIRSHIP_LINE_OPACITY,
@@ -1045,5 +1053,202 @@ describe('road category export options', () => {
     expect(
       layerEntities(build(roadCity('Airplane Path')), 'roads'),
     ).toHaveLength(0);
+  });
+});
+
+describe('forest representations', () => {
+  const city = makeCityData({
+    forestCells: Array.from({ length: 49 }, (_, i) => ({
+      x: ((i % 7) - 3) * 33.75,
+      z: (Math.floor(i / 7) - 3) * 33.75,
+      density: 1,
+    })),
+  });
+  const sceneAt = (
+    showCircles: boolean,
+    showHeatmap: boolean,
+    zoom = 15,
+    visible = true,
+  ) =>
+    buildCartographicScene({
+      snapshot: {
+        ...snapshot(city, {
+          layerOptions: {
+            ...DEFAULT_LAYER_OPTIONS,
+            forests: { showCircles, showHeatmap },
+          },
+          activeLayers: { ...ALL_VISIBLE, forests: visible },
+        }),
+        camera: { longitude: 0, latitude: 0, bearing: 0, pitch: 0, zoom: 12 },
+        surface: {
+          width: 17280 / worldUnitsPerPixelForZoom(zoom),
+          height: 17280 / worldUnitsPerPixelForZoom(zoom),
+        },
+      },
+      background: 'white',
+      roadWidthFactor: 1,
+      roadCasingAddPx: 1,
+    });
+  it.each([
+    [true, true],
+    [true, false],
+    [false, true],
+    [false, false],
+  ])('exports circles=%s heatmap=%s independently', (circles, heatmap) => {
+    const entities = layerEntities(sceneAt(circles, heatmap), 'forests');
+    expect(
+      entities.some((entity) => entity.id.startsWith('forest-canopy')),
+    ).toBe(heatmap);
+    expect(entities.some((entity) => entity.id.startsWith('forest-tree'))).toBe(
+      circles,
+    );
+    const firstTree = entities.findIndex((entity) =>
+      entity.id.startsWith('forest-tree'),
+    );
+    if (circles && heatmap)
+      expect(
+        entities
+          .slice(firstTree)
+          .every((entity) => entity.geometry.kind === 'circle'),
+      ).toBe(true);
+    for (const entity of entities.filter((entity) =>
+      entity.id.startsWith('forest-canopy'),
+    )) {
+      expect(entity.geometry.kind).toBe('polygon');
+      expect(entity.fill?.fillRule).toBe('evenodd');
+    }
+  });
+  it('keeps crowns below zoom 15 hidden and canopy available', () => {
+    const entities = layerEntities(sceneAt(true, true, 14.99), 'forests');
+    expect(entities.length).toBeGreaterThan(0);
+    expect(
+      entities.every((entity) => entity.id.startsWith('forest-canopy')),
+    ).toBe(true);
+  });
+  it('omits globally hidden forests', () => {
+    expect(layerEntities(sceneAt(true, true, 15, false), 'forests')).toEqual(
+      [],
+    );
+  });
+});
+
+describe('forest live tile parity', () => {
+  const city = makeCityData({
+    forestCells: [
+      { x: 0, z: 0, density: 1 },
+      { x: CANOPY_CELL_SIZE, z: 0, density: 0.8 },
+      { x: 0, z: CANOPY_CELL_SIZE, density: 1 },
+      { x: CANOPY_CELL_SIZE, z: CANOPY_CELL_SIZE, density: 0.6 },
+    ],
+  });
+  const tile = { z: 16, x: 32768, y: 32767 };
+  const count = 2 ** tile.z;
+  const nw = geoToCs({
+    lng: (tile.x / count) * 360 - 180,
+    lat: mercatorYToLat(tile.y / count),
+  });
+  const se = geoToCs({
+    lng: ((tile.x + 1) / count) * 360 - 180,
+    lat: mercatorYToLat((tile.y + 1) / count),
+  });
+  const unitsPerPixel = (se.x - nw.x) / TREES_TILE_SIZE;
+  const buildExtent = (
+    extent: ExportSnapshotBase['extent'],
+    units = unitsPerPixel,
+  ) =>
+    buildCartographicScene({
+      snapshot: {
+        ...snapshot(city, {
+          layerOptions: {
+            ...DEFAULT_LAYER_OPTIONS,
+            forests: { showCircles: true, showHeatmap: false },
+          },
+        }),
+        extent,
+        surface: {
+          width: (extent.maxX - extent.minX) / units,
+          height: (extent.maxZ - extent.minZ) / units,
+        },
+      },
+      background: 'white',
+      roadWidthFactor: 1,
+      roadCasingAddPx: 1,
+    });
+  it('matches live crowns in generation order, world centers, output centers and radii', () => {
+    const live = treesInTile(buildDensityGrid(city.forestCells), tile);
+    const scene = buildExtent({
+      minX: nw.x,
+      maxX: se.x,
+      minZ: se.z,
+      maxZ: nw.z,
+    });
+    const exported = layerEntities(scene, 'forests').filter(
+      (entity) => !entity.id.endsWith('-shadow'),
+    );
+    expect(exported).toHaveLength(live.length);
+    expect(live.length).toBeGreaterThan(5);
+    exported.forEach((entity, i) => {
+      expect(entity.geometry.kind).toBe('circle');
+      if (entity.geometry.kind !== 'circle') return;
+      const crown = live[i]!;
+      expect(entity.geometry.center.x).toBeCloseTo(
+        nw.x + crown.x * unitsPerPixel,
+        8,
+      );
+      expect(entity.geometry.center.z).toBeCloseTo(
+        nw.z - crown.y * unitsPerPixel,
+        8,
+      );
+      const projected = projectScenePoint(
+        scene.projection,
+        entity.geometry.center,
+      );
+      expect(projected.x).toBeCloseTo(crown.x, 8);
+      expect(projected.y).toBeCloseTo(crown.y, 8);
+      expect(entity.geometry.radiusPx).toBeCloseTo(crown.r, 8);
+    });
+  });
+  it('retains a crown whose offset shadow alone reaches a cropped extent', () => {
+    const col = Math.round(CS1_WORLD_HALF / CANOPY_CELL_SIZE);
+    const crown = treesInCell(1, col, col)[0]!;
+    const extent = {
+      minX: crown.x + crown.radius * 1.2,
+      maxX: crown.x + crown.radius * 1.3,
+      minZ: crown.z - crown.radius * 0.4,
+      maxZ: crown.z - crown.radius * 0.3,
+    };
+    const scene = buildExtent(extent, worldUnitsPerPixelForZoom(18));
+    const shadow = layerEntities(scene, 'forests').find(
+      (entity) =>
+        entity.id.endsWith('-shadow') &&
+        entity.geometry.kind === 'circle' &&
+        Math.abs(entity.geometry.center.x - (crown.x + crown.radius * 0.35)) <
+          1e-8 &&
+        Math.abs(entity.geometry.center.z - (crown.z - crown.radius * 0.35)) <
+          1e-8,
+    );
+    expect(shadow).toBeDefined();
+    expect(extent.minX).toBeGreaterThan(crown.x + crown.radius * 1.06); // includes neither crown nor its rim
+  });
+  it('retains the crown rim when the disc alone misses a cropped extent', () => {
+    const col = Math.round(CS1_WORLD_HALF / CANOPY_CELL_SIZE);
+    const crown = treesInCell(1, col, col)[0]!;
+    const extent = {
+      minX: crown.x - crown.radius * 1.04,
+      maxX: crown.x - crown.radius * 1.02,
+      minZ: crown.z - crown.radius * 0.1,
+      maxZ: crown.z + crown.radius * 0.1,
+    };
+    const scene = buildExtent(extent, worldUnitsPerPixelForZoom(18));
+    expect(
+      layerEntities(scene, 'forests').some(
+        (entity) =>
+          !entity.id.endsWith('-shadow') &&
+          entity.geometry.kind === 'circle' &&
+          Math.abs(entity.geometry.center.x - crown.x) < 1e-8 &&
+          Math.abs(entity.geometry.center.z - crown.z) < 1e-8,
+      ),
+    ).toBe(true);
+    expect(extent.maxX).toBeLessThan(crown.x - crown.radius);
   });
 });
