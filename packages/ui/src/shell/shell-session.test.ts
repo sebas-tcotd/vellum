@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { TOUR_TRANSIT_MODES } from '@vellum/core';
 import {
   initialShellSession,
   MAP_FOCUS_ID,
@@ -291,8 +292,17 @@ describe('escape ladder — schematic view', () => {
 });
 
 describe('schematic selection (Story 4.2)', () => {
-  it('starts with every mode visible', () => {
-    expect(initialShellSession(1440).schematic.hiddenModes).toEqual([]);
+  const TOURS = [...TOUR_TRANSIT_MODES];
+
+  it('starts with every mode visible but the tours (Story 4.7)', () => {
+    expect(initialShellSession(1440).schematic.hiddenModes).toEqual(TOURS);
+  });
+
+  it('shows the tours with «Show all»', () => {
+    const restored = shellSessionReducer(base(), {
+      type: 'schematic/showAllModes',
+    });
+    expect(restored.schematic.hiddenModes).toEqual([]);
   });
 
   it('toggles a mode off and back on', () => {
@@ -300,17 +310,17 @@ describe('schematic selection (Story 4.2)', () => {
       type: 'schematic/toggleMode',
       mode: 'Bus',
     });
-    expect(state.schematic.hiddenModes).toEqual(['Bus']);
+    expect(state.schematic.hiddenModes).toEqual([...TOURS, 'Bus']);
     state = shellSessionReducer(state, {
       type: 'schematic/toggleMode',
       mode: 'Tram',
     });
-    expect(state.schematic.hiddenModes).toEqual(['Bus', 'Tram']);
+    expect(state.schematic.hiddenModes).toEqual([...TOURS, 'Bus', 'Tram']);
     state = shellSessionReducer(state, {
       type: 'schematic/toggleMode',
       mode: 'Bus',
     });
-    expect(state.schematic.hiddenModes).toEqual(['Tram']);
+    expect(state.schematic.hiddenModes).toEqual([...TOURS, 'Tram']);
   });
 
   it('refuses to hide Unknown, which has no control to bring it back', () => {
@@ -344,7 +354,7 @@ describe('schematic selection (Story 4.2)', () => {
       type: 'schematic/reset',
       windowWidth: 1440,
     });
-    expect(reset.schematic.hiddenModes).toEqual([]);
+    expect(reset.schematic.hiddenModes).toEqual(TOURS);
     expect(reset.schematic.width).toBe(SIDEBAR_WIDTH.preferred);
     expect(
       shellSessionReducer(filtered, {
@@ -479,7 +489,10 @@ describe('schematic layout (Story 4.3)', () => {
     expect(switched.schematic.layoutId).toBe('octilinear');
     // Mode filters are semantic and the width is the sidebar's: neither is a
     // property of the geometry, so comparing layouts must not disturb them.
-    expect(switched.schematic.hiddenModes).toEqual(['Bus']);
+    expect(switched.schematic.hiddenModes).toEqual([
+      ...TOUR_TRANSIT_MODES,
+      'Bus',
+    ]);
     expect(switched.schematic.width).toBe(300);
     expect(switched.sidebar).toBe(filtered.sidebar);
     expect(switched.viewMode).toBe(filtered.viewMode);

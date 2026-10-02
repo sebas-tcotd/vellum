@@ -118,6 +118,7 @@ fn bridge_document() -> Document {
                 source_id: 4,
                 name: "Line 4".to_owned(),
                 transport_type: "Bus".to_owned(),
+                class_level: None,
                 color: "#FF6600FF".to_owned(),
                 stops: vec![
                     TransitStopDoc {
@@ -1324,6 +1325,114 @@ fn station_id_is_validated_as_a_source_id() {
                 Err(VellumError::InvalidFile { .. })
             ),
             "stationId {bad} must be invalid"
+        );
+    }
+}
+
+// ─── Story 4.7: classLevel (transit 1.2) ──────────────────────────────────────
+
+/// The bridge document with its line turned into `transport_type` at
+/// `class_level` (omitted when `None`), declared at `version`.
+fn class_level_zip(transport_type: &str, class_level: Option<u32>, version: &str) -> Vec<u8> {
+    let edited = edit_json_module(&bridge_zip(), "transit.json", |v| {
+        v["lines"][0]["transportType"] = transport_type.into();
+        if let Some(level) = class_level {
+            v["lines"][0]["classLevel"] = level.into();
+        }
+    });
+    with_module_version(&edited, "transit", version)
+}
+
+fn mode_of(bytes: &[u8]) -> String {
+    let city = parse_vellummap_bytes(bytes).expect("the document must open");
+    serde_json::to_value(&city).unwrap()["transitLines"][0]["mode"]
+        .as_str()
+        .unwrap()
+        .to_owned()
+}
+
+#[test]
+fn class_level_splits_ship_airplane_and_bus_with_transit_1_2() {
+    for (transport_type, level, want) in [
+        ("Ship", 0, "PassengerShip"),
+        ("Ship", 1, "Ferry"),
+        ("Airplane", 0, "Airplane"),
+        ("Airplane", 1, "Blimp"),
+        ("Bus", 2, "IntercityBus"),
+        ("Bus", 0, "Bus"),
+    ] {
+        let bytes = class_level_zip(transport_type, Some(level), "1.2");
+        assert_eq!(mode_of(&bytes), want, "{transport_type} level {level}");
+    }
+}
+
+#[test]
+fn transit_before_1_2_keeps_the_old_mapping() {
+    // A transit 1.1 document has no classLevel: `Ship` is still a ferry.
+    assert_eq!(mode_of(&class_level_zip("Ship", None, "1.1")), "Ferry");
+    assert_eq!(mode_of(&class_level_zip("Airplane", None, "1.1")), "Blimp");
+    // `.cslmap`: same mapping as always.
+    let city = parse_cslmap_bytes(&fixture("with-transit.cslmap")).unwrap();
+    assert!(!city.transit_lines.is_empty());
+}
+
+#[test]
+fn unexpected_class_level_keeps_the_old_mapping_without_error() {
+    assert_eq!(mode_of(&class_level_zip("Ship", Some(4), "1.2")), "Ferry");
+    assert_eq!(
+        mode_of(&class_level_zip("Airplane", Some(9), "1.2")),
+        "Blimp"
+    );
+    assert_eq!(mode_of(&class_level_zip("Bus", Some(7), "1.2")), "Bus");
+}
+
+#[test]
+fn out_of_scale_transport_types_are_their_own_modes_in_any_version() {
+    for version in ["1.0", "1.2"] {
+        for (transport_type, want) in [
+            ("Helicopter", "Helicopter"),
+            ("EvacuationBus", "EvacuationBus"),
+            ("Taxi", "Taxi"),
+        ] {
+            assert_eq!(
+                mode_of(&class_level_zip(transport_type, None, version)),
+                want
+            );
+        }
+    }
+}
+
+#[test]
+fn writer_declares_transit_1_2_for_class_levels() {
+    let mut document = bridge_document();
+    document.transit.lines[0].class_level = Some(0);
+    let bytes = write_document(&document).expect("the writer accepts classLevel");
+    let read = read_document(&bytes).expect("its own reader opens it");
+    assert_eq!(
+        read.manifest.entry(ModuleId::Transit).unwrap().version,
+        "1.2"
+    );
+    assert_eq!(read.transit.lines[0].class_level, Some(0));
+}
+
+#[test]
+fn class_level_is_validated_as_a_non_negative_integer() {
+    for bad in [
+        serde_json::json!(-1),
+        serde_json::json!(1.5),
+        serde_json::json!("1"),
+        serde_json::Value::Null,
+    ] {
+        let edited = edit_json_module(&bridge_zip(), "transit.json", |v| {
+            v["lines"][0]["classLevel"] = bad.clone();
+        });
+        let bytes = with_module_version(&edited, "transit", "1.2");
+        assert!(
+            matches!(
+                parse_vellummap_bytes(&bytes),
+                Err(VellumError::InvalidFile { .. })
+            ),
+            "classLevel {bad} must be invalid"
         );
     }
 }

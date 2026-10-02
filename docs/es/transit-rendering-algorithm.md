@@ -49,8 +49,12 @@ La vista esquemática no la llama directamente. Pasa por
 `contractSchematicStations` (Story 4.6,
 [ADR-0006](../adr/0006-contraccion-de-estaciones-en-la-esquematica.md)): las
 paradas de cada `stationId` se contraen en un nodo por parte de la estación y
-los segmentos internos de la terminal salen de las rutas. El mapa geográfico
-sigue derivando de la `CityData` original.
+los segmentos internos de la terminal salen de las rutas. Antes aún quita las
+líneas cuyo modo está fuera de la escala de importancia urbana (avión, barco de
+pasajeros, bus interurbano, bus de evacuación y taxi; Story 4.7,
+[ADR-0007](../adr/0007-importancia-urbana-en-la-esquematica.md)), que ordena el
+ruteo, el peso visual y las etiquetas del diagrama. El mapa geográfico sigue
+derivando de la `CityData` original.
 
 El renderer convierte las coordenadas de mundo a GeoJSON únicamente al final.
 El cálculo topológico y geométrico no depende de MapLibre.
@@ -146,8 +150,11 @@ normalización vive en `seenFrom` y en la geometría del line graph.
 - **Componentes grandes:** orden inicial determinista por prioridad de modo e ID,
   seguido de greedy dirigido por score y hill climbing.
 - **Desempate:** Metro, Train, Monorail, Tram, Trolleybus, CableCar, Ferry,
-  Blimp, Bus, luego los tours (SightseeingBus, WalkingTour, HotAirBalloon) y
-  Unknown; dentro del mismo modo se usa el ID.
+  Blimp, Helicopter, Bus, luego los tours (SightseeingBus, WalkingTour,
+  HotAirBalloon), los modos interurbanos y de servicio (IntercityBus,
+  PassengerShip, Airplane, EvacuationBus, Taxi) y Unknown; dentro del mismo
+  modo se usa el ID. Es solo un desempate lateral dentro de un haz; la escala
+  de importancia urbana de la esquemática (ADR-0007) es otra tabla.
 - **Expansión:** después de ordenar bundles, sus líneas se expanden conservando
   la prioridad de modo e ID.
 

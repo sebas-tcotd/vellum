@@ -49,8 +49,12 @@ The schematic diagram does not call it directly. It goes through
 `contractSchematicStations` (Story 4.6,
 [ADR-0006](../adr/0006-contraccion-de-estaciones-en-la-esquematica.md)): the
 stops of each `stationId` are contracted into one node per station part and the
-terminal's internal segments leave the routes. The geographic map keeps deriving
-from the original `CityData`.
+terminal's internal segments leave the routes. Before that it drops the lines
+whose mode is outside the urban importance scale (plane, passenger ship,
+intercity bus, evacuation bus and taxi; Story 4.7,
+[ADR-0007](../adr/0007-importancia-urbana-en-la-esquematica.md)), the table that
+orders the diagram's routing, visual weight and labels. The geographic map keeps
+deriving from the original `CityData`.
 
 World coordinates are converted to GeoJSON only at the end. The topological and
 geometric calculations do not depend on MapLibre.
@@ -145,8 +149,11 @@ lives in `seenFrom` and the line-graph geometry.
 - **Large components:** deterministic mode-and-ID initialization, followed by
   score-driven greedy search and hill climbing.
 - **Tie-break priority:** Metro, Train, Monorail, Tram, Trolleybus, CableCar,
-  Ferry, Blimp, Bus, then the tours (SightseeingBus, WalkingTour,
-  HotAirBalloon) and Unknown; IDs break ties within a mode.
+  Ferry, Blimp, Helicopter, Bus, then the tours (SightseeingBus, WalkingTour,
+  HotAirBalloon), the intercity and service modes (IntercityBus,
+  PassengerShip, Airplane, EvacuationBus, Taxi) and Unknown; IDs break ties
+  within a mode. This is only a lateral tie-break inside a bundle; the
+  schematic's urban importance scale (ADR-0007) is a separate table.
 - **Expansion:** after bundles are ordered, their lines are expanded using the
   same mode-and-ID priority.
 

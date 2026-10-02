@@ -164,6 +164,49 @@ describe('useSchematicNetwork', () => {
     expect(model.visibleLineCount).toBe(2);
   });
 
+  it('offers no switch nor legend row for a mode outside the scale (Story 4.7)', () => {
+    const base = twoModeCity();
+    const model = modelOf(
+      makeCityData({
+        ...base,
+        transitLines: [
+          ...base.transitLines,
+          makeTransitLine({
+            id: 'P1',
+            name: 'Flight',
+            mode: 'Airplane',
+            stops: [stop('shared', 0, 0, 'Airplane')],
+            route: [{ segmentIds: ['s1', 's2'] }],
+          }),
+        ],
+      }),
+    );
+    expect(model.availableModes).toEqual(['Bus', 'Tram']);
+    expect(model.legend.map((group) => group.mode)).toEqual(['Bus', 'Tram']);
+    expect(model.layout.segments.some((s) => s.lineId === 'P1')).toBe(false);
+  });
+
+  it('keeps a tours-only city recoverable while the tours start hidden', () => {
+    const base = twoModeCity();
+    const toursOnly = makeCityData({
+      ...base,
+      transitLines: base.transitLines.map((line) => ({
+        ...line,
+        mode: 'WalkingTour' as const,
+      })),
+    });
+    const model = modelOf(toursOnly, [
+      'WalkingTour',
+      'SightseeingBus',
+      'HotAirBalloon',
+    ]);
+    // Not "no transit": the network is there and «Show all» brings it back.
+    expect(model.hasDrawableNetwork).toBe(true);
+    expect(model.isFilteredEmpty).toBe(true);
+    expect(model.availableModes).toEqual(['WalkingTour']);
+    expect([...model.hiddenModes]).toEqual(['WalkingTour']);
+  });
+
   it('drops the strokes, legend rows and exclusive stops of a hidden mode', () => {
     const full = modelOf(twoModeCity());
     const hidden = modelOf(twoModeCity(), ['Bus']);

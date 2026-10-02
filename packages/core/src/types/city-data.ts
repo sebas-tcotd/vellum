@@ -150,6 +150,12 @@ export type TransitMode =
   | 'WalkingTour'
   | 'SightseeingBus'
   | 'HotAirBalloon'
+  | 'Helicopter'
+  | 'Airplane'
+  | 'PassengerShip'
+  | 'IntercityBus'
+  | 'EvacuationBus'
+  | 'Taxi'
   | 'Unknown';
 
 /**

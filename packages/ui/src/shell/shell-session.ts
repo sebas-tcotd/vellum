@@ -1,3 +1,4 @@
+import { TOUR_TRANSIT_MODES } from '@vellum/core';
 import type { LayerName, TransitMode } from '@vellum/core';
 import { useEffect, useReducer } from 'react';
 
@@ -122,8 +123,11 @@ export interface ShellSessionState {
      */
     widthBeforeNarrow: number | null;
     /**
-     * Modes switched off by the user. `'Unknown'` never appears here — it has
-     * no label and no control, so hiding it would be unrecoverable.
+     * Modes switched off. `'Unknown'` never appears here — it has no label
+     * and no control, so hiding it would be unrecoverable. Starts with the
+     * Parklife tours (Story 4.7): they are not transit, so the diagram opens
+     * without them and «Show all» brings them back. Only the schematic; the
+     * map's transit layer is untouched.
      */
     hiddenModes: readonly TransitMode[];
     /**
@@ -222,7 +226,7 @@ function initialSchematic(windowWidth: number): ShellSessionState['schematic'] {
       windowWidth < SIDEBAR_RESIZE_MIN_WINDOW
         ? SIDEBAR_WIDTH.min
         : SIDEBAR_WIDTH.preferred,
-    hiddenModes: [],
+    hiddenModes: [...TOUR_TRANSIT_MODES],
     widthBeforeNarrow: null,
     layoutId: 'geographic',
     relayoutLineIds: null,

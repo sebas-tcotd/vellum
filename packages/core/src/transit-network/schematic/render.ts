@@ -24,6 +24,13 @@
  *    corridor, spanning only the slots of the lines that actually stop, so a
  *    single-line stop degenerates to a circle.
  *
+ * Story 4.7 adds the visual hierarchy on top (`./importance.ts`): every stroke
+ * and station carries the **tier** of its line among the lines drawn, strokes
+ * are emitted lowest tier first so the important lines draw on top, and a
+ * station's thickness along its line shrinks with the tier of its most
+ * important line. Tiers are computed here, over the *visible* lines, so hiding
+ * the metro promotes the train without a relayout.
+ *
  * Everything here is in viewBox units and runs *after* normalisation, which is
  * what makes it correct: the offset is a fixed number of viewBox units, so
  * scaling it with the network would make parallel lines drift out of their slots
@@ -65,6 +72,11 @@ import {
   type SchematicSlot,
   type SchematicStation,
 } from './contract';
+import {
+  isDashedTransitMode,
+  schematicTierStyle,
+  visualTiers,
+} from './importance';
 import { offsetPolyline, offsetTowards } from './offset';
 
 /** Sample count of one inner-connection arc. Matches the map's Bézier sampling. */
@@ -395,6 +407,30 @@ export function renderSchematic(
     trimmedById.set(placed.edgeId, trimCorridor(placed, input.nodes, scale));
   }
 
+  // ── Story 4.7: the tier of every drawn line, relative to the visible ones.
+  const drawnModes = new Set<LineInfo['mode']>();
+  for (const corridor of input.corridors) {
+    for (const slot of corridor.slots) {
+      const mode = input.lines.get(slot.lineId)?.mode;
+      if (mode !== undefined && isVisible(slot.lineId)) drawnModes.add(mode);
+    }
+  }
+  const tierOfMode = visualTiers(drawnModes);
+  const tierOf = (lineId: string): number | undefined => {
+    const mode = input.lines.get(lineId)?.mode;
+    return mode === undefined ? undefined : tierOfMode.get(mode);
+  };
+  const strokeStyle = (lineId: string): { tier?: number; dashed?: boolean } => {
+    const tier = tierOf(lineId);
+    const mode = input.lines.get(lineId)?.mode;
+    return {
+      ...(tier === undefined ? {} : { tier }),
+      ...(mode !== undefined && isDashedTransitMode(mode)
+        ? { dashed: true }
+        : {}),
+    };
+  };
+
   // ── Steps 1 & 2: one offset, node-trimmed stroke per (corridor, line), in the
   // canonical emission order — corridor id, then line id. Every stroke carries its
   // own `edgeId`, so `./metrics.ts` pairs it with the network by key rather than
@@ -419,6 +455,7 @@ export function renderSchematic(
           trimmed.trimmed,
           (offsetByLine.get(lineId) ?? 0) * SCHEMATIC_SLOT * scale,
         ),
+        ...strokeStyle(lineId),
       });
     }
   }
@@ -457,6 +494,7 @@ export function renderSchematic(
       // A connector belongs to a node, not to a corridor.
       edgeId: null,
       points: innerConnection(p, toPoint(outwardFrom), q, toPoint(outwardTo)),
+      ...strokeStyle(transition.lineId),
     });
   }
 
@@ -505,6 +543,16 @@ export function renderSchematic(
     const spread = offsets.length > 0 ? offsets : [0];
     const minOffset = Math.min(...spread);
     const maxOffset = Math.max(...spread);
+    // The tier of the most important visible line that stops here. Its width
+    // factor scales the thickness *along* the line and the overhang past the
+    // outer slots, exactly as the stroke is thinned; the span across still
+    // comes from the slots, which never move.
+    const tiers = lineIds
+      .map(tierOf)
+      .filter((t): t is number => t !== undefined);
+    const tier = tiers.length > 0 ? Math.min(...tiers) : undefined;
+    const factor = schematicTierStyle(tier).width;
+    const halfThickness = SCHEMATIC_STATION_HALF_THICKNESS * factor;
     const along = directionAtFraction(corridor.trimmed, drawnFraction);
     const across = toVec(offsetTowards(toPoint(along)));
     const on = pointAtFraction(drawn, drawnFraction);
@@ -516,9 +564,9 @@ export function renderSchematic(
     ] as Vec2;
     const halfAcross = Math.max(
       (((maxOffset - minOffset) / 2) * SCHEMATIC_SLOT +
-        SCHEMATIC_STATION_ACROSS_MARGIN) *
+        SCHEMATIC_STATION_ACROSS_MARGIN * factor) *
         scale,
-      SCHEMATIC_STATION_HALF_THICKNESS * scale,
+      halfThickness * scale,
     );
     const modes = new Set(
       lineIds
@@ -535,11 +583,12 @@ export function renderSchematic(
         centre,
         along,
         across,
-        SCHEMATIC_STATION_HALF_THICKNESS * scale,
+        halfThickness * scale,
         halfAcross,
         SCHEMATIC_STATION_CORNER_STEPS,
       ).map(toPoint),
       confirmedTransfer: modes.size >= 2,
+      ...(tier === undefined ? {} : { tier }),
     });
     stationKeys.push(stop.stationKey);
   }
@@ -550,11 +599,25 @@ export function renderSchematic(
       points: corridor.points,
       slots: corridor.slots,
     })),
-    segments,
-    connectors,
-    stations: mergeStationParts(stations, stationKeys, input.lines),
+    segments: lowestTierFirst(segments),
+    connectors: lowestTierFirst(connectors),
+    stations: lowestTierFirst(
+      mergeStationParts(stations, stationKeys, input.lines),
+    ),
     stationsClampedToNodeArea,
   };
+}
+
+/**
+ * Drawing order of Story 4.7: the lowest tier first, so the most important
+ * lines and their stations are painted on top. Stable, so within a tier the
+ * canonical emission order (corridor id, then line id) is untouched; a layout
+ * without tiers keeps its order exactly.
+ */
+function lowestTierFirst<T extends { readonly tier?: number }>(
+  items: readonly T[],
+): T[] {
+  return [...items].sort((a, b) => (b.tier ?? 0) - (a.tier ?? 0));
 }
 
 /**
@@ -597,6 +660,9 @@ function mergeStationParts(
         .map((lineId) => lines.get(lineId)?.mode)
         .filter((mode) => mode !== undefined),
     );
+    const tiers = group
+      .map((s) => s.tier)
+      .filter((t): t is number => t !== undefined);
     mergedByAnchor.set(anchor.id, {
       id: anchor.id,
       x: anchor.x,
@@ -605,6 +671,7 @@ function mergeStationParts(
       lineIds,
       shape: convexHullRing(group.flatMap((s) => s.shape)),
       confirmedTransfer: modes.size >= 2,
+      ...(tiers.length > 0 ? { tier: Math.min(...tiers) } : {}),
     });
     for (const station of group) {
       if (station !== anchor) absorbed.add(station);

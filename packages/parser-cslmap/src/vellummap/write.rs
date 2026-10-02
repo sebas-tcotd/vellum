@@ -289,6 +289,7 @@ fn transit_from_raw(raw: &RawCity) -> Result<TransitModule, VellumError> {
                     source_id: source_id(&line.id)?,
                     name: line.name.clone(),
                     transport_type: line.transport_type.clone(),
+                    class_level: line.class_level,
                     color: line.color.clone(),
                     stops: line
                         .stops
@@ -468,17 +469,19 @@ fn to_u8(value: f64) -> Result<u8, VellumError> {
 }
 
 /// Module `version` the writer declares: `1.0`, except a transit module whose
-/// stops carry `stationId`, which needs `1.1` (a `1.0` reader rejects it).
+/// stops carry `stationId` (`1.1`) or whose lines carry `classLevel` (`1.2`).
 fn module_version(document: &Document, id: ModuleId) -> &'static str {
-    let station_ids = || {
-        document
-            .transit
-            .lines
-            .iter()
-            .flat_map(|line| &line.stops)
-            .any(|stop| stop.station_id.is_some())
-    };
-    if id == ModuleId::Transit && station_ids() {
+    if id != ModuleId::Transit {
+        return MODULE_VERSION;
+    }
+    let lines = &document.transit.lines;
+    if lines.iter().any(|line| line.class_level.is_some()) {
+        "1.2"
+    } else if lines
+        .iter()
+        .flat_map(|line| &line.stops)
+        .any(|stop| stop.station_id.is_some())
+    {
         "1.1"
     } else {
         MODULE_VERSION

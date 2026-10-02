@@ -33,6 +33,7 @@ import {
   type SchematicPoint,
   type SchematicStation,
 } from './contract';
+import { transitModeImportance } from './importance';
 
 /** A data-backed name available to the schematic presentation layer. */
 export interface SchematicLabelSource {
@@ -445,15 +446,31 @@ export function placeSchematicLabels(
       callsByLine.set(lineId, (callsByLine.get(lineId) ?? 0) + 1);
     }
   }
+  // Story 4.7: the urban importance of a stop's most important line is the
+  // primary key, so a metro station wins its name over a bus stop with more
+  // lines. Read from the same table the routing order and the stroke weight
+  // use; a line without a mode counts as `Unknown`.
+  const modeByLine = new Map(lines.map((line) => [line.id, line.mode]));
+  const levelOf = (station: SchematicStation): number =>
+    Math.max(
+      0,
+      ...station.lineIds.map((lineId) => {
+        const mode = modeByLine.get(lineId);
+        return transitModeImportance(mode ?? 'Unknown') ?? 0;
+      }),
+    );
   const ordered = [...layout.stations].sort((a, b) => {
-    // Busiest stop first (octi §5: higher line degree labels first), then the
-    // tie-breakers that make a stop the one a reader is looking for.
+    // Most important level first, then the busiest stop (octi §5: higher line
+    // degree labels first), then the tie-breakers that make a stop the one a
+    // reader is looking for.
     const priority = (station: typeof a): number =>
       station.lineIds.length * 8 +
       (station.confirmedTransfer ? 4 : 0) +
       (station.lineIds.some((lineId) => callsByLine.get(lineId) === 1) ? 1 : 0);
     return (
-      priority(b) - priority(a) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
+      levelOf(b) - levelOf(a) ||
+      priority(b) - priority(a) ||
+      (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
     );
   });
 

@@ -320,6 +320,12 @@
     "WalkingTour": "Tour a pie",
     "SightseeingBus": "Bus turístico",
     "HotAirBalloon": "Globo aerostático",
+    "Helicopter": "Helicóptero",
+    "Airplane": "Avión",
+    "PassengerShip": "Barco de pasajeros",
+    "IntercityBus": "Bus interurbano",
+    "EvacuationBus": "Bus de evacuación",
+    "Taxi": "Taxi",
     "Unknown": ""
   },
   "exportWarnings": {

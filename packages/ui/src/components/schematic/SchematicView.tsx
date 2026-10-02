@@ -1,10 +1,13 @@
 import {
   placeSchematicLabels,
   rematerializeSchematicLayout,
+  SCHEMATIC_DASH_PATTERN,
   SCHEMATIC_LINE_WIDTH,
+  schematicTierStyle,
   type SchematicLabel,
   type SchematicLayout,
   type SchematicPoint,
+  type SchematicSegment,
 } from '@vellum/core';
 import {
   forwardRef,
@@ -30,6 +33,54 @@ const STATION_OUTLINE_WIDTH = 1.2;
 
 const pointsAttribute = (points: readonly SchematicPoint[]): string =>
   points.map((p) => `${p.x},${p.y}`).join(' ');
+
+/**
+ * Width, fade and dash of one stroke from its tier (Story 4.7). The width
+ * follows the camera like every other metric, and so does the dash, which is
+ * a multiple of the width drawn. A stroke without a tier draws as it always
+ * did: full width, its own colour, no inline style.
+ *
+ * The fade is the colour mixed towards the background, not `opacity`: a
+ * segment and its connector overlap at a joint, and two translucent strokes
+ * would paint that overlap darker. Leaving `opacity` alone also keeps the
+ * legend's highlight (`.schematic-view__dimmed`, CSS opacity) working.
+ *
+ * A dashed stroke is cut with butt caps: the stylesheet's round cap would add
+ * half a width to each end of every dash and invert the 1:2 ink-to-gap ratio.
+ * Inline style, because that CSS rule beats a presentation attribute.
+ */
+function strokeAttributes(
+  segment: SchematicSegment,
+  visualScale: number,
+): {
+  strokeWidth: number;
+  strokeDasharray?: string;
+  style?: React.CSSProperties;
+} {
+  const tier = schematicTierStyle(segment.tier);
+  const strokeWidth = SCHEMATIC_LINE_WIDTH * tier.width * visualScale;
+  const style: React.CSSProperties = {
+    ...(tier.opacity < 1
+      ? {
+          stroke: `color-mix(in srgb, ${segment.color} ${Math.round(
+            tier.opacity * 100,
+          )}%, var(--color-bg))`,
+        }
+      : {}),
+    ...(segment.dashed === true ? { strokeLinecap: 'butt' } : {}),
+  };
+  return {
+    strokeWidth,
+    ...(segment.dashed === true
+      ? {
+          strokeDasharray: SCHEMATIC_DASH_PATTERN.map(
+            (factor) => factor * strokeWidth,
+          ).join(' '),
+        }
+      : {}),
+    ...(Object.keys(style).length > 0 ? { style } : {}),
+  };
+}
 
 interface SchematicLayersProps {
   readonly layout: SchematicLayout;
@@ -71,7 +122,7 @@ const SchematicLayers = memo(function SchematicLayers({
             }
             points={pointsAttribute(connector.points)}
             stroke={connector.color}
-            strokeWidth={SCHEMATIC_LINE_WIDTH * visualScale}
+            {...strokeAttributes(connector, visualScale)}
           />
         ))}
       </g>
@@ -87,7 +138,7 @@ const SchematicLayers = memo(function SchematicLayers({
             }
             points={pointsAttribute(segment.points)}
             stroke={segment.color}
-            strokeWidth={SCHEMATIC_LINE_WIDTH * visualScale}
+            {...strokeAttributes(segment, visualScale)}
           />
         ))}
       </g>
@@ -205,6 +256,9 @@ export interface SchematicViewProps {
  *
  * Drawing order matches the map's layer order — inner connections, then lines,
  * then stations — so a joint reads as passing behind the strokes it joins.
+ * Within each group the layout already comes lowest tier first (Story 4.7), so
+ * the buses pass under the metro; each stroke's width, opacity and dash come
+ * from its tier and mode.
  */
 export const SchematicView = forwardRef<HTMLElement, SchematicViewProps>(
   function SchematicView(

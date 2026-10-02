@@ -73,7 +73,7 @@ Por eso el lector es estricto con los minors que conoce y tolerante con los que 
 - El minor se evalúa **por ámbito**. Los campos del manifest (incluidos `game`, `producer`,
   `city`, las entradas de `modules` y su `grid`) dependen de `exportSchemaVersion`. Los de
   cada módulo JSON, de la `version` de ese módulo en el manifest.
-- Minor conocido: manifest `1`; módulos `transit`, `buildings` y `districts` `1`; el resto `0`.
+- Minor conocido: manifest `1`; módulo `transit` `2`; `buildings` y `districts` `1`; el resto `0`.
 - Con un minor **menor o igual** al conocido, un campo desconocido es `InvalidFile`. El
   mensaje dice `unknown field` y la ruta del campo
   (``roads.json: unknown field `segments.0.lanes` ``).
@@ -84,7 +84,7 @@ Por eso el lector es estricto con los minors que conoce y tolerante con los que 
   admite módulos ni rutas nuevos.
 - Un campo que el lector sí conoce se valida igual en cualquier minor 1.x (p. ej.
   `city.id` o `buildings[].height` en un documento `1.0`, o `height: -1` en un
-  `buildings` `1.5`). Vale también para `stationId` en un `transit` `1.0`.
+  `buildings` `1.5`). Vale también para `stationId` y `classLevel` en un `transit` `1.0`.
 
 **Compatibilidad.** La regla del minor existe desde la versión de Vellum Desktop siguiente
 a 0.12.0. Un Desktop 0.12.0 o anterior es estricto con cualquier minor: **rechaza** los
@@ -175,14 +175,14 @@ rechaza un manifest `1.7` con un campo nuevo, y los tests de Rust, que el lector
 
 Cada registro de `modules`:
 
-| Campo     | Contenido                                                                                                                            |
-| --------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `id`      | Uno de los módulos de la tabla de abajo.                                                                                             |
-| `path`    | Fijo por `id` en v1.                                                                                                                 |
-| `version` | Versión del módulo, `MAJOR.MINOR`. `1.0`, salvo `buildings` y `districts` (`1.1` desde Bridge 0.8) y `transit` (`1.1`: `stationId`). |
-| `codec`   | `deflate` o `stored`. Debe coincidir con el método real de la entrada zip. Un lector v1 rechaza cualquier otro valor.                |
-| `sha256`  | SHA-256 de los bytes **descomprimidos** de la entrada, en hex minúscula.                                                             |
-| `grid`    | Solo en grillas. Forma exacta fijada por el módulo (ver tabla).                                                                      |
+| Campo     | Contenido                                                                                                                                                 |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`      | Uno de los módulos de la tabla de abajo.                                                                                                                  |
+| `path`    | Fijo por `id` en v1.                                                                                                                                      |
+| `version` | Versión del módulo, `MAJOR.MINOR`. `1.0`, salvo `buildings` y `districts` (`1.1` desde Bridge 0.8) y `transit` (`1.1`: `stationId`; `1.2`: `classLevel`). |
+| `codec`   | `deflate` o `stored`. Debe coincidir con el método real de la entrada zip. Un lector v1 rechaza cualquier otro valor.                                     |
+| `sha256`  | SHA-256 de los bytes **descomprimidos** de la entrada, en hex minúscula.                                                                                  |
+| `grid`    | Solo en grillas. Forma exacta fijada por el módulo (ver tabla).                                                                                           |
 
 ### Campos pensados para el timelapse
 
@@ -225,7 +225,7 @@ contenedor) irá en `.quire`, después de v1.0.
 | `water-depth`   | `water-depth.bin` | no     | Profundidad del agua (`WaterSimulation.Cell.m_height`), u16le, 1081², celda 16, escala 1/64 m. |
 | `vegetation`    | `vegetation.bin`  | sí     | `NaturalResourceManager.m_tree`, u8 (0–255), 512², celda 33,75.                                |
 | `roads`         | `roads.json`      | sí     | `{ nodes, segments }`.                                                                         |
-| `transit`       | `transit.json`    | sí     | `{ lines }`. `1.1`: `stationId` en las paradas de estación.                                    |
+| `transit`       | `transit.json`    | sí     | `{ lines }`. `1.1`: `stationId` en las paradas de estación. `1.2`: `classLevel` por línea.     |
 | `buildings`     | `buildings.json`  | sí     | `{ buildings }`. `1.1`: prefab en `prefab`, nombre visible en `name`.                          |
 | `districts`     | `districts.json`  | sí     | `{ districts }`: `sourceId`, `name`, `labelPosition`; `1.1`: datos de lugar.                   |
 | `parks`         | `parks.json`      | sí     | `{ parks }`: `sourceId`, `name`, `labelPosition`, `parkType?`.                                 |
@@ -324,6 +324,7 @@ son `sourceId` enteros ≥ 0, únicos dentro de su colección.
       "sourceId": 4,
       "name": "Line 4",
       "transportType": "Bus",
+      "classLevel": 0,
       "color": "#FF6600FF",
       "stops": [
         {
@@ -350,7 +351,17 @@ son `sourceId` enteros ≥ 0, únicos dentro de su colección.
 - `transportType`: el nombre de `TransportInfo.TransportType` del juego, sin reducir
   (`Bus`, `EvacuationBus`, `Ship`, …). Vellum lo traduce a su modo de tránsito;
   los tours de Parklife (`Pedestrian`, `TouristBus`, `HotAirBalloon`) tienen modos
-  propios, y un tipo que Vellum no reconoce cae en `Unknown`.
+  propios, igual que `Helicopter`, `EvacuationBus` y `Taxi` en cualquier formato, y un
+  tipo que Vellum no reconoce cae en `Unknown`.
+- `classLevel` (opcional, módulo `1.2`): el nivel de clase del prefab de la línea
+  (`ItemClass.Level` como entero, `0` = `Level1`). El juego usa un mismo `transportType`
+  para una línea de ciudad y una interurbana, y el nivel las separa: `Ship` con `0` es un
+  barco de pasajeros (`PassengerShip`) y con `1` un ferry; `Airplane` con `0` es un avión
+  (`Airplane`) y con `1` un dirigible (`Blimp`); `Bus` con `2` es un bus interurbano
+  (`IntercityBus`). Sin `classLevel` (un `transit` anterior a `1.2` o un `.cslmap`) o con
+  otro valor, el mapeo es el de siempre: `Ship` → `Ferry`, `Airplane` → `Blimp`,
+  `Bus` → `Bus`, sin error. Los niveles se validan con las exportaciones del juego (ver
+  ADR-0007).
 - `color`: el color visible (`displayColor`), `#RRGGBBAA` en hex mayúscula.
 - `stops[].sourceId`: el nodo de la parada. `name` es opcional y nunca vacío;
   `nameDerived` exige `name`.
@@ -555,7 +566,8 @@ del suelo, edades y educación. La superficie tampoco se exporta: se deriva de l
   especializaciones (ver [`districts.json` y `parks.json`](#districtsjson-y-parksjson)).
 - Por línea: `GetLineName`, `displayColor`, tipo de transporte, paradas con su posición y
   nombre derivado según la regla de arriba, y la ruta. Desde `transit` `1.1`, las paradas
-  de un edificio de estación exportado llevan `stationId`.
+  de un edificio de estación exportado llevan `stationId`; desde `transit` `1.2`, cada
+  línea lleva el nivel de clase de su prefab en `classLevel`.
 - Terreno `RawHeights2`, máscara de agua, `seaLevel` y la profundidad con su procedencia.
   Desde Bridge 0.9, si el juego está en marcha Bridge pausa la simulación durante la
   extracción (mensaje «Capturando tu ciudad…») y la reanuda al terminar, aunque falle; si

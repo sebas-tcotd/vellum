@@ -112,7 +112,7 @@ namespace VellumBridge.Tests
                 a = new Vec3(400, 70, 0), b = new Vec3(430, 70, 20), c = new Vec3(470, 70, 20), d = new Vec3(500, 70, 0),
             });
 
-            var bus = new LineModel { sourceId = 4, name = "Bus Line 4", transportType = "Bus", r = 0xFF, g = 0x66, b = 0x00, alpha = 0xFF };
+            var bus = new LineModel { sourceId = 4, name = "Bus Line 4", transportType = "Bus", classLevel = 0, r = 0xFF, g = 0x66, b = 0x00, alpha = 0xFF };
             bus.stops.Add(Stop(30, "Main St", null));
             bus.stops.Add(Stop(10, "Main St", null));
             bus.stops.Add(Stop(5, "Oak Ave", null));
@@ -330,6 +330,12 @@ namespace VellumBridge.Tests
                         }
                     string color = transit.RootElement.GetProperty("lines")[1].GetProperty("color").GetString();
                     Check(color == "#12AB34FF", "Color #RRGGBBAA en mayúscula: " + color);
+                    // transit 1.2: classLevel cuando el modelo lo tiene; sin clave si no se leyó (-1).
+                    JsonElement level;
+                    Check(transit.RootElement.GetProperty("lines")[0].TryGetProperty("classLevel", out level) && level.GetInt32() == 0,
+                        "classLevel del prefab en la línea (transit 1.2)");
+                    Check(!transit.RootElement.GetProperty("lines")[1].TryGetProperty("classLevel", out level),
+                        "Sin nivel de clase: sin classLevel");
                 }
                 Check(names[10] == "Main St 1" && names[20] == "Main St 2" && names[30] == "Main St 3",
                     "Varias paradas en una calle: numeradas por sourceId entre líneas");
@@ -467,7 +473,7 @@ namespace VellumBridge.Tests
             { "water-depth", new Spec { path = "water-depth.bin", resolution = 1081, cellSize = 16, sample = "u16le", scale = 1.0 / 64 } },
             { "vegetation", new Spec { path = "vegetation.bin", resolution = 512, cellSize = 33.75, sample = "u8" } },
             { "roads", new Spec { path = "roads.json" } },
-            { "transit", new Spec { path = "transit.json", version = "1.1" } },
+            { "transit", new Spec { path = "transit.json", version = "1.2" } },
             { "buildings", new Spec { path = "buildings.json", version = "1.1" } },
             { "districts", new Spec { path = "districts.json", version = "1.1" } },
             { "parks", new Spec { path = "parks.json" } },

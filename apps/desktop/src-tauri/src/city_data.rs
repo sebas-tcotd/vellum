@@ -25,6 +25,18 @@ mod tests {
         assert_eq!(json, "CableCar");
         let json = serde_json::to_value(TransitMode::Unknown).expect("serialization must not fail");
         assert_eq!(json, "Unknown");
+        // Story 4.7: the modes outside the schematic's scale keep their own name.
+        for (mode, name) in [
+            (TransitMode::Helicopter, "Helicopter"),
+            (TransitMode::Airplane, "Airplane"),
+            (TransitMode::PassengerShip, "PassengerShip"),
+            (TransitMode::IntercityBus, "IntercityBus"),
+            (TransitMode::EvacuationBus, "EvacuationBus"),
+            (TransitMode::Taxi, "Taxi"),
+        ] {
+            let json = serde_json::to_value(mode).expect("serialization must not fail");
+            assert_eq!(json, name);
+        }
     }
 
     #[test]

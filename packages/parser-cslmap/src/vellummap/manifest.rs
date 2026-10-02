@@ -205,8 +205,8 @@ const AREA_GRID: Grid = Grid {
     scale: None,
 };
 
-/// Known minors: `buildings` and `districts` are at `1.1` (Bridge 0.8); every other
-/// module is at `1.0`.
+/// Known minors: `buildings` and `districts` are at `1.1` (Bridge 0.8), `transit`
+/// at `1.2` (`stationId` 1.1, `classLevel` 1.2); every other module is at `1.0`.
 pub(crate) const MODULES: [ModuleSpec; 12] = [
     spec(
         ModuleId::Terrain,
@@ -242,7 +242,7 @@ pub(crate) const MODULES: [ModuleSpec; 12] = [
         0,
     ),
     spec(ModuleId::Roads, "roads", "roads.json", true, None, 0),
-    spec(ModuleId::Transit, "transit", "transit.json", true, None, 1),
+    spec(ModuleId::Transit, "transit", "transit.json", true, None, 2),
     spec(
         ModuleId::Buildings,
         "buildings",

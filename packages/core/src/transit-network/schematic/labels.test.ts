@@ -160,6 +160,52 @@ describe('schematic label presentation', () => {
     expect(labels[0].id).toBe('station:hub');
   });
 
+  it('puts a metro station ahead of a busier bus transfer (Story 4.7)', () => {
+    // Same point, so only the first one emitted gets its name drawn there.
+    const labels = placeSchematicLabels(
+      layout(
+        [run('m', 'e1', [0, 0], [600, 0])],
+        [
+          station('bus-hub', ['b1', 'b2', 'b3'], true, [500, 500]),
+          station('metro', ['m'], false, [500, 500]),
+        ],
+      ),
+      [
+        { id: 'm', name: 'Metro 1', mode: 'Metro' },
+        { id: 'b1', name: 'Bus 1', mode: 'Bus' },
+        { id: 'b2', name: 'Bus 2', mode: 'Bus' },
+        { id: 'b3', name: 'Bus 3', mode: 'Bus' },
+      ],
+      [
+        { id: 'bus-hub', name: 'Bus Hub' },
+        { id: 'metro', name: 'Metro Stop' },
+      ],
+    );
+    expect(labels[0].id).toBe('station:metro');
+  });
+
+  it('keeps the old priority among stations of the same level', () => {
+    const labels = placeSchematicLabels(
+      layout(
+        [],
+        [
+          station('one', ['b1'], false, [500, 500]),
+          station('three', ['b1', 'b2', 'b3'], false, [500, 500]),
+        ],
+      ),
+      [
+        { id: 'b1', name: 'Bus 1', mode: 'Bus' },
+        { id: 'b2', name: 'Bus 2', mode: 'Bus' },
+        { id: 'b3', name: 'Bus 3', mode: 'Bus' },
+      ],
+      [
+        { id: 'one', name: 'One' },
+        { id: 'three', name: 'Three' },
+      ],
+    );
+    expect(labels[0].id).toBe('station:three');
+  });
+
   it('leaves an unnamed stop as a symbol with nothing drawn', () => {
     expect(
       placeSchematicLabels(

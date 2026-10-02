@@ -55,6 +55,7 @@ import type {
 import { deriveTransitNetwork } from '../derive';
 import { STATION_MERGE_THRESHOLD_M } from '../stops';
 import { byString } from './contract';
+import { transitModeImportance } from './importance';
 
 /**
  * How far (world meters) a route node may be from a stop of a station part to
@@ -579,13 +580,37 @@ export function contractSchematicStations(cityData: CityData): CityData {
 }
 
 /**
- * The transit network the schematic diagram is laid out from: the city with
- * its stations contracted ({@link contractSchematicStations}), derived exactly
- * as `deriveTransitNetwork` derives the map's.
+ * The city without the lines whose mode is outside the urban importance scale
+ * (`TRANSIT_MODE_IMPORTANCE` is `null`: plane, passenger ship, intercity bus,
+ * evacuation bus, taxi). The **same reference** when there are none.
+ *
+ * @remarks
+ * Story 4.7. Those lines connect with the outside or are not lines at all;
+ * the geographic map still draws them, the schematic does not. Dropping them
+ * here, before the network is derived, keeps them out of the layout, the
+ * legend and the mode filter at once, and out of the station contraction too.
+ */
+export function withoutOutOfScaleLines(cityData: CityData): CityData {
+  const kept = cityData.transitLines.filter(
+    (line) => transitModeImportance(line.mode) !== null,
+  );
+  return kept.length === cityData.transitLines.length
+    ? cityData
+    : { ...cityData, transitLines: kept };
+}
+
+/**
+ * The transit network the schematic diagram is laid out from: the city
+ * without its out-of-scale lines ({@link withoutOutOfScaleLines}) and with its
+ * stations contracted ({@link contractSchematicStations}), derived exactly as
+ * `deriveTransitNetwork` derives the map's.
  */
 export function deriveSchematicTransitNetwork(
   cityData: CityData,
   extensions?: TransitNetworkExtensions,
 ): TransitNetwork {
-  return deriveTransitNetwork(contractSchematicStations(cityData), extensions);
+  return deriveTransitNetwork(
+    contractSchematicStations(withoutOutOfScaleLines(cityData)),
+    extensions,
+  );
 }

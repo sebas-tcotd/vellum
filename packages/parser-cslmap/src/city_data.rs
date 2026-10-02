@@ -181,6 +181,21 @@ pub enum TransitMode {
     SightseeingBus,
     /// Tours (Parklife): hot air balloon, the game's `HotAirBalloon`.
     HotAirBalloon,
+    /// Passenger helicopter, the game's `Helicopter`.
+    Helicopter,
+    /// Intercity passenger plane: the game's `Airplane` at `ItemClass.Level1`
+    /// (`classLevel` 0, `transit` 1.2). Without a level, `Airplane` stays `Blimp`.
+    Airplane,
+    /// Intercity passenger ship: the game's `Ship` at `ItemClass.Level1`
+    /// (`classLevel` 0, `transit` 1.2). Without a level, `Ship` stays `Ferry`.
+    PassengerShip,
+    /// Intercity bus: the game's `Bus` at `ItemClass.Level3`
+    /// (`classLevel` 2, `transit` 1.2).
+    IntercityBus,
+    /// Evacuation bus (Natural Disasters), the game's `EvacuationBus`.
+    EvacuationBus,
+    /// Taxi, the game's `Taxi`.
+    Taxi,
     Unknown,
 }
 
