@@ -18,6 +18,74 @@ function job(workflow, name, nextName) {
 }
 
 describe('contratos de optimización de CI', () => {
+  it('exige empaquetado Windows con SDK y prueba de navegador del build estático', () => {
+    const ci = read('.github/workflows/ci.yml');
+    const msix = job(ci, 'msix-packaging', 'compile-matrix');
+    expect(msix).toContain('runs-on: windows-latest');
+    expect(msix).toContain("REQUIRE_MSIX_SDK: '1'");
+    expect(msix).toContain('scripts/package-msix.test.mjs');
+    expect(job(ci, 'lint-and-test')).toContain('- msix-packaging');
+    expect(job(ci, 'lint-and-test')).toContain('test "$MSIX_RESULT" = success');
+    const landing = read('.github/workflows/landing-ci.yml');
+    expect(landing).toContain('playwright install --with-deps chromium');
+    expect(landing).toContain('pnpm --filter @vellum/landing test:static');
+  });
+  it('empaqueta el mismo ejecutable Windows, sube unsigned MSIX y bloquea publicar sin él', () => {
+    const release = read('.github/workflows/publish-release.yml');
+    const builds = job(release, 'build-release', 'generate-updater-manifest');
+    const finalize = job(release, 'finalize-release');
+    expect(builds.indexOf('Package unsigned Store MSIX')).toBeGreaterThan(
+      builds.indexOf('uses: ./.github/actions/build-tauri-platform'),
+    );
+    expect(builds).toContain(
+      'target/x86_64-pc-windows-msvc/release/vellum.exe',
+    );
+    expect(builds).toContain("if: matrix.platform == 'windows-latest'");
+    expect(builds).toContain('gh release upload');
+    expect(builds).toContain('MSIX upload failed; keep release draft');
+    expect(builds).not.toMatch(
+      /cargo build|tauri build|signtool|New-SelfSignedCertificate/,
+    );
+    expect(finalize).toContain('for ext in msi exe dmg AppImage msix');
+    expect(finalize).toContain('exactly-one-nonempty-$EXPECTED_MSIX');
+    expect(finalize).toContain('select(.name == $name and .size > 0)');
+    expect(finalize.indexOf('for ext in')).toBeLessThan(
+      finalize.indexOf('-f draft=false'),
+    );
+    expect(finalize).toContain('Microsoft signing and certification pending');
+    expect(finalize).toContain('excluded from the Tauri updater');
+  });
+
+  it('publica entrada estática de privacidad bilingüe sin analytics propios', () => {
+    const privacy = read('apps/landing/privacy/index.html');
+    expect(privacy).toContain('data-page="privacy"');
+    expect(privacy).not.toMatch(/googletagmanager|gtag\(/);
+    expect(read('apps/landing/index.html')).toContain('googletagmanager');
+    expect(read('apps/landing/vite.config.ts')).toContain(
+      "new URL('./privacy/index.html', import.meta.url)",
+    );
+    expect(read('apps/landing/src/App.tsx')).toContain('./privacy/?lang=');
+    const en = JSON.parse(read('apps/landing/i18n/en.json'));
+    const es = JSON.parse(read('apps/landing/i18n/es.json'));
+    const keys = (value) =>
+      Object.entries(value)
+        .flatMap(([key, child]) =>
+          typeof child === 'object'
+            ? keys(child).map((k) => `${key}.${k}`)
+            : [key],
+        )
+        .sort();
+    expect(keys(en.privacy)).toEqual(keys(es.privacy));
+    expect(en.privacy.website.body).toContain('Google Analytics');
+    expect(es.privacy.website.body).toContain('Google Analytics');
+    expect(en.privacy.store.body).toContain('no network requests');
+    expect(es.privacy.store.body).toContain('no realiza solicitudes de red');
+    const deploy = read('.github/workflows/deploy-pages.yml');
+    expect(deploy).toContain('for privacy_path in privacy privacy/');
+    expect(deploy).toContain('${asset_path#../}');
+    expect(deploy).toContain('data-page="privacy"');
+  });
+
   it('fija Rust y separa la caché Cargo por runner y clase de trabajo', () => {
     const setup = read('.github/actions/setup-vellum/action.yml');
     const toolchain = read('rust-toolchain.toml');

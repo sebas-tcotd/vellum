@@ -1461,3 +1461,34 @@ h3 {
     gap: 12px 18px;
   }
 }
+/* The privacy entry shares the landing's typography and accessible controls. */
+.privacy-content {
+  max-width: 52rem;
+  padding-block: 4rem 6rem;
+}
+.privacy-content h1 {
+  font-size: clamp(2.5rem, 8vw, 4rem);
+  line-height: 1.1;
+}
+.privacy-content section {
+  margin-top: 2.5rem;
+}
+.privacy-content h2 {
+  font-size: 1.6rem;
+  margin-bottom: 0.75rem;
+}
+.privacy-content p {
+  line-height: 1.8;
+}
+.privacy-lede {
+  margin-top: 1.5rem;
+}
+@media (max-width: 600px) {
+  .privacy-shell .site-header {
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+  .privacy-shell .header-actions {
+    flex-wrap: wrap;
+  }
+}

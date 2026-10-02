@@ -286,6 +286,24 @@ jobs:
           tauri-signing-private-key-password: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           windows-signing: ${{ needs.preflight.outputs.windows-signing }}
 
+      - name: Package unsigned Store MSIX from the shared Windows executable
+        if: matrix.platform == 'windows-latest'
+        id: msix
+        shell: pwsh
+        run: |
+          ./scripts/package-msix.ps1 -Executable target/x86_64-pc-windows-msvc/release/vellum.exe -Version ($env:GITHUB_REF_NAME.Substring(1))
+
+      - name: Upload unsigned Store MSIX to the draft
+        if: matrix.platform == 'windows-latest'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MSIX_PATH: ${{ steps.msix.outputs.msix-path }}
+        run: |
+          if (-not (Test-Path -LiteralPath $env:MSIX_PATH -PathType Leaf)) { throw 'MSIX asset missing' }
+          gh release upload $env:GITHUB_REF_NAME $env:MSIX_PATH --repo $env:GITHUB_REPOSITORY --clobber
+          if ($LASTEXITCODE -ne 0) { throw 'MSIX upload failed; keep release draft' }
+
   generate-updater-manifest:
     name: Generate and upload updater manifest
     needs: [preflight, build-release]
@@ -434,13 +452,20 @@ jobs:
           for attempt in $(seq 1 6); do
             ASSETS=$(gh api "repos/${{ github.repository }}/releases/${{ needs.preflight.outputs.release-id }}/assets" --jq '.[].name')
             MISSING=""
-            for ext in msi exe dmg AppImage; do
+            for ext in msi exe dmg AppImage msix; do
               if ! echo "$ASSETS" | grep -qi "\\.${ext}$"; then
                 MISSING="$MISSING .$ext"
               fi
             done
             if ! echo "$ASSETS" | grep -qx 'latest.json'; then
               MISSING="$MISSING latest.json"
+            fi
+            EXPECTED_MSIX="VellumCityMaps_${GITHUB_REF_NAME#v}.0_x64.msix"
+            MSIX_COUNT=$(gh api --paginate --slurp \
+              "repos/${{ github.repository }}/releases/${{ needs.preflight.outputs.release-id }}/assets?per_page=100" \
+              | jq --arg name "$EXPECTED_MSIX" '[.[][] | select(.name == $name and .size > 0)] | length')
+            if [ "$MSIX_COUNT" -ne 1 ]; then
+              MISSING="$MISSING exactly-one-nonempty-$EXPECTED_MSIX"
             fi
             if [ -z "$MISSING" ]; then
               echo "Release assets:"
@@ -544,6 +569,9 @@ jobs:
           **Recommended:** [Windows installer](__BASE_URL__/__EXE__)
 
           [Alternative MSI installer](__BASE_URL__/__MSI__)
+
+          The unsigned MSIX asset is a Microsoft Store submission package and
+          cannot be installed directly. See the [MSIX packaging guide](https://github.com/${{ github.repository }}/blob/${{ github.ref_name }}/docs/en/msix.md).
 
           __WINDOWS_NOTE__
 
@@ -706,10 +734,16 @@ jobs:
             echo "| Platform | Artifact | Code-signed |"
             echo "| --- | --- | --- |"
             echo "$WINDOWS_ROW"
+            echo "| Windows Store | MSIX (x64) | **no** — unsigned submission package; Microsoft signing and certification pending |"
             echo "$MACOS_ROW"
             echo "| Linux | AppImage + DEB + RPM | n/a — Linux packages carry no equivalent publisher signature |"
             echo
             echo "## Updater artifact signing"
+            echo
+            echo "The MSIX reuses the standalone executable from this commit and version."
+            echo "It is excluded from the Tauri updater; the Store manages packaged updates."
+            echo "No local package signature or test certificate is applied. Certification,"
+            echo "clean Windows installation and the final v1.0 sample remain pending."
             echo
             echo "Updater signing is independent of platform code signing and is"
             echo "**mandatory**: the release fails before any build starts without"

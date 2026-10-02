@@ -179,6 +179,11 @@ function SiteFooter() {
             </a>
             <a href={licenseUrl}>{t('footer.mit')}</a>
             <a href={documentationUrl}>{t('openSource.documentation')}</a>
+            <a
+              href={`./privacy/?lang=${i18n.resolvedLanguage ?? fallbackLanguage}`}
+            >
+              {t('footer.privacy')}
+            </a>
             <a href="#top">{t('common.backToTop')}</a>
           </nav>
         </div>

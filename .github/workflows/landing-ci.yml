@@ -35,3 +35,9 @@ jobs:
 
       - name: Build landing
         run: pnpm --filter @vellum/landing build
+
+      - name: Install Chromium for static browser tests
+        run: pnpm --filter @vellum/landing exec playwright install --with-deps chromium
+
+      - name: Test privacy in the static build under a repository prefix
+        run: pnpm --filter @vellum/landing test:static

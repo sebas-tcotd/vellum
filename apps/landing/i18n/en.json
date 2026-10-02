@@ -4,6 +4,43 @@
     "description": "Vellum turns Cities: Skylines 1 .cslmap exports into layered maps you can explore, theme, and export as PNG or editable SVG.",
     "ogDescription": "Open a Cities: Skylines 1 .cslmap export and read your city in layers."
   },
+  "privacy": {
+    "metaTitle": "Privacy | Vellum City Maps",
+    "metaDescription": "Privacy policy for Vellum City Maps desktop and the Vellum website.",
+    "home": "Back to home",
+    "title": "Privacy policy",
+    "intro": "Your cities stay on your computer. This policy distinguishes the desktop application from this website.",
+    "desktop": {
+      "title": "Desktop application",
+      "body": "Vellum processes maps locally on your device. It does not collect personal information, upload cities or map files, or send telemetry, analytics, or crash reports. No account is required."
+    },
+    "store": {
+      "title": "Microsoft Store edition",
+      "body": "When running as a Microsoft Store package, Vellum makes no network requests. Its built-in updater is disabled; Microsoft Store manages package updates separately."
+    },
+    "standalone": {
+      "title": "Standalone edition",
+      "body": "The standalone application can check GitHub for updates at startup. You can disable this optional check in Preferences. Updates are downloaded and installed only after you explicitly choose to install them. Requests go to GitHub and are subject to its privacy policy; no cities or map files are included."
+    },
+    "files": {
+      "title": "Maps, exports, and desktop preferences",
+      "body": "City files, map projects, PNG/SVG exports, preferences, and custom themes are stored locally. You choose which files to open and where to save exports. Store package preferences and custom themes are separate from those of a standalone installation and may be removed when the package is uninstalled. Keep backups of files and themes you want to retain."
+    },
+    "website": {
+      "title": "Website analytics",
+      "body": "The main Vellum landing page uses Google Analytics to measure website visits. Google Analytics may process identifiers, cookies, device/browser details, IP addresses, and usage information under Google's privacy policy. Website analytics is separate from the desktop application. This privacy page does not load Google Analytics or its own analytics scripts."
+    },
+    "preferences": {
+      "title": "Website preferences",
+      "body": "The website stores your language and theme choices in browser local storage (vellum-landing-language and vellum-page-theme). These preferences stay in your browser and are not sent by Vellum to a server. You can clear them using your browser's site data controls."
+    },
+    "contact": {
+      "title": "Questions",
+      "body": "For questions about this policy, contact the project through GitHub. Information you choose to post there is handled under GitHub's privacy policy; avoid including personal details or private city files in public issues."
+    },
+    "googlePrivacy": "Google privacy policy",
+    "githubPrivacy": "GitHub privacy policy"
+  },
   "common": {
     "homeLabel": "Vellum home",
     "skipToContent": "Skip to content",
@@ -189,6 +226,7 @@
     "body": "Download Vellum from GitHub Releases and open your first .cslmap export."
   },
   "footer": {
+    "privacy": "Privacy",
     "navigation": "Footer navigation",
     "tagline": "Maps for cities worth remembering.",
     "mit": "MIT License",

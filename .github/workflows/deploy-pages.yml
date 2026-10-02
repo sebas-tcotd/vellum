@@ -112,3 +112,26 @@ jobs:
               --retry 5 --retry-delay 5 --retry-all-errors \
               "${PAGE_URL%/}/${asset_path#./}" --output /dev/null
           done <<< "$asset_paths"
+
+          # A real static entry is required: test both directory URL forms,
+          # without relying on a SPA fallback, including a repository prefix.
+          for privacy_path in privacy privacy/; do
+            privacy_url="${PAGE_URL%/}/${privacy_path}"
+            curl --fail --silent --show-error --location \
+              --retry 5 --retry-delay 5 --retry-all-errors \
+              "$privacy_url" --output "$html_file"
+            grep -q '<title>Privacy | Vellum City Maps</title>' "$html_file"
+            grep -q 'data-page="privacy"' "$html_file"
+            if grep -qiE 'googletagmanager|gtag\(' "$html_file"; then
+              echo '::error::Privacy page unexpectedly loads analytics'
+              exit 1
+            fi
+            asset_paths="$(grep -oE '(src|href)="\.\./assets/[^"]+"' "$html_file" \
+              | sed -E 's/^[^\"]+"([^\"]+)".*$/\1/' | sort -u)"
+            test -n "$asset_paths"
+            while IFS= read -r asset_path; do
+              curl --fail --silent --show-error --location \
+                --retry 5 --retry-delay 5 --retry-all-errors \
+                "${PAGE_URL%/}/${asset_path#../}" --output /dev/null
+            done <<< "$asset_paths"
+          done

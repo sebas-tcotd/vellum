@@ -4,6 +4,43 @@
     "description": "Vellum transforma exportaciones .cslmap de Cities: Skylines 1 en mapas por capas que puedes explorar, tematizar y exportar como PNG o SVG editable.",
     "ogDescription": "Abre una exportación .cslmap de Cities: Skylines 1 y lee tu ciudad por capas."
   },
+  "privacy": {
+    "metaTitle": "Privacidad | Vellum City Maps",
+    "metaDescription": "Política de privacidad de Vellum City Maps para escritorio y del sitio web de Vellum.",
+    "home": "Volver al inicio",
+    "title": "Política de privacidad",
+    "intro": "Tus ciudades permanecen en tu equipo. Esta política distingue la aplicación de escritorio de este sitio web.",
+    "desktop": {
+      "title": "Aplicación de escritorio",
+      "body": "Vellum procesa los mapas localmente en tu dispositivo. No recoge información personal, no sube ciudades ni archivos de mapas y no envía telemetría, analíticas o informes de errores. No necesitas una cuenta."
+    },
+    "store": {
+      "title": "Edición de Microsoft Store",
+      "body": "Cuando se ejecuta como paquete de Microsoft Store, Vellum no realiza solicitudes de red. Su actualizador integrado está desactivado; Microsoft Store gestiona las actualizaciones del paquete por separado."
+    },
+    "standalone": {
+      "title": "Edición independiente",
+      "body": "La aplicación independiente puede consultar GitHub para buscar actualizaciones al iniciar. Puedes desactivar esta consulta opcional en Preferencias. Las actualizaciones solo se descargan e instalan cuando eliges instalarlas explícitamente. Las solicitudes se dirigen a GitHub y están sujetas a su política de privacidad; no incluyen ciudades ni archivos de mapas."
+    },
+    "files": {
+      "title": "Mapas, exportaciones y preferencias de escritorio",
+      "body": "Los archivos de ciudades, proyectos de mapas, exportaciones PNG/SVG, preferencias y temas personalizados se guardan localmente. Tú eliges qué archivos abrir y dónde guardar las exportaciones. Las preferencias y los temas personalizados del paquete de Store están separados de los de una instalación independiente y pueden eliminarse al desinstalar el paquete. Conserva copias de los archivos y temas que quieras mantener."
+    },
+    "website": {
+      "title": "Analíticas del sitio web",
+      "body": "La página principal de Vellum utiliza Google Analytics para medir las visitas al sitio. Google Analytics puede procesar identificadores, cookies, detalles del dispositivo y navegador, direcciones IP e información de uso conforme a la política de privacidad de Google. Estas analíticas web están separadas de la aplicación de escritorio. Esta página de privacidad no carga Google Analytics ni scripts de analíticas propios."
+    },
+    "preferences": {
+      "title": "Preferencias del sitio web",
+      "body": "El sitio guarda tus elecciones de idioma y tema en el almacenamiento local del navegador (vellum-landing-language y vellum-page-theme). Estas preferencias permanecen en tu navegador y Vellum no las envía a un servidor. Puedes borrarlas desde los controles de datos del sitio de tu navegador."
+    },
+    "contact": {
+      "title": "Consultas",
+      "body": "Si tienes preguntas sobre esta política, contacta al proyecto a través de GitHub. La información que publiques allí se gestiona conforme a la política de privacidad de GitHub; evita incluir datos personales o archivos privados de ciudades en incidencias públicas."
+    },
+    "googlePrivacy": "Política de privacidad de Google",
+    "githubPrivacy": "Política de privacidad de GitHub"
+  },
   "common": {
     "homeLabel": "Inicio de Vellum",
     "skipToContent": "Saltar al contenido",
@@ -189,6 +226,7 @@
     "body": "Descarga Vellum desde GitHub Releases y abre tu primera exportación .cslmap."
   },
   "footer": {
+    "privacy": "Privacidad",
     "navigation": "Navegación del pie de página",
     "tagline": "Mapas para ciudades que vale la pena recordar.",
     "mit": "Licencia MIT",
