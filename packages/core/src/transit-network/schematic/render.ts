@@ -90,6 +90,16 @@ export interface PlacedStop {
   readonly fraction: number;
   /** Lines that stop here, sorted. */
   readonly lineIds: readonly string[];
+  /**
+   * The station building this stop belongs to (its `stationId`), when known.
+   *
+   * @remarks
+   * Story 4.6: a station whose stops lie more than 48 m apart is contracted
+   * into several *parts*, each placed as its own stop. Stops sharing a key are
+   * drawn as **one** symbol — the convex hull of their capsules. A string, so
+   * the render input still survives `postMessage`/`structuredClone`.
+   */
+  readonly stationKey?: string;
 }
 
 /** What a node contributes to the free area around it. */
@@ -465,6 +475,7 @@ export function renderSchematic(
   // "the symbol had to be pulled out of a junction" is a number rather than a
   // silent nudge.
   const stations: SchematicStation[] = [];
+  const stationKeys: (string | undefined)[] = [];
   let stationsClampedToNodeArea = 0;
   for (const stop of input.stops) {
     const corridor = trimmedById.get(stop.edgeId);
@@ -530,6 +541,7 @@ export function renderSchematic(
       ).map(toPoint),
       confirmedTransfer: modes.size >= 2,
     });
+    stationKeys.push(stop.stationKey);
   }
 
   return {
@@ -540,7 +552,110 @@ export function renderSchematic(
     })),
     segments,
     connectors,
-    stations,
+    stations: mergeStationParts(stations, stationKeys, input.lines),
     stationsClampedToNodeArea,
   };
+}
+
+/**
+ * Story 4.6, option C: the symbols of one station's parts become a single
+ * symbol, the convex hull of their capsules — an elongated capsule stretched
+ * between them.
+ *
+ * @remarks
+ * The anchor is the part with the smallest id: `id`, `x`, `y` and `edgeId`
+ * are its own, so the symbol still sits on a corridor one of its lines rides.
+ * `lineIds` is the sorted union and `confirmedTransfer` is recomputed over the
+ * union's modes. It runs on what step 4 drew, so a visibility projection only
+ * ever merges the parts that are still visible; a single survivor is the plain
+ * capsule it already was.
+ */
+function mergeStationParts(
+  stations: readonly SchematicStation[],
+  keys: readonly (string | undefined)[],
+  lines: ReadonlyMap<string, LineInfo>,
+): SchematicStation[] {
+  const groups = new Map<string, SchematicStation[]>();
+  stations.forEach((station, i) => {
+    const key = keys[i];
+    if (key === undefined) return;
+    const group = groups.get(key);
+    if (group === undefined) groups.set(key, [station]);
+    else group.push(station);
+  });
+
+  const mergedByAnchor = new Map<string, SchematicStation>();
+  const absorbed = new Set<SchematicStation>();
+  for (const group of groups.values()) {
+    if (group.length < 2) continue;
+    const anchor = [...group].sort((a, b) => byString(a.id, b.id))[0];
+    const lineIds = [...new Set(group.flatMap((s) => s.lineIds))].sort(
+      byString,
+    );
+    const modes = new Set(
+      lineIds
+        .map((lineId) => lines.get(lineId)?.mode)
+        .filter((mode) => mode !== undefined),
+    );
+    mergedByAnchor.set(anchor.id, {
+      id: anchor.id,
+      x: anchor.x,
+      y: anchor.y,
+      edgeId: anchor.edgeId,
+      lineIds,
+      shape: convexHullRing(group.flatMap((s) => s.shape)),
+      confirmedTransfer: modes.size >= 2,
+    });
+    for (const station of group) {
+      if (station !== anchor) absorbed.add(station);
+    }
+  }
+  if (mergedByAnchor.size === 0) return [...stations];
+
+  return stations.flatMap((station) => {
+    if (absorbed.has(station)) return [];
+    return [mergedByAnchor.get(station.id) ?? station];
+  });
+}
+
+/**
+ * Convex hull of `points` as a closed ring (first point repeated last), by
+ * Andrew's monotone chain. Deterministic for a given input.
+ */
+export function convexHullRing(
+  points: readonly SchematicPoint[],
+): SchematicPoint[] {
+  const sorted = [...points].sort((a, b) => a.x - b.x || a.y - b.y);
+  if (sorted.length < 3) {
+    return sorted.length === 0 ? [] : [...sorted, sorted[0]];
+  }
+  const cross = (o: SchematicPoint, a: SchematicPoint, b: SchematicPoint) =>
+    (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+  const lower: SchematicPoint[] = [];
+  for (const p of sorted) {
+    while (
+      lower.length >= 2 &&
+      cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0
+    ) {
+      lower.pop();
+    }
+    lower.push(p);
+  }
+  const upper: SchematicPoint[] = [];
+  for (let i = sorted.length - 1; i >= 0; i--) {
+    const p = sorted[i];
+    while (
+      upper.length >= 2 &&
+      cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 0
+    ) {
+      upper.pop();
+    }
+    upper.push(p);
+  }
+  const hull = [...lower.slice(0, -1), ...upper.slice(0, -1)].map((p) => ({
+    x: p.x,
+    y: p.y,
+  }));
+  hull.push({ ...hull[0] });
+  return hull;
 }

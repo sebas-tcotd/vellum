@@ -29,8 +29,8 @@ decide el orden; MapLibre aplica el desplazamiento visual en pantalla.
 
 ## Punto de entrada
 
-`packages/core/src/transit-network/index.ts` orquesta el pipeline mediante
-`deriveTransitNetwork(cityData)`:
+`packages/core/src/transit-network/derive.ts` (reexportado desde `index.ts`)
+orquesta el pipeline mediante `deriveTransitNetwork(cityData)`:
 
 1. `buildTransitLineGraph` construye la representación topológica.
 2. `computeLineOrder` optimiza el orden de los bundles.
@@ -43,6 +43,14 @@ decide el orden; MapLibre aplica el desplazamiento visual en pantalla.
    - `connectors`: conexiones Bézier ya desplazadas;
    - `stations`: cápsulas de paradas;
    - `stationDots`: puntos de respaldo para zoom general.
+
+La vista esquemática no la llama directamente. Pasa por
+`deriveSchematicTransitNetwork(cityData)`, que antes aplica
+`contractSchematicStations` (Story 4.6,
+[ADR-0006](../adr/0006-contraccion-de-estaciones-en-la-esquematica.md)): las
+paradas de cada `stationId` se contraen en un nodo por parte de la estación y
+los segmentos internos de la terminal salen de las rutas. El mapa geográfico
+sigue derivando de la `CityData` original.
 
 El renderer convierte las coordenadas de mundo a GeoJSON únicamente al final.
 El cálculo topológico y geométrico no depende de MapLibre.
@@ -248,6 +256,10 @@ presentes en el grupo:
 - Nada de la agrupación por proximidad se infiere estadísticamente — el
   criterio solo lee `TransitStopEntry.lineId` y `LineInfo.mode`, ambos datos
   de `.cslmap` ya verificados.
+- `TransitStopEntry` también lleva el `stationId` opcional de la parada
+  (`.vellummap` con `transit` 1.1). La agrupación nunca lo lee; la esquemática
+  lo pasa como `stationKey` en `PlacedStop`, y así las partes de una estación
+  se dibujan como un único símbolo (ADR-0006).
 - El criterio no distingue si la parada coincide con un edificio de
   intercambio real del juego (p. ej. `Ferry and Bus Exchange Stop`,
   `Multiplatform Train Station`): ese dato existe en el `.cslmap` para
@@ -314,7 +326,8 @@ La ADR nombró el destino canónico y la Story 1.5 movió la proyección
 `packages/core/src/types/transit-network.ts` y derivación en
 `packages/core/src/transit-network/` (`line-graph/`, `ordering/`, `stops.ts`)—
 con `deriveTransitNetwork(cityData, extensions?)` como única entrada, que
-devuelve una proyección congelada. La Story 3.2 completa el corte mediante
+devuelve una proyección congelada. La esquemática la envuelve en
+`deriveSchematicTransitNetwork`, que antes contrae las estaciones (ADR-0006). La Story 3.2 completa el corte mediante
 [ADR-0004](../adr/0004-canonicalizar-geometria-loom.md): `render-geometry/`
 vive ahora bajo `transit-network/`, resuelve slots y estaciones desde la red y
 adjunta su salida a `network.renderGeometry`. WebGL sólo adapta esa salida a

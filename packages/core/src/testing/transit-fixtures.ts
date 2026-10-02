@@ -293,3 +293,202 @@ export function transitFixture(id: TransitFixtureId): CityData {
   if (!found) throw new Error(`UNKNOWN_TRANSIT_FIXTURE: ${id}`);
   return found.build();
 }
+
+// ─── Station terminals (Story 4.6) ───────────────────────────────────────────
+
+const stationStop = (
+  id: string,
+  x: number,
+  z: number,
+  stationId: string,
+  mode: TransitStop['mode'] = 'Bus',
+): TransitStop => ({ ...stop(id, x, z, mode), stationId });
+
+/**
+ * A bus terminal whose bays share no node with the street, like Costa Tijuca's
+ * `41618`: line `B1` drives along the street, jumps into a loop of bays (two
+ * stops of station `T`) and jumps back out. `B2` only drives the street.
+ */
+export function looseTerminalCity(): CityData {
+  return makeCityData({
+    cityName: 'Fixture Loose Terminal',
+    source: 'vellummap',
+    roadNodes: [
+      node('a', 0, 0),
+      node('b', 200, 0),
+      node('c', 400, 0),
+      node('d', 600, 0),
+      node('t1', 180, 60),
+      node('t2', 220, 60),
+      node('t3', 220, 90),
+      node('t4', 180, 90),
+    ],
+    roadSegments: [
+      makeRoadSegment({ id: 'sa', startNodeId: 'a', endNodeId: 'b' }),
+      makeRoadSegment({ id: 'sb', startNodeId: 'b', endNodeId: 'c' }),
+      makeRoadSegment({ id: 'sc', startNodeId: 'c', endNodeId: 'd' }),
+      makeRoadSegment({ id: 'tb1', startNodeId: 't1', endNodeId: 't2' }),
+      makeRoadSegment({ id: 'tb2', startNodeId: 't2', endNodeId: 't3' }),
+      makeRoadSegment({ id: 'tb3', startNodeId: 't3', endNodeId: 't4' }),
+      makeRoadSegment({ id: 'tb4', startNodeId: 't4', endNodeId: 't1' }),
+    ],
+    transitLines: [
+      makeTransitLine({
+        id: 'B1',
+        name: 'Bus 1',
+        color: '#e6194b',
+        stops: [
+          stop('p0', 0, 0),
+          stationStop('s1', 190, 60, 'T'),
+          stationStop('s2', 210, 60, 'T'),
+          stop('p3', 600, 0),
+        ],
+        route: [{ segmentIds: ['sa', 'tb1', 'tb2', 'tb3', 'tb4', 'sb', 'sc'] }],
+      }),
+      makeTransitLine({
+        id: 'B2',
+        name: 'Bus 2',
+        color: '#3cb44b',
+        stops: [stop('p0', 0, 0), stop('p3', 600, 0)],
+        route: [{ segmentIds: ['sa', 'sb', 'sc'] }],
+      }),
+    ],
+  });
+}
+
+/**
+ * A bus terminal joined to the street by spokes: `B1` turns off the street at
+ * `b`, runs through the bays (`e1` → `u` → `e2`, two stops of station `T`) and
+ * rejoins at `c`. `B2` stays on the street. With `sameSide`, `B3` enters by the
+ * `r1` spoke, turns in the terminal and leaves by the same spoke. With
+ * `passing`, `B4` touches the bay node `e1` without stopping.
+ */
+export function connectedTerminalCity(
+  options: { sameSide?: boolean; passing?: boolean } = {},
+): CityData {
+  const lines = [
+    makeTransitLine({
+      id: 'B1',
+      name: 'Bus 1',
+      color: '#e6194b',
+      stops: [
+        stop('p0', 0, 0),
+        stationStop('s1', 190, 50, 'T'),
+        stationStop('s2', 210, 50, 'T'),
+        stop('p3', 400, 0),
+      ],
+      route: [{ segmentIds: ['sa', 'r1', 'i1', 'i2', 'r2', 'sd'] }],
+    }),
+    makeTransitLine({
+      id: 'B2',
+      name: 'Bus 2',
+      color: '#3cb44b',
+      stops: [stop('p0', 0, 0), stop('p3', 400, 0)],
+      route: [{ segmentIds: ['sa', 'sbc', 'sd'] }],
+    }),
+  ];
+  if (options.sameSide) {
+    lines.push(
+      makeTransitLine({
+        id: 'B3',
+        name: 'Bus 3',
+        color: '#4363d8',
+        stops: [stop('p0', 0, 0), stationStop('s1', 190, 50, 'T')],
+        route: [{ segmentIds: ['sa', 'r1', 'i1', 'i1', 'r1', 'sa'] }],
+      }),
+    );
+  }
+  if (options.passing) {
+    lines.push(
+      makeTransitLine({
+        id: 'B4',
+        name: 'Bus 4',
+        color: '#f58231',
+        stops: [stop('w0', 100, 40), stop('w1', -100, 40)],
+        route: [{ segmentIds: ['x1', 'x0'] }],
+      }),
+    );
+  }
+  return makeCityData({
+    cityName: 'Fixture Connected Terminal',
+    source: 'vellummap',
+    roadNodes: [
+      node('a', 0, 0),
+      node('b', 180, 0),
+      node('c', 220, 0),
+      node('d', 400, 0),
+      node('e1', 180, 40),
+      node('u', 200, 75),
+      node('e2', 220, 40),
+      node('w', 100, 40),
+      node('v', -100, 40),
+    ],
+    roadSegments: [
+      makeRoadSegment({ id: 'sa', startNodeId: 'a', endNodeId: 'b' }),
+      makeRoadSegment({ id: 'sbc', startNodeId: 'b', endNodeId: 'c' }),
+      makeRoadSegment({ id: 'sd', startNodeId: 'c', endNodeId: 'd' }),
+      makeRoadSegment({
+        id: 'r1',
+        startNodeId: 'b',
+        endNodeId: 'e1',
+        points: [{ x: 180, y: 0, z: 20 }],
+      }),
+      makeRoadSegment({ id: 'i1', startNodeId: 'e1', endNodeId: 'u' }),
+      makeRoadSegment({ id: 'i2', startNodeId: 'u', endNodeId: 'e2' }),
+      makeRoadSegment({ id: 'r2', startNodeId: 'e2', endNodeId: 'c' }),
+      makeRoadSegment({ id: 'x1', startNodeId: 'e1', endNodeId: 'w' }),
+      makeRoadSegment({ id: 'x0', startNodeId: 'w', endNodeId: 'v' }),
+    ],
+    transitLines: lines,
+  });
+}
+
+/**
+ * One station (`A`) with a metro platform and a bus stop 65 m apart, like San
+ * Rico's airport `11692`: two parts, each with its own node in reach.
+ */
+export function splitStationCity(): CityData {
+  return makeCityData({
+    cityName: 'Fixture Split Station',
+    source: 'vellummap',
+    roadNodes: [
+      node('mA', -300, 510),
+      node('mN', 0, 510),
+      node('mB', 300, 510),
+      node('bA', 65, 200),
+      node('bN', 65, 490),
+      node('bB', 65, 800),
+    ],
+    roadSegments: [
+      makeRoadSegment({ id: 'm1', startNodeId: 'mA', endNodeId: 'mN' }),
+      makeRoadSegment({ id: 'm2', startNodeId: 'mN', endNodeId: 'mB' }),
+      makeRoadSegment({ id: 'b1', startNodeId: 'bA', endNodeId: 'bN' }),
+      makeRoadSegment({ id: 'b2', startNodeId: 'bN', endNodeId: 'bB' }),
+    ],
+    transitLines: [
+      makeTransitLine({
+        id: 'M',
+        name: 'Metro',
+        color: '#911eb4',
+        mode: 'Metro',
+        stops: [
+          stop('ma', -300, 510, 'Metro'),
+          stationStop('pm', 0, 500, 'A', 'Metro'),
+          stop('mb', 300, 510, 'Metro'),
+        ],
+        route: [{ segmentIds: ['m1', 'm2'] }],
+      }),
+      makeTransitLine({
+        id: 'B',
+        name: 'Bus',
+        color: '#e6194b',
+        stops: [
+          stop('ba', 65, 200),
+          stationStop('pb', 65, 500, 'A'),
+          stop('bb', 65, 800),
+        ],
+        route: [{ segmentIds: ['b1', 'b2'] }],
+      }),
+    ],
+  });
+}

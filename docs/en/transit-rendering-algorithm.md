@@ -29,8 +29,8 @@ the visual displacement on screen.
 
 ## Entry point
 
-`packages/core/src/transit-network/index.ts` orchestrates the pipeline through
-`deriveTransitNetwork(cityData)`:
+`packages/core/src/transit-network/derive.ts` (re-exported from `index.ts`)
+orchestrates the pipeline through `deriveTransitNetwork(cityData)`:
 
 1. `buildTransitLineGraph` builds the topological representation.
 2. `computeLineOrder` optimizes bundle order.
@@ -43,6 +43,14 @@ the visual displacement on screen.
    - `connectors`: pre-displaced Bézier connections;
    - `stations`: stop capsules;
    - `stationDots`: overview-zoom fallback points.
+
+The schematic diagram does not call it directly. It goes through
+`deriveSchematicTransitNetwork(cityData)`, which first runs
+`contractSchematicStations` (Story 4.6,
+[ADR-0006](../adr/0006-contraccion-de-estaciones-en-la-esquematica.md)): the
+stops of each `stationId` are contracted into one node per station part and the
+terminal's internal segments leave the routes. The geographic map keeps deriving
+from the original `CityData`.
 
 World coordinates are converted to GeoJSON only at the end. The topological and
 geometric calculations do not depend on MapLibre.
@@ -241,6 +249,10 @@ derived only from verifiable data already on the group:
 - Nothing about proximity grouping is inferred statistically — the criterion
   only reads `TransitStopEntry.lineId` and `LineInfo.mode`, both already
   verified `.cslmap` data.
+- `TransitStopEntry` also carries the stop's optional `stationId` (`.vellummap`
+  with `transit` 1.1). Grouping never reads it; the schematic passes it on as
+  `stationKey` on `PlacedStop`, so the parts of one station are drawn as a
+  single symbol (ADR-0006).
 - The criterion doesn't check whether the stop coincides with a real in-game
   exchange building (e.g. `Ferry and Bus Exchange Stop`, `Multiplatform Train
 Station`): that data exists in `.cslmap` for buildings (`icls`/`subsrv`/
@@ -307,7 +319,8 @@ The ADR named where transit derivation belongs, and Story 1.5 moved the
 `packages/core/src/transit-network/` for the derivation — `line-graph/`,
 `ordering/`, `stops.ts`), behind the single entry point
 `deriveTransitNetwork(cityData, extensions?)`, which returns a frozen
-projection. Story 3.2 completes that boundary through
+projection. The schematic wraps it in `deriveSchematicTransitNetwork`, which
+contracts stations first (ADR-0006). Story 3.2 completes that boundary through
 [ADR-0004](../adr/0004-canonicalizar-geometria-loom.md): `render-geometry/` now
 lives under `transit-network/`, resolves slots and stations from the network,
 and attaches its output to `network.renderGeometry`. WebGL only adapts that

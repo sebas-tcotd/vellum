@@ -3,6 +3,7 @@ import {
   makeCityData,
   makeRoadSegment,
   makeTransitLine,
+  splitStationCity,
   transitFixture,
 } from '../../testing';
 import type { CityData, RoadNode, TransitStop } from '../../types/city-data';
@@ -20,7 +21,14 @@ import { geographicSchematicLayout } from './geographic';
 import { rematerializeSchematicLayout, toPlane } from './grid-layout';
 import { filterSchematicLayout } from './index';
 import { octilinearSchematicLayout } from './octilinear';
-import { innerConnection, SCHEMATIC_ARC_SAMPLES } from './render';
+import {
+  convexHullRing,
+  innerConnection,
+  renderSchematic,
+  SCHEMATIC_ARC_SAMPLES,
+} from './render';
+import { measureSchematicLayout } from './metrics';
+import { deriveSchematicTransitNetwork } from './station-contraction';
 import { turnAngle } from './offset';
 import { orthoradialSchematicLayout } from './orthoradial';
 
@@ -469,5 +477,218 @@ describe('innerConnection', () => {
     for (const point of arc) {
       expect(Number.isFinite(point.x) && Number.isFinite(point.y)).toBe(true);
     }
+  });
+});
+
+describe('one symbol per station (Story 4.6, option C)', () => {
+  const insideConvexRing = (
+    ring: readonly SchematicPoint[],
+    p: SchematicPoint,
+  ): boolean => {
+    // Every edge of a convex ring leaves the point on the same side (or on it).
+    let sign = 0;
+    for (let i = 1; i < ring.length; i++) {
+      const a = ring[i - 1];
+      const b = ring[i];
+      const cross = (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x);
+      if (Math.abs(cross) < 1e-6) continue;
+      const s = Math.sign(cross);
+      if (sign === 0) sign = s;
+      else if (s !== sign) return false;
+    }
+    return true;
+  };
+
+  /** The same render input with every station key stripped: one capsule per part. */
+  const unmerged = (layout: SchematicLayout, visible?: ReadonlySet<string>) =>
+    renderSchematic({
+      ...layout.presentationInput!,
+      stops: layout.presentationInput!.stops.map((stop) => ({
+        id: stop.id,
+        edgeId: stop.edgeId,
+        fraction: stop.fraction,
+        lineIds: stop.lineIds,
+      })),
+      ...(visible === undefined ? {} : { visibleLineIds: visible }),
+    }).stations;
+
+  for (const [name, strategy] of [
+    ['geographic', geographicSchematicLayout],
+    ['octilinear', octilinearSchematicLayout],
+  ] as const) {
+    it(`${name}: draws the two parts of a station as one hull`, () => {
+      const network = deriveSchematicTransitNetwork(splitStationCity());
+      const layout = strategy(network);
+
+      const ofStation = layout.stations.filter((s) =>
+        ['pb', 'pm'].includes(s.id),
+      );
+      expect(ofStation).toHaveLength(1);
+      const [station] = ofStation;
+      expect(station.id).toBe('pb');
+      expect(station.lineIds).toEqual(['B', 'M']);
+      expect(station.confirmedTransfer).toBe(true);
+      expect(station.shape[0]).toEqual(station.shape.at(-1));
+
+      const parts = unmerged(layout).filter((s) => ['pb', 'pm'].includes(s.id));
+      expect(parts.map((s) => s.id)).toEqual(['pb', 'pm']);
+      expect(layout.stations).toHaveLength(unmerged(layout).length - 1);
+      // The anchor keeps its own position and corridor.
+      expect([station.x, station.y, station.edgeId]).toEqual([
+        parts[0].x,
+        parts[0].y,
+        parts[0].edgeId,
+      ]);
+      for (const part of parts) {
+        for (const point of part.shape) {
+          expect(insideConvexRing(station.shape, point)).toBe(true);
+        }
+      }
+      expect(
+        measureSchematicLayout(network, layout).metrics.stationsOffOwnCorridor,
+      ).toEqual([]);
+    });
+  }
+
+  it('rebuilds the symbol from the parts that stay visible', () => {
+    const layout = octilinearSchematicLayout(
+      deriveSchematicTransitNetwork(splitStationCity()),
+    );
+    const metroOnly = filterSchematicLayout(layout, ['M']);
+    expect(metroOnly.stations.map((s) => s.id)).toEqual(['ma', 'mb', 'pm']);
+    const metro = metroOnly.stations.find((s) => s.id === 'pm')!;
+    expect(metro.id).toBe('pm');
+    expect(metro.lineIds).toEqual(['M']);
+    expect(metro.confirmedTransfer).toBe(false);
+    // The plain capsule of the metro part, not a hull.
+    const plain = unmerged(layout, new Set(['M'])).find((s) => s.id === 'pm')!;
+    expect(metro.shape).toEqual(plain.shape);
+  });
+
+  it('survives structuredClone of the render input (worker postMessage)', () => {
+    const layout = octilinearSchematicLayout(
+      deriveSchematicTransitNetwork(splitStationCity()),
+    );
+    const input = structuredClone(layout.presentationInput!);
+    expect(
+      input.stops.flatMap((stop) =>
+        stop.stationKey === undefined ? [] : [[stop.id, stop.stationKey]],
+      ),
+    ).toEqual([
+      ['pb', 'A'],
+      ['pm', 'A'],
+    ]);
+    const cloned: SchematicLayout = { ...layout, presentationInput: input };
+    const zoomed = rematerializeSchematicLayout(cloned, 2);
+    const merged = zoomed.stations.filter((s) => ['pb', 'pm'].includes(s.id));
+    expect(merged).toHaveLength(1);
+    expect(merged[0].lineIds).toEqual(['B', 'M']);
+  });
+
+  it('merges each station with its own parts only', () => {
+    // Station A as in the fixture, and a copy 2 km away renamed to station B.
+    const a = splitStationCity();
+    const s = (id: string) => `${id}2`;
+    const city: CityData = {
+      ...a,
+      roadNodes: [
+        ...a.roadNodes,
+        ...a.roadNodes.map((n) => ({
+          id: s(n.id),
+          position: { ...n.position, z: n.position.z + 2000 },
+        })),
+      ],
+      roadSegments: [
+        ...a.roadSegments,
+        ...a.roadSegments.map((seg) => ({
+          ...seg,
+          id: s(seg.id),
+          startNodeId: s(seg.startNodeId),
+          endNodeId: s(seg.endNodeId),
+        })),
+      ],
+      transitLines: [
+        ...a.transitLines,
+        ...a.transitLines.map((line) => ({
+          ...line,
+          id: s(line.id),
+          stops: line.stops.map((stop) => ({
+            ...stop,
+            id: s(stop.id),
+            position: { ...stop.position, z: stop.position.z + 2000 },
+            ...(stop.stationId === undefined ? {} : { stationId: 'B' }),
+          })),
+          route: line.route.map((r) => ({ segmentIds: r.segmentIds.map(s) })),
+        })),
+      ],
+    };
+    const layout = octilinearSchematicLayout(
+      deriveSchematicTransitNetwork(city),
+    );
+    const merged = layout.stations
+      .filter((st) => ['pb', 'pm', 'pb2', 'pm2'].includes(st.id))
+      .map((st) => [st.id, [...st.lineIds]]);
+    expect(merged).toEqual([
+      ['pb', ['B', 'M']],
+      ['pb2', ['B2', 'M2']],
+    ]);
+  });
+
+  it('gives no key to a candidate whose stops belong to two stations', () => {
+    const city = makeCityData({
+      source: 'vellummap',
+      roadNodes: [node('a', -200, 0), node('b', 200, 0)],
+      roadSegments: [
+        makeRoadSegment({ id: 's', startNodeId: 'a', endNodeId: 'b' }),
+      ],
+      transitLines: [
+        makeTransitLine({
+          id: 'L1',
+          color: '#e6194b',
+          stops: [{ ...stop('qa', 0, 0), stationId: 'A' }],
+          route: [{ segmentIds: ['s'] }],
+        }),
+        makeTransitLine({
+          id: 'L2',
+          color: '#3cb44b',
+          stops: [{ ...stop('qb', 20, 0), stationId: 'B' }],
+          route: [{ segmentIds: ['s'] }],
+        }),
+      ],
+    });
+    const layout = octilinearSchematicLayout(
+      deriveSchematicTransitNetwork(city),
+    );
+    const stops = layout.presentationInput!.stops;
+    expect(stops.map((p) => p.id)).toEqual(['qa']);
+    expect(stops[0].stationKey).toBeUndefined();
+    expect(layout.stations.map((st) => [st.id, [...st.lineIds]])).toEqual([
+      ['qa', ['L1', 'L2']],
+    ]);
+  });
+
+  it('leaves stations without a key exactly as before', () => {
+    const layout = octilinearSchematicLayout(
+      deriveTransitNetwork(transitFixture('transfer')),
+    );
+    expect(layout.presentationInput!.stops.some((s) => s.stationKey)).toBe(
+      false,
+    );
+    expect(unmerged(layout)).toEqual(
+      layout.stations.map((s) => ({ ...s, lineIds: [...s.lineIds] })),
+    );
+  });
+
+  it('convexHullRing closes the ring and drops interior points', () => {
+    const ring = convexHullRing([
+      { x: 0, y: 0 },
+      { x: 2, y: 0 },
+      { x: 1, y: 1 },
+      { x: 2, y: 2 },
+      { x: 0, y: 2 },
+    ]);
+    expect(ring).toHaveLength(5);
+    expect(ring[0]).toEqual(ring[4]);
+    expect(ring).not.toContainEqual({ x: 1, y: 1 });
   });
 });

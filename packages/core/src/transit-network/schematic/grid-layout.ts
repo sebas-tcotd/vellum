@@ -411,6 +411,8 @@ export interface RawSchematicStop {
   /** Arc fraction along that corridor's centerline. */
   readonly fraction: number;
   readonly lineIds: readonly string[];
+  /** The station building this stop belongs to; see {@link PlacedStop.stationKey}. */
+  readonly stationKey?: string;
 }
 
 /**
@@ -418,6 +420,11 @@ export interface RawSchematicStop {
  *
  * The map and diagram both start with `transferCandidates`; this deliberately
  * does not re-run proximity grouping or introduce a second threshold.
+ *
+ * `stationKey` is the one `stationId` the candidate's drawn, finite entries carry, when
+ * there is exactly one: it is how the rendering stage knows that two symbols
+ * are parts of the same station (Story 4.6). Absent when no entry has one, or
+ * when the entries disagree.
  */
 export function canonicalSchematicStops(
   network: TransitNetwork,
@@ -426,6 +433,7 @@ export function canonicalSchematicStops(
   readonly id: string;
   readonly position: CsPoint;
   readonly lineIds: readonly string[];
+  readonly stationKey?: string;
 }[] {
   return network.transferCandidates.flatMap((candidate) => {
     const entries = candidate.stops.filter(
@@ -443,6 +451,12 @@ export function canonicalSchematicStops(
       ),
     ];
     if (entries.length === 0 || lineIds.length === 0) return [];
+    const stationIds = new Set(
+      entries.flatMap((stop) =>
+        stop.stationId === undefined ? [] : [stop.stationId],
+      ),
+    );
+    const stationKey = stationIds.size === 1 ? [...stationIds][0] : undefined;
     const position = entries.reduce(
       (sum, stop) => ({
         x: sum.x + stop.position.x,
@@ -460,6 +474,7 @@ export function canonicalSchematicStops(
           z: position.z / entries.length,
         },
         lineIds: [...lineIds].sort(byString),
+        ...(stationKey === undefined ? {} : { stationKey }),
       },
     ];
   });
@@ -615,6 +630,7 @@ export function finalizeSchematicLayout(
     edgeId: stop.edgeId,
     fraction: stop.fraction,
     lineIds: stop.lineIds,
+    ...(stop.stationKey === undefined ? {} : { stationKey: stop.stationKey }),
   }));
 
   const renderInput: SchematicRenderInput = {
@@ -1052,6 +1068,9 @@ export function gridSchematicLayout(
         fraction:
           bestEdge === null ? 0 : arcFractionOf(edge.worldPath, stop.position),
         lineIds: [...stop.lineIds].sort(byString),
+        ...(stop.stationKey === undefined
+          ? {}
+          : { stationKey: stop.stationKey }),
       };
     });
 

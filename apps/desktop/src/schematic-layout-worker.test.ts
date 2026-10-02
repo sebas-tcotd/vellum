@@ -3,7 +3,9 @@ import {
   makeCityData,
   makeRoadSegment,
   makeTransitLine,
+  splitStationCity,
 } from '@vellum/core/testing';
+import type { SchematicLayout } from '@vellum/core';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -54,5 +56,39 @@ describe('schematic layout worker', () => {
       requestId: 'r1',
       lines: [{ lineId: 'L1', name: 'Red', mode: 'Bus', color: '#f00' }],
     });
+  });
+
+  it('lays out the contracted network: one symbol per station', async () => {
+    const emitted: unknown[] = [];
+    const fakeScope = {
+      postMessage: (event: unknown) => emitted.push(structuredClone(event)),
+      onmessage: null as ((event: MessageEvent) => void) | null,
+    };
+    vi.stubGlobal('self', fakeScope);
+    vi.resetModules();
+    await import('./schematic-layout-worker');
+    fakeScope.onmessage?.({
+      data: {
+        type: 'layout',
+        version: 1,
+        requestId: 'r2',
+        cityData: splitStationCity(),
+        layout: 'octilinear',
+      },
+    } as MessageEvent);
+    const complete = emitted[emitted.length - 1] as {
+      type: string;
+      layout: SchematicLayout;
+    };
+    expect(complete.type).toBe('complete');
+    const station = complete.layout.stations.filter((s) =>
+      ['pb', 'pm'].includes(s.id),
+    );
+    expect(station.map((s) => [s.id, s.lineIds])).toEqual([['pb', ['B', 'M']]]);
+    expect(
+      complete.layout.presentationInput?.stops
+        .filter((s) => s.stationKey !== undefined)
+        .map((s) => s.stationKey),
+    ).toEqual(['A', 'A']);
   });
 });

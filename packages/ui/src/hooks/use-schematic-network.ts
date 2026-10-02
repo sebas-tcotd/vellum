@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   TRANSIT_MODES,
   TOGGLABLE_TRANSIT_MODES,
-  deriveTransitNetwork,
+  deriveSchematicTransitNetwork,
   filterSchematicLayout,
   geographicSchematicLayout,
   isSchematicLayoutEmpty,
@@ -404,7 +404,7 @@ export function useSchematicNetwork({
     const cached = byKey.get(relayoutKey);
     if (cached !== undefined) return cached;
     if (!enabled || layoutCityData === null) return null;
-    const network = deriveTransitNetwork(layoutCityData);
+    const network = deriveSchematicTransitNetwork(layoutCityData);
     const layout = strategy(network);
 
     // Available lines are the intersection of "draws a stroke" and "has

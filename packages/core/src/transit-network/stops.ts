@@ -30,7 +30,7 @@ export const STATION_MERGE_THRESHOLD_M = 48;
 /**
  * Collects every stop of every line once, in deterministic order (lines sorted
  * by id, stops in route order, duplicates of a circular route's terminal stop
- * dropped).
+ * dropped). A stop's `stationId` is carried over when it has one.
  */
 export function extractUniqueStops(cityData: CityData): TransitStopEntry[] {
   const entries: TransitStopEntry[] = [];
@@ -47,6 +47,7 @@ export function extractUniqueStops(cityData: CityData): TransitStopEntry[] {
         stopId: stop.id,
         position: { x: stop.position.x, z: stop.position.z },
         lineId: line.id,
+        ...(stop.stationId === undefined ? {} : { stationId: stop.stationId }),
       });
     }
   }
