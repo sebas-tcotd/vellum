@@ -140,7 +140,8 @@ describe.skipIf(!windows)('PowerShell packaging validation', () => {
     cpSync(compileFixture('9.8.7'), f.exe);
     failure(run(f), "ProductVersion '9.8.7' differs from Tauri");
     expect(existsSync(f.output)).toBe(false);
-  });
+    // Cold C# compilation and two PowerShell starts can exceed 5s on hosted Windows.
+  }, 60000);
   it.each([
     '1.2.3-beta.1',
     '1.2',
