@@ -4,6 +4,7 @@ import {
   makeCityData,
   makeRoadSegment,
   makeTransitLine,
+  splitStationCity,
 } from '@vellum/core/testing';
 import {
   geographicSchematicLayout,
@@ -213,6 +214,30 @@ describe('useSchematicNetwork', () => {
     expect(relaid.layout.segments[0].points).not.toEqual(
       projected.layout.segments[0].points,
     );
+  });
+
+  it('draws a station split into parts as one symbol, and rebuilds it per filter', () => {
+    const cityData = splitStationCity();
+    const ofStation = (model: {
+      layout: {
+        stations: readonly { id: string; lineIds: readonly string[] }[];
+      };
+    }) =>
+      model.layout.stations
+        .filter((s) => s.id === 'pb' || s.id === 'pm')
+        .map((s) => [s.id, [...s.lineIds]]);
+
+    expect(ofStation(modelOf(cityData))).toEqual([['pb', ['B', 'M']]]);
+    expect(ofStation(modelOf(cityData, ['Metro']))).toEqual([['pb', ['B']]]);
+    // A relayout of one line contracts the smaller city too.
+    const relaid = renderHook(() =>
+      useSchematicNetwork({
+        cityData,
+        hiddenModes: [],
+        relayoutLineIds: ['M'],
+      }),
+    ).result.current;
+    expect(ofStation(relaid)).toEqual([['pm', ['M']]]);
   });
 
   it('separates an empty city from one its own filters emptied', () => {

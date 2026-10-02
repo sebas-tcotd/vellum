@@ -16,7 +16,7 @@
  */
 
 import type { CsPoint } from '../coordinate-transform';
-import type { TransitMode } from './city-data';
+import type { TransitMode, TransitStop } from './city-data';
 import type { TransitRenderGeometry } from '../transit-network/render-geometry';
 
 // ─── Line graph ──────────────────────────────────────────────────────────────
@@ -222,6 +222,13 @@ export interface TransitStopEntry {
   position: CsPoint;
   /** Line this entry was recorded for. */
   lineId: string;
+  /**
+   * The stop's {@link TransitStop.stationId}, when the source carries one
+   * (`.vellummap` with `transit` 1.1). Never used for grouping here — the
+   * proximity rule is unchanged — but it lets the schematic recognise that two
+   * symbols belong to the same station building (Story 4.6). Absent otherwise.
+   */
+  stationId?: string;
 }
 
 /**

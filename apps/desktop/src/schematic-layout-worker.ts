@@ -1,6 +1,6 @@
 /// <reference lib="webworker" />
 import {
-  deriveTransitNetwork,
+  deriveSchematicTransitNetwork,
   geographicSchematicLayout,
   octilinearSchematicLayout,
   orthoradialSchematicLayout,
@@ -63,7 +63,7 @@ scope.onmessage = (event: MessageEvent<SchematicLayoutCommand>) => {
       completed: 0,
       total: 2,
     });
-    const network = deriveTransitNetwork(command.cityData);
+    const network = deriveSchematicTransitNetwork(command.cityData);
     if (activeRequestId !== command.requestId) return;
     emit({
       type: 'progress',

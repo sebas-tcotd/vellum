@@ -122,6 +122,9 @@ export const geographicSchematicLayout = (
           stop.position,
         ),
         lineIds: [...stop.lineIds].sort(byString),
+        ...(stop.stationKey === undefined
+          ? {}
+          : { stationKey: stop.stationKey }),
       };
     });
 

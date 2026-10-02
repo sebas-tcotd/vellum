@@ -52,6 +52,13 @@ export type SchematicLayoutStrategy = (
 export { geographicSchematicLayout } from './geographic';
 
 export {
+  contractSchematicStations,
+  deriveSchematicTransitNetwork,
+  STATION_CONTRACTION_RADIUS_M,
+  STATION_PART_HOP_M,
+} from './station-contraction';
+
+export {
   GRID_ROUTER,
   routeOnGrid,
   rematerializeSchematicLayout,
