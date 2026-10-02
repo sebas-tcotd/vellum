@@ -66,7 +66,7 @@
     "empty": "No hay íconos de servicio visibles en esta vista"
   },
   "layerOptionsPanel": {
-    "showForestCircles": "Círculos de vegetación",
+    "showForestCircles": "Círculos de vegetación (solo en zoom cercano)",
     "showForestHeatmap": "Mapa de calor",
     "noVegetation": "No se muestra vegetación porque ambas opciones están desactivadas.",
     "close": "Cerrar opciones de capa",

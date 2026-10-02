@@ -66,7 +66,7 @@
     "empty": "No service icons visible in this view"
   },
   "layerOptionsPanel": {
-    "showForestCircles": "Vegetation circles",
+    "showForestCircles": "Vegetation circles (only when zoomed in)",
     "showForestHeatmap": "Heatmap",
     "noVegetation": "No vegetation is shown because both options are turned off.",
     "close": "Close layer options",
