@@ -1,7 +1,26 @@
 import { DEFAULT_RENDER_STYLE_PARAMS } from '@vellum/theme-engine';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { makeCityData } from '@vellum/core/testing';
-import { act, cleanup, render, screen } from '../../test-utils';
+import {
+  makeCityData,
+  makeRoadSegment,
+  makeTransitLine,
+} from '@vellum/core/testing';
+import { renderHook } from '@testing-library/react';
+import { createRef } from 'react';
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '../../test-utils';
+import {
+  EMPTY_SCHEMATIC_MODEL,
+  useSchematicNetwork,
+  type SchematicNetworkModel,
+} from '../../hooks/use-schematic-network';
+import type { SchematicCameraControls } from '../schematic/use-schematic-camera';
 import { MapViewport } from './MapViewport';
 import type { CommandRegistry } from '../../shell/commands';
 import type { MapLibreRootProps } from '../canvas/MapLibreRoot';
@@ -203,6 +222,146 @@ describe('schematic view — clean view and focus', () => {
 
     rerender(<MapViewport {...props} viewMode="geographic" />);
     expect(screen.getByTestId('schematic-toggle')).toHaveFocus();
+  });
+});
+
+describe('schematic camera controls', () => {
+  const transitCity = makeCityData({
+    roadNodes: [
+      { id: 'a', position: { x: 0, y: 0, z: 0 } },
+      { id: 'b', position: { x: 100, y: 0, z: 0 } },
+    ],
+    roadSegments: [
+      makeRoadSegment({ id: 's1', startNodeId: 'a', endNodeId: 'b' }),
+    ],
+    transitLines: [
+      makeTransitLine({
+        id: 'L1',
+        color: '#ff0000',
+        stops: [
+          { id: 'p1', mode: 'Bus', position: { x: 0, y: 0, z: 0 }, name: 'A' },
+        ],
+        route: [{ segmentIds: ['s1'] }],
+      }),
+    ],
+  });
+  const drawable = () =>
+    renderHook(() =>
+      useSchematicNetwork({ cityData: transitCity, hiddenModes: [] }),
+    ).result.current;
+  /** Commands that, like `App`, drive whichever camera is registered. */
+  const liveCommands = (cameraRef: {
+    current: SchematicCameraControls | null;
+  }) =>
+    new Proxy(
+      {},
+      {
+        get: (_target, id: string) => ({
+          id,
+          canExecute: true,
+          execute: () => {
+            if (id === 'view.zoomIn') cameraRef.current?.zoomIn();
+            if (id === 'view.zoomOut') cameraRef.current?.zoomOut();
+            if (id === 'view.fitCity') cameraRef.current?.fit();
+          },
+        }),
+      },
+    ) as CommandRegistry;
+  const renderSchematic = (
+    options: {
+      isCleanView?: boolean;
+      model?: SchematicNetworkModel;
+      viewMode?: 'geographic' | 'schematic';
+    } = {},
+  ) => {
+    const cameraRef = createRef<SchematicCameraControls | null>();
+    const result = render(
+      <MapViewport
+        mapProps={mapProps}
+        commands={liveCommands(cameraRef)}
+        isCleanView={options.isCleanView ?? false}
+        viewMode={options.viewMode ?? 'schematic'}
+        schematicModel={options.model ?? drawable()}
+        schematicCameraRef={cameraRef}
+        subscribeServiceIconLegendRef={{ current: null }}
+        iconLegendToggleRef={{ current: null }}
+      />,
+    );
+    return { ...result, cameraRef };
+  };
+
+  it('shows the shared group, without compass, minimap or the old fit button', () => {
+    useVellumStore.setState({ cityData: transitCity, loadingState: 'idle' });
+    renderSchematic();
+
+    const group = screen.getByTestId('camera-control-group');
+    expect(group).toBeInTheDocument();
+    expect(group.querySelectorAll('button')).toHaveLength(3);
+    expect(
+      screen.getByRole('button', { name: 'camera.fitCity' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'camera.resetNorth' }),
+    ).not.toBeInTheDocument();
+    expect(document.querySelector('.shell-minimap')).toBeNull();
+    expect(document.querySelector('.schematic-view__fit')).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: 'schematic.fit' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('is absent under Clean view and when there is nothing to draw', () => {
+    useVellumStore.setState({ cityData: transitCity, loadingState: 'idle' });
+    const clean = renderSchematic({ isCleanView: true });
+    expect(screen.queryByTestId('camera-control-group')).toBeNull();
+    clean.unmount();
+
+    const empty = renderSchematic({ model: EMPTY_SCHEMATIC_MODEL });
+    expect(screen.queryByTestId('camera-control-group')).toBeNull();
+    empty.unmount();
+
+    const filtered = renderSchematic({
+      model: { ...drawable(), isFilteredEmpty: true },
+    });
+    expect(screen.queryByTestId('camera-control-group')).toBeNull();
+    filtered.unmount();
+  });
+
+  it('turns + off at the closest zoom and back on after −', () => {
+    useVellumStore.setState({ cityData: transitCity, loadingState: 'idle' });
+    renderSchematic();
+    const zoomIn = screen.getByRole('button', { name: 'camera.zoomIn' });
+    const zoomOut = screen.getByRole('button', { name: 'camera.zoomOut' });
+    expect(zoomIn).toBeEnabled();
+    expect(zoomOut).toBeEnabled();
+
+    for (let step = 0; step < 40; step += 1) fireEvent.click(zoomIn);
+    // The camera writes once per frame and notifies then.
+    return waitFor(() => expect(zoomIn).toBeDisabled()).then(() => {
+      expect(zoomOut).toBeEnabled();
+      fireEvent.click(zoomOut);
+      return waitFor(() => expect(zoomIn).toBeEnabled());
+    });
+  });
+
+  it('swaps cleanly between views, with no precise-zoom popover left over', () => {
+    useVellumStore.setState({ cityData: transitCity, loadingState: 'idle' });
+    const { rerender, cameraRef } = renderSchematic();
+    const props = {
+      mapProps,
+      commands: liveCommands(cameraRef),
+      isCleanView: false,
+      schematicModel: drawable(),
+      schematicCameraRef: cameraRef,
+      subscribeServiceIconLegendRef: { current: null },
+      iconLegendToggleRef: { current: null },
+    };
+    rerender(<MapViewport {...props} viewMode="geographic" />);
+    expect(screen.getAllByTestId('camera-control-group')).toHaveLength(1);
+    expect(screen.queryByTestId('precise-zoom')).toBeNull();
+    rerender(<MapViewport {...props} viewMode="schematic" />);
+    expect(screen.getAllByTestId('camera-control-group')).toHaveLength(1);
+    expect(screen.queryByTestId('precise-zoom')).toBeNull();
   });
 });
 

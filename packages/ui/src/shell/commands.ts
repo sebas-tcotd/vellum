@@ -62,9 +62,10 @@ export type UnavailableReason =
   | 'exporting'
   | 'modal'
   /**
-   * The schematic surface owns the screen. It has no camera, no layers and no
-   * geographic styling, so those actions have nothing to act on — and export
-   * would capture the hidden map rather than what is displayed.
+   * The schematic surface owns the screen. It has no rotation, no precise zoom,
+   * no layers and no geographic styling, so those actions have nothing to act
+   * on — and export would capture the hidden map rather than what is displayed.
+   * (Zoom in/out and fit do apply: the schematic has its own camera.)
    */
   | 'schematic';
 
@@ -208,9 +209,11 @@ export function useDesktopCommands(deps: CommandDeps): CommandRegistry {
       'document.export': make('document.export', exportReason, () => {
         void openExport();
       }),
-      'view.fitCity': make('view.fitCity', mapReason, fitToScreen),
-      'view.zoomIn': make('view.zoomIn', mapReason, zoomIn),
-      'view.zoomOut': make('view.zoomOut', mapReason, zoomOut),
+      // The schematic has a camera of its own, so these three stay available
+      // there; the App routes them to whichever camera is on screen.
+      'view.fitCity': make('view.fitCity', noMap, fitToScreen),
+      'view.zoomIn': make('view.zoomIn', noMap, zoomIn),
+      'view.zoomOut': make('view.zoomOut', noMap, zoomOut),
       'view.preciseZoom': make(
         'view.preciseZoom',
         mapReason,

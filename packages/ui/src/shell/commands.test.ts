@@ -163,12 +163,9 @@ describe('view.schematic', () => {
 describe('the schematic surface withdraws what it cannot act on', () => {
   const schematic = () => build({ isSchematicView: true }).commands;
 
-  it('withdraws camera, layers, symbols, bounds and styles', () => {
+  it('withdraws rotation, precise zoom, layers, symbols, bounds and styles', () => {
     const commands = schematic();
     for (const id of [
-      'view.fitCity',
-      'view.zoomIn',
-      'view.zoomOut',
       'view.preciseZoom',
       'view.resetNorth',
       'view.rotate',
@@ -187,12 +184,29 @@ describe('the schematic surface withdraws what it cannot act on', () => {
 
   it('never reaches the handlers behind those commands', () => {
     const { commands, deps: d } = build({ isSchematicView: true });
-    commands['view.fitCity'].execute();
+    commands['view.preciseZoom'].execute();
     commands['layer.toggle'].execute('transit');
     commands['style.set'].execute('transit');
-    expect(d.fitToScreen).not.toHaveBeenCalled();
+    expect(d.togglePreciseZoom).not.toHaveBeenCalled();
     expect(d.toggleLayer).not.toHaveBeenCalled();
     expect(d.setActiveTheme).not.toHaveBeenCalled();
+  });
+
+  it('keeps zoom and fit, which the schematic camera answers', () => {
+    const { commands, deps: d } = build({ isSchematicView: true });
+    for (const id of ['view.fitCity', 'view.zoomIn', 'view.zoomOut'] as const) {
+      expect(commands[id].canExecute).toBe(true);
+      expect(commands[id].unavailableReason).toBeUndefined();
+      commands[id].execute();
+    }
+    expect(d.fitToScreen).toHaveBeenCalledTimes(1);
+    expect(d.zoomIn).toHaveBeenCalledTimes(1);
+    expect(d.zoomOut).toHaveBeenCalledTimes(1);
+    // No map at all still wins over the schematic.
+    expect(
+      build({ isSchematicView: true, hasMap: false }).commands['view.zoomIn']
+        .unavailableReason,
+    ).toBe('no-map');
   });
 
   it('withdraws export, which would capture the hidden geographic map', () => {

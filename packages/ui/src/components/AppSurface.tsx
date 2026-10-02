@@ -41,6 +41,7 @@ import {
   type ShellSession,
 } from '../shell/shell-session';
 import type { useExportWorkflow } from '../hooks/use-export-workflow';
+import type { SchematicCameraControls } from './schematic/use-schematic-camera';
 import {
   useSchematicNetwork,
   type SchematicLayoutClientPort,
@@ -74,6 +75,7 @@ interface AppSurfaceProps {
   >;
   iconLegendToggleRef: RefObject<(() => void) | null>;
   preciseZoomToggleRef: RefObject<(() => void) | null>;
+  schematicCameraRef: RefObject<SchematicCameraControls | null>;
   exportWorkflow: ReturnType<typeof useExportWorkflow>;
   commands: CommandRegistry;
   shell: ShellSession;
@@ -98,6 +100,7 @@ export function AppSurface({
   subscribeServiceIconLegendRef,
   iconLegendToggleRef,
   preciseZoomToggleRef,
+  schematicCameraRef,
   exportWorkflow,
   commands,
   shell,
@@ -254,6 +257,7 @@ export function AppSurface({
               subscribeServiceIconLegendRef={subscribeServiceIconLegendRef}
               iconLegendToggleRef={iconLegendToggleRef}
               preciseZoomToggleRef={preciseZoomToggleRef}
+              schematicCameraRef={schematicCameraRef}
               shell={shell}
             />
           </div>

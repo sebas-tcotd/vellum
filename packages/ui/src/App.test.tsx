@@ -1809,6 +1809,32 @@ describe('App — schematic sidebar (Story 4.2)', () => {
     expect(new Set(strokeLineIds())).toEqual(new Set(['L1', 'L2']));
   });
 
+  it('routes the zoom and fit commands to the schematic camera, not the map (Story 4.8)', async () => {
+    const user = userEvent.setup();
+    rendererHarness.reset();
+    await openSchematic();
+    const svg = screen.getByTestId('schematic-diagram');
+    const fitted = svg.getAttribute('viewBox');
+
+    // The menu route and the shared camera group are the same command.
+    await act(async () => {
+      shell.emit('vellum://menu-action', 'menu.zoom-in');
+    });
+    await waitFor(() => expect(svg.getAttribute('viewBox')).not.toBe(fitted));
+    await user.click(screen.getByRole('button', { name: 'camera.fitCity' }));
+    expect(svg.getAttribute('viewBox')).toBe(fitted);
+    await user.click(screen.getByRole('button', { name: 'camera.zoomOut' }));
+    await waitFor(() => expect(svg.getAttribute('viewBox')).not.toBe(fitted));
+
+    expect(rendererHarness.renderer.zoomIn).not.toHaveBeenCalled();
+    expect(rendererHarness.renderer.zoomOut).not.toHaveBeenCalled();
+    expect(rendererHarness.renderer.fitToScreen).not.toHaveBeenCalled();
+    // The map's own rotation and precise zoom stay withdrawn here.
+    expect(
+      screen.queryByRole('button', { name: 'camera.resetNorth' }),
+    ).toBeNull();
+  });
+
   it('moves diagram and legend together without touching the map store', async () => {
     const user = userEvent.setup();
     await openSchematic();

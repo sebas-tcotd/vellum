@@ -7,10 +7,13 @@ import {
   transitFixture,
 } from '@vellum/core/testing';
 import { SCHEMATIC_LINE_WIDTH, type TransitMode } from '@vellum/core';
-import { Profiler } from 'react';
+import { createRef, Profiler } from 'react';
 import { act, cleanup, fireEvent, render, screen } from '../../test-utils';
 import { SchematicView } from './SchematicView';
-import { ZOOM_SETTLE_MS } from './use-schematic-camera';
+import {
+  ZOOM_SETTLE_MS,
+  type SchematicCameraControls,
+} from './use-schematic-camera';
 import {
   EMPTY_SCHEMATIC_MODEL,
   useSchematicNetwork,
@@ -77,11 +80,13 @@ const modelFor = (hiddenModes: TransitMode[] = []) =>
 describe('SchematicView', () => {
   it('zooms around the pointer, pans, and restores the fitted camera', () => {
     useCameraClock();
+    const cameraRef = createRef<SchematicCameraControls | null>();
     render(
       <SchematicView
         model={modelFor()}
         onBack={() => {}}
         onShowAllModes={() => {}}
+        cameraRef={cameraRef}
       />,
     );
     const svg = screen.getByTestId('schematic-diagram');
@@ -97,11 +102,9 @@ describe('SchematicView', () => {
     nextFrame();
     expect(svg.getAttribute('viewBox')).not.toBe(zoomed);
     fireEvent.pointerUp(svg, { pointerId: 1 });
-    fireEvent.click(screen.getByRole('button', { name: 'schematic.fit' }));
-    const fit = screen.getByRole('button', { name: 'schematic.fit' });
-    expect(fit).toHaveAttribute('title', 'schematic.fit');
-    expect(fit).toHaveTextContent('');
-    expect(fit.querySelector('svg')).toBeInTheDocument();
+    // The fit button is the shared camera group's now, not this surface's.
+    expect(document.querySelector('.schematic-view__fit')).toBeNull();
+    act(() => cameraRef.current!.fit());
     expect(svg.getAttribute('viewBox')).toBe(fitted);
   });
 
@@ -222,6 +225,7 @@ describe('SchematicView', () => {
 describe('SchematicView — camera outside React', () => {
   const mount = () => {
     const onRender = vi.fn();
+    const cameraRef = createRef<SchematicCameraControls | null>();
     const full = modelFor();
     const view = (
       hovered: string | null,
@@ -233,6 +237,7 @@ describe('SchematicView — camera outside React', () => {
           onBack={() => {}}
           onShowAllModes={() => {}}
           hoveredLineId={hovered}
+          cameraRef={cameraRef}
         />
       </Profiler>
     );
@@ -242,6 +247,7 @@ describe('SchematicView — camera outside React', () => {
     return {
       ...result,
       svg,
+      cameraRef,
       onRender,
       rerenderWith: (hovered: string | null) => result.rerender(view(hovered)),
       rerenderModel: (model: ReturnType<typeof modelFor>) =>
@@ -345,12 +351,12 @@ describe('SchematicView — camera outside React', () => {
 
   it('fits at once and cancels a pending settle', () => {
     useCameraClock();
-    const { svg, container } = mount();
+    const { svg, container, cameraRef } = mount();
     const fitted = svg.getAttribute('viewBox');
     const before = fontSize(container);
     fireEvent.wheel(svg, { clientX: 100, clientY: 50, deltaY: -1 });
     nextFrame();
-    fireEvent.click(screen.getByRole('button', { name: 'schematic.fit' }));
+    act(() => cameraRef.current!.fit());
     expect(svg.getAttribute('viewBox')).toBe(fitted);
     settleZoom();
     expect(svg.getAttribute('viewBox')).toBe(fitted);
@@ -683,5 +689,146 @@ describe('SchematicView — inner connections', () => {
     expect(connector?.getAttribute('stroke-width')).toBe(
       String(SCHEMATIC_LINE_WIDTH),
     );
+  });
+});
+
+// Story 4.8: the buttons, the View menu and the shortcuts reach this camera
+// through `cameraRef`, so they must behave like the wheel, about the centre.
+describe('SchematicView — camera controls', () => {
+  const mountWithControls = (model = modelFor()) => {
+    const cameraRef = createRef<SchematicCameraControls | null>();
+    const element = (
+      <SchematicView
+        model={model}
+        onBack={() => {}}
+        onShowAllModes={() => {}}
+        cameraRef={cameraRef}
+      />
+    );
+    const result = render(element);
+    const svg = result.queryByTestId('schematic-diagram');
+    return {
+      ...result,
+      element,
+      svg,
+      controls: () => cameraRef.current!,
+      cameraRef,
+    };
+  };
+  const box = (svg: HTMLElement) => {
+    const [x, y, width, height] = svg
+      .getAttribute('viewBox')!
+      .split(' ')
+      .map(Number) as [number, number, number, number];
+    return { x, y, width, height };
+  };
+
+  it('zooms in and out by 1.5 about the centre of the live box', () => {
+    useCameraClock();
+    const { svg, controls } = mountWithControls();
+    const start = box(svg!);
+    act(() => controls().zoomIn());
+    nextFrame();
+    const closer = box(svg!);
+    expect(closer.width).toBeCloseTo(start.width / 1.5);
+    expect(closer.height).toBeCloseTo(start.height / 1.5);
+    expect(closer.x + closer.width / 2).toBeCloseTo(start.x + start.width / 2);
+    expect(closer.y + closer.height / 2).toBeCloseTo(
+      start.y + start.height / 2,
+    );
+    act(() => controls().zoomOut());
+    nextFrame();
+    const back = box(svg!);
+    expect(back.width).toBeCloseTo(start.width);
+    expect(back.x).toBeCloseTo(start.x);
+  });
+
+  it('settles the scale once, after the zoom rests, like the wheel', () => {
+    useCameraClock();
+    const { container, controls } = mountWithControls();
+    const labelSize = () =>
+      container
+        .querySelector('text.schematic-view__label')!
+        .getAttribute('font-size');
+    const before = labelSize();
+    act(() => controls().zoomIn());
+    act(() => controls().zoomIn());
+    nextFrame();
+    expect(labelSize()).toBe(before);
+    settleZoom();
+    expect(labelSize()).not.toBe(before);
+  });
+
+  it('reports the room left and stops at the wheel limits at both ends', () => {
+    useCameraClock();
+    const { svg, controls } = mountWithControls();
+    const start = controls().getZoomState()!;
+    expect(start.min).toBe(0);
+    expect(start.zoom).toBeGreaterThan(start.min);
+    expect(start.zoom).toBeLessThan(start.max);
+
+    for (let step = 0; step < 40; step += 1) act(() => controls().zoomIn());
+    nextFrame();
+    const closest = controls().getZoomState()!;
+    expect(closest.zoom).toBeCloseTo(closest.max, 9);
+    const stuck = svg!.getAttribute('viewBox');
+    act(() => controls().zoomIn());
+    nextFrame();
+    expect(svg!.getAttribute('viewBox')).toBe(stuck);
+    act(() => controls().zoomOut());
+    nextFrame();
+    expect(svg!.getAttribute('viewBox')).not.toBe(stuck);
+
+    for (let step = 0; step < 40; step += 1) act(() => controls().zoomOut());
+    nextFrame();
+    expect(controls().getZoomState()!.zoom).toBeCloseTo(0, 9);
+    const farthest = svg!.getAttribute('viewBox');
+    act(() => controls().zoomOut());
+    nextFrame();
+    expect(svg!.getAttribute('viewBox')).toBe(farthest);
+  });
+
+  it('notifies subscribers once per frame and on fit, until unsubscribed', () => {
+    useCameraClock();
+    const { controls } = mountWithControls();
+    const listener = vi.fn();
+    const unsubscribe = controls().subscribe(listener);
+    act(() => controls().zoomIn());
+    act(() => controls().zoomIn());
+    expect(listener).not.toHaveBeenCalled();
+    nextFrame();
+    expect(listener).toHaveBeenCalledTimes(1);
+    act(() => controls().fit());
+    expect(listener).toHaveBeenCalledTimes(2);
+    unsubscribe();
+    act(() => controls().zoomIn());
+    nextFrame();
+    expect(listener).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps one stable controls object across renders', () => {
+    useCameraClock();
+    const { controls, rerender, element } = mountWithControls();
+    const first = controls();
+    act(() => first.zoomIn());
+    settleZoom();
+    rerender(element);
+    expect(controls()).toBe(first);
+  });
+
+  it('ignores the commands when there is no diagram to move', () => {
+    useCameraClock();
+    const { controls, svg, cameraRef, unmount } = mountWithControls(
+      EMPTY_SCHEMATIC_MODEL,
+    );
+    expect(svg).toBeNull();
+    expect(controls().getZoomState()).toBeNull();
+    expect(() => {
+      controls().zoomIn();
+      controls().zoomOut();
+      controls().fit();
+    }).not.toThrow();
+    unmount();
+    expect(cameraRef.current).toBeNull();
   });
 });

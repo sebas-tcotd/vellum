@@ -12,6 +12,7 @@ import { Minimap } from '../minimap/Minimap';
 import { MapTooltip } from '../overlays/MapTooltip';
 import { IconLegend } from '../panels/IconLegend';
 import { SchematicView } from '../schematic/SchematicView';
+import type { SchematicCameraControls } from '../schematic/use-schematic-camera';
 import {
   EMPTY_SCHEMATIC_MODEL,
   type SchematicNetworkModel,
@@ -76,6 +77,11 @@ export interface MapViewportProps {
   /** Filled by the camera controls so the precise zoom command can toggle its popover. */
   preciseZoomToggleRef?: React.RefObject<(() => void) | null>;
   /**
+   * Filled by the schematic surface with its camera, so the zoom and fit
+   * commands reach it and the shared camera group can read its zoom state.
+   */
+  schematicCameraRef?: React.RefObject<SchematicCameraControls | null>;
+  /**
    * The shell session, for the place card: which place is pinned, and the
    * actions that pin and clear it. Without it the map has no place card.
    */
@@ -111,6 +117,7 @@ export function MapViewport({
   subscribeServiceIconLegendRef,
   iconLegendToggleRef,
   preciseZoomToggleRef,
+  schematicCameraRef,
   shell,
   children,
 }: MapViewportProps) {
@@ -166,6 +173,19 @@ export function MapViewport({
   const setZoom = useCallback((zoom: number) => {
     portRef.current?.setZoom(zoom);
   }, []);
+  // The schematic's camera answers through the same group. Wrappers read the
+  // ref at call time, like the map's, so the group never re-subscribes on a
+  // parent render.
+  const getSchematicZoomState = useCallback(
+    () => schematicCameraRef?.current?.getZoomState() ?? null,
+    [schematicCameraRef],
+  );
+  const subscribeSchematicZoom = useCallback(
+    (cb: () => void) =>
+      schematicCameraRef?.current?.subscribe(cb) ?? (() => {}),
+    [schematicCameraRef],
+  );
+  const ignoreZoom = useCallback(() => {}, []);
   const navigateTo = useCallback((lng: number, lat: number) => {
     portRef.current?.navigateTo(lng, lat);
   }, []);
@@ -392,6 +412,13 @@ export function MapViewport({
   // Clean view; the geographic overlays never show there.
   const showTools = cityData !== null && (!isCleanView || isSchematic);
   const showOverlays = cityData !== null && !isCleanView && !isSchematic;
+  // The schematic has a camera to drive only while a diagram is on screen: an
+  // empty city or an empty selection shows a message, not a surface to zoom.
+  const showSchematicCamera =
+    isSchematic &&
+    !isCleanView &&
+    schematicModel.hasDrawableNetwork &&
+    !schematicModel.isFilteredEmpty;
   const schematicCommand = commands['view.schematic'];
 
   // Focus follows the switch: into the schematic region on entry, back to the
@@ -473,6 +500,9 @@ export function MapViewport({
                 ref={schematicRegionRef}
                 model={schematicModel}
                 hoveredLineId={hoveredSchematicLineId}
+                {...(schematicCameraRef
+                  ? { cameraRef: schematicCameraRef }
+                  : {})}
                 onBack={() => schematicCommand.execute()}
                 onShowAllModes={() => onShowAllSchematicModes?.()}
               />
@@ -507,25 +537,41 @@ export function MapViewport({
                 </button>
               </div>
             </div>
-            {showOverlays && (
+            {(showOverlays || showSchematicCamera) && (
               <div className="map-tools__navigation">
-                <CameraControlGroup
-                  commands={commands}
-                  bearing={bearing}
-                  getZoomState={getZoomState}
-                  subscribeZoom={subscribeZoom}
-                  onZoomChange={setZoom}
-                  {...(preciseZoomToggleRef
-                    ? { toggleRef: preciseZoomToggleRef }
-                    : {})}
-                />
-                <Minimap
-                  cityData={cityData}
-                  palette={minimapPalette}
-                  subscribeViewport={subscribeViewport}
-                  getInitialViewportBounds={getInitialViewportBounds}
-                  navigateTo={navigateTo}
-                />
+                {showSchematicCamera ? (
+                  // Same group, classes and icons as the map's; no compass
+                  // (nothing rotates) and no precise zoom (no popover toggle).
+                  <CameraControlGroup
+                    key="schematic"
+                    commands={commands}
+                    bearing={0}
+                    getZoomState={getSchematicZoomState}
+                    subscribeZoom={subscribeSchematicZoom}
+                    onZoomChange={ignoreZoom}
+                  />
+                ) : (
+                  <CameraControlGroup
+                    key="geographic"
+                    commands={commands}
+                    bearing={bearing}
+                    getZoomState={getZoomState}
+                    subscribeZoom={subscribeZoom}
+                    onZoomChange={setZoom}
+                    {...(preciseZoomToggleRef
+                      ? { toggleRef: preciseZoomToggleRef }
+                      : {})}
+                  />
+                )}
+                {showOverlays && (
+                  <Minimap
+                    cityData={cityData}
+                    palette={minimapPalette}
+                    subscribeViewport={subscribeViewport}
+                    getInitialViewportBounds={getInitialViewportBounds}
+                    navigateTo={navigateTo}
+                  />
+                )}
               </div>
             )}
           </MapTools>

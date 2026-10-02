@@ -6,11 +6,20 @@ import {
   type SchematicLayout,
   type SchematicPoint,
 } from '@vellum/core';
-import { Maximize } from 'lucide-react';
-import { forwardRef, memo, useCallback, useMemo, useState } from 'react';
+import {
+  forwardRef,
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import type { SchematicNetworkModel } from '../../hooks/use-schematic-network';
-import { useSchematicCamera } from './use-schematic-camera';
+import {
+  useSchematicCamera,
+  type SchematicCameraControls,
+} from './use-schematic-camera';
 
 /**
  * Station outline width at scale 1, in viewBox units. Scaled by the camera like
@@ -160,6 +169,12 @@ export interface SchematicViewProps {
    * is held back while it is set; the highlighted line keeps its own colour.
    */
   hoveredLineId?: string | null;
+  /**
+   * Filled with the camera's controls while the surface is mounted, so the
+   * shell's zoom and fit commands (and the shared camera group) reach it the
+   * way they reach the map's camera. Cleared on unmount.
+   */
+  cameraRef?: React.RefObject<SchematicCameraControls | null>;
 }
 
 /**
@@ -170,8 +185,9 @@ export interface SchematicViewProps {
  * visibility projection all come from `useSchematicNetwork` at the common
  * ancestor, which is what lets the sidebar legend and these strokes be the
  * same data rather than two computations that happen to agree. It never writes
- * to the store, the camera, the theme or the layers, has no camera of its own,
- * and draws on a solid background with no geographic layers.
+ * to the store, the theme or the layers, keeps its camera in
+ * `useSchematicCamera`, and draws on a solid background with no geographic
+ * layers.
  *
  * Labels are *placed* here rather than in the model, and that is deliberate:
  * how many names fit is a function of the camera, so the same diagram carries
@@ -192,7 +208,7 @@ export interface SchematicViewProps {
  */
 export const SchematicView = forwardRef<HTMLElement, SchematicViewProps>(
   function SchematicView(
-    { model, onBack, onShowAllModes, hoveredLineId = null },
+    { model, onBack, onShowAllModes, hoveredLineId = null, cameraRef },
     ref,
   ) {
     const { t } = useTranslation();
@@ -201,6 +217,14 @@ export const SchematicView = forwardRef<HTMLElement, SchematicViewProps>(
       layout.bounds.width,
       layout.bounds.height,
     );
+    const controls = camera.controls;
+    useEffect(() => {
+      if (!cameraRef) return;
+      cameraRef.current = controls;
+      return () => {
+        if (cameraRef.current === controls) cameraRef.current = null;
+      };
+    }, [cameraRef, controls]);
     const renderedLayout = useMemo(
       () => rematerializeSchematicLayout(layout, camera.visualScale),
       [layout, camera.visualScale],
@@ -344,15 +368,6 @@ export const SchematicView = forwardRef<HTMLElement, SchematicViewProps>(
                 onSelectStation={selectStation}
               />
             </svg>
-            <button
-              type="button"
-              className="schematic-view__fit"
-              onClick={camera.fit}
-              aria-label={t('schematic.fit')}
-              title={t('schematic.fit')}
-            >
-              <Maximize aria-hidden="true" />
-            </button>
           </>
         )}
       </section>

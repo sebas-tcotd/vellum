@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { act, fireEvent, render, screen } from '../../test-utils';
+import { act, cleanup, fireEvent, render, screen } from '../../test-utils';
 import { CameraControlGroup } from './CameraControlGroup';
 import type { CommandRegistry } from '../../shell/commands';
 import type { MapZoomState } from '@vellum/core';
@@ -326,5 +326,72 @@ describe('camera controls', () => {
     expect(
       screen.getByRole('slider', { name: 'camera.zoomSlider' }),
     ).toHaveValue('10');
+  });
+});
+
+describe('camera controls at the ends of the zoom range', () => {
+  const renderWith = (zoomState: MapZoomState | null) => {
+    const { commands } = makeCommands();
+    render(
+      <CameraControlGroup
+        commands={commands}
+        bearing={0}
+        getZoomState={() => zoomState}
+        subscribeZoom={noZoomSubscription}
+        onZoomChange={() => {}}
+      />,
+    );
+    return {
+      zoomIn: screen.getByRole('button', { name: 'camera.zoomIn' }),
+      zoomOut: screen.getByRole('button', { name: 'camera.zoomOut' }),
+      fit: screen.getByRole('button', { name: 'camera.fitCity' }),
+    };
+  };
+
+  it('disables + at the maximum and leaves - and fit active', () => {
+    const { zoomIn, zoomOut, fit } = renderWith({ zoom: 10, min: 2, max: 10 });
+    expect(zoomIn).toBeDisabled();
+    expect(zoomOut).toBeEnabled();
+    expect(fit).toBeEnabled();
+  });
+
+  it('disables - at the minimum and leaves + and fit active', () => {
+    const { zoomIn, zoomOut, fit } = renderWith({ zoom: 2, min: 2, max: 10 });
+    expect(zoomOut).toBeDisabled();
+    expect(zoomIn).toBeEnabled();
+    expect(fit).toBeEnabled();
+  });
+
+  it('keeps both enabled between the ends, or before a state is reported', () => {
+    for (const state of [{ zoom: 5, min: 2, max: 10 }, null]) {
+      const { zoomIn, zoomOut } = renderWith(state);
+      expect(zoomIn).toBeEnabled();
+      expect(zoomOut).toBeEnabled();
+      cleanup();
+    }
+  });
+
+  it('follows the camera as it reaches an end', () => {
+    const { commands } = makeCommands();
+    let state: MapZoomState = { zoom: 5, min: 2, max: 10 };
+    const listeners = new Set<() => void>();
+    render(
+      <CameraControlGroup
+        commands={commands}
+        bearing={0}
+        getZoomState={() => state}
+        subscribeZoom={(cb) => {
+          listeners.add(cb);
+          return () => listeners.delete(cb);
+        }}
+        onZoomChange={() => {}}
+      />,
+    );
+    expect(screen.getByRole('button', { name: 'camera.zoomIn' })).toBeEnabled();
+    state = { zoom: 10, min: 2, max: 10 };
+    act(() => listeners.forEach((cb) => cb()));
+    expect(
+      screen.getByRole('button', { name: 'camera.zoomIn' }),
+    ).toBeDisabled();
   });
 });
