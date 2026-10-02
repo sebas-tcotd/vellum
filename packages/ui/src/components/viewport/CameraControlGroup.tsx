@@ -4,9 +4,15 @@ import { Compass, Maximize, Minus, Plus } from 'lucide-react';
 import type { CommandRegistry } from '../../shell/commands';
 import type { MapZoomState } from '@vellum/core';
 
+/** Float noise from a camera that clamps by arithmetic is not "room left". */
+const ZOOM_EPSILON = 1e-6;
+
 export interface CameraControlGroupProps {
   commands: CommandRegistry;
-  /** Current map bearing. Reset north is offered only when the map is rotated. */
+  /**
+   * Current map bearing. Reset north is offered only when the map is rotated,
+   * so the schematic passes 0.
+   */
   bearing: number;
   getZoomState: () => MapZoomState | null;
   subscribeZoom: (callback: () => void) => () => void;
@@ -82,6 +88,13 @@ export function CameraControlGroup({
       Icon: Maximize,
     },
   ];
+  // At either end of the range the button would do nothing, so it says so.
+  // The state is optional while the camera has not reported one yet.
+  const atLimit = (id: string) =>
+    zoomState !== null &&
+    ((id === 'view.zoomIn' && zoomState.zoom >= zoomState.max - ZOOM_EPSILON) ||
+      (id === 'view.zoomOut' &&
+        zoomState.zoom <= zoomState.min + ZOOM_EPSILON));
   const isZoomButton = (id: string) =>
     id === 'view.zoomIn' || id === 'view.zoomOut';
 
@@ -102,7 +115,7 @@ export function CameraControlGroup({
             // that appears on hover *and* on keyboard focus.
             aria-label={label}
             title={label}
-            disabled={!command.canExecute}
+            disabled={!command.canExecute || atLimit(command.id)}
             {...(isZoomButton(command.id)
               ? { 'aria-haspopup': 'dialog' as const }
               : {})}

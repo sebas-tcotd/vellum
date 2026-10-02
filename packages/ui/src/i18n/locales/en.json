@@ -244,7 +244,6 @@
     "filteredTitle": "No lines shown",
     "filteredBody": "Every available transport mode is switched off, so the diagram has nothing to draw.",
     "showAllModes": "Show all modes",
-    "fit": "Fit diagram",
     "details": "Diagram details"
   },
   "schematicSidebar": {

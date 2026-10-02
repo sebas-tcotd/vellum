@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppSurface } from './components/AppSurface';
 import type { SchematicLayoutClientPort } from './hooks/use-schematic-network';
+import type { SchematicCameraControls } from './components/schematic/use-schematic-camera';
 import { initI18n } from './i18n/i18n-setup';
 import { loadPersistedPreferences } from './store/preferences-store';
 import { useKeyboardShortcuts } from './hooks/use-keyboard-shortcuts';
@@ -167,6 +168,7 @@ export function App({
   >(null);
   const iconLegendToggleRef = useRef<(() => void) | null>(null);
   const preciseZoomToggleRef = useRef<(() => void) | null>(null);
+  const schematicCameraRef = useRef<SchematicCameraControls | null>(null);
   const syncActiveLanguage = useVellumStore((s) => s.syncActiveLanguage);
   const hydratePreferences = useVellumStore((s) => s.hydratePreferences);
   const cityData = useVellumStore((s) => s.cityData);
@@ -255,12 +257,29 @@ export function App({
   // per-city session: view mode, schematic context and the pinned place.
   useResetSessionOnCityChange(cityData, shellDispatch);
 
+  // One command, two cameras: the schematic surface registers its own while it
+  // is on screen, and the map keeps its renderer refs.
   const handleFitToScreen = useCallback(
-    () => fitToScreenRef.current?.(),
-    [fitToScreenRef],
+    () =>
+      isSchematicView
+        ? schematicCameraRef.current?.fit()
+        : fitToScreenRef.current?.(),
+    [fitToScreenRef, isSchematicView],
   );
-  const handleZoomIn = useCallback(() => zoomInRef.current?.(), [zoomInRef]);
-  const handleZoomOut = useCallback(() => zoomOutRef.current?.(), [zoomOutRef]);
+  const handleZoomIn = useCallback(
+    () =>
+      isSchematicView
+        ? schematicCameraRef.current?.zoomIn()
+        : zoomInRef.current?.(),
+    [zoomInRef, isSchematicView],
+  );
+  const handleZoomOut = useCallback(
+    () =>
+      isSchematicView
+        ? schematicCameraRef.current?.zoomOut()
+        : zoomOutRef.current?.(),
+    [zoomOutRef, isSchematicView],
+  );
   const handleHidePanel = useCallback(
     (invoker?: string) =>
       shellDispatch({
@@ -566,6 +585,7 @@ export function App({
       subscribeServiceIconLegendRef={subscribeServiceIconLegendRef}
       iconLegendToggleRef={iconLegendToggleRef}
       preciseZoomToggleRef={preciseZoomToggleRef}
+      schematicCameraRef={schematicCameraRef}
       exportWorkflow={exportWorkflow}
       commands={commands}
       shell={shell}

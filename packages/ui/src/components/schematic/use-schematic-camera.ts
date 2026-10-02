@@ -1,8 +1,29 @@
 import {
   SCHEMATIC_PRESENTATION_SCALE_MAX,
   SCHEMATIC_PRESENTATION_SCALE_MIN,
+  type MapZoomState,
 } from '@vellum/core';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+
+/**
+ * What the shell reaches the schematic camera through: the same three actions
+ * the map's camera answers (`view.zoomIn`, `view.zoomOut`, `view.fitCity`) plus
+ * the zoom state the shared control group needs to disable + and − at the ends.
+ * Identity is stable for the life of the camera, so it is registered once.
+ */
+export interface SchematicCameraControls {
+  readonly zoomIn: () => void;
+  readonly zoomOut: () => void;
+  readonly fit: () => void;
+  /**
+   * Synthetic zoom state in octaves of the room the wheel still has: `zoom` is
+   * the room left to zoom *out*, `max` the whole range and `min` 0. So
+   * `zoom === max` is exactly "the wheel would no longer zoom in".
+   */
+  readonly getZoomState: () => MapZoomState | null;
+  /** Called once per written frame and on every fit. Returns the unsubscribe. */
+  readonly subscribe: (callback: () => void) => () => void;
+}
 
 export interface SchematicCamera {
   /**
@@ -29,6 +50,7 @@ export interface SchematicCamera {
   readonly onPointerUp: (event: React.PointerEvent<SVGSVGElement>) => void;
   readonly onPointerCancel: (event: React.PointerEvent<SVGSVGElement>) => void;
   readonly fit: () => void;
+  readonly controls: SchematicCameraControls;
 }
 
 type Box = SchematicCamera['viewBox'];
@@ -45,6 +67,14 @@ const VISUAL_SCALE_MAX = SCHEMATIC_PRESENTATION_SCALE_MAX;
  * between ticks of a continuous scroll, short enough to read as immediate.
  */
 export const ZOOM_SETTLE_MS = 160;
+/** Step of the zoom buttons and shortcuts; the wheel keeps its finer 1.18. */
+const BUTTON_ZOOM_FACTOR = 1.5;
+const WHEEL_ZOOM_FACTOR = 1.18;
+/** The wheel's own zoom limits, per dimension: 4 % of the diagram to 4× it. */
+const zoomLimits = (width: number, height: number) => ({
+  min: Math.min(width, height) * 0.04,
+  max: Math.max(width, height) * 4,
+});
 /** Quarter-octave steps: every zoom step is one label pass, at any depth. */
 const quantizeVisualScale = (base: Box, current: Box): number => {
   const raw = Math.sqrt(
@@ -102,9 +132,18 @@ export function useSchematicCamera(
     null,
   );
 
+  /** Latest diagram size, so the stable controls never close over a stale one. */
+  const dims = useRef({ width, height, safeWidth, safeHeight });
+  dims.current = { width, height, safeWidth, safeHeight };
+  const listeners = useRef(new Set<() => void>());
+  const notify = useCallback(() => {
+    for (const listener of [...listeners.current]) listener();
+  }, []);
+
   const write = useCallback(() => {
     svg.current?.setAttribute('viewBox', toAttribute(live.current));
-  }, []);
+    notify();
+  }, [notify]);
   const cancelFrame = useCallback(() => {
     if (frame.current === null) return;
     cancelAnimationFrame(frame.current);
@@ -172,27 +211,28 @@ export function useSchematicCamera(
     [cancelFrame, cancelSettle],
   );
 
-  const onWheel = useCallback(
-    (event: React.WheelEvent<SVGSVGElement>) => {
-      event.preventDefault();
-      const rect = event.currentTarget.getBoundingClientRect();
-      if (rect.width <= 0 || rect.height <= 0) return;
+  /**
+   * One zoom for the wheel, the buttons and the shortcuts: scales the live box
+   * by `factor` (< 1 zooms in) keeping the diagram point `(pointX, pointY)`
+   * fixed, within the wheel's limits. A step that moves nothing — already at
+   * the limit — is dropped, so it neither writes nor arms a settle.
+   */
+  const applyZoom = useCallback(
+    (factor: number, pointX: number, pointY: number) => {
       const box = live.current;
-      const pointX =
-        ((event.clientX - rect.left) / rect.width) * box.width + box.x;
-      const pointY =
-        ((event.clientY - rect.top) / rect.height) * box.height + box.y;
-      const factor = event.deltaY > 0 ? 1.18 : 1 / 1.18;
-      const min = Math.min(width, height) * 0.04;
-      const max = Math.max(width, height) * 4;
+      const { min, max } = zoomLimits(dims.current.width, dims.current.height);
       const nextWidth = Math.min(max, Math.max(min, box.width * factor));
       const nextHeight = Math.min(max, Math.max(min, box.height * factor));
-      live.current = {
+      const next = {
         x: pointX - ((pointX - box.x) / box.width) * nextWidth,
         y: pointY - ((pointY - box.y) / box.height) * nextHeight,
         width: nextWidth,
         height: nextHeight,
       };
+      // Size alone decides: at a limit the anchored position can still drift by
+      // a float ulp, and that is not a zoom.
+      if (next.width === box.width && next.height === box.height) return;
+      live.current = next;
       schedule();
       cancelSettle();
       settle.current = setTimeout(() => {
@@ -203,20 +243,83 @@ export function useSchematicCamera(
         }
         flush();
         commit(
-          quantizeVisualScale(padded(safeWidth, safeHeight), live.current),
+          quantizeVisualScale(
+            padded(dims.current.safeWidth, dims.current.safeHeight),
+            live.current,
+          ),
         );
       }, ZOOM_SETTLE_MS);
     },
-    [
-      cancelSettle,
-      commit,
-      flush,
-      height,
-      safeHeight,
-      safeWidth,
-      schedule,
-      width,
-    ],
+    [cancelSettle, commit, flush, schedule],
+  );
+  const onWheel = useCallback(
+    (event: React.WheelEvent<SVGSVGElement>) => {
+      event.preventDefault();
+      const rect = event.currentTarget.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return;
+      const box = live.current;
+      applyZoom(
+        event.deltaY > 0 ? WHEEL_ZOOM_FACTOR : 1 / WHEEL_ZOOM_FACTOR,
+        ((event.clientX - rect.left) / rect.width) * box.width + box.x,
+        ((event.clientY - rect.top) / rect.height) * box.height + box.y,
+      );
+    },
+    [applyZoom],
+  );
+  /** Buttons and shortcuts zoom about the centre of what is on screen. */
+  const zoomAboutCenter = useCallback(
+    (factor: number) => {
+      // Without a mounted diagram (empty or filtered network) there is nothing
+      // to zoom; the command must not move a camera no one can see.
+      if (!svg.current) return;
+      const box = live.current;
+      applyZoom(factor, box.x + box.width / 2, box.y + box.height / 2);
+    },
+    [applyZoom],
+  );
+  const zoomIn = useCallback(
+    () => zoomAboutCenter(1 / BUTTON_ZOOM_FACTOR),
+    [zoomAboutCenter],
+  );
+  const zoomOut = useCallback(
+    () => zoomAboutCenter(BUTTON_ZOOM_FACTOR),
+    [zoomAboutCenter],
+  );
+  const getZoomState = useCallback((): MapZoomState | null => {
+    if (!svg.current) return null;
+    const box = live.current;
+    const { min, max } = zoomLimits(dims.current.width, dims.current.height);
+    // The wheel clamps each dimension on its own, so it stops only once both
+    // have: the room left either way is that of the freer dimension.
+    const out = Math.max(
+      0,
+      Math.log2(max / box.width),
+      Math.log2(max / box.height),
+    );
+    const inward = Math.max(
+      0,
+      Math.log2(box.width / min),
+      Math.log2(box.height / min),
+    );
+    return { zoom: out, min: 0, max: out + inward };
+  }, []);
+  const subscribe = useCallback((callback: () => void) => {
+    listeners.current.add(callback);
+    return () => {
+      listeners.current.delete(callback);
+    };
+  }, []);
+  const fitRef = useRef(fit);
+  fitRef.current = fit;
+  const controls = useMemo<SchematicCameraControls>(
+    () => ({
+      zoomIn,
+      zoomOut,
+      fit: () => fitRef.current(),
+      getZoomState,
+      subscribe,
+    }),
+    [getZoomState, subscribe, zoomIn, zoomOut],
   );
   const onPointerDown = useCallback(
     (event: React.PointerEvent<SVGSVGElement>) => {
@@ -279,5 +382,6 @@ export function useSchematicCamera(
     onPointerUp,
     onPointerCancel: onPointerUp,
     fit,
+    controls,
   };
 }
