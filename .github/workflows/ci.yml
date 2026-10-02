@@ -185,6 +185,22 @@ jobs:
     with:
       frontend_artifact: true
 
+  msix-packaging:
+    name: Windows MSIX packaging tests
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup-vellum
+        with:
+          os: windows-latest
+          rust: 'false'
+          linux-deps: 'false'
+      - run: pnpm install --frozen-lockfile
+      - name: Exercise PowerShell and the real Windows SDK
+        env:
+          REQUIRE_MSIX_SDK: '1'
+        run: pnpm exec vitest run --config vitest.scripts.config.mjs scripts/package-msix.test.mjs
+
   compile-matrix:
     name: Compile Check ${{ matrix.platform }}
     needs: detect-changes
@@ -227,6 +243,7 @@ jobs:
     needs:
       - detect-changes
       - repository-checks
+      - msix-packaging
       - js-quality
       - rust-quality
       - build-frontend
@@ -235,6 +252,11 @@ jobs:
       - landing-quality
     runs-on: ubuntu-latest
     steps:
+      - name: Require Windows MSIX packaging tests
+        env:
+          MSIX_RESULT: ${{ needs.msix-packaging.result }}
+        run: test "$MSIX_RESULT" = success
+
       - uses: actions/checkout@v6
 
       - uses: actions/setup-node@v7
