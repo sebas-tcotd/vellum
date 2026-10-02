@@ -3,21 +3,38 @@ use std::collections::{HashMap, VecDeque};
 
 use super::super::utils::{attr_str, rgba_to_hex};
 
-pub fn parse_transit_mode(s: &str) -> crate::city_data::TransitMode {
+/// Maps the game's `TransportType` name, and the class level of the line's
+/// prefab when the source has it, to a [`TransitMode`].
+///
+/// `class_level` is `ItemClass.Level` as an integer (`0` = `Level1`), written
+/// by Bridge from `transit` 1.2. It only splits the transport types the game
+/// shares between a city line and an intercity one: `Ship` (`0` passenger
+/// ship, `1` ferry), `Airplane` (`0` passenger plane, `1` blimp) and `Bus`
+/// (`2` intercity bus). Without a level, or with one not listed here, the
+/// mapping is the one older sources always had: `Ferry`, `Blimp` and `Bus`.
+///
+/// [`TransitMode`]: crate::city_data::TransitMode
+pub fn parse_transit_mode(s: &str, class_level: Option<u32>) -> crate::city_data::TransitMode {
     use crate::city_data::TransitMode;
-    match s {
-        "Bus" | "EvacuationBus" => TransitMode::Bus,
-        "Tram" => TransitMode::Tram,
-        "Train" => TransitMode::Train,
-        "Metro" => TransitMode::Metro,
-        "CableCar" => TransitMode::CableCar,
-        "Monorail" => TransitMode::Monorail,
-        "Ferry" | "Ship" => TransitMode::Ferry,
-        "Blimp" | "Airplane" => TransitMode::Blimp,
-        "Trolleybus" => TransitMode::Trolleybus,
-        "Pedestrian" => TransitMode::WalkingTour,
-        "TouristBus" => TransitMode::SightseeingBus,
-        "HotAirBalloon" => TransitMode::HotAirBalloon,
+    match (s, class_level) {
+        ("Ship", Some(0)) => TransitMode::PassengerShip,
+        ("Airplane", Some(0)) => TransitMode::Airplane,
+        ("Bus", Some(2)) => TransitMode::IntercityBus,
+        ("Bus", _) => TransitMode::Bus,
+        ("EvacuationBus", _) => TransitMode::EvacuationBus,
+        ("Tram", _) => TransitMode::Tram,
+        ("Train", _) => TransitMode::Train,
+        ("Metro", _) => TransitMode::Metro,
+        ("CableCar", _) => TransitMode::CableCar,
+        ("Monorail", _) => TransitMode::Monorail,
+        ("Ferry" | "Ship", _) => TransitMode::Ferry,
+        ("Blimp" | "Airplane", _) => TransitMode::Blimp,
+        ("Trolleybus", _) => TransitMode::Trolleybus,
+        ("Pedestrian", _) => TransitMode::WalkingTour,
+        ("TouristBus", _) => TransitMode::SightseeingBus,
+        ("HotAirBalloon", _) => TransitMode::HotAirBalloon,
+        ("Helicopter", _) => TransitMode::Helicopter,
+        ("Taxi", _) => TransitMode::Taxi,
         _ => TransitMode::Unknown,
     }
 }
@@ -45,6 +62,8 @@ pub(crate) struct RawTransitLine {
     pub(crate) id: String,
     pub(crate) name: String,
     pub(crate) transport_type: String,
+    /// `ItemClass.Level` of the line's prefab (native documents, transit 1.2).
+    pub(crate) class_level: Option<u32>,
     pub(crate) color: String,
     pub(crate) stops: Vec<RawTransitStop>,
     pub(crate) route: Vec<String>,
@@ -173,6 +192,7 @@ impl TransitBuilder {
             id,
             name,
             transport_type: mode_str,
+            class_level: None,
             color,
             stops: std::mem::take(&mut self.current_stops),
             route: all_seg_ids,
@@ -189,21 +209,93 @@ mod tests {
     #[test]
     fn tour_transport_types_map_to_tour_modes() {
         assert!(matches!(
-            parse_transit_mode("Pedestrian"),
+            parse_transit_mode("Pedestrian", None),
             TransitMode::WalkingTour
         ));
         assert!(matches!(
-            parse_transit_mode("TouristBus"),
+            parse_transit_mode("TouristBus", None),
             TransitMode::SightseeingBus
         ));
         assert!(matches!(
-            parse_transit_mode("HotAirBalloon"),
+            parse_transit_mode("HotAirBalloon", None),
             TransitMode::HotAirBalloon
         ));
     }
 
     #[test]
     fn unrecognized_transport_type_falls_back_to_unknown() {
-        assert!(matches!(parse_transit_mode("Taxi"), TransitMode::Unknown));
+        assert!(matches!(
+            parse_transit_mode("Post", None),
+            TransitMode::Unknown
+        ));
+    }
+
+    #[test]
+    fn airplane_transit_mode_maps_to_blimp() {
+        // Without a class level (`.cslmap`, `transit` before 1.2) nothing changes.
+        assert!(matches!(
+            parse_transit_mode("Airplane", None),
+            TransitMode::Blimp
+        ));
+        assert!(matches!(
+            parse_transit_mode("Ship", None),
+            TransitMode::Ferry
+        ));
+        assert!(matches!(parse_transit_mode("Bus", None), TransitMode::Bus));
+    }
+
+    #[test]
+    fn class_level_splits_city_and_intercity_lines() {
+        let cases = [
+            ("Ship", 0, "PassengerShip"),
+            ("Ship", 1, "Ferry"),
+            ("Airplane", 0, "Airplane"),
+            ("Airplane", 1, "Blimp"),
+            ("Bus", 0, "Bus"),
+            ("Bus", 2, "IntercityBus"),
+            ("Metro", 0, "Metro"),
+        ];
+        for (transport_type, level, want) in cases {
+            let mode = parse_transit_mode(transport_type, Some(level));
+            assert_eq!(format!("{mode:?}"), want, "{transport_type} level {level}");
+        }
+    }
+
+    #[test]
+    fn unexpected_class_level_keeps_the_old_mapping() {
+        for level in [3, 4, 255] {
+            assert!(matches!(
+                parse_transit_mode("Ship", Some(level)),
+                TransitMode::Ferry
+            ));
+            assert!(matches!(
+                parse_transit_mode("Airplane", Some(level)),
+                TransitMode::Blimp
+            ));
+        }
+        assert!(matches!(
+            parse_transit_mode("Bus", Some(1)),
+            TransitMode::Bus
+        ));
+    }
+
+    #[test]
+    fn out_of_scale_transport_types_are_their_own_modes() {
+        assert!(matches!(
+            parse_transit_mode("Helicopter", None),
+            TransitMode::Helicopter
+        ));
+        assert!(matches!(
+            parse_transit_mode("EvacuationBus", None),
+            TransitMode::EvacuationBus
+        ));
+        assert!(matches!(
+            parse_transit_mode("Taxi", None),
+            TransitMode::Taxi
+        ));
+        assert!(matches!(
+            parse_transit_mode("EvacuationBus", Some(0)),
+            TransitMode::EvacuationBus
+        ));
     }
 }

@@ -9,6 +9,7 @@ import {
   deriveTransitNetwork,
   geographicSchematicLayout,
   octilinearSchematicLayout,
+  TOUR_TRANSIT_MODES,
   type SchematicLayoutStrategy,
 } from '@vellum/core';
 import { cleanup, render, screen, act } from '../test-utils';
@@ -244,7 +245,9 @@ describe('AppSurface — switching schematic layout', () => {
       // two geometries can never be drawn at once.
       expect(screen.getAllByTestId('schematic-view')).toHaveLength(1);
       // Mode filters are semantic, not geometric, so they are shared on purpose.
-      expect(session.state.schematic.hiddenModes).toEqual([]);
+      expect(session.state.schematic.hiddenModes).toEqual([
+        ...TOUR_TRANSIT_MODES,
+      ]);
       expect(session.state.schematic.width).toBe(300);
     }
 

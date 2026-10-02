@@ -731,6 +731,11 @@
                 "type": "string",
                 "description": "TransportInfo.TransportType name (Bus, Metro, Ship, …)."
               },
+              "classLevel": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Optional, transit 1.2. ItemClass.Level of the line's prefab as an integer (0 = Level1). Separates the city and intercity lines the game gives one transportType: Ship (0 passenger ship, 1 ferry), Airplane (0 passenger plane, 1 blimp), Bus (2 intercity bus). Absent or another value: Ship is a ferry, Airplane a blimp, Bus a bus."
+              },
               "color": {
                 "type": "string",
                 "pattern": "^#[0-9A-F]{8}$",

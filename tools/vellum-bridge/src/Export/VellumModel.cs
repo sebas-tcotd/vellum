@@ -84,6 +84,10 @@ namespace VellumBridge.Export
         public int sourceId;
         public string name;
         public string transportType;
+        // ItemClass.Level del prefab de la línea como entero (0 = Level1); -1 si no se pudo leer.
+        // Se escribe como `classLevel` (transit 1.2): separa barco de pasajeros y ferry, avión y
+        // dirigible, bus interurbano y bus, que el juego exporta con el mismo transportType.
+        public int classLevel = -1;
         public byte r, g, b, alpha;        // displayColor
         public List<StopModel> stops = new List<StopModel>();
         public List<int> route = new List<int>();

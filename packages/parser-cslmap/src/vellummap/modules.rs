@@ -132,6 +132,16 @@ pub(crate) struct TransitLineDoc {
     pub(crate) name: String,
     /// The game's `TransportInfo.TransportType` name (`Bus`, `Metro`, `Ship`, …).
     pub(crate) transport_type: String,
+    /// Module `1.2`: `ItemClass.Level` of the line's prefab as an integer
+    /// (`0` = `Level1`). It separates the city and intercity lines the game
+    /// gives one `transportType` (`Ship`, `Airplane`, `Bus`). Absent: the
+    /// mapping older documents always had.
+    #[serde(
+        default,
+        deserialize_with = "non_null",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub(crate) class_level: Option<u32>,
     /// Visible line color, `#RRGGBBAA` uppercase.
     pub(crate) color: String,
     pub(crate) stops: Vec<TransitStopDoc>,

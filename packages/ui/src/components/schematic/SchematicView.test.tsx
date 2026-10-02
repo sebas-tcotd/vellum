@@ -832,3 +832,139 @@ describe('SchematicView — camera controls', () => {
     expect(cameraRef.current).toBeNull();
   });
 });
+
+// Story 4.7: the visual hierarchy is drawn from each stroke's tier and mode.
+describe('SchematicView — urban importance', () => {
+  /** One straight corridor per mode, stacked, each with its own line. */
+  const cityOf = (modes: readonly TransitMode[]) =>
+    makeCityData({
+      roadNodes: modes.flatMap((_, i) => [
+        { id: `w${i}`, position: { x: 0, y: 0, z: i * 100 } },
+        { id: `e${i}`, position: { x: 100, y: 0, z: i * 100 } },
+      ]),
+      roadSegments: modes.map((_, i) =>
+        makeRoadSegment({
+          id: `s${i}`,
+          startNodeId: `w${i}`,
+          endNodeId: `e${i}`,
+        }),
+      ),
+      transitLines: modes.map((mode, i) =>
+        makeTransitLine({
+          id: mode,
+          mode,
+          color: '#123456',
+          stops: [
+            {
+              id: `p${i}`,
+              mode,
+              position: { x: 0, y: 0, z: i * 100 },
+              name: '',
+            },
+          ],
+          route: [{ segmentIds: [`s${i}`] }],
+        }),
+      ),
+    });
+
+  const strokesOf = (
+    modes: readonly TransitMode[],
+    hidden: TransitMode[] = [],
+  ) => {
+    const model = renderHook(() =>
+      useSchematicNetwork({ cityData: cityOf(modes), hiddenModes: hidden }),
+    ).result.current;
+    const { container } = render(
+      <SchematicView
+        model={model}
+        onBack={() => {}}
+        onShowAllModes={() => {}}
+      />,
+    );
+    const strokes = [
+      ...container.querySelectorAll('.schematic-view__segments polyline'),
+    ];
+    return new Map(strokes.map((s) => [(s as SVGElement).dataset.lineId, s]));
+  };
+
+  it('thins, fades and draws under the metro the lines below it', () => {
+    const strokes = strokesOf(['Bus', 'Metro']);
+    const metro = strokes.get('Metro') as Element;
+    const bus = strokes.get('Bus') as Element;
+    expect(Number(metro.getAttribute('stroke-width'))).toBe(
+      SCHEMATIC_LINE_WIDTH,
+    );
+    expect(metro.getAttribute('opacity')).toBeNull();
+    expect(metro.getAttribute('style')).toBeNull();
+    expect(Number(bus.getAttribute('stroke-width'))).toBeCloseTo(
+      SCHEMATIC_LINE_WIDTH * 0.75,
+      9,
+    );
+    // Faded by mixing towards the background, not by `opacity`: a segment and
+    // its connector overlap at a joint and would paint darker dots.
+    expect(bus.getAttribute('opacity')).toBeNull();
+    expect((bus as SVGElement).style.stroke).toBe(
+      'color-mix(in srgb, #123456 85%, var(--color-bg))',
+    );
+    // Lowest tier first: the bus is painted before (under) the metro.
+    expect([...strokes.keys()]).toEqual(['Bus', 'Metro']);
+  });
+
+  it('draws a bus-only city at full weight', () => {
+    const bus = strokesOf(['Bus']).get('Bus') as Element;
+    expect(Number(bus.getAttribute('stroke-width'))).toBe(SCHEMATIC_LINE_WIDTH);
+    expect(bus.getAttribute('opacity')).toBeNull();
+    expect(bus.getAttribute('style')).toBeNull();
+  });
+
+  it('promotes the train when the metro is hidden', () => {
+    const train = strokesOf(['Metro', 'Train'], ['Metro']).get(
+      'Train',
+    ) as Element;
+    expect(Number(train.getAttribute('stroke-width'))).toBe(
+      SCHEMATIC_LINE_WIDTH,
+    );
+    expect(train.getAttribute('style')).toBeNull();
+  });
+
+  it('dashes a tour, with a dash measured in its own width', () => {
+    const tour = strokesOf(['WalkingTour']).get('WalkingTour') as Element;
+    const width = Number(tour.getAttribute('stroke-width'));
+    expect(tour.getAttribute('stroke-dasharray')).toBe(`${width} ${2 * width}`);
+    // Butt caps, inline so the stylesheet's round cap does not win: a round
+    // cap would add half a width to each end of every dash.
+    expect((tour as SVGElement).style.strokeLinecap).toBe('butt');
+    expect(
+      strokesOf(['Bus']).get('Bus')?.getAttribute('stroke-dasharray'),
+    ).toBeNull();
+  });
+
+  it('leaves planes and passenger ships out of the diagram', () => {
+    const strokes = strokesOf(['Bus', 'Airplane', 'PassengerShip']);
+    expect([...strokes.keys()]).toEqual(['Bus']);
+  });
+
+  it('draws a layout without tiers as it always did', () => {
+    const model = modelFor();
+    const layout = {
+      ...model.layout,
+      segments: model.layout.segments.map(({ tier: _tier, ...s }) => s),
+    };
+    const { container } = render(
+      <SchematicView
+        model={{ ...model, layout }}
+        onBack={() => {}}
+        onShowAllModes={() => {}}
+      />,
+    );
+    const stroke = container.querySelector(
+      '.schematic-view__segments polyline',
+    ) as Element;
+    expect(Number(stroke.getAttribute('stroke-width'))).toBe(
+      SCHEMATIC_LINE_WIDTH,
+    );
+    expect(stroke.getAttribute('opacity')).toBeNull();
+    expect(stroke.getAttribute('style')).toBeNull();
+    expect(stroke.getAttribute('stroke-dasharray')).toBeNull();
+  });
+});

@@ -328,6 +328,12 @@ export type SceneSymbolId =
   | 'transit-walkingtour'
   | 'transit-sightseeingbus'
   | 'transit-hotairballoon'
+  | 'transit-helicopter'
+  | 'transit-airplane'
+  | 'transit-passengership'
+  | 'transit-intercitybus'
+  | 'transit-evacuationbus'
+  | 'transit-taxi'
   | 'transit-unknown';
 
 /**

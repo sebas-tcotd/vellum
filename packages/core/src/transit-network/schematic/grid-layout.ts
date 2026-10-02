@@ -37,6 +37,7 @@ import {
   type SchematicSlot,
   type SchematicStation,
 } from './contract';
+import { routingRank, tramRoutesFirst } from './importance';
 import { turnAngle } from './offset';
 import {
   renderSchematic,
@@ -765,6 +766,8 @@ const freezeSegment = (segment: SchematicSegment): SchematicSegment =>
     color: segment.color,
     edgeId: segment.edgeId,
     points: freezePoints(segment.points),
+    ...(segment.tier === undefined ? {} : { tier: segment.tier }),
+    ...(segment.dashed === true ? { dashed: true } : {}),
   });
 
 const freezeCorridor = (corridor: SchematicCorridor): SchematicCorridor =>
@@ -787,6 +790,7 @@ const freezeStation = (station: SchematicStation): SchematicStation =>
     lineIds: Object.freeze([...station.lineIds]),
     shape: freezePoints(station.shape),
     confirmedTransfer: station.confirmedTransfer,
+    ...(station.tier === undefined ? {} : { tier: station.tier }),
   });
 
 // ─── The shared planner ──────────────────────────────────────────────────────
@@ -797,12 +801,21 @@ interface DrawableEdge {
   readonly worldPath: readonly CsPoint[];
   /** Lines that draw a stroke over this corridor, sorted. */
   readonly lineIds: readonly string[];
-  /** Total member-line weight; the routing order's primary key. */
+  /**
+   * Highest routing rank among the member lines (`./importance.ts`): the
+   * routing order's primary key since Story 4.7.
+   */
+  readonly rank: number;
+  /** Total member-line weight (line count); the routing order's second key. */
   readonly weight: number;
 }
 
 /** Collects the exact `(edge, line)` strokes the geographic strategy draws. */
 function drawableEdges(network: TransitNetwork): DrawableEdge[] {
+  // The tram rule is decided once, over the lines of the network being laid
+  // out (the city or a relayout selection), so every corridor ranks a tram
+  // the same way.
+  const tramFirst = tramRoutesFirst(network.lines.values());
   const result: DrawableEdge[] = [];
   const edges = [...network.edges.values()]
     .filter((e) => e.path.length >= 2)
@@ -817,14 +830,50 @@ function drawableEdges(network: TransitNetwork): DrawableEdge[] {
       }
     }
     if (lineIds.size === 0) continue;
+    let rank = 0;
+    for (const lineId of lineIds) {
+      const mode = network.lines.get(lineId)?.mode;
+      if (mode !== undefined)
+        rank = Math.max(rank, routingRank(mode, tramFirst));
+    }
     result.push({
       edge,
       worldPath,
       lineIds: [...lineIds].sort(byString),
+      rank,
       weight: lineIds.size,
     });
   }
   return result;
+}
+
+/**
+ * The routing order: highest rank first, then heaviest corridor, then edge
+ * id. With `'weight'`, the order from before Story 4.7 (rank ignored).
+ */
+function sortForRouting(
+  drawable: readonly DrawableEdge[],
+  order: 'importance' | 'weight' = 'importance',
+): DrawableEdge[] {
+  const byRank = order !== 'weight';
+  return [...drawable].sort(
+    (a, b) =>
+      (byRank ? b.rank - a.rank : 0) ||
+      b.weight - a.weight ||
+      byString(a.edge.id, b.edge.id),
+  );
+}
+
+/**
+ * @internal The corridor ids of `network` in the order the grid router takes
+ * them. For tests: the order is what Story 4.7 changes, and asserting it
+ * directly is sturdier than inferring it from where a route happened to bend.
+ */
+export function schematicRoutingOrder(
+  network: TransitNetwork,
+  order: 'importance' | 'weight' = 'importance',
+): readonly string[] {
+  return sortForRouting(drawableEdges(network), order).map((d) => d.edge.id);
 }
 
 /** Cumulative arc lengths of a polyline, and its total. */
@@ -884,8 +933,12 @@ export function arcFractionOf(
  *    fidelity is a property of this list, not of the routing.
  * 2. Seed the grid with the projected positions of the line graph's nodes.
  * 3. Give every node its own free cell (deterministic relocation on collision).
- * 4. Route corridors heaviest-first (then by edge id), so the busiest bundle
- *    gets the straightest run and later ones pay the occupancy penalty.
+ * 4. Route corridors most important first: the highest routing rank among
+ *    their lines (Story 4.7, `./importance.ts` — metro before train before
+ *    tram and bus), then heaviest (most lines), then edge id. The first
+ *    corridors get the straightest runs and later ones pay the occupancy
+ *    penalty, so the rails keep the straight paths a crowd of buses used to
+ *    take.
  * 5. Move every stop onto the same arc fraction of its corridor's new route,
  *    which preserves stop order along a line by construction.
  * 6. Normalise and freeze.
@@ -893,10 +946,14 @@ export function arcFractionOf(
  * @param network - The canonical topology. Its geographic geometry is read
  *   only to seed positions and to place stops along a corridor.
  * @param createGrid - The strategy's base grid.
+ * @param options - Internal: `routingOrder: 'weight'` restores the order from
+ *   before Story 4.7 (heaviest first, then id). Only the corpus evidence uses
+ *   it, to measure the new order against the old one.
  */
 export function gridSchematicLayout(
   network: TransitNetwork,
   createGrid: GridFactory,
+  options: { readonly routingOrder?: 'importance' | 'weight' } = {},
 ): SchematicLayout {
   const drawable = drawableEdges(network);
   if (drawable.length === 0) return emptySchematicLayout();
@@ -926,26 +983,59 @@ export function gridSchematicLayout(
     nodeIds.map((id) => seedById.get(id) as SchematicPoint),
   );
 
-  // ── One free cell per node. Ties break on cell index, so the choice is a
-  // function of the input and nothing else.
+  // ── Layers (Story 4.7). The diagram is laid out one routing rank at a time,
+  // highest first: a layer's nodes take their cells and its corridors route
+  // before any node of a lower layer exists, so the rails draw the map and the
+  // buses fit around them. A lower layer's node keeps the cell it snaps to
+  // even when a route above passes through it (avoiding those cells pushed San
+  // Rico's buses far off their seeds: 1743 bends against 1099); only when that
+  // cell is another node's does it relocate, and then it prefers a cell no
+  // route uses. With `routingOrder: 'weight'` there is a single layer and the
+  // order from before Story 4.7.
+  const byImportance = options.routingOrder !== 'weight';
+  const layerOfRank = (rank: number): number => (byImportance ? rank : 0);
+  const layerOfNode = new Map<string, number>();
+  for (const d of drawable) {
+    const layer = layerOfRank(d.rank);
+    for (const id of [d.edge.nodeA, d.edge.nodeB]) {
+      layerOfNode.set(id, Math.max(layerOfNode.get(id) ?? 0, layer));
+    }
+  }
+  const layers = [...new Set(drawable.map((d) => layerOfRank(d.rank)))].sort(
+    (a, b) => b - a,
+  );
+
   const cellOfNode = new Map<string, number>();
   const nodeCells = new Set<number>();
+  const occupied = new Set<number>();
   let relocatedNodes = 0;
-  for (const id of nodeIds) {
+  // One free cell per node. Ties break on cell index, so the choice is a
+  // function of the input and nothing else.
+  const placeNode = (id: string): void => {
     const seed = seedById.get(id) as SchematicPoint;
     let cell = grid.snap(seed);
     if (nodeCells.has(cell)) {
       relocatedNodes++;
       let bestCell = -1;
       let bestDist = Infinity;
+      let anyCell = -1;
+      let anyDist = Infinity;
       for (let c = 0; c < grid.cellCount; c++) {
         if (nodeCells.has(c)) continue;
         const d = dist(grid.point(c), seed);
+        if (d < anyDist) {
+          anyDist = d;
+          anyCell = c;
+        }
+        if (occupied.has(c)) continue;
         if (d < bestDist) {
           bestDist = d;
           bestCell = c;
         }
       }
+      // A cell off every route above if there is one; otherwise any free
+      // cell, as before Story 4.7.
+      if (bestCell < 0) bestCell = anyCell;
       // No free cell at all. Two nodes sharing one would draw a single symbol
       // where the network has two stations, which is a lie about the data — so
       // this fails loudly instead of degrading quietly. A grid this module
@@ -960,57 +1050,61 @@ export function gridSchematicLayout(
     }
     nodeCells.add(cell);
     cellOfNode.set(id, cell);
-  }
+  };
 
-  // ── Routing order: heaviest bundle first, then edge id.
-  const routingOrder = [...drawable].sort(
-    (a, b) => b.weight - a.weight || byString(a.edge.id, b.edge.id),
-  );
-  const occupied = new Set<number>();
+  // ── Routing order within a layer: highest rank first, then heaviest
+  // bundle, then edge id.
+  const routingOrder = sortForRouting(drawable, options.routingOrder);
   const routeByEdgeId = new Map<string, SchematicPoint[]>();
   let fallbackRoutes = 0;
 
-  for (const d of routingOrder) {
-    const from = cellOfNode.get(d.edge.nodeA) as number;
-    const to = cellOfNode.get(d.edge.nodeB) as number;
-    let cells: readonly number[];
-    if (from === to) {
-      // A ring corridor starts and ends at the same node: it needs a loop, not
-      // a path. Two steps out and a conformant walk back is the smallest one
-      // the grid can express.
-      const first = grid.neighbors(from)[0];
-      const second = first
-        ? grid.neighbors(first.cell).find((s) => s.cell !== from)
-        : undefined;
-      cells =
-        first && second
-          ? [
-              from,
-              ...grid.lineTo(from, first.cell).slice(1),
-              ...grid.lineTo(first.cell, second.cell).slice(1),
-              ...grid.lineTo(second.cell, from).slice(1),
-            ]
-          : [from, from];
-    } else {
-      const blocked = new Set(nodeCells);
-      blocked.delete(from);
-      blocked.delete(to);
-      const routed = routeOnGrid(grid, from, to, blocked, occupied);
-      if (routed === null) {
-        fallbackRoutes++;
-        cells = grid.lineTo(from, to);
-      } else {
-        cells = routed;
-      }
+  for (const layer of layers) {
+    for (const id of nodeIds) {
+      if (layerOfNode.get(id) === layer) placeNode(id);
     }
-    for (const c of cells) occupied.add(c);
-    const simplified = simplifyCellPath(grid, cells);
-    const points = simplified.map((c) => grid.point(c));
-    // A stroke needs two points even when the grammar collapsed the route.
-    routeByEdgeId.set(
-      d.edge.id,
-      points.length >= 2 ? points : [points[0], points[0]],
-    );
+    for (const d of routingOrder) {
+      if (layerOfRank(d.rank) !== layer) continue;
+      const from = cellOfNode.get(d.edge.nodeA) as number;
+      const to = cellOfNode.get(d.edge.nodeB) as number;
+      let cells: readonly number[];
+      if (from === to) {
+        // A ring corridor starts and ends at the same node: it needs a loop, not
+        // a path. Two steps out and a conformant walk back is the smallest one
+        // the grid can express.
+        const first = grid.neighbors(from)[0];
+        const second = first
+          ? grid.neighbors(first.cell).find((s) => s.cell !== from)
+          : undefined;
+        cells =
+          first && second
+            ? [
+                from,
+                ...grid.lineTo(from, first.cell).slice(1),
+                ...grid.lineTo(first.cell, second.cell).slice(1),
+                ...grid.lineTo(second.cell, from).slice(1),
+              ]
+            : [from, from];
+      } else {
+        const blocked = new Set(nodeCells);
+        blocked.delete(from);
+        blocked.delete(to);
+        const routed = routeOnGrid(grid, from, to, blocked, occupied);
+        if (routed === null) {
+          fallbackRoutes++;
+          cells = grid.lineTo(from, to);
+        } else {
+          cells = routed;
+        }
+      }
+      for (const c of cells) occupied.add(c);
+      const simplified = simplifyCellPath(grid, cells);
+      const points = simplified.map((c) => grid.point(c));
+      // A stroke needs two points even when the grammar collapsed the route.
+      routeByEdgeId.set(
+        d.edge.id,
+        points.length >= 2 ? points : [points[0], points[0]],
+      );
+    }
   }
 
   // ── Corridors with slots, in the canonical order: edge id. The slots come

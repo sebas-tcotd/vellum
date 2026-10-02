@@ -30,12 +30,19 @@ const DIRS: readonly (readonly [number, number])[] = [
 ];
 
 /**
- * Cells per side. Enough room to route around occupied corridors without the
- * search space growing past what A* can cross inside its budget.
+ * Cells per side. Enough free cells between the nodes for a corridor to find
+ * a way past them, scaled with the node count up to a cap.
+ *
+ * @remarks
+ * The cap was 48 until Story 4.7. San Rico's 656 nodes ask for 112 per side,
+ * and at 48 they filled 28% of the cells: 472 nodes were relocated and 569 of
+ * 987 corridors found no way through the node cells, so they fell back to a
+ * straight line. At 112 that drops to 52 fallbacks; a layout takes about
+ * 1.8 s in the worker (ADR-0007).
  */
 export const OCTILINEAR_GRID = {
   minResolution: 14,
-  maxResolution: 48,
+  maxResolution: 112,
   /** Free grid kept around the seeds' bounding box, as a fraction of its span. */
   padding: 0.18,
 } as const;

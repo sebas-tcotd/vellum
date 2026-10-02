@@ -173,6 +173,17 @@ export interface SchematicLayoutMetrics {
    * ungated: relocation is the grid doing its job, not a defect.
    */
   readonly relocatedNodes: number;
+  /**
+   * Bends per mode: interior vertices where a corridor stroke actually turns,
+   * summed over every stroke of the mode's lines, keys in mode order.
+   *
+   * @remarks
+   * Story 4.7's evidence of straightness, comparative and ungated: the
+   * routing order by urban importance is supposed to move bends from the
+   * rails onto the buses, and this is what says whether it did. Inner
+   * connections are left out — they belong to a node, not to a run.
+   */
+  readonly bendsByMode: Readonly<Record<string, number>>;
 }
 
 /** Thresholds every gate is stated in. Constants, so a gate is reproducible. */
@@ -600,6 +611,8 @@ export function measureSchematicLayout(
     }
   }
 
+  const bendsByMode = countBendsByMode(network, layout);
+
   const diag = schematicLayoutDiagnostics(layout);
   const elapsedMs = performance.now() - startedAt;
   const metrics: SchematicLayoutMetrics = Object.freeze({
@@ -638,8 +651,44 @@ export function measureSchematicLayout(
     overlappingCorridorStrokes: Object.freeze(overlappingCorridorStrokes),
     fallbackRoutes: diag?.fallbackRoutes ?? 0,
     relocatedNodes: diag?.relocatedNodes ?? 0,
+    bendsByMode,
   });
   return { metrics, elapsedMs };
+}
+
+/** Interior vertices of a polyline where its direction changes. */
+export function countBends(points: readonly SchematicPoint[]): number {
+  let bends = 0;
+  for (let i = 1; i < points.length - 1; i++) {
+    const ax = points[i].x - points[i - 1].x;
+    const ay = points[i].y - points[i - 1].y;
+    const bx = points[i + 1].x - points[i].x;
+    const by = points[i + 1].y - points[i].y;
+    const la = Math.hypot(ax, ay);
+    const lb = Math.hypot(bx, by);
+    // A repeated vertex is not a bend; neither is a straight continuation.
+    if (la < 1e-9 || lb < 1e-9) continue;
+    const cross = (ax * by - ay * bx) / (la * lb);
+    const dot = (ax * bx + ay * by) / (la * lb);
+    if (Math.abs(cross) > 1e-6 || dot < 0) bends++;
+  }
+  return bends;
+}
+
+/** {@link SchematicLayoutMetrics.bendsByMode}, deterministic key order. @internal */
+export function countBendsByMode(
+  network: TransitNetwork,
+  layout: SchematicLayout,
+): Readonly<Record<string, number>> {
+  const byMode = new Map<string, number>();
+  for (const segment of layout.segments) {
+    if (segment.edgeId === null) continue;
+    const mode = network.lines.get(segment.lineId)?.mode ?? 'Unknown';
+    byMode.set(mode, (byMode.get(mode) ?? 0) + countBends(segment.points));
+  }
+  return Object.freeze(
+    Object.fromEntries([...byMode].sort(([a], [b]) => byString(a, b))),
+  );
 }
 
 /**

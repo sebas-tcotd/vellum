@@ -4,6 +4,7 @@
       "sourceId": 4,
       "name": "Line 4",
       "transportType": "Bus",
+      "classLevel": 0,
       "color": "#FF6600FF",
       "stops": [
         {

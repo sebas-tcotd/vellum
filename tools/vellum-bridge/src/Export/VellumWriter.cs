@@ -52,7 +52,8 @@ namespace VellumBridge.Export
         // districts 1.1: población, hogares, empleos por sector y especializaciones.
         private const string PlaceDataVersion = "1.1";
         // transit 1.1: `stationId` en las paradas de un edificio de estación.
-        private const string TransitVersion = "1.1";
+        // transit 1.2: `classLevel` por línea (nivel de clase del prefab).
+        private const string TransitVersion = "1.2";
 
         // Una entrada del zip ya preparada: bytes descomprimidos, hash y codec real.
         private sealed class Entry
@@ -329,8 +330,9 @@ namespace VellumBridge.Export
             foreach (LineModel line in emitted)
             {
                 json.Open('{').Key("sourceId").Int(line.sourceId).Key("name").String(line.name ?? "")
-                    .Key("transportType").String(line.transportType)
-                    .Key("color").String("#" + Hex(line.r) + Hex(line.g) + Hex(line.b) + Hex(line.alpha))
+                    .Key("transportType").String(line.transportType);
+                if (line.classLevel >= 0) json.Key("classLevel").Int(line.classLevel);
+                json.Key("color").String("#" + Hex(line.r) + Hex(line.g) + Hex(line.b) + Hex(line.alpha))
                     .Key("stops").Open('[');
                 foreach (StopModel stop in line.stops)
                 {

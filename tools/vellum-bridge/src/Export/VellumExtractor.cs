@@ -166,6 +166,7 @@ namespace VellumBridge.Export
                     sourceId = i,
                     name = manager.GetLineName((ushort)i),
                     transportType = info.m_transportType.ToString(),
+                    classLevel = info.m_class != null ? (int)info.m_class.m_level : -1,
                     r = color.r, g = color.g, b = color.b, alpha = color.a,
                 };
 

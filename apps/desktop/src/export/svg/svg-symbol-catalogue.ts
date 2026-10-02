@@ -75,6 +75,37 @@ const SYMBOL_BODY: Readonly<Record<SceneSymbolId, string>> = Object.freeze({
   'transit-hotairballoon':
     '<path d="M12 2 C6 2 4 7 5 10 C6 13 10 15 10 17 L14 17 C14 15 18 13 19 10 C20 7 18 2 12 2 Z" fill="currentColor"/>' +
     '<rect x="10" y="19" width="4" height="3" rx="0.5" fill="currentColor"/>',
+  // Cabin under a rotor, with a tail boom.
+  'transit-helicopter':
+    '<path d="M3 4 L21 4 M12 4 L12 8" stroke="currentColor" stroke-width="1.8" fill="none"/>' +
+    '<ellipse cx="10" cy="13" rx="6" ry="5" fill="currentColor"/>' +
+    '<path d="M15 12 L22 11 M8 19 L14 19" stroke="currentColor" stroke-width="1.8" fill="none"/>',
+  // Plane seen from above: fuselage, wings and tail.
+  'transit-airplane':
+    '<path d="M12 2 L13.5 9 L22 13 L22 15 L13.5 12.5 L13 19 L16 21 L16 22 L12 21 L8 22 L8 21 L11 19 L10.5 12.5 L2 15 L2 13 L10.5 9 Z" fill="currentColor"/>',
+  // Liner hull with a funnel over a wave.
+  'transit-passengership':
+    '<path d="M3 13 L21 13 L18 19 L6 19 Z" fill="currentColor"/>' +
+    '<rect x="7" y="8" width="10" height="4" fill="currentColor"/>' +
+    '<rect x="13" y="4" width="3" height="4" fill="currentColor"/>' +
+    '<path d="M3 22 Q7 20 12 22 Q17 24 21 22" stroke="currentColor" stroke-width="1.6" fill="none"/>',
+  // Long coach body with a band of windows.
+  'transit-intercitybus':
+    '<rect x="2" y="6" width="20" height="12" rx="2" fill="currentColor"/>' +
+    '<rect x="4" y="8" width="16" height="4" rx="1" fill="#ffffff"/>' +
+    '<circle cx="7" cy="20" r="2" fill="currentColor"/>' +
+    '<circle cx="17" cy="20" r="2" fill="currentColor"/>',
+  // Bus body with a warning bar on the roof.
+  'transit-evacuationbus':
+    '<rect x="5" y="7" width="14" height="13" rx="3" fill="currentColor"/>' +
+    '<rect x="9" y="3" width="6" height="3" rx="1" fill="currentColor"/>' +
+    '<rect x="7" y="10" width="10" height="5" rx="1" fill="#ffffff"/>',
+  // Car body with a roof sign.
+  'transit-taxi':
+    '<path d="M3 13 L6 8 L18 8 L21 13 L21 18 L3 18 Z" fill="currentColor"/>' +
+    '<rect x="9" y="4" width="6" height="3" rx="1" fill="currentColor"/>' +
+    '<circle cx="7" cy="19" r="2" fill="currentColor"/>' +
+    '<circle cx="17" cy="19" r="2" fill="currentColor"/>',
   // Neutral marker for a mode the catalogue does not cover.
   'transit-unknown':
     '<circle cx="12" cy="12" r="8" fill="currentColor"/>' +

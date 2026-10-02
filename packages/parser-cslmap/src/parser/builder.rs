@@ -332,7 +332,7 @@ pub(crate) fn build_city_data(mut raw: RawCity) -> Result<CityData, VellumError>
 }
 
 fn build_transit_line(line: RawTransitLine) -> TransitLine {
-    let mode = parse_transit_mode(&line.transport_type);
+    let mode = parse_transit_mode(&line.transport_type, line.class_level);
     let stops = line
         .stops
         .into_iter()

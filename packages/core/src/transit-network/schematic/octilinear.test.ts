@@ -11,10 +11,23 @@ import { deriveTransitNetwork } from '../index';
 import { geographicSchematicLayout } from './geographic';
 import { schematicLayoutDiagnostics } from './grid-layout';
 import {
+  createOctilinearGrid,
   isOctilinearConformant,
   octilinearSchematicLayout,
   octilinearViolations,
 } from './octilinear';
+
+describe('octilinear grid size', () => {
+  it('gives a city the size of San Rico (656 nodes) 112 cells per side', () => {
+    // Story 4.7: at the old cap of 48, San Rico's corridors fell back to a
+    // straight line far more often (ADR-0007).
+    const seeds = Array.from({ length: 656 }, (_, i) => ({
+      x: (i % 26) * 100,
+      y: Math.floor(i / 26) * 100,
+    }));
+    expect(createOctilinearGrid(seeds).cellCount).toBe(112 * 112);
+  });
+});
 
 const node = (id: string, x: number, z: number): RoadNode => ({
   id,

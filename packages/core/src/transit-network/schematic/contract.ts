@@ -54,6 +54,15 @@ export interface SchematicSegment {
   readonly points: readonly SchematicPoint[];
   /** Corridor this stroke draws, or `null` for an inner connection. */
   readonly edgeId: string | null;
+  /**
+   * Visual tier of the line among the lines drawn (Story 4.7): `0` is the
+   * most important level present, and each lower level is one tier further
+   * down (`./importance.ts`). The view thins and fades a stroke by its tier.
+   * Absent on a layout from before Story 4.7, which draws at full weight.
+   */
+  readonly tier?: number;
+  /** Whether the stroke draws dashed (the Parklife tours). Absent: solid. */
+  readonly dashed?: boolean;
 }
 
 /** One resolved line slot within a schematic corridor (ADR-0004's `offsetIndex`). */
@@ -124,6 +133,12 @@ export interface SchematicStation {
    * of Story 4.3b. It is here so 4.4 does not have to re-derive it.
    */
   readonly confirmedTransfer: boolean;
+  /**
+   * Visual tier of the most important visible line that stops here (Story
+   * 4.7); the symbol's thickness along the line is scaled with it. Absent on
+   * a layout from before Story 4.7.
+   */
+  readonly tier?: number;
 }
 
 /** Output of a schematic strategy, in a fixed viewBox `0 0 width height`. */

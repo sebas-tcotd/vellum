@@ -187,6 +187,7 @@ impl Document {
                     id: line.source_id.to_string(),
                     name: line.name,
                     transport_type: line.transport_type,
+                    class_level: line.class_level,
                     color: line.color,
                     stops: line
                         .stops

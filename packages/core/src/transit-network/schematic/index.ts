@@ -56,7 +56,21 @@ export {
   deriveSchematicTransitNetwork,
   STATION_CONTRACTION_RADIUS_M,
   STATION_PART_HOP_M,
+  withoutOutOfScaleLines,
 } from './station-contraction';
+
+export {
+  isDashedTransitMode,
+  routingRank,
+  SCHEMATIC_DASH_PATTERN,
+  SCHEMATIC_TIER_OPACITY,
+  SCHEMATIC_TIER_WIDTH,
+  schematicTierStyle,
+  TRANSIT_MODE_IMPORTANCE,
+  tramRoutesFirst,
+  transitModeImportance,
+  visualTiers,
+} from './importance';
 
 export {
   GRID_ROUTER,
