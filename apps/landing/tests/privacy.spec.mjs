@@ -53,6 +53,7 @@ for (const path of ['privacy', 'privacy/']) {
           page.getByRole('heading', {
             level: 2,
             name: t.privacy[section].title,
+            exact: true,
           }),
         ).toBeVisible();
         await expect(

@@ -60,7 +60,9 @@ describe('contratos de optimización de CI', () => {
     const privacy = read('apps/landing/privacy/index.html');
     expect(privacy).toContain('data-page="privacy"');
     expect(privacy).not.toMatch(/googletagmanager|gtag\(/);
-    expect(read('apps/landing/index.html')).toContain('googletagmanager');
+    expect(read('apps/landing/index.html')).not.toMatch(
+      /googletagmanager|gtag\(/,
+    );
     expect(read('apps/landing/vite.config.ts')).toContain(
       "new URL('./privacy/index.html', import.meta.url)",
     );

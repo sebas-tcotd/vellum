@@ -4,6 +4,7 @@ import '@fontsource/cormorant-garamond/400.css';
 import '@fontsource/cormorant-garamond/500.css';
 import { App } from './App';
 import { Privacy } from './Privacy';
+import { AnalyticsConsent } from './components/AnalyticsConsent';
 import { i18nReady } from './i18n';
 import './styles.css';
 
@@ -19,6 +20,7 @@ async function bootstrap(container: HTMLElement) {
   createRoot(container).render(
     <StrictMode>
       {container.dataset.page === 'privacy' ? <Privacy /> : <App />}
+      <AnalyticsConsent privacyPage={container.dataset.page === 'privacy'} />
     </StrictMode>,
   );
 }

@@ -28,11 +28,11 @@
     },
     "website": {
       "title": "Analítica del sitio web",
-      "body": "La página principal de Vellum utiliza Google Analytics 4 para medir las visitas y el uso del sitio. Se carga al abrir la página principal. Google puede tratar cookies, identificadores, detalles del dispositivo y navegador e información de uso. Google recibe tu dirección IP mediante la conexión; según Google, Analytics utiliza las direcciones IP para obtener una ubicación aproximada y no registra ni almacena las direcciones IP individuales de usuarios en la UE, Suiza o el Reino Unido. El tratamiento en otras regiones se rige por las políticas de Google. La analítica web es independiente de la aplicación de escritorio. Esta página de privacidad no carga Google Analytics ni scripts propios de analítica. Puedes restringir las cookies en tu navegador o utilizar el complemento de inhabilitación de Google Analytics en navegadores compatibles. Bloquear solo las cookies puede no impedir todas las solicitudes de analítica."
+      "body": "La página principal de Vellum utiliza Google Analytics 4 para medir las visitas y el uso del sitio. Solo se carga después de que aceptes la analítica opcional en el aviso de consentimiento. Puedes rechazarla o cambiar tu elección en cualquier momento desde Preferencias de analítica. El consentimiento publicitario permanece denegado. Google Signals está desactivado y no hay ninguna cuenta de Google Ads vinculada. Google puede tratar cookies, identificadores, detalles del dispositivo y navegador e información de uso. Google recibe tu dirección IP mediante la conexión; según Google, Analytics utiliza las direcciones IP para obtener una ubicación aproximada y no registra ni almacena las direcciones IP individuales de usuarios en la UE, Suiza o el Reino Unido. El tratamiento en otras regiones se rige por las políticas de Google. La analítica web es independiente de la aplicación de escritorio. Esta página de privacidad no carga Google Analytics ni scripts propios de analítica. Puedes restringir las cookies en tu navegador o utilizar el complemento de inhabilitación de Google Analytics en navegadores compatibles. Bloquear solo las cookies puede no impedir todas las solicitudes de analítica."
     },
     "preferences": {
       "title": "Preferencias del sitio web",
-      "body": "El sitio guarda tus elecciones de idioma y tema en el almacenamiento local del navegador (vellum-landing-language y vellum-page-theme). Estas preferencias permanecen en tu navegador y Vellum no las envía a un servidor. Puedes borrarlas desde los controles de datos del sitio de tu navegador."
+      "body": "El sitio guarda tus elecciones de idioma y tema en el almacenamiento local del navegador (vellum-landing-language y vellum-page-theme). Estas preferencias permanecen en tu navegador y Vellum no las envía a un servidor. Puedes borrarlas desde los controles de datos del sitio de tu navegador. Tu elección de analítica se guarda localmente con la clave vellum-analytics-consent-v1. Si el almacenamiento no está disponible, solo se aplica a la página actual. Retirar la aceptación detiene la analítica futura en este sitio y elimina las cookies accesibles de Google Analytics; la página se recarga para descargar el script."
     },
     "contact": {
       "title": "Desarrollador responsable y contacto",
@@ -43,7 +43,7 @@
     "updated": "Última actualización: 1 de octubre de 2026",
     "retention": {
       "title": "Conservación y eliminación",
-      "body": "Vellum no mantiene cuentas en servidores ni copias remotas de tus ciudades, mapas, exportaciones, preferencias de escritorio o temas. Los archivos locales permanecen hasta que los eliminas. Para borrar preferencias y temas, elimina los datos locales de la aplicación; desinstalar puede eliminar los datos del paquete, pero no necesariamente los archivos que guardaste en otras ubicaciones. Borrar los datos de este sitio en el navegador elimina sus preferencias de idioma y tema. Los datos de analítica se conservan conforme a la configuración de la propiedad de Google Analytics y las políticas de Google; borrar los datos del navegador no elimina los datos de analítica que Google ya recibió."
+      "body": "Vellum no mantiene cuentas en servidores ni copias remotas de tus ciudades, mapas, exportaciones, preferencias de escritorio o temas. Los archivos locales permanecen hasta que los eliminas. Para borrar preferencias y temas, elimina los datos locales de la aplicación; desinstalar puede eliminar los datos del paquete, pero no necesariamente los archivos que guardaste en otras ubicaciones. Borrar los datos de este sitio en el navegador elimina sus preferencias de idioma y tema. La propiedad de Google Analytics está configurada para conservar los datos de eventos durante 2 meses y los datos de usuario durante 14 meses. Está activado el reinicio de la retención de datos de usuario con nueva actividad: una nueva visita puede reiniciar el plazo de 14 meses para ese identificador de usuario, por lo que no es un límite absoluto desde la primera visita. Estos plazos se aplican a los datos de usuario y evento sujetos a la configuración de retención, no a los informes agregados estándar. Borrar los datos del navegador o retirar el consentimiento no elimina los datos de analítica que Google ya recibió."
     },
     "rights": {
       "title": "Tus derechos de privacidad",
@@ -255,5 +255,15 @@
     "mit": "Licencia MIT",
     "credit": "hecho con",
     "by": "por"
+  },
+  "consent": {
+    "title": "Analítica web opcional",
+    "body": "¿Podemos utilizar Google Analytics para entender las visitas a la página principal? Puede usar cookies y tratar información del dispositivo y de uso. La analítica permanece desactivada hasta que aceptes. Rechazar no limita el sitio. Puedes cambiar tu elección en cualquier momento; la página de privacidad nunca carga Analytics.",
+    "accept": "Aceptar analítica",
+    "reject": "Rechazar analítica",
+    "settings": "Preferencias de analítica",
+    "close": "Mantener elección actual",
+    "policy": "Leer la política de privacidad",
+    "language": "es"
   }
 }

@@ -28,11 +28,11 @@
     },
     "website": {
       "title": "Website analytics",
-      "body": "The main Vellum landing page uses Google Analytics 4 to measure website visits and usage. It loads when you open the landing page. Google may process cookies, identifiers, device/browser details and usage information. Google receives your IP address through the connection; Google states that Analytics uses IP addresses to derive approximate location and does not log or store individual IP addresses from users in the EU, Switzerland or the UK. Processing elsewhere is governed by Google’s policies. Website analytics is separate from the desktop application. This privacy page does not load Google Analytics or its own analytics scripts. You can restrict cookies through your browser or use Google’s Analytics opt-out add-on in supported browsers. Blocking cookies alone may not prevent all analytics requests."
+      "body": "The main Vellum landing page uses Google Analytics 4 to measure website visits and usage. It loads only after you accept optional analytics in the consent banner. You can reject analytics or change your choice at any time using Analytics preferences. Advertising consent remains denied. Google Signals is disabled and no Google Ads account is linked. Google may process cookies, identifiers, device/browser details and usage information. Google receives your IP address through the connection; Google states that Analytics uses IP addresses to derive approximate location and does not log or store individual IP addresses from users in the EU, Switzerland or the UK. Processing elsewhere is governed by Google’s policies. Website analytics is separate from the desktop application. This privacy page does not load Google Analytics or its own analytics scripts. You can restrict cookies through your browser or use Google’s Analytics opt-out add-on in supported browsers. Blocking cookies alone may not prevent all analytics requests."
     },
     "preferences": {
       "title": "Website preferences",
-      "body": "The website stores your language and theme choices in browser local storage (vellum-landing-language and vellum-page-theme). These preferences stay in your browser and are not sent by Vellum to a server. You can clear them using your browser's site data controls."
+      "body": "The website stores your language and theme choices in browser local storage (vellum-landing-language and vellum-page-theme). These preferences stay in your browser and are not sent by Vellum to a server. You can clear them using your browser's site data controls. Your analytics choice is stored locally under vellum-analytics-consent-v1. If storage is unavailable, it applies only to the current page. Withdrawing acceptance stops future analytics on this site and removes accessible Google Analytics cookies; the page reloads to unload the tag."
     },
     "contact": {
       "title": "Responsible developer and contact",
@@ -43,7 +43,7 @@
     "updated": "Last updated: October 1, 2026",
     "retention": {
       "title": "Retention and deletion",
-      "body": "Vellum maintains no server-side accounts or copies of your cities, maps, exports, desktop preferences or themes. Local files remain until you delete them. Remove application preferences and themes by clearing the application’s local data; uninstalling may remove package data but does not necessarily delete files you saved elsewhere. Clearing this website’s browser data removes its language and theme preferences. Analytics data is retained according to the Google Analytics property settings and Google’s policies; clearing browser data does not delete analytics data already received by Google."
+      "body": "Vellum maintains no server-side accounts or copies of your cities, maps, exports, desktop preferences or themes. Local files remain until you delete them. Remove application preferences and themes by clearing the application’s local data; uninstalling may remove package data but does not necessarily delete files you saved elsewhere. Clearing this website’s browser data removes its language and theme preferences. The Google Analytics property is configured to retain event data for 2 months and user data for 14 months. Resetting user data retention on new activity is enabled: a new visit can restart the 14-month period for that user identifier, so it is not an absolute limit from the first visit. These limits apply to user- and event-level data covered by the retention settings, not standard aggregated reports. Clearing browser data or withdrawing consent does not delete analytics data already received by Google."
     },
     "rights": {
       "title": "Your privacy rights",
@@ -255,5 +255,15 @@
     "mit": "MIT License",
     "credit": "made with",
     "by": "by"
+  },
+  "consent": {
+    "title": "Optional website analytics",
+    "body": "May we use Google Analytics to understand visits to the landing page? It may use cookies and process device and usage information. Analytics stays off until you accept. Rejecting does not limit the website. You can change your choice at any time; the privacy page never loads Analytics.",
+    "accept": "Accept analytics",
+    "reject": "Reject analytics",
+    "settings": "Analytics preferences",
+    "close": "Keep current choice",
+    "policy": "Read the privacy policy",
+    "language": "en"
   }
 }
