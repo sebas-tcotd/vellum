@@ -133,7 +133,7 @@ export function MapViewport({
   const activeTheme = useVellumStore((s) => s.activeTheme);
   // The minimap paints with Canvas 2D, outside the renderer's theme pipeline,
   // so it reads the active theme's colors here instead of receiving them
-  // through `applyTheme`. Only the three it actually paints.
+  // through `applyTheme`. Only the four it actually paints.
   const minimapPalette = useMemo(() => {
     const style = mapProps.themes?.find((theme) => theme.id === activeTheme);
     return {
@@ -142,6 +142,9 @@ export function MapViewport({
       highway:
         style?.roads.highway.generic.fill ??
         DEFAULT_RENDER_STYLE_PARAMS.roads.highway.generic.fill,
+      train:
+        style?.roads.rail.train.casing ??
+        DEFAULT_RENDER_STYLE_PARAMS.roads.rail.train.casing,
     };
   }, [mapProps.themes, activeTheme]);
   const [bearing, setBearing] = useState(0);
