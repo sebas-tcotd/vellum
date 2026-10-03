@@ -21,6 +21,86 @@ las stories 4.9 y 4.10, el 2026-10-02, ADR-0008).
 
 ---
 
+## Pendiente después de v1.0 (estado al 2026-10-02)
+
+Lista consolidada de lo que falta mejorar o completar en la vista esquemática y en el dibujo de tránsito estilo LOOM/octi. No son stories: es el insumo para el sprint post-v1 y para cualquier party mode del tema. Junta las entradas abiertas de este backlog, lo diferido en las stories 4.9/4.10 y su pulido (ADR-0008), lo que dejaron sus revisiones y los costos que Sebas aceptó para cerrar v1.0.
+
+**Vara de medida:** San Rico, en octilineal y orthoradial, con `grid-model.corpus.test.ts` contra una línea base. Las cifras de partida están en ADR-0008.
+
+### A. Ruteo y grilla de la esquemática
+
+1. **Grillas adaptativas** (SSTD-2021 §4: casco convexo y _Hanan grids_ octilineales). Es lo que más falta en el orthoradial: Springvalley todavía tiene 168 pares de corredores superpuestos y San Rico 347, porque los anillos interiores tienen pocas celdas y los radios convergen. También abarataría las ciudades grandes.
+2. **El orthoradial como gramática propia:**
+   - centro conectado a 4 nodos del primer anillo (§1.9);
+   - radio interior corregido para la distancia mínima (§1.10);
+   - **arcos reales** en lugar de cuerdas (exige una primitiva curva en el contrato `SchematicSegment`, que hoy es una polilínea; ver `orthoradial.ts`).
+3. **Grilla hexalineal** (SSTD-2021 §5.1): un tercer layout esquemático sobre una grilla triangular.
+4. **Orden de ruteo por _line degree_** (OCTI-2020 §4.1, entrada 1.2): crecer desde el nodo más cargado, dentro de cada rango de importancia, en lugar de rango → peso → id.
+5. **Respaldo que afina la grilla en vez de ignorar todo** (entrada 1.5). Hoy, si la búsqueda óptima y la reintentada con la heurística ×4 fallan, se traza `lineTo`, que no respeta nada.
+6. **Modo `octilinear-geo`** (OSM-2023, entrada 1.8): las aristas cuestan según su distancia al trazado real, para que el diagrama se siga pareciendo a la ciudad.
+7. **Obstáculos en la grilla** (OCTI-2020 §6.1, Fig. 16.3): agua, parques y montañas como costo o como celda prohibida. Vellum ya tiene el agua.
+8. **Corredores en anillo** con el modelo de la 4.9: pasos usados, orden circular y puertos registrados. Hoy usan un bucle mínimo con `lineTo`.
+9. **Nodos que no se pueden dividir** (varios anillos en un mismo nodo, o una ventana sin líneas que llevar): contarlos y mostrarlos en vez de saltarlos en silencio.
+10. **Coherencia de los cruces:** una X entre diagonales cuesta 20 pasos y un cruce en una celda 2,5. Decidir si deben costar lo mismo.
+11. **Giro en nodo ponderado** por cantidad de líneas o por importancia. Hoy cuesta lo mismo por par de corredores (`octi` §4.4).
+12. **«Recalcular con las líneas visibles»** con la grilla de la ciudad completa, en vez de con la resolución de la selección (diferido de la 4.7).
+13. **Componentes por distancia** para redes muy dispersas (OSM-2023, entrada 2.8).
+
+### B. Búsqueda local y rendimiento
+
+1. **Tiempo en ciudades chicas:** la búsqueda local multiplica su layout (Villa Coronada 61 → 322 ms, Costa Tijuca 156 → 892 ms). Conviene un presupuesto proporcional al tamaño, o cortar antes cuando una pasada mejora poco.
+2. **Asignaciones en el bucle caliente:** `pricePath`, `excessOf`, `seenFrom` y la copia de `nodeCells` en `routeSettled` crean objetos por llamada.
+3. **Una sola fuente del modelo de costo:** `routeBetween` y `pricePath` lo reimplementan por separado, y una deriva entre los dos falsearía cada comparación de movimientos.
+4. **Variantes de la búsqueda:**
+   - descenso global (el mejor movimiento del mapa por iteración, como `octi`) contra el descenso por coordenadas de hoy;
+   - mover grupos de nodos;
+   - considerar la congestión (`crowdingCost`) también en la búsqueda local.
+5. **Resorte de densidad también en el greedy**, no solo en la búsqueda local: que un corredor corto con muchas paradas se alargue desde el primer ruteo.
+6. **Revisar los costos aceptados para v1.0:**
+   - rieles de San Rico +4,4 % en cambios de dirección;
+   - quiebres de bus de San Rico 665 → 727 y cruces 273 → 292;
+   - tranvía de Villa Coronada +1 (4.10);
+   - orden circular del orthoradial de Villa Coronada 0 → 1.
+
+### C. Paradas y estaciones
+
+1. **Estación en un cruce** como polígono o rectángulo orientado a sus frentes (LOOM-2019 §5, entrada 2.4), en vez de una cápsula perpendicular a un solo corredor.
+2. **Fusionar nodos cuyos frentes chocan**, con un marcador maestro elegido por ranking (LOOM-2019 §5, entrada 2.2).
+3. **Separación mínima uniforme entre estaciones** (MIXED-2022 D3): San Rico todavía tiene 3445 pares demasiado juntos en el encuadre completo.
+4. **La cuña del aeropuerto de San Rico** (estación de varias partes, 4.6), que se aceptó de forma provisional hasta después de la 4.7.
+5. **Nombres de parada derivados** desde Bridge (`TransitStop.nameDerived`), para las estaciones que hoy quedan solo con su símbolo.
+
+### D. Etiquetas
+
+1. **Lado consistente cuando la línea gira:** hoy el lado se mide contra el eje local, así que tras un giro de 90° «el mismo lado» cambia de sentido.
+2. **Etiquetado global** (Niedermann & Haunert, MIXED-2022 §2) en vez del greedy por prioridad.
+3. **Reservar espacio para las etiquetas en el layout** (NW11, WTLY12), o puntuar el etiquetado dentro de la búsqueda local, como propone la conclusión de OCTI-2020.
+
+### E. Orden de líneas y mapa geográfico (LOOM-2019)
+
+Las entradas 2.1 (frentes de nodo dinámicos), 2.3 (control de Bézier `k = 4/3(√2−1)`), 2.5 (_untangling_ y _pruning_ antes de ordenar), 2.6 (recocido simulado) y 2.7 (pesos de la versión extendida) siguen abiertas tal como se describen abajo.
+
+### F. Medición, pruebas y herramientas
+
+1. **Regresión visual** de las tres geometrías esquemáticas y del sidebar esquemático (diferido de la 4.2 y retro de la Epic 4).
+2. **Gate de corpus que corra con regularidad.** Hoy `grid-model.corpus.test.ts` solo corre con los dumps locales.
+3. **`render.ts` salta en silencio** una transición sin ranura en un corredor; debería contarla o avisar.
+4. **Prueba de `nodePassThroughs`**, que tiene semántica nueva desde la búsqueda local.
+5. **`sharedCenterlineRuns` con tolerancia** en vez de agrupar por redondeo.
+6. **Conteo de cruces en `measureSchematicLayout`** con índice espacial: hoy es O(n²).
+7. **Medir los fps** de la esquemática con DevTools (pendiente de la 4.5).
+8. **Menú y UX de la vista esquemática:**
+   - el ítem «Vista esquemática» no refleja si está activa;
+   - las marcas del menú nativo pueden desincronizarse del estado;
+   - el motivo `'schematic'` nunca llega al usuario.
+
+### G. Ideas de producto
+
+1. **Layout guiado por una forma** (MIXED-2022): dibujar la red siguiendo una silueta, por ejemplo la del lago.
+2. **Esquemática como superposición** sobre el mapa (OCTI-2020 Fig. 16.4), con el modo `octilinear-geo`.
+
+---
+
 ## 0. Lo que ya se aplicó
 
 ### ✅ 0.1 Densidad de la rejilla ortorradial (SSTD-2021 §5.2, OCTI-2020 §1.2)
