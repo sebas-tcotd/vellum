@@ -158,6 +158,7 @@ jobs:
         run: |
           dirs=()
           for doc in deflate stored filtered stations; do
+            mkdir -p "$RUNNER_TEMP/vbx/$doc"
             unzip -q "$RUNNER_TEMP/vb/$doc.vellummap" -d "$RUNNER_TEMP/vbx/$doc"
             dirs+=("$RUNNER_TEMP/vbx/$doc")
           done
