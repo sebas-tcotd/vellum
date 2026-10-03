@@ -158,20 +158,20 @@ rechaza un manifest `1.7` con un campo nuevo, y los tests de Rust, que el lector
 }
 ```
 
-| Campo                 | Obligatorio | Contenido                                                                                                                                                                                                                                        |
-| --------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `format`              | sí          | Siempre `"vellummap"`.                                                                                                                                                                                                                           |
-| `exportSchemaVersion` | sí          | Versión del documento, `MAJOR.MINOR`. `1.1` desde Bridge 0.9 (añade `city.id`); el conversor de referencia escribe `1.0`.                                                                                                                        |
-| `snapshotId`          | sí          | ID único de esta exportación (Bridge: un UUID).                                                                                                                                                                                                  |
-| `parentSnapshotId`    | no          | `snapshotId` de la exportación anterior de la misma partida (Bridge 0.9). Permite representar ramas del historial (ver abajo).                                                                                                                   |
-| `exportedAtUtc`       | sí          | Momento de la exportación en RFC 3339 UTC: `T` y `Z` en mayúscula, sin offset (`2026-06-10T17:35:58Z`, fracción de segundo opcional). Obligatorio y validado. Vellum lo usa tal cual como fecha de generación (`generatedAt`).                   |
-| `gameTime`            | no          | Fecha dentro del juego (`SimulationManager.m_currentGameTime`). No es un orden fiable.                                                                                                                                                           |
-| `game.version`        | sí          | Versión del juego, o `"unknown"` si la fuente no la registra.                                                                                                                                                                                    |
-| `game.instanceId`     | no          | `m_metaData.m_gameInstanceIdentifier`. Algunos mods lo regeneran: no basta como identidad única.                                                                                                                                                 |
-| `producer`            | sí          | `name` y `version` del programa que escribió el archivo.                                                                                                                                                                                         |
-| `city.name`           | sí          | Nombre de la ciudad.                                                                                                                                                                                                                             |
-| `city.id`             | no          | Manifest `1.1` (Bridge 0.9). Identidad estable de la ciudad entre exportaciones: un string opaco no vacío. Bridge escribe un UUID, pero el lector no exige ese formato. Bridge la guarda en la partida. Vellum la expone como `CityData.cityId`. |
-| `modules`             | sí          | Un registro por módulo presente.                                                                                                                                                                                                                 |
+| Campo                 | Obligatorio | Contenido                                                                                                                                                                                                                                                                                            |
+| --------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `format`              | sí          | Siempre `"vellummap"`.                                                                                                                                                                                                                                                                               |
+| `exportSchemaVersion` | sí          | Versión del documento, `MAJOR.MINOR`. `1.1` desde Bridge 0.9 (añade `city.id`); el conversor de referencia escribe `1.0`.                                                                                                                                                                            |
+| `snapshotId`          | sí          | ID único de esta exportación (Bridge: un UUID).                                                                                                                                                                                                                                                      |
+| `parentSnapshotId`    | no          | `snapshotId` de la exportación anterior de la misma partida (Bridge 0.9). Permite representar ramas del historial (ver abajo).                                                                                                                                                                       |
+| `exportedAtUtc`       | sí          | Momento de la exportación en RFC 3339 UTC: `T` y `Z` en mayúscula, sin offset (`2026-06-10T17:35:58Z`, fracción de segundo opcional). Obligatorio y validado. Vellum lo usa tal cual como fecha de generación (`generatedAt`).                                                                       |
+| `gameTime`            | no          | Fecha dentro del juego (`SimulationManager.m_currentGameTime`). No es un orden fiable.                                                                                                                                                                                                               |
+| `game.version`        | sí          | Versión del juego, o `"unknown"` si la fuente no la registra.                                                                                                                                                                                                                                        |
+| `game.instanceId`     | no          | `m_metaData.m_gameInstanceIdentifier`. Algunos mods lo regeneran: no basta como identidad única.                                                                                                                                                                                                     |
+| `producer`            | sí          | `name` y `version` del programa que escribió el archivo.                                                                                                                                                                                                                                             |
+| `city.name`           | sí          | Nombre de la ciudad.                                                                                                                                                                                                                                                                                 |
+| `city.id`             | no          | Manifest `1.1` (Bridge 0.9). Identidad estable de la ciudad entre exportaciones: un string opaco no vacío. Bridge escribe un UUID, pero el lector no exige ese formato. Bridge la guarda en la partida y, sin ella, la deriva de `game.instanceId` (0.9.1). Vellum la expone como `CityData.cityId`. |
+| `modules`             | sí          | Un registro por módulo presente.                                                                                                                                                                                                                                                                     |
 
 Cada registro de `modules`:
 
@@ -193,13 +193,18 @@ contenedor) irá en `.quire`, después de v1.0.
 
 1. `snapshotId`, `parentSnapshotId`, `exportedAtUtc` y `gameTime` van por separado. El
    orden de las capturas no se deduce de la fecha del juego.
-2. `city.id` agrupa las instantáneas de una misma ciudad. Bridge 0.9 lo genera en la
-   primera exportación y lo guarda en la partida (serialización de mods de CS1, clave
-   `VellumBridge.Identity`), junto con la última `snapshotId` publicada. **Límite
-   conocido:** si el jugador no guarda la partida después de exportar, esa identidad se
-   pierde; la próxima carga vuelve a la que estaba guardada (o a ninguna, y la siguiente
-   exportación estrena un `city.id`).
-3. `parentSnapshotId` es la última exportación publicada de esa partida. Si el jugador
+2. `city.id` agrupa las instantáneas de una misma ciudad. Bridge lo guarda en la
+   partida (serialización de mods de CS1, clave `VellumBridge.Identity`), junto con la
+   última `snapshotId` publicada, y una identidad guardada siempre prevalece. Una partida
+   sin identidad guardada no estrena un id al azar: desde Bridge 0.9.1 lo deriva de
+   `game.instanceId` (UUIDv5 en un espacio de nombres propio de Bridge), así que todas sus
+   exportaciones comparten `city.id` aunque el jugador no guarde después de exportar. Bridge
+   0.9.0 generaba uno al azar y lo perdía sin un guardado. Sigue abierto, para el diseño de
+   `.quire`, cómo distinguir copias de una misma partida compartida entre personas: tienen
+   el mismo `game.instanceId`.
+3. `parentSnapshotId` es la última exportación publicada de esa partida: la que conoce
+   el guardado o, si no la conoce, la que anota el índice local de Bridge
+   (`Vellum Bridge/.lineage/<city.id>.txt`). Si el jugador
    carga una partida guardada antes de una exportación y vuelve a exportar, dos
    instantáneas comparten padre: el historial se **ramifica**, y el grafo de padres lo
    representa sin perder ninguna rama.
