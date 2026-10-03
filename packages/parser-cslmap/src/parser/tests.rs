@@ -353,7 +353,7 @@ fn parks_parse_known_types_and_skip_missing_positions() {
     let xml = br#"<CSLExportXML version="4.1"><Parks>
       <Park id="1" name="Central"><p x="100" y="20" z="300" /><type>Generic</type></Park>
       <Park id="2" name="Campus"><P x="400" y="30" z="500"></P><type>University</type></Park>
-      <Park id="3" name="Unknown"><p x="600" y="40" z="700" /><type>Zoo</type></Park>
+      <Park id="3" name="Unknown"><p x="600" y="40" z="700" /><type>SomeFutureDlc</type></Park>
       <Park id="4" name="Missing"><type>Industry</type></Park>
       <Park id="5" name="Malformed"><p y="50" z="800" /><type>Forestry</type></Park>
     </Parks></CSLExportXML>"#;
@@ -854,4 +854,34 @@ fn node_without_position_still_elevates_its_segments() {
         "got {:?}",
         city.road_segments[0].way_type
     );
+}
+
+// Every park type a real Bridge export carries keeps its name instead of
+// collapsing to `None` (retro 2026-10-01, C3: Costa Tijuca lost 9 of 13).
+#[test]
+fn park_types_from_real_exports_are_not_reduced_to_none() {
+    use super::handlers::parks::park_type_from_xml;
+    for name in [
+        "Generic",
+        "University",
+        "TradeSchool",
+        "LiberalArts",
+        "Industry",
+        "Forestry",
+        "Farming",
+        "Oil",
+        "Ore",
+        "AmusementPark",
+        "Zoo",
+        "NatureReserve",
+        "Airport",
+        "PedestrianZone",
+    ] {
+        let serialized = serde_json::to_value(park_type_from_xml(name)).expect("serializes");
+        assert_eq!(serialized, name, "{name} keeps its type");
+    }
+    assert!(matches!(
+        park_type_from_xml("SomeFutureDlc"),
+        crate::city_data::ParkType::None
+    ));
 }

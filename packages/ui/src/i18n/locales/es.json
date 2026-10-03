@@ -400,6 +400,15 @@
     "TradeSchool": "Escuela de oficios",
     "Industry": "Área industrial",
     "Forestry": "Área forestal",
+    "AmusementPark": "Parque de atracciones",
+    "Zoo": "Zoológico",
+    "NatureReserve": "Reserva natural",
+    "Farming": "Área agrícola",
+    "Oil": "Área petrolera",
+    "Ore": "Área minera",
+    "LiberalArts": "Facultad de humanidades",
+    "Airport": "Área aeroportuaria",
+    "PedestrianZone": "Zona peatonal",
     "None": "Área"
   },
   "districtSpecialization": {

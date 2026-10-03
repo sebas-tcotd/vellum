@@ -112,6 +112,15 @@ pub(crate) fn park_type_from_xml(value: &str) -> ParkType {
         "TradeSchool" => ParkType::TradeSchool,
         "Industry" => ParkType::Industry,
         "Forestry" => ParkType::Forestry,
+        "AmusementPark" => ParkType::AmusementPark,
+        "Zoo" => ParkType::Zoo,
+        "NatureReserve" => ParkType::NatureReserve,
+        "Farming" => ParkType::Farming,
+        "Oil" => ParkType::Oil,
+        "Ore" => ParkType::Ore,
+        "LiberalArts" => ParkType::LiberalArts,
+        "Airport" => ParkType::Airport,
+        "PedestrianZone" => ParkType::PedestrianZone,
         _ => ParkType::None,
     }
 }

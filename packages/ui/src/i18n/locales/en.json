@@ -400,6 +400,15 @@
     "TradeSchool": "Trade school",
     "Industry": "Industrial area",
     "Forestry": "Forestry area",
+    "AmusementPark": "Amusement park",
+    "Zoo": "Zoo",
+    "NatureReserve": "Nature reserve",
+    "Farming": "Farming area",
+    "Oil": "Oil industry area",
+    "Ore": "Ore industry area",
+    "LiberalArts": "Liberal arts college",
+    "Airport": "Airport area",
+    "PedestrianZone": "Pedestrian area",
     "None": "Area"
   },
   "districtSpecialization": {
