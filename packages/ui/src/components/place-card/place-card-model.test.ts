@@ -165,6 +165,20 @@ describe('district card', () => {
     ]);
   });
 
+  it.each(['', '   ', 'DISTRICT_NAME[Pattern]:3'])(
+    'titles a district without a readable name (%j) by its kind',
+    (name) => {
+      const city = makeCityData({
+        districts: [{ ...nativeDistrict, name }],
+      });
+      const card = buildPlaceCard(city, { kind: 'district', id: 'd1' }, t)!;
+      expect(card.title).toBe('placeCard.district');
+      expect(card.subtitle).toBe(
+        'specializations.tourist, specializations.hightech',
+      );
+    },
+  );
+
   it('is null for a district that is not in the city', () => {
     const city = makeCityData({ districts: [] });
     expect(buildPlaceCard(city, { kind: 'district', id: 'x' }, t)).toBeNull();

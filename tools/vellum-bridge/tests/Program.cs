@@ -947,6 +947,8 @@ namespace VellumBridge.Tests
             model.lines.Add(duplicate);
             model.buildings.Add(new BuildingModel { sourceId = 36, prefab = "Duplicate", itemClass = "x", serviceType = "None", width = 1, length = 1 });
             model.buildings.Add(new BuildingModel { sourceId = 41, prefab = "NaN", itemClass = "x", serviceType = "None", position = new Vec3(0f, float.NaN, 0f), width = 1, length = 1 });
+            model.buildings.Add(new BuildingModel { sourceId = 42, prefab = "", itemClass = "x", serviceType = "None", width = 1, length = 1 });
+            model.buildings.Add(new BuildingModel { sourceId = 43, prefab = null, itemClass = "x", serviceType = "None", width = 1, length = 1 });
             model.districts.Add(new AreaModel { sourceId = 1, name = "Duplicate District", labelPosition = new Vec3(0, 0, 0) });
             model.parks.Add(new AreaModel { sourceId = 7, name = "NaN Park", labelPosition = new Vec3(float.PositiveInfinity, 0, 0) });
 
@@ -974,8 +976,8 @@ namespace VellumBridge.Tests
                 {
                     JsonElement list = buildings.RootElement.GetProperty("buildings");
                     List<int> ids = Ids(list);
-                    Check(ids.Count == 5 && !ids.Contains(41) && list[0].GetProperty("prefab").GetString() == "EU LD 15A",
-                        "Edificios: sin el repetido ni el NaN");
+                    Check(ids.Count == 5 && !ids.Contains(41) && !ids.Contains(42) && !ids.Contains(43) && list[0].GetProperty("prefab").GetString() == "EU LD 15A",
+                        "Edificios: sin el repetido, el NaN ni los de prefab vacío");
                 }
                 using (JsonDocument districts = Json(zip, "districts.json"))
                 {
@@ -992,7 +994,7 @@ namespace VellumBridge.Tests
             string[] expected =
             {
                 "2 nodos omitidos", "2 segmentos omitidos porque su nodo", "2 segmentos omitidos por datos no válidos",
-                "1 líneas omitidas", "2 edificios omitidos", "1 districts omitidos", "1 parks omitidos",
+                "1 líneas omitidas", "4 edificios omitidos", "1 districts omitidos", "1 parks omitidos",
             };
             foreach (string limit in expected)
                 Check(summary.limits.Exists(l => l.StartsWith(limit)), "Límite declarado: «" + limit + "…»");

@@ -10,6 +10,7 @@
 import {
   BUILDING_SERVICE_TYPE_CATEGORY,
   csToGeo,
+  DISTRICT_SPECIALIZATIONS,
   districtAreaKm2,
   isLocalizationKey,
   isPointInBoundary,
@@ -20,6 +21,7 @@ import {
   type RicoZone,
   type CityData,
   type District,
+  type DistrictSpecialization,
   type ParkArea,
   type ServiceGroup,
 } from '@vellum/core';
@@ -39,26 +41,9 @@ export interface Translate {
   (key: ParseKeys, options: { value: string }): string;
 }
 
-/** Specializations Vellum localizes, by the game's name lowercased. */
-const KNOWN_SPECIALIZATIONS = [
-  'forest',
-  'farming',
-  'oil',
-  'ore',
-  'leisure',
-  'tourist',
-  'organic',
-  'selfsufficient',
-  'hightech',
-  'financial',
-  'residentialwalltowall',
-  'commercialwalltowall',
-  'officewalltowall',
-] as const;
-type KnownSpecialization = (typeof KNOWN_SPECIALIZATIONS)[number];
-
-const isKnownSpecialization = (name: string): name is KnownSpecialization =>
-  (KNOWN_SPECIALIZATIONS as readonly string[]).includes(name);
+/** Specializations Vellum localizes: the same list the map colours by. */
+const isKnownSpecialization = (name: string): name is DistrictSpecialization =>
+  Object.hasOwn(DISTRICT_SPECIALIZATIONS, name);
 
 /** The four RICO zones, in the order the bar draws them; the keys of the shared colours. */
 const RICO_ZONES = Object.keys(RICO_COLORS) as RicoZone[];
@@ -218,7 +203,13 @@ function districtCard(
   });
 
   const specializations = specializationLabels(district.specializations, t);
-  const subtitle = [t('placeCard.district'), specializations.join(', ')]
+  // An unnamed district is titled by its kind, so the subtitle skips it.
+  const name = readableName(district.name);
+  const title = name ?? t('placeCard.district');
+  const subtitle = [
+    name !== undefined ? t('placeCard.district') : '',
+    specializations.join(', '),
+  ]
     .filter((part) => part.length > 0)
     .join(' · ');
 
@@ -281,7 +272,7 @@ function districtCard(
   if (!hasStats && source === 'cslmap') {
     // `.cslmap` carries only the name: say so honestly instead of showing dashes.
     return {
-      title: district.name,
+      title,
       keyFacts: [],
       sections: [
         { kind: 'rows', rows: [{ value: t('placeCard.noDistrictData') }] },
@@ -298,7 +289,13 @@ function districtCard(
     });
   }
 
-  return { title: district.name, subtitle, keyFacts, sections, actions: [] };
+  return {
+    title,
+    ...(subtitle.length > 0 ? { subtitle } : {}),
+    keyFacts,
+    sections,
+    actions: [],
+  };
 }
 
 function buildingCard(

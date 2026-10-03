@@ -1,6 +1,7 @@
 import type { LayerName } from '@vellum/core';
 import { ELEVATION_UNITS_PER_METER } from '../sources/dem-protocol';
 import {
+  CABLECAR_LINE_OPACITY,
   CONNECTION_LINE_OPACITY,
   FERRY_LINE_OPACITY,
   FLIGHT_LINE_OPACITY,
@@ -74,6 +75,7 @@ export const LAYER_ID_MAP: Record<LayerName, string[]> = {
     'roads-bridge-fill',
     'roads-ferry',
     'roads-blimp',
+    'roads-cablecar',
     'roads-flight',
     'roads-connection',
     'roads-railway-surface-casing',
@@ -191,6 +193,7 @@ export const NON_TRANSIT_OPACITY: Record<
   'roads-bridge-fill': { prop: 'line-opacity', base: 1 },
   'roads-ferry': { prop: 'line-opacity', base: FERRY_LINE_OPACITY },
   'roads-blimp': { prop: 'line-opacity', base: 0.48 },
+  'roads-cablecar': { prop: 'line-opacity', base: CABLECAR_LINE_OPACITY },
   'roads-flight': { prop: 'line-opacity', base: FLIGHT_LINE_OPACITY },
   'roads-connection': { prop: 'line-opacity', base: CONNECTION_LINE_OPACITY },
   'roads-railway-surface-casing': { prop: 'line-opacity', base: 1 },

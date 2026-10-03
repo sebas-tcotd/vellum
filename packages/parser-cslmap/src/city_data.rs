@@ -315,6 +315,15 @@ pub enum ParkType {
     TradeSchool,
     Industry,
     Forestry,
+    AmusementPark,
+    Zoo,
+    NatureReserve,
+    Farming,
+    Oil,
+    Ore,
+    LiberalArts,
+    Airport,
+    PedestrianZone,
     None,
 }
 

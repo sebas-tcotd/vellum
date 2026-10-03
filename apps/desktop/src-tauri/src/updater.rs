@@ -39,17 +39,41 @@ pub fn get_pending_update() -> Option<UpdatePayload> {
 pub fn is_packaged() -> bool {
     #[cfg(windows)]
     {
-        use windows_sys::Win32::Foundation::APPMODEL_ERROR_NO_PACKAGE;
         use windows_sys::Win32::Storage::Packaging::Appx::GetCurrentPackageFullName;
 
         let mut length = 0u32;
         // SAFETY: a zero length with a null buffer is the documented way to ask only
         // whether the process has a package identity; Windows writes nothing to it.
         let result = unsafe { GetCurrentPackageFullName(&raw mut length, std::ptr::null_mut()) };
-        result != APPMODEL_ERROR_NO_PACKAGE
+        packaged_from(result)
     }
     #[cfg(not(windows))]
     false
+}
+
+/// `ERROR_INSUFFICIENT_BUFFER`: the process has a package identity and the empty buffer
+/// is too small for its full name.
+#[cfg_attr(not(windows), allow(dead_code))]
+const PACKAGE_NAME_TOO_LONG: u32 = 122;
+
+/// Reads the result of `GetCurrentPackageFullName` called with an empty buffer.
+///
+/// # Remarks
+/// Only `ERROR_INSUFFICIENT_BUFFER` proves a package identity. `APPMODEL_ERROR_NO_PACKAGE`
+/// and any unexpected code read as unpackaged, so a Windows error never switches off the
+/// NSIS updater without a word. Kept free of `windows-sys` so it is tested on every OS.
+#[cfg_attr(not(windows), allow(dead_code))]
+fn packaged_from(result: u32) -> bool {
+    result == PACKAGE_NAME_TOO_LONG
+}
+
+/// Refuses an install on a packaged build, where the Store owns updates.
+fn ensure_not_packaged(packaged: bool) -> Result<(), String> {
+    if packaged {
+        Err("Updates for this copy of Vellum come from the Microsoft Store.".to_string())
+    } else {
+        Ok(())
+    }
 }
 
 /// Tells the frontend whether updates belong to the Microsoft Store, so Preferences can
@@ -112,12 +136,14 @@ pub async fn check_for_updates(app: &tauri::AppHandle) {
 /// the export-session cleanup registered in `run()` still runs.
 ///
 /// # Errors
-/// Returns a human-readable message if the updater is unavailable, no update is
-/// offered any more, or the download/install fails (e.g. a Windows MSI install
-/// declined at the UAC prompt) — the frontend surfaces it on the update toast
-/// instead of failing silently.
+/// Returns a human-readable message if the build is packaged (MSIX), the updater is
+/// unavailable, no update is offered any more, or the download/install fails (e.g. a
+/// Windows MSI install declined at the UAC prompt) — the frontend surfaces it on the
+/// update toast instead of failing silently.
 #[tauri::command]
 pub async fn install_update(app: tauri::AppHandle) -> Result<(), String> {
+    // The plugin is not registered on a packaged build, so `app.updater()` would panic.
+    ensure_not_packaged(is_packaged())?;
     let updater = app.updater().map_err(|error| error.to_string())?;
     let update = updater
         .check()
@@ -135,8 +161,33 @@ pub async fn install_update(app: tauri::AppHandle) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{get_pending_update, pending_update, release_notes_url};
+    use super::{
+        ensure_not_packaged, get_pending_update, packaged_from, pending_update, release_notes_url,
+    };
     use crate::ipc_contract::UpdatePayload;
+
+    #[test]
+    fn only_insufficient_buffer_means_packaged() {
+        assert!(packaged_from(122), "ERROR_INSUFFICIENT_BUFFER: packaged");
+        assert!(
+            !packaged_from(15700),
+            "APPMODEL_ERROR_NO_PACKAGE: not packaged"
+        );
+        assert!(
+            !packaged_from(0),
+            "an unexpected code keeps the NSIS updater"
+        );
+        assert!(
+            !packaged_from(87),
+            "ERROR_INVALID_PARAMETER keeps the NSIS updater"
+        );
+    }
+
+    #[test]
+    fn install_is_refused_on_a_packaged_build() {
+        assert!(ensure_not_packaged(true).is_err());
+        assert_eq!(ensure_not_packaged(false), Ok(()));
+    }
 
     #[test]
     fn release_notes_url_prefixes_version_with_v() {

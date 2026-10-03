@@ -24,7 +24,10 @@ import {
   districtFillColor,
   selectedDistrictFilter,
 } from '../layers/layer-area-boundaries';
-import { resolveAirshipColor } from '../expressions/transit-color';
+import {
+  resolveAirshipColor,
+  resolveCableCarColor,
+} from '../expressions/transit-color';
 
 /**
  * Manages the visibility, styling, and dynamic filtering of MapLibre layers.
@@ -562,6 +565,11 @@ export class MapLayerManager {
       'roads-blimp',
       'line-color',
       resolveAirshipColor(c.ferry),
+    );
+    this.setPaintIfExists(
+      'roads-cablecar',
+      'line-color',
+      resolveCableCarColor(c.ferry),
     );
     this.setPaintIfExists('roads-flight', 'line-color', c.districtLabel);
     this.setPaintIfExists(

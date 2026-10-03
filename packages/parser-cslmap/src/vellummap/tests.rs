@@ -496,7 +496,7 @@ fn bridge_extras_are_accepted_and_reach_city_data() {
         .any(|t| matches!(t, crate::city_data::WayType::Elevated)));
     assert!(matches!(
         city.park_areas[0].park_type,
-        crate::city_data::ParkType::None
+        crate::city_data::ParkType::Zoo
     ));
     assert!(!city.inland_water_polygons.is_empty());
 }
