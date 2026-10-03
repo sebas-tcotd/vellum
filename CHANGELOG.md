@@ -2,6 +2,20 @@
 
 All notable changes to Vellum will be documented here.
 
+## [0.13.2](https://github.com/sebas-tcotd/vellum/compare/v0.13.1...v0.13.2) (2026-10-03)
+
+
+### Bug Fixes
+
+* **bridge:** derivar city.id de game.instanceId ([4ab4612](https://github.com/sebas-tcotd/vellum/commit/4ab4612736ec513352e789d689a781ca905b66aa))
+* **bridge:** derive city.id from the game instance id ([ede39cd](https://github.com/sebas-tcotd/vellum/commit/ede39cd0b27c29299816e32fe9b7785487725bb5))
+* **bridge:** skip buildings with an empty prefab and publish 0.9.1 ([3d97659](https://github.com/sebas-tcotd/vellum/commit/3d976595867481d81b1f28ee155bfc2b0ce43155))
+* hallazgos abiertos antes del veredicto v1.0 ([e21f5ca](https://github.com/sebas-tcotd/vellum/commit/e21f5cae3269cef6737954332948bc5d24e4c1fc))
+* **parks:** keep every real CS1 park type instead of reducing it to None ([868bff5](https://github.com/sebas-tcotd/vellum/commit/868bff51c991b28f88aded91ce1884fff59b418f))
+* **place-card:** one specialization list and a title for unnamed districts ([32e5f66](https://github.com/sebas-tcotd/vellum/commit/32e5f660770cf52d9c229cbb9b87f7ecc7d92891))
+* **roads:** register the cable car layer with the roads layer ([fa54334](https://github.com/sebas-tcotd/vellum/commit/fa543348d26ab76914f59fb04e02c6f962c7864d))
+* **updater:** guard install_update and read MSIX identity strictly ([0261597](https://github.com/sebas-tcotd/vellum/commit/02615979b70b8363b51d718628cfe4f75387fb73))
+
 ## [0.13.1](https://github.com/sebas-tcotd/vellum/compare/v0.13.0...v0.13.1) (2026-10-03)
 
 
