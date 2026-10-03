@@ -10,6 +10,8 @@ import type { TransitNetwork } from '../../types/transit-network';
 import { deriveTransitNetwork } from '../index';
 import {
   bendCost,
+  CountSet,
+  densitySpringCost,
   gridSchematicLayout,
   gridStepKey,
   nodeTurnCost,
@@ -23,9 +25,17 @@ import {
   sharedCenterlineRuns,
 } from './grid-model-metrics';
 import type { SchematicLayout } from './contract';
-import { measureSchematicLayout } from './metrics';
+import {
+  countBends,
+  countBendsByMode,
+  measureSchematicLayout,
+} from './metrics';
 import { isSplitCorridorId, splitHighDegreeNodes } from './node-splitting';
-import { createOctilinearGrid, octilinearSchematicLayout } from './octilinear';
+import {
+  createOctilinearGrid,
+  OCTILINEAR_GRID,
+  octilinearSchematicLayout,
+} from './octilinear';
 import {
   createOrthoradialGrid,
   orthoradialSchematicLayout,
@@ -261,7 +271,12 @@ describe('turns at nodes (Story 4.10)', () => {
       ],
     });
     const network = deriveTransitNetwork(city);
-    const layout = octilinearSchematicLayout(network);
+    // The greedy pass is where Story 4.10 prices the turn; the local search
+    // may later trade it for displacement (octi §4.6), which is its own test.
+    const layout = gridSchematicLayout(network, createOctilinearGrid, {
+      maxNodeDegree: 8,
+      localSearch: false,
+    });
     const turns = countNodeTurns(routedOf(network, layout), layout);
     expect(turns.straight).toBe(1);
     expect(turns.bend135 + turns.reverse).toBe(0);
@@ -588,6 +603,204 @@ describe('review follow-ups', () => {
     );
     expect(sameCircularOrder(['a', 'b', 'c', 'd'], ['a', 'd', 'c', 'b'])).toBe(
       false,
+    );
+  });
+});
+
+describe('diagonal cost and the final local search (octi §6, §4.6)', () => {
+  it('prices a diagonal step at 1.5 straight steps', () => {
+    const grid = createOctilinearGrid([
+      { x: 0, y: 0 },
+      { x: 1000, y: 1000 },
+    ]);
+    const cell = grid.snap({ x: 500, y: 500 });
+    const steps = grid.neighbors(cell);
+    const straight = steps.find((step) => step.dir === 0)!.cost;
+    const diagonal = steps.find((step) => step.dir === 1)!.cost;
+    expect(diagonal / straight).toBeCloseTo(OCTILINEAR_GRID.diagonalCost);
+    // Still at least the step's length, so the A* heuristic stays admissible.
+    expect(OCTILINEAR_GRID.diagonalCost).toBeGreaterThanOrEqual(Math.SQRT2);
+    // octi §2.2: two 45° bends never cost less than one 90° bend.
+    expect(2 * bendCost(Math.PI / 4)).toBeGreaterThanOrEqual(
+      bendCost(Math.PI / 2),
+    );
+  });
+
+  // Line L runs a → b → c with b 100 m off the a–c axis, and M branches north
+  // at b. The greedy pass settles b a cell off the axis and L bends there.
+  const offAxisCity = () =>
+    makeCityData({
+      roadNodes: [
+        node('a', 0, 0),
+        node('b', 1000, 100),
+        node('c', 2000, 0),
+        node('d', 1000, 1000),
+      ],
+      roadSegments: [
+        makeRoadSegment({ id: 'ab', startNodeId: 'a', endNodeId: 'b' }),
+        makeRoadSegment({ id: 'bc', startNodeId: 'b', endNodeId: 'c' }),
+        makeRoadSegment({ id: 'bd', startNodeId: 'b', endNodeId: 'd' }),
+      ],
+      transitLines: [
+        makeTransitLine({ id: 'L', route: [{ segmentIds: ['ab', 'bc'] }] }),
+        makeTransitLine({ id: 'M', route: [{ segmentIds: ['bd'] }] }),
+      ],
+    });
+
+  it('moves a node the greedy pass left off its line', () => {
+    const network = deriveTransitNetwork(offAxisCity());
+    const bendsAndTurns = (
+      layout: ReturnType<typeof octilinearSchematicLayout>,
+    ) => {
+      const turns = countNodeTurns(network, layout);
+      return (
+        layout.corridors.reduce((sum, c) => sum + countBends(c.points), 0) +
+        turns.bend45 +
+        turns.bend90 +
+        turns.bend135 +
+        turns.reverse
+      );
+    };
+    const greedy = gridSchematicLayout(network, createOctilinearGrid, {
+      localSearch: false,
+    });
+    const polished = gridSchematicLayout(network, createOctilinearGrid);
+    expect(bendsAndTurns(greedy)).toBeGreaterThan(0);
+    expect(bendsAndTurns(polished)).toBe(0);
+    expect(schematicLayoutDiagnostics(polished)?.localMoves).toBeGreaterThan(0);
+  });
+
+  it('leaves a layout with nothing to improve as the greedy pass drew it', () => {
+    // One diagonal corridor whose ends already sit on their nearest cells: no
+    // move can shorten it, straighten it or bring a node closer to its seed.
+    const network = deriveTransitNetwork(
+      makeCityData({
+        roadNodes: [node('a', 0, 0), node('b', 2000, 2000)],
+        roadSegments: [
+          makeRoadSegment({ id: 'ab', startNodeId: 'a', endNodeId: 'b' }),
+        ],
+        transitLines: [
+          makeTransitLine({ id: 'L', route: [{ segmentIds: ['ab'] }] }),
+        ],
+      }),
+    );
+    const greedy = gridSchematicLayout(network, createOctilinearGrid, {
+      localSearch: false,
+    });
+    const polished = gridSchematicLayout(network, createOctilinearGrid);
+    const points = (layout: typeof greedy) =>
+      layout.corridors.flatMap((c) => c.points.flatMap((p) => [p.x, p.y]));
+    const before = points(greedy);
+    const after = points(polished);
+    expect(after).toHaveLength(before.length);
+    after.forEach((value, i) => expect(value).toBeCloseTo(before[i], 9));
+  });
+
+  it('takes routes out and puts them back without a trace', () => {
+    const counts = new CountSet();
+    counts.add(7);
+    counts.add(7);
+    counts.remove(7);
+    expect(counts.has(7)).toBe(true);
+    counts.remove(7);
+    expect(counts.has(7)).toBe(false);
+    // Removing what is not there leaves it absent, not negative.
+    counts.remove(7);
+    counts.add(7);
+    expect(counts.has(7)).toBe(true);
+  });
+
+  it('stops at its budget and still returns a valid, deterministic layout', () => {
+    const network = deriveTransitNetwork(offAxisCity());
+    const budget = { maxEvaluations: 1 };
+    const layout = gridSchematicLayout(network, createOctilinearGrid, {
+      localSearch: budget,
+    });
+    expect(schematicLayoutDiagnostics(layout)?.localMoves).toBeLessThanOrEqual(
+      1,
+    );
+    const { metrics } = measureSchematicLayout(network, layout);
+    expect(metrics.topologyPreserved).toBe(true);
+    expect(layout).toEqual(
+      gridSchematicLayout(network, createOctilinearGrid, {
+        localSearch: budget,
+      }),
+    );
+  });
+
+  it('never trades a metro bend for a bus bend', () => {
+    // Metro L runs a → b → c with b off its axis; bus M leaves b northwards.
+    // Summed over both lines, moving b pays off with two metro bends; rank by
+    // rank (Story 4.7), the metro is compared first and keeps its straight run.
+    const stop = (id: string, x: number, z: number): TransitStop => ({
+      id,
+      mode: 'Metro',
+      position: { x, y: 0, z },
+      name: id,
+    });
+    const network = deriveTransitNetwork(
+      makeCityData({
+        roadNodes: [
+          node('a', 0, 0),
+          node('b', 1000, 100),
+          node('c', 2000, 0),
+          node('d', 1000, 1000),
+          node('e', 2000, 900),
+        ],
+        roadSegments: [
+          makeRoadSegment({ id: 'ab', startNodeId: 'a', endNodeId: 'b' }),
+          makeRoadSegment({ id: 'bc', startNodeId: 'b', endNodeId: 'c' }),
+          makeRoadSegment({ id: 'bd', startNodeId: 'b', endNodeId: 'd' }),
+          makeRoadSegment({ id: 'de', startNodeId: 'd', endNodeId: 'e' }),
+        ],
+        transitLines: [
+          makeTransitLine({
+            id: 'L',
+            mode: 'Metro',
+            stops: [
+              stop('s1', 200, 20),
+              stop('s2', 400, 40),
+              stop('s3', 600, 60),
+              stop('s4', 800, 80),
+            ],
+            route: [{ segmentIds: ['ab', 'bc'] }],
+          }),
+          makeTransitLine({ id: 'M', route: [{ segmentIds: ['bd', 'de'] }] }),
+        ],
+      }),
+    );
+    const metroBends = (localSearch?: false) =>
+      countBendsByMode(
+        network,
+        gridSchematicLayout(
+          network,
+          createOctilinearGrid,
+          localSearch === false ? { localSearch } : {},
+        ),
+      ).Metro ?? 0;
+    expect(metroBends()).toBeLessThanOrEqual(metroBends(false));
+  });
+
+  it('charges the spring only when a corridor is too short for its stops', () => {
+    // k stops want k + 1 steps.
+    expect(densitySpringCost(0, 1)).toBe(0);
+    expect(densitySpringCost(3, 4)).toBe(0);
+    expect(densitySpringCost(3, 9)).toBe(0);
+    expect(densitySpringCost(3, 3)).toBeGreaterThan(0);
+    // Quadratic in the squeeze: one step short costs a quarter of two.
+    expect(densitySpringCost(3, 2)).toBeCloseTo(4 * densitySpringCost(3, 3));
+  });
+
+  it('stops at its expansion budget', () => {
+    const network = deriveTransitNetwork(offAxisCity());
+    const capped = gridSchematicLayout(network, createOctilinearGrid, {
+      localSearch: { maxExpansions: 0 },
+    });
+    expect(schematicLayoutDiagnostics(capped)?.localMoves).toBe(0);
+    expect(capped).toEqual(
+      gridSchematicLayout(network, createOctilinearGrid, {
+        localSearch: false,
+      }),
     );
   });
 });

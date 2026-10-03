@@ -53,6 +53,14 @@ export const OCTILINEAR_GRID = {
   maxResolution: 224,
   /** Free grid kept around the seeds' bounding box, as a fraction of its span. */
   padding: 0.18,
+  /**
+   * Cost of a diagonal step, in straight steps. Its length is √2 ≈ 1.414;
+   * `octi` §6 adds 0.5 to a diagonal hop of 1 ("slightly preferring vertical
+   * and horizontal edges produced results that were more esthetically
+   * pleasing"), and OSM-2023 weighs it 1.5 too. Still above √2, so the A*
+   * heuristic (straight-line distance) stays admissible.
+   */
+  diagonalCost: 1.5,
   /** Ports per cell: a node with more corridors is split (SSTD §2). */
   maxDegree: 8,
 } as const;
@@ -143,7 +151,8 @@ export function createOctilinearGrid(
         steps.push({
           cell: cellAt(nc, nr),
           dir,
-          cost: step * Math.hypot(dx, dy),
+          cost:
+            dx !== 0 && dy !== 0 ? step * OCTILINEAR_GRID.diagonalCost : step,
         });
       }
       const frozen = Object.freeze(steps);

@@ -122,7 +122,10 @@ Los corredores pueden y suelen cruzarse: 64 cruces en Pepper Lake.
 añadir el bloqueo de diagonales cruzadas en `createOctilinearGrid.neighbors`.
 Medible directamente con `metrics.crossings`.
 
-### 1.4 Diagonales ligeramente más caras que su longitud — OSM-2023
+### ✅ 1.4 Diagonales ligeramente más caras que su longitud — OSM-2023
+
+> Aplicado (ADR-0008, «Pulido»): la diagonal cuesta 1,5 pasos y `bend45` sube a
+> 0,8 para cumplir la desigualdad 2 de OCTI-2020 §2.2.
 
 **Paper.** Aristas horizontales/verticales pesan 1 y las diagonales **1.5**, "para
 no favorecer las diagonales e incluso favorecer ligeramente horizontales y
@@ -150,7 +153,8 @@ al fallback, y tratar `fallbackRoutes > 0` como lo que es: una violación.
 
 > Aplicada la reinserción equidistante en la 4.9 (ADR-0008): las paradas de un
 > corredor van en `(i+1)/(k+1)`. Las paradas ya no eran nodos del grafo, así que
-> no hubo nada que contraer. Quedan diferidas las fuerzas de muelle.
+> no hubo nada que contraer. El resorte de densidad entra en la búsqueda local
+> (ADR-0008, «Pulido»).
 
 **Paper.** Se contraen todos los nodos de grado 2 **antes** de esquematizar y se
 reinsertan **equidistantes** sobre el camino final; durante la búsqueda local se
@@ -165,7 +169,11 @@ capturas se ven cinco paradas pegadas y luego un tramo largo vacío.
 **Cambio.** Es el que más cambiaría el _aspecto_ del esquemático. Afecta a
 `line-graph` (contracción) y a `render.ts` (reinserción equidistante).
 
-### 1.7 Búsqueda local de pulido — OCTI-2020 §4, OSM-2023
+### ✅ 1.7 Búsqueda local de pulido — OCTI-2020 §4, OSM-2023
+
+> Aplicada (ADR-0008, «Pulido»): descenso por coordenadas, comparación
+> lexicográfica por rango, presupuesto por expansiones y el resorte de densidad
+> de §4.7 (A-2+D).
 
 **Paper.** Tras la construcción greedy, mover cada image node a cada una de sus
 celdas vecinas libres, re-rutear las aristas adyacentes y quedarse con el mejor

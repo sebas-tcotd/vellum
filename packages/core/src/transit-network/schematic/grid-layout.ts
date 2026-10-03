@@ -166,8 +166,18 @@ export const GRID_ROUTER = {
   turnCost: {
     /** Included 180°: dead straight. Free, and it has to be. */
     straight: 0,
-    /** Included 135°: a 45° bend, the octilinear diagram's own idiom. */
-    bend45: 0.6,
+    /**
+     * Included 135°: a 45° bend, the octilinear diagram's own idiom.
+     *
+     * @remarks
+     * 0.6 until the local search: then two of these (1.2) cost less than one
+     * right angle (1.6), which breaks `octi` §2.2's inequality 2 and, with a
+     * diagonal at 1.5, made the router cut every square corner into two 45°
+     * bends. At 0.8 two of them cost exactly one right angle per unit of step
+     * (bends are scaled by the step they enter, so a chamfer through a 1.5
+     * diagonal pays 0.8·1.5 + 0.8 = 2.0 against a corner's 1.6; ADR-0008).
+     */
+    bend45: 0.8,
     /** Included 90°: a right-angle elbow. */
     bend90: 1.6,
     /** Included 45°: a hairpin-ish 135° bend. */
@@ -215,6 +225,25 @@ export const GRID_ROUTER = {
   searchBudget: 60000,
   /** Heuristic weight of the retry after the optimal search runs out of budget. */
   retryWeight: 4,
+  /**
+   * The local search after the greedy pass (`octi` §4.6): at most this many
+   * passes over the nodes, and this many tried moves in all. Counts, never a
+   * clock, so the result is a function of the network alone.
+   */
+  localSearch: {
+    maxPasses: 4,
+    maxEvaluations: 6000,
+    /**
+     * A* expansions the local search may spend in all (stale heap pops not
+     * counted): what its time is made of. Measured on San Rico, the largest
+     * city of the corpus: 650 000 keeps a layout near 1.4 s, under the 1.8 s
+     * accepted in Story 4.7, and its rails within 5 % (ADR-0008).
+     */
+    maxExpansions: 650_000,
+    searchBudget: 4000,
+    /** `octi`'s spring constant `c` for compressed corridors (§4.7, §6: 10). */
+    densitySpring: 10,
+  },
 } as const;
 
 /**
@@ -246,6 +275,11 @@ class Heap {
 
   get size(): number {
     return this.keys.length;
+  }
+
+  /** The smallest key, or `Infinity` when empty. */
+  peekKey(): number {
+    return this.keys.length > 0 ? this.keys[0] : Infinity;
   }
 
   push(key: number, value: number): void {
@@ -306,16 +340,43 @@ export interface RouteEnd {
   readonly portCost?: (cell: number, neighbor: number) => number;
 }
 
+/** Membership the router reads: a `Set`, or the counts the planner keeps. */
+export interface CellLookup {
+  has(value: number): boolean;
+}
+
+/**
+ * A multiset of numbers: present while at least one copy was added.
+ * @internal Exported for its reversibility test.
+ */
+export class CountSet implements CellLookup {
+  private readonly counts = new Map<number, number>();
+
+  has(value: number): boolean {
+    return (this.counts.get(value) ?? 0) > 0;
+  }
+
+  add(value: number): void {
+    this.counts.set(value, (this.counts.get(value) ?? 0) + 1);
+  }
+
+  remove(value: number): void {
+    const count = this.counts.get(value) ?? 0;
+    if (count <= 1) this.counts.delete(value);
+    else this.counts.set(value, count - 1);
+  }
+}
+
 /** Everything one corridor's search needs. */
 export interface RouteRequest {
   readonly source: RouteEnd;
   readonly target: RouteEnd;
   /** Cells the route may not enter (other nodes' cells), targets excepted. */
-  readonly blocked: ReadonlySet<number>;
+  readonly blocked: CellLookup;
   /** Cells another corridor passes through: allowed, priced as a crossing. */
-  readonly occupied: ReadonlySet<number>;
+  readonly occupied: CellLookup;
   /** Steps ({@link gridStepKey}) another corridor already runs over. */
-  readonly usedSteps?: ReadonlySet<number>;
+  readonly usedSteps?: CellLookup;
   /**
    * When set, a blocked cell may be entered at this many step lengths extra
    * instead of never: SSTD §3's relaxation, so a node walled in by other nodes
@@ -329,11 +390,68 @@ export interface RouteRequest {
    * one instead of the straight fallback that ignores them all.
    */
   readonly heuristicWeight?: number;
+  /** Expansions before giving up; {@link GRID_ROUTER.searchBudget} by default. */
+  readonly searchBudget?: number;
+  /** Incremented with every state this search expands, when given. */
+  readonly stats?: { expansions: number };
+  /**
+   * Give up as soon as no route can cost less than this: with an admissible
+   * heuristic, once the cheapest open estimate is above it, so is every route.
+   * The local search's branch and bound.
+   */
+  readonly costLimit?: number;
 }
 
 /** An unordered key for the step between two cells. */
 export function gridStepKey(grid: GridBase, a: number, b: number): number {
   return a < b ? a * grid.cellCount + b : b * grid.cellCount + a;
+}
+
+/**
+ * Per-grid scratch memory for {@link routeBetween}, reused across searches.
+ *
+ * @remarks
+ * A search used to keep its tables in `Map`s and read cell positions through
+ * `grid.point`, which builds a new object on every call. The local search
+ * (`octi` §4.6) runs thousands of searches per layout, and those allocations
+ * were most of its time. Typed arrays sized once per grid, with a generation
+ * stamp instead of clearing, make a search cost only what it expands.
+ */
+// Not reentrant: a `portCost` callback must never start another search on the
+// same grid, or it would overwrite the running one's tables.
+interface SearchScratch {
+  stamp: number;
+  readonly best: Float64Array;
+  readonly cameFrom: Int32Array;
+  readonly enteredFrom: Int32Array;
+  readonly seen: Uint32Array;
+  readonly closed: Uint32Array;
+  readonly px: Float64Array;
+  readonly py: Float64Array;
+  readonly known: Uint8Array;
+}
+
+const DIR_SLOTS = 16;
+const scratchByGrid = new WeakMap<GridBase, SearchScratch>();
+
+function scratchOf(grid: GridBase): SearchScratch {
+  let scratch = scratchByGrid.get(grid);
+  if (scratch === undefined) {
+    const states = grid.cellCount * DIR_SLOTS;
+    scratch = {
+      stamp: 0,
+      best: new Float64Array(states),
+      cameFrom: new Int32Array(states),
+      enteredFrom: new Int32Array(states),
+      seen: new Uint32Array(states),
+      closed: new Uint32Array(states),
+      px: new Float64Array(grid.cellCount),
+      py: new Float64Array(grid.cellCount),
+      known: new Uint8Array(grid.cellCount),
+    };
+    scratchByGrid.set(grid, scratch);
+  }
+  return scratch;
 }
 
 /**
@@ -356,108 +474,146 @@ export function routeBetween(
   for (const [cell] of source.cells) {
     if (target.cells.has(cell)) return [cell];
   }
+  const scratch = scratchOf(grid);
+  const { best, cameFrom, enteredFrom, seen, closed, px, py, known } = scratch;
+  // A new generation: every stamp from an earlier search is now stale.
+  scratch.stamp = scratch.stamp >= 0xfffffffe ? 1 : scratch.stamp + 1;
+  if (scratch.stamp === 1) {
+    seen.fill(0);
+    closed.fill(0);
+  }
+  const stamp = scratch.stamp;
+  const pointOf = (cell: number): void => {
+    if (known[cell] === 0) {
+      const p = grid.point(cell);
+      px[cell] = p.x;
+      py[cell] = p.y;
+      known[cell] = 1;
+    }
+  };
+
   // Heuristic: the distance to the disc around the target candidates. A step
   // costs at least its length and every penalty is non-negative, so it is
   // admissible.
   let tx = 0;
   let ty = 0;
   for (const [cell] of target.cells) {
-    const p = grid.point(cell);
-    tx += p.x;
-    ty += p.y;
+    pointOf(cell);
+    tx += px[cell];
+    ty += py[cell];
   }
   tx /= Math.max(1, target.cells.size);
   ty /= Math.max(1, target.cells.size);
   let targetRadius = 0;
   for (const [cell] of target.cells) {
-    const p = grid.point(cell);
-    targetRadius = Math.max(targetRadius, Math.hypot(p.x - tx, p.y - ty));
+    targetRadius = Math.max(
+      targetRadius,
+      Math.hypot(px[cell] - tx, py[cell] - ty),
+    );
   }
   const weight = request.heuristicWeight ?? 1;
   const heuristic = (cell: number): number => {
-    const p = grid.point(cell);
-    return weight * Math.max(0, Math.hypot(p.x - tx, p.y - ty) - targetRadius);
+    pointOf(cell);
+    return (
+      weight *
+      Math.max(0, Math.hypot(px[cell] - tx, py[cell] - ty) - targetRadius)
+    );
   };
 
   // State is (cell, incoming direction): the turn penalty is not Markovian in
   // the cell alone. Direction slot 0 is a start, which pays no turn.
-  const dirSlots = 16;
-  const stateOf = (cell: number, dir: number): number => cell * dirSlots + dir;
-  const best = new Map<number, number>();
-  const cameFrom = new Map<number, number>();
-  // The cell each state was *entered from* when its best-known cost was recorded.
   //
-  // The bend cost is an angle, so it has to be read off real positions rather than
-  // off the direction *index*. Reading the predecessor back out of `cameFrom` at
-  // pop time was wrong: `cameFrom` is overwritten every time a cheaper `g` turns
-  // up, so a state could be priced against a predecessor that no longer belongs to
-  // its best path. Storing the entry cell alongside the cost keeps the two in step
-  // by construction, and the closed set makes the pairing final.
-  const enteredFrom = new Map<number, number>();
-  const closed = new Set<number>();
+  // `enteredFrom` holds the cell each state was *entered from* when its
+  // best-known cost was recorded. The bend cost is an angle, so it has to be
+  // read off real positions rather than off the direction *index*, and reading
+  // the predecessor back out of `cameFrom` at pop time was wrong: `cameFrom` is
+  // overwritten every time a cheaper `g` turns up, so a state could be priced
+  // against a predecessor that no longer belongs to its best path. Storing the
+  // entry cell alongside the cost keeps the two in step by construction, and
+  // the closed set makes the pairing final.
   const open = new Heap();
   for (const [cell, cost] of [...source.cells].sort((a, b) => a[0] - b[0])) {
-    const start = stateOf(cell, 0);
-    best.set(start, cost);
+    const start = cell * DIR_SLOTS;
+    seen[start] = stamp;
+    best[start] = cost;
+    cameFrom[start] = -1;
+    enteredFrom[start] = -1;
     open.push(cost + heuristic(cell), start);
   }
 
+  const budget = request.searchBudget ?? GRID_ROUTER.searchBudget;
   let expansions = 0;
   while (open.size > 0) {
-    if (++expansions > GRID_ROUTER.searchBudget) return null;
+    if (++expansions > budget) return null;
+    if (request.costLimit !== undefined && open.peekKey() > request.costLimit) {
+      return null;
+    }
     const state = open.pop();
-    if (closed.has(state)) continue;
-    closed.add(state);
-    const cell = Math.floor(state / dirSlots);
-    const g = best.get(state);
-    if (g === undefined) continue;
-    const entryCell = enteredFrom.get(state);
-    if (entryCell !== undefined && target.cells.has(cell)) {
+    if (closed[state] === stamp) continue;
+    if (request.stats !== undefined) request.stats.expansions++;
+    closed[state] = stamp;
+    const cell = Math.floor(state / DIR_SLOTS);
+    const g = best[state];
+    const entryCell = enteredFrom[state];
+    if (entryCell >= 0 && target.cells.has(cell)) {
       const path: number[] = [];
-      let cursor: number | undefined = state;
-      while (cursor !== undefined) {
-        path.push(Math.floor(cursor / dirSlots));
-        cursor = cameFrom.get(cursor);
+      let cursor = state;
+      while (cursor >= 0) {
+        path.push(Math.floor(cursor / DIR_SLOTS));
+        cursor = cameFrom[cursor];
       }
       path.reverse();
       return path;
     }
-    const previousPoint =
-      entryCell === undefined ? null : grid.point(entryCell);
+    pointOf(cell);
+    const cx = px[cell];
+    const cy = py[cell];
+    let inX = 0;
+    let inY = 0;
+    if (entryCell >= 0) {
+      inX = cx - px[entryCell];
+      inY = cy - py[entryCell];
+    }
     for (const step of grid.neighbors(cell)) {
-      // The state id packs `dir + 1` into `dirSlots`. A direction outside that
+      // The state id packs `dir + 1` into `DIR_SLOTS`. A direction outside that
       // window would alias onto another cell's state, silently splicing two
       // unrelated routes together — a corrupt path is worse than no path.
       if (
         !Number.isInteger(step.dir) ||
         step.dir < 0 ||
-        step.dir >= dirSlots - 1
+        step.dir >= DIR_SLOTS - 1
       ) {
         throw new Error(
-          `SCHEMATIC_GRID_BAD_DIRECTION: ${String(step.dir)} is outside [0, ${dirSlots - 2}]`,
+          `SCHEMATIC_GRID_BAD_DIRECTION: ${String(step.dir)} is outside [0, ${DIR_SLOTS - 2}]`,
         );
       }
-      const arrival = target.cells.get(step.cell);
-      const walled = arrival === undefined && blocked.has(step.cell);
+      const nextCell = step.cell;
+      const next = nextCell * DIR_SLOTS + step.dir + 1;
+      if (closed[next] === stamp) continue;
+      const arrival = target.cells.get(nextCell);
+      const walled = arrival === undefined && blocked.has(nextCell);
       if (walled && request.blockedPenalty === undefined) continue;
       let cost = step.cost;
       if (walled) cost += (request.blockedPenalty as number) * step.cost;
-      if (previousPoint !== null) {
+      if (entryCell >= 0) {
+        pointOf(nextCell);
+        const outX = px[nextCell] - cx;
+        const outY = py[nextCell] - cy;
         cost +=
           bendCost(
-            turnAngle(previousPoint, grid.point(cell), grid.point(step.cell)),
+            Math.atan2(inX * outY - inY * outX, inX * outX + inY * outY),
           ) * step.cost;
       } else if (source.portCost !== undefined) {
-        cost += source.portCost(cell, step.cell);
+        cost += source.portCost(cell, nextCell);
       }
-      if (arrival === undefined && occupied.has(step.cell)) {
+      if (arrival === undefined && occupied.has(nextCell)) {
         cost += GRID_ROUTER.occupancyPenalty * step.cost;
       }
       if (usedSteps !== undefined) {
-        if (usedSteps.has(gridStepKey(grid, cell, step.cell))) {
+        if (usedSteps.has(gridStepKey(grid, cell, nextCell))) {
           cost += GRID_ROUTER.sharedStepPenalty * step.cost;
         }
-        const crossing = grid.crossing?.(cell, step.cell) ?? null;
+        const crossing = grid.crossing?.(cell, nextCell) ?? null;
         if (
           crossing !== null &&
           usedSteps.has(gridStepKey(grid, crossing[0], crossing[1]))
@@ -466,17 +622,15 @@ export function routeBetween(
         }
       }
       if (arrival !== undefined) {
-        cost += arrival + (target.portCost?.(step.cell, cell) ?? 0);
+        cost += arrival + (target.portCost?.(nextCell, cell) ?? 0);
       }
-      const next = stateOf(step.cell, step.dir + 1);
-      if (closed.has(next)) continue;
       const tentative = g + cost;
-      const known = best.get(next);
-      if (known !== undefined && known <= tentative) continue;
-      best.set(next, tentative);
-      cameFrom.set(next, state);
-      enteredFrom.set(next, cell);
-      open.push(tentative + heuristic(step.cell), next);
+      if (seen[next] === stamp && best[next] <= tentative) continue;
+      seen[next] = stamp;
+      best[next] = tentative;
+      cameFrom[next] = state;
+      enteredFrom[next] = cell;
+      open.push(tentative + heuristic(nextCell), next);
     }
   }
   return null;
@@ -566,6 +720,8 @@ export interface SchematicLayoutDiagnostics {
    * station it does not serve, the relaxed wall of SSTD §3.
    */
   readonly nodePassThroughs?: number;
+  /** Node moves the final local search kept (`octi` §4.6). */
+  readonly localMoves?: number;
   /**
    * The network the grid strategy actually laid out: the input itself, or a
    * copy with split nodes (SSTD §2). Metrics read junctions and transitions
@@ -1162,6 +1318,19 @@ export function nodeTurnCost(
   return cost;
 }
 
+/**
+ * `octi` §4.7's spring, in steps: a corridor of `steps` grid steps carrying
+ * `stops` stops is compressed when `steps < stops + 1` and stores
+ * `c/(2k) · (k + 1 − l)²`; otherwise `0`.
+ */
+export function densitySpringCost(stops: number, steps: number): number {
+  const squeeze = stops + 1 - steps;
+  if (stops <= 0 || squeeze <= 0) return 0;
+  return (
+    (GRID_ROUTER.localSearch.densitySpring / (2 * stops)) * squeeze * squeeze
+  );
+}
+
 /** Median of a non-empty sorted list. */
 function median(sorted: readonly number[]): number {
   const mid = sorted.length >> 1;
@@ -1209,6 +1378,17 @@ export function gridSchematicLayout(
   options: {
     readonly routingOrder?: 'importance' | 'weight';
     readonly maxNodeDegree?: number;
+    /**
+     * Internal: `false` skips the local search, an object overrides its
+     * budget. For tests and the corpus evidence only.
+     */
+    readonly localSearch?:
+      | false
+      | {
+          readonly maxPasses?: number;
+          readonly maxEvaluations?: number;
+          readonly maxExpansions?: number;
+        };
   } = {},
 ): SchematicLayout {
   const routed = splitHighDegreeNodes(
@@ -1311,14 +1491,41 @@ export function gridSchematicLayout(
   const cellOfNode = new Map<string, number>();
   const nodeOfCell = new Map<number, string>();
   const nodeCells = new Set<number>();
-  const occupied = new Set<number>();
-  const usedSteps = new Set<number>();
+  // Counts, not sets: the local search takes routes out and puts them back,
+  // and a cell or step two routes share must survive one of them leaving.
+  const occupied = new CountSet();
+  const usedSteps = new CountSet();
+  // The same, per routing rank (Story 4.7). The greedy pass routes a rank
+  // before any lower one exists; the local search keeps that promise by
+  // letting a corridor see only the routes of its own rank and above, so a
+  // metro corridor rerouted late never bends round a bus.
+  const occupiedByRank = new Map<number, CountSet>();
+  const layer = (byRank: Map<number, CountSet>, rank: number): CountSet => {
+    let set = byRank.get(rank);
+    if (set === undefined) {
+      set = new CountSet();
+      byRank.set(rank, set);
+    }
+    return set;
+  };
+  const seenFrom = (
+    byRank: Map<number, CountSet>,
+    rank: number,
+  ): CellLookup => ({
+    has: (value) => {
+      for (const [r, set] of byRank) {
+        if (r >= rank && set.has(value)) return true;
+      }
+      return false;
+    },
+  });
   /** Plane angle at which each routed corridor leaves each settled node. */
   const routedEnds = new Map<string, Map<string, number>>();
-  let fallbackRoutes = 0;
-  let sharedGridSteps = 0;
-  let orderViolations = 0;
-  let nodePassThroughs = 0;
+  /** The cell path of every routed corridor. */
+  const cellsByEdge = new Map<string, readonly number[]>();
+  // Corridors drawn by the straight fallback; the local search may replace
+  // one with a real route, so the diagnostic counts what is left at the end.
+  const fallbackEdges = new Set<string>();
 
   const candidateRadius = GRID_ROUTER.candidateRadius * spacing;
   /**
@@ -1421,6 +1628,15 @@ export function gridSchematicLayout(
     nodeOfCell.set(cell, id);
     nodeCells.add(cell);
   };
+  const unsettle = (id: string): void => {
+    const cell = cellOfNode.get(id);
+    if (cell === undefined) return;
+    cellOfNode.delete(id);
+    nodeOfCell.delete(cell);
+    nodeCells.delete(cell);
+  };
+  const displacement = (id: string, cell: number): number =>
+    GRID_ROUTER.displacementCost * dist(grid.point(cell), seedOf(id));
 
   /**
    * The neighbour cells through which corridor `edgeId` may leave settled node
@@ -1431,25 +1647,30 @@ export function gridSchematicLayout(
    * Between the nearest routed corridor before it and the nearest after it,
    * keeping a free port for every unrouted corridor in between on each side —
    * the reservation of `octi` Fig. 8.3a, so a later corridor is never left
-   * without a compliant port.
+   * without a compliant port. `ends` is the routed-ends table to read, so the
+   * final diagnostics can replay the order on a table of their own.
    */
-  const allowedPorts = (nodeId: string, edgeId: string): Set<number> | null => {
-    const ends = geoEnds.get(nodeId);
-    const routedHere = routedEnds.get(nodeId);
+  const allowedPorts = (
+    nodeId: string,
+    edgeId: string,
+    ends: ReadonlyMap<string, ReadonlyMap<string, number>> = routedEnds,
+  ): Set<number> | null => {
+    const geographic = geoEnds.get(nodeId);
+    const routedHere = ends.get(nodeId);
     if (
-      ends === undefined ||
+      geographic === undefined ||
       routedHere === undefined ||
       routedHere.size === 0
     ) {
       return null;
     }
-    const index = ends.findIndex((end) => end.edgeId === edgeId);
+    const index = geographic.findIndex((end) => end.edgeId === edgeId);
     if (index < 0) return null;
-    const n = ends.length;
+    const n = geographic.length;
     let before = -1;
     let freeBefore = 0;
     for (let k = 1; k < n; k++) {
-      const end = ends[(index - k + n) % n];
+      const end = geographic[(index - k + n) % n];
       if (end.edgeId !== edgeId && routedHere.has(end.edgeId)) {
         before = (index - k + n) % n;
         break;
@@ -1459,7 +1680,7 @@ export function gridSchematicLayout(
     let after = -1;
     let freeAfter = 0;
     for (let k = 1; k < n; k++) {
-      const end = ends[(index + k) % n];
+      const end = geographic[(index + k) % n];
       if (end.edgeId !== edgeId && routedHere.has(end.edgeId)) {
         after = (index + k) % n;
         break;
@@ -1467,8 +1688,8 @@ export function gridSchematicLayout(
       freeAfter++;
     }
     if (before < 0 || after < 0) return null;
-    const from = routedHere.get(ends[before].edgeId) as number;
-    const to = routedHere.get(ends[after].edgeId) as number;
+    const from = routedHere.get(geographic[before].edgeId) as number;
+    const to = routedHere.get(geographic[after].edgeId) as number;
     const span = before === after ? 2 * Math.PI : normalizeAngle(to - from);
     const cell = cellOfNode.get(nodeId) as number;
     const arc = grid
@@ -1523,11 +1744,146 @@ export function gridSchematicLayout(
     };
   };
 
+  /** Puts a route into the state: its cells, its steps and its two ports. */
+  const register = (d: DrawableEdge, cells: readonly number[]): void => {
+    const cellsAt = layer(occupiedByRank, d.rank);
+    for (let i = 1; i < cells.length; i++) {
+      if (cells[i] !== cells[i - 1]) {
+        usedSteps.add(gridStepKey(grid, cells[i - 1], cells[i]));
+      }
+    }
+    for (const c of cells) {
+      occupied.add(c);
+      cellsAt.add(c);
+    }
+    const a = d.edge.nodeA;
+    const b = d.edge.nodeB;
+    if (a !== b && cells.length >= 2 && cells[0] !== cells[1]) {
+      const last = cells.length - 1;
+      const atA = routedEnds.get(a) ?? new Map<string, number>();
+      atA.set(d.edge.id, stepAngle(grid, cells[0], cells[1]));
+      routedEnds.set(a, atA);
+      const atB = routedEnds.get(b) ?? new Map<string, number>();
+      atB.set(d.edge.id, stepAngle(grid, cells[last], cells[last - 1]));
+      routedEnds.set(b, atB);
+    }
+    cellsByEdge.set(d.edge.id, cells);
+  };
+  /** Takes a route out of the state again; the exact inverse of `register`. */
+  const unregister = (d: DrawableEdge): void => {
+    const cells = cellsByEdge.get(d.edge.id);
+    if (cells === undefined) return;
+    const cellsAt = layer(occupiedByRank, d.rank);
+    for (let i = 1; i < cells.length; i++) {
+      if (cells[i] !== cells[i - 1]) {
+        usedSteps.remove(gridStepKey(grid, cells[i - 1], cells[i]));
+      }
+    }
+    for (const c of cells) {
+      occupied.remove(c);
+      cellsAt.remove(c);
+    }
+    for (const id of [d.edge.nodeA, d.edge.nodeB]) {
+      const ends = routedEnds.get(id);
+      ends?.delete(d.edge.id);
+      if (ends?.size === 0) routedEnds.delete(id);
+    }
+    cellsByEdge.delete(d.edge.id);
+  };
+
+  /**
+   * What the router would charge for `cells` as the route of `d` in the
+   * current state: the cost {@link routeBetween} minimises, priced step by
+   * step, with both ends settled. The local search compares routes by it.
+   */
+  const pricePath = (d: DrawableEdge, cells: readonly number[]): number => {
+    const a = d.edge.nodeA;
+    const b = d.edge.nodeB;
+    if (a === b || cells.length < 2) return 0;
+    const leave = portCostAt(a, d.edge.id, allowedPorts(a, d.edge.id));
+    const arrive = portCostAt(b, d.edge.id, allowedPorts(b, d.edge.id));
+    const seenCells = seenFrom(occupiedByRank, d.rank);
+    const seenSteps = usedSteps;
+    const last = cells.length - 1;
+    let cost = 0;
+    for (let i = 1; i <= last; i++) {
+      const from = cells[i - 1];
+      const to = cells[i];
+      const step = grid.neighbors(from).find((s) => s.cell === to);
+      if (step === undefined) return Infinity;
+      cost += step.cost;
+      if (i >= 2) {
+        cost +=
+          bendCost(
+            turnAngle(
+              grid.point(cells[i - 2]),
+              grid.point(from),
+              grid.point(to),
+            ),
+          ) * step.cost;
+      } else {
+        cost += leave(from, to);
+      }
+      if (i < last) {
+        if (nodeCells.has(to)) {
+          cost += 2 * GRID_ROUTER.sharedStepPenalty * step.cost;
+        }
+        if (seenCells.has(to)) {
+          cost += GRID_ROUTER.occupancyPenalty * step.cost;
+        }
+      }
+      if (seenSteps.has(gridStepKey(grid, from, to))) {
+        cost += GRID_ROUTER.sharedStepPenalty * step.cost;
+      }
+      const crossing = grid.crossing?.(from, to) ?? null;
+      if (
+        crossing !== null &&
+        seenSteps.has(gridStepKey(grid, crossing[0], crossing[1]))
+      ) {
+        cost += GRID_ROUTER.sharedStepPenalty * step.cost;
+      }
+      if (i === last) cost += arrive(to, from);
+    }
+    return cost;
+  };
+
+  /**
+   * Routes `d` between its two settled nodes, as the greedy pass would, or
+   * `null` when no route costs less than `limit`.
+   */
+  const routeSettled = (d: DrawableEdge, limit: number): number[] | null => {
+    const a = d.edge.nodeA;
+    const b = d.edge.nodeB;
+    const from = cellOfNode.get(a) as number;
+    const to = cellOfNode.get(b) as number;
+    const blocked = new Set(nodeCells);
+    blocked.delete(from);
+    blocked.delete(to);
+    return routeBetween(grid, {
+      source: {
+        cells: new Map([[from, 0]]),
+        portCost: portCostAt(a, d.edge.id, allowedPorts(a, d.edge.id)),
+      },
+      target: {
+        cells: new Map([[to, 0]]),
+        portCost: portCostAt(b, d.edge.id, allowedPorts(b, d.edge.id)),
+      },
+      blocked,
+      occupied: seenFrom(occupiedByRank, d.rank),
+      // Steps against every rank: running *over* a lower line is the overlap
+      // Story 4.9 forbids, whichever of the two was routed first.
+      usedSteps,
+      blockedPenalty: 2 * GRID_ROUTER.sharedStepPenalty,
+      searchBudget: GRID_ROUTER.localSearch.searchBudget,
+      costLimit: limit,
+      stats: localStats,
+    });
+  };
+
   // ── Routing, most important first. A layer (Story 4.7) is now simply a
   // stretch of this order: its nodes settle as its corridors route, before any
   // corridor of a lower rank exists.
   const routingOrder = sortForRouting(drawable, options.routingOrder);
-  const routeByEdgeId = new Map<string, SchematicPoint[]>();
 
   for (const d of routingOrder) {
     const a = d.edge.nodeA;
@@ -1567,19 +1923,25 @@ export function gridSchematicLayout(
         : candidatesOf(b, aSettled ? null : seedOf(a), sourceSet);
       if (targetCells.size === 0)
         targetCells = candidatesOf(b, null, sourceSet);
-      const allowedA = aSettled ? allowedPorts(a, d.edge.id) : null;
-      const allowedB = bSettled ? allowedPorts(b, d.edge.id) : null;
       const blocked = new Set(nodeCells);
       for (const c of sourceCells.keys()) blocked.delete(c);
       for (const c of targetCells.keys()) blocked.delete(c);
       const request: RouteRequest = {
         source: {
           cells: sourceCells,
-          ...(aSettled ? { portCost: portCostAt(a, d.edge.id, allowedA) } : {}),
+          ...(aSettled
+            ? {
+                portCost: portCostAt(a, d.edge.id, allowedPorts(a, d.edge.id)),
+              }
+            : {}),
         },
         target: {
           cells: targetCells,
-          ...(bSettled ? { portCost: portCostAt(b, d.edge.id, allowedB) } : {}),
+          ...(bSettled
+            ? {
+                portCost: portCostAt(b, d.edge.id, allowedPorts(b, d.edge.id)),
+              }
+            : {}),
         },
         blocked,
         occupied,
@@ -1593,91 +1955,23 @@ export function gridSchematicLayout(
           heuristicWeight: GRID_ROUTER.retryWeight,
         });
       if (found === null) {
-        fallbackRoutes++;
+        fallbackEdges.add(d.edge.id);
         cells = grid.lineTo(cheapest(sourceCells), cheapest(targetCells));
       } else {
         cells = found;
       }
       if (!aSettled) settle(a, cells[0]);
       if (!bSettled) settle(b, cells[cells.length - 1]);
-      if (cells.length >= 2) {
-        if (allowedA !== null && !allowedA.has(cells[1])) orderViolations++;
-        if (allowedB !== null && !allowedB.has(cells[cells.length - 2])) {
-          orderViolations++;
-        }
-      }
     }
-
-    // Register the route: its cells, its steps, and its ports at both ends.
-    for (let i = 1; i < cells.length; i++) {
-      if (cells[i] === cells[i - 1]) continue;
-      const key = gridStepKey(grid, cells[i - 1], cells[i]);
-      const crossing = grid.crossing?.(cells[i - 1], cells[i]) ?? null;
-      if (
-        usedSteps.has(key) ||
-        (crossing !== null &&
-          usedSteps.has(gridStepKey(grid, crossing[0], crossing[1])))
-      ) {
-        sharedGridSteps++;
-      }
-    }
-    for (let i = 1; i < cells.length; i++) {
-      if (cells[i] !== cells[i - 1]) {
-        usedSteps.add(gridStepKey(grid, cells[i - 1], cells[i]));
-      }
-    }
-    // A route through another node's cell (the relaxed wall) draws a line
-    // across a station it does not serve: never silent either.
-    for (let i = 1; i < cells.length - 1; i++) {
-      if (nodeCells.has(cells[i])) nodePassThroughs++;
-    }
-    for (const c of cells) occupied.add(c);
-    if (a !== b && cells.length >= 2 && cells[0] !== cells[1]) {
-      const last = cells.length - 1;
-      const atA = routedEnds.get(a) ?? new Map<string, number>();
-      atA.set(d.edge.id, stepAngle(grid, cells[0], cells[1]));
-      routedEnds.set(a, atA);
-      const atB = routedEnds.get(b) ?? new Map<string, number>();
-      atB.set(d.edge.id, stepAngle(grid, cells[last], cells[last - 1]));
-      routedEnds.set(b, atB);
-    }
-    const simplified = simplifyCellPath(grid, cells);
-    const points = simplified.map((c) => grid.point(c));
-    // A stroke needs two points even when the grammar collapsed the route.
-    routeByEdgeId.set(
-      d.edge.id,
-      points.length >= 2 ? points : [points[0], points[0]],
-    );
-  }
-  let relocatedNodes = 0;
-  for (const id of nodeIds) {
-    const cell = cellOfNode.get(id);
-    // A split node sits a meter from its hub, so it can never take its own
-    // snapped cell: counting it would only measure the splitting.
-    if (isSplitCorridorId(id)) continue;
-    if (cell !== undefined && cell !== grid.snap(seedOf(id))) relocatedNodes++;
-  }
-
-  // ── Corridors with slots, in the canonical order: edge id. The slots come
-  // from the network's own `lineOrder`, so the diagram lays a bundle out
-  // left-to-right exactly as the map does.
-  const corridors: RawSchematicCorridor[] = drawable.map((d) => ({
-    edgeId: d.edge.id,
-    nodeA: d.edge.nodeA,
-    nodeB: d.edge.nodeB,
-    points: routeByEdgeId.get(d.edge.id) as SchematicPoint[],
-    slots: corridorSlots(routed.lineOrder.get(d.edge.id), d.lineIds),
-  }));
-  if (corridors.every((c) => c.slots.length === 0)) {
-    return emptySchematicLayout();
+    register(d, cells);
   }
 
   // ── Stops. Deduplicated by `stopId` exactly as the geographic strategy does:
   // the first usable position wins, but membership accumulates, so a station
   // shared by several lines survives any one of them being hidden.
-  const drawnLines = new Set(
-    corridors.flatMap((c) => c.slots.map((slot) => slot.lineId)),
-  );
+  // Assigned before the local search, which needs each corridor's stop count;
+  // it reads geography only, never a route.
+  const drawnLines = new Set(drawable.flatMap((d) => d.lineIds));
   // A split corridor is a piece of its node, not a street: no stop sits on it.
   const stopCorridors = drawable.filter((d) => !isSplitCorridorId(d.edge.id));
   const assigned = [...canonicalSchematicStops(network, drawnLines)]
@@ -1718,6 +2012,294 @@ export function gridSchematicLayout(
           bestEdge === null ? 0 : arcFractionOf(edge.worldPath, stop.position),
       };
     });
+  // ── Local search (`octi` §4.6). Each node in turn tries the free cells
+  // around it: its corridors are taken out, rerouted with the node moved, and
+  // the move is kept when it lowers what the router charges for them. Each
+  // node takes its own best move at once (coordinate descent) rather than the
+  // single best move of the whole map, which would reroute every corridor of
+  // San Rico several times per step; a fixed number of passes and of tries
+  // keeps it deterministic.
+  const incident = new Map<string, DrawableEdge[]>();
+  const withRing = new Set<string>();
+  for (const d of routingOrder) {
+    if (d.edge.nodeA === d.edge.nodeB) {
+      withRing.add(d.edge.nodeA);
+      continue;
+    }
+    for (const id of [d.edge.nodeA, d.edge.nodeB]) {
+      const list = incident.get(id) ?? [];
+      list.push(d);
+      incident.set(id, list);
+    }
+  }
+  const { maxPasses, maxEvaluations, maxExpansions } =
+    options.localSearch === false
+      ? { maxPasses: 0, maxEvaluations: 0, maxExpansions: 0 }
+      : {
+          maxPasses:
+            options.localSearch?.maxPasses ?? GRID_ROUTER.localSearch.maxPasses,
+          maxEvaluations:
+            options.localSearch?.maxEvaluations ??
+            GRID_ROUTER.localSearch.maxEvaluations,
+          maxExpansions:
+            options.localSearch?.maxExpansions ??
+            GRID_ROUTER.localSearch.maxExpansions,
+        };
+  const localStats = { expansions: 0 };
+  const spent = (): boolean =>
+    evaluations >= maxEvaluations || localStats.expansions >= maxExpansions;
+  const stopsOnEdge = new Map<string, number>();
+  for (const item of assigned) {
+    stopsOnEdge.set(
+      item.edge.edge.id,
+      (stopsOnEdge.get(item.edge.edge.id) ?? 0) + 1,
+    );
+  }
+  /**
+   * `octi` §4.7's spring: a corridor of `l` grid steps carrying `k` stops is
+   * compressed when `l < k + 1` (its stops cannot sit a cell apart), and pays
+   * `c/(2k) · (k + 1 − l)²` steps. Added by the local search only, as in the
+   * paper's A-2+D, so a move can never crowd a corridor's stations.
+   */
+  const density = (d: DrawableEdge, cells: readonly number[]): number =>
+    densitySpringCost(stopsOnEdge.get(d.edge.id) ?? 0, cells.length - 1) *
+    spacing;
+  let evaluations = 0;
+  let localMoves = 0;
+  // What a route costs beyond its own length: bends, turns, crossings and
+  // penalties — the part a move could still save.
+  const excessOf = (d: DrawableEdge): number => {
+    const cells = cellsByEdge.get(d.edge.id) ?? [];
+    unregister(d);
+    let length = 0;
+    for (let i = 1; i < cells.length; i++) {
+      length +=
+        grid.neighbors(cells[i - 1]).find((s) => s.cell === cells[i])?.cost ??
+        0;
+    }
+    const excess = pricePath(d, cells) - length;
+    register(d, cells);
+    return excess;
+  };
+  for (let pass = 0; pass < maxPasses; pass++) {
+    let improved = false;
+    // The worst nodes first, so the budget goes where a move can save most;
+    // a node whose routes cost no more than their length has nothing to gain.
+    const excess = new Map<string, number>();
+    for (const d of routingOrder) {
+      if (d.edge.nodeA !== d.edge.nodeB) excess.set(d.edge.id, excessOf(d));
+    }
+    const worth = new Map<string, number>();
+    for (const id of nodeIds) {
+      const total = (incident.get(id) ?? []).reduce(
+        (sum, d) => sum + (excess.get(d.edge.id) ?? 0),
+        cellOfNode.has(id) ? displacement(id, cellOfNode.get(id) as number) : 0,
+      );
+      // A route the router could not price (a fallback off the grid's steps)
+      // still ranks first, but finitely, so the sort stays a total order.
+      if (total > 1e-6 * spacing) {
+        worth.set(id, Number.isFinite(total) ? total : Number.MAX_VALUE);
+      }
+    }
+    const queue = [...worth.keys()].sort(
+      (x, y) =>
+        (worth.get(y) as number) - (worth.get(x) as number) || byString(x, y),
+    );
+    for (const id of queue) {
+      if (spent()) break;
+      const listed = incident.get(id);
+      const home = cellOfNode.get(id);
+      // A split node is a piece of its hub (SSTD §2): moving it would pull the
+      // hub's ports apart, so it stays where the greedy pass put it.
+      if (
+        listed === undefined ||
+        home === undefined ||
+        withRing.has(id) ||
+        isSplitCorridorId(id)
+      ) {
+        continue;
+      }
+      // Most important rank first, whatever the routing order (`'weight'`
+      // interleaves ranks); stable, so ties keep the routing order.
+      const edges = [...listed].sort((x, y) => y.rank - x.rank);
+      // Costs are compared rank by rank, most important first (Story 4.7): a
+      // move that saves a bus a bend must not cost a metro one. Each rank's
+      // corridors are summed apart; the node's displacement counts with its
+      // lowest rank, so geography only breaks ties the lines leave.
+      const ranks = [...new Set(edges.map((d) => d.rank))].sort(
+        (x, y) => y - x,
+      );
+      const slot = (d: DrawableEdge): number => ranks.indexOf(d.rank);
+      const lowest = ranks.length - 1;
+      const eps = 1e-9 * spacing;
+
+      // The cost of the routes as they are, priced in the order they would be
+      // rerouted, each against the state the others leave.
+      const homeCells = edges.map((d) => cellsByEdge.get(d.edge.id) ?? []);
+      edges.forEach(unregister);
+      const homeCost = new Array<number>(ranks.length).fill(0);
+      homeCost[lowest] += displacement(id, home);
+      edges.forEach((d, k) => {
+        homeCost[slot(d)] +=
+          pricePath(d, homeCells[k]) + density(d, homeCells[k]);
+        register(d, homeCells[k]);
+      });
+      edges.forEach(unregister);
+      unsettle(id);
+
+      let bestCost = homeCost;
+      let bestCell = -1;
+      let bestRoutes: number[][] = [];
+      const tries = grid
+        .neighbors(home)
+        .map((step) => step.cell)
+        .filter((c) => !nodeCells.has(c) && !occupied.has(c))
+        .sort((x, y) => x - y);
+      for (const cell of tries) {
+        if (spent()) break;
+        evaluations++;
+        settle(id, cell);
+        const cost = new Array<number>(ranks.length).fill(0);
+        cost[lowest] += displacement(id, cell);
+        const placed: DrawableEdge[] = [];
+        const routes: number[][] = [];
+        // `ahead`: a more important rank already came out cheaper, so the
+        // lower ranks no longer bound the search.
+        let ahead = false;
+        let complete = true;
+        for (let k = 0; k < edges.length; k++) {
+          const d = edges[k];
+          const r = slot(d);
+          const limit = ahead ? Infinity : bestCost[r] - cost[r] + eps;
+          const route = routeSettled(d, limit);
+          if (route === null) {
+            complete = false;
+            break;
+          }
+          cost[r] += pricePath(d, route) + density(d, route);
+          register(d, route);
+          placed.push(d);
+          routes.push(route);
+          if (!ahead && cost[r] > bestCost[r] + eps) {
+            complete = false;
+            break;
+          }
+          // The last corridor of this rank: settle the comparison at it.
+          const next = edges[k + 1];
+          if (!ahead && (next === undefined || next.rank !== d.rank)) {
+            if (cost[r] < bestCost[r] - eps) ahead = true;
+          }
+        }
+        placed.forEach(unregister);
+        unsettle(id);
+        if (complete && ahead) {
+          bestCost = cost;
+          bestCell = cell;
+          bestRoutes = routes;
+        }
+      }
+      if (bestCell >= 0) {
+        settle(id, bestCell);
+        edges.forEach((d, k) => {
+          register(d, bestRoutes[k]);
+          fallbackEdges.delete(d.edge.id);
+        });
+        localMoves++;
+        improved = true;
+      } else {
+        settle(id, home);
+        edges.forEach((d, k) => register(d, homeCells[k]));
+      }
+    }
+    if (!improved || spent()) break;
+  }
+
+  // ── Diagnostics, read off the final routes by replaying them in routing
+  // order on fresh tables: what the greedy pass counted may have been undone
+  // by the local search.
+  let sharedGridSteps = 0;
+  let orderViolations = 0;
+  let nodePassThroughs = 0;
+  {
+    const steps = new CountSet();
+    const ends = new Map<string, Map<string, number>>();
+    for (const d of routingOrder) {
+      const cells = cellsByEdge.get(d.edge.id) ?? [];
+      const a = d.edge.nodeA;
+      const b = d.edge.nodeB;
+      if (a !== b && cells.length >= 2) {
+        const atA = allowedPorts(a, d.edge.id, ends);
+        const atB = allowedPorts(b, d.edge.id, ends);
+        if (atA !== null && !atA.has(cells[1])) orderViolations++;
+        if (atB !== null && !atB.has(cells[cells.length - 2])) {
+          orderViolations++;
+        }
+      }
+      for (let i = 1; i < cells.length; i++) {
+        if (cells[i] === cells[i - 1]) continue;
+        const crossing = grid.crossing?.(cells[i - 1], cells[i]) ?? null;
+        if (
+          steps.has(gridStepKey(grid, cells[i - 1], cells[i])) ||
+          (crossing !== null &&
+            steps.has(gridStepKey(grid, crossing[0], crossing[1])))
+        ) {
+          sharedGridSteps++;
+        }
+      }
+      for (let i = 1; i < cells.length; i++) {
+        if (cells[i] !== cells[i - 1]) {
+          steps.add(gridStepKey(grid, cells[i - 1], cells[i]));
+        }
+      }
+      // A route through another node's cell (the relaxed wall) draws a line
+      // across a station it does not serve: never silent either.
+      for (let i = 1; i < cells.length - 1; i++) {
+        if (nodeCells.has(cells[i])) nodePassThroughs++;
+      }
+      if (a !== b && cells.length >= 2 && cells[0] !== cells[1]) {
+        const last = cells.length - 1;
+        const atA = ends.get(a) ?? new Map<string, number>();
+        atA.set(d.edge.id, stepAngle(grid, cells[0], cells[1]));
+        ends.set(a, atA);
+        const atB = ends.get(b) ?? new Map<string, number>();
+        atB.set(d.edge.id, stepAngle(grid, cells[last], cells[last - 1]));
+        ends.set(b, atB);
+      }
+    }
+  }
+
+  const routeByEdgeId = new Map<string, SchematicPoint[]>();
+  for (const d of drawable) {
+    const simplified = simplifyCellPath(grid, cellsByEdge.get(d.edge.id) ?? []);
+    const points = simplified.map((c) => grid.point(c));
+    // A stroke needs two points even when the grammar collapsed the route.
+    routeByEdgeId.set(
+      d.edge.id,
+      points.length >= 2 ? points : [points[0], points[0]],
+    );
+  }
+  let relocatedNodes = 0;
+  for (const id of nodeIds) {
+    const cell = cellOfNode.get(id);
+    // A split node sits a meter from its hub, so it can never take its own
+    // snapped cell: counting it would only measure the splitting.
+    if (isSplitCorridorId(id)) continue;
+    if (cell !== undefined && cell !== grid.snap(seedOf(id))) relocatedNodes++;
+  }
+  // ── Corridors with slots, in the canonical order: edge id. The slots come
+  // from the network's own `lineOrder`, so the diagram lays a bundle out
+  // left-to-right exactly as the map does.
+  const corridors: RawSchematicCorridor[] = drawable.map((d) => ({
+    edgeId: d.edge.id,
+    nodeA: d.edge.nodeA,
+    nodeB: d.edge.nodeB,
+    points: routeByEdgeId.get(d.edge.id) as SchematicPoint[],
+    slots: corridorSlots(routed.lineOrder.get(d.edge.id), d.lineIds),
+  }));
+  if (corridors.every((c) => c.slots.length === 0)) {
+    return emptySchematicLayout();
+  }
+
   // Then spread them evenly along the corridor's new route, in their
   // geographic order — `octi`'s degree-2 heuristic: a schematic diagram spaces
   // its stations, it does not keep the street's spacing. Stops near an end are
@@ -1750,13 +2332,14 @@ export function gridSchematicLayout(
     lines: routed.lines,
   });
   diagnostics.set(layout, {
-    fallbackRoutes,
+    fallbackRoutes: fallbackEdges.size,
     relocatedNodes,
     routedEdges: drawable.filter((d) => !isSplitCorridorId(d.edge.id)).length,
     stationsClampedToNodeArea:
       schematicLayoutDiagnostics(layout)?.stationsClampedToNodeArea ?? 0,
     sharedGridSteps,
     nodePassThroughs,
+    localMoves,
     orderViolations,
     network: routed,
     project,

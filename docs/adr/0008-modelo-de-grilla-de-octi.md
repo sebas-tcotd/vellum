@@ -149,3 +149,52 @@ nodo bajan en las cuatro ciudades (San Rico octilineal: 583 → 482).
   se ajusta su semilla, sea por desplazamiento elegido o por choque.
 - Diferido: la búsqueda local final (`octi` §4.6) y la penalización de densidad
   por paradas en corredores cortos (§4.7).
+
+## Pulido: diagonales y búsqueda local (2026-10-02)
+
+Segunda ronda sobre el mismo PR, aceptada por Sebas con sus costos.
+
+- **Diagonal a 1,5 pasos** en la grilla octilineal (`OCTILINEAR_GRID.diagonalCost`), en vez de su largo √2. Es el «offset +0,5» de `octi` §6, que prefiere los tramos horizontales y verticales.
+- **`bend45` de 0,6 a 0,8.** Con 0,6, dos quiebres de 45° (1,2) costaban menos que uno de 90° (1,6), lo que viola la desigualdad 2 de `octi` §2.2; con la diagonal a 1,5, el router cortaba cada esquina recta en dos quiebres. Los quiebres se escalan por el paso en que entran, así que cortar una esquina por una diagonal paga 0,8·1,5 + 0,8 = 2,0, contra 1,6 de la esquina.
+- **Búsqueda local** (`octi` §4.6) después del greedy. Cada nodo prueba sus celdas vecinas libres, se rutean de nuevo sus corredores y el movimiento se queda si baja el costo del router más el desplazamiento y el resorte. Diferencias con el paper:
+  - Cada nodo toma su mejor movimiento al momento (descenso por coordenadas), en vez del mejor movimiento de todo el mapa por iteración.
+  - La comparación es **lexicográfica por rango** (Story 4.7). Un movimiento que le ahorra un quiebre a un bus no puede costarle uno al metro, y un corredor solo cuenta como cruce las rutas de su rango o de uno mayor. Los pasos compartidos y las X se cobran contra todas las rutas.
+  - El presupuesto es por cuenta, nunca por reloj: 650 000 expansiones de A\* (solo las reales), 6000 movimientos probados, 4 pasadas y 4000 expansiones por búsqueda. Los nodos con más costo excedente van primero. Los nodos divididos (SSTD §2) no se mueven, porque son una pieza de su hub.
+  - El A* corta en cuanto ningún camino puede bajar del costo que el movimiento tiene que superar (ramificación y poda). Además usa arreglos tipados reutilizables por grilla; el mismo A* hace el greedy unas dos veces más rápido. Esa memoria compartida hace que `routeBetween` no sea reentrante: un `portCost` nunca debe lanzar otra búsqueda.
+- **Resorte de densidad** (`octi` §4.7, la variante A-2+D), solo dentro de la búsqueda local. Un corredor de `l` pasos con `k` paradas paga `10/(2k)·(k+1−l)²` pasos cuando `l < k+1`. Sin el resorte, la búsqueda local amontonaba estaciones (Villa Coronada: 11 → 34 pares demasiado juntos).
+
+### Cifras (`51a2f34` → esta ronda)
+
+Los rieles se miden como cambios de dirección totales (quiebres más giros en nodo), porque el costo de giro de la 4.10 los mueve entre el nodo y el corredor.
+
+**Octilineal**
+
+| Ciudad         | Superpuestos | 135°+rev en nodo | Orden   | Rieles (dir.) | Bus       | Cruces    | Estaciones juntas | ms         |
+| -------------- | ------------ | ---------------- | ------- | ------------- | --------- | --------- | ----------------- | ---------- |
+| Villa Coronada | 1 → 0        | 22 → 13          | 0 → 0   | 62 → 56       | 29 → 30   | 13 → 15   | 11 → 3            | 61 → 322   |
+| Costa Tijuca   | 2 → 0        | 33 → 19          | 4 → 0   | 51 → 36       | 249 → 192 | 72 → 66   | 19 → 12           | 156 → 892  |
+| Springvalley   | 6 → 4        | 76 → 39          | 22 → 18 | 338 → 306     | 515 → 523 | 321 → 287 | 25 → 22           | 621 → 1040 |
+| San Rico       | 13 → 3       | 179 → 156        | 30 → 9  | 453 → 473     | 665 → 727 | 273 → 292 | 4509 → 3445       | 764 → 1372 |
+
+**Orthoradial**
+
+| Ciudad         | Superpuestos | 135°+rev en nodo | Orden   | Rieles (dir.) | Bus         | Estaciones juntas | ms          |
+| -------------- | ------------ | ---------------- | ------- | ------------- | ----------- | ----------------- | ----------- |
+| Villa Coronada | 7 → 2        | 2 → 1            | 0 → 1   | 191 → 178     | 95 → 92     | 6 → 3             | 35 → 137    |
+| Costa Tijuca   | 17 → 5       | 2 → 0            | 10 → 7  | 129 → 120     | 813 → 688   | 18 → 11           | 122 → 380   |
+| Springvalley   | 211 → 168    | 16 → 9           | 36 → 25 | 955 → 936     | 2420 → 2267 | 18 → 22           | 914 → 877   |
+| San Rico       | 424 → 347    | 36 → 29          | 89 → 71 | 1083 → 1107   | 3025 → 2899 | 3147 → 2942       | 1942 → 1452 |
+
+### Consecuencias
+
+- **Empeora, aceptado por Sebas:**
+  - San Rico octilineal: rieles +4,4 % en cambios de dirección, bus 665 → 727, cruces 273 → 292.
+  - San Rico orthoradial: rieles 1083 → 1107 (+2,2 %).
+  - Villa Coronada octilineal: cruces 13 → 15 y bus 29 → 30.
+  - Villa Coronada orthoradial: orden circular 0 → 1.
+  - Springvalley: bus 515 → 523 en el octilineal y estaciones juntas 18 → 22 en el orthoradial.
+  - El test de corpus admite un 5 % de holgura en los rieles y exige que no empeoren las estaciones juntas en el octilineal.
+- **Tiempo.** Todo layout octilineal tarda más: Villa Coronada ×5 (61 → 322 ms), Costa Tijuca ×6 (156 → 892 ms), Springvalley ×1,7 y San Rico ×1,8 (1,37 s). San Rico, la ciudad más grande, queda dentro de los 1,8 s de la 4.7. El orthoradial de San Rico y Springvalley baja de tiempo gracias al A\* más rápido.
+- **El objetivo incluye el desplazamiento** (`octi` §3), así que la búsqueda local también acerca los nodos a su geografía, aunque eso cueste un quiebre.
+- **Diagnósticos recalculados sobre el resultado final.** `nodePassThroughs` cuenta ahora contra las celdas de nodo finales, incluidos los nodos que se asentaron o se movieron después de la ruta, así que no es comparable con la primera ronda. `fallbackRoutes` descuenta las rutas que la búsqueda local reemplazó.
+- **Pendiente:** el orthoradial de Springvalley y San Rico sigue compartiendo pasos (168 y 347). Lo siguiente son los _Hanan grids_ de SSTD §4.3.
