@@ -505,6 +505,24 @@ export function placeSchematicLabels(
   const blocked = (box: LabelBox, ownId: string): boolean =>
     claimed.hits(box, ownId) || strokes.hits(box);
 
+  // The side of its line each line's last name went to: +1 or −1 across the
+  // line's canonical axis (pointing right, or down when vertical). Names of one
+  // line gather on one side of it (`octi` §5).
+  const sideOfLine = new Map<string, number>();
+  const sideOf = (axis: number, x: number, y: number): number => {
+    let ax = Math.cos(axis);
+    let ay = Math.sin(axis);
+    if (ax < -1e-9 || (Math.abs(ax) <= 1e-9 && ay < 0)) {
+      ax = -ax;
+      ay = -ay;
+    }
+    const cross = ax * y - ay * x;
+    // A name along the line is on neither side of it.
+    return Math.abs(cross) < 1e-6 ? 0 : cross > 0 ? 1 : -1;
+  };
+  const lineRank = (lineId: string): number =>
+    transitModeImportance(modeByLine.get(lineId) ?? 'Unknown') ?? 0;
+
   for (const station of ordered) {
     const name = stationById.get(station.id)?.name?.trim();
     // An absent real name intentionally remains a symbol with no fabricated id.
@@ -523,58 +541,74 @@ export function placeSchematicLabels(
       .map((index) => pieces[index]);
     const axis = stationAxis(station, nearby, probe) ?? 0;
     const perpendicular = axis + Math.PI / 2;
-    // The two perpendicular rays first, then the eight octilinear directions
-    // ordered by how far they turn from perpendicular (octi §5). Same turn:
-    // the ray that reads left-to-right, then upward, so neighbouring names on
-    // one line fall on the same side of it.
-    const rays = [
-      perpendicular,
-      perpendicular + Math.PI,
-      ...Array.from({ length: 8 }, (_, k) => (k * Math.PI) / 4),
-    ]
-      .map((ray) => {
+    // The side this station's most important line already uses, if any.
+    const ownLines = [...station.lineIds].sort(
+      (a, b) => lineRank(b) - lineRank(a) || (a < b ? -1 : a > b ? 1 : 0),
+    );
+    const preferredSide = ownLines
+      .map((lineId) => sideOfLine.get(lineId))
+      .find((side) => side !== undefined);
+    // Eight octilinear positions around the symbol, the text always horizontal
+    // (`octi` §5, and how every hand-drawn metro map sets its names). The two
+    // across the line come first; then by how far they turn from across it;
+    // then the side this line's names already took; then names that read
+    // rightwards and sit above, so neighbours fall on the same side.
+    const positions = Array.from({ length: 8 }, (_, k) => (k * Math.PI) / 4)
+      .map((direction) => {
+        const dx = Math.round(Math.cos(direction) * 1e6) / 1e6;
+        const dy = Math.round(Math.sin(direction) * 1e6) / 1e6;
         const turn = Math.abs(
           Math.atan2(
-            Math.sin(ray - perpendicular),
-            Math.cos(ray - perpendicular),
+            Math.sin(direction - perpendicular),
+            Math.cos(direction - perpendicular),
           ),
         );
+        const side = sideOf(axis, dx, dy);
         return {
-          ray,
+          dx,
+          dy,
+          side,
           cost:
             Math.round(Math.min(turn, Math.PI - turn) * 1000) +
-            (Math.cos(ray) > 1e-6 ? 0 : Math.cos(ray) < -1e-6 ? 0.2 : 0.1) +
-            (Math.sin(ray) < 0 ? 0 : 0.05),
+            (preferredSide !== undefined && side !== 0 && side !== preferredSide
+              ? 0.5
+              : 0) +
+            (dx > 1e-6 ? 0 : dx < -1e-6 ? 0.2 : 0.1) +
+            (dy < 0 ? 0 : 0.05),
         };
       })
       .sort((a, b) => a.cost - b.cost);
     let placed = false;
-    for (const { ray } of rays) {
-      const directionX = Math.cos(ray);
-      const directionY = Math.sin(ray);
+    for (const { dx, dy, side } of positions) {
+      const length = Math.hypot(dx, dy);
+      const ux = dx / length;
+      const uy = dy / length;
       const start =
-        Math.max(markerReach(station, directionX, directionY), strokeReach) +
+        Math.max(markerReach(station, ux, uy), strokeReach) +
         stationSize * 0.35;
-      const x = station.x + directionX * start;
-      const y = station.y + directionY * start;
-      const box = rotatedBox(
-        x + (directionX * width) / 2,
-        y + (directionY * width) / 2,
-        width,
-        stationSize,
-        (ray * 180) / Math.PI,
-      );
+      // Where the text's anchor edge meets the symbol's clearance. A name
+      // above or below is raised or lowered by half its height so its edge,
+      // not its middle, sits at that distance.
+      const edgeX = station.x + ux * start;
+      const edgeY = station.y + uy * start;
+      const anchor: 'start' | 'middle' | 'end' =
+        dx > 1e-6 ? 'start' : dx < -1e-6 ? 'end' : 'middle';
+      const y =
+        edgeY +
+        (dy > 1e-6 ? stationSize / 2 : dy < -1e-6 ? -stationSize / 2 : 0);
+      const x = edgeX;
+      const centreX =
+        anchor === 'start'
+          ? x + width / 2
+          : anchor === 'end'
+            ? x - width / 2
+            : x;
+      const box = rotatedBox(centreX, y, width, stationSize, 0);
       if (blocked(box, station.id)) continue;
-      // Text runs along the ray, away from the stop; a ray into the left
-      // half-plane is set the other way round and anchored at its end so it
-      // never reads upside down.
-      let angle = (Math.atan2(directionY, directionX) * 180) / Math.PI;
-      let anchor: 'start' | 'end' = 'start';
-      if (angle > 90 + 1e-6 || angle <= -90 + 1e-6) {
-        angle = angle > 0 ? angle - 180 : angle + 180;
-        anchor = 'end';
-      }
       claimed.add(box);
+      for (const lineId of station.lineIds) {
+        if (side !== 0 && !sideOfLine.has(lineId)) sideOfLine.set(lineId, side);
+      }
       result.push({
         id: `station:${station.id}`,
         kind: 'station',
@@ -584,7 +618,7 @@ export function placeSchematicLabels(
         x,
         y,
         anchor,
-        angle: Math.round(angle * 1000) / 1000,
+        angle: 0,
         fontSize: stationTypeDesign,
         color: null,
       });

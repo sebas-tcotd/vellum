@@ -363,10 +363,11 @@ describe('layout by layers', () => {
           routingOrder: order,
         }),
       ).Metro ?? 0;
-    // Before Story 4.7 every node took its cell first, so the metro had to
-    // route around the bus terminus.
-    expect(bends('weight')).toBeGreaterThan(0);
     // By layers, the metro is placed and routed while the bus does not exist.
+    // (Before Story 4.7 every node took its cell first and the metro bent round
+    // the bus terminus. Since Story 4.9 a node settles in the route of its
+    // first corridor (`octi` §4.2), so even the order by weight no longer pins
+    // the bus first; what layers guarantee is the metro's straight run.)
     expect(bends('importance')).toBe(0);
   });
 
@@ -408,8 +409,11 @@ describe('layout by layers', () => {
     const bus = corridorOf('b')?.points ?? [];
     expect(metro.length).toBeGreaterThanOrEqual(2);
     expect(bus.length).toBeGreaterThanOrEqual(2);
-    // It did collide: the bus terminus had to move.
-    expect(schematicLayoutDiagnostics(layout)?.relocatedNodes).toBe(1);
+    // It did collide: the bus terminus had to move. Since Story 4.9 the search
+    // may also displace other nodes when that is cheaper (`octi` §4.2).
+    expect(
+      schematicLayoutDiagnostics(layout)?.relocatedNodes,
+    ).toBeGreaterThanOrEqual(1);
     // The metro still runs straight along one row.
     expect(new Set(metro.map((p) => p.y)).size).toBe(1);
     const row = metro[0].y;

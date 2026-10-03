@@ -6,7 +6,8 @@ documentación de lo que Vellum hace: es la lista de lo que **todavía no hace**
 que los papers resuelven, con el archivo concreto que habría que tocar.
 
 Cada entrada dice: **qué dice el paper**, **qué hace Vellum hoy** y **qué
-cambiaría**. Las entradas marcadas ✅ ya están aplicadas (2026-09-22).
+cambiaría**. Las entradas marcadas ✅ ya están aplicadas (2026-09-22; las de
+las stories 4.9 y 4.10, el 2026-10-02, ADR-0008).
 
 ## Fuentes
 
@@ -17,6 +18,86 @@ cambiaría**. Las entradas marcadas ✅ ya están aplicadas (2026-09-22).
 | **SSTD-2021**  | Bast, Brosi, Storandt — _Metro Maps on Flexible Base Grids_, SSTD '21                                                                                 |
 | **OSM-2023**   | Brosi, Bast — _Large-scale Generation of Transit Maps from OpenStreetMap Data_, The Cartographic Journal 60(4)                                        |
 | **MIXED-2022** | Batik, Terziadis, Wang, Nöllenburg, Wu — _Shape-Guided Mixed Metro Map Layout_, CGF 41(7)                                                             |
+
+---
+
+## Pendiente después de v1.0 (estado al 2026-10-02)
+
+Lista consolidada de lo que falta mejorar o completar en la vista esquemática y en el dibujo de tránsito estilo LOOM/octi. No son stories: es el insumo para el sprint post-v1 y para cualquier party mode del tema. Junta las entradas abiertas de este backlog, lo diferido en las stories 4.9/4.10 y su pulido (ADR-0008), lo que dejaron sus revisiones y los costos que Sebas aceptó para cerrar v1.0.
+
+**Vara de medida:** San Rico, en octilineal y orthoradial, con `grid-model.corpus.test.ts` contra una línea base. Las cifras de partida están en ADR-0008.
+
+### A. Ruteo y grilla de la esquemática
+
+1. **Grillas adaptativas** (SSTD-2021 §4: casco convexo y _Hanan grids_ octilineales). Es lo que más falta en el orthoradial: Springvalley todavía tiene 168 pares de corredores superpuestos y San Rico 347, porque los anillos interiores tienen pocas celdas y los radios convergen. También abarataría las ciudades grandes.
+2. **El orthoradial como gramática propia:**
+   - centro conectado a 4 nodos del primer anillo (§1.9);
+   - radio interior corregido para la distancia mínima (§1.10);
+   - **arcos reales** en lugar de cuerdas (exige una primitiva curva en el contrato `SchematicSegment`, que hoy es una polilínea; ver `orthoradial.ts`).
+3. **Grilla hexalineal** (SSTD-2021 §5.1): un tercer layout esquemático sobre una grilla triangular.
+4. **Orden de ruteo por _line degree_** (OCTI-2020 §4.1, entrada 1.2): crecer desde el nodo más cargado, dentro de cada rango de importancia, en lugar de rango → peso → id.
+5. **Respaldo que afina la grilla en vez de ignorar todo** (entrada 1.5). Hoy, si la búsqueda óptima y la reintentada con la heurística ×4 fallan, se traza `lineTo`, que no respeta nada.
+6. **Modo `octilinear-geo`** (OSM-2023, entrada 1.8): las aristas cuestan según su distancia al trazado real, para que el diagrama se siga pareciendo a la ciudad.
+7. **Obstáculos en la grilla** (OCTI-2020 §6.1, Fig. 16.3): agua, parques y montañas como costo o como celda prohibida. Vellum ya tiene el agua.
+8. **Corredores en anillo** con el modelo de la 4.9: pasos usados, orden circular y puertos registrados. Hoy usan un bucle mínimo con `lineTo`.
+9. **Nodos que no se pueden dividir** (varios anillos en un mismo nodo, o una ventana sin líneas que llevar): contarlos y mostrarlos en vez de saltarlos en silencio.
+10. **Coherencia de los cruces:** una X entre diagonales cuesta 20 pasos y un cruce en una celda 2,5. Decidir si deben costar lo mismo.
+11. **Giro en nodo ponderado** por cantidad de líneas o por importancia. Hoy cuesta lo mismo por par de corredores (`octi` §4.4).
+12. **«Recalcular con las líneas visibles»** con la grilla de la ciudad completa, en vez de con la resolución de la selección (diferido de la 4.7).
+13. **Componentes por distancia** para redes muy dispersas (OSM-2023, entrada 2.8).
+
+### B. Búsqueda local y rendimiento
+
+1. **Tiempo en ciudades chicas:** la búsqueda local multiplica su layout (Villa Coronada 61 → 322 ms, Costa Tijuca 156 → 892 ms). Conviene un presupuesto proporcional al tamaño, o cortar antes cuando una pasada mejora poco.
+2. **Asignaciones en el bucle caliente:** `pricePath`, `excessOf`, `seenFrom` y la copia de `nodeCells` en `routeSettled` crean objetos por llamada.
+3. **Una sola fuente del modelo de costo:** `routeBetween` y `pricePath` lo reimplementan por separado, y una deriva entre los dos falsearía cada comparación de movimientos.
+4. **Variantes de la búsqueda:**
+   - descenso global (el mejor movimiento del mapa por iteración, como `octi`) contra el descenso por coordenadas de hoy;
+   - mover grupos de nodos;
+   - considerar la congestión (`crowdingCost`) también en la búsqueda local.
+5. **Resorte de densidad también en el greedy**, no solo en la búsqueda local: que un corredor corto con muchas paradas se alargue desde el primer ruteo.
+6. **Revisar los costos aceptados para v1.0:**
+   - rieles de San Rico +4,4 % en cambios de dirección;
+   - quiebres de bus de San Rico 665 → 727 y cruces 273 → 292;
+   - tranvía de Villa Coronada +1 (4.10);
+   - orden circular del orthoradial de Villa Coronada 0 → 1.
+
+### C. Paradas y estaciones
+
+1. **Estación en un cruce** como polígono o rectángulo orientado a sus frentes (LOOM-2019 §5, entrada 2.4), en vez de una cápsula perpendicular a un solo corredor.
+2. **Fusionar nodos cuyos frentes chocan**, con un marcador maestro elegido por ranking (LOOM-2019 §5, entrada 2.2).
+3. **Separación mínima uniforme entre estaciones** (MIXED-2022 D3): San Rico todavía tiene 3445 pares demasiado juntos en el encuadre completo.
+4. **La cuña del aeropuerto de San Rico** (estación de varias partes, 4.6), que se aceptó de forma provisional hasta después de la 4.7.
+5. **Nombres de parada derivados** desde Bridge (`TransitStop.nameDerived`), para las estaciones que hoy quedan solo con su símbolo.
+
+### D. Etiquetas
+
+1. **Lado consistente cuando la línea gira:** hoy el lado se mide contra el eje local, así que tras un giro de 90° «el mismo lado» cambia de sentido.
+2. **Etiquetado global** (Niedermann & Haunert, MIXED-2022 §2) en vez del greedy por prioridad.
+3. **Reservar espacio para las etiquetas en el layout** (NW11, WTLY12), o puntuar el etiquetado dentro de la búsqueda local, como propone la conclusión de OCTI-2020.
+
+### E. Orden de líneas y mapa geográfico (LOOM-2019)
+
+Las entradas 2.1 (frentes de nodo dinámicos), 2.3 (control de Bézier `k = 4/3(√2−1)`), 2.5 (_untangling_ y _pruning_ antes de ordenar), 2.6 (recocido simulado) y 2.7 (pesos de la versión extendida) siguen abiertas tal como se describen abajo.
+
+### F. Medición, pruebas y herramientas
+
+1. **Regresión visual** de las tres geometrías esquemáticas y del sidebar esquemático (diferido de la 4.2 y retro de la Epic 4).
+2. **Gate de corpus que corra con regularidad.** Hoy `grid-model.corpus.test.ts` solo corre con los dumps locales.
+3. **`render.ts` salta en silencio** una transición sin ranura en un corredor; debería contarla o avisar.
+4. **Prueba de `nodePassThroughs`**, que tiene semántica nueva desde la búsqueda local.
+5. **`sharedCenterlineRuns` con tolerancia** en vez de agrupar por redondeo.
+6. **Conteo de cruces en `measureSchematicLayout`** con índice espacial: hoy es O(n²).
+7. **Medir los fps** de la esquemática con DevTools (pendiente de la 4.5).
+8. **Menú y UX de la vista esquemática:**
+   - el ítem «Vista esquemática» no refleja si está activa;
+   - las marcas del menú nativo pueden desincronizarse del estado;
+   - el motivo `'schematic'` nunca llega al usuario.
+
+### G. Ideas de producto
+
+1. **Layout guiado por una forma** (MIXED-2022): dibujar la red siguiendo una silueta, por ejemplo la del lago.
+2. **Esquemática como superposición** sobre el mapa (OCTI-2020 Fig. 16.4), con el modo `octilinear-geo`.
 
 ---
 
@@ -63,7 +144,11 @@ y reconstruye la cápsula sobre los slots que sí se dibujan.
 
 ## 1. Vista esquemática (rejilla + ruteo)
 
-### 1.1 Conjuntos de nodos candidatos en vez de una celda fija — OCTI-2020 §4.2, OSM-2023
+### ✅ 1.1 Conjuntos de nodos candidatos en vez de una celda fija — OCTI-2020 §4.2, OSM-2023
+
+> Aplicado en la 4.9 (ADR-0008): ruteo de conjunto a conjunto con candidatas a
+> ≤ 3 celdas, desplazamiento `1,5 · d` y Voronoi local. Lo de abajo describe el
+> estado anterior.
 
 **Paper.** Cada estación no se ancla a una celda: se enruta de un **conjunto** `S`
 de celdas candidatas dentro de un radio `r` de su posición original a un conjunto
@@ -95,7 +180,11 @@ ocupación que ve el segundo no es la de su vecindad sino la de la red entera.
 **Cambio.** Reemplazar el `sort` por la construcción _dangling_ del paper.
 Barato y no toca la geometría.
 
-### 1.3 Preservar la topología con coste infinito, no con penalización — OSM-2023
+### ✅ 1.3 Preservar la topología con coste infinito, no con penalización — OSM-2023
+
+> Aplicado en su forma **relajada** en la 4.9 (ADR-0008), no con ∞: paso usado y diagonal cruzada en X a `w∞ = 20`
+> pasos, orden circular con reserva de puertos. Cruzar un corredor en una celda
+> sigue costando 2,5: la red del juego tiene cruces reales.
 
 **Paper.** En cuanto una _image path_ usa una arista de la rejilla, su coste pasa
 a **infinito**; en rejillas no planares (octilineal con diagonales) también se
@@ -113,7 +202,10 @@ Los corredores pueden y suelen cruzarse: 64 cruces en Pepper Lake.
 añadir el bloqueo de diagonales cruzadas en `createOctilinearGrid.neighbors`.
 Medible directamente con `metrics.crossings`.
 
-### 1.4 Diagonales ligeramente más caras que su longitud — OSM-2023
+### ✅ 1.4 Diagonales ligeramente más caras que su longitud — OSM-2023
+
+> Aplicado (ADR-0008, «Pulido»): la diagonal cuesta 1,5 pasos y `bend45` sube a
+> 0,8 para cumplir la desigualdad 2 de OCTI-2020 §2.2.
 
 **Paper.** Aristas horizontales/verticales pesan 1 y las diagonales **1.5**, "para
 no favorecer las diagonales e incluso favorecer ligeramente horizontales y
@@ -137,7 +229,12 @@ completamente la ocupación — un corredor encima de otros. El número aparece 
 **Cambio.** Reintentar la capa entera con una rejilla más fina antes de recurrir
 al fallback, y tratar `fallbackRoutes > 0` como lo que es: una violación.
 
-### 1.6 Contracción de nodos de grado 2 — SSTD-2021 §1.2, OSM-2023
+### ✅ 1.6 Contracción de nodos de grado 2 — SSTD-2021 §1.2, OSM-2023
+
+> Aplicada la reinserción equidistante en la 4.9 (ADR-0008): las paradas de un
+> corredor van en `(i+1)/(k+1)`. Las paradas ya no eran nodos del grafo, así que
+> no hubo nada que contraer. El resorte de densidad entra en la búsqueda local
+> (ADR-0008, «Pulido»).
 
 **Paper.** Se contraen todos los nodos de grado 2 **antes** de esquematizar y se
 reinsertan **equidistantes** sobre el camino final; durante la búsqueda local se
@@ -152,7 +249,11 @@ capturas se ven cinco paradas pegadas y luego un tramo largo vacío.
 **Cambio.** Es el que más cambiaría el _aspecto_ del esquemático. Afecta a
 `line-graph` (contracción) y a `render.ts` (reinserción equidistante).
 
-### 1.7 Búsqueda local de pulido — OCTI-2020 §4, OSM-2023
+### ✅ 1.7 Búsqueda local de pulido — OCTI-2020 §4, OSM-2023
+
+> Aplicada (ADR-0008, «Pulido»): descenso por coordenadas, comparación
+> lexicográfica por rango, presupuesto por expansiones y el resorte de densidad
+> de §4.7 (A-2+D).
 
 **Paper.** Tras la construcción greedy, mover cada image node a cada una de sus
 celdas vecinas libres, re-rutear las aristas adyacentes y quedarse con el mejor
@@ -203,7 +304,10 @@ tiene 0.765·ringStep entre celdas vecinas.
 **Cambio.** `radius = ringStep·(r + 0.307)`. Sólo vale la pena si el anillo
 interior vuelve a apretarse; anotado para no volver a derivarlo.
 
-### 1.11 Nodos de grado alto: _node splitting_ — SSTD-2021 §2
+### ✅ 1.11 Nodos de grado alto: _node splitting_ — SSTD-2021 §2
+
+> Aplicado en la 4.9 (`node-splitting.ts`, ADR-0008) para el orthoradial (4) y el
+> octilineal (8).
 
 **Paper.** Una rejilla octilineal sólo admite grado 8, la hexalineal 6 y la
 ortorradial **4**. Para grados mayores se separan las aristas sobrantes a un nodo
@@ -338,9 +442,9 @@ rejilla enorme para nodos muy dispersos.
 - **MIXED-2022 §2**: el etiquetado por sí solo es NP-difícil; la referencia
   canónica para hacerlo bien es el marco de Niedermann & Haunert para mapas de
   red. Las etiquetas deben quedar **libres de solape, cerca de su estación y con
-  orientaciones consistentes** entre estaciones vecinas — este último criterio es
-  el que Vellum todavía no tiene: hoy cada etiqueta elige su lado
-  independientemente.
+  orientaciones consistentes** entre estaciones vecinas. ✅ Desde la 4.9 los
+  nombres van en horizontal, en 8 posiciones, y cada uno prefiere el lado de su
+  línea que tomó la etiqueta anterior de esa línea (OCTI-2020 §5).
 - **MIXED-2022** también cita el enfoque contrario (NW11, WTLY12): meter las
   etiquetas **dentro** del programa de optimización del layout, reservando espacio
   para ellas. Es lo que hace que los mapas reales nunca tengan que abreviar.
