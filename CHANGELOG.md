@@ -2,6 +2,53 @@
 
 All notable changes to Vellum will be documented here.
 
+## [0.13.0](https://github.com/sebas-tcotd/vellum/compare/v0.12.0...v0.13.0) (2026-10-03)
+
+
+### Features
+
+* **bridge:** nombrar las paradas de estaciones con edificio ([42fe857](https://github.com/sebas-tcotd/vellum/commit/42fe857da7458e226f2b1b4f342c2c5d82f69e27))
+* **bridge:** nombrar las paradas de estaciones con edificio ([38875d4](https://github.com/sebas-tcotd/vellum/commit/38875d4b55990f472b0762b36f4981207873e475))
+* **bridge:** stationId en transit 1.1 y carpeta por ciudad con hora local ([2c80836](https://github.com/sebas-tcotd/vellum/commit/2c80836c60cb91ed439a4d6c120236a78b7dec5a))
+* **bridge:** stationId en transit 1.1 y carpeta por ciudad con hora local ([730b59c](https://github.com/sebas-tcotd/vellum/commit/730b59cbd1319c64b8fa29842b118aa4244d0549))
+* **forests:** add independent circles and heatmap options ([4769e4b](https://github.com/sebas-tcotd/vellum/commit/4769e4b8f84ace941439e06153261ce44be5e839))
+* **forests:** controlar círculos de vegetación y mapa de calor ([d286eb9](https://github.com/sebas-tcotd/vellum/commit/d286eb996294ea55bf0f9dc65a6f835524b1b1f2))
+* **landing:** require consent before loading analytics ([b155e98](https://github.com/sebas-tcotd/vellum/commit/b155e982a1ad9d1f3b91b4f0de7c9da977396f35))
+* **minimap:** 3.12 · Tren en el minimapa ([1c80c42](https://github.com/sebas-tcotd/vellum/commit/1c80c423fe63eb7642d202efcae5e152cd4f20bd))
+* **minimap:** tren en superficie en el minimapa ([5771993](https://github.com/sebas-tcotd/vellum/commit/577199314ae5025308fd3dee7154f63d7c917073))
+* **roads:** add category visibility controls ([7a9792f](https://github.com/sebas-tcotd/vellum/commit/7a9792fccef682fe26bbc431f0dda2f42f38fecb))
+* **roads:** vías por categoría (3.11) ([a58287e](https://github.com/sebas-tcotd/vellum/commit/a58287e3082b88d3b250d4dccafa495185df0a05))
+* **schematic:** contraer cada estación en un solo nodo del diagrama (4.6) ([13b3fa2](https://github.com/sebas-tcotd/vellum/commit/13b3fa2fd3f4a0137c8d5ff58468d871c517ac5d))
+* **schematic:** contraer cada estación en un solo nodo del diagrama (4.6) ([971949b](https://github.com/sebas-tcotd/vellum/commit/971949b28f9b008fe0fb781335450a92ff3f634e))
+* **schematic:** dar prioridad a los rieles en la vista esquemática (4.7) ([60bf09b](https://github.com/sebas-tcotd/vellum/commit/60bf09bc32efba6afa8380d8799bf57d95aab74f))
+* **schematic:** dar prioridad a los rieles en la vista esquemática (4.7) ([e6b876c](https://github.com/sebas-tcotd/vellum/commit/e6b876c525c56e970b9d38c07aa7e9dbe5aba5eb))
+* **schematic:** diagonales más caras y búsqueda local final de octi ([f27f240](https://github.com/sebas-tcotd/vellum/commit/f27f24061433b2061c0798b176994ee57372c3f9))
+* **schematic:** mismos controles de cámara que el mapa en la vista esquemática ([e691b53](https://github.com/sebas-tcotd/vellum/commit/e691b534a5e99232d7a765fcc1aa5d7a863fe113))
+* **schematic:** mismos controles de cámara que el mapa en la vista esquemática (4.8) ([155c229](https://github.com/sebas-tcotd/vellum/commit/155c2292827976bb164bc3ecd5a570e5d559f89e))
+* **schematic:** modelo de grilla de octi — un paso, un corredor y giros en nodo (4.9, 4.10) ([115fec7](https://github.com/sebas-tcotd/vellum/commit/115fec749fd3d92a6f4a0a154c26e2199eb058c1))
+* **schematic:** modelo de grilla de octi — un paso, un corredor y giros en nodo (4.9, 4.10) ([d0730e2](https://github.com/sebas-tcotd/vellum/commit/d0730e218c0e0f241437840ad40db663e62f7a81))
+* **store:** package MSIX and add bilingual privacy page ([443b79b](https://github.com/sebas-tcotd/vellum/commit/443b79bbb4b19f36691b46228c53a67abc970123))
+* **store:** package MSIX and add bilingual privacy page ([86d95c1](https://github.com/sebas-tcotd/vellum/commit/86d95c174452889c900124f5b79b59dc1bdc2847))
+* **transit:** reconocer los tours de Parklife como modos propios ([891b624](https://github.com/sebas-tcotd/vellum/commit/891b624ed27e5c078f032d2bb12990811d737407))
+* **transit:** reconocer los tours de Parklife como modos propios ([ee595d4](https://github.com/sebas-tcotd/vellum/commit/ee595d483768a515745223b67ca1c11d2e7f8dac))
+* **vellummap:** preparar el formato para lo que viene después de v1.0 ([6c18f2b](https://github.com/sebas-tcotd/vellum/commit/6c18f2beec4a8a8c49190e4e491e4c544bd00896))
+* **vellummap:** preparar el formato para lo que viene después de v1.0 ([c5e06d3](https://github.com/sebas-tcotd/vellum/commit/c5e06d3455f97fc26daf3effb390f05ebfd1b7c0))
+
+
+### Bug Fixes
+
+* **desktop:** usar &raw mut en GetCurrentPackageFullName ([3916b67](https://github.com/sebas-tcotd/vellum/commit/3916b6761c0821137756a49f16577b45f7144db0))
+* **i18n:** clarify forest circles zoom visibility ([8977404](https://github.com/sebas-tcotd/vellum/commit/89774048732d6cf6197e2ec84a1864c084c72177))
+* **schematic:** estaciones del mismo tamaño que sus líneas con zoom cercano ([81fe8ff](https://github.com/sebas-tcotd/vellum/commit/81fe8ffc00afb3e89a89444d8fb3c352d11e9779))
+* **schematic:** ficha de parada a la izquierda para no tapar los controles de cámara ([2f5b273](https://github.com/sebas-tcotd/vellum/commit/2f5b2733efb5fcdfa7808b456f802ea81ff3bd0a))
+* **vellummap:** aceptar stationId en cualquier minor de transit 1.x ([b04f655](https://github.com/sebas-tcotd/vellum/commit/b04f6557175d3d8b50f649fd27ca2015ed2a359c))
+
+
+### Performance Improvements
+
+* **schematic:** panear y hacer zoom con fluidez en la vista esquemática (4.5) ([f0a5833](https://github.com/sebas-tcotd/vellum/commit/f0a5833629788fd90200765e2c611aeaa027f392))
+* **schematic:** panear y hacer zoom sin re-renderizar el diagrama ([896b5b4](https://github.com/sebas-tcotd/vellum/commit/896b5b45127e8dbed0feae35706860c91067c2a3))
+
 ## [0.12.0](https://github.com/sebas-tcotd/vellum/compare/v0.11.1...v0.12.0) (2026-09-30)
 
 
