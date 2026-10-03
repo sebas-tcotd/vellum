@@ -118,7 +118,8 @@ nodo bajan en las cuatro ciudades (San Rico octilineal: 583 → 482).
 - **Villa Coronada, tranvía: +1 quiebre (23 → 24).** Es el costo de la 4.10: el
   giro en nodo pasa al corredor. A cambio desaparecen la Z del metro (2 giros de
   135° → 0) y las 4 reversas de tranvía en nodo. Es la única cifra de rieles que
-  sube.
+  sube. Sebas la aceptó el 2026-10-02; el test de corpus admite un quiebre de
+  holgura en los rieles.
 - **Lo que empeora además del tranvía.** El tiempo octilineal sube en Costa
   Tijuca (54 → 153 ms) y Springvalley (297 → 620 ms), y el orthoradial de
   Springvalley pasa de 604 a 931 ms. La grilla fina es más rápida solo en San

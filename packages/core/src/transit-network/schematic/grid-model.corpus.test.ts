@@ -167,6 +167,12 @@ describe.skipIf(!cityPath)('the octi grid model on a real city', () => {
     ).toBeLessThanOrEqual(
       before.octilinear.nodeTurns.bend135 + before.octilinear.nodeTurns.reverse,
     );
-    expect(after.railBends).toBeLessThanOrEqual(before.octilinear.railBends);
+    // One bend of slack, accepted by Sebas on 2026-10-02: the turn a line
+    // pays at a node (Story 4.10) can move a direction change into the
+    // corridor. Villa Coronada's tram goes 23 → 24 while the metro's Z and the
+    // tram's reversals at nodes disappear (ADR-0008).
+    expect(after.railBends).toBeLessThanOrEqual(
+      before.octilinear.railBends + 1,
+    );
   }, 600_000);
 });
