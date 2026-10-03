@@ -243,6 +243,38 @@ namespace VellumBridge.Tests
                     "Identidad corrupta (" + bad.Key + ") cuenta como vacía");
             Check(VellumIdentity.TryDecode(Encoding.UTF8.GetBytes(new string('a', 128) + "\n"), out city, out snapshot),
                 "Identidad: cityId de 128 aceptado");
+
+            // city.id derivado del identificador de partida (UUIDv5).
+            Check(VellumIdentity.NameBasedUuid(new Guid("6ba7b810-9dad-11d1-80b4-00c04fd430c8"), "python.org")
+                == "886313e1-3b8a-5372-9b90-0c9aee199e5d", "UUIDv5: vector de referencia (NAMESPACE_DNS, python.org)");
+            string derived = VellumIdentity.CityIdFromInstance("861b1649-6cc1-4faa-a84d-df1535d3916b");
+            Check(derived == VellumIdentity.CityIdFromInstance(" {861B1649-6CC1-4FAA-A84D-DF1535D3916B} "),
+                "city.id derivado: estable ante llaves, espacios y mayúsculas");
+            Check(derived != VellumIdentity.CityIdFromInstance("9d7c24fb-0000-4000-8000-000000000000"),
+                "city.id derivado: partidas distintas, ids distintos");
+            Check(derived.Length == 36 && derived[14] == '5', "city.id derivado: UUID versión 5");
+            Check(VellumIdentity.NormalizeInstanceId("{00000000-0000-0000-0000-000000000000}") == null
+                && VellumIdentity.NormalizeInstanceId("  ") == null && VellumIdentity.NormalizeInstanceId(null) == null,
+                "Identificador de partida vacío o Guid.Empty: no identifica");
+
+            // Índice de linaje: da el padre a la siguiente sesión sin identidad guardada.
+            string root = Path.Combine(Path.GetTempPath(), "vb-lineage-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                Check(VellumIdentity.ReadLastSnapshot(root, derived) == null, "Linaje: sin índice, sin padre");
+                VellumIdentity.WriteLastSnapshot(root, derived, "s-1");
+                VellumIdentity.WriteLastSnapshot(root, derived, "s-2");
+                Check(VellumIdentity.ReadLastSnapshot(root, derived) == "s-2", "Linaje: guarda la última exportación");
+                Check(VellumIdentity.ReadLastSnapshot(root, derived.ToUpperInvariant()) == "s-2", "Linaje: el id no distingue mayúsculas");
+                Check(VellumIdentity.LineageFile(root, "../../escape") == null && VellumIdentity.ReadLastSnapshot(root, "c-1") == null,
+                    "Linaje: solo ids con forma de UUID");
+                File.WriteAllText(VellumIdentity.LineageFile(root, derived), "sbad");
+                Check(VellumIdentity.ReadLastSnapshot(root, derived) == null, "Linaje: un índice corrupto cuenta como vacío");
+            }
+            finally
+            {
+                if (Directory.Exists(root)) Directory.Delete(root, true);
+            }
         }
 
         private static void AreaGrids()

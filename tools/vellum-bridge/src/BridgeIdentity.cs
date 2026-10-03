@@ -7,9 +7,12 @@ namespace VellumBridge
 {
     // Identidad de la ciudad para Vellum, guardada en la partida con la serialización de mods de
     // CS1 (clave "VellumBridge.Identity", formato en VellumIdentity). Con ella cada
-    // exportación lleva `city.id` y, desde la segunda, `parentSnapshotId`. Límite conocido: si el
-    // jugador no guarda la partida después de exportar, la identidad nueva se pierde y la próxima
-    // carga vuelve a la guardada (o a ninguna).
+    // exportación lleva `city.id` y, desde la segunda, `parentSnapshotId`.
+    //
+    // Una partida sin identidad guardada no estrena un id al azar: lo deriva de su
+    // `m_gameInstanceIdentifier` (UUIDv5), así que conserva el mismo aunque el jugador no guarde
+    // después de exportar. El padre sale entonces del índice local de linaje (`.lineage`). Una
+    // identidad ya guardada en la partida prevalece, para no cambiar los `city.id` existentes.
     public sealed class BridgeIdentity : SerializableDataExtensionBase
     {
         private const string Key = "VellumBridge.Identity";
@@ -72,22 +75,45 @@ namespace VellumBridge
             }
         }
 
-        // La identidad para una exportación: genera `cityId` en la primera. Devuelve la última
-        // `snapshotId` publicada (el padre de la nueva), o null.
-        internal static string ForExport(out string parentSnapshotId)
+        // La identidad para una exportación. Sin identidad guardada, `cityId` se deriva del
+        // identificador de partida (o es aleatorio si el juego no da uno). Devuelve la última
+        // `snapshotId` publicada (el padre de la nueva): la de la partida o, si no la tiene, la del
+        // índice de linaje en `root`. null si no hay ninguna.
+        internal static string ForExport(string gameInstanceId, string root, out string parentSnapshotId)
         {
             lock (gate)
             {
-                if (cityId == null) cityId = Guid.NewGuid().ToString();
+                if (cityId == null)
+                {
+                    cityId = VellumIdentity.NormalizeInstanceId(gameInstanceId) != null
+                        ? VellumIdentity.CityIdFromInstance(gameInstanceId)
+                        : Guid.NewGuid().ToString();
+                }
+                if (lastSnapshotId == null) lastSnapshotId = VellumIdentity.ReadLastSnapshot(root, cityId);
                 parentSnapshotId = lastSnapshotId;
                 return cityId;
             }
         }
 
         // Solo tras publicar el archivo, y solo si la ciudad no cambió (lo comprueba el llamador).
-        internal static void Published(string snapshotId)
+        // También se anota en el índice de linaje, para la próxima sesión sin guardar.
+        internal static void Published(string root, string snapshotId)
         {
-            lock (gate) lastSnapshotId = snapshotId;
+            string city;
+            lock (gate)
+            {
+                lastSnapshotId = snapshotId;
+                city = cityId;
+            }
+            if (city == null) return;
+            try
+            {
+                VellumIdentity.WriteLastSnapshot(root, city, snapshotId);
+            }
+            catch (Exception error)
+            {
+                Debug.LogWarning("[VellumBridge] No se pudo anotar el linaje de la ciudad: " + error.Message);
+            }
         }
     }
 }

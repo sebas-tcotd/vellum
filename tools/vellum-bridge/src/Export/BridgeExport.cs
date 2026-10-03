@@ -78,11 +78,11 @@ namespace VellumBridge.Export
         // exportación, salvo que la ciudad haya cambiado (sería la identidad de otra partida).
         private static void PublishedSnapshot(int ticket, string snapshotId)
         {
-            lock (gate)
-            {
-                if (ticket == generation) BridgeIdentity.Published(snapshotId);
-                else Debug.Log("[VellumBridge] Exportación: la ciudad cambió; su snapshotId no se registra como padre.");
-            }
+            bool current;
+            lock (gate) current = ticket == generation;
+            // El índice de linaje se escribe fuera del candado: es disco.
+            if (current) BridgeIdentity.Published(ExportStorage.ExportFolder(), snapshotId);
+            else Debug.Log("[VellumBridge] Exportación: la ciudad cambió; su snapshotId no se registra como padre.");
         }
 
         // Termina la operación dueña de `exporting`. El mensaje solo se publica si la ciudad no cambió.
@@ -123,10 +123,13 @@ namespace VellumBridge.Export
                     Finish(ticket, "Exportación cancelada: no hay ciudad cargada o hay un guardado en curso. No se escribió nada. Inténtalo de nuevo.");
                     return;
                 }
-                string parentSnapshotId;
-                string cityId = BridgeIdentity.ForExport(out parentSnapshotId);
-                var watch = System.Diagnostics.Stopwatch.StartNew();
                 var simulation = Singleton<SimulationManager>.instance;
+                string gameInstanceId = simulation.m_metaData != null
+                    ? Convert.ToString(simulation.m_metaData.m_gameInstanceIdentifier)
+                    : null;
+                string parentSnapshotId;
+                string cityId = BridgeIdentity.ForExport(gameInstanceId, ExportStorage.ExportFolder(), out parentSnapshotId);
+                var watch = System.Diagnostics.Stopwatch.StartNew();
                 // Solo se reanuda si la pausó Bridge: una pausa del jugador (o forzada) se respeta.
                 bool pausedHere = pauseIfRunning && !IsPaused(simulation);
                 if (pausedHere) simulation.SimulationPaused = true;
