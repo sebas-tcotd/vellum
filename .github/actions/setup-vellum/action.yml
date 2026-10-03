@@ -22,7 +22,7 @@ inputs:
     default: 'false'
   cache-class:
     description: >-
-      Clase de trabajo que comparte caché de Cargo (compile | quality | e2e |
+      Clase de trabajo que comparte caché de Cargo (compile | quality | e2e | bridge |
       audit). Jobs de clases distintas NO deben compartir target/.
     required: false
     default: 'shared'

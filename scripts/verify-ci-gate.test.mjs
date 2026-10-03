@@ -33,6 +33,8 @@ describe('gate agregado de CI', () => {
           COMPILE_RESULT: 'skipped',
           LANDING_EXPECTED: 'true',
           LANDING_RESULT: 'failure',
+          BRIDGE_EXPECTED: 'false',
+          BRIDGE_RESULT: 'skipped',
         },
       },
     );

@@ -10,6 +10,7 @@ export const CI_CATEGORIES = [
   'compile',
   'landing',
   'dependencies',
+  'bridge',
 ];
 
 const ROOT_WIDE_FILES = new Set([
@@ -97,10 +98,17 @@ export function classifyPaths(inputPaths) {
     }
 
     if (file.startsWith('packages/parser-cslmap/')) {
-      enable(flags, 'rust', 'frontend', 'e2e', 'compile');
+      // El lector Rust y el schema son la otra mitad del contrato con Bridge.
+      enable(flags, 'rust', 'frontend', 'e2e', 'compile', 'bridge');
       if (/\.(?:js|mjs|cjs|ts|tsx|json)$/.test(file)) flags.js = true;
       if (/(?:Cargo\.toml|package\.json)$/.test(file))
         flags.dependencies = true;
+      continue;
+    }
+
+    // El mod de Bridge (C#) solo lo ejercita su arnés .NET: no toca el desktop.
+    if (file.startsWith('tools/vellum-bridge/')) {
+      flags.bridge = true;
       continue;
     }
 

@@ -106,7 +106,7 @@ describe('contratos de optimización de CI', () => {
     // Ningún job con Rust puede quedarse con la clase por defecto: eso los
     // volvería a juntar a todos en la misma entrada de caché.
     const rustJobs = [
-      ['.github/workflows/ci.yml', 3],
+      ['.github/workflows/ci.yml', 4],
       ['.github/workflows/publish-release.yml', 2],
       ['.github/workflows/e2e-golden-flow.yml', 1],
     ];
