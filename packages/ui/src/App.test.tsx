@@ -695,6 +695,29 @@ describe('App — UpdateToast (Story 7.4)', () => {
     expect(mockInvoke).toHaveBeenCalledWith('get_pending_update');
   });
 
+  it('lee updates_managed_by_store al montar y lo guarda en el store', async () => {
+    mockInvoke.mockImplementation((command: string) =>
+      Promise.resolve(command === 'updates_managed_by_store' ? true : null),
+    );
+
+    await act(async () => {
+      render(<App />);
+    });
+
+    expect(mockInvoke).toHaveBeenCalledWith('updates_managed_by_store');
+    expect(useVellumStore.getState().updatesManagedByStore).toBe(true);
+  });
+
+  it('trata un updates_managed_by_store indefinido como build normal', async () => {
+    mockInvoke.mockResolvedValue(undefined);
+
+    await act(async () => {
+      render(<App />);
+    });
+
+    expect(useVellumStore.getState().updatesManagedByStore).toBe(false);
+  });
+
   it('no muestra el toast cuando get_pending_update resuelve null (nada pendiente)', async () => {
     mockInvoke.mockResolvedValue(null);
 
