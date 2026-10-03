@@ -53,6 +53,8 @@ import {
 import { offsetTowards } from './offset';
 import { geographicSchematicLayout } from './geographic';
 import { schematicLayoutDiagnostics } from './grid-layout';
+import { measureGridModel, type NodeTurnCounts } from './grid-model-metrics';
+import { isSplitCorridorId } from './node-splitting';
 
 /** Everything measurable about a layout, and nothing that varies per run. */
 export interface SchematicLayoutMetrics {
@@ -184,6 +186,32 @@ export interface SchematicLayoutMetrics {
    * connections are left out — they belong to a node, not to a run.
    */
   readonly bendsByMode: Readonly<Record<string, number>>;
+  /**
+   * Pairs of distinct corridors drawn over the same stretch — one line on top
+   * of another (Story 4.9). Read off the centerlines, so it measures any
+   * layout, not only one the grid router produced. Comparative, ungated.
+   */
+  readonly sharedCenterlinePairs: number;
+  /**
+   * Corridor pairs a line passes between at a node, by the angle it turns
+   * (Story 4.10, `octi` §4.4). Comparative, ungated.
+   */
+  readonly nodeTurnsByAngle: NodeTurnCounts;
+  /**
+   * Nodes whose corridors leave in another circular order than in the
+   * geography (`octi` §4.3). Comparative, ungated.
+   */
+  readonly circularOrderViolations: number;
+  /**
+   * Grid steps the router had to share with another corridor because nothing
+   * cheaper existed (SSTD §3). `0` for a layout without grid diagnostics.
+   */
+  readonly sharedGridSteps: number;
+  /**
+   * Interior route cells that are another node's cell: a line across a station
+   * it does not serve, forced by the relaxed wall. `0` without grid diagnostics.
+   */
+  readonly nodePassThroughs: number;
 }
 
 /** Thresholds every gate is stated in. Constants, so a gate is reproducible. */
@@ -396,6 +424,11 @@ export function measureSchematicLayout(
   }
   const startedAt = performance.now();
   const base = geographicSchematicLayout(network);
+  // The network the grid router actually laid out: with split nodes (SSTD §2)
+  // a node's corridors meet through a synthetic corridor, and the transitions
+  // are rewritten to cross it. Junctions and turns are read off that one;
+  // fidelity stays stated against the input.
+  const routedNetwork = schematicLayoutDiagnostics(layout)?.network ?? network;
 
   // ── Stroke fidelity, keyed by `edgeId|lineId` — the pair itself, taken off the
   // stroke rather than inferred from its position in the array.
@@ -446,8 +479,8 @@ export function measureSchematicLayout(
         (q) => Math.abs(p.x - q.x) < 1e-6 && Math.abs(p.y - q.y) < 1e-6,
       ),
     );
-  for (const nodeId of [...network.nodes.keys()].sort(byString)) {
-    const incident = (network.nodes.get(nodeId)?.edgeIds ?? [])
+  for (const nodeId of [...routedNetwork.nodes.keys()].sort(byString)) {
+    const incident = (routedNetwork.nodes.get(nodeId)?.edgeIds ?? [])
       .filter((edgeId) => pointsOfEdge.has(edgeId))
       .sort(byString);
     for (let i = 0; i < incident.length; i++) {
@@ -612,6 +645,7 @@ export function measureSchematicLayout(
   }
 
   const bendsByMode = countBendsByMode(network, layout);
+  const gridModel = measureGridModel(routedNetwork, layout);
 
   const diag = schematicLayoutDiagnostics(layout);
   const elapsedMs = performance.now() - startedAt;
@@ -631,7 +665,10 @@ export function measureSchematicLayout(
       brokenJunctions.length === 0 &&
       missingStations.length === 0 &&
       changedMembership.length === 0 &&
-      layout.segments.length === expected.length &&
+      layout.segments.filter(
+        (segment) =>
+          segment.edgeId === null || !isSplitCorridorId(segment.edgeId),
+      ).length === expected.length &&
       layout.stations.length === base.stations.length,
     missingSegments: Object.freeze(missingSegments),
     brokenJunctions: Object.freeze(brokenJunctions),
@@ -652,6 +689,11 @@ export function measureSchematicLayout(
     fallbackRoutes: diag?.fallbackRoutes ?? 0,
     relocatedNodes: diag?.relocatedNodes ?? 0,
     bendsByMode,
+    sharedCenterlinePairs: gridModel.sharedCenterlinePairs,
+    nodeTurnsByAngle: gridModel.nodeTurns,
+    circularOrderViolations: gridModel.circularOrderViolations,
+    sharedGridSteps: diag?.sharedGridSteps ?? 0,
+    nodePassThroughs: diag?.nodePassThroughs ?? 0,
   });
   return { metrics, elapsedMs };
 }

@@ -29,6 +29,7 @@ import {
   gridSchematicLayout,
   schematicLayoutDiagnostics,
   type GridBase,
+  type GridHints,
   type GridStep,
 } from './grid-layout';
 
@@ -41,10 +42,19 @@ export const ORTHORADIAL_GRID = {
   /** Spokes of ring 1. Every outer ring is this doubled some number of times. */
   baseSpokes: 8,
   minRings: 5,
-  /** Hard presentation limit; the grid grows before it refuses a dense network. */
-  maxRings: 64,
+  /**
+   * Hard presentation limit; the grid grows before it refuses a dense network.
+   * 64 until Story 4.9: at the cell size of `octi` §6 San Rico asks for about
+   * 97 rings, and capped at 64 it shared 3186 corridor pairs (424 at 128).
+   */
+  maxRings: 128,
   /** Free radius kept beyond the furthest seed, as a fraction of it. */
   padding: 0.18,
+  /**
+   * Ports per cell off the centre: one each way round the ring, one in, one
+   * out. A node with more corridors is split (SSTD §2).
+   */
+  maxDegree: 4,
 } as const;
 
 function capacityAt(rings: number): number {
@@ -71,9 +81,23 @@ function capacityAt(rings: number): number {
  * same ground at the same cell size, which is what keeps the two grammars
  * comparable instead of one being quietly ten times coarser.
  */
-function ringsFor(seedCount: number): number {
+function ringsFor(
+  seedCount: number,
+  extent: number,
+  cellSize?: number | null,
+): number {
   const wanted = 2 * Math.ceil(Math.sqrt(Math.max(1, seedCount))) + 5;
-  let rings = Math.max(ORTHORADIAL_GRID.minRings, wanted);
+  // Story 4.9: the ring spacing `octi` §6 / SSTD §5.2 ask for (one cell per
+  // corridor), when it is finer than the node-count rule. Never coarser — see
+  // `./octilinear` for why.
+  const bySize =
+    cellSize !== undefined && cellSize !== null && cellSize > 0 && extent > 0
+      ? Math.ceil(extent / cellSize) + 1
+      : 0;
+  let rings = Math.min(
+    ORTHORADIAL_GRID.maxRings,
+    Math.max(ORTHORADIAL_GRID.minRings, wanted, bySize),
+  );
   while (rings < ORTHORADIAL_GRID.maxRings && capacityAt(rings) < seedCount) {
     rings++;
   }
@@ -110,8 +134,39 @@ export function spokesAtRing(ring: number): number {
 }
 
 /**
- * A rings × spokes grid centred on the centroid of `seeds`, with the spoke count
- * doubling as the radius doubles ({@link spokesAtRing}).
+ * The seed the grid is centred on: the node of highest degree, then the one
+ * with most lines, then the first (SSTD §5.2: "the grid was always centered at
+ * the input node of highest degree"). `-1` without hints — then the centroid.
+ */
+function centreSeed(
+  seeds: readonly SchematicPoint[],
+  hints: GridHints,
+): number {
+  const degrees = hints.degrees;
+  if (degrees === undefined || degrees.length !== seeds.length) return -1;
+  let best = -1;
+  for (let i = 0; i < seeds.length; i++) {
+    if (best < 0) {
+      best = i;
+      continue;
+    }
+    const lines = hints.lineCounts;
+    if (
+      degrees[i] > degrees[best] ||
+      (degrees[i] === degrees[best] &&
+        lines !== undefined &&
+        lines[i] > lines[best])
+    ) {
+      best = i;
+    }
+  }
+  return best;
+}
+
+/**
+ * A rings × spokes grid centred on the node of highest degree (or the
+ * centroid of `seeds` without hints), with the spoke count doubling as the
+ * radius doubles ({@link spokesAtRing}).
  *
  * @remarks
  * Ring 0 is a single cell — the centre. Giving it one cell rather than `spokes`
@@ -128,11 +183,22 @@ export function spokesAtRing(ring: number): number {
  */
 export function createOrthoradialGrid(
   seeds: readonly SchematicPoint[],
+  hints: GridHints = {},
 ): GridBase {
-  const rings = ringsFor(seeds.length);
   const count = seeds.length;
-  const cx = count > 0 ? seeds.reduce((acc, s) => acc + s.x, 0) / count : 0;
-  const cy = count > 0 ? seeds.reduce((acc, s) => acc + s.y, 0) / count : 0;
+  const centre = centreSeed(seeds, hints);
+  const cx =
+    centre >= 0
+      ? seeds[centre].x
+      : count > 0
+        ? seeds.reduce((acc, s) => acc + s.x, 0) / count
+        : 0;
+  const cy =
+    centre >= 0
+      ? seeds[centre].y
+      : count > 0
+        ? seeds.reduce((acc, s) => acc + s.y, 0) / count
+        : 0;
   let maxRadius = 0;
   for (const s of seeds) {
     const r = Math.hypot(s.x - cx, s.y - cy);
@@ -140,6 +206,7 @@ export function createOrthoradialGrid(
   }
   const extent =
     (maxRadius > 0 ? maxRadius : 1) * (1 + ORTHORADIAL_GRID.padding);
+  const rings = ringsFor(seeds.length, extent, hints.cellSize);
   const ringStep = extent / (rings - 1);
 
   // Cell 0 is the centre; ring r occupies `spokesAtRing(r)` consecutive ids.
@@ -170,8 +237,36 @@ export function createOrthoradialGrid(
 
   const neighborCache = new Map<number, readonly GridStep[]>();
 
+  const pointOf = (cell: number): SchematicPoint => {
+    const r = ringOf(cell);
+    if (r === 0) return { x: cx, y: cy };
+    const radius = r * ringStep;
+    const angle = angleOf(r, spokeOf(cell));
+    return {
+      x: cx + radius * Math.cos(angle),
+      y: cy + radius * Math.sin(angle),
+    };
+  };
+
   return {
     cellCount,
+    spacing: ringStep,
+    cellsNear(p, radius) {
+      const cells: number[] = [];
+      const pr = Math.hypot(p.x - cx, p.y - cy);
+      const r0 = Math.max(0, Math.floor((pr - radius) / ringStep));
+      const r1 = Math.min(rings - 1, Math.ceil((pr + radius) / ringStep));
+      for (let r = r0; r <= r1; r++) {
+        const first = r === 0 ? 0 : ringStart[r];
+        const last = r === 0 ? 0 : ringStart[r + 1] - 1;
+        for (let cell = first; cell <= last; cell++) {
+          const q = pointOf(cell);
+          if (Math.hypot(q.x - p.x, q.y - p.y) <= radius + 1e-9)
+            cells.push(cell);
+        }
+      }
+      return cells.sort((a, b) => a - b);
+    },
     point(cell) {
       const r = ringOf(cell);
       if (r === 0) return { x: cx, y: cy };
@@ -310,11 +405,15 @@ export function orthoradialLayoutWithCentre(network: TransitNetwork): {
   centre: SchematicPoint;
 } {
   let planeCentre: SchematicPoint = { x: 0, y: 0 };
-  const layout = gridSchematicLayout(network, (seeds) => {
-    const grid = createOrthoradialGrid(seeds);
-    planeCentre = grid.point(0);
-    return grid;
-  });
+  const layout = gridSchematicLayout(
+    network,
+    (seeds, hints) => {
+      const grid = createOrthoradialGrid(seeds, hints);
+      planeCentre = grid.point(0);
+      return grid;
+    },
+    { maxNodeDegree: ORTHORADIAL_GRID.maxDegree },
+  );
   const project = schematicLayoutDiagnostics(layout)?.project;
   if (project === undefined) {
     // No grid was built, so there is no centre — the network had nothing to
@@ -389,16 +488,16 @@ export function orthoradialConformanceOf(
         arcSteps++;
         continue;
       }
-      // Radial: both ends on the same ray out of the centre. A step that
-      // touches the centre itself is radial by definition.
+      // Radial: both ends on one line through the centre. A step that touches
+      // the centre itself is radial by definition, and so is a diameter — two
+      // radials in a straight line through the centre, which a route crossing
+      // the centre cell simplifies into one piece (Story 4.9 centres the grid
+      // on a node, so routes now pass it).
       const cross =
         (a.x - centre.x) * (b.y - centre.y) -
         (a.y - centre.y) * (b.x - centre.x);
-      const dot =
-        (a.x - centre.x) * (b.x - centre.x) +
-        (a.y - centre.y) * (b.y - centre.y);
       const atCentre = ra <= RADIUS_EPSILON || rb <= RADIUS_EPSILON;
-      if (atCentre || (Math.abs(cross) <= 1e-6 * ra * rb && dot > 0)) {
+      if (atCentre || Math.abs(cross) <= 1e-6 * ra * rb) {
         radialSteps++;
         continue;
       }

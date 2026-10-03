@@ -14,6 +14,7 @@ import type { SchematicLayout, SchematicPoint } from './contract';
 import {
   gridSchematicLayout,
   type GridBase,
+  type GridHints,
   type GridStep,
 } from './grid-layout';
 
@@ -39,27 +40,55 @@ const DIRS: readonly (readonly [number, number])[] = [
  * 987 corridors found no way through the node cells, so they fell back to a
  * straight line. At 112 that drops to 52 fallbacks; a layout takes about
  * 1.8 s in the worker (ADR-0007).
+ *
+ * Story 4.9 raised it to 224 so the cell size of `octi` §6 can be honoured in
+ * a big city: San Rico asks for about 190 per side and, with one corridor per
+ * grid step, its centre no longer walls its nodes in. The finer grid is also
+ * *faster* there (about 0.7 s against 1.7 s), because fewer searches fight
+ * their way through a congested centre; cities without one get somewhat slower
+ * (Springvalley 0.3 → 0.6 s, ADR-0008).
  */
 export const OCTILINEAR_GRID = {
   minResolution: 14,
-  maxResolution: 112,
+  maxResolution: 224,
   /** Free grid kept around the seeds' bounding box, as a fraction of its span. */
   padding: 0.18,
+  /** Ports per cell: a node with more corridors is split (SSTD §2). */
+  maxDegree: 8,
 } as const;
 
-function resolutionFor(seedCount: number): number {
-  const wanted = 4 * Math.ceil(Math.sqrt(Math.max(1, seedCount))) + 8;
+/**
+ * Cells per side: the finer of the node-count rule (`4·√n + 8`) and the cell
+ * size `octi` §6 asks for (Story 4.9), capped at
+ * {@link OCTILINEAR_GRID.maxResolution}.
+ *
+ * @remarks
+ * `octi` sizes the cell from the distance between adjacent nodes, so a
+ * corridor is about one cell long. That rule alone would *coarsen* the grid of
+ * a city whose corridors are long (Springvalley: 54 cells against 96), and a
+ * coarse grid has nowhere to put its nodes, so it only ever refines.
+ */
+function resolutionFor(
+  seedCount: number,
+  extent: number,
+  cellSize?: number | null,
+): number {
+  const byCount = 4 * Math.ceil(Math.sqrt(Math.max(1, seedCount))) + 8;
+  const bySize =
+    cellSize !== undefined && cellSize !== null && cellSize > 0 && extent > 0
+      ? Math.ceil(extent / cellSize) + 1
+      : 0;
   return Math.min(
     OCTILINEAR_GRID.maxResolution,
-    Math.max(OCTILINEAR_GRID.minResolution, wanted),
+    Math.max(OCTILINEAR_GRID.minResolution, byCount, bySize),
   );
 }
 
 /** A square grid of 8 directions covering `seeds`. */
 export function createOctilinearGrid(
   seeds: readonly SchematicPoint[],
+  hints: GridHints = {},
 ): GridBase {
-  const side = resolutionFor(seeds.length);
   let minX = Infinity;
   let maxX = -Infinity;
   let minY = Infinity;
@@ -76,6 +105,7 @@ export function createOctilinearGrid(
   const span = Math.max(maxX - minX, maxY - minY);
   // A single-cell network still needs a grid with a step length.
   const extent = (span > 0 ? span : 1) * (1 + OCTILINEAR_GRID.padding);
+  const side = resolutionFor(seeds.length, extent, hints.cellSize);
   const step = extent / (side - 1);
   const originX = (minX + maxX) / 2 - extent / 2;
   const originY = (minY + maxY) / 2 - extent / 2;
@@ -89,6 +119,7 @@ export function createOctilinearGrid(
 
   return {
     cellCount: side * side,
+    spacing: step,
     point(cell) {
       return { x: originX + col(cell) * step, y: originY + row(cell) * step };
     },
@@ -119,6 +150,39 @@ export function createOctilinearGrid(
       neighborCache.set(cell, frozen);
       return frozen;
     },
+    cellsNear(p, radius) {
+      const reach = Math.ceil(radius / step);
+      const c0 = clamp(Math.round((p.x - originX) / step));
+      const r0 = clamp(Math.round((p.y - originY) / step));
+      const cells: number[] = [];
+      for (
+        let r = Math.max(0, r0 - reach);
+        r <= Math.min(side - 1, r0 + reach);
+        r++
+      ) {
+        for (
+          let c = Math.max(0, c0 - reach);
+          c <= Math.min(side - 1, c0 + reach);
+          c++
+        ) {
+          const x = originX + c * step;
+          const y = originY + r * step;
+          if (Math.hypot(x - p.x, y - p.y) <= radius + 1e-9)
+            cells.push(cellAt(c, r));
+        }
+      }
+      return cells.sort((a, b) => a - b);
+    },
+    crossing(from, to) {
+      // A diagonal step crosses the other diagonal of the same square (octi §4.3).
+      const dc = col(to) - col(from);
+      const dr = row(to) - row(from);
+      if (Math.abs(dc) !== 1 || Math.abs(dr) !== 1) return null;
+      return [
+        cellAt(col(from) + dc, row(from)),
+        cellAt(col(from), row(from) + dr),
+      ];
+    },
     lineTo(from, to) {
       // Diagonal first, then straight: the shortest octilinear staircase, and
       // the same one for the same pair of cells every time.
@@ -143,7 +207,10 @@ export function createOctilinearGrid(
  */
 export const octilinearSchematicLayout = (
   network: TransitNetwork,
-): SchematicLayout => gridSchematicLayout(network, createOctilinearGrid);
+): SchematicLayout =>
+  gridSchematicLayout(network, createOctilinearGrid, {
+    maxNodeDegree: OCTILINEAR_GRID.maxDegree,
+  });
 
 /** Angular tolerance of the conformance check, in viewBox units of slope. */
 const OCTILINEAR_EPSILON = 1e-6;

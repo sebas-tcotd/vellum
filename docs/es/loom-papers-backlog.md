@@ -6,7 +6,8 @@ documentación de lo que Vellum hace: es la lista de lo que **todavía no hace**
 que los papers resuelven, con el archivo concreto que habría que tocar.
 
 Cada entrada dice: **qué dice el paper**, **qué hace Vellum hoy** y **qué
-cambiaría**. Las entradas marcadas ✅ ya están aplicadas (2026-09-22).
+cambiaría**. Las entradas marcadas ✅ ya están aplicadas (2026-09-22; las de
+las stories 4.9 y 4.10, el 2026-10-02, ADR-0008).
 
 ## Fuentes
 
@@ -63,7 +64,11 @@ y reconstruye la cápsula sobre los slots que sí se dibujan.
 
 ## 1. Vista esquemática (rejilla + ruteo)
 
-### 1.1 Conjuntos de nodos candidatos en vez de una celda fija — OCTI-2020 §4.2, OSM-2023
+### ✅ 1.1 Conjuntos de nodos candidatos en vez de una celda fija — OCTI-2020 §4.2, OSM-2023
+
+> Aplicado en la 4.9 (ADR-0008): ruteo de conjunto a conjunto con candidatas a
+> ≤ 3 celdas, desplazamiento `1,5 · d` y Voronoi local. Lo de abajo describe el
+> estado anterior.
 
 **Paper.** Cada estación no se ancla a una celda: se enruta de un **conjunto** `S`
 de celdas candidatas dentro de un radio `r` de su posición original a un conjunto
@@ -95,7 +100,11 @@ ocupación que ve el segundo no es la de su vecindad sino la de la red entera.
 **Cambio.** Reemplazar el `sort` por la construcción _dangling_ del paper.
 Barato y no toca la geometría.
 
-### 1.3 Preservar la topología con coste infinito, no con penalización — OSM-2023
+### ✅ 1.3 Preservar la topología con coste infinito, no con penalización — OSM-2023
+
+> Aplicado en su forma **relajada** en la 4.9 (ADR-0008), no con ∞: paso usado y diagonal cruzada en X a `w∞ = 20`
+> pasos, orden circular con reserva de puertos. Cruzar un corredor en una celda
+> sigue costando 2,5: la red del juego tiene cruces reales.
 
 **Paper.** En cuanto una _image path_ usa una arista de la rejilla, su coste pasa
 a **infinito**; en rejillas no planares (octilineal con diagonales) también se
@@ -137,7 +146,11 @@ completamente la ocupación — un corredor encima de otros. El número aparece 
 **Cambio.** Reintentar la capa entera con una rejilla más fina antes de recurrir
 al fallback, y tratar `fallbackRoutes > 0` como lo que es: una violación.
 
-### 1.6 Contracción de nodos de grado 2 — SSTD-2021 §1.2, OSM-2023
+### ✅ 1.6 Contracción de nodos de grado 2 — SSTD-2021 §1.2, OSM-2023
+
+> Aplicada la reinserción equidistante en la 4.9 (ADR-0008): las paradas de un
+> corredor van en `(i+1)/(k+1)`. Las paradas ya no eran nodos del grafo, así que
+> no hubo nada que contraer. Quedan diferidas las fuerzas de muelle.
 
 **Paper.** Se contraen todos los nodos de grado 2 **antes** de esquematizar y se
 reinsertan **equidistantes** sobre el camino final; durante la búsqueda local se
@@ -203,7 +216,10 @@ tiene 0.765·ringStep entre celdas vecinas.
 **Cambio.** `radius = ringStep·(r + 0.307)`. Sólo vale la pena si el anillo
 interior vuelve a apretarse; anotado para no volver a derivarlo.
 
-### 1.11 Nodos de grado alto: _node splitting_ — SSTD-2021 §2
+### ✅ 1.11 Nodos de grado alto: _node splitting_ — SSTD-2021 §2
+
+> Aplicado en la 4.9 (`node-splitting.ts`, ADR-0008) para el orthoradial (4) y el
+> octilineal (8).
 
 **Paper.** Una rejilla octilineal sólo admite grado 8, la hexalineal 6 y la
 ortorradial **4**. Para grados mayores se separan las aristas sobrantes a un nodo
@@ -338,9 +354,9 @@ rejilla enorme para nodos muy dispersos.
 - **MIXED-2022 §2**: el etiquetado por sí solo es NP-difícil; la referencia
   canónica para hacerlo bien es el marco de Niedermann & Haunert para mapas de
   red. Las etiquetas deben quedar **libres de solape, cerca de su estación y con
-  orientaciones consistentes** entre estaciones vecinas — este último criterio es
-  el que Vellum todavía no tiene: hoy cada etiqueta elige su lado
-  independientemente.
+  orientaciones consistentes** entre estaciones vecinas. ✅ Desde la 4.9 los
+  nombres van en horizontal, en 8 posiciones, y cada uno prefiere el lado de su
+  línea que tomó la etiqueta anterior de esa línea (OCTI-2020 §5).
 - **MIXED-2022** también cita el enfoque contrario (NW11, WTLY12): meter las
   etiquetas **dentro** del programa de optimización del layout, reservando espacio
   para ellas. Es lo que hace que los mapas reales nunca tengan que abreviar.

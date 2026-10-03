@@ -121,7 +121,9 @@ describe('octilinearSchematicLayout', () => {
       deriveTransitNetwork(collidingCity()),
     );
     const diagnostics = schematicLayoutDiagnostics(layout);
-    expect(diagnostics?.relocatedNodes).toBe(1);
+    // At least the colliding node moved; the set-to-set search of Story 4.9
+    // may move another one too when that is cheaper (`octi` §4.2).
+    expect(diagnostics?.relocatedNodes).toBeGreaterThanOrEqual(1);
     // Still conformant after the relocation: moving a node changes which cell
     // a route starts from, never the grammar it is routed with.
     expect(octilinearViolations(layout)).toEqual([]);

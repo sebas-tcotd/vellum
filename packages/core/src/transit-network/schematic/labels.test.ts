@@ -228,7 +228,7 @@ describe('schematic label presentation', () => {
     expect(labels[0].id).toBe('station:hub');
   });
 
-  it('sets a stop name perpendicular to its line, clear of other strokes', () => {
+  it('sets a stop name horizontally across its line, clear of other strokes', () => {
     const labels = placeSchematicLabels(
       layout(
         [
@@ -242,8 +242,48 @@ describe('schematic label presentation', () => {
       [{ id: 'stop', name: 'Stop' }],
     );
     const label = labels.find((entry) => entry.id === 'station:stop');
-    expect(label).toMatchObject({ text: 'Stop', angle: 90, anchor: 'start' });
-    // Downward, away from line b.
+    // Horizontal text (octi §5), centred below the stop: across the line,
+    // and away from line b just above it.
+    expect(label).toMatchObject({ text: 'Stop', angle: 0, anchor: 'middle' });
+    expect(label!.x).toBeCloseTo(500);
     expect(label!.y).toBeGreaterThan(500);
+  });
+  it('keeps the names of one line on one side of it', () => {
+    // A short line just above the first stop pushes its name below. The
+    // second stop has room both ways, and follows the first to the same side
+    // rather than its default (above).
+    const labels = placeSchematicLabels(
+      layout(
+        [
+          run('a', 'e1', [0, 500], [1000, 500]),
+          run('b', 'e2', [150, 480], [250, 480]),
+        ],
+        [
+          station('s1', ['a'], false, [200, 500]),
+          station('s2', ['a'], false, [700, 500]),
+        ],
+      ),
+      [],
+      [
+        { id: 's1', name: 'One' },
+        { id: 's2', name: 'Two' },
+      ],
+    );
+    const one = labels.find((entry) => entry.id === 'station:s1');
+    const two = labels.find((entry) => entry.id === 'station:s2');
+    expect(one!.y).toBeGreaterThan(500);
+    expect(two!.y).toBeGreaterThan(500);
+    expect(two).toMatchObject({ angle: 0, anchor: 'middle' });
+  });
+
+  it('puts a lone stop name above its line by default', () => {
+    const labels = placeSchematicLabels(
+      layout([run('a', 'e1', [0, 500], [1000, 500])], [station('s', ['a'])]),
+      [],
+      [{ id: 's', name: 'Alone' }],
+    );
+    const label = labels.find((entry) => entry.id === 'station:s');
+    expect(label).toMatchObject({ angle: 0, anchor: 'middle' });
+    expect(label!.y).toBeLessThan(500);
   });
 });
