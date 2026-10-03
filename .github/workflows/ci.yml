@@ -131,11 +131,12 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      # Con las dependencias nativas de Linux: `parser-cslmap` depende de `tauri`, que
+      # compila glib/GTK aunque el ejemplo no abra ninguna ventana.
       - name: Setup Vellum environment
         uses: ./.github/actions/setup-vellum
         with:
           os: ubuntu-latest
-          linux-deps: 'false'
           cache-class: bridge
 
       - uses: actions/setup-dotnet@v5
