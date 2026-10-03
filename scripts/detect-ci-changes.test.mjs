@@ -31,6 +31,18 @@ describe('clasificación de cambios de CI', () => {
     });
   });
 
+  it('activa el contrato de Bridge para el parser', () => {
+    expect(classifyPaths(['packages/parser-cslmap/src/lib.rs']).bridge).toBe(
+      true,
+    );
+  });
+
+  it('rutea el mod de Bridge solo a su contrato', () => {
+    expect(
+      classifyPaths(['tools/vellum-bridge/src/Export/VellumWriter.cs']),
+    ).toEqual({ ...all(false), bridge: true });
+  });
+
   it('mantiene un cambio de landing fuera del desktop', () => {
     expect(classifyPaths(['apps/landing/src/Hero.tsx'])).toEqual({
       ...all(false),
