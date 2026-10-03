@@ -2,6 +2,14 @@
 
 All notable changes to Vellum will be documented here.
 
+## [0.13.1](https://github.com/sebas-tcotd/vellum/compare/v0.13.0...v0.13.1) (2026-10-03)
+
+
+### Bug Fixes
+
+* **linux:** match GTK app ID to desktop entry ([2791b67](https://github.com/sebas-tcotd/vellum/commit/2791b67f7a2e5a1e4eec110cdcd661e918033a4f))
+* **linux:** match GTK app ID to desktop entry ([579468b](https://github.com/sebas-tcotd/vellum/commit/579468b6b5bb7ae8d344ed40778690ede0300920))
+
 ## [0.13.0](https://github.com/sebas-tcotd/vellum/compare/v0.12.0...v0.13.0) (2026-10-03)
 
 
