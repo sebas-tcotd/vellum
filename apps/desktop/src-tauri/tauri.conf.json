@@ -11,6 +11,7 @@
   },
   "app": {
     "macOSPrivateApi": true,
+    "enableGTKAppId": true,
     "windows": [
       {
         "title": "Vellum",
@@ -81,6 +82,9 @@
     "linux": {
       "deb": {
         "section": "graphics",
+        "files": {
+          "/usr/share/applications/com.vellum.desktop.desktop": "linux/com.vellum.desktop.desktop"
+        },
         "depends": [
           "libwebkit2gtk-4.1-0",
           "libgtk-3-0"
@@ -88,6 +92,9 @@
         "desktopTemplate": "linux/vellum.desktop"
       },
       "rpm": {
+        "files": {
+          "/usr/share/applications/com.vellum.desktop.desktop": "linux/com.vellum.desktop.desktop"
+        },
         "desktopTemplate": "linux/vellum.desktop"
       }
     },

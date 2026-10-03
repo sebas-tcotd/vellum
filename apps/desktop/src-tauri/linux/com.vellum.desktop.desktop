@@ -1,0 +1,16 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Vellum
+GenericName=City map renderer
+GenericName[es]=Renderizador de mapas de ciudad
+Comment=Turn Cities: Skylines saves into printable maps.
+Comment[es]=Convierte partidas de Cities: Skylines en mapas imprimibles.
+Exec=vellum %F
+Icon=vellum
+Terminal=false
+Categories=Graphics;Education;
+Keywords=cities;skylines;cslmap;map;cartography;
+Keywords[es]=cities;skylines;cslmap;mapa;cartografia;
+StartupNotify=true
+StartupWMClass=com.vellum.desktop

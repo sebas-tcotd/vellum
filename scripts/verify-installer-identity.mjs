@@ -47,6 +47,9 @@ const TAURI_DIR = 'apps/desktop/src-tauri';
 const COPY_FILE = 'brand/installer-copy.json';
 const FRAGMENT_FILE = 'apps/desktop/src-tauri/windows/cslmap-association.wxs';
 const DESKTOP_FILE = 'apps/desktop/src-tauri/linux/vellum.desktop';
+const GTK_DESKTOP_FILE =
+  'apps/desktop/src-tauri/linux/com.vellum.desktop.desktop';
+const GTK_DESKTOP_DEST = '/usr/share/applications/com.vellum.desktop.desktop';
 const NSIS_TEMPLATE_FILE =
   'apps/desktop/src-tauri/installer/vellum-installer.nsi';
 const NSIS_TEMPLATE_PATH = 'installer/vellum-installer.nsi';
@@ -577,6 +580,18 @@ function checkPlatformConfig(root, config, copy) {
       });
     }
   }
+  for (const [name, files] of [
+    ['bundle.linux.deb.files', deb.files],
+    ['bundle.linux.rpm.files', rpm.files],
+  ]) {
+    if (files?.[GTK_DESKTOP_DEST] !== 'linux/com.vellum.desktop.desktop') {
+      violations.push({
+        file: CONFIG_FILE,
+        rule: 'linux-desktop-entry',
+        detail: `${name} must install the GTK-ID-matched launcher at ${GTK_DESKTOP_DEST}.`,
+      });
+    }
+  }
   if (deb.section !== copy?.linux?.debSection) {
     violations.push({
       file: CONFIG_FILE,
@@ -604,6 +619,38 @@ function checkDesktopEntry(root, copy) {
     ];
   }
   const contents = fs.readFileSync(absolute, 'utf8');
+  if (!/^Hidden=true\s*$/m.test(contents)) {
+    violations.push({
+      file: DESKTOP_FILE,
+      rule: 'linux-desktop-entry',
+      detail:
+        'The product-name launcher must be hidden because the canonical GTK application ID has its own desktop entry.',
+    });
+  }
+
+  const gtkEntryPath = path.join(root, GTK_DESKTOP_FILE);
+  if (!fs.existsSync(gtkEntryPath)) {
+    violations.push({
+      file: GTK_DESKTOP_FILE,
+      rule: 'linux-desktop-entry',
+      detail: `Missing. GTK application ID com.vellum.desktop must match this desktop entry filename.`,
+    });
+  } else {
+    const gtkEntry = fs.readFileSync(gtkEntryPath, 'utf8');
+    for (const [key, expected] of [
+      ['Name', 'Vellum'],
+      ['Exec', 'vellum %F'],
+      ['Icon', 'vellum'],
+    ]) {
+      if (!gtkEntry.split('\n').includes(`${key}=${expected}`)) {
+        violations.push({
+          file: GTK_DESKTOP_FILE,
+          rule: 'linux-desktop-entry',
+          detail: `${key} must be ${JSON.stringify(expected)} in the canonical GTK desktop entry.`,
+        });
+      }
+    }
+  }
 
   // Without the group header the whole file is inert and every key-level check
   // below would still pass on it.

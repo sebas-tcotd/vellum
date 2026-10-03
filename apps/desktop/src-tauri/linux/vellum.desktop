@@ -27,6 +27,7 @@
 # freedesktop category. Vellum belongs in both Graphics and Education menus.
 Type=Application
 Version=1.0
+Hidden=true
 Name={{name}}
 GenericName=City map renderer
 GenericName[es]=Renderizador de mapas de ciudad
