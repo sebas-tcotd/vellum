@@ -698,7 +698,9 @@ namespace VellumBridge.Export
             json.Open('{').Key("buildings").Open('[');
             foreach (BuildingModel building in model.buildings)
             {
-                if (seen.ContainsKey(building.sourceId) || !IsFinite(building.position) || !IsFinite(building.angle))
+                // El lector rechaza el documento entero por un `prefab` vacío: se omite ese edificio.
+                if (seen.ContainsKey(building.sourceId) || string.IsNullOrEmpty(building.prefab)
+                    || !IsFinite(building.position) || !IsFinite(building.angle))
                 {
                     invalid++;
                     continue;
@@ -706,7 +708,7 @@ namespace VellumBridge.Export
                 seen[building.sourceId] = true;
                 // buildings 1.1: el prefab en su campo y `name` solo con nombre visible.
                 // `customName` y `historical` se escriben solo si son true; `customName` exige `name`.
-                json.Open('{').Key("sourceId").Int(building.sourceId).Key("prefab").String(building.prefab ?? "");
+                json.Open('{').Key("sourceId").Int(building.sourceId).Key("prefab").String(building.prefab);
                 if (!string.IsNullOrEmpty(building.name))
                 {
                     json.Key("name").String(building.name);
@@ -721,7 +723,7 @@ namespace VellumBridge.Export
             }
             json.Close(']').Close('}');
             summary.buildings = seen.Count;
-            if (invalid > 0) summary.limits.Add(invalid + " edificios omitidos por posición o ángulo no finitos o id repetido.");
+            if (invalid > 0) summary.limits.Add(invalid + " edificios omitidos por prefab vacío, posición o ángulo no finitos o id repetido.");
             return json;
         }
 
