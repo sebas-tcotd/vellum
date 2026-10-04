@@ -34,6 +34,7 @@ top of each index to switch without losing your place.
 | [District rendering](district-rendering.md)                   | Why `.cslmap` districts are annotations rather than reconstructed polygons.           |
 | [Forest rendering](forest-rendering.md)                       | The density-overlay approach for the forest data in `.cslmap`.                        |
 | [`.vellumstyle` schema](vellumstyle-schema.md)                | The public v1 format for custom themes.                                               |
+| [`.vellummap` document](../es/vellummap-format.md)            | The stable v1 city document: container, modules, water and stop names (Spanish only). |
 | [Creating and debugging a theme](creating-themes.md)          | Walkthrough from an official example to the selector, and how to fix each diagnostic. |
 
 ## Product decisions

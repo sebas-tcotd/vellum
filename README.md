@@ -21,7 +21,7 @@
   <a href="https://github.com/sebas-tcotd/vellum/releases/latest"><img src="https://img.shields.io/github/v/release/sebas-tcotd/vellum?label=latest%20release" alt="Latest release" /></a>
 </p>
 
-> **For players:** open a `.cslmap` export and explore your city as a real interactive map.
+> **For players:** export your city with Vellum Bridge and explore it as a real interactive map.
 > **For contributors:** help build the open-source cartographic toolkit that Cities: Skylines has been missing.
 
 ![Vellum Readme Hero](./docs/assets/readme/hero-map-costa-tijuca.webp)
@@ -38,14 +38,18 @@ Vellum runs on Windows, macOS and Linux using Tauri 2, Rust, React, TypeScript a
 
 ### Download and open a city
 
-Download the installer for your platform from the [latest GitHub Release](https://github.com/sebas-tcotd/vellum/releases/latest), then open a `.cslmap` file exported from [CSL Map View](https://steamcommunity.com/sharedfiles/filedetails/?id=845665815).
+1. Download the installer for your platform from the [latest GitHub Release](https://github.com/sebas-tcotd/vellum/releases/latest).
+2. In Cities: Skylines, enable the <!-- TODO(workshop): link the Steam Workshop page once published --> [Vellum Bridge](tools/vellum-bridge) mod, load your city and press **Ctrl+Shift+E**. Bridge writes a `.vellummap` to `Documents/Vellum Bridge/<your city>/`.
+3. Drop that file onto Vellum, or open it with `Ctrl/Cmd+O`.
 
-For the current v1 workflow, **CSL Map View is the exporter; Vellum is the modern viewer.** Vellum does not yet read a live city directly from the game. This deliberate two-tool path preserves compatibility with the format the community already uses while Vellum focuses on a better exploration experience.
+**Vellum Bridge exports, Vellum explores.** Bridge only acts when you ask it to and never touches the network. Its `.vellummap` carries what the older formats cannot: street names, district population and jobs, renamed and unique buildings, and stations that group every stop they serve.
+
+Already have exports from [CSL Map View](https://steamcommunity.com/sharedfiles/filedetails/?id=845665815)? Vellum still opens `.cslmap` files, so your existing maps keep working.
 
 <details>
 <summary>Platform notes</summary>
 
-- **Windows:** run the `.msi`. File association is opt-in during installation. Releases are configured for Authenticode signing; an explicitly unsigned build may show an unknown-publisher warning.
+- **Windows:** run the `.exe` installer (recommended). An `.msi` is also published, with opt-in `.cslmap` file association. Releases are configured for Authenticode signing; an explicitly unsigned build may show an unknown-publisher warning.
 - **macOS:** open the `.dmg` and move Vellum to `Applications`. v1 is not notarized by Apple, so clear quarantine once with `xattr -cr /Applications/Vellum.app` if Gatekeeper blocks it.
 - **Linux:** make the `.AppImage` executable and run it. `.deb` and `.rpm` packages are also published.
 
@@ -84,12 +88,14 @@ Before `pnpm install` or `pnpm dev`, install the [Tauri 2 prerequisites](https:/
 
 ## What you can do today
 
-- Open `.cslmap` files with drag and drop or `Ctrl/Cmd+O`.
-- Explore seven independent layers: terrain, basemap and water, roads, transit, buildings, forests and districts.
-- Pan and zoom a full city with GPU-accelerated MapLibre rendering.
-- Inspect transit lines and stops through contextual map interactions.
-- Stay oriented with the minimap and keyboard-friendly navigation.
-- Toggle clean mode with `H` and switch between built-in visual themes.
+- Open `.vellummap` and `.cslmap` files with drag and drop or `Ctrl/Cmd+O`.
+- Explore seven independent layers: terrain, basemap and water, roads, transit, buildings, forests and districts, each with its own options (`Shift+1`–`7`).
+- Pan and zoom a full city with GPU-accelerated MapLibre rendering, down to street names and real road widths at detail zoom.
+- Read the transit network as a geographic map or as an octilinear schematic diagram, with stations collapsed into single nodes.
+- Inspect a district, park or building in a side card: population, homes, jobs and specializations.
+- Color districts by specialization, and show forests as tree crowns, circles or a heatmap.
+- Stay oriented with the minimap, precise zoom and a keyboard shortcuts sheet (`?`).
+- Toggle clean mode with `H` and switch between five built-in themes, or load your own `.vellumstyle`.
 - Use the interface in English or Spanish.
 - Export the current view as PNG (1×–4×) or editable SVG.
 - Load damaged files and unknown-DLC assets through controlled fallbacks where possible.
@@ -108,7 +114,9 @@ That pivot was possible because the domain model was separated from rendering fr
 
 ```mermaid
 flowchart LR
-  A[".cslmap export"] --> B["Rust parser"]
+  G["Cities: Skylines + Vellum Bridge"] --> V[".vellummap"]
+  V --> B["Rust parser"]
+  A[".cslmap export"] --> B
   B --> C["Immutable CityData"]
   C --> D["MapLibre renderer"]
   D --> E["React UI in Tauri"]
@@ -134,17 +142,19 @@ graph TD
 
 ## Project status
 
-| Area                                          | Status              |
-| --------------------------------------------- | ------------------- |
-| File loading, Rust parser and domain model    | Complete            |
-| Cartographic rendering and MapLibre migration | Complete            |
-| Exploration UI, layers and themes             | Complete            |
-| PNG/SVG export                                | Complete            |
-| i18n, preferences and update checks           | Complete            |
-| Packaging and distribution                    | Available in v0.5.0 |
-| Vellum-native in-game exporter                | Future direction    |
+| Area                                          | Status      |
+| --------------------------------------------- | ----------- |
+| File loading, Rust parser and domain model    | Complete    |
+| Cartographic rendering and MapLibre migration | Complete    |
+| Exploration UI, layers and themes             | Complete    |
+| PNG/SVG export                                | Complete    |
+| i18n, preferences and update checks           | Complete    |
+| Packaging and distribution                    | Complete    |
+| Vellum Bridge exporter and `.vellummap`       | Complete    |
+| Transit schematic view                        | Complete    |
+| Steam Workshop release of Vellum Bridge       | In progress |
 
-The future exporter would remove the dependency on `.cslmap`, unlock richer data from the Cities: Skylines modding API and support the next generation of Vellum features. It is not required for the first useful viewer release.
+`.vellummap` is a versioned, schema-validated city document that does not depend on the program that wrote it. Its contract lives in [`docs/es/vellummap-format.md`](docs/es/vellummap-format.md).
 
 <!--
 VISUAL: Optional theme comparison — one cartographic scene, three visual languages.
@@ -172,10 +182,12 @@ Skip it if the hero and layer composition already establish the visual identity 
 | ---------------------------------------------------- | ------------------------------------------------- |
 | [`apps/desktop`](apps/desktop)                       | Tauri shell, native commands and composition root |
 | [`packages/core`](packages/core)                     | Domain types and IPC contract                     |
-| [`packages/parser-cslmap`](packages/parser-cslmap)   | `.cslmap` parsing adapter                         |
+| [`packages/parser-cslmap`](packages/parser-cslmap)   | `.cslmap` and `.vellummap` readers                |
 | [`packages/renderer-webgl`](packages/renderer-webgl) | Active MapLibre renderer                          |
 | [`packages/theme-engine`](packages/theme-engine)     | Theme loading, validation and style parameters    |
 | [`packages/ui`](packages/ui)                         | React components and interaction layer            |
+| [`tools/vellum-bridge`](tools/vellum-bridge)         | Cities: Skylines mod that exports `.vellummap`    |
+| [`apps/landing`](apps/landing)                       | Project website on GitHub Pages                   |
 | [`docs`](docs)                                       | Technical documentation and design references     |
 | [`docs/adr`](docs/adr)                               | Accepted architecture decision records            |
 
@@ -216,6 +228,6 @@ Vellum is released under the [MIT License](LICENSE).
 
 ## Acknowledgements
 
-Built around the Cities: Skylines `.cslmap` export format and powered by [Tauri](https://tauri.app/), [Rust](https://www.rust-lang.org/), [React](https://react.dev/), [MapLibre GL JS](https://maplibre.org/) and [Turborepo](https://turborepo.com/).
+Built for the Cities: Skylines community, compatible with the `.cslmap` format from [CSL Map View](https://steamcommunity.com/sharedfiles/filedetails/?id=845665815), and powered by [Tauri](https://tauri.app/), [Rust](https://www.rust-lang.org/), [React](https://react.dev/), [MapLibre GL JS](https://maplibre.org/) and [Turborepo](https://turborepo.com/).
 
-Maintained by Sebastian Vargas with an emphasis on understanding before building, coherent systems and reducing friction without hiding complexity.
+**Created and maintained by Sebastian Vargas**, with an emphasis on understanding before building, coherent systems and reducing friction without hiding complexity.
