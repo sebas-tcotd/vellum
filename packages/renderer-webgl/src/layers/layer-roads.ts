@@ -116,8 +116,9 @@ export function addRoadsLayer(
     'scaledWidth',
   ] as unknown as maplibregl.ExpressionSpecification;
 
-  // Tunnels render *below* at-grade roads (added first): solid casing avoids
-  // the dash-alignment gap bug, dashed fill + reduced opacity signal depth.
+  // Tunnels render *below* at-grade roads (added first), solid and at reduced
+  // opacity: the fade alone signals depth. Dashes stay with rail, where they
+  // already mean cross-ties (surface) and tunnel (underground).
   addLayerIfAbsent(map, {
     id: 'roads-tunnel-casing',
     type: 'line',
@@ -165,7 +166,6 @@ export function addRoadsLayer(
     paint: {
       'line-color': buildRoadColorExpression(colors, 'fill'),
       'line-width': ROAD_WIDTH_EXPR,
-      'line-dasharray': [6, 3],
       'line-opacity': 0.55,
       'line-opacity-transition': { duration: 300 },
     },
