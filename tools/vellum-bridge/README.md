@@ -1,6 +1,6 @@
-# Vellum Bridge — spike local para Cities: Skylines 1
+# Vellum Bridge — el mod de Cities: Skylines 1 que exporta para Vellum
 
-Proyecto C# experimental. Dentro del juego hace dos cosas, cada una con su botón en las opciones del mod: **Exportar para Vellum** escribe el documento de ciudad `.vellummap` que abre Vellum, y **Capturar Raw Snapshot** escribe la captura cruda de diagnóstico. No se publica en Workshop.
+Mod en C#. Dentro del juego hace dos cosas, cada una con su botón en las opciones del mod: **Exportar para Vellum** escribe el documento de ciudad `.vellummap` que abre Vellum, y **Capturar Raw Snapshot** escribe la captura cruda de diagnóstico. Se publica en el Steam Workshop con Vellum v1.0; mientras tanto, se compila e instala a mano como se describe abajo.
 
 ## Compilar e instalar
 
