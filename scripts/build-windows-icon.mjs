@@ -35,11 +35,19 @@ export const WINDOWS_ICON_DIR = 'apps/desktop/src-tauri/icons/windows';
 export const WINDOWS_ICON_MANIFEST = `${WINDOWS_ICON_DIR}/derived-icons.json`;
 
 /**
- * Sizes inside `icon.ico`: the shell sizes Windows asks for from 100 % to
- * 400 % scaling (16 to 64), the large icon views (72 to 128) and 256.
+ * Sizes inside `icon.ico`, in file order: 256 first, then the shell sizes
+ * Windows asks for from 100 % to 400 % scaling (16 to 64) and the large icon
+ * views (72 to 128).
+ *
+ * @remarks
+ * The order matters. tauri-codegen takes the **first** entry as the window
+ * icon (`entries()[0]`), and the taskbar shows that one whenever it has no
+ * shortcut to read the icon from, such as Vellum opened from the NSIS Finish
+ * page. With 16 first it was stretched to 24–36 px and looked blurry; with
+ * 256 first Windows only ever scales down.
  */
 export const ICO_SIZES = [
-  16, 20, 24, 30, 32, 36, 40, 48, 60, 64, 72, 80, 96, 128, 256,
+  256, 16, 20, 24, 30, 32, 36, 40, 48, 60, 64, 72, 80, 96, 128,
 ];
 
 /** The scale qualifiers Windows recommends for every MSIX logo. */

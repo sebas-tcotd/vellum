@@ -89,8 +89,13 @@ describe('build-windows-icon', () => {
     });
   });
 
-  it('covers the shell sizes from 16 to 256', () => {
-    expect(ICO_SIZES[0]).toBe(16);
-    expect(ICO_SIZES.at(-1)).toBe(256);
+  it('puts 256 first: Tauri uses the first entry as the window icon', () => {
+    expect(ICO_SIZES[0]).toBe(256);
+    expect(Math.min(...ICO_SIZES)).toBe(16);
+    const ico = fs.readFileSync(
+      path.join(repoRoot, 'apps/desktop/src-tauri/icons/windows/icon.ico'),
+    );
+    // A width of 0 in an ICONDIRENTRY means 256.
+    expect(ico.readUInt8(6)).toBe(0);
   });
 });
