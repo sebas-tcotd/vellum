@@ -25,6 +25,7 @@ namespace VellumBridge.Tests
             Check(Strings.UnnamedStops(1) == "1 stops without a named street: exported without a name.", "Límite en inglés");
             Check(Strings.GridPadded(Strings.GridName(true)).StartsWith("The districts grid"), "Grilla en inglés");
             Check(Strings.HumanCounts(1639, 9, 111, 8) == "1,639 buildings · 9 lines · 111 stops · 8 districts", "Conteos en inglés con separador de miles");
+            Check(Strings.HumanCounts(404, 1, 7, 2) == "404 buildings · 1 line · 7 stops · 2 districts", "Conteos en singular");
             Check(Strings.IsPermanentNote(Strings.DlcAndMods) && !Strings.IsPermanentNote(Strings.UnnamedStops(1)), "La nota de DLC y mods no cuenta como límite en el modal");
             Strings.Spanish = true;
             Check(Strings.HumanCounts(1234567, 0, 12, 100) == "1.234.567 edificios · 0 líneas · 12 paradas · 100 distritos", "Conteos en español con separador de miles");

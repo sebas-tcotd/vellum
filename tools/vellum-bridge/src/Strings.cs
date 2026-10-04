@@ -60,8 +60,13 @@ namespace VellumBridge
         internal static string CityExported(string city) { return T(city + " exported", city + " exportada"); }
         internal static string HumanCounts(int buildings, int lines, int stops, int districts)
         {
-            return T(Number(buildings, ',') + " buildings · " + Number(lines, ',') + " lines · " + Number(stops, ',') + " stops · " + Number(districts, ',') + " districts",
-                Number(buildings, '.') + " edificios · " + Number(lines, '.') + " líneas · " + Number(stops, '.') + " paradas · " + Number(districts, '.') + " distritos");
+            return T(Count(buildings, ',', "building", "buildings") + " · " + Count(lines, ',', "line", "lines") + " · " + Count(stops, ',', "stop", "stops") + " · " + Count(districts, ',', "district", "districts"),
+                Count(buildings, '.', "edificio", "edificios") + " · " + Count(lines, '.', "línea", "líneas") + " · " + Count(stops, '.', "parada", "paradas") + " · " + Count(districts, '.', "distrito", "distritos"));
+        }
+
+        private static string Count(int value, char separator, string one, string many)
+        {
+            return Number(value, separator) + " " + (value == 1 ? one : many);
         }
         internal static string ShowLimits(int count) { return T(count + (count == 1 ? " limit" : " limits") + ", see details", count + (count == 1 ? " límite" : " límites") + ", ver detalles"); }
         internal static string HideLimits { get { return T("Hide details", "Ocultar detalles"); } }

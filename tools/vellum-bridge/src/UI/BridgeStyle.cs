@@ -163,13 +163,23 @@ namespace VellumBridge.UI
             Application.OpenURL(url);
         }
 
-        // Abre la carpeta en el explorador del sistema; la crea si todavía no existe.
+        // Abre la carpeta en el explorador del sistema; la crea si todavía no existe. Con el
+        // explorador de cada sistema y no con Application.OpenURL("file://…"): en el Unity de CS1
+        // esa URI falla en silencio en Windows (probado con «Ermitaño del Norte», que AbsoluteUri
+        // vuelve %C3%B1).
         internal static void OpenFolder(string folder)
         {
             try
             {
                 Directory.CreateDirectory(folder);
-                Application.OpenURL(new Uri(folder).AbsoluteUri);
+                string browser;
+                switch (Application.platform)
+                {
+                    case RuntimePlatform.WindowsPlayer: browser = "explorer.exe"; break;
+                    case RuntimePlatform.OSXPlayer: browser = "open"; break;
+                    default: browser = "xdg-open"; break;
+                }
+                System.Diagnostics.Process.Start(browser, "\"" + folder + "\"");
             }
             catch (Exception error)
             {
