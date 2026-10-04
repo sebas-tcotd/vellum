@@ -39,7 +39,7 @@ Vellum runs on Windows, macOS and Linux using Tauri 2, Rust, React, TypeScript a
 ### Download and open a city
 
 1. Download the installer for your platform from the [latest GitHub Release](https://github.com/sebas-tcotd/vellum/releases/latest).
-2. In Cities: Skylines, enable the <!-- TODO(workshop): link the Steam Workshop page once published --> [Vellum Bridge](tools/vellum-bridge) mod, load your city and press **Ctrl+Shift+E**. Bridge writes a `.vellummap` to `Documents/Vellum Bridge/<your city>/`.
+2. In Cities: Skylines, enable the <!-- TODO(workshop): link the Steam Workshop page once published --> [Vellum Bridge](tools/vellum-bridge) mod, load your city and press **Ctrl+Shift+E**. Bridge writes a `.vellummap` to `Vellum Bridge/<your city>/`, inside Documents on Windows and your home folder on macOS and Linux.
 3. Drop that file onto Vellum, or open it with `Ctrl/Cmd+O`.
 
 **Vellum Bridge exports, Vellum explores.** Bridge only acts when you ask it to and never touches the network. Its `.vellummap` carries what the older formats cannot: street names, district population and jobs, renamed and unique buildings, and stations that group every stop they serve.
