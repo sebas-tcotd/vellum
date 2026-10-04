@@ -51,6 +51,8 @@ import { treesInCell, TREES_MIN_ZOOM } from '../sources/tree-tiles';
 import { buildVectorCanopy } from './forest-vector-canopy';
 import { resolveBuildingColor } from '../expressions/building-color';
 import {
+  COASTLINE_OPACITY,
+  COASTLINE_WIDTH_PX,
   DISTRICT_BOUNDARY_OPACITY,
   DISTRICT_FILL_OPACITY,
 } from '../constants/layer.constants';
@@ -158,8 +160,6 @@ const ID_PREFIX: Readonly<Record<SceneLayerId, string>> = Object.freeze({
 // two copies of a convention is how they stop matching.
 const CONTOUR_WIDTH_PX = 0.5;
 const CONTOUR_OPACITY = 0.5;
-const COASTLINE_WIDTH_PX = 4;
-const COASTLINE_OPACITY = 0.8;
 const BUILDING_STROKE_PX = 0.5;
 const BUILDING_FILL_OPACITY = 0.85;
 const DISTRICT_RADIUS_PX = 6;

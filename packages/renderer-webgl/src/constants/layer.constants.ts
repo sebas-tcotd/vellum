@@ -8,6 +8,14 @@ import {
 } from '../expressions/transit-color';
 
 /**
+ * Shoreline stroke: a fine, fully opaque line in a deeper shade of the water, the way
+ * printed maps draw a shore. Shared by the live layer and the static exporter.
+ */
+export const COASTLINE_WIDTH_PX = 1.25;
+/** Shoreline opacity (also the Transit-dimming baseline). */
+export const COASTLINE_OPACITY = 1;
+
+/**
  * Vertical exaggeration for the `terrain-hillshade` layer, in "metres" terms: CS1
  * terrain is gentle relative to its 17 km span, so a mild boost is needed for slopes to
  * read at all.
@@ -180,7 +188,7 @@ export const NON_TRANSIT_OPACITY: Record<
     base: HILLSHADE_EXAGGERATION,
   },
   'terrain-lines-layer': { prop: 'line-opacity', base: CONTOUR_LINE_OPACITY },
-  'coastline-layer': { prop: 'line-opacity', base: 0.8 },
+  'coastline-layer': { prop: 'line-opacity', base: COASTLINE_OPACITY },
   'base-water': { prop: 'fill-opacity', base: 1 },
   'base-land': { prop: 'fill-opacity', base: 1 },
   'roads-casing': { prop: 'line-opacity', base: 1 },

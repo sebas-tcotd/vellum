@@ -28,7 +28,7 @@ import {
  */
 
 import type { RenderStyleParams } from '@vellum/core';
-import { readableInk } from './expressions/color-mix';
+import { adjustLightness, readableInk } from './expressions/color-mix';
 import type { RoadTier } from './geojson';
 
 /** Grid visual properties resolved from `RenderStyleParams.grid`. */
@@ -64,7 +64,7 @@ export interface ResolvedColors {
   };
   /** Isolines color. */
   contourLine: string;
-  /** Coastline outline color. */
+  /** Shoreline stroke: the theme's `coastline`, or its `water` pulled 30 % away from itself. */
   coastlineStroke: string;
   /** Forest density marker color. */
   forests: string;
@@ -143,7 +143,7 @@ export function resolveColors(style: RenderStyleParams): ResolvedColors {
       high: style.terrain.high,
     },
     contourLine: style.contourLine,
-    coastlineStroke: style.water,
+    coastlineStroke: style.coastline ?? adjustLightness(style.water, 0.3),
     forests: style.forests,
     buildingFill: buildings.none.fill,
     buildingStroke: buildings.none.stroke,

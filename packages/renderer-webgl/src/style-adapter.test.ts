@@ -251,3 +251,20 @@ it('applies a new theme to active specialization without rebuilding or losing se
   manager.setTransitDimming(false);
   expect(paints.get('district-fill:fill-opacity')).toBe(0.5);
 });
+
+it('uses the theme coastline when it sets one', () => {
+  expect(
+    resolveColors({ ...STYLE, coastline: '#4f7c80' }).coastlineStroke,
+  ).toBe('#4f7c80');
+});
+
+it('derives the coastline from the water when the theme omits it', () => {
+  // Light water darkens 30 % toward black, keeping its hue.
+  expect(resolveColors({ ...STYLE, water: '#86b0b0' }).coastlineStroke).toBe(
+    '#5e7b7b',
+  );
+  // Dark water (Transit) lightens instead, so the edge still reads.
+  expect(resolveColors({ ...STYLE, water: '#16324a' }).coastlineStroke).toBe(
+    '#5c7080',
+  );
+});

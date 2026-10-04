@@ -61,6 +61,10 @@
       "$ref": "#/$defs/colorToken",
       "default": "#6db8b7"
     },
+    "coastline": {
+      "$ref": "#/$defs/colorToken",
+      "description": "Optional. Shoreline stroke on every water body. When omitted, Vellum derives it from `water` (30 % toward black, or toward white for dark water)."
+    },
     "contourLine": {
       "$ref": "#/$defs/colorToken",
       "default": "#000000"

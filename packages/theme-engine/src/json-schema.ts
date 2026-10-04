@@ -1,4 +1,7 @@
-import { DEFAULT_RENDER_STYLE_PARAMS } from './default-style';
+import {
+  DEFAULT_RENDER_STYLE_PARAMS,
+  DERIVED_WHEN_OMITTED,
+} from './default-style';
 import { HEX_COLOR_PATTERN, HSL_COLOR_PATTERN } from './validators/color';
 
 /**
@@ -218,6 +221,15 @@ export function buildVellumStyleSchema(): JsonSchemaNode {
       (DEFAULT_RENDER_STYLE_PARAMS as unknown as Record<string, unknown>)[key],
       key,
     );
+  }
+  // A derived key has no fixed default: advertising one would tell editors the wrong
+  // color for every theme whose water differs from the default palette's.
+  for (const key of DERIVED_WHEN_OMITTED) {
+    styleProperties[key] = {
+      $ref: COLOR_TOKEN_REF,
+      description:
+        'Optional. Shoreline stroke on every water body. When omitted, Vellum derives it from `water` (30 % toward black, or toward white for dark water).',
+    };
   }
   return {
     $schema: JSON_SCHEMA_DIALECT,

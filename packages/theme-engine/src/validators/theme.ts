@@ -1,5 +1,5 @@
 import type { VellumStyle } from '@vellum/core';
-import { DEFAULT_RENDER_STYLE_PARAMS } from '../default-style';
+import { defaultsFor } from '../default-style';
 import { isColorToken } from './color';
 
 /**
@@ -99,7 +99,8 @@ function firstInvalidField(
  * shape, checking that every color leaf is a well-formed `ColorToken`.
  * @remarks
  * Uses `DEFAULT_RENDER_STYLE_PARAMS` as the schema template, so both missing fields and
- * malformed colors are caught, and the error names the exact offending path.
+ * malformed colors are caught, and the error names the exact offending path. A key the
+ * renderer derives when omitted (`coastline`) is only checked when present.
  *
  * @param raw - A migrated value from `migrateTheme()`.
  * @returns `{ valid: true, theme }` or `{ valid: false, error, rule }` where `error` is the
@@ -128,7 +129,7 @@ export function validateVellumStyle(raw: unknown): ValidateThemeResult {
   if (typeof obj.schemaVersion !== 'number') {
     return { valid: false, error: 'schemaVersion', rule: 'type' };
   }
-  const invalid = firstInvalidField(DEFAULT_RENDER_STYLE_PARAMS, raw, '');
+  const invalid = firstInvalidField(defaultsFor(obj), raw, '');
   if (invalid) return { valid: false, error: invalid.path, rule: invalid.rule };
   return { valid: true, theme: raw as VellumStyle };
 }
