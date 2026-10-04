@@ -565,7 +565,7 @@ describe('verify-installer-identity', () => {
 
     it('fails when the unplated glyph changes without a rebuild', () => {
       const root = cleanRoot();
-      const file = path.join(root, 'brand/vellum-fluent-light-unplated.svg');
+      const file = path.join(root, 'brand/windows-app-icon-unplated.svg');
       fs.appendFileSync(file, '<!-- retouched -->');
       expect(details(root)).toContain('pnpm icons:windows');
     });

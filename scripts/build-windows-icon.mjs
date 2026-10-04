@@ -38,7 +38,7 @@ export const WINDOWS_ICON_SOURCE = 'brand/windows-app-icon.svg';
  * the plated artwork, which reads well there, until a dark variant exists.
  */
 export const WINDOWS_ICON_LIGHT_UNPLATED_SOURCE =
-  'brand/vellum-fluent-light-unplated.svg';
+  'brand/windows-app-icon-unplated.svg';
 
 /** Every `brand/` file the Windows icon is derived from. */
 export const WINDOWS_ICON_SOURCES = [
