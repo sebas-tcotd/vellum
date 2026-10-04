@@ -17,7 +17,7 @@
     <Compile Remove="tests/**" />
   </ItemGroup>
   <ItemGroup>
-    <!-- Imágenes del panel de opciones (scripts/build-bridge-icon.mjs; la insignia de la Store es
+    <!-- Imágenes del panel de opciones (scripts/build-bridge-images.mjs; la insignia de la Store es
          el arte oficial de Microsoft, sin modificar). OptionsPanel las lee como VellumBridge.<archivo>. -->
     <EmbeddedResource Include="assets/*.png" LogicalName="VellumBridge.%(Filename)%(Extension)" />
   </ItemGroup>

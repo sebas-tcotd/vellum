@@ -64,7 +64,8 @@ namespace VellumBridge.UI
             Texture2D badge = StoreBadge();
             if (badge != null)
             {
-                Image(page, badge, 160f);
+                UITextureSprite store = Image(page, badge, 161f);
+                store.eventClick += delegate { Application.OpenURL(BridgeInfo.StoreUrl); };
                 Link(Strings.OtherPlatforms, BridgeInfo.DesktopUrl);
             }
             else Button(page, Strings.GetDesktop, false, delegate { OpenWeb(BridgeInfo.DesktopUrl); });
@@ -267,11 +268,12 @@ namespace VellumBridge.UI
             link.eventClick += delegate { OpenWeb(url); };
         }
 
-        private static void Image(UIComponent parent, Texture2D texture, float width)
+        private static UITextureSprite Image(UIComponent parent, Texture2D texture, float width)
         {
             UITextureSprite sprite = parent.AddUIComponent<UITextureSprite>();
             sprite.texture = texture;
             sprite.size = new Vector2(width, width * texture.height / texture.width);
+            return sprite;
         }
 
         // Sin el panel de UIHelper (no debería pasar): los dos botones de siempre.
@@ -283,11 +285,12 @@ namespace VellumBridge.UI
 
         // ─── Recursos y enlaces ────────────────────────────────────────────────────────────
 
-        // La insignia solo existe en Windows, con el Product ID y el arte oficial de Microsoft.
+        // La insignia oficial de Microsoft en el idioma del panel, solo en Windows y con el listado
+        // público (BridgeInfo.StoreListed). El panel se rearma al cambiar el idioma del juego.
         private static Texture2D StoreBadge()
         {
-            if (Application.platform != RuntimePlatform.WindowsPlayer || BridgeInfo.StoreProductId.Length == 0) return null;
-            return LoadTexture("store-badge.png");
+            if (!BridgeInfo.StoreListed || Application.platform != RuntimePlatform.WindowsPlayer) return null;
+            return LoadTexture(Strings.Spanish ? "store-badge-es.png" : "store-badge-en.png");
         }
 
         private static Texture2D LoadTexture(string name)
