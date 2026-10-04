@@ -20,11 +20,13 @@ namespace VellumBridge.Tests
 
         private static int Main(string[] args)
         {
-            // El harness comprueba los textos en español; estas dos líneas, que el inglés también existe.
+            // El harness comprueba los textos en español; estas líneas, que el inglés también existe.
             Strings.Spanish = false;
             Check(Strings.UnnamedStops(1) == "1 stops without a named street: exported without a name.", "Límite en inglés");
             Check(Strings.GridPadded(Strings.GridName(true)).StartsWith("The districts grid"), "Grilla en inglés");
+            Check(Strings.HumanCounts(1639, 9, 111, 8) == "1,639 buildings · 9 lines · 111 stops · 8 districts", "Conteos en inglés con separador de miles");
             Strings.Spanish = true;
+            Check(Strings.HumanCounts(1234567, 0, 12, 100) == "1.234.567 edificios · 0 líneas · 12 paradas · 100 distritos", "Conteos en español con separador de miles");
             if (args.Length != 1)
             {
                 Console.Error.WriteLine("uso: dotnet run --project tools/vellum-bridge/tests -- <carpeta de salida>");

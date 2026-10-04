@@ -21,6 +21,7 @@ namespace VellumBridge
             BridgeCapture.ShowPendingResult();
             BridgeExport.ShowPendingResult();
             OptionsPanel.Tick();
+            ResultModal.Tick();
         }
     }
 }
