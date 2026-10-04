@@ -17,7 +17,7 @@
     "rust:lint": "cargo clippy --workspace -- -D warnings",
     "rust:test": "cargo test --workspace",
     "release:verify": "node scripts/verify-release-config.mjs",
-    "brand:build": "node scripts/build-brand-assets.mjs && node scripts/build-windows-icon.mjs",
+    "brand:build": "node scripts/build-brand-assets.mjs && node scripts/build-windows-icon.mjs && node scripts/build-bridge-icon.mjs",
     "icons:windows": "node scripts/build-windows-icon.mjs",
     "check:installer": "node scripts/verify-installer-identity.mjs",
     "check:network": "node scripts/verify-network-surface.mjs",

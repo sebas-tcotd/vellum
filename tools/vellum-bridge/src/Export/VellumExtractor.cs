@@ -59,8 +59,7 @@ namespace VellumBridge.Export
             catch (Exception error)
             {
                 Debug.LogError("[VellumBridge] Exportación: falló la lectura de `" + module + "`: " + error);
-                throw new ExportFailedException("No se pudo leer `" + module + "` (" + error.Message
-                    + "). Es un módulo obligatorio: no se escribió ningún archivo. Revisa el log [VellumBridge].", error);
+                throw new ExportFailedException(Strings.ModuleReadFailed(module, error.Message), error);
             }
         }
 
@@ -139,8 +138,8 @@ namespace VellumBridge.Export
                     a = V(start), b = V(middle1), c = V(middle2), d = V(end),
                 });
             }
-            if (withoutPrefab > 0) model.limits.Add(withoutPrefab + " segmentos omitidos por no tener prefab cargado.");
-            if (segmentNameErrors > 0) model.limits.Add(segmentNameErrors + " segmentos sin nombre porque no se pudo leer el nombre de su calle.");
+            if (withoutPrefab > 0) model.limits.Add(Strings.SegmentsWithoutPrefab(withoutPrefab));
+            if (segmentNameErrors > 0) model.limits.Add(Strings.SegmentNameErrors(segmentNameErrors));
         }
 
         private static void ReadTransit(VellumModel model)
@@ -205,16 +204,16 @@ namespace VellumBridge.Export
                     if (!AppendLeg(s.sourceId, line.route)) missingLegs++;
                 model.lines.Add(line);
             }
-            if (withoutPrefab > 0) model.limits.Add(withoutPrefab + " líneas omitidas por no tener prefab cargado.");
-            if (missingLegs > 0) model.limits.Add(missingLegs + " tramos de línea sin ruta calculada: la ruta de esas líneas queda incompleta.");
-            if (nameErrors > 0) model.limits.Add(nameErrors + " paradas sin nombre porque no se pudo leer el nombre de su calle.");
-            if (ownerMissing > 0) model.limits.Add(ownerMissing + " paradas en vías de un edificio sin dueño encontrado: siguen la regla de calle.");
-            if (ownerErrors > 0) model.limits.Add(ownerErrors + " paradas sin estación porque falló la búsqueda de su edificio: siguen la regla de calle.");
+            if (withoutPrefab > 0) model.limits.Add(Strings.LinesWithoutPrefab(withoutPrefab));
+            if (missingLegs > 0) model.limits.Add(Strings.MissingLegs(missingLegs));
+            if (nameErrors > 0) model.limits.Add(Strings.StopNameErrors(nameErrors));
+            if (ownerMissing > 0) model.limits.Add(Strings.StopOwnerMissing(ownerMissing));
+            if (ownerErrors > 0) model.limits.Add(Strings.StopOwnerErrors(ownerErrors));
             if (corrupt.Count > 0)
             {
                 var ids = new string[corrupt.Count];
                 for (int k = 0; k < ids.Length; k++) ids[k] = corrupt[k].ToString(System.Globalization.CultureInfo.InvariantCulture);
-                model.limits.Add(corrupt.Count + " líneas omitidas por una lista de paradas cíclica o corrupta (ids: " + string.Join(", ", ids) + ").");
+                model.limits.Add(Strings.CorruptLines(corrupt.Count, string.Join(", ", ids)));
             }
         }
 
@@ -378,9 +377,9 @@ namespace VellumBridge.Export
                 }
                 model.buildings.Add(record);
             }
-            if (withoutPrefab > 0) model.limits.Add(withoutPrefab + " edificios omitidos por no tener prefab cargado.");
+            if (withoutPrefab > 0) model.limits.Add(Strings.BuildingsWithoutPrefab(withoutPrefab));
             if (nameErrors > 0)
-                model.limits.Add(nameErrors + " edificios sin nombre visible por un error al leerlo (" + firstNameError + ").");
+                model.limits.Add(Strings.BuildingNameErrors(nameErrors, firstNameError));
         }
 
         private static void ReadDistricts(VellumModel model)

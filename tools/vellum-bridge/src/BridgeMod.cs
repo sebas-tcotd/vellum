@@ -3,6 +3,7 @@ using ICities;
 using UnityEngine;
 using VellumBridge.Capture;
 using VellumBridge.Export;
+using VellumBridge.UI;
 
 namespace VellumBridge
 {
@@ -11,7 +12,7 @@ namespace VellumBridge
         // La versión en el nombre: es lo único que el Content Manager y la pestaña de opciones
         // muestran, y así se ve qué DLL cargó el juego.
         public string Name { get { return "Vellum Bridge " + BridgeInfo.Version; } }
-        public string Description { get { return "Exporta tu ciudad a .vellummap para abrirla en Vellum Desktop."; } }
+        public string Description { get { BridgeLocale.Refresh(); return Strings.ModDescription; } }
 
         // Al recargar el mod en caliente, CS1 llama OnDisabled en la instancia vieja y OnEnabled en
         // la nueva, pero el ensamblado viejo sigue en memoria y, con una ciudad cargada, su
@@ -23,19 +24,21 @@ namespace VellumBridge
         public void OnEnabled()
         {
             Active = true;
+            BridgeLocale.Refresh();
             Debug.Log("[VellumBridge] Mod activado: " + BridgeInfo.Version + " (ensamblado " + Assembly.GetExecutingAssembly().GetName().Version + ").");
         }
 
         public void OnDisabled()
         {
             Active = false;
+            BridgeLocale.Unsubscribe();
             Debug.Log("[VellumBridge] Mod desactivado: " + BridgeInfo.Version + " (ensamblado " + Assembly.GetExecutingAssembly().GetName().Version + ").");
         }
 
         public void OnSettingsUI(UIHelperBase helper)
         {
-            helper.AddButton("Capturar Raw Snapshot", delegate { BridgeCapture.Request(); });
-            helper.AddButton("Exportar para Vellum", delegate { BridgeExport.Request(); });
+            BridgeLocale.Refresh();
+            OptionsPanel.Build(helper);
         }
     }
 }

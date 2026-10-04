@@ -2,6 +2,7 @@ using ICities;
 using UnityEngine;
 using VellumBridge.Capture;
 using VellumBridge.Export;
+using VellumBridge.UI;
 
 namespace VellumBridge
 {
@@ -19,6 +20,7 @@ namespace VellumBridge
             if (ctrl && shift && Input.GetKeyDown(KeyCode.E)) BridgeExport.Request();
             BridgeCapture.ShowPendingResult();
             BridgeExport.ShowPendingResult();
+            OptionsPanel.Tick();
         }
     }
 }

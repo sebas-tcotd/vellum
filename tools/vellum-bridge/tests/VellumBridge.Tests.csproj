@@ -11,6 +11,7 @@
     <InvariantGlobalization>true</InvariantGlobalization>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="../src/Strings.cs" Link="Strings.cs" />
     <Compile Include="../src/Export/VellumModel.cs" Link="Export/VellumModel.cs" />
     <Compile Include="../src/Export/VellumWriter.cs" Link="Export/VellumWriter.cs" />
     <Compile Include="../src/Export/VellumIdentity.cs" Link="Export/VellumIdentity.cs" />

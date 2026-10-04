@@ -2,6 +2,18 @@
 
 Mod en C#. Dentro del juego hace dos cosas, cada una con su botón en las opciones del mod: **Exportar para Vellum** escribe el documento de ciudad `.vellummap` que abre Vellum, y **Capturar Raw Snapshot** escribe la captura cruda de diagnóstico. Se publica en el Steam Workshop con Vellum v1.0; mientras tanto, se compila e instala a mano como se describe abajo.
 
+## Panel de opciones
+
+La página del mod en Opciones (`src/UI/OptionsPanel.cs`) se arma con componentes del juego (`UIPanel`, `UILabel`, `UIButton`, `UITextureSprite`) colgados del panel que entrega `UIHelper`, sin imitar una app web: la jerarquía sale del tamaño y el color del texto, de separadores y de un solo botón principal.
+
+- **Encabezado:** la marca de Vellum (`assets/vellum-mark.png`, derivada de `brand/vellum-mark.svg` con `node scripts/build-bridge-icon.mjs`), versión y estado: «Carga una ciudad para exportar» (las opciones también se abren desde el menú principal), «Lista para exportar» o «Exportando…».
+- **Exportar ciudad:** el botón principal, el atajo, la última exportación (el `.vellummap` más reciente en la carpeta de exportaciones; no guarda estado propio) y **Abrir carpeta de exportaciones**.
+- **Vellum Desktop:** **Descargar Vellum Desktop** abre `BridgeInfo.DesktopUrl` (la sección de descarga de la landing, no el destino final) en el overlay de Steam si está activo. En Windows, con `BridgeInfo.StoreProductId` definido y `assets/store-badge.png` (arte oficial de Microsoft, sin modificar) presente, se muestra la insignia de la Microsoft Store y debajo «Otras plataformas e instaladores».
+- **Diagnóstico:** **Capturar Raw Snapshot**, rebajado: solo hace falta para reportar un error.
+- **Pie:** la carpeta real de las exportaciones y que Bridge no se conecta a internet.
+
+Los textos están en `src/Strings.cs`, en inglés y español: el idioma sale del `LocaleManager` de CS1 (`es` es español, cualquier otro es inglés). Los logs `[VellumBridge]` siguen en español.
+
 ## Compilar e instalar
 
 1. Instalar una toolchain .NET con referencias de .NET Framework 3.5 y localizar la carpeta `Managed` de CS1 (`Cities_Data/Managed` en Windows; dentro de `Cities.app/Contents/Resources/Data/Managed` en macOS).
@@ -32,11 +44,10 @@ DLCs y mods figuran explícitamente en `diagnostics.unsupported`. El reporte com
 
 **Exportar para Vellum** (botón en las opciones del mod) o **Ctrl+Shift+E** escribe un `.vellummap`, el documento que describe [`docs/es/vellummap-format.md`](../../docs/es/vellummap-format.md). Es una acción explícita: el mod no exporta nada por su cuenta y no usa la red. En el save solo guarda la identidad de la ciudad (ver abajo), con la serialización de mods del juego.
 
-- **Ubicación:** `<Documentos>/Vellum Bridge/<ciudad>/<ciudad> <fecha y hora locales>.vellummap` (p. ej. `Vellum Bridge/San Rico/San Rico 2026-10-01 020217.vellummap`). La carpeta de la ciudad se crea si no existe y usa el mismo nombre saneado que el archivo (caracteres no válidos → `_`, nombres reservados de Windows como `con` → `con_`, sin nombre → `Ciudad`). La hora del nombre es la local del equipo; el manifest (`exportedAtUtc`) y la fecha interna del zip siguen en UTC, y Vellum no deduce orden ni fecha del nombre del archivo. Si el nombre ya existe en la carpeta de la ciudad se añade ` (2)`, ` (3)`, … sin sobrescribir. **Límites:** una ciudad renombrada en el juego estrena carpeta con el nombre nuevo y la anterior no se toca (el historial reunirá ambas por `city.id`); las exportaciones sueltas de versiones anteriores en `Vellum Bridge/` no se mueven ni se renombran. La carpeta de documentos depende de la plataforma:
+- **Ubicación:** `<raíz>/Vellum Bridge/<ciudad>/<ciudad> <fecha y hora locales>.vellummap` (p. ej. `Vellum Bridge/San Rico/San Rico 2026-10-01 020217.vellummap`). La carpeta de la ciudad se crea si no existe y usa el mismo nombre saneado que el archivo (caracteres no válidos → `_`, nombres reservados de Windows como `con` → `con_`, sin nombre → `Ciudad`). La hora del nombre es la local del equipo; el manifest (`exportedAtUtc`) y la fecha interna del zip siguen en UTC, y Vellum no deduce orden ni fecha del nombre del archivo. Si el nombre ya existe en la carpeta de la ciudad se añade ` (2)`, ` (3)`, … sin sobrescribir. **Límites:** una ciudad renombrada en el juego estrena carpeta con el nombre nuevo y la anterior no se toca (el historial reunirá ambas por `city.id`); las exportaciones sueltas de versiones anteriores en `Vellum Bridge/` no se mueven ni se renombran. La raíz depende de la plataforma:
   - Windows: la carpeta Documentos del usuario (`%USERPROFILE%\Documents\Vellum Bridge\`, o donde la haya movido el usuario).
-  - macOS: `~/Documents/Vellum Bridge/`.
-  - Linux: `~/Documents/Vellum Bridge/` si existe `~/Documents`; si no, `~/Vellum Bridge/`. Mono devuelve `$HOME` como carpeta de documentos, así que no se sigue una carpeta XDG localizada (p. ej. `~/Documentos`).
-  - Si el sistema no devuelve una carpeta de documentos absoluta, la exportación se cancela con ese motivo y no se escribe nada.
+  - macOS y Linux: `~/Vellum Bridge/`. Desde Bridge 1.0; antes era `~/Documents/Vellum Bridge/`, que no se mueve, así que el linaje de esas exportaciones no se encuentra desde la carpeta nueva y su historial empieza de nuevo.
+  - Si el sistema no devuelve una carpeta absoluta, la exportación se cancela con ese motivo y no se escribe nada.
 - **Temporales huérfanos:** antes de cada exportación se borran los `*.vellummap.part` de la carpeta de la ciudad y de `Vellum Bridge/` (donde los dejaban las versiones anteriores). Solo quedan si el juego se cerró a mitad de una escritura.
 - **Flujo:** con el juego en marcha aparece la ventana «Capturando tu ciudad…»: desde Bridge 0.9, los datos se copian en el hilo de simulación con la simulación en pausa, y Bridge la reanuda al terminar la copia, también si falla. Con el juego ya en pausa (por el jugador o forzada) aparece «Exportando para Vellum…», la copia ocurre en el acto y el juego sigue en pausa: Bridge solo reanuda lo que pausó él. Serializar, comprimir y escribir ocurre en un hilo aparte, con el juego ya reanudado. Al terminar, la ventana muestra la ruta, el tamaño, los conteos, los módulos con su codec y los límites. Cada fase queda en el log con el prefijo `[VellumBridge] Exportación:`.
 - **Publicación atómica:** el archivo se escribe como `.part` en la misma carpeta y luego se renombra. Ante cualquier error el `.part` se borra. Si empieza un guardado, la exportación se descarta y hay que repetirla.
@@ -60,7 +71,7 @@ Un módulo obligatorio que falla (terreno, agua, vegetación, calles, tránsito,
 ### Validar una exportación
 
 ```bash
-cargo run -p parser-cslmap --example validate_vellummap -- "$HOME/Documents/Vellum Bridge/<ciudad>/<archivo>.vellummap"
+cargo run -p parser-cslmap --example validate_vellummap -- "$HOME/Vellum Bridge/<ciudad>/<archivo>.vellummap"
 ```
 
 Abre el archivo con el lector de Vellum e imprime el `cityId`, los conteos, cada módulo con su codec y, para el agua, si trae profundidad y con qué `simulationPaused`. Si el archivo no es válido, sale con el error.
@@ -104,7 +115,7 @@ Exportación `.vellummap`:
 - Comprobar que la ventana final muestra la ruta, el tamaño y los límites.
 - En la misma sesión, capturar también un Raw Snapshot (Ctrl+Shift+V) y elegir una línea con varias paradas. Comparar su `route` en `transit.json` con los `pathSegments` de sus `legs` en el snapshot: misma secuencia, sin segmentos repetidos seguidos. Comparar los nombres de parada con `stopRoadSegments` y el nombre de esas calles: `<calle>` o `<calle> N` por `sourceId`, y sin nombre si la calle no tiene nombre.
 - Pulsar Ctrl+Shift+E durante un guardado o autoguardado: no debe quedar archivo ni `.part`.
-- Forzar un fallo (por ejemplo, quitar el permiso de escritura a `Documentos/Vellum Bridge/`) y confirmar que no queda archivo ni `.part` y que el save no cambia.
+- Forzar un fallo (por ejemplo, quitar el permiso de escritura a la carpeta `Vellum Bridge/`) y confirmar que no queda archivo ni `.part` y que el save no cambia.
 - Carpeta por ciudad (con Documentos en OneDrive si es posible): la exportación crea `Vellum Bridge/<ciudad>/`, el archivo lleva la hora local, Vellum Desktop lo abre y no quedan `.part`. Una estación de metro y tren comparte `stationId` en las paradas de ambas líneas (`unzip -p <archivo> transit.json`).
 - Niveles de clase (`transit` 1.2): en una ciudad con puerto, aeropuerto, ferry, dirigible y bus interurbano, anotar el `classLevel` de cada línea `Ship`, `Airplane` y `Bus` (`unzip -p <archivo> transit.json`). Vellum espera `Ship` 0 = barco de pasajeros y 1 = ferry, `Airplane` 0 = avión y 1 = dirigible, y `Bus` 2 = bus interurbano; si el juego escribe otros valores, se corrige el mapeo en `parse_transit_mode` (`packages/parser-cslmap`).
 
