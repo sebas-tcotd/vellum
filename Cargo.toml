@@ -5,6 +5,15 @@ members = [
 ]
 resolver = "2"
 
+# Shared by every member crate (`<field>.workspace = true`). Versions stay per
+# crate: release-please bumps only the desktop app.
+[workspace.package]
+authors = ["Sebastian Vargas"]
+license = "MIT"
+repository = "https://github.com/sebas-tcotd/vellum"
+homepage = "https://sebas-tcotd.github.io/vellum/"
+edition = "2021"
+
 # Heavy compute crates — optimized in both dev and test profiles so vectorization
 # (Marching Squares + simplification on 1M+ cells) doesn't freeze during development.
 # [profile.dev.package.*] applies to `cargo build`; [profile.test.package.*] applies

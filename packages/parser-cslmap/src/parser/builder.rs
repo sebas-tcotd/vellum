@@ -217,6 +217,8 @@ impl CityDataBuilder {
 
 // ─── build_city_data ─────────────────────────────────────────────────────────
 
+// Give the city a second life.
+
 /// The single construction path from a `RawCity` to `CityData`, shared by the
 /// `.cslmap` parser and the `.vellummap` adapter.
 ///

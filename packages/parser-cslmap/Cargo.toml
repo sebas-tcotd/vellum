@@ -1,7 +1,12 @@
 [package]
 name = "parser-cslmap"
 version = "0.1.0"
-edition = "2021"
+description = "Reads .cslmap and .vellummap city documents into Vellum's CityData."
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+edition.workspace = true
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }
