@@ -95,6 +95,11 @@ namespace VellumBridge.UI
                 if (folder != null) BridgeStyle.Button(actions, Strings.OpenFolderShort, false, delegate { BridgeStyle.OpenFolder(folder); });
             }
 
+            // autoFitChildrenVertically ajusta el alto al último hijo e ignora el padding inferior:
+            // sin este aire, los botones y la barra quedan pegados al borde.
+            UIPanel bottom = panel.AddUIComponent<UIPanel>();
+            bottom.size = new Vector2(Inner, Pad - 8f);
+
             panel.BringToFront();
             panel.CenterToParent();
             UIView.PushModal(panel);
