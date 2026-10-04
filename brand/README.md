@@ -48,9 +48,13 @@ El ícono de Windows es un diseño propio, como el Liquid Glass de macOS
 correr `pnpm icons:windows` y commitear la fuente con `icons/windows/`. Cada
 tamaño se renderiza desde el vector, no se reduce desde un PNG grande.
 `check:installer` verifica los hashes y que `bundle.icon` y el instalador NSIS
-usen `icons/windows/icon.ico`. Si algún día hay una variante para la barra de
-tareas clara, va a los archivos `_altform-lightunplated`; hoy salen del mismo
-arte.
+usen `icons/windows/icon.ico`.
+
+`windows-app-icon.svg` es la variante para **tema claro**, la predeterminada: de
+ella salen el `.ico`, los tiles y los íconos de barra de tareas normales y
+`_altform-lightunplated`. Los `_altform-unplated` (barra de tareas oscura) salen
+hoy del mismo arte; cuando exista la variante para tema oscuro, irá a esos
+archivos como una segunda fuente.
 
 Los derivados **se commitean**. WiX y NSIS sólo aceptan BMP y ningún runner de
 CI de este repo tiene rasterizador; meter uno en la ruta crítica del release
