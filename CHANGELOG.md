@@ -2,6 +2,34 @@
 
 All notable changes to Vellum will be documented here.
 
+## [0.14.0](https://github.com/sebas-tcotd/vellum/compare/v0.13.2...v0.14.0) (2026-10-04)
+
+
+### Features
+
+* **themes:** Day con jerarquía de vías y ciudad rosa arcilla ([5347b2f](https://github.com/sebas-tcotd/vellum/commit/5347b2f6bea8135e373db3eed4d7128d7927f9c4))
+* **themes:** jerarquía de vías y ciudad rosa arcilla en Day ([4d28be2](https://github.com/sebas-tcotd/vellum/commit/4d28be29da143de380e3a7fc92a8a013edd9ee43))
+* **themes:** orilla de tinta con color propio derivado del agua ([aac432d](https://github.com/sebas-tcotd/vellum/commit/aac432dc8ee9786996f8675258fe8192e7e6e722))
+* **themes:** orilla de tinta con color propio derivado del agua ([0fc17c1](https://github.com/sebas-tcotd/vellum/commit/0fc17c197e1a01aeba9f7882fec0304088179932))
+* **windows:** draw the light taskbar icon from an unplated glyph ([1962bb5](https://github.com/sebas-tcotd/vellum/commit/1962bb52e8ff5fbe1655db7452381c3131500bb4))
+* **windows:** enlarge the unplated glyph and name it like its siblings ([4de406f](https://github.com/sebas-tcotd/vellum/commit/4de406f16ae039399a1b3a1c729829df413082b6))
+* **windows:** ícono Fluent derivado de brand/ ([49adff3](https://github.com/sebas-tcotd/vellum/commit/49adff3d0db96b41c3a81dc864b11fe779532eb3))
+* **windows:** ship a Fluent app icon derived from brand/ ([a8eb336](https://github.com/sebas-tcotd/vellum/commit/a8eb336eb8ecffc4b41efe01a013ae3191bf37f2))
+
+
+### Bug Fixes
+
+* **about:** name the game instead of CSL Map View, keep Close visible on hover ([290a678](https://github.com/sebas-tcotd/vellum/commit/290a678ccc43e3e85171ec29f9b699a846a145bf))
+* **about:** texto sin CSL Map View y botón Cerrar visible en hover ([603c9da](https://github.com/sebas-tcotd/vellum/commit/603c9da8df30e787f032c1c81fa853106f4c79eb))
+* **parser:** agua interior y costa desde la misma geometría ([8d1b4aa](https://github.com/sebas-tcotd/vellum/commit/8d1b4aa531c68329b122bd09631cfae7540c4394))
+* **parser:** agua interior y costa desde la misma geometría ([20d0d30](https://github.com/sebas-tcotd/vellum/commit/20d0d308c40092a3be6d19fd51e51403858c768d))
+* **roads:** carreteras en túnel continuas y atenuadas ([e34dc16](https://github.com/sebas-tcotd/vellum/commit/e34dc16a68c5d0851a9c642423542f4773df06b7))
+* **themes:** orden fijo de los temas incluidos en todas las plataformas ([e49f323](https://github.com/sebas-tcotd/vellum/commit/e49f323782c3c488c2159d895068e40c1e688ec3))
+* **transit:** quitar los marcadores de transferencia del mapa geográfico ([7edcfa3](https://github.com/sebas-tcotd/vellum/commit/7edcfa3fab01c02e906ceca6a81844e322f579a3))
+* **viewport:** el minimapa y el límite suave enmarcan el mundo ([c377c98](https://github.com/sebas-tcotd/vellum/commit/c377c98b811f16058e2b898a16fbf96af34ff9cd))
+* **windows:** put the 256 px entry first in icon.ico ([c193647](https://github.com/sebas-tcotd/vellum/commit/c193647b5d81b9025bd926eab68d137e771e7e64))
+* **windows:** ship every taskbar targetsize ([f91442c](https://github.com/sebas-tcotd/vellum/commit/f91442c0cc04317cf5c18e34b54c201a8130c00d))
+
 ## [0.13.2](https://github.com/sebas-tcotd/vellum/compare/v0.13.1...v0.13.2) (2026-10-03)
 
 
