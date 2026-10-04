@@ -1310,7 +1310,7 @@ describe('MapLibreRenderer', () => {
         showFlights: false,
         showFerries: true,
       },
-      transit: { visibleModes: [], showConfirmedTransfers: true },
+      transit: { visibleModes: [] },
       buildings: { visibleCategories: [], colorByCategory: false },
       districts: {
         showAsMarker: true,
@@ -1375,7 +1375,7 @@ describe('MapLibreRenderer', () => {
           showFlights: false,
           showFerries: true,
         },
-        transit: { visibleModes: [], showConfirmedTransfers: true },
+        transit: { visibleModes: [] },
         buildings: { visibleCategories: [], colorByCategory: false },
         districts: {
           showAsMarker: false,
@@ -1454,7 +1454,7 @@ describe('MapLibreRenderer', () => {
           showFlights: false,
           showFerries: true,
         },
-        transit: { visibleModes: [], showConfirmedTransfers: true },
+        transit: { visibleModes: [] },
         buildings: { visibleCategories: [], colorByCategory: false },
         districts: {
           showAsMarker: true,
@@ -1504,7 +1504,7 @@ describe('MapLibreRenderer', () => {
           showFlights: false,
           showFerries: true,
         },
-        transit: { visibleModes: [], showConfirmedTransfers: true },
+        transit: { visibleModes: [] },
         buildings: { visibleCategories: [], colorByCategory: false },
         districts: {
           showAsMarker: true,
@@ -1546,7 +1546,7 @@ describe('MapLibreRenderer', () => {
           showFlights: false,
           showFerries: true,
         },
-        transit: { visibleModes: [], showConfirmedTransfers: true },
+        transit: { visibleModes: [] },
         buildings: { visibleCategories: [], colorByCategory: false },
         districts: {
           showAsMarker: false,
@@ -1696,7 +1696,7 @@ describe('MapLibreRenderer', () => {
           showFlights: false,
           showFerries: true,
         },
-        transit: { visibleModes: [], showConfirmedTransfers: true },
+        transit: { visibleModes: [] },
         buildings: { visibleCategories: [], colorByCategory: false },
         districts: {
           showAsMarker: true,
@@ -1737,7 +1737,7 @@ describe('MapLibreRenderer', () => {
           showFlights: false,
           showFerries: true,
         },
-        transit: { visibleModes: [], showConfirmedTransfers: true },
+        transit: { visibleModes: [] },
         buildings: { visibleCategories: [], colorByCategory: false },
         districts: {
           showAsMarker: true,

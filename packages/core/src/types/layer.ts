@@ -134,12 +134,6 @@ export interface LayerOptions {
   transit: {
     /** Transit lines/stops whose `mode` is not in this list are hidden. */
     visibleModes: TransitMode[];
-    /**
-     * Whether the confirmed-transfer marker (`transit-transfer-marker`) is
-     * visible. Independent of `visibleModes` — a confirmed transfer can span
-     * modes the user has otherwise hidden.
-     */
-    showConfirmedTransfers: boolean;
   };
   buildings: {
     /** Buildings whose zoning category is not in this list are hidden. */
@@ -225,7 +219,7 @@ export const DEFAULT_LAYER_OPTIONS: LayerOptions = {
     showFlights: false,
     showFerries: true,
   },
-  transit: { visibleModes: [...TRANSIT_MODES], showConfirmedTransfers: true },
+  transit: { visibleModes: [...TRANSIT_MODES] },
   buildings: {
     visibleCategories: [...BUILDING_SERVICE_CATEGORIES],
     colorByCategory: false,

@@ -184,7 +184,7 @@ function makeSnapshot(
         showFlights: false,
         showFerries: true,
       },
-      transit: { visibleModes: ['Bus'], showConfirmedTransfers: true },
+      transit: { visibleModes: ['Bus'] },
       buildings: { visibleCategories: ['residential'], colorByCategory: false },
       districts: {
         showAsMarker: true,

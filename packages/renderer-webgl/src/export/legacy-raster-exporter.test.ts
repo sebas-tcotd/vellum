@@ -37,7 +37,7 @@ function makeSnapshot(surface = { width: 800, height: 600 }): ExportSnapshot {
         showFlights: false,
         showFerries: true,
       },
-      transit: { visibleModes: ['Bus'], showConfirmedTransfers: true },
+      transit: { visibleModes: ['Bus'] },
       buildings: { visibleCategories: ['residential'], colorByCategory: false },
       districts: {
         showAsMarker: true,

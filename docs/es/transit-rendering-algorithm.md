@@ -276,16 +276,12 @@ presentes en el grupo:
   `deferred-work.md`.
 
 `buildStations` anota cada `StationGeometry` con `confirmedTransfer`
-(`candidate.confidence === 'confirmed'`), y el builder de GeoJSON deriva una
-colección `transferMarkers` —el subconjunto de puntos centrales de estación
-cuyo candidato de origen está confirmado—. Una única capa `circle` tematizable,
-`transit-transfer-marker`, renderiza esa colección como un anillo distinguible
-de la convención fija blanco-y-negro de las estaciones; a diferencia del
-cross-fade cápsula/punto, no se desvanece con el zoom. Sus colores vienen de
-`RenderStyleParams.transferMarker` (grupo opcional, estilo `parkAreas` — no
-requiere bump de versión de schema). El pipeline de exportación cartográfica
-consume la misma colección `transferMarkers` y los mismos colores resueltos,
-así que el PNG/SVG coincide exactamente con el mapa vivo.
+(`candidate.confidence === 'confirmed'`). El mapa geográfico y su exportación
+no dibujan marcadores de transferencia: quedan reservados para la vista
+esquemática de tránsito. El indicador se conserva en la geometría para esa
+vista, y el grupo opcional `RenderStyleParams.transferMarker` sigue en el
+contrato para que los temas existentes sigan validando, pero hoy ningún
+renderer lo lee.
 
 ## 4. Capas MapLibre y export
 
@@ -297,7 +293,6 @@ transit-line
 transit-stops
 transit-stops-outline
 transit-stops-dot
-transit-transfer-marker
 ```
 
 La misma `network.renderGeometry` alimenta el GeoJSON del mapa vivo y el
