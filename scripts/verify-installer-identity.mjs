@@ -24,6 +24,8 @@
  *   6. The mark has not forked: `brand/vellum-mark.svg` and the copy the app
  *      ships are the same drawing.
  *   7. No platform overlay smuggles a `bundle` block past the other six.
+ *   8. The Windows icon is still the one `pnpm icons:windows` derived from
+ *      `brand/windows-app-icon.svg`, and the bundle uses it.
  *
  * Run it: `pnpm check:installer`.
  */
@@ -41,6 +43,12 @@ import {
   BRAND_SOURCES,
   OUTPUT_DIR,
 } from './build-brand-assets.mjs';
+import {
+  WINDOWS_ICON_DIR,
+  WINDOWS_ICON_MANIFEST,
+  WINDOWS_ICON_SOURCE,
+  windowsIconPngs,
+} from './build-windows-icon.mjs';
 
 const CONFIG_FILE = 'apps/desktop/src-tauri/tauri.conf.json';
 const TAURI_DIR = 'apps/desktop/src-tauri';
@@ -974,6 +982,87 @@ function checkOverlays(root) {
   return violations;
 }
 
+/** The `.ico` Windows takes from the bundle, relative to `src-tauri/`. */
+const WINDOWS_ICO = 'icons/windows/icon.ico';
+
+/** Pass 8 — the Windows icon, against `brand/` and against the bundle. */
+function checkWindowsIcon(root, config) {
+  const violations = [];
+  const rule = 'windows-icon';
+  const bundle = config.bundle ?? {};
+
+  // tauri-build embeds the first .ico of bundle.icon in vellum.exe; macOS and
+  // Linux never read it, so the Fluent icon lives in the single contract.
+  const firstIco = (bundle.icon ?? []).find((icon) => icon.endsWith('.ico'));
+  if (firstIco !== WINDOWS_ICO) {
+    violations.push({
+      file: CONFIG_FILE,
+      rule,
+      detail: `The first .ico in bundle.icon must be "${WINDOWS_ICO}" (the executable's icon); found ${JSON.stringify(firstIco)}.`,
+    });
+  }
+  const installerIcon = pick(bundle, ['windows', 'nsis', 'installerIcon']);
+  if (installerIcon !== WINDOWS_ICO) {
+    violations.push({
+      file: CONFIG_FILE,
+      rule,
+      detail: `bundle.windows.nsis.installerIcon must be "${WINDOWS_ICO}"; found ${JSON.stringify(installerIcon)}.`,
+    });
+  }
+
+  const manifest = readJson(root, WINDOWS_ICON_MANIFEST, violations, rule);
+  if (!manifest) return violations;
+
+  const sourcePath = path.join(root, WINDOWS_ICON_SOURCE);
+  if (!fs.existsSync(sourcePath)) {
+    violations.push({
+      file: WINDOWS_ICON_SOURCE,
+      rule,
+      detail: 'Missing. It is the source of the Windows icon.',
+    });
+  } else if (
+    sha256(fs.readFileSync(sourcePath)) !==
+    manifest.source?.[WINDOWS_ICON_SOURCE]
+  ) {
+    violations.push({
+      file: WINDOWS_ICON_SOURCE,
+      rule,
+      detail: `Changed since the icon was generated. Run "pnpm icons:windows" and commit ${WINDOWS_ICON_DIR}/ together with this change.`,
+    });
+  }
+
+  const expected = ['icon.ico', ...windowsIconPngs().map(({ file }) => file)];
+  const recorded = manifest.files ?? {};
+  for (const file of expected) {
+    const relative = `${WINDOWS_ICON_DIR}/${file}`;
+    const absolute = path.join(root, relative);
+    if (!fs.existsSync(absolute)) {
+      violations.push({
+        file: relative,
+        rule,
+        detail: 'Missing. Run "pnpm icons:windows" and commit the result.',
+      });
+    } else if (sha256(fs.readFileSync(absolute)) !== recorded[file]?.sha256) {
+      violations.push({
+        file: relative,
+        rule,
+        detail:
+          'Content does not match the hash recorded by "pnpm icons:windows". The Windows icon is derived from brand/, never edited at its destination.',
+      });
+    }
+  }
+  for (const file of Object.keys(recorded)) {
+    if (!expected.includes(file)) {
+      violations.push({
+        file: WINDOWS_ICON_MANIFEST,
+        rule,
+        detail: `Records "${file}", which this generator does not write. The manifest is generated; do not edit it by hand.`,
+      });
+    }
+  }
+  return violations;
+}
+
 export function verifyInstallerIdentity(root) {
   const violations = [];
   const config = readJson(root, CONFIG_FILE, violations, 'identity-metadata');
@@ -990,6 +1079,7 @@ export function verifyInstallerIdentity(root) {
     ...checkNoInstallScripts(config),
     ...checkMarkIsSingleSource(root),
     ...checkOverlays(root),
+    ...checkWindowsIcon(root, config),
   ];
 }
 

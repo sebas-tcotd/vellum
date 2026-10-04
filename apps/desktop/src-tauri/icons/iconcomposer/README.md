@@ -2,7 +2,7 @@
 
 Vellum ships two icon sources:
 
-1. **Flat PNG** — covers Windows, Linux, iOS, Android, and the `tauri dev` / pre-macOS-26 fallback.
+1. **Flat PNG** — covers Linux, iOS, Android, and the `tauri dev` / pre-macOS-26 fallback. Windows has its own Fluent icon in `icons/windows/`, derived by `pnpm icons:windows` from `brand/windows-app-icon.svg` (see `brand/README.md`).
 2. **`.icon` (Icon Composer)** — the adaptive Liquid Glass icon, compiled to `Assets.car` and bundled only into the packaged macOS `.app`.
 
 Tauri's `tauri icon` CLI only accepts a flat PNG/SVG — it has no support for the `.icon` bundle format. The Liquid Glass variant has to be compiled separately with Xcode/`actool` and injected into the bundle manually.
@@ -16,7 +16,7 @@ cd apps/desktop
 pnpm tauri icon path/to/icon-flat.png
 ```
 
-This regenerates everything under `src-tauri/icons/` (`.icns`, `.ico`, PNGs, iOS/Android sizes) and is the only step needed for non-macOS targets.
+This regenerates everything under `src-tauri/icons/` (`.icns`, `.ico`, PNGs, iOS/Android sizes). The root `icons/icon.ico` it writes is no longer what Windows ships: `bundle.icon` points at `icons/windows/icon.ico`.
 
 **If the icon in the Dock/taskbar doesn't change after this** (`pnpm dev` or `pnpm tauri build` still shows the old artwork): Cargo's incremental build cache didn't notice the icon files changed as a `build.rs` dependency, so it's reusing the previously compiled binary. Force it:
 

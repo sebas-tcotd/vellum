@@ -66,9 +66,14 @@ foreach ($pattern in $conf.bundle.resources) {
     if ($matches.Count -eq 0) { throw "Runtime resource missing: $pattern" }
     $Resources += $matches
 }
-$Logos = @('Square44x44Logo.png', 'Square150x150Logo.png', 'StoreLogo.png')
-foreach ($logo in $Logos) {
-    if (-not (Test-Path -LiteralPath (Join-Path $SourceRoot "icons\$logo") -PathType Leaf)) { throw "Logo missing: $logo" }
+# The Fluent logos `pnpm icons:windows` writes, with their scale/targetsize
+# qualifiers; makepri resolves each manifest name (Assets\Square44x44Logo.png)
+# to the right file.
+$LogoDir = Join-Path $SourceRoot 'icons\windows'
+$Logos = @()
+foreach ($logo in 'Square44x44Logo', 'Square150x150Logo', 'StoreLogo') {
+    if (-not (Test-Path -LiteralPath (Join-Path $LogoDir "$logo.scale-100.png") -PathType Leaf)) { throw "Logo missing: $logo.scale-100.png" }
+    $Logos += @(Get-ChildItem -LiteralPath $LogoDir -File -Filter "$logo.*.png")
 }
 $InputHash = (Get-FileHash -LiteralPath $InputExe -Algorithm SHA256).Hash
 # A fresh staging directory avoids recursively deleting any caller-owned path.
@@ -86,12 +91,18 @@ foreach ($resource in $Resources) {
         Copy-Item -LiteralPath $resource.FullName -Destination (Join-Path $Layout "themes\$($resource.Name)")
     }
 }
-foreach ($logo in $Logos) { Copy-Item -LiteralPath (Join-Path $SourceRoot "icons\$logo") -Destination (Join-Path $Layout 'Assets') }
+foreach ($logo in $Logos) { Copy-Item -LiteralPath $logo.FullName -Destination (Join-Path $Layout 'Assets') }
 [xml]$manifest = Get-Content -LiteralPath (Join-Path $RepoRoot 'apps\desktop\msix\AppxManifest.xml') -Raw
 $manifest.Package.Identity.Version = $PackageVersion
 $manifest.Save((Join-Path $Layout 'AppxManifest.xml'))
 $PriConfig = Join-Path $Stage 'priconfig.xml'
 Invoke-Sdk 'makepri.exe' @('createconfig', '/cf', $PriConfig, '/dq', 'en-US', '/o')
+# createconfig splits scale (and language) variants into resource-pack PRIs, meant
+# for an .msixbundle. In this single .msix they would never load and every logo
+# would fall back to scale-100, so everything is indexed into resources.pri.
+[xml]$PriXml = Get-Content -LiteralPath $PriConfig -Raw
+foreach ($node in @($PriXml.SelectNodes('//packaging/autoResourcePackage'))) { [void]$node.ParentNode.RemoveChild($node) }
+$PriXml.Save($PriConfig)
 Invoke-Sdk 'makepri.exe' @('new', '/pr', $Layout, '/cf', $PriConfig, '/mn', (Join-Path $Layout 'AppxManifest.xml'), '/of', (Join-Path $Layout 'resources.pri'), '/o')
 $Package = Join-Path $Stage "VellumCityMaps_${PackageVersion}_x64.msix"
 Invoke-Sdk 'makeappx.exe' @('pack', '/d', $Layout, '/p', $Package, '/o')
