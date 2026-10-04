@@ -28,6 +28,7 @@ jobs:
       compile: ${{ steps.changes.outputs.compile }}
       landing: ${{ steps.changes.outputs.landing }}
       dependencies: ${{ steps.changes.outputs.dependencies }}
+      bridge: ${{ steps.changes.outputs.bridge }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -94,24 +95,74 @@ jobs:
       - run: pnpm lint
       - run: pnpm test
 
+  # Windows también: la rama de MSIX (`#[cfg(windows)]`) solo compila ahí, y un
+  # fallo de clippy suyo llegó a pasar CI (retro 2026-10-01, M1).
   rust-quality:
-    name: Rust quality
+    name: Rust quality (${{ matrix.os }})
     needs: detect-changes
     if: needs.detect-changes.outputs.rust == 'true'
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v6
 
       - name: Setup Rust environment
         uses: ./.github/actions/setup-vellum
         with:
-          os: ubuntu-latest
+          os: ${{ matrix.os }}
           node: 'false'
           cache-class: quality
 
       - run: cargo fmt --all -- --check
       - run: cargo clippy --workspace -- -D warnings
       - run: cargo test --workspace
+
+  # La frontera entre el escritor C# de Bridge y el lector Rust: el arnés .NET
+  # escribe sus .vellummap y los dos lados que leen el formato (el lector y el
+  # JSON Schema publicado) tienen que aceptarlos (retro 2026-10-01, C1).
+  bridge-contract:
+    name: Bridge contract
+    needs: detect-changes
+    if: needs.detect-changes.outputs.bridge == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      # Con las dependencias nativas de Linux: `parser-cslmap` depende de `tauri`, que
+      # compila glib/GTK aunque el ejemplo no abra ninguna ventana.
+      - name: Setup Vellum environment
+        uses: ./.github/actions/setup-vellum
+        with:
+          os: ubuntu-latest
+          cache-class: bridge
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Write the harness documents
+        run: dotnet run --project tools/vellum-bridge/tests -- "$RUNNER_TEMP/vb"
+
+      - name: Read them with the Rust reader
+        run: |
+          for doc in deflate stored filtered stations; do
+            cargo run -q -p parser-cslmap --example validate_vellummap -- "$RUNNER_TEMP/vb/$doc.vellummap"
+          done
+
+      - name: Validate them against the JSON Schema
+        run: |
+          dirs=()
+          for doc in deflate stored filtered stations; do
+            mkdir -p "$RUNNER_TEMP/vbx/$doc"
+            unzip -q "$RUNNER_TEMP/vb/$doc.vellummap" -d "$RUNNER_TEMP/vbx/$doc"
+            dirs+=("$RUNNER_TEMP/vbx/$doc")
+          done
+          pnpm --filter @vellum/parser-cslmap exec node schema/validate-extracted.mjs "${dirs[@]}"
 
   dependency-audit:
     name: Dependency Audit (informative)
@@ -250,6 +301,7 @@ jobs:
       - e2e-golden-flow
       - compile-matrix
       - landing-quality
+      - bridge-contract
     runs-on: ubuntu-latest
     steps:
       - name: Require Windows MSIX packaging tests
@@ -279,4 +331,6 @@ jobs:
           COMPILE_RESULT: ${{ needs.compile-matrix.result }}
           LANDING_EXPECTED: ${{ needs.detect-changes.outputs.landing }}
           LANDING_RESULT: ${{ needs.landing-quality.result }}
+          BRIDGE_EXPECTED: ${{ needs.detect-changes.outputs.bridge }}
+          BRIDGE_RESULT: ${{ needs.bridge-contract.result }}
         run: node scripts/verify-ci-gate.mjs

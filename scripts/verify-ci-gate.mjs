@@ -64,6 +64,11 @@ function main() {
         expected: process.env.LANDING_EXPECTED,
         result: process.env.LANDING_RESULT,
       },
+      {
+        name: 'Bridge contract',
+        expected: process.env.BRIDGE_EXPECTED,
+        result: process.env.BRIDGE_RESULT,
+      },
     ],
   });
 
