@@ -66,6 +66,41 @@ describe('loadThemes', () => {
     ]);
   });
 
+  it('lists the bundled themes in a fixed order, then the rest by name', () => {
+    // NTFS lists files alphabetically; APFS in its own order. Neither may leak.
+    const files = [
+      rawFile('transit', validJson('Transit')),
+      rawFile('grayscale', validJson('Grayscale')),
+      rawFile('classic', validJson('Classic')),
+      rawFile('grayscale-water', validJson('Grayscale + Water')),
+      rawFile('day', validJson('Day')),
+      rawFile('zz-mine', validJson('Atardecer'), 'user'),
+      rawFile('aa-mine', validJson('Noche'), 'user'),
+    ];
+
+    const { themes } = loadThemes(files);
+    expect(themes.map((t) => t.id)).toEqual([
+      'day',
+      'classic',
+      'grayscale-water',
+      'grayscale',
+      'transit',
+      'zz-mine',
+      'aa-mine',
+    ]);
+  });
+
+  it('keeps a user theme that overrides a bundled one in the bundled slot', () => {
+    const files = [
+      rawFile('classic', validJson('Classic')),
+      rawFile('day', validJson('Day')),
+      rawFile('classic', validJson('My Classic'), 'user'),
+    ];
+
+    const { themes } = loadThemes(files);
+    expect(themes.map((t) => t.name)).toEqual(['Day', 'My Classic']);
+  });
+
   it('returns empty results for empty input', () => {
     expect(loadThemes([])).toEqual({ themes: [], warnings: [] });
   });

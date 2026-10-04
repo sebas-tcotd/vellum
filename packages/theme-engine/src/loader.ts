@@ -52,6 +52,32 @@ function readThemeName(parsed: unknown): string | null {
   return typeof name === 'string' && name.length > 0 ? name : null;
 }
 
+/**
+ * Display order of the bundled themes, by id. The Rust command lists files in
+ * whatever order the filesystem returns them (alphabetical on NTFS, arbitrary
+ * on APFS), so the order is fixed here for every platform.
+ */
+export const BUILTIN_THEME_ORDER: readonly string[] = [
+  'day',
+  'classic',
+  'grayscale-water',
+  'grayscale',
+  'transit',
+];
+
+/** Bundled themes in {@link BUILTIN_THEME_ORDER}, then the rest by name. */
+function compareThemes(a: LoadedTheme, b: LoadedTheme): number {
+  const rank = (theme: LoadedTheme) => {
+    const index = BUILTIN_THEME_ORDER.indexOf(theme.id);
+    return index === -1 ? BUILTIN_THEME_ORDER.length : index;
+  };
+  return (
+    rank(a) - rank(b) ||
+    a.name.localeCompare(b.name) ||
+    a.id.localeCompare(b.id)
+  );
+}
+
 /** Outcome of loading a batch of raw theme files: the valid themes and per-file warnings. */
 export interface LoadThemesResult {
   /** Themes that parsed, migrated and validated successfully. */
@@ -65,6 +91,7 @@ export interface LoadThemesResult {
  * @remarks
  * Each file is handled independently: a `JSON.parse` failure or a validation failure
  * skips that file with a warning without affecting the others (AC #5, #6).
+ * The result is sorted by {@link compareThemes}, independent of the input order.
  *
  * @param rawFiles - Raw files as returned by the Rust `load_themes` command.
  * @returns The valid themes and the warnings for the skipped ones.
@@ -132,5 +159,6 @@ export function loadThemes(rawFiles: RawThemeFile[]): LoadThemesResult {
     themes.push(loaded);
   }
 
+  themes.sort(compareThemes);
   return { themes, warnings };
 }
