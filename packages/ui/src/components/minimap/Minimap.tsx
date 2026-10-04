@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   classifyRoadTier,
+  CS1_WORLD_HALF,
   csToGeoArray,
   type CityData,
   type ViewportBounds,
@@ -17,7 +18,7 @@ const DEFAULT_PALETTE: MinimapPalette = {
   train: DEFAULT_RENDER_STYLE_PARAMS.roads.rail.train.casing,
 };
 
-/** How far one arrow-key press pans, as a fraction of the city's extent. */
+/** How far one arrow-key press pans, as a fraction of the world's extent. */
 const PAN_STEP_FRACTION = 0.1;
 
 /** The active theme's colors, reduced to what the minimap actually paints. */
@@ -51,6 +52,10 @@ export interface MinimapProps {
  * Minimap navigation widget rendered as a 160×160 Canvas 2D element.
  *
  * @remarks
+ * Frames the whole world — the terrain, always ±{@link CS1_WORLD_HALF} on both
+ * axes — rather than `cityData.bounds`, which wraps only the road network and
+ * is stretched by outside connections running to the edge of the map.
+ *
  * Uses an **offscreen canvas** to pre-render static city geometry (water tiles
  * and highway roads) once when `cityData` changes. The interactive `drawFrame`
  * function then stamps this pre-rendered image with a single `drawImage` call
@@ -76,10 +81,24 @@ export function Minimap({
   const staticMapRef = useRef<HTMLCanvasElement | null>(null);
 
   const { swLng, swLat, neLng, neLat } = useMemo(() => {
-    const { bounds } = cityData;
-    const [swLng, swLat] = csToGeoArray({ x: bounds.minX, z: bounds.minZ });
-    const [neLng, neLat] = csToGeoArray({ x: bounds.maxX, z: bounds.maxZ });
+    const [swLng, swLat] = csToGeoArray({
+      x: -CS1_WORLD_HALF,
+      z: -CS1_WORLD_HALF,
+    });
+    const [neLng, neLat] = csToGeoArray({
+      x: CS1_WORLD_HALF,
+      z: CS1_WORLD_HALF,
+    });
     return { swLng, swLat, neLng, neLat };
+  }, []);
+
+  /** Where Enter recentres: the middle of the road network. */
+  const [cityLng, cityLat] = useMemo(() => {
+    const { bounds } = cityData;
+    return csToGeoArray({
+      x: (bounds.minX + bounds.maxX) / 2,
+      z: (bounds.minZ + bounds.maxZ) / 2,
+    });
   }, [cityData]);
 
   const toCanvasX = useCallback(
@@ -284,7 +303,7 @@ export function Minimap({
 
   // ── Keyboard navigation ───────────────────────────────────────────────────
   // The keyboard equivalent of click-and-drag recentring: arrows pan the map
-  // by a fixed fraction of the city, Enter returns to its centre.
+  // by a fixed fraction of the world, Enter returns to the city's centre.
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLCanvasElement>) => {
       const stepLng = (neLng - swLng) * PAN_STEP_FRACTION;
@@ -292,10 +311,10 @@ export function Minimap({
       const current = viewportRef.current;
       const centerLng = current
         ? (current.westLng + current.eastLng) / 2
-        : (swLng + neLng) / 2;
+        : cityLng;
       const centerLat = current
         ? (current.northLat + current.southLat) / 2
-        : (swLat + neLat) / 2;
+        : cityLat;
 
       const move = (dLng: number, dLat: number) => {
         e.preventDefault();
@@ -313,12 +332,12 @@ export function Minimap({
           return move(0, -stepLat);
         case 'Enter':
           e.preventDefault();
-          return navigateTo((swLng + neLng) / 2, (swLat + neLat) / 2);
+          return navigateTo(cityLng, cityLat);
         default:
           return;
       }
     },
-    [navigateTo, neLat, neLng, swLat, swLng],
+    [navigateTo, neLat, neLng, swLat, swLng, cityLng, cityLat],
   );
 
   const helpId = 'vellum-minimap-help';
