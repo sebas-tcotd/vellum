@@ -18,8 +18,6 @@ function makeProps(
     layer: 'transit',
     visibleModes: [],
     onToggleMode: vi.fn(),
-    showConfirmedTransfers: true,
-    onToggleShowConfirmedTransfers: vi.fn(),
     visibleCategories: [],
     onToggleCategory: vi.fn(),
     colorByCategory: false,

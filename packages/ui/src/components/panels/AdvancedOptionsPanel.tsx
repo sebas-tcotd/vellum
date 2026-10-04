@@ -52,9 +52,6 @@ export interface AdvancedOptionsPanelProps {
   onToggleForestHeatmap: (enabled: boolean) => void;
   visibleModes: TransitMode[];
   onToggleMode: (mode: TransitMode) => void;
-  /** Whether the confirmed-transfer marker is visible. */
-  showConfirmedTransfers: boolean;
-  onToggleShowConfirmedTransfers: (enabled: boolean) => void;
   visibleCategories: BuildingServiceCategory[];
   onToggleCategory: (category: BuildingServiceCategory) => void;
   /** Whether R/I/C/O buildings render in fixed RICO colors instead of the theme default. */
@@ -111,8 +108,6 @@ export function AdvancedOptionsPanel({
   onToggleForestHeatmap,
   visibleModes,
   onToggleMode,
-  showConfirmedTransfers,
-  onToggleShowConfirmedTransfers,
   visibleCategories,
   onToggleCategory,
   colorByCategory,
@@ -191,12 +186,6 @@ export function AdvancedOptionsPanel({
             onCheckedChange={() => onToggleMode(mode)}
           />
         ))}
-        <Separator className="h-px my-1 w-full" />
-        <OptionRow
-          label={t('layerOptionsPanel.showConfirmedTransfers')}
-          checked={showConfirmedTransfers}
-          onCheckedChange={onToggleShowConfirmedTransfers}
-        />
       </div>
     );
   }

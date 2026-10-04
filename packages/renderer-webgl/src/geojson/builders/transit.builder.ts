@@ -54,13 +54,6 @@ export function buildTransitRenderData(cityData: CityData): TransitRenderData {
       type: 'FeatureCollection',
       features: createStationDotFeatures(geometry.stations, names),
     },
-    transferMarkers: {
-      type: 'FeatureCollection',
-      features: createStationDotFeatures(
-        geometry.stations.filter((s) => s.confirmedTransfer),
-        names,
-      ),
-    },
   };
 }
 

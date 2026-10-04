@@ -6,7 +6,7 @@ import { TRANSIT_DIM_FACTOR } from './constants/layer.constants';
 import { DEFAULT_LAYER_OPTIONS } from '@vellum/core';
 import type { Map as MapLibreMap } from 'maplibre-gl';
 import { MapLayerManager } from './managers/map-layer.manager';
-import { describe, expect, it, vi } from 'vitest';
+import { expect, it, vi } from 'vitest';
 import type { RenderStyleParams } from '@vellum/core';
 import { resolveColors } from './style-adapter';
 
@@ -73,33 +73,6 @@ const STYLE: RenderStyleParams = {
   districts: { fill: '#cc4444', label: '#222222' },
   grid: { color: '#000000', opacity: 0.1, width: 1, dasharray: [2, 2] },
 };
-
-describe('resolveColors', () => {
-  it('falls back to the built-in transferMarker colors when the theme omits the group', () => {
-    const colors = resolveColors(STYLE);
-    expect(colors.transferMarker).toEqual({
-      fill: '#f2b705',
-      stroke: '#8a5a00',
-    });
-  });
-
-  it('reflects a real theme override of transferMarker, not the built-in default', () => {
-    const styleWithOverride: RenderStyleParams = {
-      ...STYLE,
-      transferMarker: { fill: '#111111', stroke: '#222222' },
-    };
-
-    const colors = resolveColors(styleWithOverride);
-
-    expect(colors.transferMarker).toEqual({
-      fill: '#111111',
-      stroke: '#222222',
-    });
-    // Not swapped, and not silently ignored in favor of the default.
-    expect(colors.transferMarker.fill).not.toBe('#f2b705');
-    expect(colors.transferMarker.stroke).not.toBe('#8a5a00');
-  });
-});
 
 it('resolves specialization variants from each theme independently of building RICO colors', () => {
   const theme = structuredClone(STYLE);

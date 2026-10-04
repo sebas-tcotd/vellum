@@ -112,9 +112,7 @@ export class MapSourceManager {
     );
     await step('service-icons', () => addServiceIconsLayer(this.map));
     await step('roads', () => addRoadsLayer(this.map, cityData, this.colors));
-    await step('transit', () =>
-      addTransitLayers(this.map, cityData, this.colors),
-    );
+    await step('transit', () => addTransitLayers(this.map, cityData));
     await step('road-labels', () =>
       addRoadLabelsLayer(this.map, cityData, this.colors),
     );

@@ -199,11 +199,11 @@ export interface RenderStyleParams {
   };
   /**
    * Marker colors for a confirmed transit transfer (two or more distinct
-   * lines sharing a stop). Falls back to built-in defaults if not specified.
+   * lines sharing a stop).
    * @remarks
-   * Unlike the base station capsule (deliberately hardcoded, theme-independent
-   * black-on-white — see `layer-transit.ts`), the transfer marker itself is
-   * always themeable: it is new UI, not the pre-existing convention.
+   * Reserved for the schematic transit view. The geographic map no longer
+   * draws transfer markers, so no renderer reads this today; the key stays in
+   * the contract so existing themes keep validating.
    */
   transferMarker?: {
     /** Marker body/fill color. */

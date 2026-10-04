@@ -6,12 +6,7 @@ import {
   makeTransitLine,
 } from '@vellum/core/testing';
 import type * as maplibregl from 'maplibre-gl';
-import type { ResolvedColors } from '../style-adapter';
 import { addTransitLayers } from './layer-transit';
-
-const TEST_COLORS: Pick<ResolvedColors, 'transferMarker'> = {
-  transferMarker: { fill: '#f2b705', stroke: '#8a5a00' },
-};
 
 function transitCity() {
   return makeCityData({
@@ -56,17 +51,16 @@ function recordingMap() {
 }
 
 describe('addTransitLayers — contrato MapLibre', () => {
-  it('preserva cinco sources y seis layers en el z-order vigente', () => {
+  it('preserva cuatro sources y cinco layers en el z-order vigente', () => {
     const recorder = recordingMap();
 
-    addTransitLayers(recorder.map, transitCity(), TEST_COLORS);
+    addTransitLayers(recorder.map, transitCity());
 
     expect(recorder.sources.map(([id]) => id)).toEqual([
       'transit',
       'transit-connectors',
       'transit-stops',
       'transit-stops-dots',
-      'transit-transfer-markers',
     ]);
     expect(recorder.layers.map(({ id }) => id)).toEqual([
       'transit-connector',
@@ -74,13 +68,12 @@ describe('addTransitLayers — contrato MapLibre', () => {
       'transit-stops',
       'transit-stops-outline',
       'transit-stops-dot',
-      'transit-transfer-marker',
     ]);
   });
 
   it('mantiene el offset GPU calibrado con el SLOT_M canónico', () => {
     const recorder = recordingMap();
-    addTransitLayers(recorder.map, transitCity(), TEST_COLORS);
+    addTransitLayers(recorder.map, transitCity());
 
     const line = recorder.layers.find(({ id }) => id === 'transit-line');
     expect(line?.type).toBe('line');
@@ -101,10 +94,10 @@ describe('addTransitLayers — contrato MapLibre', () => {
 
   it('no registra sources ni layers ajenos a tránsito', () => {
     const recorder = recordingMap();
-    addTransitLayers(recorder.map, transitCity(), TEST_COLORS);
+    addTransitLayers(recorder.map, transitCity());
 
-    expect(recorder.sources).toHaveLength(5);
-    expect(recorder.layers).toHaveLength(6);
+    expect(recorder.sources).toHaveLength(4);
+    expect(recorder.layers).toHaveLength(5);
     expect(recorder.sources.every(([id]) => id.startsWith('transit'))).toBe(
       true,
     );
@@ -114,7 +107,7 @@ describe('addTransitLayers — contrato MapLibre', () => {
   });
 });
 
-describe('addTransitLayers — marcador de transferencia confirmada', () => {
+describe('addTransitLayers — transferencias confirmadas', () => {
   function twoLineStopCity(modeB: 'Bus' | 'Train' = 'Train') {
     return makeCityData({
       roadNodes: [
@@ -155,51 +148,18 @@ describe('addTransitLayers — marcador de transferencia confirmada', () => {
     });
   }
 
-  it('solo incluye transferencias confirmadas (≥2 modos) en el source dedicado', () => {
+  // Los marcadores de transferencia quedan para la vista esquemática: el mapa
+  // geográfico no los dibuja, ni siquiera cuando la parada sí es una
+  // transferencia confirmada entre modos distintos.
+  it('no dibuja marcadores de transferencia en el mapa geográfico', () => {
     const recorder = recordingMap();
-    addTransitLayers(recorder.map, twoLineStopCity('Train'), TEST_COLORS);
+    addTransitLayers(recorder.map, twoLineStopCity('Train'));
 
-    const [, source] = recorder.sources.find(
-      ([id]) => id === 'transit-transfer-markers',
-    )!;
-    const data = (source as { data: { features: unknown[] } }).data;
-    expect(data.features).toHaveLength(1);
-  });
-
-  it('no produce marcadores de transferencia cuando ninguna parada es compartida', () => {
-    const recorder = recordingMap();
-    addTransitLayers(recorder.map, transitCity(), TEST_COLORS);
-
-    const [, source] = recorder.sources.find(
-      ([id]) => id === 'transit-transfer-markers',
-    )!;
-    const data = (source as { data: { features: unknown[] } }).data;
-    expect(data.features).toHaveLength(0);
-  });
-
-  it('no confirma la transferencia cuando las líneas compartidas son del mismo modo', () => {
-    const recorder = recordingMap();
-    addTransitLayers(recorder.map, twoLineStopCity('Bus'), TEST_COLORS);
-
-    const [, source] = recorder.sources.find(
-      ([id]) => id === 'transit-transfer-markers',
-    )!;
-    const data = (source as { data: { features: unknown[] } }).data;
-    expect(data.features).toHaveLength(0);
-  });
-
-  it('pinta el marcador con los colores del tema', () => {
-    const recorder = recordingMap();
-    addTransitLayers(recorder.map, twoLineStopCity(), TEST_COLORS);
-
-    const marker = recorder.layers.find(
-      ({ id }) => id === 'transit-transfer-marker',
-    ) as maplibregl.CircleLayerSpecification;
-    expect(marker.paint?.['circle-color']).toBe(
-      TEST_COLORS.transferMarker.fill,
+    expect(recorder.sources.map(([id]) => id)).not.toContain(
+      'transit-transfer-markers',
     );
-    expect(marker.paint?.['circle-stroke-color']).toBe(
-      TEST_COLORS.transferMarker.stroke,
+    expect(recorder.layers.map(({ id }) => id)).not.toContain(
+      'transit-transfer-marker',
     );
   });
 });

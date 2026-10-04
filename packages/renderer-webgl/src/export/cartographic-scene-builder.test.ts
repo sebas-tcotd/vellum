@@ -324,11 +324,10 @@ describe('buildCartographicScene', () => {
     );
   });
 
-  it('emits a themed confirmed-transfer marker matching the live layer, in parity with it', () => {
+  it('emits no transfer marker, even for a confirmed transfer', () => {
     // Two distinct modes sharing a stop within STATION_MERGE_THRESHOLD_M: a
-    // confirmed transfer, per the same core criterion the live
-    // `transit-transfer-marker` layer consumes
-    // (`network.renderGeometry.stations[].confirmedTransfer`).
+    // confirmed transfer. Transfer markers belong to the schematic view, so
+    // the export matches the live map and draws none.
     const city = makeCityData({
       roadNodes: [
         { id: 'n1', position: { x: -1000, y: 50, z: 0 } },
@@ -372,11 +371,7 @@ describe('buildCartographicScene', () => {
     });
 
     const transit = layerEntities(build(city), 'transit');
-    const transferEntity = transit.find((e) => e.id.includes('-transfer-'));
-    expect(transferEntity).toBeDefined();
-    // Themed colors, not the fixed black-on-white station convention.
-    expect(transferEntity!.fill?.color).toBe('#f2b705');
-    expect(transferEntity!.stroke?.color).toBe('#8a5a00');
+    expect(transit.some((e) => e.id.includes('-transfer-'))).toBe(false);
   });
 
   it('never fabricates a transfer marker for a single-line stop', () => {

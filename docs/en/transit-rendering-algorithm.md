@@ -268,16 +268,11 @@ Station`): that data exists in `.cslmap` for buildings (`icls`/`subsrv`/
   extraction work — see `deferred-work.md`.
 
 `buildStations` annotates each `StationGeometry` with `confirmedTransfer`
-(`candidate.confidence === 'confirmed'`), and the GeoJSON builder derives a
-`transferMarkers` collection — the subset of station center points whose
-source candidate is confirmed. A single themeable `circle` layer,
-`transit-transfer-marker`, renders that collection as a ring distinguishable
-from the fixed black-on-white station convention; unlike the capsule/dot
-cross-fade, it does not fade with zoom. Its colors come from
-`RenderStyleParams.transferMarker` (optional, `parkAreas`-style group — no
-schema version bump needed). The cartographic export pipeline consumes the
-same `transferMarkers` collection and the same resolved colors, so PNG/SVG
-output matches the live map exactly.
+(`candidate.confidence === 'confirmed'`). The geographic map and its export
+do not draw transfer markers: they are reserved for the schematic transit
+view. The flag stays on the geometry for that view, and the optional
+`RenderStyleParams.transferMarker` theme group stays in the contract so
+existing themes keep validating, but no renderer reads it today.
 
 ## 4. MapLibre layers and export
 
@@ -289,7 +284,6 @@ transit-line
 transit-stops
 transit-stops-outline
 transit-stops-dot
-transit-transfer-marker
 ```
 
 The same `network.renderGeometry` feeds live-map GeoJSON and the cartographic

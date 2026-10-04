@@ -92,7 +92,6 @@ export const LAYER_ID_MAP: Record<LayerName, string[]> = {
     'transit-stops',
     'transit-stops-outline',
     'transit-stops-dot',
-    'transit-transfer-marker',
   ],
   buildings: ['buildings-fill', 'buildings-outline', 'service-icons'],
   forests: ['forests-canopy', 'forests-trees'],

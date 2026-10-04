@@ -44,7 +44,7 @@ const themeStoreState = () => ({
       showFlights: false,
       showFerries: true,
     },
-    transit: { visibleModes: [], showConfirmedTransfers: true },
+    transit: { visibleModes: [] },
     buildings: { visibleCategories: [] },
     districts: {
       showAsMarker: true,

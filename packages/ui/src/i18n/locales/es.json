@@ -83,8 +83,7 @@
     "showFerries": "Vías marítimas",
     "showStreetNames": "Nombres de calles",
     "buildingZones": "Zonas de edificios (RICO)",
-    "tours": "Tours",
-    "showConfirmedTransfers": "Mostrar transferencias confirmadas"
+    "tours": "Tours"
   },
   "export": {
     "title": "Exportar mapa",
