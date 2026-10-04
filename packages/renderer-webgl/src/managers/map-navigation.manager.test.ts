@@ -8,6 +8,10 @@ vi.mock('../helpers', () => ({
     [0, 0],
     [1, 1],
   ],
+  getWorldBoundsGeoJSON: () => [
+    [-2, -2],
+    [2, 2],
+  ],
 }));
 
 const city = {} as CityData;
@@ -50,9 +54,14 @@ function makeMap({ animated = false } = {}) {
       center = { lng: 0.5, lat: 0.5 };
       endMove();
     },
-    /** Simulates a pan ending with the center outside the city. */
+    /** Simulates a pan ending with the center off the terrain. */
     panOutside: () => {
       center = { lng: 3, lat: 3 };
+      endMove();
+    },
+    /** Simulates a pan ending past the roads but still over the terrain. */
+    panPastCity: () => {
+      center = { lng: 1.5, lat: -1.5 };
       endMove();
     },
     /** Simulates any user zoom (wheel, button, key) ending at `z`. */
@@ -124,6 +133,20 @@ describe('MapNavigationManager zoom controls', () => {
     map.endFit();
     expect(manager.getZoomState()).toEqual({ zoom: 10, min: 10, max: 18 });
     expect(map.setMinZoom).toHaveBeenLastCalledWith(9.5);
+    expect(map.fitBounds).toHaveBeenCalledTimes(1);
+  });
+
+  it('lets soft mode pan past the roads while the center stays on the terrain', () => {
+    const map = makeMap();
+    const manager = new MapNavigationManager(map as unknown as maplibregl.Map);
+    manager.fitAndConstrain(city);
+    map.zoomTo(12);
+    map.fitBounds.mockClear();
+
+    map.panPastCity();
+    expect(map.fitBounds).not.toHaveBeenCalled();
+
+    map.panOutside();
     expect(map.fitBounds).toHaveBeenCalledTimes(1);
   });
 

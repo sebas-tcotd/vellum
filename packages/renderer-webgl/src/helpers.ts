@@ -7,7 +7,7 @@
 
 import type { CityData } from '@vellum/core';
 import type * as maplibregl from 'maplibre-gl';
-import { csToGeoArray } from './coordinate-transform';
+import { CS1_WORLD_HALF, csToGeoArray } from './coordinate-transform';
 
 /**
  * Converts a `CityData` bounding box to a `[[swLng, swLat], [neLng, neLat]]`
@@ -22,6 +22,21 @@ export function getCityBoundsGeoJSON(
   return [
     [swLng, swLat],
     [neLng, neLat],
+  ];
+}
+
+/**
+ * The whole terrain extent (±{@link CS1_WORLD_HALF} on both axes) as a
+ * `[[swLng, swLat], [neLng, neLat]]` pair.
+ *
+ * @remarks
+ * Not the city's bounds: those wrap the road network only, while the terrain
+ * is painted across the entire world.
+ */
+export function getWorldBoundsGeoJSON(): [[number, number], [number, number]] {
+  return [
+    csToGeoArray({ x: -CS1_WORLD_HALF, z: -CS1_WORLD_HALF }),
+    csToGeoArray({ x: CS1_WORLD_HALF, z: CS1_WORLD_HALF }),
   ];
 }
 

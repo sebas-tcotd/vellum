@@ -577,3 +577,50 @@ describe('keyboard navigation', () => {
     expect(navigateTo).not.toHaveBeenCalled();
   });
 });
+
+describe('framing', () => {
+  // Roads in a tall strip, like Amapolas: a highway runs edge to edge while
+  // the town sits off-centre.
+  const stripCity = {
+    ...mockCityData,
+    bounds: { minX: 1000, maxX: 3000, minZ: -8640, maxZ: 8640, seaLevel: 40 },
+  };
+
+  function renderStrip() {
+    const navigateTo = vi.fn();
+    render(
+      <Minimap
+        cityData={stripCity}
+        subscribeViewport={() => () => {}}
+        getInitialViewportBounds={() => null}
+        navigateTo={navigateTo}
+      />,
+    );
+    const canvas = screen.getByRole('application', { name: 'a11y.minimap' });
+    return { canvas, navigateTo };
+  }
+
+  it('maps the whole square world, not the road network, onto the canvas', () => {
+    const { canvas, navigateTo } = renderStrip();
+    expect(canvas).toHaveAttribute('width', '160');
+    expect(canvas).toHaveAttribute('height', '160');
+    Object.defineProperty(canvas, 'getBoundingClientRect', {
+      value: () => ({ left: 0, top: 0, width: 160, height: 160 }),
+    });
+    Object.defineProperty(canvas, 'setPointerCapture', { value: vi.fn() });
+
+    // The canvas centre is the world's centre, outside this city's roads.
+    fireEvent.pointerDown(canvas, { clientX: 80, clientY: 80, pointerId: 1 });
+    const [lng, lat] = navigateTo.mock.calls[0] as [number, number];
+    expect(lng).toBeCloseTo(0, 3);
+    expect(lat).toBeCloseTo(0, 3);
+  });
+
+  it('still recentres on the city with Enter', () => {
+    const { canvas, navigateTo } = renderStrip();
+    fireEvent.keyDown(canvas, { key: 'Enter' });
+    const [lng, lat] = navigateTo.mock.calls[0] as [number, number];
+    expect(lng).toBeCloseTo(0.2, 3);
+    expect(lat).toBeCloseTo(0, 3);
+  });
+});

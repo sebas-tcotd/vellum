@@ -1,6 +1,6 @@
 import * as maplibregl from 'maplibre-gl';
 import type { CityData } from '@vellum/core';
-import { getCityBoundsGeoJSON } from '../helpers';
+import { getCityBoundsGeoJSON, getWorldBoundsGeoJSON } from '../helpers';
 import type { ViewportBounds } from '../types/renderer.types';
 import type { MapZoomState } from '@vellum/core';
 
@@ -8,7 +8,8 @@ import type { MapZoomState } from '@vellum/core';
  * Handles camera movements, bounds constraints, and viewport snap-back logic.
  *
  * @remarks
- * Strict mode: hard pan bounds. Soft mode: allows overpanning with snap-back.
+ * Strict mode: hard pan bounds. Soft mode: pans freely over the terrain and
+ * snaps back only once the center leaves it.
  * Both modes let every zoom input (wheel, buttons, keyboard) step just past
  * the fit-to-screen zoom and then settle back onto the whole city.
  */
@@ -264,7 +265,11 @@ export class MapNavigationManager {
 
   /**
    * Snaps back to fit the city when a move ends zoomed out past the fit (any
-   * mode, any input) or, in soft mode, with the center outside the city bounds.
+   * mode, any input) or, in soft mode, with the center off the terrain.
+   *
+   * @remarks
+   * The soft limit is the world, not the city's bounds: those wrap the road
+   * network only, so looking at the lake beside town is not leaving the map.
    */
   private handleMoveEnd(): void {
     if (!this.currentCityData) return;
@@ -281,12 +286,15 @@ export class MapNavigationManager {
       this.currentCityData,
     );
 
+    const [[worldSwLng, worldSwLat], [worldNeLng, worldNeLat]] =
+      getWorldBoundsGeoJSON();
+
     const isOutside =
       this.navigationMode === 'soft' &&
-      (center.lng < swLng ||
-        center.lng > neLng ||
-        center.lat < swLat ||
-        center.lat > neLat);
+      (center.lng < worldSwLng ||
+        center.lng > worldNeLng ||
+        center.lat < worldSwLat ||
+        center.lat > worldNeLat);
     // ponytail: epsilon absorbs float drift between fitBounds and getZoom.
     const isUnderzoomed = this.map.getZoom() < this.fitToScreenZoom - 1e-3;
 
