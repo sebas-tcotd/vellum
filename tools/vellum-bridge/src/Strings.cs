@@ -121,7 +121,14 @@ namespace VellumBridge
         internal static string DeflateUnavailable(string reason, string modules) { return T("deflate unavailable: " + reason + "; uncompressed modules: " + modules + ".", "deflate no disponible: " + reason + "; módulos sin comprimir: " + modules + "."); }
         internal static string OnlyManifest { get { return T("only manifest.json", "solo manifest.json"); } }
         internal static string WaterDepthSkipped { get { return T("Water depth skipped: the simulation was running (the water mask was exported). Pause the game and export again to include it.", "Profundidad del agua omitida: la simulación estaba en marcha (la máscara de agua sí se exportó). Pausa el juego y exporta de nuevo para incluirla."); } }
-        internal static string DlcAndMods { get { return T("DLC and mods: not exported (the list of active DLC and mods isn't part of the document).", "DLC y mods: no se exportan (la lista de DLC y mods activos no forma parte del documento)."); } }
+        private const string DlcAndModsEn = "DLC and mods: not exported (the list of active DLC and mods isn't part of the document).";
+        private const string DlcAndModsEs = "DLC y mods: no se exportan (la lista de DLC y mods activos no forma parte del documento).";
+        internal static string DlcAndMods { get { return T(DlcAndModsEn, DlcAndModsEs); } }
+
+        // La nota de DLC y mods va en toda exportación: no es un límite de esta ciudad, así que el
+        // modal no la cuenta (sigue en los detalles y en el log). En los dos idiomas, por si el
+        // jugador cambió de idioma mientras se exportaba.
+        internal static bool IsPermanentNote(string limit) { return limit == DlcAndModsEn || limit == DlcAndModsEs; }
 
         internal static string SegmentsWithoutPrefab(int n) { return T(n + " segments skipped because their prefab isn't loaded.", n + " segmentos omitidos por no tener prefab cargado."); }
         internal static string SegmentNameErrors(int n) { return T(n + " segments without a name because their street name couldn't be read.", n + " segmentos sin nombre porque no se pudo leer el nombre de su calle."); }

@@ -38,7 +38,7 @@ namespace VellumBridge.UI
                 title = Strings.CityExported(Path.GetFileName(folder)),
                 body = Path.GetFileName(summary.path) + " · " + ExportSummaryFormatter.Size(summary.bytes),
                 note = Strings.HumanCounts(summary.buildings, summary.lines, summary.stops, summary.districts),
-                limits = new List<string>(summary.limits),
+                limits = summary.limits.FindAll(limit => !Strings.IsPermanentNote(limit)),
                 details = ExportSummaryFormatter.Describe(summary),
                 folder = folder,
             };
