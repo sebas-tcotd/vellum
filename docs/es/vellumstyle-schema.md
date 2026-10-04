@@ -186,6 +186,7 @@ el archivo** — ver [Comportamiento de validación](#comportamiento-de-validaci
 | `terrain.high`      | `ColorToken`          | Color de elevación alta.                                                                                                                          |
 | `contourLine`       | `ColorToken`          | Color de las líneas de contorno del terreno.                                                                                                      |
 | `water`             | `ColorToken`          | Color de los cuerpos de agua (mar y agua interior).                                                                                               |
+| `coastline`         | `ColorToken`          | Opcional. Línea de orilla de todo cuerpo de agua. Si falta, se deriva de `water` (30 % hacia negro, o hacia blanco si el agua es oscura).         |
 | `forests`           | `ColorToken`          | Color de los marcadores de densidad de bosque/vegetación.                                                                                         |
 | `transitBackground` | `ColorToken`          | Fondo usado en exports oscuros y reservado para presentaciones centradas en tránsito. Todos los temas built-in lo definen.                        |
 | `roads`             | `RoadColorParams`     | Colores de la red vial, agrupados por jerarquía — ver abajo.                                                                                      |

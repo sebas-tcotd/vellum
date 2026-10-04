@@ -26,6 +26,10 @@
 import type { CityData } from '@vellum/core';
 import type * as maplibregl from 'maplibre-gl';
 import {
+  COASTLINE_OPACITY,
+  COASTLINE_WIDTH_PX,
+} from '../constants/layer.constants';
+import {
   buildCoastlineGeoJson,
   buildLandPolygonGeoJson,
   buildWaterSurfaceGeoJson,
@@ -102,8 +106,8 @@ export function addBasemapWaterLayers(
     layout: { 'line-cap': 'round', 'line-join': 'round' },
     paint: {
       'line-color': colors.coastlineStroke,
-      'line-width': 4,
-      'line-opacity': 0.8,
+      'line-width': COASTLINE_WIDTH_PX,
+      'line-opacity': COASTLINE_OPACITY,
       'line-opacity-transition': { duration: 300 },
     },
   });

@@ -181,6 +181,7 @@ that doesn't match either pattern fails validation for the **entire file** — s
 | `terrain.high`      | `ColorToken`          | High elevation color.                                                                                                                            |
 | `contourLine`       | `ColorToken`          | Color of terrain contour lines.                                                                                                                  |
 | `water`             | `ColorToken`          | Color of water bodies (sea and inland water).                                                                                                    |
+| `coastline`         | `ColorToken`          | Optional. Shoreline stroke on every water body. When omitted, it is derived from `water` (30 % toward black, or toward white for dark water).    |
 | `forests`           | `ColorToken`          | Color of forest/vegetation density markers.                                                                                                      |
 | `transitBackground` | `ColorToken`          | Background used for dark exports and reserved for transit-focused presentation. Every built-in theme sets it.                                    |
 | `roads`             | `RoadColorParams`     | Road network colors, grouped by tier — see below.                                                                                                |

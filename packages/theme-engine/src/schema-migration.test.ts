@@ -54,6 +54,16 @@ describe('migrateTheme', () => {
     },
   );
 
+  it('never fills an omitted coastline: the renderer derives it from the theme water', () => {
+    const result = migrateTheme({
+      schemaVersion: 1,
+      name: 'Sin orilla',
+      water: '#16324a',
+    });
+    expect(result).not.toHaveProperty('coastline');
+    expect(DEFAULT_RENDER_STYLE_PARAMS.coastline).toBeDefined();
+  });
+
   it('the current schema version is 1 (bumping it is a contract change)', () => {
     expect(CURRENT_SCHEMA_VERSION).toBe(1);
   });

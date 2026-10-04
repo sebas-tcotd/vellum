@@ -1,5 +1,5 @@
 import type { VellumStyle } from '@vellum/core';
-import { DEFAULT_RENDER_STYLE_PARAMS } from './default-style';
+import { defaultsFor } from './default-style';
 
 /**
  * The `.vellumstyle` schema version this build of Vellum writes and understands natively.
@@ -63,7 +63,9 @@ export function migrateTheme(raw: unknown): VellumStyle {
  * Shallow-merges the default groups under `obj` into a new top-level object.
  * @remarks The copy is shallow: nested groups are shared references with the caller's
  * input and with `DEFAULT_RENDER_STYLE_PARAMS`, so callers must not mutate the result.
+ * Keys in `DERIVED_WHEN_OMITTED` (`coastline`) are never filled in: the renderer
+ * derives them from the theme's own colors.
  */
 function fillOmittedGroups(obj: Record<string, unknown>): VellumStyle {
-  return { ...DEFAULT_RENDER_STYLE_PARAMS, ...obj } as VellumStyle;
+  return { ...defaultsFor(obj), ...obj } as unknown as VellumStyle;
 }

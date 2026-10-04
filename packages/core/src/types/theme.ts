@@ -167,6 +167,14 @@ export interface RenderStyleParams {
   contourLine: ColorToken;
   /** Color of water bodies (sea and inland water). */
   water: ColorToken;
+  /**
+   * Shoreline stroke drawn on the edge of every water body.
+   * @remarks
+   * Optional. When omitted, the renderer derives it from `water`: 30 % toward black
+   * for a light water, toward white for a dark one. A shoreline reads as the water's
+   * own deeper edge, so it stays in the water's hue rather than taking a new color.
+   */
+  coastline?: ColorToken;
   /** Color of forest/vegetation density markers. */
   forests: ColorToken;
   /** Background color for the transit layer's dimming overlay. */

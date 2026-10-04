@@ -11,6 +11,7 @@
   },
   "contourLine": "#aa9e86",
   "water": "#86b0b0",
+  "coastline": "#4f7c80",
   "forests": "#5f7f4f",
   "transitBackground": "#3b4050",
   "roads": {

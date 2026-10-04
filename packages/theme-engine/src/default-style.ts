@@ -24,6 +24,7 @@ export const DEFAULT_RENDER_STYLE_PARAMS: RenderStyleParams = {
     high: '#c4a06a',
   },
   water: '#6db8b7',
+  coastline: '#4c8180',
   contourLine: '#000000',
   forests: '#14592a',
   transitBackground: '#1a1a2e',
@@ -95,3 +96,25 @@ export const DEFAULT_RENDER_STYLE_PARAMS: RenderStyleParams = {
     color: '#3d3a35',
   },
 };
+
+/**
+ * Keys the loader never fills from the defaults: when a theme omits one, the renderer
+ * derives it from the theme's own colors (`coastline` from `water`), so a fixed default
+ * would only ever be wrong. They stay in {@link DEFAULT_RENDER_STYLE_PARAMS} so the
+ * emitted JSON Schema documents them.
+ */
+export const DERIVED_WHEN_OMITTED = ['coastline'] as const;
+
+/**
+ * The defaults without the {@link DERIVED_WHEN_OMITTED} keys the given theme omits:
+ * what the loader fills in and what the validator requires of that theme.
+ */
+export function defaultsFor(
+  theme: Record<string, unknown>,
+): Record<string, unknown> {
+  const defaults: Record<string, unknown> = { ...DEFAULT_RENDER_STYLE_PARAMS };
+  for (const key of DERIVED_WHEN_OMITTED) {
+    if (theme[key] === undefined) delete defaults[key];
+  }
+  return defaults;
+}
