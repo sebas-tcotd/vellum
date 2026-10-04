@@ -23,10 +23,14 @@ namespace VellumBridge.UI
         private static readonly Color32 PrimaryButton = new Color32(91, 150, 214, 255);
 
         private const float Gap = 8f;
+        // Versión y estado; cabe «Carga una ciudad para exportar».
+        private const float SideWidth = 260f;
 
         private static UIPanel page;
         private static UILabel status;
-        private static UIPanel statusDot;
+        private static UITextureSprite statusDot;
+        private static Texture2D readyDot;
+        private static Texture2D idleDot;
         private static UILabel lastExport;
         private static bool wasExporting;
 
@@ -105,7 +109,7 @@ namespace VellumBridge.UI
                 bool ready = BridgeExport.Loaded && !wasExporting;
                 status.text = wasExporting ? Strings.StatusExporting : BridgeExport.Loaded ? Strings.StatusReady : Strings.StatusNoCity;
                 status.textColor = ready ? ReadyColor : Secondary;
-                statusDot.color = ready ? ReadyColor : Muted;
+                statusDot.texture = ready ? readyDot ?? (readyDot = Dot(ReadyColor)) : idleDot ?? (idleDot = Dot(Muted));
 
                 FileInfo latest = ExportStorage.LatestExport();
                 lastExport.isVisible = latest != null;
@@ -143,7 +147,7 @@ namespace VellumBridge.UI
             name.autoLayout = true;
             name.autoLayoutDirection = LayoutDirection.Vertical;
             name.autoFitChildrenVertically = true;
-            name.width = width - 52f - 16f - 180f;
+            name.width = width - 52f - 16f - SideWidth - 16f;
             Label(name, "Vellum Bridge", 1.6f, Primary);
             Label(name, Strings.Tagline, 0.85f, Secondary);
 
@@ -151,18 +155,16 @@ namespace VellumBridge.UI
             side.autoLayout = true;
             side.autoLayoutDirection = LayoutDirection.Vertical;
             side.autoFitChildrenVertically = true;
-            side.width = 180f;
+            side.width = SideWidth;
             Label(side, BridgeInfo.Version, 0.75f, Muted);
             UIPanel line = side.AddUIComponent<UIPanel>();
-            line.autoLayout = true;
-            line.autoLayoutDirection = LayoutDirection.Horizontal;
-            line.autoLayoutPadding = new RectOffset(0, 6, 4, 0);
-            line.autoFitChildrenVertically = true;
-            line.width = 180f;
-            statusDot = line.AddUIComponent<UIPanel>();
-            statusDot.backgroundSprite = "GenericPanelWhite";
+            line.size = new Vector2(SideWidth, 20f);
+            // A mano y no con autoLayout: el punto va centrado con la primera línea del texto.
+            statusDot = line.AddUIComponent<UITextureSprite>();
             statusDot.size = new Vector2(8f, 8f);
+            statusDot.relativePosition = new Vector3(0f, 6f);
             status = Label(line, "", 0.85f, Secondary);
+            status.relativePosition = new Vector3(14f, 0f);
         }
 
         private static UILabel Title(string text) { return Label(page, text, 1.1f, Primary); }
@@ -199,12 +201,42 @@ namespace VellumBridge.UI
             return row;
         }
 
+        // Una línea de 1 px con aire arriba y abajo. Los sprites del juego (GenericPanelWhite) son
+        // 9-slice y no bajan de su alto mínimo, así que la línea es una textura propia.
         private static void Divider(float width)
         {
-            UIPanel rule = page.AddUIComponent<UIPanel>();
-            rule.backgroundSprite = "GenericPanelWhite";
-            rule.color = Rule;
+            UIPanel space = page.AddUIComponent<UIPanel>();
+            space.size = new Vector2(width, 17f);
+            UITextureSprite rule = space.AddUIComponent<UITextureSprite>();
+            rule.texture = Solid(Rule);
             rule.size = new Vector2(width, 1f);
+            rule.relativePosition = new Vector3(0f, 8f);
+        }
+
+        private static Texture2D Solid(Color32 color)
+        {
+            var texture = new Texture2D(1, 1, TextureFormat.ARGB32, false);
+            texture.SetPixel(0, 0, color);
+            texture.Apply();
+            return texture;
+        }
+
+        // Un círculo con borde suave, dibujado a 16 px y mostrado a 8.
+        private static Texture2D Dot(Color32 color)
+        {
+            const int size = 16;
+            var texture = new Texture2D(size, size, TextureFormat.ARGB32, false);
+            float radius = size / 2f;
+            for (int y = 0; y < size; y++)
+                for (int x = 0; x < size; x++)
+                {
+                    float dx = x + 0.5f - radius, dy = y + 0.5f - radius;
+                    float alpha = Mathf.Clamp01(radius - Mathf.Sqrt(dx * dx + dy * dy));
+                    texture.SetPixel(x, y, new Color32(color.r, color.g, color.b, (byte)(alpha * 255f)));
+                }
+            texture.filterMode = FilterMode.Bilinear;
+            texture.Apply();
+            return texture;
         }
 
         private static UIButton Button(UIComponent parent, string text, bool primary, Action action, float scale = 0.95f)

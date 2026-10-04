@@ -9,9 +9,9 @@ namespace VellumBridge
         // landing, no el mod publicado.
         internal const string DesktopUrl = "https://sebas-tcotd.github.io/vellum/#download";
 
-        // Product ID de Vellum en la Microsoft Store (9N…). Vacío = la insignia no se muestra:
+        // Product ID de Vellum en la Microsoft Store. Vacío = la insignia no se muestra:
         // un listado sin publicar sería un enlace muerto.
-        internal const string StoreProductId = "";
+        internal const string StoreProductId = "9N65WG3V160T";
 
         internal static string StoreUrl { get { return "ms-windows-store://pdp/?productid=" + StoreProductId; } }
     }
