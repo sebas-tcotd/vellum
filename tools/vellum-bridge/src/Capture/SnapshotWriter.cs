@@ -18,8 +18,7 @@ namespace VellumBridge.Capture
                 File.Move(temporary, target);
             }
             finally { if (File.Exists(temporary)) File.Delete(temporary); }
-            string summary = "Snapshot " + (document.diagnostics.complete ? "completo" : "parcial")
-                + ": " + target + " (" + new FileInfo(target).Length + " bytes)";
+            string summary = Strings.SnapshotWritten(document.diagnostics.complete, target, new FileInfo(target).Length);
             return summary;
         }
     }

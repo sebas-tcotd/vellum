@@ -72,9 +72,9 @@ namespace VellumBridge.Export
             if (options == null) options = new WriterOptions();
             var summary = new ExportSummary();
             if (IsSaving(options))
-                throw new ExportFailedException("Hay un guardado en curso. Inténtalo de nuevo cuando termine.");
+                throw new ExportFailedException(Strings.SaveInProgress);
             if (model.exportedAtUtc == default(DateTime))
-                throw new ExportFailedException("manifest: falta la fecha de exportación (exportedAtUtc).");
+                throw new ExportFailedException(Strings.MissingExportDate);
 
             List<Entry> entries = BuildEntries(model, summary);
             string deflateFailure = null;
@@ -95,8 +95,8 @@ namespace VellumBridge.Export
                 if (entry != manifestEntry) summary.modules.Add(entry.id + " (" + (entry.deflated ? "deflate" : "stored") + ")");
             // El motivo se declara una sola vez, no por módulo.
             if (deflateFailure != null)
-                summary.limits.Add("deflate no disponible: " + deflateFailure + "; módulos sin comprimir: "
-                    + (storedModules.Count > 0 ? string.Join(", ", storedModules.ToArray()) : "solo manifest.json") + ".");
+                summary.limits.Add(Strings.DeflateUnavailable(deflateFailure,
+                    storedModules.Count > 0 ? string.Join(", ", storedModules.ToArray()) : Strings.OnlyManifest));
 
             Publish(entries, folder, model, options, summary);
             return summary;
@@ -118,7 +118,7 @@ namespace VellumBridge.Export
             // Terreno y agua: obligatorios.
             RequireLength("terrain", model.terrain == null ? -1 : model.terrain.Length, TerrainResolution * TerrainResolution);
             RequireLength("water", model.waterDepth == null ? -1 : model.waterDepth.Length, TerrainResolution * TerrainResolution);
-            if (!IsFinite(model.seaLevel)) throw new ExportFailedException("water: el nivel del mar no es un número finito.");
+            if (!IsFinite(model.seaLevel)) throw new ExportFailedException(Strings.SeaLevelNotFinite);
             entries.Add(Grid("terrain", "terrain.bin", U16(model.terrain), HeightGrid()));
 
             var water = new Json();
@@ -139,7 +139,7 @@ namespace VellumBridge.Export
             if (model.simulationPaused)
                 entries.Add(Grid("water-depth", "water-depth.bin", U16(model.waterDepth), HeightGrid()));
             else
-                limits.Add("Profundidad del agua omitida: la simulación estaba en marcha (la máscara de agua sí se exportó). Pausa el juego y exporta de nuevo para incluirla.");
+                limits.Add(Strings.WaterDepthSkipped);
 
             RequireLength("vegetation", model.vegetation == null ? -1 : model.vegetation.Length, VegetationResolution * VegetationResolution);
             entries.Add(Grid("vegetation", "vegetation.bin", model.vegetation, GridJson(VegetationResolution, "33.75", "u8", null)));
@@ -160,23 +160,22 @@ namespace VellumBridge.Export
             summary.districts = districtIds.Count;
             summary.parks = parkIds.Count;
 
-            byte[] districtGrid = AreaGridBytes("distritos", model.districtGrid, districtIds, limits);
+            byte[] districtGrid = AreaGridBytes(Strings.GridName(true), model.districtGrid, districtIds, limits);
             if (districtGrid != null)
                 entries.Add(Grid("district-grid", "districts.bin", districtGrid, GridJson(AreaResolution, "19.2", "u8x8", null)));
-            byte[] parkGrid = AreaGridBytes("parques", model.parkGrid, parkIds, limits);
+            byte[] parkGrid = AreaGridBytes(Strings.GridName(false), model.parkGrid, parkIds, limits);
             if (parkGrid != null)
                 entries.Add(Grid("park-grid", "parks.bin", parkGrid, GridJson(AreaResolution, "19.2", "u8x8", null)));
 
-            limits.Add("DLC y mods: no se exportan (la lista de DLC y mods activos no forma parte del documento).");
+            limits.Add(Strings.DlcAndMods);
             return entries;
         }
 
         private static void RequireLength(string module, int found, int expected)
         {
             if (found == expected) return;
-            throw new ExportFailedException(module + ": se esperaban " + expected + " muestras y hay "
-                + (found < 0 ? "ninguna" : found.ToString(CultureInfo.InvariantCulture))
-                + ". El módulo es obligatorio; la exportación se canceló sin escribir nada.");
+            throw new ExportFailedException(Strings.SampleCount(module, expected,
+                found < 0 ? Strings.None : found.ToString(CultureInfo.InvariantCulture)));
         }
 
         private static string HeightGrid() { return GridJson(TerrainResolution, "16", "u16le", "0.015625"); }
@@ -246,9 +245,9 @@ namespace VellumBridge.Export
             json.Close(']').Close('}');
             summary.nodes = declared.Count;
             summary.segments = seen.Count;
-            if (invalidNodes > 0) summary.limits.Add(invalidNodes + " nodos omitidos por posición no finita o id repetido.");
-            if (orphans > 0) summary.limits.Add(orphans + " segmentos omitidos porque su nodo de inicio o fin no se exportó.");
-            if (invalidSegments > 0) summary.limits.Add(invalidSegments + " segmentos omitidos por datos no válidos (sin itemClass, ancho o curva no finitos, id repetido).");
+            if (invalidNodes > 0) summary.limits.Add(Strings.InvalidNodes(invalidNodes));
+            if (orphans > 0) summary.limits.Add(Strings.OrphanSegments(orphans));
+            if (invalidSegments > 0) summary.limits.Add(Strings.InvalidSegments(invalidSegments));
             return json;
         }
 
@@ -367,9 +366,9 @@ namespace VellumBridge.Export
             }
             json.Close(']').Close('}');
             summary.lines = emitted.Count;
-            if (unnamed > 0) summary.limits.Add(unnamed + " paradas sin calle con nombre: se exportan sin nombre.");
-            if (invalidStops > 0) summary.limits.Add(invalidStops + " paradas omitidas por posición no finita.");
-            if (invalidLines > 0) summary.limits.Add(invalidLines + " líneas omitidas por tipo de transporte desconocido o id repetido.");
+            if (unnamed > 0) summary.limits.Add(Strings.UnnamedStops(unnamed));
+            if (invalidStops > 0) summary.limits.Add(Strings.InvalidStops(invalidStops));
+            if (invalidLines > 0) summary.limits.Add(Strings.InvalidLines(invalidLines));
             return json;
         }
 
@@ -567,8 +566,8 @@ namespace VellumBridge.Export
                         : group.Key + " " + (k + 1).ToString(CultureInfo.InvariantCulture);
             }
             if (noStreet.Count > 0)
-                limits.Add(noStreet.Count + " estaciones sin nombre: sin landmark, servicio, área ni calle con nombre a "
-                    + StreetRadius.ToString(CultureInfo.InvariantCulture) + " m (edificios: " + string.Join(", ", noStreet.ToArray()) + ").");
+                limits.Add(Strings.UnnamedStations(noStreet.Count, StreetRadius.ToString(CultureInfo.InvariantCulture),
+                    string.Join(", ", noStreet.ToArray())));
             return names;
         }
 
@@ -723,7 +722,7 @@ namespace VellumBridge.Export
             }
             json.Close(']').Close('}');
             summary.buildings = seen.Count;
-            if (invalid > 0) summary.limits.Add(invalid + " edificios omitidos por prefab vacío, posición o ángulo no finitos o id repetido.");
+            if (invalid > 0) summary.limits.Add(Strings.InvalidBuildings(invalid));
             return json;
         }
 
@@ -771,7 +770,7 @@ namespace VellumBridge.Export
                 json.Close('}');
             }
             json.Close(']').Close('}');
-            if (invalid > 0) summary.limits.Add(invalid + " " + module + " omitidos por etiqueta no finita o id repetido.");
+            if (invalid > 0) summary.limits.Add(Strings.InvalidAreas(invalid, Strings.GridName(module == "districts")));
             return json;
         }
 
@@ -781,23 +780,23 @@ namespace VellumBridge.Export
         {
             if (grid == null || grid.cells == null)
             {
-                limits.Add("Grilla de " + what + " omitida: no se pudo leer.");
+                limits.Add(Strings.GridUnreadable(what));
                 return null;
             }
             if (grid.cells.Length != grid.resolution * grid.resolution * 8)
             {
-                limits.Add("Grilla de " + what + " omitida: su tamaño no corresponde a " + grid.resolution + "².");
+                limits.Add(Strings.GridSizeMismatch(what, grid.resolution));
                 return null;
             }
             if (grid.resolution != AreaResolution && grid.resolution != VanillaAreaResolution)
             {
-                limits.Add("Grilla de " + what + " omitida: resolución " + grid.resolution + "² no soportada (se esperaba 512² o 900²).");
+                limits.Add(Strings.GridResolution(what, grid.resolution));
                 return null;
             }
             foreach (int id in ids.Keys)
                 if (id < 1 || id > 255)
                 {
-                    limits.Add("Grilla de " + what + " omitida: el área " + id + " no cabe en un byte (1–255).");
+                    limits.Add(Strings.GridIdTooLarge(what, id));
                     return null;
                 }
             // CS1 deja en las ranuras sin peso el id de áreas ya borradas (Costa Tijuca: ids 1–3 en
@@ -812,14 +811,14 @@ namespace VellumBridge.Export
                     if (id == 0 || ids.ContainsKey(id)) continue;
                     if (cells[i + 4 + k] != 0)
                     {
-                        limits.Add("Grilla de " + what + " omitida: la celda " + (i / 8) + " nombra con peso el área " + id + ", que no se exportó.");
+                        limits.Add(Strings.GridUnknownArea(what, i / 8, id));
                         return null;
                     }
                     cells[i + k] = 0;
                     cleared++;
                 }
             if (cleared > 0)
-                limits.Add("Grilla de " + what + ": " + cleared + " ranuras sin peso con ids de áreas inexistentes se escribieron como 0.");
+                limits.Add(Strings.GridSlotsCleared(what, cleared));
 
             if (grid.resolution == AreaResolution) return cells;
             // Mismo tamaño de celda (19,2 m) y ambas centradas en el origen: la de 512² ocupa las
@@ -829,7 +828,7 @@ namespace VellumBridge.Export
             for (int row = 0; row < VanillaAreaResolution; row++)
                 Buffer.BlockCopy(cells, row * VanillaAreaResolution * 8, padded,
                     ((row + offset) * AreaResolution + offset) * 8, VanillaAreaResolution * 8);
-            limits.Add("Grilla de " + what + " rellenada desde 512² (vanilla) a 900²: fuera de los 25 tiles centrales no hay áreas.");
+            limits.Add(Strings.GridPadded(what));
             return padded;
         }
 
@@ -837,7 +836,7 @@ namespace VellumBridge.Export
 
         private static string Manifest(VellumModel model, List<Entry> entries)
         {
-            if (string.IsNullOrEmpty(model.snapshotId)) throw new ExportFailedException("manifest: falta snapshotId.");
+            if (string.IsNullOrEmpty(model.snapshotId)) throw new ExportFailedException(Strings.MissingSnapshotId);
             var json = new Json();
             // 1.1: `city.id`. `parentSnapshotId` ya era del contrato 1.0.
             json.Open('{').Key("format").String("vellummap").Key("exportSchemaVersion").String("1.1")
@@ -927,8 +926,7 @@ namespace VellumBridge.Export
             }
             catch (Exception error)
             {
-                throw new ExportFailedException("No se pudo preparar la carpeta " + cityFolder + ": " + Reason(error)
-                    + ". Comprueba que existe y que tienes permiso de escritura.", error);
+                throw new ExportFailedException(Strings.CityFolderFailed(cityFolder, Reason(error)), error);
             }
             part = target + ".part";
             try
@@ -936,14 +934,13 @@ namespace VellumBridge.Export
                 using (var stream = new FileStream(part, FileMode.CreateNew, FileAccess.Write, FileShare.None))
                     WriteZip(stream, entries, model.exportedAtUtc);
                 if (IsSaving(options))
-                    throw new ExportFailedException("Comenzó un guardado durante la exportación: se descartó. Inténtalo de nuevo cuando termine.");
+                    throw new ExportFailedException(Strings.SaveStartedDuringExport);
                 File.Move(part, target);
             }
             catch (ExportFailedException) { throw; }
             catch (Exception error)
             {
-                throw new ExportFailedException("No se pudo escribir " + target + ": " + Reason(error)
-                    + ". Comprueba el espacio libre y los permisos de la carpeta.", error);
+                throw new ExportFailedException(Strings.WriteFailed(target, Reason(error)), error);
             }
             finally
             {
@@ -1142,7 +1139,7 @@ namespace VellumBridge.Export
 
             public Json Number(float value)
             {
-                if (!IsFinite(value)) throw new ExportFailedException("Valor numérico no finito en el documento.");
+                if (!IsFinite(value)) throw new ExportFailedException(Strings.NonFiniteValue);
                 Separate();
                 text.Append(value.ToString("R", CultureInfo.InvariantCulture));
                 return this;

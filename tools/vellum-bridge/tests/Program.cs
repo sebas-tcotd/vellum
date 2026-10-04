@@ -20,6 +20,11 @@ namespace VellumBridge.Tests
 
         private static int Main(string[] args)
         {
+            // El harness comprueba los textos en español; estas dos líneas, que el inglés también existe.
+            Strings.Spanish = false;
+            Check(Strings.UnnamedStops(1) == "1 stops without a named street: exported without a name.", "Límite en inglés");
+            Check(Strings.GridPadded(Strings.GridName(true)).StartsWith("The districts grid"), "Grilla en inglés");
+            Strings.Spanish = true;
             if (args.Length != 1)
             {
                 Console.Error.WriteLine("uso: dotnet run --project tools/vellum-bridge/tests -- <carpeta de salida>");
@@ -994,7 +999,7 @@ namespace VellumBridge.Tests
             string[] expected =
             {
                 "2 nodos omitidos", "2 segmentos omitidos porque su nodo", "2 segmentos omitidos por datos no válidos",
-                "1 líneas omitidas", "4 edificios omitidos", "1 districts omitidos", "1 parks omitidos",
+                "1 líneas omitidas", "4 edificios omitidos", "1 distritos omitidos", "1 parques omitidos",
             };
             foreach (string limit in expected)
                 Check(summary.limits.Exists(l => l.StartsWith(limit)), "Límite declarado: «" + limit + "…»");

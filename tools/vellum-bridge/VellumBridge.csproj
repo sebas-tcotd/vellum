@@ -17,6 +17,11 @@
     <Compile Remove="tests/**" />
   </ItemGroup>
   <ItemGroup>
+    <!-- Imágenes del panel de opciones (scripts/build-bridge-images.mjs; la insignia de la Store es
+         el arte oficial de Microsoft, sin modificar). OptionsPanel las lee como VellumBridge.<archivo>. -->
+    <EmbeddedResource Include="assets/*.png" LogicalName="VellumBridge.%(Filename)%(Extension)" />
+  </ItemGroup>
+  <ItemGroup>
     <Reference Include="ICities"><HintPath>$(CS1_MANAGED_DIR)/ICities.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="Assembly-CSharp"><HintPath>$(CS1_MANAGED_DIR)/Assembly-CSharp.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="ColossalManaged"><HintPath>$(CS1_MANAGED_DIR)/ColossalManaged.dll</HintPath><Private>false</Private></Reference>

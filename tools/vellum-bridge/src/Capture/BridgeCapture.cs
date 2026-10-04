@@ -16,7 +16,7 @@ namespace VellumBridge.Capture
         // Se invoca desde el botón de opciones, en el hilo principal.
         internal static void Request()
         {
-            if (!loaded) { BridgeResultPresenter.Show("Carga una ciudad antes de capturar."); return; }
+            if (!loaded) { BridgeResultPresenter.Show(Strings.NeedCityToCapture); return; }
             if (capturing) return;
             capturing = true;
             var simulation = Singleton<SimulationManager>.instance;
@@ -41,7 +41,7 @@ namespace VellumBridge.Capture
             catch (Exception error)
             {
                 Debug.LogError("[VellumBridge] Captura fallida: " + error);
-                pendingResult = "Captura fallida: " + error.Message;
+                pendingResult = Strings.CaptureFailed(error.Message);
             }
             finally { capturing = false; }
         }
@@ -51,7 +51,7 @@ namespace VellumBridge.Capture
             if (!loaded || SavePanel.isSaving)
             {
                 Debug.LogWarning("[VellumBridge] Captura rechazada: ciudad no cargada o guardado en curso.");
-                return "Captura rechazada: ciudad no cargada o guardado en curso. Inténtalo de nuevo.";
+                return Strings.CaptureRejected;
             }
 
             Snapshot document = SnapshotExtractor.Extract();
@@ -59,7 +59,7 @@ namespace VellumBridge.Capture
             if (SavePanel.isSaving)
             {
                 Debug.LogWarning("[VellumBridge] Captura descartada: comenzó un guardado.");
-                return "Captura descartada: comenzó un guardado. Inténtalo de nuevo.";
+                return Strings.CaptureDiscarded;
             }
 
             try
@@ -67,12 +67,12 @@ namespace VellumBridge.Capture
                 string summary = SnapshotWriter.Write(document, System.IO.Path.Combine(System.IO.Path.Combine(
                     ColossalFramework.IO.DataLocation.localApplicationData, "VellumBridge"), "Snapshots"));
                 Debug.Log("[VellumBridge] " + summary);
-                return summary + "\n\nErrores de extracción: " + document.diagnostics.errors.Count;
+                return summary + "\n\n" + Strings.ExtractionErrors(document.diagnostics.errors.Count);
             }
             catch (Exception error)
             {
                 Debug.LogError("[VellumBridge] Escritura fallida: " + error);
-                return "Escritura fallida: " + error.Message;
+                return Strings.CaptureWriteFailed(error.Message);
             }
         }
     }

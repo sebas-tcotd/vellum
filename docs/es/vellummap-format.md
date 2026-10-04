@@ -586,9 +586,9 @@ del suelo, edades y educación. La superficie tampoco se exporta: se deriva de l
 
 ### Dónde publica Bridge
 
-Cada exportación es un archivo nuevo en `Documentos/Vellum Bridge/<ciudad>/<ciudad> <fecha y
+Cada exportación es un archivo nuevo en `Vellum Bridge/<ciudad>/<ciudad> <fecha y
 hora locales>.vellummap` (p. ej. `Vellum Bridge/San Rico/San Rico 2026-10-01
-020217.vellummap`). La carpeta y el archivo usan el mismo nombre de ciudad saneado (`con` →
+020217.vellummap`), dentro de Documentos en Windows y de `~` en macOS y Linux. La carpeta y el archivo usan el mismo nombre de ciudad saneado (`con` →
 `con_`, `a/b` → `a_b`, sin nombre → `Ciudad`); si el nombre ya existe se añade ` (2)`,
 ` (3)`, … dentro de la carpeta de la ciudad, sin sobrescribir.
 
