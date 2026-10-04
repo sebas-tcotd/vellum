@@ -118,11 +118,13 @@ Vellum no requiere ninguna aceptación, así que ningún instalador la pide.
   `.rpm` instala una definición shared-mime-info para `*.cslmap`, y hacerlo
   exigiría un script de mantenedor que esta story descarta — así que la línea no
   emparejaría con nada mientras aparenta estar verificada.
-- **Los iconos de la app no se regeneran con nada de esto.**
-  `src-tauri/icons/` —el `.ico`, el `.icns`, el set de PNG y el `Assets.car` de
-  Icon Composer— se commitearon sin fuente reproducible, y
-  `icons/iconcomposer/README.md` documenta un proceso manual con Xcode. Aquí no
-  se tocan; `brand/` cubre sólo el artwork de instalador.
+- **Los iconos de la app de macOS y Linux no se regeneran con nada de esto.**
+  `src-tauri/icons/` —el `.icns`, el set de PNG y el `Assets.car` de Icon
+  Composer— se commitearon sin fuente reproducible, y
+  `icons/iconcomposer/README.md` documenta un proceso manual con Xcode. El de
+  **Windows** sí: `pnpm icons:windows` deriva `icons/windows/` (el `.ico` y los
+  logos del MSIX) de `brand/windows-app-icon.svg`, y `check:installer` lo
+  verifica. Ver [`brand/README.md`](../../brand/README.md).
 
 ## Por qué no hay scripts de instalación
 

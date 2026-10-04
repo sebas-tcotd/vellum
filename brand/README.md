@@ -12,10 +12,12 @@ Documentación de lo que se produce con esto:
 
 ## Qué hay aquí
 
-| Archivo               | Qué es                                                                                                                     |
-| --------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `vellum-mark.svg`     | El símbolo canónico, 236×236: disco pergamino con la V serif. Copia versionada de `apps/desktop/public/vellum-logo.svg`.   |
-| `installer-copy.json` | Editor, copyright, homepage, licencia, categoría, descripciones corta y larga en `en` y `es`, y los campos del `.desktop`. |
+| Archivo                         | Qué es                                                                                                                     |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `vellum-mark.svg`               | El símbolo canónico, 236×236: disco pergamino con la V serif. Copia versionada de `apps/desktop/public/vellum-logo.svg`.   |
+| `installer-copy.json`           | Editor, copyright, homepage, licencia, categoría, descripciones corta y larga en `en` y `es`, y los campos del `.desktop`. |
+| `windows-app-icon.svg`          | El ícono Fluent de Windows, exportado de Figma: cuadrado, con su propia placa redondeada.                                  |
+| `windows-app-icon-unplated.svg` | El mismo glifo sin placa, sobre transparente, para la barra de tareas clara.                                               |
 
 ## Qué se deriva de qué
 
@@ -31,7 +33,37 @@ brand/installer-copy.json ─┘                    wix-banner.bmp      493×58
                        │
                        └─ a mano ─────────────→ apps/desktop/src-tauri/tauri.conf.json
                                                 apps/desktop/src-tauri/linux/vellum.desktop
+
+brand/windows-app-icon.svg ─────────┐
+                                    ├─ pnpm icons:windows ─→ apps/desktop/src-tauri/icons/windows/
+brand/windows-app-icon-unplated.svg ┘  (también lo corre    icon.ico            16–256 (EXE, NSIS, MSI)
+                                           pnpm brand:build)   Square44x44Logo.*   scale-* y targetsize-*,
+                                                                                   con altform-unplated y
+                                                                                   altform-lightunplated
+                                                               Square150x150Logo.* scale-*
+                                                               StoreLogo.*         scale-*
+                                                               derived-icons.json  (hashes)
 ```
+
+El ícono de Windows es un diseño propio, como el Liquid Glass de macOS
+(`icons/iconcomposer/`). Para cambiarlo: reemplazar `windows-app-icon.svg`,
+correr `pnpm icons:windows` y commitear la fuente con `icons/windows/`. Cada
+tamaño se renderiza desde el vector, no se reduce desde un PNG grande.
+`check:installer` verifica los hashes y que `bundle.icon` y el instalador NSIS
+usen `icons/windows/icon.ico`.
+
+`windows-app-icon.svg` es la variante para **tema claro**, la predeterminada: de
+ella salen el `.ico`, los tiles, los íconos de barra de tareas normales y los
+`_altform-unplated` (barra oscura, donde la placa crema recorta bien). Los
+`_altform-lightunplated` (barra clara) salen de `windows-app-icon-unplated.svg`:
+sobre una barra clara la placa crema pierde el borde, y "unplated" significa
+justamente el glifo solo. Cuando exista una variante para tema oscuro, irá a los
+`_altform-unplated`.
+
+**Windows no recorta el ícono.** A diferencia de macOS e iOS, ni el bundler ni
+el sistema le aplican una máscara: el `.ico` y los logos del MSIX se muestran
+tal cual. Por eso `windows-app-icon.svg` dibuja su propia placa redondeada; con
+esquinas rectas se vería un bloque cuadrado.
 
 Los derivados **se commitean**. WiX y NSIS sólo aceptan BMP y ningún runner de
 CI de este repo tiene rasterizador; meter uno en la ruta crítica del release

@@ -228,11 +228,18 @@ describe.skipIf(!sdk)(
         `Version="${JSON.parse(readFileSync('apps/desktop/src-tauri/tauri.conf.json', 'utf8')).version}.0"`,
       );
       for (const logo of [
-        'Square44x44Logo.png',
-        'Square150x150Logo.png',
-        'StoreLogo.png',
+        'Square44x44Logo.scale-100.png',
+        'Square44x44Logo.targetsize-16_altform-unplated.png',
+        'Square44x44Logo.targetsize-16_altform-lightunplated.png',
+        'Square150x150Logo.scale-200.png',
+        'StoreLogo.scale-400.png',
       ])
         expect(existsSync(join(unpacked, 'Assets', logo))).toBe(true);
+      expect(existsSync(join(unpacked, 'resources.pri'))).toBe(true);
+      // One PRI: split scale PRIs never load outside an .msixbundle.
+      expect(
+        readdirSync(unpacked).filter((name) => name.endsWith('.pri')),
+      ).toEqual(['resources.pri']);
       expect(readdirSync(join(unpacked, 'themes'))).toHaveLength(5);
       expect(readdirSync(join(unpacked, 'resources/themes'))).toHaveLength(5);
       expect(existsSync(join(unpacked, 'installer/vellum-splash.bmp'))).toBe(

@@ -55,7 +55,7 @@
       "icons/128x128.png",
       "icons/128x128@2x.png",
       "icons/icon.icns",
-      "icons/icon.ico"
+      "icons/windows/icon.ico"
     ],
     "macOS": {
       "infoPlist": "Info.plist",
@@ -117,7 +117,7 @@
         "template": "installer/vellum-installer.nsi",
         "headerImage": "installer/nsis-header.bmp",
         "sidebarImage": "installer/nsis-sidebar.bmp",
-        "installerIcon": "icons/icon.ico",
+        "installerIcon": "icons/windows/icon.ico",
         "installMode": "currentUser",
         "languages": [
           "English",

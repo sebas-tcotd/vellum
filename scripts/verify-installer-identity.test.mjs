@@ -52,6 +52,7 @@ const FIXTURE_TREE = [
   'apps/desktop/src-tauri/linux',
   'apps/desktop/src-tauri/windows',
   'apps/desktop/src-tauri/icons/icon.ico',
+  'apps/desktop/src-tauri/icons/windows',
   'apps/desktop/public/vellum-logo.svg',
   'apps/desktop/src-tauri/tauri.macos.conf.json',
   'apps/desktop/src-tauri/tauri.windows.conf.json',
@@ -549,6 +550,53 @@ describe('verify-installer-identity', () => {
       writeJson(root, overlay, value);
       expect(details(root)).toContain('bundle');
       expect(rules(root)).toContain('identity-metadata');
+    });
+  });
+
+  describe('the Windows icon is derived from brand/', () => {
+    const ICON_DIR = 'apps/desktop/src-tauri/icons/windows';
+
+    it('fails when a derived icon is retouched at its destination', () => {
+      const root = cleanRoot();
+      const file = path.join(root, ICON_DIR, 'Square44x44Logo.scale-100.png');
+      fs.appendFileSync(file, Buffer.from([0]));
+      expect(rules(root)).toContain('windows-icon');
+    });
+
+    it('fails when the unplated glyph changes without a rebuild', () => {
+      const root = cleanRoot();
+      const file = path.join(root, 'brand/windows-app-icon-unplated.svg');
+      fs.appendFileSync(file, '<!-- retouched -->');
+      expect(details(root)).toContain('pnpm icons:windows');
+    });
+
+    it('fails when the Fluent source changes without a rebuild', () => {
+      const root = cleanRoot();
+      const file = path.join(root, 'brand/windows-app-icon.svg');
+      fs.appendFileSync(file, '<!-- retouched -->');
+      expect(details(root)).toContain('pnpm icons:windows');
+    });
+
+    it('fails when a derived icon is missing', () => {
+      const root = cleanRoot();
+      fs.rmSync(path.join(root, ICON_DIR, 'icon.ico'));
+      expect(rules(root)).toContain('windows-icon');
+    });
+
+    it('fails when the executable icon is not the Fluent one', () => {
+      const root = editConfig(cleanRoot(), (bundle) => {
+        bundle.icon = bundle.icon.map((icon) =>
+          icon.endsWith('.ico') ? 'icons/icon.ico' : icon,
+        );
+      });
+      expect(rules(root)).toContain('windows-icon');
+    });
+
+    it('fails when the NSIS installer icon is not the Fluent one', () => {
+      const root = editConfig(cleanRoot(), (bundle) => {
+        bundle.windows.nsis.installerIcon = 'icons/icon.ico';
+      });
+      expect(rules(root)).toContain('windows-icon');
     });
   });
 
