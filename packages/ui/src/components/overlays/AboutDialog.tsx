@@ -114,7 +114,7 @@ export function AboutDialog({
           <button
             type="button"
             onClick={() => onOpenChange(false)}
-            className="inline-flex items-center justify-center rounded-(--shell-radius-interactive) bg-(--shell-text-primary) px-4 py-2 text-sm font-medium text-(--shell-on-selected) shadow-sm transition-[background-color,transform] hover:bg-(--shell-surface-floating) hover:-translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-(--shell-focus)"
+            className="inline-flex items-center justify-center rounded-(--shell-radius-interactive) bg-(--shell-text-primary) px-4 py-2 text-sm font-medium text-(--shell-on-selected) shadow-sm transition-[background-color,transform] hover:bg-(--shell-text-primary)/90 hover:-translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-(--shell-focus)"
           >
             {t('common.close')}
           </button>
