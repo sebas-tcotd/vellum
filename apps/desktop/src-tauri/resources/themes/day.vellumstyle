@@ -5,40 +5,40 @@
   "mapFrame": "#e5dcc8",
   "terrain": {
     "base": "#ede5d2",
-    "low": "#b8b994",
+    "low": "#aaae86",
     "mid": "#d9d1b8",
     "high": "#c3af8d"
   },
   "contourLine": "#aa9e86",
-  "water": "#8fb6b2",
+  "water": "#86b0b0",
   "forests": "#5f7f4f",
   "transitBackground": "#3b4050",
   "roads": {
     "highway": {
       "generic": {
-        "fill": "#8a7056",
-        "casing": "#654d3a"
+        "fill": "#c0532c",
+        "casing": "#6e2a15"
       }
     },
     "largeArterial": {
       "generic": {
-        "fill": "#957359",
-        "casing": "#765840"
+        "fill": "#d9a24a",
+        "casing": "#7f5a22"
       }
     },
     "mediumArterial": {
       "generic": {
-        "fill": "#a98668",
-        "casing": "#87684f"
+        "fill": "#ead39c",
+        "casing": "#8f7457"
       }
     },
     "local": {
       "generic": {
-        "fill": "#c7b79d",
-        "casing": "#967e63"
+        "fill": "#f5eedf",
+        "casing": "#8f7b62"
       },
       "gravel": {
-        "fill": "#c2b292",
+        "fill": "#cdbd9b",
         "casing": "#9e896e"
       }
     },
@@ -58,11 +58,11 @@
     },
     "rail": {
       "train": {
-        "fill": "#e7e0cf",
-        "casing": "#554d46"
+        "fill": "#efe8d8",
+        "casing": "#4a4035"
       },
       "metro": {
-        "fill": "#e7e0cf",
+        "fill": "#efe8d8",
         "casing": "#66718f"
       }
     },
@@ -74,93 +74,93 @@
   "buildings": {
     "residential": {
       "low": {
-        "fill": "#d2c7b0",
-        "stroke": "#a89b84"
+        "fill": "#ecd2c4",
+        "stroke": "#86594a"
       },
       "high": {
-        "fill": "#c5b79c",
-        "stroke": "#988a71"
+        "fill": "#e0bba9",
+        "stroke": "#7a4e3f"
       },
       "selfSufficient": {
-        "fill": "#c4cdb0",
-        "stroke": "#97a589"
+        "fill": "#d6e0c4",
+        "stroke": "#5e6f4c"
       }
     },
     "commercial": {
       "low": {
-        "fill": "#d5c0aa",
-        "stroke": "#a68d78"
+        "fill": "#ddd3e8",
+        "stroke": "#665a7e"
       },
       "high": {
-        "fill": "#c7af96",
-        "stroke": "#977b66"
+        "fill": "#cbbedb",
+        "stroke": "#5a4c72"
       },
       "leisure": {
-        "fill": "#d0c0b7",
-        "stroke": "#a28f84"
+        "fill": "#e6cfe0",
+        "stroke": "#7a5670"
       },
       "tourism": {
-        "fill": "#d4c3a0",
-        "stroke": "#a79672"
+        "fill": "#efd6bc",
+        "stroke": "#86644a"
       },
       "organic": {
-        "fill": "#b5c2a7",
-        "stroke": "#8e9f80"
+        "fill": "#d2e0c4",
+        "stroke": "#5c6e4a"
       }
     },
     "office": {
       "generic": {
-        "fill": "#b3bdc0",
-        "stroke": "#87949a"
+        "fill": "#cfdfe6",
+        "stroke": "#55717d"
       },
       "tech": {
-        "fill": "#a0b1b8",
-        "stroke": "#778b92"
+        "fill": "#bed3dd",
+        "stroke": "#4c6876"
       },
       "financial": {
-        "fill": "#889aa1",
-        "stroke": "#63777f"
+        "fill": "#b1c6d2",
+        "stroke": "#44606e"
       }
     },
     "industry": {
       "generic": {
-        "fill": "#c9b87f",
-        "stroke": "#a08e5c"
+        "fill": "#ead9a6",
+        "stroke": "#7d6a36"
       },
       "forestry": {
-        "fill": "#abb38e",
-        "stroke": "#87986c"
+        "fill": "#d3dcb6",
+        "stroke": "#606c40"
       },
       "ore": {
-        "fill": "#ad9880",
-        "stroke": "#8e795f"
+        "fill": "#dcc8b4",
+        "stroke": "#735c45"
       },
       "oil": {
-        "fill": "#8d8775",
-        "stroke": "#6e695c"
+        "fill": "#d3cfc4",
+        "stroke": "#605b4f"
       },
       "farming": {
-        "fill": "#bcae7d",
-        "stroke": "#92855d"
+        "fill": "#e6dcae",
+        "stroke": "#76693a"
       }
     },
     "civic": {
       "publicTransport": {
-        "fill": "#a9b7b5",
-        "stroke": "#819694"
+        "fill": "#c8dedb",
+        "stroke": "#4f6f6b"
       },
       "education": {
-        "fill": "#afbdad",
-        "stroke": "#869b84"
+        "fill": "#d3e1cf",
+        "stroke": "#566c52"
       },
       "services": {
-        "fill": "#c1a99d",
-        "stroke": "#9c8175"
+        "fill": "#d8d4e2",
+        "stroke": "#5f5a74"
       }
     },
     "none": {
-      "fill": "#c8bca7",
-      "stroke": "#9f907b"
+      "fill": "#e8cbbb",
+      "stroke": "#7f5446"
     }
   },
   "districts": {
@@ -185,6 +185,6 @@
     "stroke": "#8a5a1f"
   },
   "roadLabels": {
-    "color": "#4a3f33"
+    "color": "#3f3529"
   }
 }
