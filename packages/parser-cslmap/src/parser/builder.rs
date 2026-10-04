@@ -285,12 +285,12 @@ pub(crate) fn build_city_data(mut raw: RawCity) -> Result<CityData, VellumError>
 
     let TerrainProducts {
         land_polygon,
-        inland_water_polygons,
         contour_lines,
         terrain_bands,
         terrain_dem,
     } = build_terrain(&raw.elev_grid, &raw.res_grid, sea_level)?;
     let coastline = vectorizer::coastline_from_land_polygons(&land_polygon, sea_level);
+    let inland_water_polygons = vectorizer::inland_water_from_land_polygons(&land_polygon);
 
     Ok(CityData {
         city_name: raw.city_name,
@@ -393,7 +393,6 @@ fn build_building(building: RawBuilding) -> Building {
 /// The terrain products `build_city_data` derives from the grids.
 struct TerrainProducts {
     land_polygon: Vec<TerrainPolygon>,
-    inland_water_polygons: Vec<TerrainPolygon>,
     contour_lines: Vec<TerrainIsoline>,
     terrain_bands: Vec<TerrainBand>,
     terrain_dem: TerrainDem,
@@ -409,14 +408,12 @@ fn build_terrain(
 ) -> Result<TerrainProducts, VellumError> {
     std::thread::scope(|scope| {
         let land = scope.spawn(|| vectorizer::vectorize_land_polygon(elev, res, sea_level));
-        let inland = scope.spawn(|| vectorizer::vectorize_inland_water(elev, res, sea_level));
         let contours = scope.spawn(|| vectorizer::vectorize_contour_lines(elev, sea_level, 3200.0));
         // Same step as the isolines above, so every band edge is a drawn contour.
         let bands = scope.spawn(|| vectorizer::vectorize_terrain_bands(elev, sea_level, 3200.0));
         let terrain_dem = texture::generate_terrain_dem(elev, res)?;
         Ok(TerrainProducts {
             land_polygon: join(land),
-            inland_water_polygons: join(inland),
             contour_lines: join(contours),
             terrain_bands: join(bands),
             terrain_dem,

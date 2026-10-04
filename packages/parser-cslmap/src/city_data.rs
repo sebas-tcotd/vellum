@@ -108,7 +108,8 @@ pub struct CityData {
 
     pub contour_lines: Vec<TerrainIsoline>,
 
-    /// Vectorized inland water bodies (rivers and lakes) in WGS-84. Rendered above `land_polygon`.
+    /// Inland water bodies (rivers and lakes) in WGS-84: the holes of `land_polygon`, with any
+    /// island inside them cut back out. Same rings as the coastline, so fill and stroke meet.
     pub inland_water_polygons: Vec<TerrainPolygon>,
     /// Elevation isobands for the optional terrain-shading layer, in WGS-84.
     /// Consumed by the SVG export; the interactive map uses `terrain_dem` instead.

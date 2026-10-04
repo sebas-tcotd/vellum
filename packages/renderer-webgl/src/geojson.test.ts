@@ -15,6 +15,7 @@ import {
   buildTransitGeoJson,
   buildTransitRenderData,
   buildTransitStopsGeoJson,
+  buildWaterSurfaceGeoJson,
 } from './geojson';
 
 // ─── Shared fixtures ──────────────────────────────────────────────────────────
@@ -1036,5 +1037,37 @@ describe('buildRoadLabelsGeoJson', () => {
       const c = geometry.coordinates;
       expect(c.some((p, i) => i > 0 && `${p}` === `${c[i - 1]}`)).toBe(false);
     }
+  });
+});
+
+describe('buildWaterSurfaceGeoJson', () => {
+  const square = (min: number, max: number): [number, number][] => [
+    [min, min],
+    [max, min],
+    [max, max],
+    [min, max],
+    [min, min],
+  ];
+
+  it('cuts only top-level landmasses out of the sea, never an island in a lake', () => {
+    const city = makeCityData({
+      landPolygon: [
+        { exterior: square(0, 0.01), holes: [square(0.002, 0.008)] },
+        // Island inside the lake above: the lake polygon cuts it out.
+        { exterior: square(0.004, 0.006), holes: [] },
+      ],
+      inlandWaterPolygons: [
+        { exterior: square(0.002, 0.008), holes: [square(0.004, 0.006)] },
+      ],
+    });
+
+    const [sea, lake] = buildWaterSurfaceGeoJson(city).features;
+    // World ring + the mainland only.
+    expect(sea!.geometry.coordinates).toHaveLength(2);
+    expect(sea!.geometry.coordinates[1]).toEqual(square(0, 0.01));
+    expect(lake!.geometry.coordinates).toEqual([
+      square(0.002, 0.008),
+      square(0.004, 0.006),
+    ]);
   });
 });
