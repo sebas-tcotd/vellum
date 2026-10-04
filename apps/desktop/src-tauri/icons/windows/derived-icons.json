@@ -80,6 +80,18 @@
       "size": 16,
       "sha256": "0bae6ceb1ba486ce6923e66ffaa821ca7223dea12780a5af9fabfd5d27a33b49"
     },
+    "Square44x44Logo.targetsize-20.png": {
+      "size": 20,
+      "sha256": "a20c4ebf1cdb3e51d1ad8ad3f324cd8a781dd0b411e0be4d05fcb734bf13e705"
+    },
+    "Square44x44Logo.targetsize-20_altform-unplated.png": {
+      "size": 20,
+      "sha256": "a20c4ebf1cdb3e51d1ad8ad3f324cd8a781dd0b411e0be4d05fcb734bf13e705"
+    },
+    "Square44x44Logo.targetsize-20_altform-lightunplated.png": {
+      "size": 20,
+      "sha256": "a20c4ebf1cdb3e51d1ad8ad3f324cd8a781dd0b411e0be4d05fcb734bf13e705"
+    },
     "Square44x44Logo.targetsize-24.png": {
       "size": 24,
       "sha256": "11b33d3ecc5e07d5c40cc817f635f8b99abfce4654ddfaaa2a39a63557b2a7ee"
@@ -91,6 +103,18 @@
     "Square44x44Logo.targetsize-24_altform-lightunplated.png": {
       "size": 24,
       "sha256": "11b33d3ecc5e07d5c40cc817f635f8b99abfce4654ddfaaa2a39a63557b2a7ee"
+    },
+    "Square44x44Logo.targetsize-30.png": {
+      "size": 30,
+      "sha256": "b6fc173f4b23a73e2cf6ed0240dad2c27461b72cac345969d6a0b4de5a442eb2"
+    },
+    "Square44x44Logo.targetsize-30_altform-unplated.png": {
+      "size": 30,
+      "sha256": "b6fc173f4b23a73e2cf6ed0240dad2c27461b72cac345969d6a0b4de5a442eb2"
+    },
+    "Square44x44Logo.targetsize-30_altform-lightunplated.png": {
+      "size": 30,
+      "sha256": "b6fc173f4b23a73e2cf6ed0240dad2c27461b72cac345969d6a0b4de5a442eb2"
     },
     "Square44x44Logo.targetsize-32.png": {
       "size": 32,
@@ -104,6 +128,30 @@
       "size": 32,
       "sha256": "a2c5703c59e6177537e3f5fdef9f73adb7f98fda96e0311082d87e2d41e8679d"
     },
+    "Square44x44Logo.targetsize-36.png": {
+      "size": 36,
+      "sha256": "5ac31145584c6185afb3da7f69da896cadc3d03073d8ce576a6c1d5d5c9f55d7"
+    },
+    "Square44x44Logo.targetsize-36_altform-unplated.png": {
+      "size": 36,
+      "sha256": "5ac31145584c6185afb3da7f69da896cadc3d03073d8ce576a6c1d5d5c9f55d7"
+    },
+    "Square44x44Logo.targetsize-36_altform-lightunplated.png": {
+      "size": 36,
+      "sha256": "5ac31145584c6185afb3da7f69da896cadc3d03073d8ce576a6c1d5d5c9f55d7"
+    },
+    "Square44x44Logo.targetsize-40.png": {
+      "size": 40,
+      "sha256": "2627eb55263b90c4250964242d4d5924dbe65d796f3af641a03b5cd5b9926756"
+    },
+    "Square44x44Logo.targetsize-40_altform-unplated.png": {
+      "size": 40,
+      "sha256": "2627eb55263b90c4250964242d4d5924dbe65d796f3af641a03b5cd5b9926756"
+    },
+    "Square44x44Logo.targetsize-40_altform-lightunplated.png": {
+      "size": 40,
+      "sha256": "2627eb55263b90c4250964242d4d5924dbe65d796f3af641a03b5cd5b9926756"
+    },
     "Square44x44Logo.targetsize-48.png": {
       "size": 48,
       "sha256": "46337abc6146b60e0787c7734f861b3ab481e53840946353f58ffa75e2634d72"
@@ -115,6 +163,66 @@
     "Square44x44Logo.targetsize-48_altform-lightunplated.png": {
       "size": 48,
       "sha256": "46337abc6146b60e0787c7734f861b3ab481e53840946353f58ffa75e2634d72"
+    },
+    "Square44x44Logo.targetsize-60.png": {
+      "size": 60,
+      "sha256": "7d05b46e338f551d78f475d6af2b33cf60d788630385ff2520ce5421358479e0"
+    },
+    "Square44x44Logo.targetsize-60_altform-unplated.png": {
+      "size": 60,
+      "sha256": "7d05b46e338f551d78f475d6af2b33cf60d788630385ff2520ce5421358479e0"
+    },
+    "Square44x44Logo.targetsize-60_altform-lightunplated.png": {
+      "size": 60,
+      "sha256": "7d05b46e338f551d78f475d6af2b33cf60d788630385ff2520ce5421358479e0"
+    },
+    "Square44x44Logo.targetsize-64.png": {
+      "size": 64,
+      "sha256": "54c4484d21e301c82c670e68b0c308a1df4ea7e8f79f9edce284c52107b674de"
+    },
+    "Square44x44Logo.targetsize-64_altform-unplated.png": {
+      "size": 64,
+      "sha256": "54c4484d21e301c82c670e68b0c308a1df4ea7e8f79f9edce284c52107b674de"
+    },
+    "Square44x44Logo.targetsize-64_altform-lightunplated.png": {
+      "size": 64,
+      "sha256": "54c4484d21e301c82c670e68b0c308a1df4ea7e8f79f9edce284c52107b674de"
+    },
+    "Square44x44Logo.targetsize-72.png": {
+      "size": 72,
+      "sha256": "3f1c7aedd94f4fa7ba6af6be3d2eb3a06dd32eb5f2dad43391355bb6eba8bfaf"
+    },
+    "Square44x44Logo.targetsize-72_altform-unplated.png": {
+      "size": 72,
+      "sha256": "3f1c7aedd94f4fa7ba6af6be3d2eb3a06dd32eb5f2dad43391355bb6eba8bfaf"
+    },
+    "Square44x44Logo.targetsize-72_altform-lightunplated.png": {
+      "size": 72,
+      "sha256": "3f1c7aedd94f4fa7ba6af6be3d2eb3a06dd32eb5f2dad43391355bb6eba8bfaf"
+    },
+    "Square44x44Logo.targetsize-80.png": {
+      "size": 80,
+      "sha256": "173de8674a26be4fca4823e9d880f6a2d76d2793f36b431715d850711108c8e3"
+    },
+    "Square44x44Logo.targetsize-80_altform-unplated.png": {
+      "size": 80,
+      "sha256": "173de8674a26be4fca4823e9d880f6a2d76d2793f36b431715d850711108c8e3"
+    },
+    "Square44x44Logo.targetsize-80_altform-lightunplated.png": {
+      "size": 80,
+      "sha256": "173de8674a26be4fca4823e9d880f6a2d76d2793f36b431715d850711108c8e3"
+    },
+    "Square44x44Logo.targetsize-96.png": {
+      "size": 96,
+      "sha256": "b4f8e3e53201feea52faac3e7ab221e7eb4c943b7cab17c14acd7845e1afdb92"
+    },
+    "Square44x44Logo.targetsize-96_altform-unplated.png": {
+      "size": 96,
+      "sha256": "b4f8e3e53201feea52faac3e7ab221e7eb4c943b7cab17c14acd7845e1afdb92"
+    },
+    "Square44x44Logo.targetsize-96_altform-lightunplated.png": {
+      "size": 96,
+      "sha256": "b4f8e3e53201feea52faac3e7ab221e7eb4c943b7cab17c14acd7845e1afdb92"
     },
     "Square44x44Logo.targetsize-256.png": {
       "size": 256,

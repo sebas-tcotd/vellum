@@ -53,8 +53,17 @@ export const ICO_SIZES = [
 /** The scale qualifiers Windows recommends for every MSIX logo. */
 const SCALES = [100, 125, 150, 200, 400];
 
-/** Taskbar and Start sizes; each one ships plated, unplated and light-unplated. */
-const TARGET_SIZES = [16, 24, 32, 48, 256];
+/**
+ * Taskbar and Start sizes; each one ships plated, unplated and light-unplated.
+ *
+ * @remarks
+ * The full set Microsoft lists, not just 16/24/32/48/256: the taskbar draws at
+ * 24 px times the display scale (30 at 125 %, 36 at 150 %), and a missing size
+ * is resampled from its neighbour, which is what made the icon look soft.
+ */
+export const TARGET_SIZES = [
+  16, 20, 24, 30, 32, 36, 40, 48, 60, 64, 72, 80, 96, 256,
+];
 const TARGET_FORMS = ['', '_altform-unplated', '_altform-lightunplated'];
 
 /** The logos `apps/desktop/msix/AppxManifest.xml` names, at 100 % scale. */

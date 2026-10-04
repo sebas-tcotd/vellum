@@ -15,6 +15,7 @@ import { fileURLToPath } from 'node:url';
 
 import {
   ICO_SIZES,
+  TARGET_SIZES,
   MSIX_LOGOS,
   WINDOWS_ICON_MANIFEST,
   WINDOWS_ICON_SOURCE,
@@ -54,7 +55,9 @@ describe('build-windows-icon', () => {
 
   it('ships each taskbar size plated, unplated and light-unplated', () => {
     const files = windowsIconPngs().map(({ file }) => file);
-    for (const size of [16, 24, 32, 48, 256]) {
+    // 24 px times 100, 125, 150, 200 and 400 % — the taskbar at each scale.
+    expect(TARGET_SIZES).toEqual(expect.arrayContaining([24, 30, 36, 48, 96]));
+    for (const size of TARGET_SIZES) {
       expect(files).toContain(`Square44x44Logo.targetsize-${size}.png`);
       expect(files).toContain(
         `Square44x44Logo.targetsize-${size}_altform-unplated.png`,
