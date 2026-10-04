@@ -46,7 +46,7 @@ import {
 import {
   WINDOWS_ICON_DIR,
   WINDOWS_ICON_MANIFEST,
-  WINDOWS_ICON_SOURCE,
+  WINDOWS_ICON_SOURCES,
   windowsIconPngs,
 } from './build-windows-icon.mjs';
 
@@ -1013,22 +1013,23 @@ function checkWindowsIcon(root, config) {
   const manifest = readJson(root, WINDOWS_ICON_MANIFEST, violations, rule);
   if (!manifest) return violations;
 
-  const sourcePath = path.join(root, WINDOWS_ICON_SOURCE);
-  if (!fs.existsSync(sourcePath)) {
-    violations.push({
-      file: WINDOWS_ICON_SOURCE,
-      rule,
-      detail: 'Missing. It is the source of the Windows icon.',
-    });
-  } else if (
-    sha256(fs.readFileSync(sourcePath)) !==
-    manifest.source?.[WINDOWS_ICON_SOURCE]
-  ) {
-    violations.push({
-      file: WINDOWS_ICON_SOURCE,
-      rule,
-      detail: `Changed since the icon was generated. Run "pnpm icons:windows" and commit ${WINDOWS_ICON_DIR}/ together with this change.`,
-    });
+  for (const relative of WINDOWS_ICON_SOURCES) {
+    const sourcePath = path.join(root, relative);
+    if (!fs.existsSync(sourcePath)) {
+      violations.push({
+        file: relative,
+        rule,
+        detail: 'Missing. It is a source of the Windows icon.',
+      });
+    } else if (
+      sha256(fs.readFileSync(sourcePath)) !== manifest.source?.[relative]
+    ) {
+      violations.push({
+        file: relative,
+        rule,
+        detail: `Changed since the icon was generated. Run "pnpm icons:windows" and commit ${WINDOWS_ICON_DIR}/ together with this change.`,
+      });
+    }
   }
 
   const expected = ['icon.ico', ...windowsIconPngs().map(({ file }) => file)];

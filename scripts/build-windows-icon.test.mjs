@@ -18,7 +18,9 @@ import {
   TARGET_SIZES,
   MSIX_LOGOS,
   WINDOWS_ICON_MANIFEST,
+  WINDOWS_ICON_LIGHT_UNPLATED_SOURCE,
   WINDOWS_ICON_SOURCE,
+  WINDOWS_ICON_SOURCES,
   buildWindowsIcon,
   encodeIco,
   windowsIconPngs,
@@ -33,9 +35,11 @@ describe('build-windows-icon', () => {
   it('reproduces the committed icon byte for byte', async () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'vellum-winicon-'));
     try {
-      const target = path.join(root, WINDOWS_ICON_SOURCE);
-      fs.mkdirSync(path.dirname(target), { recursive: true });
-      fs.copyFileSync(path.join(repoRoot, WINDOWS_ICON_SOURCE), target);
+      for (const relative of WINDOWS_ICON_SOURCES) {
+        const target = path.join(root, relative);
+        fs.mkdirSync(path.dirname(target), { recursive: true });
+        fs.copyFileSync(path.join(repoRoot, relative), target);
+      }
       const manifest = await buildWindowsIcon(root);
       const committed = JSON.parse(
         fs.readFileSync(path.join(repoRoot, WINDOWS_ICON_MANIFEST), 'utf8'),
@@ -64,6 +68,16 @@ describe('build-windows-icon', () => {
       );
       expect(files).toContain(
         `Square44x44Logo.targetsize-${size}_altform-lightunplated.png`,
+      );
+    }
+  });
+
+  it('draws only the light-taskbar icons from the unplated glyph', () => {
+    for (const { file, source } of windowsIconPngs()) {
+      expect(source, file).toBe(
+        file.includes('_altform-lightunplated')
+          ? WINDOWS_ICON_LIGHT_UNPLATED_SOURCE
+          : WINDOWS_ICON_SOURCE,
       );
     }
   });

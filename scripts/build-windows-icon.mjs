@@ -1,5 +1,6 @@
 /**
- * Derives Vellum's Windows icon from its Fluent artwork in `brand/`.
+ * Derives Vellum's Windows icon from its Fluent artwork in `brand/`: the
+ * plated light-theme icon and, for the light taskbar, the same glyph unplated.
  *
  * macOS has its own Liquid Glass icon (`icons/iconcomposer/`) and Linux keeps
  * the flat one `tauri icon` writes to `icons/`. Windows draws from
@@ -25,8 +26,25 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-/** The Fluent artwork, exported from Figma. */
+/** The Fluent artwork for the light theme, the default, with its plate. */
 export const WINDOWS_ICON_SOURCE = 'brand/windows-app-icon.svg';
+
+/**
+ * The same glyph without its plate, for the light taskbar and Start.
+ *
+ * @remarks
+ * "Unplated" means what it says: Windows draws these on the taskbar itself,
+ * and a cream plate on a light taskbar loses its edge. The dark taskbar keeps
+ * the plated artwork, which reads well there, until a dark variant exists.
+ */
+export const WINDOWS_ICON_LIGHT_UNPLATED_SOURCE =
+  'brand/vellum-fluent-light-unplated.svg';
+
+/** Every `brand/` file the Windows icon is derived from. */
+export const WINDOWS_ICON_SOURCES = [
+  WINDOWS_ICON_SOURCE,
+  WINDOWS_ICON_LIGHT_UNPLATED_SOURCE,
+];
 
 /** Where the derived icon lands; `tauri.windows.conf.json` points here. */
 export const WINDOWS_ICON_DIR = 'apps/desktop/src-tauri/icons/windows';
@@ -55,6 +73,7 @@ const SCALES = [100, 125, 150, 200, 400];
 
 /**
  * Taskbar and Start sizes; each one ships plated, unplated and light-unplated.
+ * Only the light-unplated ones come from the unplated glyph.
  *
  * @remarks
  * The full set Microsoft lists, not just 16/24/32/48/256: the taskbar draws at
@@ -64,7 +83,11 @@ const SCALES = [100, 125, 150, 200, 400];
 export const TARGET_SIZES = [
   16, 20, 24, 30, 32, 36, 40, 48, 60, 64, 72, 80, 96, 256,
 ];
-const TARGET_FORMS = ['', '_altform-unplated', '_altform-lightunplated'];
+const TARGET_FORMS = {
+  '': WINDOWS_ICON_SOURCE,
+  '_altform-unplated': WINDOWS_ICON_SOURCE,
+  '_altform-lightunplated': WINDOWS_ICON_LIGHT_UNPLATED_SOURCE,
+};
 
 /** The logos `apps/desktop/msix/AppxManifest.xml` names, at 100 % scale. */
 export const MSIX_LOGOS = {
@@ -73,7 +96,7 @@ export const MSIX_LOGOS = {
   StoreLogo: 50,
 };
 
-/** Every PNG this generator writes, with its pixel size. */
+/** Every PNG this generator writes, with its pixel size and its source. */
 export function windowsIconPngs() {
   const files = [];
   for (const [logo, base] of Object.entries(MSIX_LOGOS)) {
@@ -81,14 +104,16 @@ export function windowsIconPngs() {
       files.push({
         file: `${logo}.scale-${scale}.png`,
         size: Math.round((base * scale) / 100),
+        source: WINDOWS_ICON_SOURCE,
       });
     }
   }
   for (const size of TARGET_SIZES) {
-    for (const form of TARGET_FORMS) {
+    for (const [form, source] of Object.entries(TARGET_FORMS)) {
       files.push({
         file: `Square44x44Logo.targetsize-${size}${form}.png`,
         size,
+        source,
       });
     }
   }
@@ -136,26 +161,31 @@ export function encodeIco(images) {
  */
 export async function buildWindowsIcon(root) {
   const { Resvg } = await import('@resvg/resvg-js');
-  const source = fs.readFileSync(path.join(root, WINDOWS_ICON_SOURCE));
-  const svg = source.toString('utf8');
+  const sources = new Map(
+    WINDOWS_ICON_SOURCES.map((relative) => [
+      relative,
+      fs.readFileSync(path.join(root, relative)),
+    ]),
+  );
 
   // Each size is rendered from the vector, never downscaled from a bigger PNG,
   // so the 16 px icon gets resvg's own antialiasing at 16 px.
   const cache = new Map();
-  const render = (size) => {
-    if (!cache.has(size)) {
-      const rendered = new Resvg(svg, {
+  const render = (size, relative = WINDOWS_ICON_SOURCE) => {
+    const key = `${relative}@${size}`;
+    if (!cache.has(key)) {
+      const rendered = new Resvg(sources.get(relative).toString('utf8'), {
         font: { loadSystemFonts: false },
         fitTo: { mode: 'width', value: size },
       }).render();
       if (rendered.width !== size || rendered.height !== size) {
         throw new Error(
-          `${WINDOWS_ICON_SOURCE} rendered at ${rendered.width}x${rendered.height} for ${size}; the artwork must be square`,
+          `${relative} rendered at ${rendered.width}x${rendered.height} for ${size}; the artwork must be square`,
         );
       }
-      cache.set(size, rendered.asPng());
+      cache.set(key, rendered.asPng());
     }
-    return cache.get(size);
+    return cache.get(key);
   };
 
   const outputDir = path.join(root, WINDOWS_ICON_DIR);
@@ -173,14 +203,16 @@ export async function buildWindowsIcon(root) {
     encodeIco(ICO_SIZES.map((size) => ({ size, png: render(size) }))),
     Math.max(...ICO_SIZES),
   );
-  for (const { file, size } of windowsIconPngs()) {
-    write(file, render(size), size);
+  for (const { file, size, source } of windowsIconPngs()) {
+    write(file, render(size, source), size);
   }
 
   const manifest = {
     $comment:
       'Generated by `pnpm icons:windows`. Do not edit: `pnpm check:installer` compares these hashes against brand/ and against the files on disk.',
-    source: { [WINDOWS_ICON_SOURCE]: sha256(source) },
+    source: Object.fromEntries(
+      [...sources].map(([relative, bytes]) => [relative, sha256(bytes)]),
+    ),
     files,
   };
   fs.writeFileSync(
