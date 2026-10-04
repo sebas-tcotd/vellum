@@ -432,7 +432,10 @@ export interface CityData {
   landPolygon: TerrainPolygon[];
   /** Coastline isoline extracted from `landPolygon` rings. Elevation equals `seaLevel`. */
   coastline: TerrainIsoline;
-  /** Vectorized inland water bodies (rivers and lakes) in WGS-84. Rendered above `landPolygon`. */
+  /**
+   * Inland water bodies (rivers and lakes) in WGS-84: the holes of `landPolygon`, with any
+   * island inside them cut back out. Same rings as `coastline`, so fill and stroke meet.
+   */
   inlandWaterPolygons: TerrainPolygon[];
   /** Elevation isolines for the optional contour-line layer, in WGS-84. */
   contourLines: TerrainIsoline[];

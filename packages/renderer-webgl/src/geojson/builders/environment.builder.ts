@@ -4,6 +4,7 @@ import {
   classifyDistrictSpecialization,
   districtAreaKm2,
   type CityData,
+  type TerrainRing,
 } from '@vellum/core';
 import { CS1_WORLD_HALF, csToGeoArray } from '../../coordinate-transform';
 import type {
@@ -176,15 +177,24 @@ export function buildParkAreasGeoJson(
  * water 25.0…215.7 m, with 31 % of land cells below the highest water cell). The exact
  * vector coastline the parser already produced is the only boundary available.
  *
- * The sea is the full world extent with every `landPolygon` exterior cut out as a hole;
- * inland bodies come from `inlandWaterPolygons`, which live *inside* those exteriors and
- * so are not covered by the sea ring.
+ * The sea is the full world extent with every top-level `landPolygon` exterior cut out
+ * as a hole. Inland bodies come from `inlandWaterPolygons`, which the parser derives from
+ * the land polygons' own holes, so their edge is the coastline ring itself. An island in
+ * a lake is cut out by that lake, not by the sea: as a second sea hole it would sit
+ * inside the first, which is not a valid polygon.
  */
 export function buildWaterSurfaceGeoJson(
   cityData: CityData,
 ): WaterFeatureCollection {
   const [outerRing] =
     buildWorldExtentGeoJson().features[0]?.geometry.coordinates ?? [];
+  const lakes = cityData.landPolygon.flatMap((poly) => poly.holes);
+  const landmasses = cityData.landPolygon
+    .map((poly) => poly.exterior)
+    .filter((exterior) => {
+      const vertex = exterior[0];
+      return !vertex || !lakes.some((lake) => ringContains(lake, vertex));
+    });
 
   const sea: WaterFeatureCollection['features'] = outerRing
     ? [
@@ -192,10 +202,7 @@ export function buildWaterSurfaceGeoJson(
           type: 'Feature',
           geometry: {
             type: 'Polygon',
-            coordinates: [
-              outerRing,
-              ...cityData.landPolygon.map((poly) => poly.exterior),
-            ],
+            coordinates: [outerRing, ...landmasses],
           },
           properties: {},
         },
@@ -213,6 +220,22 @@ export function buildWaterSurfaceGeoJson(
     }));
 
   return { type: 'FeatureCollection', features: [...sea, ...inland] };
+}
+
+/** Even-odd ray cast. Isobands never cross, so one vertex places a whole ring. */
+function ringContains(
+  ring: TerrainRing,
+  [x, y]: readonly [number, number],
+): boolean {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [xi, yi] = ring[i]!;
+    const [xj, yj] = ring[j]!;
+    if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) {
+      inside = !inside;
+    }
+  }
+  return inside;
 }
 
 /**

@@ -1,6 +1,4 @@
-use super::grid::{
-    is_water, MIN_WATER_DEPTH, TERRAIN_CELL_SIZE, TERRAIN_GRID_SIZE, TERRAIN_MAP_ORIGIN,
-};
+use super::grid::{MIN_WATER_DEPTH, TERRAIN_CELL_SIZE, TERRAIN_GRID_SIZE, TERRAIN_MAP_ORIGIN};
 use crate::city_data::{TerrainBand, TerrainIsoline, TerrainPolygon, TerrainRing};
 use contour::ContourBuilder;
 use geo::Simplify;
@@ -66,43 +64,66 @@ pub fn vectorize_land_polygon(
     }
 }
 
-/// Vectorizes inland water bodies (rivers and lakes) into `TerrainPolygon`s.
+/// Builds the inland water surface (rivers and lakes) from the land polygons' own holes.
 ///
-/// A cell is water when [`is_water`] holds for its depth (`res`). The `elev > sea_level`
-/// term compares mixed scales and is always true (see `grid::ELEVATION_UNITS_PER_METER`).
-pub fn vectorize_inland_water(
-    elev_grid: &[f64],
-    res_grid: &[f64],
-    sea_level: f64,
-) -> Vec<TerrainPolygon> {
-    let inland_mask: Vec<f64> = elev_grid
+/// The fill and the coastline stroke must share one boundary: the coastline is
+/// [`coastline_from_land_polygons`], i.e. these same rings. Contouring water a second
+/// time from its own mask drew a stair-stepped fill a few metres inside the smooth
+/// stroke, with a strip of relief showing between them.
+///
+/// Each hole becomes a water polygon. Land lying directly inside it (an island in the
+/// lake) is cut back out as a hole of that water polygon; a lake on that island is in
+/// turn a hole of the island, so it comes out of this same pass.
+pub fn inland_water_from_land_polygons(polygons: &[TerrainPolygon]) -> Vec<TerrainPolygon> {
+    polygons
         .iter()
-        .zip(res_grid.iter())
-        .map(|(&elev, &res)| {
-            if elev > sea_level && is_water(res) {
-                1.0
-            } else {
-                0.0
+        .flat_map(|poly| poly.holes.iter())
+        .map(|hole| {
+            let inside: Vec<&TerrainRing> = polygons
+                .iter()
+                .map(|land| &land.exterior)
+                .filter(|exterior| ring_inside(exterior, hole))
+                .collect();
+            // Only the outermost islands: one nested in another island's lake is that
+            // lake's island, not this one's.
+            let islands = inside
+                .iter()
+                .enumerate()
+                .filter(|&(i, island)| {
+                    !inside
+                        .iter()
+                        .enumerate()
+                        .any(|(j, other)| i != j && ring_inside(island, other))
+                })
+                .map(|(_, island)| (*island).clone())
+                .collect();
+            TerrainPolygon {
+                exterior: hole.clone(),
+                holes: islands,
             }
         })
-        .collect();
+        .collect()
+}
 
-    match terrain_builder().contours(&inland_mask, &[0.5_f64, 1.5_f64]) {
-        Ok(bands) => bands
-            .iter()
-            .flat_map(|band| {
-                band.geometry()
-                    .0
-                    .iter()
-                    .map(|poly| geo_poly_to_terrain_polygon(&simplify_polygon(poly)))
-                    .collect::<Vec<_>>()
-            })
-            .collect(),
-        Err(e) => {
-            eprintln!("[parser-cslmap] inland water vectorization error: {e}");
-            vec![]
+/// Whether `inner` lies inside `outer`. Isobands never cross, so one vertex decides.
+fn ring_inside(inner: &TerrainRing, outer: &TerrainRing) -> bool {
+    inner
+        .0
+        .first()
+        .is_some_and(|&point| ring_contains(outer, point))
+}
+
+/// Even-odd ray cast: whether `point` lies inside the closed `ring`.
+fn ring_contains(ring: &TerrainRing, [x, y]: [f64; 2]) -> bool {
+    let points = &ring.0;
+    let mut inside = false;
+    for (i, &[xi, yi]) in points.iter().enumerate() {
+        let [xj, yj] = points[(i + points.len() - 1) % points.len()];
+        if (yi > y) != (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi {
+            inside = !inside;
         }
     }
+    inside
 }
 
 /// Vectorizes the terrain into elevation isobands — closed, fillable polygons
@@ -342,5 +363,66 @@ mod tests {
                 line.elevation
             );
         }
+    }
+
+    fn square(min: f64, max: f64) -> TerrainRing {
+        TerrainRing(vec![
+            [min, min],
+            [max, min],
+            [max, max],
+            [min, max],
+            [min, min],
+        ])
+    }
+
+    #[test]
+    fn inland_water_reuses_the_land_holes_exactly() {
+        let land = vec![TerrainPolygon {
+            exterior: square(0.0, 10.0),
+            holes: vec![square(2.0, 8.0)],
+        }];
+        let water = inland_water_from_land_polygons(&land);
+        assert_eq!(water.len(), 1);
+        // Same ring the coastline is drawn from: no offset is possible.
+        assert_eq!(water[0].exterior.0, land[0].holes[0].0);
+        assert!(water[0].holes.is_empty());
+    }
+
+    #[test]
+    fn an_island_in_a_lake_stays_dry() {
+        let land = vec![
+            TerrainPolygon {
+                exterior: square(0.0, 10.0),
+                holes: vec![square(2.0, 8.0)],
+            },
+            // Island in the lake, with its own pond.
+            TerrainPolygon {
+                exterior: square(3.0, 7.0),
+                holes: vec![square(4.0, 6.0)],
+            },
+            // A rock in that pond.
+            TerrainPolygon {
+                exterior: square(4.5, 5.5),
+                holes: vec![],
+            },
+        ];
+        let water = inland_water_from_land_polygons(&land);
+        assert_eq!(water.len(), 2);
+        // The lake cuts out only the island, not the rock inside the island's pond.
+        assert_eq!(water[0].holes.len(), 1);
+        assert_eq!(water[0].holes[0].0, land[1].exterior.0);
+        // The pond is water again, minus its rock.
+        assert_eq!(water[1].exterior.0, land[1].holes[0].0);
+        assert_eq!(water[1].holes.len(), 1);
+        assert_eq!(water[1].holes[0].0, land[2].exterior.0);
+    }
+
+    #[test]
+    fn land_without_holes_has_no_inland_water() {
+        let land = vec![TerrainPolygon {
+            exterior: square(0.0, 10.0),
+            holes: vec![],
+        }];
+        assert!(inland_water_from_land_polygons(&land).is_empty());
     }
 }
