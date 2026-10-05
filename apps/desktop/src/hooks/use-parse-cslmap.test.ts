@@ -32,7 +32,7 @@ describe('useParseCslmap', () => {
     vi.mocked(resolveResource).mockResolvedValue(
       '/installed/resources/sample-city/city.vellummap',
     );
-    const city = makeCityData({ cityName: 'Aurelia del Delta' });
+    const city = makeCityData({ cityName: SAMPLE_CITY.name });
     vi.mocked(invoke).mockResolvedValue(city);
     const { result } = renderHook(() => useParseCslmap());
     await act(() => result.current.openSampleCity());
