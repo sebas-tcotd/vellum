@@ -1137,13 +1137,60 @@ h3 {
 }
 
 .download-section {
+  display: block;
+  padding-block: 76px 86px;
+  background: var(--contrast);
+  color: var(--contrast-ink);
+}
+
+.download-lang {
   display: flex;
   align-items: end;
   justify-content: space-between;
   gap: 32px;
-  padding-block: 76px 86px;
-  background: var(--contrast);
+}
+
+html[lang='es'] .download-lang[lang='en'],
+html:not([lang='es']) .download-lang[lang='es'] {
+  display: none;
+}
+
+.download-platforms {
+  display: grid;
+  flex: 1 1 auto;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 24px;
+  max-width: 640px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.download-platforms ul {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.download-platforms h3 {
+  margin: 0 0 12px;
   color: var(--contrast-ink);
+}
+
+.download-platforms a {
+  display: grid;
+  gap: 2px;
+  color: var(--contrast-ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.download-file {
+  font-size: 0.78rem;
+  opacity: 0.7;
+  overflow-wrap: anywhere;
 }
 
 .download-section.page-width {
@@ -1250,6 +1297,15 @@ h3 {
 }
 
 @media (max-width: 767px) {
+  .download-lang {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .download-platforms {
+    grid-template-columns: 1fr;
+  }
+
   .page-width,
   .download-section.page-width {
     width: min(100% - 32px, 600px);

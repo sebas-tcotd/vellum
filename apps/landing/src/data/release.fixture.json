@@ -1,0 +1,119 @@
+[
+  {
+    "assets": [
+      {
+        "browser_download_url": "https://github.com/sebas-tcotd/vellum/releases/download/v0.14.0/latest.json",
+        "digest": "sha256:8efe0541f31f08f2d5b11f750e3f6002a20b01caa8d7059fce6c169f1f162f2f",
+        "name": "latest.json",
+        "size": 9502
+      },
+      {
+        "browser_download_url": "https://github.com/sebas-tcotd/vellum/releases/download/v0.14.0/signing-evidence.md",
+        "digest": "sha256:ecb0021e11038bbc895d5a96bc51e436fbac8d525518ced0e7c66b4f162a2b06",
+        "name": "signing-evidence.md",
+        "size": 5913
+      },
+      {
+        "browser_download_url": "https://github.com/sebas-tcotd/vellum/releases/download/v0.14.0/Vellum-0.14.0-1.x86_64.rpm",
+        "digest": "sha256:a66935f6911d1b12264e523a52ac8cf40f67e54591c5bf849ecb01bf35a064e9",
+        "name": "Vellum-0.14.0-1.x86_64.rpm",
+        "size": 7774212
+      },
+      {
+        "browser_download_url": "https://github.com/sebas-tcotd/vellum/releases/download/v0.14.0/Vellum-0.14.0-1.x86_64.rpm.sig",
+        "digest": "sha256:2b0805d3289afdc8d41933c4657beee6b7b0f35b9d09e8d8ccd290e270642847",
+        "name": "Vellum-0.14.0-1.x86_64.rpm.sig",
+        "size": 416
+      },
+      {
+        "browser_download_url": "https://github.com/sebas-tcotd/vellum/releases/download/v0.14.0/VellumCityMaps_0.14.0.0_x64.msix",
+        "digest": "sha256:ba771bec1ae193cdf8c0e6383e2b774a3eaed8f0f86a774734ae9535922e6098",
+        "name": "VellumCityMaps_0.14.0.0_x64.msix",
+        "size": 6986166
+      },
+      {
+        "browser_download_url": "https://github.com/sebas-tcotd/vellum/releases/download/v0.14.0/Vellum_0.14.0_amd64.AppImage",
+        "digest": "sha256:c49b7c2652ffcd8df3bfd70cd0b31f7d055f342a14cac2c7e51cc143de032a39",
+        "name": "Vellum_0.14.0_amd64.AppImage",
+        "size": 85502456
+      },
+      {
+        "browser_download_url": "https://github.com/sebas-tcotd/vellum/releases/download/v0.14.0/Vellum_0.14.0_amd64.AppImage.sig",
+        "digest": "sha256:d00a09797e45049756b6b2a8c166a791d2dc4e9b02295322472bb105002b6432",
+        "name": "Vellum_0.14.0_amd64.AppImage.sig",
+        "size": 420
+      },
+      {
+        "browser_download_url": "https://github.com/sebas-tcotd/vellum/releases/download/v0.14.0/Vellum_0.14.0_amd64.deb",
+        "digest": "sha256:15c25f31f52aee65b9e11d2b80c34f73f6cc39331f299428bb7b28a6348f38bb",
+        "name": "Vellum_0.14.0_amd64.deb",
+        "size": 7774506
+      },
+      {
+        "browser_download_url": "https://github.com/sebas-tcotd/vellum/releases/download/v0.14.0/Vellum_0.14.0_amd64.deb.sig",
+        "digest": "sha256:8c519331c2cee83d2b5383824a89a419cc09941b423c37be24d1a4717fe6373a",
+        "name": "Vellum_0.14.0_amd64.deb.sig",
+        "size": 412
+      },
+      {
+        "browser_download_url": "https://github.com/sebas-tcotd/vellum/releases/download/v0.14.0/Vellum_0.14.0_universal.dmg",
+        "digest": "sha256:ff29bb296fd570ef34a4ea92319a4ba97eca7e3682ca2001567bfa289360e008",
+        "name": "Vellum_0.14.0_universal.dmg",
+        "size": 17529008
+      },
+      {
+        "browser_download_url": "https://github.com/sebas-tcotd/vellum/releases/download/v0.14.0/Vellum_0.14.0_x64-setup.exe",
+        "digest": "sha256:062411ff3c19e67555cf129b86a2ba46395a62b45adc3798a99b76335c1fc1c0",
+        "name": "Vellum_0.14.0_x64-setup.exe",
+        "size": 4689446
+      },
+      {
+        "browser_download_url": "https://github.com/sebas-tcotd/vellum/releases/download/v0.14.0/Vellum_0.14.0_x64-setup.exe.sig",
+        "digest": "sha256:293aa26b22e831eed345c1efb75e16b4d3ea32f9a3c58575159498303dcda48c",
+        "name": "Vellum_0.14.0_x64-setup.exe.sig",
+        "size": 416
+      },
+      {
+        "browser_download_url": "https://github.com/sebas-tcotd/vellum/releases/download/v0.14.0/Vellum_0.14.0_x64_en-US.msi",
+        "digest": "sha256:381f40463c72b088365529031c3fefa046bef919ae296afcd336cc000f8d665e",
+        "name": "Vellum_0.14.0_x64_en-US.msi",
+        "size": 6955008
+      },
+      {
+        "browser_download_url": "https://github.com/sebas-tcotd/vellum/releases/download/v0.14.0/Vellum_0.14.0_x64_en-US.msi.sig",
+        "digest": "sha256:aec22dcee95b670a5821a90b91ae797bdd1e799278d3e20a1fdeeab1a28b9647",
+        "name": "Vellum_0.14.0_x64_en-US.msi.sig",
+        "size": 416
+      },
+      {
+        "browser_download_url": "https://github.com/sebas-tcotd/vellum/releases/download/v0.14.0/Vellum_0.14.0_x64_es-ES.msi",
+        "digest": "sha256:7523dbb1c5bce587cca898511b42af31e5e56ebbbba0a7e04a11fcf24b33959a",
+        "name": "Vellum_0.14.0_x64_es-ES.msi",
+        "size": 6959104
+      },
+      {
+        "browser_download_url": "https://github.com/sebas-tcotd/vellum/releases/download/v0.14.0/Vellum_0.14.0_x64_es-ES.msi.sig",
+        "digest": "sha256:e238594f9b53e074cfcb9a5e9f389d1f194d0e3836d6638bbdd55c09c67e47b6",
+        "name": "Vellum_0.14.0_x64_es-ES.msi.sig",
+        "size": 416
+      },
+      {
+        "browser_download_url": "https://github.com/sebas-tcotd/vellum/releases/download/v0.14.0/Vellum_universal.app.tar.gz",
+        "digest": "sha256:695d136d54e8e805ea01b9b7aa3ca61427ed3b98154a372f45e42216f9ae18a3",
+        "name": "Vellum_universal.app.tar.gz",
+        "size": 16359948
+      },
+      {
+        "browser_download_url": "https://github.com/sebas-tcotd/vellum/releases/download/v0.14.0/Vellum_universal.app.tar.gz.sig",
+        "digest": "sha256:0e5af3a45a1d687665f18eb2ca1e9fe6c0ffd3776afcff082609a7fd46b52e8f",
+        "name": "Vellum_universal.app.tar.gz.sig",
+        "size": 404
+      }
+    ],
+    "draft": false,
+    "html_url": "https://github.com/sebas-tcotd/vellum/releases/tag/v0.14.0",
+    "prerelease": false,
+    "published_at": "2026-10-04T15:28:05Z",
+    "tag_name": "v0.14.0"
+  }
+]

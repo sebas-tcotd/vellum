@@ -38,6 +38,15 @@ fallback de SPA.
 - `src/i18n.ts`, `i18n/*.json`: idioma por `?lang=`, la clave
   `vellum-landing-language` y el navegador.
 - `src/analytics.ts`: consentimiento de GA4; `/privacy/` nunca lo carga.
+- `src/data/release.ts`: datos del release al compilar. Elige el release de
+  mayor semver `v<semver>` (sin borradores ni prereleases) y cada instalador por
+  patrón de nombre. Con `CI=true` lee la API de GitHub con `GITHUB_TOKEN` y, si
+  falla, el build falla; fuera de CI usa `release.fixture.json`.
+  `LANDING_RELEASE_SOURCE=live|fixture` fuerza uno de los dos.
+- `src/components/DownloadBand.astro`: la banda `#download` con enlaces directos
+  por plataforma en el HTML servido. La home la mueve a su sitio desde la isla
+  (`DownloadSlot` en `App.tsx`) hasta que las páginas nuevas del paso 5 la
+  rendericen en Astro.
 - `public/`: assets servidos tal cual bajo `/vellum/`.
 - `tests/`: Playwright (rutas y URLs duras, consentimiento, privacidad) y el
   servidor estático.
@@ -52,7 +61,7 @@ fallback de SPA.
 ## GitHub Pages
 
 El workflow [`deploy-pages.yml`](../../.github/workflows/deploy-pages.yml)
-compila `dist/`, lo publica usando GitHub Actions y comprueba el sitio
+se dispara con cambios en la landing y al terminar con éxito _Publish Release_ (así la banda `#download` toma el release nuevo); compila `dist/`, lo publica usando GitHub Actions y comprueba el sitio
 desplegado (home, privacidad con y sin barra, 404 y que los assets referenciados
 en el HTML servido resuelvan bajo `/vellum/`). Las imágenes que crean las islas
 en el cliente no aparecen en ese HTML: solo las comprueban los tests de
