@@ -101,10 +101,22 @@ tokens desde `DESIGN.md`.
    shadow root. `data-platform`/`data-appearance` van en un `div` interno.
    **Antes:** spike de medio día con comparación Playwright contra la app; si
    falla, se usan las capturas de respaldo (T37, T35).
+   **Spike hecho (2026-10-05): viable.** Las 6 comparaciones (panel y tarjeta ×
+   `linux` claro, `macos` claro, `linux` oscuro) dan 0 % de píxeles distintos
+   frente a una referencia con el `globals.css` completo, con el comparador y
+   el umbral de los goldens; las pruebas de fuga también dan 0 %. Hizo falta
+   que el bloque de tokens por defecto de `02-themes.css` se aplique a los
+   cuatro perfiles de `data-platform`: con `:host` a secas, los tokens
+   definidos con `var()` se resolvían en el host (la tarjeta macOS daba
+   0,15 %, por debajo del umbral). Al pasar el envoltorio a `src/`, el
+   `tsconfig` de la landing necesita `lib` ES2022 y `paths` propios para
+   `@vellum/*`. Cifras y hallazgos: `apps/landing/spike/REPORT.md`; código y
+   tests: `apps/landing/spike/`, `apps/landing/tests-spike/`.
 3. **Orden de implementación:** (1) ~~`DESIGN.md` raíz (sección B)~~, hecho; (2)
    andamiaje Astro conservando `/vellum/#download` y `/vellum/privacy`, con
-   tests, hecho; (3) ~~datos del release al compilar + workflow~~, hecho; (4) spike de CSS de
-   componentes; (5) páginas.
+   tests, hecho; (3) ~~datos del release al compilar + workflow~~, hecho; (4)
+   ~~spike de CSS de componentes~~, hecho (viable: componentes reales, sin las
+   capturas T37/T35); (5) páginas.
 
 ## D. Ciudades de las tomas
 

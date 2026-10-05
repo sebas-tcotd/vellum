@@ -1,0 +1,51 @@
+/* Shadow-root stylesheet for embedding real app components in the landing
+   (Declarative Shadow DOM, SSR without hydration).
+
+   Same ITCSS order as globals.css, with two differences:
+   - No 03-generic.css: it styles <body> for the app window (min-width: 900px,
+     overflow: hidden). The host reset below takes its place.
+   - No @font-face: it does not apply inside a shadow root. The document
+     declares it through embed-fonts.css, together with the @property rules
+     Tailwind v4 emits here (Chromium ignores @property in shadow trees, so the
+     embedding page has to lift them into the document).
+
+   Tokens that the app scopes to :root are also declared on :host, and
+   data-platform/data-appearance go on an element inside the shadow root. */
+
+/* Declared first so it is the weakest layer: Tailwind's preflight (html, :host)
+   still applies on top of it, as it does on the app's <html>. */
+@layer vellum-embed-host;
+
+@import 'tailwindcss';
+@import './styles/01-settings-tokens.css';
+@import './styles/02-themes.css';
+@import './styles/04-objects.css';
+@import './styles/05-components.css';
+@import './styles/06-utilities.css';
+@import './styles/07-animations.css';
+
+@source '.';
+
+@layer vellum-embed-host {
+  /* Nothing the page sets on its own elements may inherit into the
+     component: font size, colour, letter spacing… all start from initial. */
+  :host {
+    all: initial;
+    display: block;
+  }
+
+  /* Page rules that match the host itself (`*`, the element name) beat
+     `:host` and would still inherit inward, so the element that carries
+     data-platform/data-appearance (the app puts them on <html>) starts again
+     from initial and takes what the app's <html> (Tailwind preflight) and
+     <body> (03-generic.css) give it. */
+  [data-platform] {
+    all: initial;
+    line-height: 1.5;
+    -webkit-text-size-adjust: 100%;
+    tab-size: 4;
+    -webkit-tap-highlight-color: transparent;
+    color: var(--color-text);
+    font-family: var(--font-ui);
+  }
+}

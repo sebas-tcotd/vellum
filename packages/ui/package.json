@@ -10,6 +10,12 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
+    "./embed": {
+      "types": "./src/embed.ts",
+      "default": "./src/embed.ts"
+    },
+    "./embed.css": "./src/embed.css",
+    "./embed-fonts.css": "./src/embed-fonts.css",
     "./globals.css": "./src/globals.css"
   },
   "scripts": {

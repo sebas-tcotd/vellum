@@ -1,0 +1,64 @@
+---
+/**
+ * The reference side: the same components in the normal DOM with the app's
+ * complete globals.css, data-platform/data-appearance on <html> as the app
+ * sets them (PlatformProvider, App.tsx).
+ */
+import '@vellum/ui/globals.css';
+import '../../embed-frame.css';
+import '../../page-layout.css';
+import {
+  SampleAdvancedOptionsPanel,
+  SamplePlaceCard,
+} from '../../components/SampleComponents';
+import { FRAME_WIDTH, SPIKE_VARIANTS, type SpikeVariant } from '../../variants';
+
+export function getStaticPaths() {
+  return SPIKE_VARIANTS.map((variant) => ({
+    params: { variant: variant.id },
+    props: { variant },
+  }));
+}
+
+interface Props {
+  variant: SpikeVariant;
+}
+
+const { variant } = Astro.props;
+---
+
+<!doctype html>
+<html
+  lang="en"
+  data-platform={variant.platform}
+  data-appearance={variant.appearance}
+>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>Spike · reference · {variant.id}</title>
+  </head>
+  <body>
+    <main class="spike-row">
+      <figure class="spike-figure">
+        <div
+          class="app-embed__frame"
+          data-testid="ref-panel"
+          style={`width: ${FRAME_WIDTH.panel}px`}
+        >
+          <SampleAdvancedOptionsPanel language="en" />
+        </div>
+      </figure>
+      <figure class="spike-figure">
+        <div
+          class="app-embed__frame"
+          data-testid="ref-card"
+          style={`width: ${FRAME_WIDTH.card}px`}
+        >
+          <SamplePlaceCard language="en" />
+        </div>
+      </figure>
+    </main>
+  </body>
+</html>

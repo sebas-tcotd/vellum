@@ -24,7 +24,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  :root {
+  :root,
+  :host {
     --transition-panel: 0ms;
     --transition-theme: 0ms;
     --shell-layout-duration: 0ms;

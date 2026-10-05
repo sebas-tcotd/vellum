@@ -11,6 +11,8 @@ const __dirname = dirname(__filename);
 const cssFiles = [
   './globals.css',
   './styles/01-settings.css',
+  './styles/01-settings-fonts.css',
+  './styles/01-settings-tokens.css',
   './styles/02-themes.css',
   './styles/03-generic.css',
   './styles/04-objects.css',

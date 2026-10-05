@@ -1,0 +1,21 @@
+/* Frame around an embedded app component. Shared by the shadow root (through
+   AppEmbed) and by the reference pages, so both sides paint the same box.
+
+   The place card is an overlay in the app (position: absolute, insets of the
+   map shell, max sizes relative to the map). Embedded, it flows in the frame:
+   an override of the embed, never of the app. */
+.app-embed__frame {
+  display: flow-root;
+  box-sizing: border-box;
+  padding: 16px;
+  background: var(--color-bg);
+  /* In the app every component inherits this from .desktop-shell
+     (04-objects.css); neither side here has that ancestor. */
+  font-family: var(--font-shell);
+}
+
+.app-embed__frame .place-card {
+  position: static;
+  max-width: none;
+  max-height: none;
+}

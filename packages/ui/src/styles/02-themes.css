@@ -1,10 +1,21 @@
 /* Themes: platform profiles and map-driven appearance overrides. */
 
 /* Shell tokens are scoped to <html> by PlatformProvider. They are exclusive to
-   application chrome; map renderer tokens remain in 01-settings.css. */
+   application chrome; map renderer tokens remain in 01-settings.css.
+
+   Every profile starts from these defaults on the element that carries
+   data-platform, and the macOS/Windows blocks below override them. In the app
+   that element is <html>, which :root already matches, so listing the four
+   profiles changes nothing there. The landing embed puts data-platform on an
+   element inside a shadow root: tokens defined here through var() (such as
+   --shell-separator) must resolve on that element, against the profile's
+   values, not on :host, where they would resolve against these defaults. */
 :root,
+:host,
 [data-platform='linux'],
-[data-platform='unknown'] {
+[data-platform='unknown'],
+[data-platform='macos'],
+[data-platform='windows'] {
   --shell-radius-control: 6px;
   --shell-radius-panel: 12px;
   --shell-radius-overlay: 12px;

@@ -135,6 +135,12 @@ importers:
       '@phosphor-icons/react':
         specifier: ^2.1.10
         version: 2.1.10(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      '@vellum/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@vellum/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
       i18next:
         specifier: ^26.4.2
         version: 26.4.2(typescript@5.8.3)
@@ -172,6 +178,9 @@ importers:
       astro:
         specifier: ^7.3.5
         version: 7.3.5(@types/node@25.9.6)(jiti@2.7.0)(yaml@2.9.1)
+      lucide-react:
+        specifier: ^1.43.0
+        version: 1.43.0(react@19.3.0)
       tailwindcss:
         specifier: ^4.3.3
         version: 4.3.3
