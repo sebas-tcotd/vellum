@@ -242,6 +242,13 @@ describe.skipIf(!sdk)(
       ).toEqual(['resources.pri']);
       expect(readdirSync(join(unpacked, 'themes'))).toHaveLength(5);
       expect(readdirSync(join(unpacked, 'resources/themes'))).toHaveLength(5);
+      expect(
+        readFileSync(join(unpacked, 'resources/sample-city/city.vellummap')),
+      ).toEqual(
+        readFileSync(
+          'apps/desktop/src-tauri/resources/sample-city/city.vellummap',
+        ),
+      );
       expect(existsSync(join(unpacked, 'installer/vellum-splash.bmp'))).toBe(
         true,
       );

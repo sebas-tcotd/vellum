@@ -1,10 +1,12 @@
 import { useCallback, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
+import { resolveResource } from '@tauri-apps/api/path';
 import { open } from '@tauri-apps/plugin-dialog';
 import { useVellumStore, type ExportCancelHandlerRef } from '@vellum/ui';
 import type { CityData, VellumError, ParseWarningsPayload } from '@vellum/core';
 import { IPC_COMMANDS, IPC_EVENTS } from '@vellum/core';
+import { SAMPLE_CITY } from '../sample-city';
 
 /**
  * Hook that wires Tauri IPC file-loading into the VellumStore.
@@ -70,6 +72,7 @@ function toVellumError(err: unknown): VellumError {
   };
 }
 
+/** Shares protected document loading between file paths, retries, and bundled resources. */
 export function useParseCslmap(
   exportCancelHandlerRef?: ExportCancelHandlerRef,
 ) {
@@ -83,16 +86,24 @@ export function useParseCslmap(
 
   // Stores the last attempted file path for loadFilePartial
   const lastFilePathRef = useRef<string | null>(null);
+  // Reserve intent before cancellation or path resolution can yield. The store
+  // request id is reserved only after export cancellation permits mutation.
+  const loadIntentRef = useRef(0);
 
-  const loadFile = useCallback(
-    async (filePath: string): Promise<void> => {
+  const loadCity = useCallback(
+    async (
+      resolvePath: () => Promise<string>,
+      allowPartial = false,
+    ): Promise<void> => {
+      const intent = ++loadIntentRef.current;
       // Cancel before touching the store at all — never reset loadingState
       // or the current map on the strength of a cancellation that hasn't
       // actually happened yet.
-      if (
-        (await cancelActiveExportBeforeLoad(exportCancelHandlerRef)) ===
-        'timeout'
-      ) {
+      const cancellation = await cancelActiveExportBeforeLoad(
+        exportCancelHandlerRef,
+      );
+      if (loadIntentRef.current !== intent) return;
+      if (cancellation === 'timeout') {
         setLoadingState('error', {
           type: 'IoError',
           reason:
@@ -101,7 +112,7 @@ export function useParseCslmap(
         return;
       }
 
-      lastFilePathRef.current = filePath;
+      lastFilePathRef.current = null;
       // incrementLoadRequestId atomically resets state and sets loadingState: 'loading'
       const requestId = incrementLoadRequestId();
 
@@ -111,35 +122,51 @@ export function useParseCslmap(
       const cancelled = { current: false };
       const unlistenRef = { current: null as (() => void) | null };
 
-      listen<ParseWarningsPayload>(IPC_EVENTS.PARSE_WARNINGS, (event) => {
-        if (!cancelled.current) {
-          pendingWarnings = [...pendingWarnings, ...event.payload.warnings];
-        }
-      })
-        .then((fn) => {
-          if (cancelled.current) fn();
-          else unlistenRef.current = fn;
-        })
-        .catch(console.error);
-
       try {
+        const filePath = await resolvePath();
+        if (
+          loadIntentRef.current !== intent ||
+          useVellumStore.getState().loadRequestId !== requestId
+        )
+          return;
+        lastFilePathRef.current = filePath;
+        listen<ParseWarningsPayload>(IPC_EVENTS.PARSE_WARNINGS, (event) => {
+          if (!cancelled.current) {
+            pendingWarnings = [...pendingWarnings, ...event.payload.warnings];
+          }
+        })
+          .then((fn) => {
+            if (cancelled.current) fn();
+            else unlistenRef.current = fn;
+          })
+          .catch(console.error);
+
         const cityData = await invoke<CityData>(IPC_COMMANDS.PARSE_CSLMAP, {
           filePath,
-          allowPartial: false,
+          allowPartial,
         });
 
         // Guard: discard stale response if a newer load started
-        if (useVellumStore.getState().loadRequestId !== requestId) return;
+        if (
+          loadIntentRef.current !== intent ||
+          useVellumStore.getState().loadRequestId !== requestId
+        )
+          return;
 
         setCityData({
           ...cityData,
           fileName: fileNameFromPath(filePath),
         }); // also sets loadingState: 'idle' and clears error
+        if (allowPartial) setHasPartialData(true);
         if (pendingWarnings.length > 0) {
           setDlcWarnings(pendingWarnings);
         }
       } catch (err) {
-        if (useVellumStore.getState().loadRequestId !== requestId) return;
+        if (
+          loadIntentRef.current !== intent ||
+          useVellumStore.getState().loadRequestId !== requestId
+        )
+          return;
         const vellumErr = toVellumError(err);
         console.error('[useParseCslmap] Parse error:', vellumErr);
         setLoadingState('error', vellumErr);
@@ -153,75 +180,26 @@ export function useParseCslmap(
       setCityData,
       setLoadingState,
       setDlcWarnings,
+      setHasPartialData,
       exportCancelHandlerRef,
     ],
   );
 
+  const loadFile = useCallback(
+    (filePath: string): Promise<void> => loadCity(async () => filePath),
+    [loadCity],
+  );
+
+  const openSampleCity = useCallback(
+    (): Promise<void> =>
+      loadCity(() => resolveResource(SAMPLE_CITY.resourcePath)),
+    [loadCity],
+  );
+
   const loadFilePartial = useCallback(async (): Promise<void> => {
     const filePath = lastFilePathRef.current;
-    if (!filePath) return;
-
-    if (
-      (await cancelActiveExportBeforeLoad(exportCancelHandlerRef)) === 'timeout'
-    ) {
-      setLoadingState('error', {
-        type: 'IoError',
-        reason:
-          'Timed out waiting for the active export to cancel before loading a new city',
-      });
-      return;
-    }
-
-    const requestId = incrementLoadRequestId();
-
-    let pendingWarnings: string[] = [];
-    const cancelled = { current: false };
-    const unlistenRef = { current: null as (() => void) | null };
-
-    listen<ParseWarningsPayload>(IPC_EVENTS.PARSE_WARNINGS, (event) => {
-      if (!cancelled.current) {
-        pendingWarnings = [...pendingWarnings, ...event.payload.warnings];
-      }
-    })
-      .then((fn) => {
-        if (cancelled.current) fn();
-        else unlistenRef.current = fn;
-      })
-      .catch(console.error);
-
-    try {
-      const cityData = await invoke<CityData>(IPC_COMMANDS.PARSE_CSLMAP, {
-        filePath,
-        allowPartial: true,
-      });
-
-      if (useVellumStore.getState().loadRequestId !== requestId) return;
-
-      setCityData({
-        ...cityData,
-        fileName: fileNameFromPath(filePath),
-      });
-      setHasPartialData(true);
-      if (pendingWarnings.length > 0) {
-        setDlcWarnings(pendingWarnings);
-      }
-    } catch (err) {
-      if (useVellumStore.getState().loadRequestId !== requestId) return;
-      const vellumErr = toVellumError(err);
-      console.error('[useParseCslmap] Partial parse error:', vellumErr);
-      setLoadingState('error', vellumErr);
-    } finally {
-      cancelled.current = true;
-      unlistenRef.current?.();
-    }
-  }, [
-    incrementLoadRequestId,
-    setCityData,
-    setLoadingState,
-    setHasPartialData,
-    setDlcWarnings,
-    exportCancelHandlerRef,
-  ]);
+    if (filePath) await loadCity(async () => filePath, true);
+  }, [loadCity]);
 
   const openFileDialog = useCallback(async (): Promise<void> => {
     let selected: string | string[] | null;
@@ -246,7 +224,7 @@ export function useParseCslmap(
     await loadFile(filePath);
   }, [loadFile, setLoadingState]);
 
-  return { loadFile, openFileDialog, loadFilePartial };
+  return { loadFile, openFileDialog, loadFilePartial, openSampleCity };
 }
 
 function fileNameFromPath(filePath: string): string {

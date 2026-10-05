@@ -10,9 +10,12 @@ vi.mock('@tauri-apps/api/core', () => ({
 vi.mock('@tauri-apps/plugin-dialog', () => ({
   open: vi.fn(),
 }));
+vi.mock('@tauri-apps/api/path', () => ({ resolveResource: vi.fn() }));
 
 import { invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
+import { resolveResource } from '@tauri-apps/api/path';
+import { SAMPLE_CITY } from '../sample-city';
 
 describe('useParseCslmap', () => {
   beforeEach(() => {
@@ -24,6 +27,179 @@ describe('useParseCslmap', () => {
       loadRequestId: 0,
     });
   });
+
+  it('resolves the bundled resource and loads it through the ordinary parser', async () => {
+    vi.mocked(resolveResource).mockResolvedValue(
+      '/installed/resources/sample-city/city.vellummap',
+    );
+    const city = makeCityData({ cityName: 'Aurelia del Delta' });
+    vi.mocked(invoke).mockResolvedValue(city);
+    const { result } = renderHook(() => useParseCslmap());
+    await act(() => result.current.openSampleCity());
+    expect(resolveResource).toHaveBeenCalledWith(SAMPLE_CITY.resourcePath);
+    expect(invoke).toHaveBeenCalledWith('parse_cslmap', {
+      filePath: '/installed/resources/sample-city/city.vellummap',
+      allowPartial: false,
+    });
+    expect(useVellumStore.getState().cityData).toEqual({
+      ...city,
+      fileName: 'city.vellummap',
+    });
+  });
+
+  it('maps a missing bundled resource to a typed error and keeps the current city', async () => {
+    const city = makeCityData();
+    useVellumStore.setState({ cityData: city });
+    vi.mocked(resolveResource).mockRejectedValue(new Error('resource missing'));
+    const { result } = renderHook(() => useParseCslmap());
+    await act(() => result.current.openSampleCity());
+    expect(invoke).not.toHaveBeenCalled();
+    expect(useVellumStore.getState().cityData).toBe(city);
+    expect(useVellumStore.getState().loadingError).toEqual({
+      type: 'IoError',
+      reason: 'resource missing',
+    });
+  });
+
+  it('preserves typed parser errors when the bundled document is corrupt', async () => {
+    vi.mocked(resolveResource).mockResolvedValue('/sample.vellummap');
+    vi.mocked(invoke).mockRejectedValue({
+      type: 'InvalidFile',
+      reason: 'bad archive',
+    });
+    const { result } = renderHook(() => useParseCslmap());
+    await act(() => result.current.openSampleCity());
+    expect(useVellumStore.getState().loadingError?.type).toBe('InvalidFile');
+  });
+
+  it.each(['resolve', 'reject'])(
+    'ignores a stale resource %s after a newer file load',
+    async (outcome) => {
+      let resolve!: (path: string) => void;
+      let reject!: (error: Error) => void;
+      vi.mocked(resolveResource).mockImplementation(
+        () =>
+          new Promise((yes, no) => {
+            resolve = yes;
+            reject = no;
+          }),
+      );
+      vi.mocked(invoke).mockResolvedValue(
+        makeCityData({ cityName: 'Newest city' }),
+      );
+      const { result } = renderHook(() => useParseCslmap());
+      let sample!: Promise<void>;
+      await act(async () => {
+        sample = result.current.openSampleCity();
+      });
+      expect(useVellumStore.getState().loadingState).toBe('loading');
+      await act(() => result.current.loadFile('/newest.vellummap'));
+      await act(async () => {
+        if (outcome === 'resolve') resolve('/sample.vellummap');
+        else reject(new Error('stale resource error'));
+        await sample;
+      });
+      expect(invoke).toHaveBeenCalledOnce();
+      expect(useVellumStore.getState().cityData?.cityName).toBe('Newest city');
+      expect(useVellumStore.getState().loadingError).toBeNull();
+    },
+  );
+
+  it('waits for export cancellation before resolving the sample or mutating the store', async () => {
+    const city = makeCityData();
+    useVellumStore.setState({ cityData: city });
+    let cancel!: () => void;
+    const cancellation = {
+      current: vi.fn(
+        () =>
+          new Promise<void>((resolve) => {
+            cancel = resolve;
+          }),
+      ),
+    };
+    vi.mocked(resolveResource).mockResolvedValue('/sample.vellummap');
+    vi.mocked(invoke).mockResolvedValue(makeCityData());
+    const { result } = renderHook(() => useParseCslmap(cancellation));
+    let sample!: Promise<void>;
+    await act(async () => {
+      sample = result.current.openSampleCity();
+    });
+    expect(resolveResource).not.toHaveBeenCalled();
+    expect(useVellumStore.getState().cityData).toBe(city);
+    expect(useVellumStore.getState().loadRequestId).toBe(0);
+    await act(async () => {
+      cancel();
+      await sample;
+    });
+    expect(resolveResource).toHaveBeenCalledOnce();
+  });
+
+  it('keeps the current city when sample export cancellation times out', async () => {
+    vi.useFakeTimers();
+    try {
+      const city = makeCityData();
+      useVellumStore.setState({ cityData: city });
+      const { result } = renderHook(() =>
+        useParseCslmap({ current: () => new Promise<void>(() => undefined) }),
+      );
+      await act(async () => {
+        const sample = result.current.openSampleCity();
+        await vi.advanceTimersByTimeAsync(3000);
+        await sample;
+      });
+      expect(resolveResource).not.toHaveBeenCalled();
+      expect(useVellumStore.getState().cityData).toBe(city);
+      expect(useVellumStore.getState().loadingError?.type).toBe('IoError');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it.each(['resolves', 'times out'])(
+    'ignores older export cancellation that %s after a newer load succeeds',
+    async (outcome) => {
+      vi.useFakeTimers();
+      try {
+        let finishCancellation!: () => void;
+        const cancellation = {
+          current: vi.fn(
+            () =>
+              new Promise<void>((resolve) => {
+                finishCancellation = resolve;
+              }),
+          ),
+        };
+        const { result } = renderHook(() => useParseCslmap(cancellation));
+        let olderLoad!: Promise<void>;
+        await act(async () => {
+          olderLoad = result.current.openSampleCity();
+        });
+        cancellation.current = vi.fn(async () => undefined);
+        vi.mocked(invoke).mockResolvedValue(
+          makeCityData({ cityName: 'Newest city' }),
+        );
+        await act(() => result.current.loadFile('/newest.vellummap'));
+        const newestCity = useVellumStore.getState().cityData;
+        const newestRequestId = useVellumStore.getState().loadRequestId;
+        await act(async () => {
+          if (outcome === 'resolves') finishCancellation();
+          else await vi.advanceTimersByTimeAsync(3000);
+          await olderLoad;
+        });
+        expect(resolveResource).not.toHaveBeenCalled();
+        expect(invoke).toHaveBeenCalledOnce();
+        expect(useVellumStore.getState().cityData).toBe(newestCity);
+        expect(useVellumStore.getState().cityData?.cityName).toBe(
+          'Newest city',
+        );
+        expect(useVellumStore.getState().loadRequestId).toBe(newestRequestId);
+        expect(useVellumStore.getState().loadingState).toBe('idle');
+        expect(useVellumStore.getState().loadingError).toBeNull();
+      } finally {
+        vi.useRealTimers();
+      }
+    },
+  );
 
   it('atomically transitions to loading during file load (intermediate state)', async () => {
     let resolveInvoke!: (v: unknown) => void;
@@ -224,6 +400,7 @@ describe('useParseCslmap', () => {
 
     await act(() => result.current.loadFilePartial());
 
+    expect(useVellumStore.getState().hasPartialData).toBe(true);
     expect(exportCancelHandlerRef.current).toHaveBeenCalledOnce();
     expect(useVellumStore.getState().cityData).toEqual({
       ...fakeCityData,

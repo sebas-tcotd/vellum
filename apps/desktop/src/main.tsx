@@ -52,6 +52,7 @@ import { detectPlatform } from './detect-platform';
 import { createPlatformServices } from './platform-services';
 import { createPreferencesAdapter } from './preferences-adapter';
 import { useParseCslmap } from './hooks/use-parse-cslmap';
+import { SAMPLE_CITY } from './sample-city';
 import { useExportPng } from './hooks/use-export-png';
 import {
   EXPORT_FORCE_LEGACY_KEY,
@@ -335,9 +336,8 @@ void win.listen('tauri://drag-enter', () => {
  * `packages/ui/src/**` scope in `eslint.config.mjs`, not left to convention.
  */
 function AppShell() {
-  const { loadFile, openFileDialog, loadFilePartial } = useParseCslmap(
-    exportCancelHandlerRef,
-  );
+  const { loadFile, openFileDialog, loadFilePartial, openSampleCity } =
+    useParseCslmap(exportCancelHandlerRef);
   const { openExportFolder } = useExportPng();
 
   React.useEffect(() => {
@@ -384,6 +384,8 @@ function AppShell() {
       version={version}
       loadFile={loadFile}
       openFileDialog={openFileDialog}
+      sampleCity={SAMPLE_CITY}
+      openSampleCity={openSampleCity}
       loadFilePartial={loadFilePartial}
       rasterExporter={rasterExporter}
       svgExporter={svgExporter}

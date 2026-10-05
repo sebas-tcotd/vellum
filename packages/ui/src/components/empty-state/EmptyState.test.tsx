@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, act, cleanup } from '../../test-utils';
+import { render, screen, act, cleanup, fireEvent } from '../../test-utils';
 import { AppMetaProvider } from '../../context/AppMetaContext';
 import { EmptyState } from './EmptyState';
 
@@ -26,6 +26,38 @@ afterEach(() => {
 });
 
 describe('EmptyState — composición i18n', () => {
+  it('exposes native buttons, a named thumbnail and both desktop callbacks', () => {
+    const onOpenFile = vi.fn();
+    const onOpenSampleCity = vi.fn();
+    render(
+      <AppMetaProvider version="0.0.0">
+        <EmptyState
+          sampleCity={{
+            name: 'Aurelia del Delta',
+            thumbnailUrl: '/sample-city.webp',
+          }}
+          onOpenFile={onOpenFile}
+          onOpenSampleCity={onOpenSampleCity}
+        />
+      </AppMetaProvider>,
+    );
+    const open = screen.getByRole('button', { name: 'emptyState.openFile' });
+    const sample = screen.getByRole('button', {
+      name: 'emptyState.openSampleCity',
+    });
+    open.focus();
+    expect(open).toHaveFocus();
+    sample.focus();
+    expect(sample).toHaveFocus();
+    fireEvent.click(open);
+    fireEvent.click(sample);
+    expect(onOpenFile).toHaveBeenCalledOnce();
+    expect(onOpenSampleCity).toHaveBeenCalledOnce();
+    expect(
+      screen.getByRole('img', { name: 'emptyState.sampleThumbnail' }),
+    ).toHaveAttribute('src', '/sample-city.webp');
+    expect(screen.getByText('Aurelia del Delta')).toBeVisible();
+  });
   it('renderiza el wordmark con la clave emptyState.title', () => {
     renderEmptyState();
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(

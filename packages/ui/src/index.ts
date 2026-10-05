@@ -4,6 +4,10 @@ export type { ExportCancelHandlerRef } from './App';
 export { MapLibreRoot } from './components/canvas/MapLibreRoot';
 export type { MapLibreRootProps } from './components/canvas/MapLibreRoot';
 export { EmptyState } from './components/empty-state';
+export type {
+  EmptyStateProps,
+  SampleCityDescriptor,
+} from './components/empty-state/EmptyState';
 export { DlcWarningToast } from './components/overlays/DlcWarningToast';
 export type { DlcWarningToastProps } from './components/overlays/DlcWarningToast';
 export { ErrorToast } from './components/overlays/ErrorToast';
