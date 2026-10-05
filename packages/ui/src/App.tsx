@@ -1,6 +1,7 @@
 // packages/ui/src/App.tsx
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppSurface } from './components/AppSurface';
+import type { SampleCityDescriptor } from './components/empty-state/EmptyState';
 import type { SchematicLayoutClientPort } from './hooks/use-schematic-network';
 import type { SchematicCameraControls } from './components/schematic/use-schematic-camera';
 import { initI18n } from './i18n/i18n-setup';
@@ -80,6 +81,10 @@ export interface AppProps {
   loadFile?: (filePath: string) => Promise<void>;
   /** Opens the OS file picker. Injected from the Tauri composition root. */
   openFileDialog?: () => Promise<void>;
+  /** Bundled city presentation. @default undefined */
+  sampleCity?: SampleCityDescriptor | undefined;
+  /** Opens the immutable bundled city through the ordinary loader. @default undefined */
+  openSampleCity?: (() => Promise<void>) | undefined;
   /** Retries the last file with allow_partial=true. Injected from the Tauri composition root. */
   loadFilePartial?: () => Promise<void>;
   /** Executes the injected raster export coordinator. */
@@ -121,6 +126,8 @@ export function App({
   version,
   loadFile,
   openFileDialog = noop,
+  sampleCity,
+  openSampleCity,
   loadFilePartial = noop,
   rasterExporter,
   onOpenExportFolder,
@@ -588,6 +595,8 @@ export function App({
       schematicCameraRef={schematicCameraRef}
       exportWorkflow={exportWorkflow}
       commands={commands}
+      sampleCity={sampleCity}
+      openSampleCity={openSampleCity}
       shell={shell}
       isCleanMode={isCleanMode}
       isPreferencesOpen={isPreferencesOpen}

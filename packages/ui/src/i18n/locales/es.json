@@ -1,6 +1,10 @@
 {
   "emptyState": {
     "title": "Vellum",
+    "openFile": "Abrir archivo",
+    "openSampleCity": "Abrir ciudad de muestra",
+    "sampleDescription": "Explora una ciudad sin juego ni conexión a internet.",
+    "sampleThumbnail": "Vista previa del mapa de {{name}}",
     "dropHint": "Arrastra tu ciudad (.vellummap o .cslmap) aquí",
     "orOpenWith": "o presiona",
     "firstUseHint": "¿Aún no tienes el archivo? Expórtalo desde Cities: Skylines con CSL Map View (.cslmap)"

@@ -19,7 +19,10 @@ import {
 } from '@vellum/core';
 import type { MapLibreRootProps } from './canvas/MapLibreRoot';
 import { MapViewport } from './viewport/MapViewport';
-import { EmptyState } from './empty-state/EmptyState';
+import {
+  EmptyState,
+  type SampleCityDescriptor,
+} from './empty-state/EmptyState';
 import { LoadingModal } from './overlays/LoadingModal';
 import { ErrorToast } from './overlays/ErrorToast';
 import { PartialParseDialog } from './overlays/PartialParseDialog';
@@ -78,6 +81,8 @@ interface AppSurfaceProps {
   schematicCameraRef: RefObject<SchematicCameraControls | null>;
   exportWorkflow: ReturnType<typeof useExportWorkflow>;
   commands: CommandRegistry;
+  sampleCity?: SampleCityDescriptor | undefined;
+  openSampleCity?: (() => Promise<void>) | undefined;
   shell: ShellSession;
   isCleanMode: boolean;
   isPreferencesOpen: boolean;
@@ -103,6 +108,8 @@ export function AppSurface({
   schematicCameraRef,
   exportWorkflow,
   commands,
+  sampleCity,
+  openSampleCity,
   shell,
   isCleanMode,
   isPreferencesOpen,
@@ -262,7 +269,19 @@ export function AppSurface({
             />
           </div>
         </DesktopShell>
-        {showEmptyState && <EmptyState />}
+        {showEmptyState && (
+          <EmptyState
+            sampleCity={sampleCity}
+            onOpenFile={() => commands['document.open'].execute(undefined)}
+            onOpenSampleCity={
+              openSampleCity
+                ? () => {
+                    void openSampleCity();
+                  }
+                : undefined
+            }
+          />
+        )}
         {(loadingState === 'loading' || isDrawingMap) && <LoadingModal />}
         {isSchematic && (
           <SchematicLayoutStatusOverlay

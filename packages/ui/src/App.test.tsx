@@ -186,7 +186,18 @@ vi.mock('./components/canvas/MapLibreRoot', () => ({
 }));
 
 vi.mock('./components/empty-state/EmptyState', () => ({
-  EmptyState: () => <div data-testid="empty-state" />,
+  EmptyState: ({
+    sampleCity,
+    onOpenFile,
+    onOpenSampleCity,
+  }: import('./components/empty-state/EmptyState').EmptyStateProps) => (
+    <div data-testid="empty-state">
+      <button onClick={onOpenFile}>Open welcome file</button>
+      {sampleCity && (
+        <button onClick={onOpenSampleCity}>{sampleCity.name}</button>
+      )}
+    </div>
+  ),
 }));
 
 vi.mock('./components/overlays/LoadingModal', () => ({
@@ -263,6 +274,26 @@ beforeEach(() => {
 afterEach(() => stopEndingDrawPhase());
 
 describe('App — renderizado condicional', () => {
+  it('routes the welcome file action through document.open and forwards the sample action', async () => {
+    const openFileDialog = vi.fn(async () => undefined);
+    const openSampleCity = vi.fn(async () => undefined);
+    await act(async () => {
+      render(
+        <App
+          openFileDialog={openFileDialog}
+          openSampleCity={openSampleCity}
+          sampleCity={{
+            name: 'Aurelia del Delta',
+            thumbnailUrl: '/sample-city.webp',
+          }}
+        />,
+      );
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Open welcome file' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Aurelia del Delta' }));
+    expect(openFileDialog).toHaveBeenCalledOnce();
+    expect(openSampleCity).toHaveBeenCalledOnce();
+  });
   it('muestra EmptyState cuando loadingState es idle y no hay cityData', async () => {
     await act(async () => {
       render(<App />);
