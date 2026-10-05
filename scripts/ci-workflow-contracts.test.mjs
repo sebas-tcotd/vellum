@@ -57,15 +57,17 @@ describe('contratos de optimización de CI', () => {
   });
 
   it('publica entrada estática de privacidad bilingüe sin analytics propios', () => {
-    const privacy = read('apps/landing/privacy/index.html');
+    const privacy = read('apps/landing/src/pages/privacy/index.astro');
     expect(privacy).toContain('data-page="privacy"');
+    expect(privacy).toContain('<PrivacyIsland client:only="react" />');
     expect(privacy).not.toMatch(/googletagmanager|gtag\(/);
-    expect(read('apps/landing/index.html')).not.toMatch(
+    expect(read('apps/landing/src/pages/index.astro')).not.toMatch(
       /googletagmanager|gtag\(/,
     );
-    expect(read('apps/landing/vite.config.ts')).toContain(
-      "new URL('./privacy/index.html', import.meta.url)",
-    );
+    const astro = read('apps/landing/astro.config.mjs');
+    expect(astro).toContain("base: '/vellum/'");
+    expect(astro).toContain("trailingSlash: 'always'");
+    expect(astro).toContain("format: 'directory'");
     expect(read('apps/landing/src/App.tsx')).toContain('./privacy/?lang=');
     const en = JSON.parse(read('apps/landing/i18n/en.json'));
     const es = JSON.parse(read('apps/landing/i18n/es.json'));
@@ -84,7 +86,8 @@ describe('contratos de optimización de CI', () => {
     expect(es.privacy.store.body).toContain('no realiza solicitudes de red');
     const deploy = read('.github/workflows/deploy-pages.yml');
     expect(deploy).toContain('for privacy_path in privacy privacy/');
-    expect(deploy).toContain('${asset_path#../}');
+    expect(deploy).toContain('test "$final_url" = "${page_url}privacy/"');
+    expect(deploy).toContain('test "$base_path" = \'/vellum/\'');
     expect(deploy).toContain('data-page="privacy"');
   });
 
