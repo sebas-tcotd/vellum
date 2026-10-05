@@ -38,23 +38,9 @@ Get-FileHash apps/desktop/src-tauri/resources/sample-city/city.vellummap -Algori
 The converter derives snapshot identity from its input, so unchanged input and
 converter reproduce the document. Keep the source fixture bytes unchanged.
 
-The welcome thumbnail `apps/desktop/public/sample-city.webp` is a 640 × 410 WebP
-derived from the real Vellum renderer export
-`packages/renderer-webgl/test/export-goldens/aurelia-del-delta/full-map-1x-white.png`.
-Its source SHA-256 is
-`c96886eed857764e9310d4e18d409ffd7f4b0e55b08fccde2451674f32d74e28`.
-It was resized with Pillow 12.3.0, Lanczos resampling, WebP quality 90 and method 6.
-Its SHA-256 is `2cb8ef27589b6b9309d816342d6fd17468de6b6b4f2e98679da1166409763ff7`.
-
-To reproduce the thumbnail with Python through `uv`:
-
-```powershell
-uv run --with Pillow==12.3.0 python -c "from PIL import Image; Image.open('packages/renderer-webgl/test/export-goldens/aurelia-del-delta/full-map-1x-white.png').resize((640,410),Image.Resampling.LANCZOS).save('apps/desktop/public/sample-city.webp',quality=90,method=6)"
-```
-
 ## Replacing and validating the final city
 
-Replace the bundled document and thumbnail together, then update `SAMPLE_CITY`
+Replace the bundled document, then update `SAMPLE_CITY`
 in `apps/desktop/src/sample-city.ts` and both language versions of this provenance
 document. Keep the actual final Bridge producer metadata. The Tauri resource glob
 and MSIX packager preserve `resources/sample-city/city.vellummap`; runtime code

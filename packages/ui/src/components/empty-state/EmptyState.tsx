@@ -23,7 +23,7 @@ export interface EmptyStateProps {
 }
 
 /**
- * Welcome surface with injected desktop document actions and a bundled city preview.
+ * Welcome surface with injected desktop document actions.
  *
  * @remarks
  * File picking and resource resolution remain in the desktop composition root;
@@ -53,43 +53,6 @@ export function EmptyState({
           {t('emptyState.title')}
         </h1>
 
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={onOpenFile}
-            disabled={!onOpenFile}
-            className="rounded-sm border border-(--color-border) px-5 py-2 text-(--color-text) bg-(--color-bg) focus-visible:outline-2 focus-visible:outline-offset-4"
-          >
-            {t('emptyState.openFile')}
-          </button>
-          {sampleCity && (
-            <button
-              type="button"
-              onClick={onOpenSampleCity}
-              disabled={!onOpenSampleCity}
-              className="rounded-sm border border-(--color-border) px-5 py-2 text-(--color-text) bg-(--color-bg) focus-visible:outline-2 focus-visible:outline-offset-4"
-            >
-              {t('emptyState.openSampleCity')}
-            </button>
-          )}
-        </div>
-
-        {sampleCity && (
-          <div className="flex flex-col items-center gap-2">
-            <img
-              src={sampleCity.thumbnailUrl}
-              alt={t('emptyState.sampleThumbnail', { name: sampleCity.name })}
-              width={320}
-              height={180}
-              className="rounded-sm border border-(--color-border) object-cover"
-            />
-            <span className="text-(--color-text)">{sampleCity.name}</span>
-            <p className="m-0 text-sm text-(--color-text-subtle)">
-              {t('emptyState.sampleDescription')}
-            </p>
-          </div>
-        )}
-
         <DropZone label={t('emptyState.dropHint')}>
           <p
             className="text-base text-(--color-text-subtle) m-0"
@@ -110,6 +73,27 @@ export function EmptyState({
             </kbd>
           </p>
         </DropZone>
+
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={onOpenFile}
+            disabled={!onOpenFile}
+            className="cursor-pointer rounded-sm border border-(--color-border) px-5 py-2 text-(--color-text) bg-(--color-bg) transition-[background-color,transform] duration-150 hover:bg-(--color-accent)/50 active:bg-(--color-accent) active:translate-y-px focus-visible:outline-2 focus-visible:outline-offset-4 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none"
+          >
+            {t('emptyState.openFile')}
+          </button>
+          {sampleCity && (
+            <button
+              type="button"
+              onClick={onOpenSampleCity}
+              disabled={!onOpenSampleCity}
+              className="cursor-pointer rounded-sm border border-(--color-border) px-5 py-2 text-(--color-text) bg-(--color-bg) transition-[background-color,transform] duration-150 hover:bg-(--color-accent)/50 active:bg-(--color-accent) active:translate-y-px focus-visible:outline-2 focus-visible:outline-offset-4 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none"
+            >
+              {t('emptyState.openSampleCity')}
+            </button>
+          )}
+        </div>
 
         {/* TODO(Story 5.5): once Vellum Bridge is public on the Workshop, name
             it in emptyState.firstUseHint too. Copy approved by Sebas:

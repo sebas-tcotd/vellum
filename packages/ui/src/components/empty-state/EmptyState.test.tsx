@@ -26,7 +26,7 @@ afterEach(() => {
 });
 
 describe('EmptyState — composición i18n', () => {
-  it('exposes native buttons, a named thumbnail and both desktop callbacks', () => {
+  it('exposes both desktop callbacks below the drop zone without a preview card', () => {
     const onOpenFile = vi.fn();
     const onOpenSampleCity = vi.fn();
     render(
@@ -53,10 +53,13 @@ describe('EmptyState — composición i18n', () => {
     fireEvent.click(sample);
     expect(onOpenFile).toHaveBeenCalledOnce();
     expect(onOpenSampleCity).toHaveBeenCalledOnce();
+    expect(screen.queryByRole('img')).toBeNull();
+    expect(screen.queryByText('Aurelia del Delta')).toBeNull();
+    expect(screen.queryByText('emptyState.sampleDescription')).toBeNull();
     expect(
-      screen.getByRole('img', { name: 'emptyState.sampleThumbnail' }),
-    ).toHaveAttribute('src', '/sample-city.webp');
-    expect(screen.getByText('Aurelia del Delta')).toBeVisible();
+      screen.getByRole('region').compareDocumentPosition(open) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
   it('renderiza el wordmark con la clave emptyState.title', () => {
     renderEmptyState();

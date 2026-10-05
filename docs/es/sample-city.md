@@ -38,23 +38,9 @@ Get-FileHash apps/desktop/src-tauri/resources/sample-city/city.vellummap -Algori
 El conversor deriva la identidad del snapshot de su entrada; la misma entrada y
 el mismo conversor reproducen el documento. Conservar los bytes del fixture original.
 
-La miniatura de bienvenida `apps/desktop/public/sample-city.webp` es un WebP de
-640 × 410 derivado de la exportación real del renderizador de Vellum
-`packages/renderer-webgl/test/export-goldens/aurelia-del-delta/full-map-1x-white.png`.
-El SHA-256 de su origen es
-`c96886eed857764e9310d4e18d409ffd7f4b0e55b08fccde2451674f32d74e28`.
-Se redimensionó con Pillow 12.3.0, remuestreo Lanczos, calidad WebP 90 y método 6.
-Su SHA-256 es `2cb8ef27589b6b9309d816342d6fd17468de6b6b4f2e98679da1166409763ff7`.
-
-Para reproducir la miniatura con Python mediante `uv`:
-
-```powershell
-uv run --with Pillow==12.3.0 python -c "from PIL import Image; Image.open('packages/renderer-webgl/test/export-goldens/aurelia-del-delta/full-map-1x-white.png').resize((640,410),Image.Resampling.LANCZOS).save('apps/desktop/public/sample-city.webp',quality=90,method=6)"
-```
-
 ## Sustitución y validación de la ciudad definitiva
 
-Sustituir juntos el documento y la miniatura; actualizar `SAMPLE_CITY` en
+Sustituir el documento y actualizar `SAMPLE_CITY` en
 `apps/desktop/src/sample-city.ts` y ambas versiones de idioma de este documento.
 Conservar los metadatos reales del productor Bridge final. El glob de recursos de
 Tauri y el empaquetador MSIX preservan `resources/sample-city/city.vellummap`; el
