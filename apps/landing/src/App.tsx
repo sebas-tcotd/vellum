@@ -16,7 +16,7 @@ import { ThemeSelector } from './components/ThemeSelector';
 import { ThemeComparison } from './components/ThemeComparison';
 import { TransitComparison } from './components/TransitComparison';
 import { useTranslation } from 'react-i18next';
-import { useEffect } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 import { fallbackLanguage, i18n } from './i18n';
 
 const releaseUrl = 'https://github.com/sebas-tcotd/vellum/releases/latest';
@@ -195,6 +195,32 @@ function SiteFooter() {
       </div>
     </footer>
   );
+}
+
+/**
+ * Hosts the build-time download band inside the client-rendered home.
+ *
+ * @remarks
+ * Astro serves `#download` with real release links in `#download-static`.
+ * This slot moves that section into place once the island renders and puts it
+ * back on unmount, so the id stays unique. Step 5 renders the home in Astro
+ * and removes this bridge.
+ */
+function DownloadSlot() {
+  const slot = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    const host = slot.current;
+    const band = document.getElementById('download');
+    const home = document.getElementById('download-static');
+    if (!host || !band || !home || band.parentElement === host) return;
+    host.appendChild(band);
+    return () => {
+      home.appendChild(band);
+    };
+  }, []);
+
+  return <div ref={slot} />;
 }
 
 /** Marketing page for the Vellum desktop map viewer. */
@@ -440,23 +466,7 @@ export function App() {
           </Reveal>
         </section>
 
-        <section
-          className="download-section page-width"
-          id="download"
-          aria-labelledby="download-title"
-        >
-          <Reveal className="download-copy">
-            <p className="section-kicker">{t('download.kicker')}</p>
-            <h2 id="download-title">{t('download.title')}</h2>
-            <p>{t('download.body')}</p>
-          </Reveal>
-          <Reveal delay={0.08}>
-            <a className="button button-light" href={releaseUrl}>
-              {t('common.download')}
-              <ArrowUpRight size={17} weight="bold" aria-hidden="true" />
-            </a>
-          </Reveal>
-        </section>
+        <DownloadSlot />
       </main>
 
       <SiteFooter />

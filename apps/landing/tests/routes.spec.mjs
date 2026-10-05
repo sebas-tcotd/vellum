@@ -200,3 +200,38 @@ test('a malformed hash still renders the home', async ({ page }) => {
   ).toBeVisible();
   expect(errors).toEqual([]);
 });
+
+test('the served #download band carries real release links without JS', async ({
+  request,
+}) => {
+  const html = await (await request.get('')).text();
+  const band = html.slice(html.indexOf('id="download"'));
+  const direct =
+    /href="https:\/\/github\.com\/sebas-tcotd\/vellum\/releases\/download\/v\d+\.\d+\.\d+\/[^"]+"/g;
+  const links = band.match(direct) ?? [];
+  for (const pattern of [
+    /_x64-setup\.exe"/,
+    /_universal\.dmg"/,
+    /_amd64\.deb"/,
+    /_amd64\.AppImage"/,
+    /\.x86_64\.rpm"/,
+  ]) {
+    expect(links.some((link) => pattern.test(link))).toBe(true);
+  }
+  expect(html.match(/id="download"/g)).toHaveLength(1);
+});
+
+test('the download band shows only the language of the page', async ({
+  page,
+}) => {
+  await page.goto('?lang=es#download');
+  const band = page.locator('#download');
+  await expect(
+    band.getByRole('heading', {
+      level: 2,
+      name: translations.es.download.title,
+    }),
+  ).toBeVisible();
+  await expect(band.locator('[lang="en"]')).toBeHidden();
+  await expect(band.getByRole('link', { name: /\.exe/ })).toHaveCount(1);
+});

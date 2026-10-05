@@ -246,7 +246,22 @@
   "download": {
     "kicker": "Start with the city you already have",
     "title": "Bring your city into view.",
-    "body": "Download Vellum from GitHub Releases and open your first .cslmap export."
+    "body": "Download Vellum from GitHub Releases and open your first .cslmap export.",
+    "fallbackTitle": "Download Vellum from GitHub Releases",
+    "platformsLabel": "Download for each platform",
+    "allDownloads": "All downloads on GitHub Releases",
+    "platforms": {
+      "windows": "Windows",
+      "macos": "macOS",
+      "linux": "Linux"
+    },
+    "formats": {
+      "exe": "Installer (.exe)",
+      "dmg": "Universal disk image (.dmg)",
+      "deb": "Debian and Ubuntu (.deb)",
+      "AppImage": "AppImage",
+      "rpm": "Fedora and openSUSE (.rpm)"
+    }
   },
   "footer": {
     "privacy": "Privacy",

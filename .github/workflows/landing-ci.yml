@@ -34,6 +34,9 @@ jobs:
         run: pnpm --filter @vellum/landing lint
 
       - name: Build landing
+        env:
+          # Deterministic PR builds: the live API is exercised by the deploy.
+          LANDING_RELEASE_SOURCE: fixture
         run: pnpm --filter @vellum/landing build
 
       - name: Install Chromium for static browser tests

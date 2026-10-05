@@ -103,7 +103,7 @@ tokens desde `DESIGN.md`.
    falla, se usan las capturas de respaldo (T37, T35).
 3. **Orden de implementación:** (1) ~~`DESIGN.md` raíz (sección B)~~, hecho; (2)
    andamiaje Astro conservando `/vellum/#download` y `/vellum/privacy`, con
-   tests; (3) datos del release al compilar + workflow; (4) spike de CSS de
+   tests, hecho; (3) ~~datos del release al compilar + workflow~~, hecho; (4) spike de CSS de
    componentes; (5) páginas.
 
 ## D. Ciudades de las tomas

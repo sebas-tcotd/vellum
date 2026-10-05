@@ -1,0 +1,63 @@
+---
+import en from '../../i18n/en.json';
+import es from '../../i18n/es.json';
+import { loadRelease, releasesUrl, type PlatformId } from '../data/release';
+
+const release = await loadRelease();
+const platformIds: PlatformId[] = ['windows', 'macos', 'linux'];
+const languages = [
+  { code: 'en', text: en.download },
+  { code: 'es', text: es.download },
+] as const;
+---
+
+<section class="download-section page-width" id="download">
+  {
+    languages.map(({ code, text }) => {
+      const hasDirectLinks =
+        release && platformIds.some((id) => release.platforms[id].length > 0);
+      return (
+        <div
+          class="download-lang"
+          lang={code}
+          role="group"
+          aria-labelledby={`download-title-${code}`}
+        >
+          <div class="download-copy">
+            <div>
+              <p class="section-kicker">{text.kicker}</p>
+              <h2 id={`download-title-${code}`}>
+                {hasDirectLinks ? text.title : text.fallbackTitle}
+              </h2>
+              <p>{text.body}</p>
+            </div>
+          </div>
+          <ul class="download-platforms" aria-label={text.platformsLabel}>
+            {platformIds.map((id) => {
+              const files = release?.platforms[id] ?? [];
+              return (
+                <li data-platform={id}>
+                  <h3>{text.platforms[id]}</h3>
+                  {files.length > 0 ? (
+                    <ul>
+                      {files.map((file) => (
+                        <li>
+                          <a href={file.url}>
+                            {text.formats[file.format as keyof typeof text.formats]}
+                            <span class="download-file">{file.name}</span>
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <a href={releasesUrl}>{text.allDownloads}</a>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      );
+    })
+  }
+</section>
