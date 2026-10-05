@@ -4,10 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "lint": "tsc --noEmit -p tsconfig.json",
-    "preview": "vite preview",
+    "dev": "astro dev",
+    "build": "astro build",
+    "lint": "astro check && tsc --noEmit -p tsconfig.json",
+    "preview": "astro preview",
     "test:static": "playwright test"
   },
   "dependencies": {
@@ -20,13 +20,14 @@
     "react-i18next": "^17.0.13"
   },
   "devDependencies": {
+    "@astrojs/check": "^0.9.10",
+    "@astrojs/react": "^7.0.0",
     "@playwright/test": "^1.63.0",
     "@tailwindcss/vite": "^4.3.3",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
-    "@vitejs/plugin-react": "^4.7.0",
+    "astro": "^7.3.5",
     "tailwindcss": "^4.3.3",
-    "typescript": "~5.8.3",
-    "vite": "^7.3.6"
+    "typescript": "~5.8.3"
   }
 }
