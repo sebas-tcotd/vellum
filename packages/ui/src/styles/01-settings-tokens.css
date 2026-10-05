@@ -1,0 +1,59 @@
+/* Settings: Tailwind theme tokens and shared design tokens. `:host` carries
+   them inside the landing embed's shadow root; it matches nothing in the app. */
+
+/* shadcn/ui semantic variables. @theme stays outside a cascade layer because
+   Tailwind v4 reads it to generate utilities. */
+@theme {
+  --color-background: #f7f6f1;
+  --color-foreground: #333333;
+  --color-primary: #4a4035;
+  --color-primary-foreground: #f2efe9;
+  --color-secondary: #e8e3da;
+  --color-secondary-foreground: #4a4035;
+  --color-destructive: #c0392b;
+  --color-destructive-foreground: #f2efe9;
+  --color-muted: #e0ddd7;
+  --color-muted-foreground: #626262;
+  --color-accent: #d9d3c8;
+  --color-accent-foreground: #333333;
+  --color-popover: #f2efe9;
+  --color-popover-foreground: #333333;
+  --color-card: #f2efe9;
+  --color-card-foreground: #333333;
+  --color-border: rgba(0, 0, 0, 0.12);
+  --color-input: rgba(0, 0, 0, 0.12);
+  --color-ring: #4a4035;
+  --color-panel-border: #2c28251f;
+  --radius: 10px;
+  --font-wordmark: 'Cormorant Garamond', 'Georgia', serif;
+  --font-ui: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'DM Mono', 'Consolas', 'Monaco', monospace;
+}
+
+:root,
+:host {
+  /* UI chrome baseline. Cartographic colors belong to active VellumStyle files. */
+  --color-bg: #f7f6f1;
+  --color-text: #333333;
+  --color-text-subtle: #626262;
+  --color-border: rgba(0, 0, 0, 0.08);
+  --ui-accent-water: #6db8b7;
+  --ui-accent-rule: #d2938e;
+  --ui-decoration-primary: rgb(74 64 53 / 0.06);
+  --ui-decoration-water: rgb(109 184 183 / 0.14);
+  /* Dialogs are opaque reading surfaces. Their borders need contrast against
+     parchment, unlike the white strokes used by translucent chrome. */
+  --shell-dialog-border: rgb(51 51 51 / 0.16);
+  --shell-dialog-divider: rgb(51 51 51 / 0.12);
+
+  --font-wordmark: 'Cormorant Garamond', 'Georgia', serif;
+  --font-ui: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'DM Mono', 'Consolas', 'Monaco', monospace;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --shadow-panel: 0 4px 24px rgba(0, 0, 0, 0.12);
+  --transition-layer: 200ms ease;
+  --transition-panel: 150ms ease;
+  --transition-theme: 300ms ease;
+}

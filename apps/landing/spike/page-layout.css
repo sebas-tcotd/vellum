@@ -1,0 +1,13 @@
+/* Layout of the spike pages, identical on the embed and reference sides so
+   each frame lands on the same whole-pixel position. */
+.spike-row {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+  margin: 0;
+  padding: 24px;
+}
+
+.spike-figure {
+  margin: 0;
+}

@@ -1,0 +1,5 @@
+/* Document stylesheet for pages that embed app components (see embed.css).
+   @font-face does not apply inside a shadow root, so the page declares the
+   app's fonts itself. The page must also lift the @property rules out of the
+   compiled embed.css (the landing's AppEmbed wrapper does it). */
+@import './styles/01-settings-fonts.css';

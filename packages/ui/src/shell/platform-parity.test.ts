@@ -49,6 +49,13 @@ describe('platform adaptation', () => {
     for (const platform of ['macos', 'windows', 'linux']) {
       expect(shellCss).toContain(`[data-platform='${platform}']`);
     }
+    // macOS and Windows also appear in the defaults' selector list, so each
+    // override block is checked as a rule of its own.
+    for (const platform of ['macos', 'windows']) {
+      expect(shellCss).toMatch(
+        new RegExp(`\\}\\s*\\n\\s*\\[data-platform='${platform}'\\]\\s*\\{`),
+      );
+    }
     // Each profile redefines tokens; none of them redefines layout.
     for (const role of [
       '--shell-surface-sidebar',

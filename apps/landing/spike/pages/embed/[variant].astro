@@ -1,0 +1,70 @@
+---
+/**
+ * The landing side: the landing's own CSS in the document and each component
+ * inside a Declarative Shadow DOM (AppEmbed). Compared pixel by pixel with
+ * /reference/<variant>/.
+ */
+import '@fontsource/cormorant-garamond/400.css';
+import '@fontsource/cormorant-garamond/500.css';
+import '../../../src/styles.css';
+import '../../page-layout.css';
+import AppEmbed from '../../components/AppEmbed.astro';
+import AppEmbedDocumentStyles from '../../components/AppEmbedDocumentStyles.astro';
+import {
+  SampleAdvancedOptionsPanel,
+  SamplePlaceCard,
+} from '../../components/SampleComponents';
+import { FRAME_WIDTH, SPIKE_VARIANTS, type SpikeVariant } from '../../variants';
+
+export function getStaticPaths() {
+  return SPIKE_VARIANTS.map((variant) => ({
+    params: { variant: variant.id },
+    props: { variant },
+  }));
+}
+
+interface Props {
+  variant: SpikeVariant;
+}
+
+const { variant } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>Spike · embed · {variant.id}</title>
+    <AppEmbedDocumentStyles />
+  </head>
+  <body>
+    <main class="spike-row">
+      <figure class="spike-figure">
+        <AppEmbed
+          testId="embed-panel"
+          platform={variant.platform}
+          appearance={variant.appearance}
+          width={FRAME_WIDTH.panel}
+        >
+          <SampleAdvancedOptionsPanel language="en" />
+        </AppEmbed>
+        <figcaption>The real layer options panel of Vellum.</figcaption>
+      </figure>
+      <figure class="spike-figure">
+        <AppEmbed
+          testId="embed-card"
+          platform={variant.platform}
+          appearance={variant.appearance}
+          width={FRAME_WIDTH.card}
+        >
+          <SamplePlaceCard language="en" />
+        </AppEmbed>
+        <figcaption>The real place card of Vellum.</figcaption>
+      </figure>
+    </main>
+    <!-- Light-DOM element with an app class: embed.css must not reach it. -->
+    <div class="place-card desktop-shell" data-testid="leak-probe"></div>
+  </body>
+</html>

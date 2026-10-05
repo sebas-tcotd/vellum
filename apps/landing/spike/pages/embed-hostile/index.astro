@@ -1,0 +1,92 @@
+---
+/**
+ * The linux-light embed under an ancestor that sets every inherited property
+ * a page could plausibly set. The shadow host must not let any of it in.
+ */
+import '../../page-layout.css';
+import AppEmbed from '../../components/AppEmbed.astro';
+import AppEmbedDocumentStyles from '../../components/AppEmbedDocumentStyles.astro';
+import {
+  SampleAdvancedOptionsPanel,
+  SamplePlaceCard,
+} from '../../components/SampleComponents';
+import { FRAME_WIDTH } from '../../variants';
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>Spike · embed under a hostile page</title>
+    <AppEmbedDocumentStyles />
+    <style is:inline>
+      body {
+        margin: 0;
+        color: red;
+        font: italic 700 22px/3 serif;
+        letter-spacing: 2px;
+        word-spacing: 6px;
+        text-transform: uppercase;
+        text-align: right;
+        text-indent: 40px;
+        text-shadow: 0 0 2px blue;
+        visibility: visible;
+        cursor: wait;
+        direction: ltr;
+        --color-bg: red;
+        --shell-surface: red;
+        --tw-shadow: 0 0 0 9px red;
+      }
+
+      /* Rules that match the shadow host itself win over :host. */
+      * {
+        color: green;
+        line-height: 2.5;
+        letter-spacing: 3px;
+        font-style: oblique;
+      }
+
+      /* Not on <html>: rem sizes inside the shadow root follow the document
+         root's font-size, which no shadow CSS can block (see REPORT.md). */
+      body * {
+        font-size: 19px;
+      }
+
+      vellum-app-embed {
+        color: blue !important;
+        line-height: 4 !important;
+        letter-spacing: 4px !important;
+        font-size: 25px !important;
+        font-style: italic !important;
+        font-weight: 900 !important;
+        text-transform: lowercase !important;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="spike-row">
+      <figure class="spike-figure">
+        <AppEmbed
+          testId="embed-panel"
+          platform="linux"
+          appearance="light"
+          width={FRAME_WIDTH.panel}
+        >
+          <SampleAdvancedOptionsPanel language="en" />
+        </AppEmbed>
+      </figure>
+      <figure class="spike-figure">
+        <AppEmbed
+          testId="embed-card"
+          platform="linux"
+          appearance="light"
+          width={FRAME_WIDTH.card}
+        >
+          <SamplePlaceCard language="en" />
+        </AppEmbed>
+      </figure>
+    </main>
+  </body>
+</html>
