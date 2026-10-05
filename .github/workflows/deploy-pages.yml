@@ -92,46 +92,72 @@ jobs:
           set -euo pipefail
 
           test -n "$PAGE_URL"
+          page_url="${PAGE_URL%/}/"
+          origin="$(printf '%s' "$page_url" | sed -E 's#^(https?://[^/]+).*$#\1#')"
+          base_path="${page_url#"$origin"}"
+          test "$base_path" = '/vellum/'
 
           html_file="$(mktemp)"
           trap 'rm -f "$html_file"' EXIT
 
-          curl --fail --silent --show-error --location \
-            --retry 5 --retry-delay 5 --retry-all-errors \
-            "$PAGE_URL" --output "$html_file"
+          fetch() {
+            curl --fail --silent --show-error --location \
+              --retry 5 --retry-delay 5 --retry-all-errors "$@"
+          }
 
+          # Every src, href and island script must be an absolute path under
+          # /vellum/ and answer 200.
+          check_assets() {
+            local asset_paths
+            asset_paths="$(grep -oE '(src|href|component-url|renderer-url)="/[^"]+"' "$html_file" \
+              | sed -E 's/^[^"]+"([^"]+)"$/\1/' \
+              | sort -u)"
+            test -n "$asset_paths"
+            while IFS= read -r asset_path; do
+              case "$asset_path" in
+                "$base_path"*) ;;
+                *)
+                  echo "::error::Asset outside $base_path: $asset_path"
+                  exit 1
+                  ;;
+              esac
+              fetch "${origin}${asset_path}" --output /dev/null
+            done <<< "$asset_paths"
+            if grep -qE '(src|href)="\.\.?/' "$html_file"; then
+              echo '::error::Served HTML still uses relative asset paths'
+              exit 1
+            fi
+          }
+
+          # Home: the Bridge hard link /vellum/#download lands here.
+          fetch "$page_url" --output "$html_file"
           grep -q '<title>Vellum' "$html_file"
+          grep -q '<html lang="en">' "$html_file"
+          grep -q "<link rel=\"canonical\" href=\"${page_url}\">" "$html_file"
+          check_assets
 
-          asset_paths="$(grep -oE '(src|href)="\./assets/[^"]+"' "$html_file" \
-            | sed -E 's/^[^\"]+"([^\"]+)".*$/\1/' \
-            | sort -u)"
-          test -n "$asset_paths"
-
-          while IFS= read -r asset_path; do
-            curl --fail --silent --show-error --location \
-              --retry 5 --retry-delay 5 --retry-all-errors \
-              "${PAGE_URL%/}/${asset_path#./}" --output /dev/null
-          done <<< "$asset_paths"
-
-          # A real static entry is required: test both directory URL forms,
-          # without relying on a SPA fallback, including a repository prefix.
+          # Privacy is the Partner Center URL: a real static page in both
+          # directory forms, without SPA fallback, analytics or redirects
+          # other than the trailing-slash one.
           for privacy_path in privacy privacy/; do
-            privacy_url="${PAGE_URL%/}/${privacy_path}"
-            curl --fail --silent --show-error --location \
-              --retry 5 --retry-delay 5 --retry-all-errors \
-              "$privacy_url" --output "$html_file"
+            final_url="$(fetch "${page_url}${privacy_path}" \
+              --output "$html_file" --write-out '%{url_effective}')"
+            test "$final_url" = "${page_url}privacy/"
             grep -q '<title>Privacy | Vellum City Maps</title>' "$html_file"
             grep -q 'data-page="privacy"' "$html_file"
+            grep -q '<html lang="en">' "$html_file"
+            grep -q "<link rel=\"canonical\" href=\"${page_url}privacy/\">" "$html_file"
             if grep -qiE 'googletagmanager|gtag\(' "$html_file"; then
               echo '::error::Privacy page unexpectedly loads analytics'
               exit 1
             fi
-            asset_paths="$(grep -oE '(src|href)="\.\./assets/[^"]+"' "$html_file" \
-              | sed -E 's/^[^\"]+"([^\"]+)".*$/\1/' | sort -u)"
-            test -n "$asset_paths"
-            while IFS= read -r asset_path; do
-              curl --fail --silent --show-error --location \
-                --retry 5 --retry-delay 5 --retry-all-errors \
-                "${PAGE_URL%/}/${asset_path#../}" --output /dev/null
-            done <<< "$asset_paths"
+            check_assets
           done
+
+          # A missing route answers the real 404 page, never the home.
+          status="$(curl --silent --show-error --retry 5 --retry-delay 5 \
+            --output "$html_file" --write-out '%{http_code}' \
+            "${page_url}no-existe/")"
+          test "$status" = '404'
+          grep -q '<title>Page not found | Vellum</title>' "$html_file"
+          check_assets

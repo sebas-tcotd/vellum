@@ -1,4 +1,6 @@
-// Serve the production build under a repository prefix, with no SPA fallback.
+// Serve the production build under a repository prefix like GitHub Pages:
+// directories redirect to their trailing slash, missing files answer 404 with
+// dist/404.html, and there is no SPA fallback to the home page.
 import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
 import { extname, resolve, sep } from 'node:path';
@@ -10,8 +12,22 @@ const mime = {
   '.js': 'text/javascript',
   '.css': 'text/css',
   '.svg': 'image/svg+xml',
+  '.webp': 'image/webp',
+  '.png': 'image/png',
+  '.txt': 'text/plain',
+  '.woff': 'font/woff',
   '.woff2': 'font/woff2',
 };
+
+async function sendNotFound(response) {
+  try {
+    const page = await readFile(resolve(root, '404.html'));
+    response.writeHead(404, { 'Content-Type': 'text/html' }).end(page);
+  } catch {
+    response.writeHead(404).end('Not found');
+  }
+}
+
 createServer(async (request, response) => {
   try {
     const url = new URL(request.url, 'http://127.0.0.1');
@@ -31,11 +47,12 @@ createServer(async (request, response) => {
       }
       file = resolve(file, 'index.html');
     }
+    const body = await readFile(file);
     response.writeHead(200, {
       'Content-Type': mime[extname(file)] ?? 'application/octet-stream',
     });
-    response.end(await readFile(file));
+    response.end(body);
   } catch {
-    response.writeHead(404).end('Not found');
+    await sendNotFound(response);
   }
 }).listen(4178, '127.0.0.1');
