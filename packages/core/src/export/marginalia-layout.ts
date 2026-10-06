@@ -629,9 +629,9 @@ export function buildMarginaliaContent(
     const fileName = cityData.fileName.trim();
     const segments = [
       fileName
-        ? /\.cslmap$/i.test(fileName)
+        ? /\.(?:cslmap|vellummap)$/i.test(fileName)
           ? fileName
-          : `${fileName}.cslmap`
+          : `${fileName}.${cityData.source}`
         : '',
       labels.sourceDate.trim(),
       labels.sourceStatement.trim(),

@@ -49,7 +49,7 @@ Already have exports from [CSL Map View](https://steamcommunity.com/sharedfiles/
 <details>
 <summary>Platform notes</summary>
 
-- **Windows:** run the `.exe` installer (recommended). An `.msi` is also published, with opt-in `.cslmap` file association. Releases are configured for Authenticode signing; an explicitly unsigned build may show an unknown-publisher warning.
+- **Windows:** run the `.exe` installer (recommended). An `.msi` is also published, with opt-in `.cslmap` file association. Current standalone installers are not Authenticode-signed and may show an unknown-publisher warning; check each release's `signing-evidence.md`. CI supports signing when a certificate is configured. A separate unsigned `.msix` is produced for Microsoft Store submission, not for direct installation; see [MSIX packaging](docs/en/msix.md).
 - **macOS:** open the `.dmg` and move Vellum to `Applications`. v1 is not notarized by Apple, so clear quarantine once with `xattr -cr /Applications/Vellum.app` if Gatekeeper blocks it.
 - **Linux:** make the `.AppImage` executable and run it. `.deb` and `.rpm` packages are also published.
 

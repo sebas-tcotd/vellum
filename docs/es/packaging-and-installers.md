@@ -3,24 +3,28 @@
 - [English](../en/packaging-and-installers.md)
 - [Volver al índice en español](index.md)
 
-Vellum se distribuye por descarga, no por tienda. Nadie revisa el paquete antes
-de que un usuario lo vea, así que el instalador es lo primero que tiene que
-parecer venido de algún sitio. Esto es lo que publica cada plataforma, cuánto
-de eso se puede personalizar de verdad, y dónde cae la línea entre lo que CI
-verifica y lo que alguien tiene que abrir a mano.
+Vellum publica descargas independientes y genera un paquete MSIX aparte para
+enviarlo a Microsoft Store. Publicar el MSIX en GitHub no lo certifica ni lo
+hace instalable directamente; la distribución por Store requiere la
+certificación y firma de Microsoft. Consulta [Empaquetado MSIX](msix.md) para
+los pasos de envío y validación. Esta página describe los artefactos, su
+identidad y lo que CI verifica frente a lo que alguien debe comprobar a mano.
 
 ## Qué produce un release
 
-| Plataforma | Artefacto                       | Dónde se ve la identidad                                                                  | Firma hoy                                                  |
-| ---------- | ------------------------------- | ----------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| Windows    | `.exe` (NSIS) — **recomendado** | Instalación one-click por usuario, progreso y apertura final de Vellum.                   | Authenticode **sólo si hay certificado configurado**.      |
-| Windows    | `.msi` (WiX) — alternativa      | Editor en Programas y características, banner y diálogo opt-in `.cslmap`.                 | La misma condición.                                        |
-| macOS      | `.dmg`                          | La ventana del volumen: fondo, tamaño y posiciones de la app y del alias de Aplicaciones. | **Nunca firmado ni notarizado.** El gate sigue en `false`. |
-| Linux      | `.deb`, `.rpm`                  | El `.desktop`: nombre, comentario, icono, categoría.                                      | No existe firma de editor equivalente para estos formatos. |
-| Linux      | `.AppImage`                     | Nada más allá del icono embebido y el nombre del binario.                                 | Igual.                                                     |
+| Plataforma | Artefacto                       | Dónde se ve la identidad                                                                  | Firma hoy                                                                |
+| ---------- | ------------------------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| Windows    | `.exe` (NSIS) — **recomendado** | Instalación one-click por usuario, progreso y apertura final de Vellum.                   | Actualmente sin firma; Authenticode sólo si hay certificado configurado. |
+| Windows    | `.msi` (WiX) — alternativa      | Editor en Programas y características, banner y diálogo opt-in `.cslmap`.                 | La misma condición.                                                      |
+| Windows    | `.msix` — envío a Store         | Identidad del paquete, logos y asociaciones `.cslmap` / `.vellummap`.                     | Envío sin firma; Microsoft firma el paquete Store certificado.           |
+| macOS      | `.dmg`                          | La ventana del volumen: fondo, tamaño y posiciones de la app y del alias de Aplicaciones. | **Nunca firmado ni notarizado.** El gate sigue en `false`.               |
+| Linux      | `.deb`, `.rpm`                  | El `.desktop`: nombre, comentario, icono, categoría.                                      | No existe firma de editor equivalente para estos formatos.               |
+| Linux      | `.AppImage`                     | Nada más allá del icono embebido y el nombre del binario.                                 | Igual.                                                                   |
 
-`finalize-release` exige el `.exe` NSIS, el `.msi`, el `.dmg`, el `.AppImage` y
-`latest.json`. El updater genérico de Windows (`windows-x86_64`) apunta al EXE;
+`finalize-release` exige el `.exe` NSIS, el `.msi`, el `.msix`, el `.dmg`, el `.AppImage` y
+`latest.json`. El MSIX queda fuera del actualizador Tauri; Store gestiona las
+actualizaciones de esa edición. Las firmas del updater no implican firma
+Authenticode del instalador independiente. El updater genérico de Windows (`windows-x86_64`) apunta al EXE;
 las claves explícitas de MSI y NSIS permanecen para instalaciones existentes.
 Las builds sin firma conservan la advertencia que la Story 1.8 puso
 en las notas y en `signing-evidence.md` — el artwork no la atenúa, y un
@@ -113,8 +117,10 @@ Vellum no requiere ninguna aceptación, así que ningún instalador la pide.
   guardrail compara hashes de salida y un bump menor se leería como artwork
   retocado a mano.
 
-- **`.cslmap` es una asociación exclusiva de Windows y opt-in en las tres
-  plataformas.** El `.desktop` no declara `MimeType`: nada en el `.deb` ni en el
+- **La asociación `.cslmap` del MSI independiente es exclusiva de Windows y opt-in.**
+  El MSIX declara asociaciones `.cslmap` y `.vellummap` en su manifiesto de
+  paquete; no son la casilla del MSI.
+  El `.desktop` no declara `MimeType`: nada en el `.deb` ni en el
   `.rpm` instala una definición shared-mime-info para `*.cslmap`, y hacerlo
   exigiría un script de mantenedor que esta story descarta — así que la línea no
   emparejaría con nada mientras aparenta estar verificada.
@@ -132,14 +138,18 @@ Ningún `preInstallScript`, `postInstallScript`, `preRemoveScript`,
 `postRemoveScript` ni `installerHooks` de NSIS, y `check:installer` falla si
 aparece uno. Un instalador que ejecuta código lo ejecuta con los privilegios que
 tuviera la instalación, y es la parte del paquete que nadie lee. Vellum no
-necesita nada de eso: copia archivos a su prefijo de instalación, y lo único que
-registra —la asociación opt-in de `.cslmap`— son entradas de registro
-declarativas de WiX que el MSI elimina al desinstalar.
+necesita nada de eso: los instaladores independientes copian archivos a su
+prefijo de instalación. La asociación opt-in de `.cslmap` del MSI usa entradas
+de registro declarativas de WiX que el MSI elimina al desinstalar. Las
+asociaciones MSIX se declaran en el manifiesto del paquete y las gestiona Windows.
 
-No se modifica nada fuera del prefijo de instalación ni se declara ninguna
-dependencia que instale software de terceros. Desinstalar quita la aplicación y
-la asociación; los mapas, los temas de terceros y las preferencias viven en los
-directorios de datos del usuario y sobreviven.
+No se declara ninguna dependencia que instale software de terceros. Desinstalar
+la edición independiente quita la aplicación y su asociación registrada; los
+mapas, los temas de terceros y las preferencias permanecen en los directorios
+de datos del usuario. La edición Store usa almacenamiento separado por paquete,
+que puede eliminarse al desinstalar: guarda copias de temas personalizados
+primero (ver [Empaquetado MSIX](msix.md)). Los mapas exportados fuera del paquete
+siguen siendo archivos normales.
 
 El template NSIS de Vellum no es un hook: es código de empaquetado revisado. El
 guardrail verifica que conserve instalación por usuario, `/S`, actualización,

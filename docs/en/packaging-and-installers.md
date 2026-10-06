@@ -3,24 +3,28 @@
 - [Español](../es/packaging-and-installers.md)
 - [Back to the English index](index.md)
 
-Vellum is distributed by download, not through a store. Nobody vets the
-package before a user sees it, so the installer is the first thing that has to
-look like it came from somewhere. This is what each platform actually ships,
-how much of it can be customised, and where the line falls between what CI
-verifies and what a person has to open.
+Vellum publishes standalone downloads and produces a separate MSIX package for
+Microsoft Store submission. Publishing the MSIX on GitHub does not certify it
+or make it directly installable; Store distribution requires Microsoft's
+certification and signing. See [MSIX packaging](msix.md) for the submission and
+validation checklist. This page describes the artifacts, their identity, and
+what CI verifies versus what a person must check.
 
 ## What a release produces
 
-| Platform | Artifact                        | Where the identity shows up                                                 | Signing today                                           |
-| -------- | ------------------------------- | --------------------------------------------------------------------------- | ------------------------------------------------------- |
-| Windows  | `.exe` (NSIS) — **recommended** | One-click per-user installation, progress, and a final Vellum launch.       | Authenticode **only when a certificate is configured**. |
-| Windows  | `.msi` (WiX) — alternative      | Publisher in Add/Remove Programs, banner, and opt-in `.cslmap` dialog.      | Same conditional.                                       |
-| macOS    | `.dmg`                          | The volume window: background, window size, app and Applications positions. | **Never signed or notarised.** The gate stays `false`.  |
-| Linux    | `.deb`, `.rpm`                  | The `.desktop` entry: name, comment, icon, category.                        | No equivalent publisher signature exists for these.     |
-| Linux    | `.AppImage`                     | Nothing beyond the embedded icon and binary name.                           | Same.                                                   |
+| Platform | Artifact                        | Where the identity shows up                                                 | Signing today                                                           |
+| -------- | ------------------------------- | --------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| Windows  | `.exe` (NSIS) — **recommended** | One-click per-user installation, progress, and a final Vellum launch.       | Currently unsigned; Authenticode only when a certificate is configured. |
+| Windows  | `.msi` (WiX) — alternative      | Publisher in Add/Remove Programs, banner, and opt-in `.cslmap` dialog.      | Same conditional.                                                       |
+| Windows  | `.msix` — Store submission      | Package identity, logos, and `.cslmap` / `.vellummap` associations.         | Unsigned submission; Microsoft signs the certified Store package.       |
+| macOS    | `.dmg`                          | The volume window: background, window size, app and Applications positions. | **Never signed or notarised.** The gate stays `false`.                  |
+| Linux    | `.deb`, `.rpm`                  | The `.desktop` entry: name, comment, icon, category.                        | No equivalent publisher signature exists for these.                     |
+| Linux    | `.AppImage`                     | Nothing beyond the embedded icon and binary name.                           | Same.                                                                   |
 
-`finalize-release` requires the NSIS `.exe`, `.msi`, `.dmg`, `.AppImage`, and
-`latest.json`. The generic Windows updater key (`windows-x86_64`) resolves to
+`finalize-release` requires the NSIS `.exe`, `.msi`, `.msix`, `.dmg`, `.AppImage`, and
+`latest.json`. The MSIX is excluded from the Tauri updater; Store manages updates
+for that edition. Updater signatures do not imply Authenticode signing of the
+standalone installer. The generic Windows updater key (`windows-x86_64`) resolves to
 the EXE; explicit MSI and NSIS keys remain for existing installations. Unsigned
 builds keep the warning that Story 1.8 put in the release
 notes and in `signing-evidence.md` — installer artwork does not soften it, and
@@ -113,7 +117,9 @@ requires no acceptance, so no installer asks for one.
   compares output hashes and a minor bump would read as artwork retouched by
   hand.
 
-- **`.cslmap` is a Windows-only, opt-in association on all three platforms.**
+- **The standalone MSI's `.cslmap` association is Windows-only and opt-in.**
+  The MSIX declares `.cslmap` and `.vellummap` associations in its package
+  manifest; they are not the MSI checkbox.
   The `.desktop` entry declares no `MimeType`: nothing in the `.deb` or `.rpm`
   installs a shared-mime-info definition for `*.cslmap`, and doing so would need
   a maintainer script this story rules out — so the line would match nothing
@@ -132,14 +138,17 @@ No `preInstallScript`, `postInstallScript`, `preRemoveScript`,
 `postRemoveScript` or NSIS `installerHooks` anywhere, and `check:installer`
 fails if one appears. An installer that runs code runs it with whatever
 privileges the install had, and it is the part of a package nobody reads. Vellum
-needs none of it: it copies files into its install prefix, and the one thing it
-registers — the opt-in `.cslmap` association — is declarative WiX registry
-entries that the MSI removes on uninstall.
+needs none of it: standalone installers copy files into their install prefix.
+The MSI's opt-in `.cslmap` association uses declarative WiX registry entries
+that the MSI removes on uninstall. MSIX associations are declared in the
+package manifest and managed by Windows.
 
-Nothing outside the install prefix is modified, and no dependency that installs
-third-party software is declared. Uninstalling removes the application and the
-association; maps, third-party themes and preferences live in the user's own
-data directories and survive.
+No dependency that installs third-party software is declared. Standalone
+uninstall removes the application and its registered association; maps,
+third-party themes and preferences remain in the user's data directories.
+The Store edition uses separate package storage, which can be removed on
+uninstall: back up custom themes first (see [MSIX packaging](msix.md)). Maps
+exported outside the package remain ordinary files.
 
 Vellum's NSIS template is not a hook: it is reviewed packaging code. The
 guardrail checks that it retains per-user install, `/S`, updating, uninstall,

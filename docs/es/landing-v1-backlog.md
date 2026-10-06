@@ -1,5 +1,8 @@
 # Backlog del rediseño de la landing v1.0
 
+- [English](../en/landing-v1-backlog.md)
+- [Volver al índice en español](index.md)
+
 Tareas que salieron del diseño UX de la landing v1.0 (2026-10-05) pero que no
 son trabajo de la landing: arreglos de producto, trabajo de release y la
 actualización del `DESIGN.md` raíz. No es la especificación de la landing: esa
@@ -12,17 +15,16 @@ algo de la landing lo dicen.
 
 ## A. Hallazgos para producto
 
-1. **La nota de fuente de la marginalia añade `.cslmap` a los mapas de Bridge.**
-   `buildMarginaliaContent` (`packages/core/src/export/marginalia-layout.ts:630-635`)
-   añade `.cslmap` a todo nombre que no termine en `.cslmap`, también a los
-   `.vellummap`, así que la nota dice `ciudad.vellummap.cslmap`. Bug
-   confirmado. **Bloquea** la lámina de la landing (Home 09 y manifiesto): hasta
-   que se corrija, esa toma se exporta sin el bloque «Fuente y límites de los
-   datos».
-2. **«Atenuar otras capas» en Transit lava el resto a gris claro**, en lugar de
-   oscurecerlo. Verificarlo con la toma de v1.0; la copy de la landing ya dice
-   «el resto del mapa se retira a un gris tenue». Si producto cambia el
-   comportamiento para oscurecer, hay que actualizar esa frase de la landing.
+1. **Nota de fuente de la marginalia: corregida (2026-10-06).**
+   `buildMarginaliaContent` conserva `.cslmap` y `.vellummap` sin distinguir
+   mayúsculas. Los nombres sin extensión reconocida usan `CityData.source`.
+   La lámina de Home 09 y del manifiesto puede incluir el bloque «Fuente y
+   límites de los datos»; ya no se añade `.cslmap` a los mapas de Bridge.
+2. **«Atenuar otras capas» en Transit: verificado con Costa Tijuca (2026-10-06).**
+   La captura aportada por Sebas muestra las capas de fondo oscuras y la red
+   destacada. El renderer reduce su opacidad; no hace falta cambiarlo. La copy
+   de la landing pasa a «el resto del mapa se atenúa sobre un fondo oscuro».
+   Comprobar también el atenuado al producir el export para la landing.
 3. ~~**Los workflows de release no publican SHA256.**~~ Ya no hace falta: la API
    de releases de GitHub expone un `digest` SHA-256 por asset (verificado en
    `v0.14.0`). «Verificar la descarga» (`/download/#verify`) lo lee al compilar;
@@ -32,10 +34,11 @@ algo de la landing lo dicen.
 5. **Build standalone del DLL de Bridge** para instalar sin Workshop. Trabajo de
    producto; mientras no exista, `/download/#bridge-manual` muestra el estado
    «Próximamente» en lugar del enlace al DLL.
-6. **Docs desfasados sobre distribución y firma.**
-   `docs/es/packaging-and-installers.md` dice «se distribuye por descarga, no por
-   tienda», y el README afirma «Releases are configured for Authenticode
-   signing», pero los releases salen sin firma. Actualizar los dos.
+6. **Docs de distribución y firma: actualizados (2026-10-06).**
+   README y `docs/{en,es}/packaging-and-installers.md` distinguen los instaladores
+   independientes actualmente sin Authenticode del MSIX sin firma de envío a
+   Store. La certificación y firma Microsoft son pasos aparte; las firmas del
+   updater tampoco equivalen a firma Authenticode.
 
 ## B. Qué debería adoptar el `DESIGN.md` raíz
 

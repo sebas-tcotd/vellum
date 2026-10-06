@@ -39,6 +39,9 @@ cambiar de idioma sin perder el contexto.
 
 ## Decisiones de producto
 
+- [Backlog del rediseño de la landing v1.0](landing-v1-backlog.md): fixes de
+  producto, decisiones de marca, avance de implementación y preparación de tomas.
+
 | Documento                                       | Qué explica                                                                                                                     |
 | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
 | [Decisiones de feedback](feedback-decisions.md) | Qué propuestas de la comunidad se adoptaron, se difirieron, se descartaron o quedaron bloqueadas por falta de datos, y por qué. |
