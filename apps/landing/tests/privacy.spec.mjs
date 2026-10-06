@@ -94,10 +94,18 @@ test('changes language, navigates home and returns through privacy footer', asyn
     .getByRole('link', { name: translations.es.privacy.home, exact: true })
     .first()
     .click();
-  await expect(page).toHaveURL('http://127.0.0.1:4178/vellum/?lang=es');
+  // The legacy `?lang=es` home link leads to the Spanish home.
+  await expect(page).toHaveURL('http://127.0.0.1:4178/vellum/es/?lang=es');
   await expect(
-    page.getByRole('heading', { level: 1, name: translations.es.hero.title }),
+    page.getByRole('heading', {
+      level: 1,
+      name: 'Un mapa para la ciudad que construiste.',
+    }),
   ).toBeVisible();
+  await page.evaluate(() =>
+    localStorage.setItem('vellum-analytics-consent-v1', 'rejected'),
+  );
+  await page.reload();
   await page
     .getByRole('link', { name: translations.es.footer.privacy, exact: true })
     .click();

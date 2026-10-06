@@ -1,6 +1,7 @@
 // @ts-check
 import react from '@astrojs/react';
 import tailwindcss from '@tailwindcss/vite';
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'astro/config';
 
 /**
@@ -28,5 +29,20 @@ export default defineConfig({
   integrations: [react()],
   vite: {
     plugins: [tailwindcss()],
+    resolve: {
+      // The real app components (src/components/app-embed) import
+      // @vellum/core. Astro applies the root tsconfig `paths`, which point at
+      // its TS sources; those re-export types without `export type` and do
+      // not bundle. Use the compiled package, as its `exports` says (the
+      // build script compiles it first).
+      alias: [
+        {
+          find: /^@vellum\/core$/,
+          replacement: fileURLToPath(
+            new URL('../../packages/core/dist/index.js', import.meta.url),
+          ),
+        },
+      ],
+    },
   },
 });

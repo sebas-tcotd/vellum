@@ -11,9 +11,10 @@ Requiere Node 22.12 o posterior.
 
 ```bash
 pnpm --filter @vellum/landing dev          # servidor de desarrollo de Astro
-pnpm --filter @vellum/landing build        # genera dist/
+pnpm --filter @vellum/landing build        # compila @vellum/core y genera dist/
 pnpm --filter @vellum/landing preview      # sirve dist/ bajo /vellum/
 pnpm --filter @vellum/landing lint         # astro check + tsc --noEmit
+pnpm --filter @vellum/landing shots:report # tomas y datos que faltan para lanzar
 pnpm --filter @vellum/landing test:static  # Playwright contra dist/
 ```
 
@@ -26,30 +27,47 @@ fallback de SPA.
 ## Estructura
 
 - `astro.config.mjs`: salida estática, `base: '/vellum/'`, URLs de directorio
-  con barra final, i18n (inglés en la raíz, español bajo `/es/`), integración
-  de React y Tailwind 4 como plugin de Vite.
-- `src/layouts/BaseLayout.astro`: `<html lang>`, meta, `canonical`, `hreflang`
-  (solo en páginas con par en el otro idioma), `og:image` absoluto y favicon.
-- `src/pages/`: `index.astro` (home), `privacy/index.astro` y `404.astro`.
-  `/es/` está configurado en el enrutado, todavía sin páginas.
-- `src/islands/`: la home y la privacidad actuales (`App`, `Privacy`) y la barra
-  de consentimiento se montan como islas `client:only="react"`, después de
-  inicializar i18n.
-- `src/i18n.ts`, `i18n/*.json`: idioma por `?lang=`, la clave
-  `vellum-landing-language` y el navegador.
-- `src/analytics.ts`: consentimiento de GA4; `/privacy/` nunca lo carga.
+  con barra final, i18n (inglés en la raíz, español bajo `/es/`), React,
+  Tailwind 4 (solo para el CSS de los componentes embebidos y la privacidad
+  vieja) y el alias de `@vellum/core` a su `dist`.
+- `src/pages/`: `index.astro` y `es/index.astro` (home v1.0),
+  `privacy/index.astro` y `404.astro` (diseño anterior, con
+  `BaseLayout.astro`).
+- `src/layouts/SiteLayout.astro`: documento de las páginas v1.0. En el
+  `<head>`, antes del CSS, un script en línea aplica el tema guardado y las
+  reglas de idioma (`src/scripts/language.ts`, función pura probada en
+  `tests/language.spec.mjs`); después, enlace de salto, consentimiento, nav,
+  `<main id="contenido">` y footer (`src/components/site/`).
+- `src/content/`: rutas y páginas publicadas (`routes.ts`; la nav solo enlaza
+  a las que están en `PUBLISHED_PAGES`), enlaces externos (`links.ts`), textos
+  de la base (`site.ts`) y de la home (`home.ts`), ciudades con su crédito
+  (`cities.ts`) y el registro de tomas (`shots.ts`).
+- `src/components/home/`: una sección Astro por bloque de la home; la
+  interacción (tira de capas, comparador y fichas, lightbox, Nocturno, menú,
+  tema y consentimiento) va en scripts sin framework.
+- `src/components/app-embed/`: componentes reales de la app renderizados en
+  build dentro de Declarative Shadow DOM (ver `spike/REPORT.md`).
 - `src/data/release.ts`: datos del release al compilar. Elige el release de
   mayor semver `v<semver>` (sin borradores ni prereleases) y cada instalador por
   patrón de nombre. Con `CI=true` lee la API de GitHub con `GITHUB_TOKEN` y, si
   falla, el build falla; fuera de CI usa `release.fixture.json`.
   `LANDING_RELEASE_SOURCE=live|fixture` fuerza uno de los dos.
-- `src/components/DownloadBand.astro`: la banda `#download` con enlaces directos
-  por plataforma en el HTML servido. La home la mueve a su sitio desde la isla
-  (`DownloadSlot` en `App.tsx`) hasta que las páginas nuevas del paso 5 la
-  rendericen en Astro.
+- `src/components/DownloadBand.astro`: la banda `#download` de la home, con
+  enlaces directos por plataforma en el HTML servido.
+- `src/islands/`, `src/Privacy.tsx`, `src/i18n.ts`, `i18n/*.json`: la
+  privacidad del diseño anterior, hasta que llegue su página nueva.
 - `public/`: assets servidos tal cual bajo `/vellum/`.
-- `tests/`: Playwright (rutas y URLs duras, consentimiento, privacidad) y el
-  servidor estático.
+- `tests/`: Playwright (rutas y URLs duras, home, idioma, consentimiento,
+  privacidad) y el servidor estático.
+
+## Tomas
+
+Las imágenes de la home salen del registro `src/content/shots.ts`. Para
+añadir una toma, deja el PNG original en `src/assets/shots/` con el nombre
+exacto de la lista de tomas (p. ej. `t01-hero-day-spring-valley.png`; las de
+ventana, con `-en` y `-es`): el build genera los WebP. Mientras falte, la página
+muestra un render anterior con la etiqueta «Txx · provisional» o un marcador
+rayado con el id. `shots:report` lista lo que queda.
 
 ## URLs duras
 
@@ -63,7 +81,5 @@ fallback de SPA.
 El workflow [`deploy-pages.yml`](../../.github/workflows/deploy-pages.yml)
 se dispara con cambios en la landing y al terminar con éxito _Publish Release_ (así la banda `#download` toma el release nuevo); compila `dist/`, lo publica usando GitHub Actions y comprueba el sitio
 desplegado (home, privacidad con y sin barra, 404 y que los assets referenciados
-en el HTML servido resuelvan bajo `/vellum/`). Las imágenes que crean las islas
-en el cliente no aparecen en ese HTML: solo las comprueban los tests de
-Playwright. En GitHub, la configuración del repositorio debe tener
+en el HTML servido resuelvan bajo `/vellum/`). En GitHub, la configuración del repositorio debe tener
 `Settings → Pages → Source: GitHub Actions`.

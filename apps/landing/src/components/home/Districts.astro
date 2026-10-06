@@ -1,0 +1,33 @@
+---
+/** Home 07: districts and street names, next to the real place card. */
+import { HOME, fill } from '../../content/home';
+import type { Lang } from '../../content/routes';
+import { SHOWCASE_CITY } from '../../content/shots';
+import AppEmbed from '../app-embed/AppEmbed.astro';
+import { SamplePlaceCard } from '../app-embed/SampleComponents';
+import Section from './Section.astro';
+import Shot from './Shot.astro';
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const t = HOME[lang].districts;
+---
+
+<Section id="distritos" {...t}>
+  <div class="districts">
+    <figure class="figure">
+      <Shot id="T19" lang={lang} sizes="(max-width: 1023px) 100vw, 45vw" />
+      <figcaption >{fill(t.caption, { city: SHOWCASE_CITY })}</figcaption>
+    </figure>
+    <figure class="app-frame">
+      <AppEmbed platform="linux" appearance="light" width={352}>
+        <SamplePlaceCard language={lang} />
+      </AppEmbed>
+      <figcaption class="caption">{t.cardCaption}</figcaption>
+      <p class="visually-hidden">{t.cardDescription}</p>
+    </figure>
+  </div>
+</Section>

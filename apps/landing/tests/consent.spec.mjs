@@ -40,7 +40,7 @@ for (const lang of ['en', 'es']) {
     await page.reload();
     await page.waitForTimeout(500);
     expect(google).toEqual([]);
-    await expect(page.locator('#analytics-consent')).toHaveCount(0);
+    await expect(page.locator('#analytics-consent')).toBeHidden();
   });
 }
 
@@ -84,7 +84,7 @@ test('accepts once, persists, sends denied advertising signals and revokes witho
   ]);
   await page.reload();
   await expect.poll(() => google.length).toBe(2);
-  await expect(page.locator('#analytics-consent')).toHaveCount(0);
+  await expect(page.locator('#analytics-consent')).toBeHidden();
   await page.evaluate(() => {
     document.cookie = '_ga=test; Path=/';
     document.cookie = '_ga_468WQTVLLD=test; Path=/vellum/';

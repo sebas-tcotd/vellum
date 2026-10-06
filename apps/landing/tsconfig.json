@@ -3,8 +3,12 @@
   "compilerOptions": {
     "noEmit": true,
     "isolatedModules": true,
-    "lib": ["ES2020", "DOM", "DOM.Iterable"]
+    "allowImportingTsExtensions": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "paths": {
+      "@vellum/core": ["../../packages/core/dist/index.d.ts"]
+    }
   },
-  "include": ["src", ".astro/types.d.ts"],
+  "include": ["src", "scripts", ".astro/types.d.ts"],
   "exclude": ["dist"]
 }

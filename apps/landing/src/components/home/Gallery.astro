@@ -1,0 +1,83 @@
+---
+/** Home 02: three Workshop cities with credit; each opens the lightbox. */
+import type { CityId } from '../../content/cities';
+import { CITIES } from '../../content/cities';
+import { HOME, fill } from '../../content/home';
+import type { Lang } from '../../content/routes';
+import type { ShotId } from '../../content/shots';
+import { imageSources, resolveShot } from '../../lib/shots';
+import CityCredit from './CityCredit.astro';
+import Section from './Section.astro';
+import Shot from './Shot.astro';
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const t = HOME[lang].gallery;
+const items: { shot: ShotId; city: CityId; caption: string; sizes: string }[] = [
+  {
+    shot: 'T02',
+    city: 'islandHopping',
+    caption: t.captions.islandHopping,
+    sizes: '(max-width: 640px) 100vw, 40vw',
+  },
+  {
+    shot: 'T03',
+    city: 'sanRico',
+    caption: t.captions.sanRico,
+    sizes: '(max-width: 640px) 100vw, 27vw',
+  },
+  {
+    shot: 'T04',
+    city: 'westdale',
+    caption: t.captions.westdale,
+    sizes: '(max-width: 640px) 100vw, 27vw',
+  },
+];
+const full = await Promise.all(
+  items.map(async ({ shot }) => {
+    const resolved = resolveShot(shot, lang);
+    return resolved.status === 'missing'
+      ? null
+      : (await imageSources(resolved.image, [2400])).src;
+  }),
+);
+---
+
+<Section id="mapas-reales" {...t}>
+  <ul class="gallery" role="list">
+    {
+      items.map((item, index) => {
+        const name = CITIES[item.city].city;
+        const href = full[index];
+        return (
+          <li>
+            <figure class="figure">
+              {href ? (
+                <a
+                  class="lightbox-trigger on-map"
+                  href={href}
+                  data-lightbox="gallery"
+                  data-lightbox-caption={`${name} · ${item.caption}`}
+                  aria-label={fill(t.open, { city: name })}
+                >
+                  <Shot id={item.shot} lang={lang} sizes={item.sizes} />
+                </a>
+              ) : (
+                <Shot id={item.shot} lang={lang} sizes={item.sizes} />
+              )}
+              <figcaption >
+                <span class="caption__city">{name}</span>
+                {item.caption}
+                <br />
+                <CityCredit city={item.city} lang={lang} />
+              </figcaption>
+            </figure>
+          </li>
+        );
+      })
+    }
+  </ul>
+</Section>

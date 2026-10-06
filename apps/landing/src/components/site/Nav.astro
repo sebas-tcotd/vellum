@@ -1,0 +1,116 @@
+---
+/**
+ * Top bar: logo and wordmark, the published pages (Guide · What's new ·
+ * Manifesto) and the Download button. Below 640 px the links fold into a
+ * disclosure "Menu" button (APG pattern); without JS they stay as a second
+ * row and the button does not exist.
+ */
+import {
+  NAV_PAGES,
+  PUBLISHED_PAGES,
+  downloadHref,
+  pageHref,
+  type Lang,
+  type PageId,
+} from '../../content/routes';
+import { SITE } from '../../content/site';
+
+interface Props {
+  lang: Lang;
+  current: PageId;
+}
+
+const { lang, current } = Astro.props;
+const t = SITE[lang];
+const links = NAV_PAGES.filter((page) => PUBLISHED_PAGES.has(page));
+const logo = `${import.meta.env.BASE_URL}assets/vellum-isotype-rounded.svg`;
+---
+
+<header class="nav" data-nav>
+  <nav class="nav__bar" aria-label={t.navLabel}>
+    <a
+      class="wordmark"
+      href={pageHref('home', lang)}
+      aria-current={current === 'home' ? 'page' : undefined}
+    >
+      <img src={logo} alt="" width="30" height="30" />
+      <span>Vellum</span>
+      <span class="visually-hidden"> · {t.homeLabel}</span>
+    </a>
+    {
+      links.length > 0 && (
+        <ul class="nav__links" id="nav-links" role="list">
+          {links.map((page) => (
+            <li>
+              <a
+                class="nav__link"
+                href={pageHref(page, lang)}
+                aria-current={page === current ? 'page' : undefined}
+              >
+                {t.pages[page]}
+              </a>
+            </li>
+          ))}
+        </ul>
+      )
+    }
+    <a class="button button--sm nav__download" href={downloadHref(lang)}>
+      {t.download}
+    </a>
+    {
+      links.length > 0 && (
+        <button
+          class="button button--sm button--secondary nav__menu-button"
+          type="button"
+          aria-expanded="false"
+          aria-controls="nav-links"
+          hidden
+          data-menu-button
+        >
+          <span aria-hidden="true" data-menu-glyph>
+            ☰
+          </span>
+          {t.menu}
+        </button>
+      )
+    }
+  </nav>
+</header>
+
+<script>
+  // Disclosure menu (≤ 640 px). Esc, a click outside, tabbing past the last
+  // link or navigating closes it; it never traps focus.
+  const nav = document.querySelector<HTMLElement>('[data-nav]');
+  const button = nav?.querySelector<HTMLButtonElement>('[data-menu-button]');
+  const list = nav?.querySelector<HTMLElement>('#nav-links');
+  if (nav && button && list) {
+    const glyph = button.querySelector('[data-menu-glyph]');
+    const setOpen = (open: boolean) => {
+      button.setAttribute('aria-expanded', String(open));
+      nav.toggleAttribute('data-open', open);
+      if (glyph) glyph.textContent = open ? '×' : '☰';
+    };
+    nav.setAttribute('data-menu', '');
+    button.hidden = false;
+    button.addEventListener('click', () =>
+      setOpen(button.getAttribute('aria-expanded') !== 'true'),
+    );
+    nav.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && nav.hasAttribute('data-open')) {
+        setOpen(false);
+        button.focus();
+      }
+    });
+    document.addEventListener('click', (event) => {
+      if (!nav.contains(event.target as Node)) setOpen(false);
+    });
+    nav.addEventListener('focusout', (event) => {
+      const next = event.relatedTarget as Node | null;
+      if (next && !nav.contains(next)) setOpen(false);
+    });
+    list.addEventListener('click', () => setOpen(false));
+    matchMedia('(min-width: 641px)').addEventListener('change', (query) => {
+      if (query.matches) setOpen(false);
+    });
+  }
+</script>

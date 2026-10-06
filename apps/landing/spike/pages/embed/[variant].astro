@@ -8,12 +8,13 @@ import '@fontsource/cormorant-garamond/400.css';
 import '@fontsource/cormorant-garamond/500.css';
 import '../../../src/styles.css';
 import '../../page-layout.css';
-import AppEmbed from '../../components/AppEmbed.astro';
-import AppEmbedDocumentStyles from '../../components/AppEmbedDocumentStyles.astro';
+import AppEmbed from '../../../src/components/app-embed/AppEmbed.astro';
+import '@vellum/ui/embed-fonts.css';
+import AppEmbedDocumentStyles from '../../../src/components/app-embed/AppEmbedDocumentStyles.astro';
 import {
   SampleAdvancedOptionsPanel,
   SamplePlaceCard,
-} from '../../components/SampleComponents';
+} from '../../../src/components/app-embed/SampleComponents';
 import { FRAME_WIDTH, SPIKE_VARIANTS, type SpikeVariant } from '../../variants';
 
 export function getStaticPaths() {

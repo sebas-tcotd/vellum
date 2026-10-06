@@ -1,63 +1,169 @@
 ---
-import en from '../../i18n/en.json';
-import es from '../../i18n/es.json';
-import { loadRelease, releasesUrl, type PlatformId } from '../data/release';
+/**
+ * Home 11, `id="download"`: the hard anchor Bridge links to. The served HTML
+ * already carries the direct links of the latest release for the three
+ * platforms, in fixed order and without emphasis; with JS the detected
+ * system's row becomes the primary button. Next to it, the Bridge call.
+ */
+import { existsSync } from 'node:fs';
+import { HOME } from '../content/home';
+import {
+  BRIDGE_WORKSHOP_URL,
+  STORE_URL,
+  WORKSHOP_FALLBACK_URL,
+} from '../content/links';
+import type { Lang } from '../content/routes';
+import { SITE } from '../content/site';
+import { detectPlatform } from '../scripts/platform';
+import {
+  downloadBand,
+  loadRelease,
+  releasesUrl,
+  type PlatformId,
+} from '../data/release';
 
-const release = await loadRelease();
-const platformIds: PlatformId[] = ['windows', 'macos', 'linux'];
-const languages = [
-  { code: 'en', text: en.download },
-  { code: 'es', text: es.download },
-] as const;
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const t = HOME[lang].download;
+const newTab = SITE[lang].newTab;
+const band = downloadBand(await loadRelease());
+const names: Record<PlatformId, string> = {
+  windows: 'Windows',
+  macos: 'macOS',
+  linux: 'Linux',
+};
+const badge = `${import.meta.env.BASE_URL}assets/store-badge-${lang}.svg`;
+// The official badge for dark pages, once it is in the repo; until then the
+// light-page badge is shown in both modes.
+const darkBadge = existsSync(
+  `${process.cwd()}/public/assets/store-badge-${lang}-dark.svg`,
+)
+  ? `${import.meta.env.BASE_URL}assets/store-badge-${lang}-dark.svg`
+  : null;
+const bridgeUrl = BRIDGE_WORKSHOP_URL ?? WORKSHOP_FALLBACK_URL;
+// OS detection: the detected row's main link becomes the primary button with
+// a visible "recommended" line. Nothing is reordered or hidden.
+const detectScript = `(function () {
+  var __name = function (fn) { return fn; };
+  var detect = ${detectPlatform.toString()};
+  var data = navigator.userAgentData;
+  var id = detect({
+    userAgent: navigator.userAgent,
+    uaPlatform: data && data.platform,
+    mobile: data && data.mobile,
+    maxTouchPoints: navigator.maxTouchPoints || 0
+  });
+  var row = id && document.getElementById('download-' + id);
+  var main = row && row.querySelector('.platform__main');
+  if (!row || !main) return;
+  row.setAttribute('data-detected', '');
+  main.classList.remove('link');
+  main.classList.add('platform__primary');
+  var note = document.createElement('p');
+  note.className = 'platform__recommended';
+  note.textContent = ${JSON.stringify(t.recommended)};
+  row.querySelector('.platform__files').before(note);
+})();`;
 ---
 
-<section class="download-section page-width" id="download">
-  {
-    languages.map(({ code, text }) => {
-      const hasDirectLinks =
-        release && platformIds.some((id) => release.platforms[id].length > 0);
-      return (
-        <div
-          class="download-lang"
-          lang={code}
-          role="group"
-          aria-labelledby={`download-title-${code}`}
-        >
-          <div class="download-copy">
-            <div>
-              <p class="section-kicker">{text.kicker}</p>
-              <h2 id={`download-title-${code}`}>
-                {hasDirectLinks ? text.title : text.fallbackTitle}
-              </h2>
-              <p>{text.body}</p>
-            </div>
-          </div>
-          <ul class="download-platforms" aria-label={text.platformsLabel}>
-            {platformIds.map((id) => {
-              const files = release?.platforms[id] ?? [];
-              return (
-                <li data-platform={id}>
-                  <h3>{text.platforms[id]}</h3>
-                  {files.length > 0 ? (
-                    <ul>
-                      {files.map((file) => (
-                        <li>
-                          <a href={file.url}>
-                            {text.formats[file.format as keyof typeof text.formats]}
-                            <span class="download-file">{file.name}</span>
-                          </a>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <a href={releasesUrl}>{text.allDownloads}</a>
+<section class="download-band" id="download" aria-labelledby="download-title">
+  <div class="download-band__inner">
+    <div>
+      <p class="eyebrow">{t.eyebrow}</p>
+      <h2 id="download-title">{band.direct ? t.title : t.fallbackTitle}</h2>
+      <p class="download-band__lede">{t.lede}</p>
+      <ul class="platforms" role="list" aria-label={t.platformsLabel}>
+        {
+          band.platforms.map(({ id, files, fallbackUrl }) => {
+            return (
+              <li class="platform" id={`download-${id}`} data-platform={id}>
+                <h3>{names[id]}</h3>
+                <p class="platform__key">{t.platformKeys[id]}</p>
+                <ul class="platform__files" role="list">
+                  {id === 'windows' && (
+                    <li>
+                      <a
+                        class="store-badge"
+                        href={STORE_URL}
+                        target="_blank"
+                        rel="noopener"
+                      >
+                        <img
+                          class:list={[darkBadge && 'store-badge__light']}
+                          src={badge}
+                          alt={t.storeAlt}
+                          width="161"
+                          height="44"
+                        />
+                        {darkBadge && (
+                          <img
+                            class="store-badge__dark"
+                            src={darkBadge}
+                            alt={t.storeAlt}
+                            width="161"
+                            height="44"
+                          />
+                        )}
+                        <span class="visually-hidden">{newTab}</span>
+                      </a>
+                    </li>
                   )}
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      );
-    })
-  }
+                  {files.length > 0 ? (
+                    files.map((file, index) => (
+                      <li>
+                        <a
+                          class:list={['link', index === 0 && 'platform__main']}
+                          href={file.url}
+                        >
+                          {t.formats[file.format] ?? file.format}
+                          <span class="platform__file-name"> · {file.name}</span>
+                          {index === 0 && (
+                            <span class="arrow" aria-hidden="true">
+                              {' '}
+                              ↓
+                            </span>
+                          )}
+                        </a>
+                      </li>
+                    ))
+                  ) : (
+                    <li>
+                      <a class="link" href={fallbackUrl ?? releasesUrl}>
+                        {t.allDownloads}
+                      </a>
+                    </li>
+                  )}
+                </ul>
+              </li>
+            );
+          })
+        }
+      </ul>
+      <p class="download-band__all">
+        <a class="link" href={releasesUrl}>{t.allDownloads}</a>
+      </p>
+    </div>
+    <div class="bridge-callout" id="vellum-bridge">
+      <p class="eyebrow">{t.bridge.eyebrow}</p>
+      <h3 id="bridge-title">{t.bridge.title}</h3>
+      <p><strong>{t.bridge.bodyStrong}</strong> {t.bridge.body}</p>
+      <a class="link-ghost" href={bridgeUrl} target="_blank" rel="noopener">
+        {t.bridge.link}<span class="arrow" aria-hidden="true">→</span>
+        <span class="visually-hidden">{newTab}</span>
+      </a>
+      {
+        BRIDGE_WORKSHOP_URL === null && (
+          <p>
+            <em class="pending">{HOME[lang].pendingUrl}</em>
+          </p>
+        )
+      }
+      <p class="bridge-callout__fine">{t.cslmap}</p>
+    </div>
+  </div>
 </section>
+
+<script is:inline set:html={detectScript} />

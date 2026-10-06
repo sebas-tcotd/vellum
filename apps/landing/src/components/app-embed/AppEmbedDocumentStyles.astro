@@ -1,0 +1,12 @@
+---
+/**
+ * What an embedding page declares once in its own document: Tailwind's
+ * @property registrations, which do not work inside a shadow root. The
+ * embedded components paint with system fonts (`--font-shell`); a page that
+ * embeds one using the app brand fonts must also import
+ * `@vellum/ui/embed-fonts.css`.
+ */
+import { documentCss } from './embed-css';
+---
+
+<style is:inline set:html={documentCss}></style>

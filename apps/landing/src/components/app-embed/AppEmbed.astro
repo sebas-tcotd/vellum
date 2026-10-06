@@ -1,0 +1,38 @@
+---
+/**
+ * Renders a real app component (the slot, a React island without `client:`)
+ * inside a Declarative Shadow DOM: zero client JS, and the app's CSS stays on
+ * its side of the boundary in both directions.
+ *
+ * The page must include AppEmbedDocumentStyles once.
+ */
+import { shadowCss } from './embed-css';
+import type { EmbedAppearance, EmbedPlatform } from './types';
+
+interface Props {
+  /** Shell profile the component is painted with (`data-platform`). */
+  platform: EmbedPlatform;
+  /** App chrome appearance (`data-appearance`). */
+  appearance: EmbedAppearance;
+  /** Frame width in CSS pixels. */
+  width: number;
+  /** Test hook on the shadow host. */
+  testId?: string;
+}
+
+const { platform, appearance, width, testId } = Astro.props;
+---
+
+<vellum-app-embed data-testid={testId} inert aria-hidden="true">
+  <template shadowrootmode="open">
+    <style is:inline set:html={shadowCss}></style>
+    <div
+      class="app-embed__frame"
+      data-platform={platform}
+      data-appearance={appearance}
+      style={`width: ${width}px`}
+    >
+      <slot />
+    </div>
+  </template>
+</vellum-app-embed>

@@ -15,7 +15,7 @@ jobs:
   validate:
     name: Validate landing
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -42,5 +42,13 @@ jobs:
       - name: Install Chromium for static browser tests
         run: pnpm --filter @vellum/landing exec playwright install --with-deps chromium
 
-      - name: Test routes, consent and privacy in the static build under /vellum/
+      - name: Test routes, consent, privacy and the home in the static build under /vellum/
         run: pnpm --filter @vellum/landing test:static
+
+      # The embedded app components must keep matching the app pixel for
+      # pixel (spike REPORT; deferred-work: embed contract in CI).
+      - name: Build the app component embed comparison
+        run: pnpm --filter @vellum/landing spike:build
+
+      - name: Compare embedded app components with the app
+        run: pnpm --filter @vellum/landing test:spike

@@ -16,6 +16,18 @@ const translations = Object.fromEntries(
   ]),
 );
 
+/** Headings of the v1.0 home (src/content/home.ts). */
+const home = {
+  en: {
+    h1: 'A map for the city you built.',
+    download: 'Your city is waiting.',
+  },
+  es: {
+    h1: 'Un mapa para la ciudad que construiste.',
+    download: 'Tu ciudad te está esperando.',
+  },
+};
+
 /** Every URL the served HTML references through src, href or island attributes. */
 function referencedUrls(html) {
   const urls = new Set();
@@ -48,10 +60,7 @@ test('the hard #download anchor lands on the home download band', async ({
   const band = page.locator('#download');
   await expect(band).toHaveCount(1);
   await expect(
-    band.getByRole('heading', {
-      level: 2,
-      name: translations.en.download.title,
-    }),
+    band.getByRole('heading', { level: 2, name: home.en.download }),
   ).toBeVisible();
   await expect(band).toBeInViewport();
   expect(page.url()).toMatch(/#download$/);
@@ -128,7 +137,7 @@ test('a missing route answers a real 404 page, not the home', async ({
 });
 
 // The 404 is checked from a nested path: GitHub Pages serves it at any depth.
-for (const path of ['', 'privacy/', 'no-existe/deeper/path']) {
+for (const path of ['', 'es/', 'privacy/', 'no-existe/deeper/path']) {
   test(`every asset of "/vellum/${path}" resolves under /vellum/`, async ({
     page,
     request,
@@ -156,20 +165,32 @@ for (const path of ['', 'privacy/', 'no-existe/deeper/path']) {
   });
 }
 
-for (const [path, canonical] of [
-  ['', `${site}/vellum/`],
-  ['privacy/', `${site}/vellum/privacy/`],
+for (const [path, canonical, lang] of [
+  ['', `${site}/vellum/`, 'en'],
+  ['es/', `${site}/vellum/es/`, 'es'],
+  ['privacy/', `${site}/vellum/privacy/`, 'en'],
 ]) {
-  test(`"/vellum/${path}" serves English SEO metadata`, async ({ request }) => {
+  test(`"/vellum/${path}" serves its SEO metadata`, async ({ request }) => {
     const html = await (await request.get(path)).text();
-    expect(html).toMatch(/<html lang="en">/);
+    expect(html).toMatch(new RegExp(`<html lang="${lang}"`));
     expect(html).toContain(`<link rel="canonical" href="${canonical}">`);
     expect(html).toContain(`<meta property="og:url" content="${canonical}">`);
     expect(html).toMatch(
       /<meta property="og:image" content="https:\/\/sebas-tcotd\.github\.io\/vellum\/assets\/[^"]+">/,
     );
-    // No page has its Spanish pair yet, so no hreflang alternates are claimed.
-    expect(html).not.toContain('hreflang');
+    if (path === 'privacy/') {
+      // Privacy has no Spanish pair yet, so it claims no alternates.
+      expect(html).not.toContain('hreflang');
+    } else {
+      for (const [code, href] of [
+        ['en', `${site}/vellum/`],
+        ['es', `${site}/vellum/es/`],
+        ['x-default', `${site}/vellum/`],
+      ])
+        expect(html).toContain(
+          `<link rel="alternate" hreflang="${code}" href="${href}">`,
+        );
+    }
   });
 }
 
@@ -182,13 +203,16 @@ test('the 404 page is English and stays out of the index', async ({
   expect(html).not.toContain('rel="canonical"');
 });
 
-test('the legacy ?lang=es link still shows Spanish', async ({ page }) => {
-  await page.goto('?lang=es');
+test('the legacy ?lang=es link leads to the Spanish home', async ({ page }) => {
+  await page.goto('?lang=es#download');
+  await expect(page).toHaveURL(/\/vellum\/es\/\?lang=es#download$/);
   await expect(
-    page.getByRole('heading', { level: 1, name: translations.es.hero.title }),
+    page.getByRole('heading', { level: 1, name: home.es.h1 }),
   ).toBeVisible();
   await expect(page.locator('html')).toHaveAttribute('lang', 'es');
-  expect(new URL(page.url()).pathname).toBe('/vellum/');
+  expect(
+    await page.evaluate(() => localStorage.getItem('vellum-landing-language')),
+  ).toBe('es');
 });
 
 test('a malformed hash still renders the home', async ({ page }) => {
@@ -196,7 +220,7 @@ test('a malformed hash still renders the home', async ({ page }) => {
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('?lang=en#%E0');
   await expect(
-    page.getByRole('heading', { level: 1, name: translations.en.hero.title }),
+    page.getByRole('heading', { level: 1, name: home.en.h1 }),
   ).toBeVisible();
   expect(errors).toEqual([]);
 });
@@ -224,14 +248,11 @@ test('the served #download band carries real release links without JS', async ({
 test('the download band shows only the language of the page', async ({
   page,
 }) => {
-  await page.goto('?lang=es#download');
+  await page.goto('es/#download');
   const band = page.locator('#download');
   await expect(
-    band.getByRole('heading', {
-      level: 2,
-      name: translations.es.download.title,
-    }),
+    band.getByRole('heading', { level: 2, name: home.es.download }),
   ).toBeVisible();
-  await expect(band.locator('[lang="en"]')).toBeHidden();
+  await expect(band.locator('[lang="en"]')).toHaveCount(0);
   await expect(band.getByRole('link', { name: /\.exe/ })).toHaveCount(1);
 });

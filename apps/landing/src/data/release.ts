@@ -177,3 +177,33 @@ export function loadRelease(): Promise<ReleaseData | null> {
   })();
   return cached;
 }
+
+/** What the download band shows for one platform. */
+export interface BandPlatform {
+  id: PlatformId;
+  /** Direct installers; empty when the release lacks them. */
+  files: DownloadFile[];
+  /** Where the platform links when it has no direct installer. */
+  fallbackUrl: string | null;
+}
+
+/**
+ * Decides the download band from the release data: direct links when there
+ * are any, otherwise every platform points at GitHub Releases and the band
+ * uses its fallback heading (EXPERIENCE.md · Datos del release no
+ * disponibles).
+ */
+export function downloadBand(release: ReleaseData | null): {
+  direct: boolean;
+  platforms: BandPlatform[];
+} {
+  const ids: PlatformId[] = ['windows', 'macos', 'linux'];
+  const platforms = ids.map((id) => {
+    const files = release?.platforms[id] ?? [];
+    return { id, files, fallbackUrl: files.length > 0 ? null : releasesUrl };
+  });
+  return {
+    direct: platforms.some((platform) => platform.files.length > 0),
+    platforms,
+  };
+}

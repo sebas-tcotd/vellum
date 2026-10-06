@@ -1,0 +1,40 @@
+---
+/** Home 10: the same map in the window of each system. */
+import { HOME } from '../../content/home';
+import type { Lang } from '../../content/routes';
+import type { ShotId } from '../../content/shots';
+import Section from './Section.astro';
+import Shot from './Shot.astro';
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const t = HOME[lang].shells;
+const shells: { os: string; shot: ShotId }[] = [
+  { os: 'windows', shot: 'T22' },
+  { os: 'macos', shot: 'T23' },
+  { os: 'linux', shot: 'T24' },
+];
+---
+
+<Section id="sistemas" {...t}>
+  <ul class="shells" role="list">
+    {
+      shells.map((shell, index) => (
+        <li class={`shell-card shell-card--${shell.os}`}>
+          <figure>
+            <div class="shell-card__window">
+              <Shot id={shell.shot} lang={lang} sizes="(max-width: 640px) 100vw, 30vw" widths={[480, 800, 1200]} />
+            </div>
+            <figcaption>
+              <span class="shell-card__title">{t.cards[index]?.title}</span>
+              <span class="caption">{t.cards[index]?.material}</span>
+            </figcaption>
+          </figure>
+        </li>
+      ))
+    }
+  </ul>
+</Section>

@@ -1,0 +1,72 @@
+---
+/**
+ * Document of the v1.0 pages: SEO head, the inline boot script (page theme
+ * and language redirect, before any CSS), skip link, consent region, nav,
+ * `<main id="contenido">` and footer.
+ */
+import '@fontsource/cormorant-garamond/400.css';
+import '@fontsource/cormorant-garamond/400-italic.css';
+import '@fontsource/cormorant-garamond/500.css';
+import '@fontsource/source-serif-4/400.css';
+import '@fontsource/source-serif-4/500.css';
+import '@fontsource/source-serif-4/400-italic.css';
+import '@fontsource/dm-mono/400.css';
+import '@fontsource/dm-mono/400-italic.css';
+import '@fontsource/dm-mono/500.css';
+import '../styles/site.css';
+import ConsentBar from '../components/site/ConsentBar.astro';
+import Footer from '../components/site/Footer.astro';
+import Nav from '../components/site/Nav.astro';
+import SeoHead from '../components/site/SeoHead.astro';
+import {
+  PAGE_PATHS,
+  PUBLISHED_PAGES,
+  publishedPairs,
+  type Lang,
+  type PageId,
+} from '../content/routes';
+import { SITE } from '../content/site';
+import { bootScript } from '../scripts/language';
+
+interface Props {
+  lang: Lang;
+  page: PageId;
+  title: string;
+  description: string;
+}
+
+const { lang, page, title, description } = Astro.props;
+const alternates = PUBLISHED_PAGES.has(page) ? PAGE_PATHS[page] : undefined;
+const boot = bootScript(import.meta.env.BASE_URL, publishedPairs());
+---
+
+<!doctype html>
+<html lang={lang}>
+  <head>
+    <meta charset="UTF-8" />
+    <script is:inline set:html={boot} />
+    <SeoHead title={title} description={description} alternates={alternates} />
+    <meta
+      name="theme-color"
+      content="#f7f6f1"
+      media="(prefers-color-scheme: light)"
+    />
+    <meta
+      name="theme-color"
+      content="#1f1b17"
+      media="(prefers-color-scheme: dark)"
+    />
+    <slot name="head" />
+  </head>
+  <body>
+    <div class="site">
+      <a class="button skip-link" href="#contenido">{SITE[lang].skipLink}</a>
+      <ConsentBar lang={lang} />
+      <Nav lang={lang} current={page} />
+      <main id="contenido" tabindex="-1">
+        <slot />
+      </main>
+      <Footer lang={lang} current={page} />
+    </div>
+  </body>
+</html>

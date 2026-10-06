@@ -1,18 +1,5 @@
 ---
-import DownloadBand from '../components/DownloadBand.astro';
-import { HomeIsland } from '../islands/HomeIsland';
-import BaseLayout from '../layouts/BaseLayout.astro';
+import HomePage from '../components/home/HomePage.astro';
 ---
 
-<BaseLayout
-  title="Vellum | Maps for cities worth remembering"
-  description="Vellum turns Cities: Skylines 1 .cslmap exports into layered maps you can explore, theme, and export as PNG or editable SVG."
-  ogDescription="Open a Cities: Skylines 1 .cslmap export and read your city in layers."
->
-  <div id="root">
-    <HomeIsland client:only="react" />
-  </div>
-  <div id="download-static">
-    <DownloadBand />
-  </div>
-</BaseLayout>
+<HomePage lang="en" />

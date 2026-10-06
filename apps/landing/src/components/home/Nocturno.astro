@@ -1,0 +1,113 @@
+---
+/**
+ * Home 05: the always-dark night island (N1). The drawn "Dim other layers"
+ * switch illustrates the app setting; it is not a control.
+ */
+import { HOME, fill } from '../../content/home';
+import type { Lang } from '../../content/routes';
+import { SHOWCASE_CITY } from '../../content/shots';
+import Shot from './Shot.astro';
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const t = HOME[lang].nocturno;
+---
+
+<div class="nocturno-wrap">
+  <section class="nocturno" id="nocturno" aria-labelledby="nocturno-title" data-nocturno>
+    <div>
+      <p class="eyebrow">{t.eyebrow}</p>
+      <h2 id="nocturno-title">{t.title}</h2>
+      {t.body.map((paragraph) => <p class="nocturno__body">{paragraph}</p>)}
+      <aside class="nocturno__note">
+        <p>{t.note}</p>
+      </aside>
+      <figure class="nocturno__toggle">
+        <div class="nocturno__switch" aria-hidden="true">
+          <span class="nocturno__switch-track"></span>
+          <span>
+            {t.toggle}
+            <br />
+            <span class="nocturno__switch-note">{t.toggleNote}</span>
+          </span>
+        </div>
+        <figcaption>{t.figureCaption}: {t.toggle}.</figcaption>
+      </figure>
+    </div>
+    <div class="nocturno__images">
+      <figure class="nocturno__main" data-nocturno-main>
+        <Shot id="T11" lang={lang} sizes="(max-width: 1023px) 84vw, 45vw" />
+        <figcaption>{fill(t.caption, { city: SHOWCASE_CITY })}</figcaption>
+      </figure>
+      <figure class="nocturno__thumb" data-nocturno-thumb>
+        <Shot
+          id="T15"
+          lang={lang}
+          sizes="(max-width: 1023px) 36vw, 20vw"
+          widths={[400, 800]}
+        />
+        <figcaption>{t.dimmedCaption}</figcaption>
+      </figure>
+    </div>
+  </section>
+</div>
+
+<script>
+  import { motionAllowed, onceVisible } from '../../scripts/motion';
+
+  const island = document.querySelector<HTMLElement>('[data-nocturno]');
+  const main = island?.querySelector<HTMLElement>('[data-nocturno-main] img');
+  const thumb = island?.querySelector<HTMLElement>('[data-nocturno-thumb]');
+  if (island && motionAllowed()) {
+    // The lines "light up": one fade (two real shots, T16→T15, would allow
+    // a staggered one), then the dimmed thumbnail.
+    const targets = [main, thumb].filter(Boolean) as HTMLElement[];
+    const reset = () => {
+      for (const target of targets) {
+        target.style.transition = '';
+        target.style.opacity = '';
+      }
+    };
+    onceVisible(island, () => {
+      for (const target of targets) target.style.opacity = '0';
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          if (main) {
+            main.style.transition = 'opacity 1200ms ease';
+            main.style.opacity = '1';
+          }
+          window.setTimeout(() => {
+            if (thumb) {
+              thumb.style.transition = 'opacity 300ms ease';
+              thumb.style.opacity = '1';
+            }
+          }, 1200);
+        }),
+      );
+      window.setTimeout(reset, 2000);
+    });
+
+    // In dark mode the neighbouring sections lower their light (backgrounds
+    // and images only, never text) while the island is in view.
+    const dark = () =>
+      document.documentElement.dataset.theme === 'dark' ||
+      (document.documentElement.dataset.theme !== 'light' &&
+        matchMedia('(prefers-color-scheme: dark)').matches);
+    let inView = false;
+    const sync = () =>
+      document.documentElement.classList.toggle('nocturno-dim', inView && dark());
+    new IntersectionObserver(
+      ([entry]) => {
+        inView = Boolean(entry?.isIntersecting);
+        sync();
+      },
+      { threshold: 0.5 },
+    ).observe(island);
+    // The page theme can change while the island is in view.
+    document.addEventListener('change', sync);
+    matchMedia('(prefers-color-scheme: dark)').addEventListener('change', sync);
+  }
+</script>

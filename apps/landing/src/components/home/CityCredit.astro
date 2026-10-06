@@ -1,0 +1,46 @@
+---
+/**
+ * Credit of a third-party city: "Credit: author · Steam Workshop ↗", with an
+ * accessible name that says city, author and destination. While the author
+ * is unknown, a visible "author pending" marker takes their place.
+ */
+import { CITIES, workshopUrl, type CityId } from '../../content/cities';
+import { HOME } from '../../content/home';
+import type { Lang } from '../../content/routes';
+import { SITE } from '../../content/site';
+
+interface Props {
+  city: CityId;
+  lang: Lang;
+  /** Extra words before the credit, e.g. "Day theme". */
+  prefix?: string;
+  class?: string;
+}
+
+const { city: cityId, lang, prefix, class: className } = Astro.props;
+const city = CITIES[cityId];
+const copy = HOME[lang];
+const url = workshopUrl(city);
+const author = city.author;
+const label =
+  lang === 'es'
+    ? `${city.city} de ${author ?? 'autor pendiente'} en Steam Workshop ${SITE.es.newTab}`
+    : `${city.city} by ${author ?? 'pending author'} on Steam Workshop ${SITE.en.newTab}`;
+---
+
+<span class:list={['credit', className]}>
+  {prefix && <>{prefix} · </>}
+  {lang === 'es' ? 'Crédito: ' : 'Credit: '}
+  {author ?? <em class="pending">{copy.pendingAuthor}</em>}
+  {
+    url && (
+      <>
+        {' · '}
+        <a class="on-map" href={url} target="_blank" rel="noopener" aria-label={label}>
+          {copy.workshop}
+          <span aria-hidden="true"> ↗</span>
+        </a>
+      </>
+    )
+  }
+</span>

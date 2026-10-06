@@ -1,0 +1,43 @@
+---
+/** Home 01: the city full-bleed under the paper veil, the H1 and the CTAs. */
+import { HOME } from '../../content/home';
+import type { Lang } from '../../content/routes';
+import CityCredit from './CityCredit.astro';
+import Shot from './Shot.astro';
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const t = HOME[lang].hero;
+---
+
+<section class="hero" aria-labelledby="hero-title">
+  <div class="hero__image">
+    <Shot
+      id="T01"
+      lang={lang}
+      eager
+      sizes="100vw"
+      widths={[640, 1280, 1920, 2560, 3200]}
+    />
+  </div>
+  <div class="hero__copy">
+    <p class="eyebrow">{t.eyebrow}</p>
+    <h1 id="hero-title" data-reveal data-reveal-delay="150">{t.title}</h1>
+    <p class="hero__lede">{t.lede}</p>
+    <div class="hero__actions">
+      <a class="button button--lg" href="#download">
+        {t.cta}<span class="arrow" aria-hidden="true">↓</span>
+      </a>
+      <a class="link-ghost" href="#vellum-bridge">
+        {t.bridge}<span class="arrow" aria-hidden="true">→</span>
+      </a>
+    </div>
+    <p class="hero__fine">{t.fine}</p>
+  </div>
+  <p class="hero__credit">
+    Spring Valley · <CityCredit city="springValley" lang={lang} prefix={t.credit} />
+  </p>
+</section>

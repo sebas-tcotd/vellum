@@ -1,0 +1,162 @@
+---
+/**
+ * Footer: published pages, privacy, analytics preferences, GitHub, the
+ * language switcher, the page theme switcher and the non-affiliation note.
+ */
+import { REPOSITORY_URL } from '../../content/links';
+import {
+  NAV_PAGES,
+  PAGE_PATHS,
+  PUBLISHED_PAGES,
+  pageHref,
+  privacyHref,
+  type Lang,
+  type PageId,
+} from '../../content/routes';
+import { SITE } from '../../content/site';
+
+interface Props {
+  lang: Lang;
+  current: PageId;
+}
+
+const { lang, current } = Astro.props;
+const t = SITE[lang];
+const base = import.meta.env.BASE_URL;
+const languages: Lang[] = ['es', 'en'];
+const links = NAV_PAGES.filter((page) => PUBLISHED_PAGES.has(page));
+const logo = `${base}assets/vellum-isotype-rounded.svg`;
+const themes = ['light', 'dark', 'auto'] as const;
+const otherHref = (code: Lang) =>
+  `${base}${PAGE_PATHS[current][code]}?lang=${code}`;
+---
+
+<footer class="footer">
+  <div class="footer__inner">
+    <div class="footer__top">
+      <a class="wordmark" href={pageHref('home', lang)}>
+        <img src={logo} alt="" width="24" height="24" />
+        <span>Vellum</span>
+      </a>
+      <nav aria-label={t.footer.label}>
+        <ul class="footer__links" role="list">
+          {
+            links.map((page) => (
+              <li>
+                <a href={pageHref(page, lang)}>{t.pages[page]}</a>
+              </li>
+            ))
+          }
+          <li><a href={privacyHref(lang)}>{t.footer.privacy}</a></li>
+          <li>
+            <button type="button" data-consent-open hidden>
+              {t.footer.analytics}
+            </button>
+          </li>
+          <li>
+            <a href={REPOSITORY_URL} target="_blank" rel="noopener">
+              {t.footer.github}<span aria-hidden="true"> ↗</span>
+              <span class="visually-hidden">{t.newTab}</span>
+            </a>
+          </li>
+        </ul>
+      </nav>
+    </div>
+    <div class="footer__prefs">
+      <ul class="lang-switch" role="list" aria-label={t.footer.languageLabel}>
+        {
+          languages.map((code) =>
+            code === lang ? (
+              <li>
+                <span aria-current="true">
+                  <abbr title={t.languageNames[code]} lang={code}>
+                    {code.toUpperCase()}
+                  </abbr>
+                </span>
+              </li>
+            ) : (
+              <li>
+                <a
+                  class="link"
+                  href={otherHref(code)}
+                  hreflang={code}
+                  lang={code}
+                  aria-label={t.languageNames[code]}
+                  data-keep-hash
+                >
+                  {code.toUpperCase()}
+                </a>
+              </li>
+            ),
+          )
+        }
+      </ul>
+      <fieldset class="theme-switch" hidden data-theme-switch>
+        <legend>{t.footer.themeLegend}</legend>
+        {
+          themes.map((theme) => (
+            <span class="theme-switch__option">
+              <input
+                type="radio"
+                name="page-theme"
+                id={`page-theme-${theme}`}
+                value={theme}
+                checked={theme === 'auto'}
+              />
+              <label for={`page-theme-${theme}`}>
+                {t.footer.themes[theme]}
+              </label>
+            </span>
+          ))
+        }
+      </fieldset>
+    </div>
+    <p class="footer__fine">{t.footer.disclaimer}</p>
+  </div>
+</footer>
+
+<script>
+  import { THEME_KEY } from '../../scripts/language';
+
+  // Page theme: Light · Dark · Auto (Auto follows the system, live).
+  const fieldset = document.querySelector<HTMLFieldSetElement>(
+    '[data-theme-switch]',
+  );
+  if (fieldset) {
+    let saved = 'auto';
+    try {
+      const value = localStorage.getItem(THEME_KEY);
+      if (value === 'light' || value === 'dark' || value === 'auto')
+        saved = value;
+    } catch {
+      // Storage unavailable: Auto applies, without any error shown.
+    }
+    const input = fieldset.querySelector<HTMLInputElement>(
+      `input[value="${saved}"]`,
+    );
+    if (input) input.checked = true;
+    fieldset.hidden = false;
+    fieldset.addEventListener('change', (event) => {
+      const theme = (event.target as HTMLInputElement).value;
+      if (theme === 'light' || theme === 'dark')
+        document.documentElement.dataset.theme = theme;
+      else delete document.documentElement.dataset.theme;
+      try {
+        localStorage.setItem(THEME_KEY, theme);
+      } catch {
+        // The choice applies to this page only.
+      }
+    });
+  }
+
+  // The language switcher keeps the current hash.
+  for (const link of document.querySelectorAll<HTMLAnchorElement>(
+    'a[data-keep-hash]',
+  )) {
+    link.addEventListener('click', () => {
+      const url = new URL(link.href);
+      url.hash = location.hash;
+      link.href = url.href;
+    });
+  }
+</script>
