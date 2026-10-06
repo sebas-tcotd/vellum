@@ -106,11 +106,13 @@ are kept in one place so the two languages cannot drift apart.
   not reused here.
 - It warns that preferences and themes do not carry over from the standalone edition.
 
-Two package fields outside the listing, in case Partner Center or review surfaces them:
-the MSIX manifest `Description` is "Turn Cities: Skylines saves into printable maps."
-(not a search term, but it names the game outside the listing description), and the
-`shortDescription` in `tauri.conf.json` says the same. Decide whether to reword them
-before submitting.
+The package metadata that can show up outside the listing (the MSIX manifest
+`Description`, `shortDescription` in `tauri.conf.json` and the `Comment` of the Linux
+`.desktop` entries) no longer names the game: it says "Turn city saves into printable
+maps." / "Convierte partidas de ciudad en mapas imprimibles.". The single source is
+`brand/installer-copy.json`. "Cities: Skylines" remains in `longDescription`, which
+describes what the app works with, and in the Linux keywords (`cities;skylines;…`),
+which are not part of the Store.
 
 ## Screenshots and artwork
 

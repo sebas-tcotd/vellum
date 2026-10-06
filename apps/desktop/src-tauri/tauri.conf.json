@@ -43,7 +43,7 @@
     "copyright": "Copyright (c) 2026 Sebastian Enrique Vargas Pizango",
     "license": "MIT",
     "category": "GraphicsAndDesign",
-    "shortDescription": "Turn Cities: Skylines saves into printable maps.",
+    "shortDescription": "Turn city saves into printable maps.",
     "longDescription": "Vellum is an offline desktop application that reads a Cities: Skylines .cslmap export and draws it as a cartographic map you can style and export to PNG or SVG. It works entirely on your machine: no account, no telemetry, and the only network request it ever makes is the update check you can turn off.",
     "resources": [
       "resources/themes/*",

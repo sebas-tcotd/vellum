@@ -150,11 +150,13 @@ Primera versión en Microsoft Store.
   independiente y no se reutiliza aquí.
 - Avisa de que preferencias y temas no se trasladan desde la edición independiente.
 
-Dos puntos del paquete fuera de la ficha, por si Partner Center o la revisión los muestran:
-el campo `Description` del manifiesto MSIX es «Turn Cities: Skylines saves into
-printable maps.» (no es palabra clave, pero menciona el juego fuera de la descripción
-de la ficha), y la `shortDescription` de `tauri.conf.json` dice lo mismo. Decidir si se
-reformulan antes del envío.
+Los metadatos del paquete que pueden verse fuera de la ficha (el `Description` del
+manifiesto MSIX, la `shortDescription` de `tauri.conf.json` y el `Comment` de las
+entradas `.desktop` de Linux) ya no nombran el juego: dicen «Turn city saves into
+printable maps.» / «Convierte partidas de ciudad en mapas imprimibles.». La fuente única
+es `brand/installer-copy.json`. «Cities: Skylines» queda en la `longDescription`, que
+describe con qué funciona la app, y en las palabras clave de Linux
+(`cities;skylines;…`), que no forman parte de la Store.
 
 ## Capturas y material gráfico
 
