@@ -307,11 +307,16 @@ export const HOME: Record<Lang, HomeCopy> = {
     shells: {
       eyebrow: '10 · En tu sistema',
       title: 'En casa en cada escritorio.',
-      body: ['El mapa es el mismo; la ventana se adapta a tu sistema.'],
-      note: 'No es la misma ventana en todas partes: Vellum toma los materiales de cada sistema.',
+      body: [
+        'El mapa es el mismo; la ventana adopta el aspecto de tu sistema con sus propios estilos, sin depender de él.',
+      ],
+      note: 'No es la misma ventana en todas partes: Vellum se viste al estilo de cada sistema.',
       cards: [
-        { title: 'Así se ve en Windows', material: 'Mica y Acrylic' },
-        { title: 'Así se ve en macOS', material: 'Liquid Glass' },
+        {
+          title: 'Así se ve en Windows',
+          material: 'al estilo de Mica y Acrylic',
+        },
+        { title: 'Así se ve en macOS', material: 'al estilo de Liquid Glass' },
         { title: 'Así se ve en Linux', material: 'papel por defecto' },
       ],
     },
@@ -535,11 +540,16 @@ export const HOME: Record<Lang, HomeCopy> = {
     shells: {
       eyebrow: '10 · On your system',
       title: 'At home on every desktop.',
-      body: ['The map is the same; the window adapts to your system.'],
-      note: "It isn't the same window everywhere: Vellum takes the materials of each system.",
+      body: [
+        'The map is the same; the window takes on the look of your system with its own styles, without depending on it.',
+      ],
+      note: "It isn't the same window everywhere: Vellum dresses in the style of each system.",
       cards: [
-        { title: 'This is Windows', material: 'Mica and Acrylic' },
-        { title: 'This is macOS', material: 'Liquid Glass' },
+        {
+          title: 'This is Windows',
+          material: 'in the style of Mica and Acrylic',
+        },
+        { title: 'This is macOS', material: 'in the style of Liquid Glass' },
         { title: 'This is Linux', material: 'plain paper' },
       ],
     },
