@@ -68,7 +68,8 @@ describe('contratos de optimización de CI', () => {
     expect(astro).toContain("base: '/vellum/'");
     expect(astro).toContain("trailingSlash: 'always'");
     expect(astro).toContain("format: 'directory'");
-    expect(read('apps/landing/src/App.tsx')).toContain('./privacy/?lang=');
+    // The Spanish footer links to the static privacy page with `?lang=es`.
+    expect(read('apps/landing/src/content/routes.ts')).toContain('?lang=es');
     const en = JSON.parse(read('apps/landing/i18n/en.json'));
     const es = JSON.parse(read('apps/landing/i18n/es.json'));
     const keys = (value) =>
