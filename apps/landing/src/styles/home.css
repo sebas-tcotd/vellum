@@ -1435,25 +1435,26 @@ html:not(.js) .theme-group__label {
   }
 }
 
-/* Store badge per effective page mode: only one image is rendered. */
-.store-badge__dark {
+/* Store badge per effective page mode: the hidden one is display: none, so
+   only one reaches assistive tech. */
+.store-badge .store-badge__dark {
   display: none;
 }
 
-:root[data-theme='dark'] .store-badge__light {
+:root[data-theme='dark'] .store-badge .store-badge__light {
   display: none;
 }
 
-:root[data-theme='dark'] .store-badge__dark {
+:root[data-theme='dark'] .store-badge .store-badge__dark {
   display: block;
 }
 
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) .store-badge__light {
+  :root:not([data-theme='light']) .store-badge .store-badge__light {
     display: none;
   }
 
-  :root:not([data-theme='light']) .store-badge__dark {
+  :root:not([data-theme='light']) .store-badge .store-badge__dark {
     display: block;
   }
 }

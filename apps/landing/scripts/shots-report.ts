@@ -1,7 +1,7 @@
 /**
  * Lists what the home still needs before launch: shots without their final
- * file (with the stand-in they show meanwhile), Workshop authors, the Bridge
- * Workshop URL and the dark Store badges.
+ * file (with the stand-in they show meanwhile), Workshop authors and the
+ * Bridge Workshop URL.
  *
  * Run: `pnpm --filter @vellum/landing shots:report` (Node strips the types).
  */
@@ -60,14 +60,6 @@ if (BRIDGE_WORKSHOP_URL === null) {
   lines.push(
     '  URL del ítem de Vellum Bridge en Steam Workshop (src/content/links.ts)',
   );
-}
-for (const lang of ['en', 'es']) {
-  if (!existsSync(root(`../public/assets/store-badge-${lang}-dark.svg`))) {
-    pending += 1;
-    lines.push(
-      `  Insignia oficial de Microsoft Store para fondo oscuro (${lang}): public/assets/store-badge-${lang}-dark.svg`,
-    );
-  }
 }
 
 lines.push('', `${pending} pendientes.`);

@@ -327,3 +327,25 @@ test('missing shots show their id, never an image with a provisional alt', async
     await expect(shot).toContainText(/T\d\d/);
   }
 });
+
+test('one official Store badge per page mode, never a Microsoft request', async ({
+  page,
+}) => {
+  const microsoft = [];
+  page.on('request', (request) => {
+    if (/microsoft\.com$/.test(new URL(request.url()).hostname))
+      microsoft.push(request.url());
+  });
+  await rejectConsent(page);
+  await page.goto('es/#download');
+  const badges = page.locator('#download .store-badge img');
+  await expect(badges).toHaveCount(2);
+  await expect(
+    page.getByRole('img', { name: 'Obtenlo de Microsoft' }),
+  ).toHaveAttribute('src', /store-badge-es-on-light\.svg$/);
+  await page.getByText('Oscuro', { exact: true }).click();
+  await expect(
+    page.getByRole('img', { name: 'Obtenlo de Microsoft' }),
+  ).toHaveAttribute('src', /store-badge-es-on-dark\.svg$/);
+  expect(microsoft).toEqual([]);
+});

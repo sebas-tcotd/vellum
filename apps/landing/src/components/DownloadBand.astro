@@ -5,7 +5,6 @@
  * platforms, in fixed order and without emphasis; with JS the detected
  * system's row becomes the primary button. Next to it, the Bridge call.
  */
-import { existsSync } from 'node:fs';
 import { HOME } from '../content/home';
 import {
   BRIDGE_WORKSHOP_URL,
@@ -35,14 +34,10 @@ const names: Record<PlatformId, string> = {
   macos: 'macOS',
   linux: 'Linux',
 };
-const badge = `${import.meta.env.BASE_URL}assets/store-badge-${lang}.svg`;
-// The official badge for dark pages, once it is in the repo; until then the
-// light-page badge is shown in both modes.
-const darkBadge = existsSync(
-  `${process.cwd()}/public/assets/store-badge-${lang}-dark.svg`,
-)
-  ? `${import.meta.env.BASE_URL}assets/store-badge-${lang}-dark.svg`
-  : null;
+// Official Microsoft badges, self-hosted: the black one on a light page,
+// the white one on a dark page (CSS shows one per effective page mode).
+const badge = (background: 'light' | 'dark') =>
+  `${import.meta.env.BASE_URL}assets/store-badge-${lang}-on-${background}.svg`;
 const bridgeUrl = BRIDGE_WORKSHOP_URL ?? WORKSHOP_FALLBACK_URL;
 // OS detection: the detected row's main link becomes the primary button with
 // a visible "recommended" line. Nothing is reordered or hidden.
@@ -92,21 +87,19 @@ const detectScript = `(function () {
                         rel="noopener"
                       >
                         <img
-                          class:list={[darkBadge && 'store-badge__light']}
-                          src={badge}
+                          class="store-badge__light"
+                          src={badge('light')}
                           alt={t.storeAlt}
                           width="161"
                           height="44"
                         />
-                        {darkBadge && (
-                          <img
-                            class="store-badge__dark"
-                            src={darkBadge}
-                            alt={t.storeAlt}
-                            width="161"
-                            height="44"
-                          />
-                        )}
+                        <img
+                          class="store-badge__dark"
+                          src={badge('dark')}
+                          alt={t.storeAlt}
+                          width="161"
+                          height="44"
+                        />
                         <span class="visually-hidden">{newTab}</span>
                       </a>
                     </li>
