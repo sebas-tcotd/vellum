@@ -5,11 +5,11 @@ herramientas y exportación PNG/SVG que un archivo propio. La muestra es local y
 necesita conexión. La exportación usa el selector de destino habitual y no modifica
 el documento incluido.
 
-## Contenido provisional y procedencia
+## Contenido y procedencia
 
-Costa Tijuca es la muestra provisional para este PR. La atribución al autor y el
-permiso de redistribución quedan pendientes de confirmar antes del lanzamiento.
-Su exportación original es `Costa Tijuca 2026-10-01 171705.vellummap`, generada el
+Costa Tijuca es la ciudad de muestra elegida para v1.0. Antes del lanzamiento hay
+que registrar aquí la atribución al autor y el permiso de redistribución; este
+documento no los da por confirmados. Su exportación original es `Costa Tijuca 2026-10-01 171705.vellummap`, generada el
 `2026-10-01T22:17:05Z` por **Vellum Bridge 0.9.0-experimental**, con esquema de
 exportación `1.1` e identidad de snapshot `09670c2e-1fee-4535-91a7-8b0e1da84b0f`.
 
@@ -35,11 +35,13 @@ comprueba la identidad de la ciudad, terreno, agua, vías, edificios, tránsito,
 distritos y áreas especiales. La prueba de empaquetado MSIX comprueba que el recurso
 se conserve sin cambios al empaquetar.
 
-## Sustitución y validación de la ciudad definitiva
+## Validación y sustitución de la ciudad
 
-Confirmar la atribución al autor y el permiso de redistribución; después,
-regenerar la ciudad elegida con la versión final de Vellum Bridge. Sustituir el
-documento y actualizar `SAMPLE_CITY` en `apps/desktop/src/sample-city.ts`, la prueba
+La exportación incluida es la ciudad elegida para v1.0 y sus bytes están
+verificados (SHA-256 arriba, `cargo test --package vellum --test sample_city` y
+comprobación del mismo hash dentro del MSIX desempaquetado). Si se decide
+regenerarla con la versión final de Vellum Bridge, o sustituirla por otra,
+reemplazar el documento y actualizar `SAMPLE_CITY` en `apps/desktop/src/sample-city.ts`, la prueba
 de integración y ambas versiones de idioma de este documento. Conservar los
 metadatos reales del productor. El glob de recursos de Tauri y el empaquetador MSIX
 preservan `resources/sample-city/city.vellummap`; el código de ejecución solo

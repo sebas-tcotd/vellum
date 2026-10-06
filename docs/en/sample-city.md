@@ -5,11 +5,11 @@ map tools and PNG/SVG export flow as a user file. The sample is local and needs 
 network connection. Exports use the ordinary destination picker and do not modify
 the bundled document.
 
-## Provisional content and provenance
+## Content and provenance
 
-Costa Tijuca is the provisional sample for this PR. Author attribution and
-redistribution permission remain to be confirmed before release. Its original
-export is `Costa Tijuca 2026-10-01 171705.vellummap`, exported at
+Costa Tijuca is the chosen sample city for v1.0. Author attribution and
+redistribution permission must be recorded here before release; this document
+does not claim they are confirmed. Its original export is `Costa Tijuca 2026-10-01 171705.vellummap`, exported at
 `2026-10-01T22:17:05Z` by **Vellum Bridge 0.9.0-experimental**, with export schema
 `1.1` and snapshot ID `09670c2e-1fee-4535-91a7-8b0e1da84b0f`.
 
@@ -35,11 +35,12 @@ and checks the city identity, terrain, water, roads, buildings, transit, distric
 and special areas. The MSIX packaging test checks that the resource survives
 packaging unchanged.
 
-## Replacing and validating the final city
+## Validating and replacing the city
 
-Confirm author attribution and redistribution permission, then regenerate the
-chosen city with the final Vellum Bridge version. Replace the bundled document
-and update `SAMPLE_CITY` in `apps/desktop/src/sample-city.ts`, the integration test
+The bundled export is the chosen v1.0 city and its bytes are verified (SHA-256
+above, `cargo test --package vellum --test sample_city`, and the same hash
+checked inside the unpacked MSIX). If it is regenerated with the final Vellum
+Bridge version or replaced by another city, replace the bundled document and update `SAMPLE_CITY` in `apps/desktop/src/sample-city.ts`, the integration test
 and both language versions of this provenance document. Keep the actual producer
 metadata. The Tauri resource glob and MSIX packager preserve
 `resources/sample-city/city.vellummap`; runtime code only resolves and reads it.

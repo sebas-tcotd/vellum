@@ -45,7 +45,7 @@ These checks are pending for the final release package and definitive v1.0 sampl
 The earlier spike is not evidence that this package passed them. Record package
 hash, commit, Windows version, sample and results for each check:
 
-- [ ] Inspect with SDK unpack: Store identity, `X.Y.Z.0`, x64, minimum Windows,
+- [x] Inspect with SDK unpack (see the log below): Store identity, `X.Y.Z.0`, x64, minimum Windows,
       quoted associations, logos, runtime resources, unchanged executable hash and
       no `AppxSignature.p7x` in the unsigned submission.
 - [ ] Obtain Microsoft certification/signing; do not treat the GitHub upload as
@@ -60,3 +60,28 @@ hash, commit, Windows version, sample and results for each check:
       from standalone preferences and themes.
 - [ ] Uninstall; check package data removal, preserved external exports, and
       removal of package file associations without damaging the standalone app.
+
+## Validation log
+
+### 2026-10-06 — package inspection and local smoke test
+
+Commit `09ea4c0`, version 0.14.0, Windows 11 (10.0.26200), SDK 10.0.26100.0,
+package `VellumCityMaps_0.14.0.0_x64.msix`, Costa Tijuca sample. This is an
+inspection of the unpacked package plus a run of the loose executable; it does
+not replace clean-Windows validation or Store certification.
+
+| Check                                        | Result                                                                                                                                                                                     |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| SDK unpack: manifest                         | Correct: Store identity, `0.14.0.0`, x64, minimum `10.0.17763.0`, quoted `"%1"` associations, logos and `resources.pri`.                                                                   |
+| Packaged exe hash                            | `BA532CF931B0DD1DFC8A4B9A6D700FD763FC9C21DBB64970405C32C1F9A7EE01`, equal to the input exe.                                                                                                |
+| `AppxSignature.p7x`                          | Absent, as expected for the unsigned submission.                                                                                                                                           |
+| Bundled sample                               | SHA-256 `8B1AC9D4…FBEB3` inside the package; `cargo test --package vellum --test sample_city` passes.                                                                                      |
+| `pnpm check:network`, `pnpm check:installer` | Pass.                                                                                                                                                                                      |
+| Open `.vellummap` via argv                   | Map loads and renders with a path containing spaces and non-ASCII characters. The loose exe was run, not the installed package.                                                            |
+| Loose-exe network, 12 s after launch         | Two HTTPS connections to `52.97.x.x:443`, both owned by `msedgewebview2.exe` (the WebView2 runtime), none by `vellum.exe`. Inconclusive: repeat with the installed MSIX.                   |
+| `scripts/package-msix.test.mjs`              | With PowerShell 7, 15 of 16 pass. "rejects absent and non-PE input" fails because it matches the English message ("does not exist") and this Windows is Spanish; it does not happen in CI. |
+
+Everything else on the list remains pending: Store install on clean Windows 10
+and 11, double-click from Explorer with the installed package, installed-package
+network offline with the updater disabled, PNG/SVG, themes, uninstall and
+Microsoft certification.

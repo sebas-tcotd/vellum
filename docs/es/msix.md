@@ -46,7 +46,7 @@ Estas pruebas están pendientes para el paquete final y la muestra definitiva v1
 El spike anterior no demuestra que este paquete las haya pasado. Registrar hash
 del paquete, commit, versión Windows, muestra y resultados de cada prueba:
 
-- [ ] Inspeccionar con SDK unpack: identidad Store, `X.Y.Z.0`, x64, Windows mínimo,
+- [x] Inspeccionar con SDK unpack (ver el registro de abajo): identidad Store, `X.Y.Z.0`, x64, Windows mínimo,
       asociaciones entre comillas, logos, recursos runtime, mismo hash de exe y
       ausencia de `AppxSignature.p7x` en el envío unsigned.
 - [ ] Obtener certificación/firma Microsoft; no tratar la subida GitHub como
@@ -61,3 +61,28 @@ del paquete, commit, versión Windows, muestra y resultados de cada prueba:
       verificar separación de preferencias y temas de la edición independiente.
 - [ ] Desinstalar; comprobar eliminación de datos y asociaciones del paquete,
       conservación de exportaciones externas y de la instalación independiente.
+
+## Registro de validación
+
+### 2026-10-06 — inspección del paquete y prueba de humo local
+
+Commit `09ea4c0`, versión 0.14.0, Windows 11 (10.0.26200), SDK 10.0.26100.0,
+paquete `VellumCityMaps_0.14.0.0_x64.msix`, muestra Costa Tijuca. Es una
+inspección del paquete sin instalar y una prueba con el ejecutable suelto; no
+sustituye la validación en Windows limpio ni la certificación Store.
+
+| Prueba                                       | Resultado                                                                                                                                                                         |
+| -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| SDK unpack: manifiesto                       | Correcto: identidad Store, `0.14.0.0`, x64, mínimo `10.0.17763.0`, asociaciones con `"%1"`, logos y `resources.pri`.                                                              |
+| Hash del exe empaquetado                     | `BA532CF931B0DD1DFC8A4B9A6D700FD763FC9C21DBB64970405C32C1F9A7EE01`, igual al exe de entrada.                                                                                      |
+| `AppxSignature.p7x`                          | Ausente, como corresponde al envío sin firma.                                                                                                                                     |
+| Muestra incluida                             | SHA-256 `8B1AC9D4…FBEB3` dentro del paquete; `cargo test --package vellum --test sample_city` pasa.                                                                               |
+| `pnpm check:network`, `pnpm check:installer` | Pasan.                                                                                                                                                                            |
+| Abrir `.vellummap` por argv                  | El mapa carga y se dibuja con una ruta con espacios y caracteres no ASCII. Se ejecutó el exe suelto, no el paquete instalado.                                                     |
+| Red del exe suelto, 12 s tras abrir          | Dos conexiones HTTPS a `52.97.x.x:443`, ambas de `msedgewebview2.exe` (runtime de WebView2), ninguna de `vellum.exe`. No concluyente: repetir con el MSIX instalado.              |
+| `scripts/package-msix.test.mjs`              | Con PowerShell 7, 15 de 16 pasan. Falla «rejects absent and non-PE input» porque compara el mensaje en inglés («does not exist») y este Windows está en español; en CI no ocurre. |
+
+Sigue pendiente todo lo demás de la lista: instalación Store en Windows 10 y 11
+limpios, doble clic desde el Explorador con el paquete instalado, red del paquete
+sin conexión y con el updater desactivado, PNG/SVG, temas, desinstalación y
+certificación Microsoft.
