@@ -349,6 +349,45 @@ describe('buildMarginaliaContent', () => {
     ]);
   });
 
+  it.each([
+    ['city.vellummap', 'vellummap', 'city.vellummap'],
+    ['city.VELLUMMAP', 'vellummap', 'city.VELLUMMAP'],
+    ['city.cslmap', 'cslmap', 'city.cslmap'],
+    ['city.CSLMAP', 'cslmap', 'city.CSLMAP'],
+    ['  city.vellummap  ', 'vellummap', 'city.vellummap'],
+    ['city', 'vellummap', 'city.vellummap'],
+    ['city', 'cslmap', 'city.cslmap'],
+    ['city.vellummap', 'cslmap', 'city.vellummap'],
+    ['city.cslmap', 'vellummap', 'city.cslmap'],
+    ['city.backup', 'vellummap', 'city.backup.vellummap'],
+  ] as const)(
+    'preserves the source filename %s (%s)',
+    (fileName, source, expected) => {
+      const content = buildMarginaliaContent(
+        inputs(
+          { showSourceNote: true },
+          { cityData: makeCityData({ fileName, source }) },
+        ),
+      );
+      const note = content.blocks[0];
+      if (note?.id !== 'source-note') throw new Error('note expected');
+      expect(note.segments[0]).toBe(expected);
+    },
+  );
+
+  it('omits an empty source filename without adding an extension', () => {
+    const content = buildMarginaliaContent(
+      inputs(
+        { showSourceNote: true },
+        {
+          cityData: makeCityData({ fileName: '   ', source: 'vellummap' }),
+          labels: makeMarginaliaLabels({ sourceDate: '', sourceStatement: '' }),
+        },
+      ),
+    );
+    expect(content.blocks).toEqual([]);
+  });
+
   it('usa colores del RenderStyleParams, nunca tokens del shell', () => {
     const content = buildMarginaliaContent(inputs(ALL_ON));
     expect(content.theme).toEqual({

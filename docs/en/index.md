@@ -39,6 +39,9 @@ top of each index to switch without losing your place.
 
 ## Product decisions
 
+- [Landing v1.0 redesign backlog](landing-v1-backlog.md): product fixes,
+  brand decisions, implementation progress, and screenshot preparation.
+
 | Document                                    | What it explains                                                                              |
 | ------------------------------------------- | --------------------------------------------------------------------------------------------- |
 | [Feedback decisions](feedback-decisions.md) | What community feedback was adopted, deferred, discarded or blocked by missing data, and why. |
