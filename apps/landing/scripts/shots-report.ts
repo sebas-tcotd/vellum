@@ -28,7 +28,9 @@ const has = (name: string) => finals.includes(name);
 const lines: string[] = [];
 let pending = 0;
 
-lines.push('Tomas (originales en src/assets/shots/, nombre exacto + .png):');
+lines.push(
+  'Tomas (PNG con el nombre exacto; impórtalas con `shots:import <carpeta>`):',
+);
 for (const shot of Object.values(SHOTS) as ShotEntry[]) {
   const done =
     has(shot.file) || (has(`${shot.file}-en`) && has(`${shot.file}-es`));

@@ -145,7 +145,7 @@ export const HOME: Record<Lang, HomeCopy> = {
       note: 'Ciudades de otros jugadores, con su crédito y su enlace. La tuya podría ser la siguiente.',
       captions: {
         islandHopping: 'Tema Day · una ciudad extendida sobre el agua',
-        sanRico: 'Tema Day · islas, puentes y corredores',
+        sanRico: 'Tema Day · una autopista entre barrios y bosques',
         westdale: 'Atlantic Keys · tema Day',
       },
       open: 'Ver {city} en grande',
@@ -376,7 +376,7 @@ export const HOME: Record<Lang, HomeCopy> = {
       note: "Other players' cities, each with its credit and link. Yours could be next.",
       captions: {
         islandHopping: 'Day theme · a city spread across the water',
-        sanRico: 'Day theme · islands, bridges and corridors',
+        sanRico: 'Day theme · a motorway between neighbourhoods and woods',
         westdale: 'Atlantic Keys · Day theme',
       },
       open: 'View {city} full size',

@@ -8,8 +8,10 @@ import { HOME, THEME_NAMES, fill, type ThemeId } from '../../content/home';
 import { THEME_SCHEMA_URL } from '../../content/links';
 import type { Lang } from '../../content/routes';
 import { SITE } from '../../content/site';
-import { SHOWCASE_CITY, type ShotId } from '../../content/shots';
+import { SHOTS, type ShotId } from '../../content/shots';
+import { CITIES } from '../../content/cities';
 import { shotData } from '../../lib/shots';
+import CityCredit from './CityCredit.astro';
 import Section from './Section.astro';
 import Shot from './Shot.astro';
 
@@ -77,7 +79,8 @@ const sides = [
       </div>
     </div>
     <figcaption class="comparator__caption">
-      <span>{fill(t.compare, { city: SHOWCASE_CITY })}</span>
+      <span>{fill(t.compare, { city: CITIES[SHOTS.T10.city].city })}</span>
+      <CityCredit city={SHOTS.T10.city} lang={lang} />
     </figcaption>
   </figure>
   <div class="theme-groups">

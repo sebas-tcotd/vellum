@@ -5,7 +5,8 @@
  */
 import { HOME, fill } from '../../content/home';
 import type { Lang } from '../../content/routes';
-import { SHOWCASE_CITY } from '../../content/shots';
+import { SHOTS } from '../../content/shots';
+import { CITIES } from '../../content/cities';
 import Shot from './Shot.astro';
 
 interface Props {
@@ -40,7 +41,7 @@ const t = HOME[lang].nocturno;
     <div class="nocturno__images">
       <figure class="nocturno__main" data-nocturno-main>
         <Shot id="T11" lang={lang} sizes="(max-width: 1023px) 84vw, 45vw" />
-        <figcaption>{fill(t.caption, { city: SHOWCASE_CITY })}</figcaption>
+        <figcaption>{fill(t.caption, { city: CITIES[SHOTS.T11.city].city })}</figcaption>
       </figure>
       <figure class="nocturno__thumb" data-nocturno-thumb>
         <Shot

@@ -2,7 +2,9 @@
 /** Home 06: the star section, the schematic view, with its 4-cell grid. */
 import { HOME, fill } from '../../content/home';
 import type { Lang } from '../../content/routes';
-import { SHOWCASE_CITY } from '../../content/shots';
+import { SHOTS } from '../../content/shots';
+import { CITIES } from '../../content/cities';
+import CityCredit from './CityCredit.astro';
 import Section from './Section.astro';
 import Shot from './Shot.astro';
 
@@ -17,7 +19,10 @@ const t = HOME[lang].schematic;
 <Section id="esquematica" class="section--feature" {...t}>
   <figure class="figure">
     <Shot id="T17" lang={lang} sizes="(max-width: 1023px) 100vw, 75vw" widths={[800, 1280, 1920]} />
-    <figcaption >{fill(t.caption, { city: SHOWCASE_CITY })}</figcaption>
+    <figcaption>{fill(t.caption, { city: CITIES[SHOTS.T17.city].city })}
+        <br />
+        <CityCredit city={SHOTS.T17.city} lang={lang} />
+      </figcaption>
   </figure>
   <ul class="schematic-grid" role="list">
     {

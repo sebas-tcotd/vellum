@@ -409,7 +409,8 @@
 
 .comparator {
   position: relative;
-  aspect-ratio: 2.2;
+  /* The master framing of the theme exports (5120 × 2700). */
+  aspect-ratio: 1.9;
   overflow: hidden;
   background: var(--surface-raised);
   touch-action: pan-y;
@@ -526,7 +527,7 @@
 }
 
 .comparator--static .comparator__side .shot {
-  aspect-ratio: 2.2 !important;
+  aspect-ratio: 1.9 !important;
 }
 
 .comparator__caption {
@@ -987,22 +988,14 @@
   list-style: none;
 }
 
-.shell-card__window {
-  overflow: hidden;
-  border: 1px solid var(--rule);
-  background: var(--surface-raised);
+/* The captures carry the real window, title bar and corners included: show
+   them whole, without a drawn frame. */
+.shell-card__window .shot {
+  background: none;
 }
 
-.shell-card--windows .shell-card__window {
-  border-radius: 8px;
-}
-
-.shell-card--macos .shell-card__window {
-  border-radius: 16px;
-}
-
-.shell-card--linux .shell-card__window {
-  border-radius: 6px;
+.shell-card__window .shot img {
+  object-fit: contain;
 }
 
 .shell-card__title {
@@ -1287,7 +1280,7 @@
 
   .gallery > li:first-child .shot {
     height: auto;
-    aspect-ratio: 1.35 !important;
+    aspect-ratio: 1.5 !important;
     min-height: 0;
   }
 

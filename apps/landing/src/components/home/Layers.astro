@@ -6,10 +6,12 @@
  */
 import { HOME, fill } from '../../content/home';
 import type { Lang } from '../../content/routes';
-import { SHOWCASE_CITY, type ShotId } from '../../content/shots';
+import { SHOTS, type ShotId } from '../../content/shots';
+import { CITIES } from '../../content/cities';
 import { shotData } from '../../lib/shots';
 import AppEmbed from '../app-embed/AppEmbed.astro';
 import { SampleAdvancedOptionsPanel } from '../app-embed/SampleComponents';
+import CityCredit from './CityCredit.astro';
 import Section from './Section.astro';
 import Shot from './Shot.astro';
 
@@ -38,7 +40,10 @@ const stages = await Promise.all(
         >
           <Shot id="T10" lang={lang} sizes={stageSizes} widths={[640, 960, 1280, 1600]} />
         </div>
-        <figcaption>{fill(t.allCaption, { city: SHOWCASE_CITY })}</figcaption>
+        <figcaption>{fill(t.allCaption, { city: CITIES[SHOTS.T10.city].city })}
+        <br />
+        <CityCredit city={SHOTS.T10.city} lang={lang} />
+      </figcaption>
       </figure>
       <ul class="layer-strip" role="list" aria-label={t.stripLabel}>
         {

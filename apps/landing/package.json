@@ -12,7 +12,8 @@
     "prespike:build": "pnpm --filter @vellum/core build",
     "spike:build": "astro build --config astro.spike.config.mjs",
     "test:spike": "playwright test --config playwright.spike.config.mjs",
-    "shots:report": "node --experimental-strip-types --no-warnings scripts/shots-report.ts"
+    "shots:report": "node --experimental-strip-types --no-warnings scripts/shots-report.ts",
+    "shots:import": "node --experimental-strip-types --no-warnings scripts/import-shots.ts"
   },
   "dependencies": {
     "@fontsource/cormorant-garamond": "^5.3.0",

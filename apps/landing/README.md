@@ -62,12 +62,21 @@ fallback de SPA.
 
 ## Tomas
 
-Las imágenes de la home salen del registro `src/content/shots.ts`. Para
-añadir una toma, deja el PNG original en `src/assets/shots/` con el nombre
-exacto de la lista de tomas (p. ej. `t01-hero-day-spring-valley.png`; las de
-ventana, con `-en` y `-es`): el build genera los WebP. Mientras falte, la página
-muestra un render anterior con la etiqueta «Txx · provisional» o un marcador
-rayado con el id. `shots:report` lista lo que queda.
+Las imágenes de la home salen del registro `src/content/shots.ts` (ciudad,
+proporción, `alt` y, si hace falta, recorte o fondo de cada toma). Los PNG
+originales viven fuera del repo, en `imports/tomas/` del workspace UX; se
+importan como WebP optimizado:
+
+```bash
+pnpm --filter @vellum/landing shots:import "<carpeta con los PNG>"
+```
+
+El import aplica el recorte del registro, quita márgenes y sombras
+transparentes de las capturas de ventana, pone sobre su fondo los exports
+translúcidos (Transit con «Atenuar otras capas») y deja como mucho 3200 px de
+ancho en `src/assets/shots/`; el build genera los tamaños responsive. Si falta
+una toma, la página muestra un marcador rayado con su id. `shots:report` lista
+lo que queda.
 
 ## URLs duras
 

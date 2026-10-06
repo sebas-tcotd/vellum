@@ -2,9 +2,11 @@
 /** Home 07: districts and street names, next to the real place card. */
 import { HOME, fill } from '../../content/home';
 import type { Lang } from '../../content/routes';
-import { SHOWCASE_CITY } from '../../content/shots';
+import { SHOTS } from '../../content/shots';
+import { CITIES } from '../../content/cities';
 import AppEmbed from '../app-embed/AppEmbed.astro';
 import { SamplePlaceCard } from '../app-embed/SampleComponents';
+import CityCredit from './CityCredit.astro';
 import Section from './Section.astro';
 import Shot from './Shot.astro';
 
@@ -20,7 +22,10 @@ const t = HOME[lang].districts;
   <div class="districts">
     <figure class="figure">
       <Shot id="T19" lang={lang} sizes="(max-width: 1023px) 100vw, 45vw" />
-      <figcaption >{fill(t.caption, { city: SHOWCASE_CITY })}</figcaption>
+      <figcaption>{fill(t.caption, { city: CITIES[SHOTS.T19.city].city })}
+        <br />
+        <CityCredit city={SHOTS.T19.city} lang={lang} />
+      </figcaption>
     </figure>
     <figure class="app-frame">
       <AppEmbed platform="linux" appearance="light" width={352}>
