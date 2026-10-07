@@ -40,14 +40,51 @@ namespace VellumBridge
         internal static string NeedCityToExport { get { return T("Load a city before exporting for Vellum.", "Carga una ciudad antes de exportar para Vellum."); } }
         internal static string ExportAlreadyRunning { get { return T("An export is already in progress.", "Ya hay una exportación en curso."); } }
         internal static string SaveInProgress { get { return T("A save is in progress. Try again when it finishes.", "Hay un guardado en curso. Inténtalo de nuevo cuando termine."); } }
-        internal static string ExportingPaused { get { return T("Exporting for Vellum…\n\nThis window will show the result when it's done.", "Exportando para Vellum…\n\nLa ventana mostrará el resultado al terminar."); } }
-        internal static string ExportingRunning { get { return T("Capturing your city…\n\nThe game pauses for a moment and resumes on its own. This window will show the result when it's done.", "Capturando tu ciudad…\n\nEl juego se pausa un momento y sigue solo. La ventana mostrará el resultado al terminar."); } }
-        internal static string ExportCancelled(string reason) { return T("Export cancelled: ", "Exportación cancelada: ") + reason; }
-        internal static string CancelledNoCity { get { return T("Export cancelled: no city is loaded or a save is in progress. Nothing was written. Try again.", "Exportación cancelada: no hay ciudad cargada o hay un guardado en curso. No se escribió nada. Inténtalo de nuevo."); } }
+        internal static string ExportingTitle { get { return T("Exporting for Vellum…", "Exportando para Vellum…"); } }
+        internal static string ExportingBody { get { return T("Writing your city to a .vellummap.", "Guardando tu ciudad en un .vellummap."); } }
+        internal static string CapturingTitle { get { return T("Capturing your city…", "Capturando tu ciudad…"); } }
+        internal static string CapturingBody { get { return T("The game pauses for a moment and resumes on its own.", "El juego se pausa un momento y sigue solo."); } }
+        internal static string CantExportTitle { get { return T("Can't export yet", "Aún no se puede exportar"); } }
+        internal static string ExportCancelledTitle { get { return T("Export cancelled", "Exportación cancelada"); } }
+        internal static string CancelledNoCity { get { return T("No city is loaded or a save is in progress. Nothing was written. Try again.", "No hay ciudad cargada o hay un guardado en curso. No se escribió nada. Inténtalo de nuevo."); } }
         internal static string NothingWritten { get { return T(" No file was written.", " No se escribió ningún archivo."); } }
-        internal static string CouldNotStartWriting(string reason) { return T("couldn't start writing (" + reason + ").", "no se pudo iniciar la escritura (" + reason + ")."); }
-        internal static string UnexpectedWriteError(string reason) { return T("unexpected error while writing (" + reason + ").", "error inesperado al escribir (" + reason + ")."); }
-        internal static string WrittenWithoutSummary(string path, string reason) { return T("The file was written:\n" + path + "\n\nThe summary couldn't be prepared (" + reason + "). Check the [VellumBridge] log.", "El archivo sí se escribió:\n" + path + "\n\nNo se pudo preparar el resumen (" + reason + "). Revisa el log [VellumBridge]."); }
+        internal static string CouldNotStartWriting(string reason) { return T("Couldn't start writing (" + reason + ").", "No se pudo iniciar la escritura (" + reason + ")."); }
+        internal static string UnexpectedWriteError(string reason) { return T("Unexpected error while writing (" + reason + ").", "Error inesperado al escribir (" + reason + ")."); }
+        internal static string FileWrittenTitle { get { return T("File written", "Archivo escrito"); } }
+        internal static string SummaryFailed(string reason) { return T("The summary couldn't be prepared (" + reason + "). Check the [VellumBridge] log.", "No se pudo preparar el resumen (" + reason + "). Revisa el log [VellumBridge]."); }
+
+        // ─── Modal de resultado ─────────────────────────────────────────────────────────────
+
+        internal static string Ok { get { return T("OK", "Aceptar"); } }
+        internal static string OpenFolderShort { get { return T("Open folder", "Abrir carpeta"); } }
+        internal static string CityExported(string city) { return T(city + " exported", city + " exportada"); }
+        internal static string HumanCounts(int buildings, int lines, int stops, int districts)
+        {
+            return T(Count(buildings, ',', "building", "buildings") + " · " + Count(lines, ',', "line", "lines") + " · " + Count(stops, ',', "stop", "stops") + " · " + Count(districts, ',', "district", "districts"),
+                Count(buildings, '.', "edificio", "edificios") + " · " + Count(lines, '.', "línea", "líneas") + " · " + Count(stops, '.', "parada", "paradas") + " · " + Count(districts, '.', "distrito", "distritos"));
+        }
+
+        private static string Count(int value, char separator, string one, string many)
+        {
+            return Number(value, separator) + " " + (value == 1 ? one : many);
+        }
+        internal static string ShowLimits(int count) { return T(count + (count == 1 ? " limit" : " limits") + ", see details", count + (count == 1 ? " límite" : " límites") + ", ver detalles"); }
+        internal static string HideLimits { get { return T("Hide details", "Ocultar detalles"); } }
+        internal static string CopyDetails { get { return T("Copy details", "Copiar detalles"); } }
+        internal static string Copied { get { return T("Copied", "Copiado"); } }
+
+        // Separador de miles a mano: la cultura de Mono en CS1 no es confiable para esto.
+        private static string Number(int value, char separator)
+        {
+            string digits = System.Math.Abs(value).ToString(System.Globalization.CultureInfo.InvariantCulture);
+            var text = new System.Text.StringBuilder();
+            for (int i = 0; i < digits.Length; i++)
+            {
+                if (i > 0 && (digits.Length - i) % 3 == 0) text.Append(separator);
+                text.Append(digits[i]);
+            }
+            return (value < 0 ? "-" : "") + text;
+        }
 
         internal static string ExportedHeader { get { return T("Exported for Vellum:", "Exportado para Vellum:"); } }
         internal static string UnknownSize { get { return T("unknown size", "tamaño desconocido"); } }
@@ -62,10 +99,11 @@ namespace VellumBridge
         // ─── Captura (diagnóstico) ──────────────────────────────────────────────────────────
 
         internal static string NeedCityToCapture { get { return T("Load a city before capturing.", "Carga una ciudad antes de capturar."); } }
-        internal static string CaptureFailed(string reason) { return T("Capture failed: ", "Captura fallida: ") + reason; }
-        internal static string CaptureRejected { get { return T("Capture rejected: no city is loaded or a save is in progress. Try again.", "Captura rechazada: ciudad no cargada o guardado en curso. Inténtalo de nuevo."); } }
-        internal static string CaptureDiscarded { get { return T("Capture discarded: a save started. Try again.", "Captura descartada: comenzó un guardado. Inténtalo de nuevo."); } }
-        internal static string CaptureWriteFailed(string reason) { return T("Write failed: ", "Escritura fallida: ") + reason; }
+        internal static string CantCaptureTitle { get { return T("Can't capture yet", "Aún no se puede capturar"); } }
+        internal static string CaptureFailedTitle { get { return T("Capture failed", "Captura fallida"); } }
+        internal static string CapturedTitle { get { return T("Raw Snapshot captured", "Raw Snapshot capturado"); } }
+        internal static string CaptureRejected { get { return T("No city is loaded or a save is in progress. Try again.", "No hay ciudad cargada o hay un guardado en curso. Inténtalo de nuevo."); } }
+        internal static string CaptureDiscarded { get { return T("A save started during the capture. Try again.", "Comenzó un guardado durante la captura. Inténtalo de nuevo."); } }
         internal static string ExtractionErrors(int count) { return T("Extraction errors: ", "Errores de extracción: ") + count; }
         internal static string SnapshotWritten(bool complete, string path, long bytes) { return T("Snapshot " + (complete ? "complete" : "partial"), "Snapshot " + (complete ? "completo" : "parcial")) + ": " + path + " (" + bytes + " bytes)"; }
 
@@ -88,7 +126,14 @@ namespace VellumBridge
         internal static string DeflateUnavailable(string reason, string modules) { return T("deflate unavailable: " + reason + "; uncompressed modules: " + modules + ".", "deflate no disponible: " + reason + "; módulos sin comprimir: " + modules + "."); }
         internal static string OnlyManifest { get { return T("only manifest.json", "solo manifest.json"); } }
         internal static string WaterDepthSkipped { get { return T("Water depth skipped: the simulation was running (the water mask was exported). Pause the game and export again to include it.", "Profundidad del agua omitida: la simulación estaba en marcha (la máscara de agua sí se exportó). Pausa el juego y exporta de nuevo para incluirla."); } }
-        internal static string DlcAndMods { get { return T("DLC and mods: not exported (the list of active DLC and mods isn't part of the document).", "DLC y mods: no se exportan (la lista de DLC y mods activos no forma parte del documento)."); } }
+        private const string DlcAndModsEn = "DLC and mods: not exported (the list of active DLC and mods isn't part of the document).";
+        private const string DlcAndModsEs = "DLC y mods: no se exportan (la lista de DLC y mods activos no forma parte del documento).";
+        internal static string DlcAndMods { get { return T(DlcAndModsEn, DlcAndModsEs); } }
+
+        // La nota de DLC y mods va en toda exportación: no es un límite de esta ciudad, así que el
+        // modal no la cuenta (sigue en los detalles y en el log). En los dos idiomas, por si el
+        // jugador cambió de idioma mientras se exportaba.
+        internal static bool IsPermanentNote(string limit) { return limit == DlcAndModsEn || limit == DlcAndModsEs; }
 
         internal static string SegmentsWithoutPrefab(int n) { return T(n + " segments skipped because their prefab isn't loaded.", n + " segmentos omitidos por no tener prefab cargado."); }
         internal static string SegmentNameErrors(int n) { return T(n + " segments without a name because their street name couldn't be read.", n + " segmentos sin nombre porque no se pudo leer el nombre de su calle."); }
