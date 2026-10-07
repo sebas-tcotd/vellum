@@ -477,15 +477,92 @@ export interface LspPhoto {
   altPending: boolean;
 }
 
+/** Sebas's line per snapshot: how the city grew (2026-10-07). */
+const LSP_ALTS: Record<string, Record<Lang, string>> = {
+  '00': {
+    en: 'Green land and lakes; only a few roads cross the map.',
+    es: 'Terreno verde y lagos; solo unas pocas carreteras cruzan el mapa.',
+  },
+  '01': {
+    en: 'The first street layout appears beside the lake.',
+    es: 'Aparece el primer trazado de calles junto al lago.',
+  },
+  '02': {
+    en: 'The first neighbourhood adds side streets around the shore.',
+    es: 'El primer barrio suma calles secundarias alrededor de la orilla.',
+  },
+  '03': {
+    en: 'A main road enters the neighbourhood and links it to the existing roads.',
+    es: 'Una vía principal entra al barrio y conecta con las carreteras existentes.',
+  },
+  '04': {
+    en: 'The lakeside neighbourhood grows into a fuller grid of streets.',
+    es: 'El barrio junto al lago se amplía con una cuadrícula de calles más completa.',
+  },
+  '05': {
+    en: 'A second cluster of streets emerges to the north-west, joined to the first neighbourhood by road.',
+    es: 'Surge un segundo núcleo de calles al noroeste, unido al primer barrio por carretera.',
+  },
+  '06': {
+    en: 'The first neighbourhood starts to fill with buildings and a small cluster appears to the south.',
+    es: 'El primer barrio empieza a poblarse y aparece un pequeño núcleo al sur.',
+  },
+  '07': {
+    en: 'Buildings spread in both clusters and the southern connections reach further.',
+    es: 'Crecen las construcciones en ambos núcleos y se extienden las conexiones del sur.',
+  },
+  '08': {
+    en: 'New streets are laid out to the east, along the chain of lakes.',
+    es: 'Se trazan nuevas calles al este, junto al sistema de lagos.',
+  },
+  '09': {
+    en: 'A third cluster to the north-west is connected to the original neighbourhood.',
+    es: 'Un tercer núcleo al noroeste queda conectado con el barrio original.',
+  },
+  '11': {
+    en: 'The city wraps around the lake and new neighbourhoods appear to the east and south-east.',
+    es: 'La ciudad se extiende alrededor del lago y aparecen nuevos barrios al este y al sureste.',
+  },
+  '12': {
+    en: 'A grid of streets is added to the eastern cluster.',
+    es: 'Se añade una cuadrícula de calles en el núcleo oriental.',
+  },
+  '13': {
+    en: 'The eastern cluster grows and connects better with the city and the main roads.',
+    es: 'El núcleo oriental crece y se conecta mejor con la ciudad y las carreteras principales.',
+  },
+  '14': {
+    en: 'The city now spans both shores of the lake; transport routes appear between its neighbourhoods.',
+    es: 'La ciudad ya ocupa ambas orillas del lago; aparecen rutas de transporte entre sus barrios.',
+  },
+  '14 · Bus': {
+    en: 'Bus routes run through the western neighbourhoods and the eastern cluster.',
+    es: 'Rutas de autobús recorren los barrios del oeste y el núcleo oriental.',
+  },
+  '14 · Train': {
+    en: 'Train lines link the neighbourhoods and stretch south and east.',
+    es: 'Líneas de tren enlazan los barrios y se prolongan hacia el sur y el este.',
+  },
+  '15': {
+    en: 'New streets and neighbourhoods extend the city to the south-east and south-west.',
+    es: 'Nuevas calles y barrios amplían la ciudad hacia el sureste y el suroeste.',
+  },
+  '16': {
+    en: 'The transport network grows denser in the eastern cluster, beside the lake.',
+    es: 'La red de transporte se densifica en el núcleo oriental, junto al lago.',
+  },
+};
+
 function lspPhoto(label: string, file: string): LspPhoto {
+  const alt = LSP_ALTS[label];
   return {
     label,
     file,
-    alt: {
+    alt: alt ?? {
       en: `Los Santos Pobres, snapshot ${label}`,
       es: `Los Santos Pobres, snapshot ${label}`,
     },
-    altPending: true,
+    altPending: !alt,
   };
 }
 

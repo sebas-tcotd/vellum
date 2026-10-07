@@ -55,10 +55,11 @@ export const CITIES: Record<CityId, City> = {
   },
   costaTijuca: {
     city: 'Costa Tijuca',
-    author: null,
+    // Permission given by the author on Instagram (@barbosacities), 2026-10-07.
+    author: 'MatBarbosa',
     origin: 'workshop',
     workshopId: '3346079784',
-    permission: 'no',
+    permission: 'granted',
   },
   pepperLake: {
     city: 'Pepper Lake',
