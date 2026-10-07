@@ -9,14 +9,14 @@ namespace VellumBridge.Capture
     {
         private static bool loaded;
         private static volatile bool capturing;
-        private static volatile string pendingResult;
+        private static volatile ResultView pendingResult;
 
         internal static void SetLoaded(bool value) { loaded = value; capturing = false; pendingResult = null; }
 
         // Se invoca desde el botón de opciones, en el hilo principal.
         internal static void Request()
         {
-            if (!loaded) { BridgeResultPresenter.Show(Strings.NeedCityToCapture); return; }
+            if (!loaded) { ResultModal.Show(ResultView.Failure(Strings.CantCaptureTitle, Strings.NeedCityToCapture)); return; }
             if (capturing) return;
             capturing = true;
             var simulation = Singleton<SimulationManager>.instance;
@@ -29,10 +29,10 @@ namespace VellumBridge.Capture
 
         internal static void ShowPendingResult()
         {
-            string message = pendingResult;
-            if (message == null) return;
+            ResultView result = pendingResult;
+            if (result == null) return;
             pendingResult = null;
-            BridgeResultPresenter.Show(message);
+            ResultModal.Show(result);
         }
 
         private static void Run()
@@ -41,17 +41,17 @@ namespace VellumBridge.Capture
             catch (Exception error)
             {
                 Debug.LogError("[VellumBridge] Captura fallida: " + error);
-                pendingResult = Strings.CaptureFailed(error.Message);
+                pendingResult = ResultView.Failure(Strings.CaptureFailedTitle, error.Message);
             }
             finally { capturing = false; }
         }
 
-        private static string Capture()
+        private static ResultView Capture()
         {
             if (!loaded || SavePanel.isSaving)
             {
                 Debug.LogWarning("[VellumBridge] Captura rechazada: ciudad no cargada o guardado en curso.");
-                return Strings.CaptureRejected;
+                return ResultView.Failure(Strings.CantCaptureTitle, Strings.CaptureRejected);
             }
 
             Snapshot document = SnapshotExtractor.Extract();
@@ -59,20 +59,24 @@ namespace VellumBridge.Capture
             if (SavePanel.isSaving)
             {
                 Debug.LogWarning("[VellumBridge] Captura descartada: comenzó un guardado.");
-                return Strings.CaptureDiscarded;
+                return ResultView.Failure(Strings.CaptureFailedTitle, Strings.CaptureDiscarded);
             }
 
             try
             {
-                string summary = SnapshotWriter.Write(document, System.IO.Path.Combine(System.IO.Path.Combine(
-                    ColossalFramework.IO.DataLocation.localApplicationData, "VellumBridge"), "Snapshots"));
+                string folder = System.IO.Path.Combine(System.IO.Path.Combine(
+                    ColossalFramework.IO.DataLocation.localApplicationData, "VellumBridge"), "Snapshots");
+                string summary = SnapshotWriter.Write(document, folder);
                 Debug.Log("[VellumBridge] " + summary);
-                return summary + "\n\n" + Strings.ExtractionErrors(document.diagnostics.errors.Count);
+                var captured = new ResultView { kind = ResultKind.Success, title = Strings.CapturedTitle, body = summary };
+                captured.note = Strings.ExtractionErrors(document.diagnostics.errors.Count);
+                captured.folder = folder;
+                return captured;
             }
             catch (Exception error)
             {
                 Debug.LogError("[VellumBridge] Escritura fallida: " + error);
-                return Strings.CaptureWriteFailed(error.Message);
+                return ResultView.Failure(Strings.CaptureFailedTitle, error.Message);
             }
         }
     }

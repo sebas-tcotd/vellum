@@ -20,7 +20,7 @@ namespace VellumBridge.Export
         private static int generation;
         private static bool exporting;
         private static bool writing;          // hilo de escritura vivo
-        private static volatile string pendingResult;
+        private static volatile ResultView pendingResult;
 
         internal static bool Loaded { get { lock (gate) return loaded; } }
         internal static bool Exporting { get { lock (gate) return exporting; } }
@@ -36,6 +36,8 @@ namespace VellumBridge.Export
                 // hay dos exportaciones simultáneas.
                 if (!writing) exporting = false;
             }
+            // Una exportación en curso de la ciudad anterior ya no tendrá resultado.
+            ResultModal.CloseProgress();
         }
 
         internal static void Request()
@@ -43,9 +45,9 @@ namespace VellumBridge.Export
             int ticket;
             lock (gate)
             {
-                if (!loaded) { BridgeResultPresenter.Show(Strings.NeedCityToExport); return; }
-                if (exporting) { BridgeResultPresenter.Show(Strings.ExportAlreadyRunning); return; }
-                if (SavePanel.isSaving) { BridgeResultPresenter.Show(Strings.SaveInProgress); return; }
+                if (!loaded) { ResultModal.Show(ResultView.Failure(Strings.CantExportTitle, Strings.NeedCityToExport)); return; }
+                if (exporting) { ResultModal.Show(ResultView.Failure(Strings.CantExportTitle, Strings.ExportAlreadyRunning)); return; }
+                if (SavePanel.isSaving) { ResultModal.Show(ResultView.Failure(Strings.CantExportTitle, Strings.SaveInProgress)); return; }
                 exporting = true;
                 ticket = generation;
             }
@@ -53,13 +55,13 @@ namespace VellumBridge.Export
             var simulation = Singleton<SimulationManager>.instance;
             if (IsPaused(simulation))
             {
-                BridgeResultPresenter.Show(Strings.ExportingPaused);
+                ResultModal.Show(ResultView.Progress(Strings.ExportingTitle, Strings.ExportingBody));
                 Extract(ticket, false);
             }
             else
             {
                 // Con el juego en marcha, la extracción pausa la simulación y la reanuda al terminar.
-                BridgeResultPresenter.Show(Strings.ExportingRunning);
+                ResultModal.Show(ResultView.Progress(Strings.CapturingTitle, Strings.CapturingBody));
                 simulation.AddAction(delegate { Extract(ticket, true); });
             }
         }
@@ -71,10 +73,10 @@ namespace VellumBridge.Export
 
         internal static void ShowPendingResult()
         {
-            string message = pendingResult;
-            if (message == null) return;
+            ResultView result = pendingResult;
+            if (result == null) return;
             pendingResult = null;
-            BridgeResultPresenter.Show(message);
+            ResultModal.Show(result);
         }
 
         // El archivo ya está publicado: su `snapshotId` pasa a ser el padre de la próxima
@@ -89,14 +91,14 @@ namespace VellumBridge.Export
         }
 
         // Termina la operación dueña de `exporting`. El mensaje solo se publica si la ciudad no cambió.
-        private static void Finish(int ticket, string message)
+        private static void Finish(int ticket, ResultView result)
         {
             lock (gate)
             {
                 exporting = false;
                 writing = false;
-                if (ticket == generation) pendingResult = message;
-                else Debug.Log("[VellumBridge] Exportación: resultado descartado porque la ciudad cambió: " + message);
+                if (ticket == generation) pendingResult = result;
+                else Debug.Log("[VellumBridge] Exportación: resultado descartado porque la ciudad cambió: " + result.title + ". " + result.body);
             }
         }
 
@@ -123,7 +125,7 @@ namespace VellumBridge.Export
                 if (!cityLoaded || SavePanel.isSaving)
                 {
                     Debug.LogWarning("[VellumBridge] Exportación rechazada: ciudad no cargada o guardado en curso.");
-                    Finish(ticket, Strings.CancelledNoCity);
+                    Finish(ticket, Cancelled(Strings.CancelledNoCity));
                     return;
                 }
                 var simulation = Singleton<SimulationManager>.instance;
@@ -152,7 +154,7 @@ namespace VellumBridge.Export
             catch (Exception error)
             {
                 Debug.LogError("[VellumBridge] Exportación: extracción fallida: " + error);
-                Finish(ticket, Strings.ExportCancelled(error.Message + (error is ExportFailedException ? "" : Strings.NothingWritten)));
+                Finish(ticket, Cancelled(error.Message + (error is ExportFailedException ? "" : Strings.NothingWritten)));
                 return;
             }
 
@@ -176,9 +178,11 @@ namespace VellumBridge.Export
             catch (Exception error)
             {
                 Debug.LogError("[VellumBridge] Exportación: no se pudo iniciar la escritura: " + error);
-                Finish(ticket, Strings.ExportCancelled(Strings.CouldNotStartWriting(error.Message) + Strings.NothingWritten));
+                Finish(ticket, Cancelled(Strings.CouldNotStartWriting(error.Message) + Strings.NothingWritten));
             }
         }
+
+        private static ResultView Cancelled(string reason) { return ResultView.Failure(Strings.ExportCancelledTitle, reason); }
 
         private static void Write(int ticket, VellumModel model)
         {
@@ -202,18 +206,21 @@ namespace VellumBridge.Export
                     + watch.ElapsedMilliseconds + " ms. Módulos: " + string.Join(", ", summary.modules.ToArray())
                     + ". Límites: " + summary.limits.Count + ".");
                 foreach (string limit in summary.limits) Debug.Log("[VellumBridge] Exportación: límite: " + limit);
-                Finish(ticket, ExportSummaryFormatter.Describe(summary));
+                Finish(ticket, ResultView.Exported(summary));
             }
             catch (Exception error)
             {
                 if (published)
                 {
                     Debug.LogError("[VellumBridge] Exportación: publicada, pero falló el resumen: " + error);
-                    Finish(ticket, Strings.WrittenWithoutSummary(summary.path, error.Message));
+                    var written = new ResultView { kind = ResultKind.Success, title = Strings.FileWrittenTitle, body = Strings.SummaryFailed(error.Message) };
+                    written.note = summary.path;
+                    written.folder = System.IO.Path.GetDirectoryName(summary.path);
+                    Finish(ticket, written);
                     return;
                 }
                 Debug.LogError("[VellumBridge] Exportación: escritura fallida: " + error);
-                Finish(ticket, Strings.ExportCancelled(error is ExportFailedException ? error.Message
+                Finish(ticket, Cancelled(error is ExportFailedException ? error.Message
                     : Strings.UnexpectedWriteError(error.Message) + Strings.NothingWritten));
             }
         }

@@ -12,6 +12,16 @@ La página del mod en Opciones (`src/UI/OptionsPanel.cs`) se arma con componente
 - **Diagnóstico:** **Capturar Raw Snapshot**, rebajado: solo hace falta para reportar un error.
 - **Pie:** la carpeta real de las exportaciones y que Bridge no se conecta a internet.
 
+## Modal de resultado
+
+Exportar y capturar muestran su resultado en un modal propio (`src/UI/ResultModal.cs`, abierto con `UIView.PushModal`) en vez del `ExceptionPanel` del juego, que anunciaba un éxito con el triángulo de advertencia. Comparte estilo con el panel (`src/UI/BridgeStyle.cs`) y tiene tres estados:
+
+- **En curso:** «Capturando tu ciudad…» o «Exportando para Vellum…», con una barra que avanza sola (no hay porcentaje real que prometer). Si la ciudad se descarga a mitad, se cierra.
+- **Hecho:** punto verde, «<ciudad> exportada», archivo y tamaño, y conteos legibles (edificios, líneas, paradas, distritos). Si hubo límites, «N límites, ver detalles» despliega la lista y **Copiar detalles**, que copia el resumen completo (ruta, nodos, segmentos, módulos y límites) para un reporte de error.
+- **Cancelado:** punto rojo, qué pasó y qué hacer.
+
+**Aceptar** es la acción principal (vuelve a la ciudad); **Abrir carpeta** es la secundaria. El detalle técnico completo sigue en el log `[VellumBridge]`.
+
 Los textos están en `src/Strings.cs`, en inglés y español: el idioma sale del `LocaleManager` de CS1 (`es` es español, cualquier otro es inglés). Los logs `[VellumBridge]` siguen en español.
 
 ## Compilar e instalar
