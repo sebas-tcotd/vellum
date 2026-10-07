@@ -106,13 +106,13 @@ de qué cubre CI y qué queda manual están en la
 
 ## CI/CD
 
-| Workflow                                                             | Trigger                      | Qué valida                                                                                               |
-| -------------------------------------------------------------------- | ---------------------------- | -------------------------------------------------------------------------------------------------------- |
-| [`ci.yml`](../../.github/workflows/ci.yml)                           | Push/PR a `main`             | Build, Vitest, Rust tests, lint TS + Clippy, formato y el flujo dorado E2E (bloqueante).                 |
-| [`landing-ci.yml`](../../.github/workflows/landing-ci.yml)           | PR de landing o manual       | Lint y build de `@vellum/landing`.                                                                       |
-| [`deploy-pages.yml`](../../.github/workflows/deploy-pages.yml)       | Cambios de landing en `main` | Build, deploy a GitHub Pages y smoke check de HTML/assets.                                               |
-| [`release-please.yml`](../../.github/workflows/release-please.yml)   | Push a `main`                | Crea o actualiza el PR de Release Please para preparar versiones.                                        |
-| [`publish-release.yml`](../../.github/workflows/publish-release.yml) | Tag `v*`                     | Build multiplataforma (Windows `.msi` firmado, macOS `.dmg`, Linux `.AppImage`) + publicación de release |
+| Workflow                                                             | Trigger                      | Qué valida                                                                                                                                              |
+| -------------------------------------------------------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`ci.yml`](../../.github/workflows/ci.yml)                           | Push/PR a `main`             | Build, Vitest, Rust tests, lint TS + Clippy, formato y el flujo dorado E2E (bloqueante).                                                                |
+| [`landing-ci.yml`](../../.github/workflows/landing-ci.yml)           | PR de landing o manual       | Lint y build de `@vellum/landing`.                                                                                                                      |
+| [`deploy-pages.yml`](../../.github/workflows/deploy-pages.yml)       | Cambios de landing en `main` | Build, deploy a GitHub Pages y smoke check de HTML/assets.                                                                                              |
+| [`release-please.yml`](../../.github/workflows/release-please.yml)   | Push a `main`                | Crea o actualiza el PR de Release Please para preparar versiones.                                                                                       |
+| [`publish-release.yml`](../../.github/workflows/publish-release.yml) | Tag `v*`                     | Compila y verifica los assets; retiene `v1.0.0` para Store y valida el updater público al publicarlo. Los tags posteriores se publican automáticamente. |
 
 ## Comandos IPC — agregar uno nuevo
 

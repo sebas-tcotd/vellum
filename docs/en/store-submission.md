@@ -179,10 +179,10 @@ Privacy policy: https://sebas-tcotd.github.io/vellum/privacy/
 
 ## Before pressing "Submit"
 
-- [ ] Story 6.2 closed: validation on clean Windows 10 and 11, see [MSIX](msix.md).
+- [x] Story 6.2 closed: validation on clean Windows 10 and 11, see [MSIX](msix.md).
 - [ ] Final package built from the 1.0.0 release and its hash recorded.
 - [x] Costa Tijuca author recorded (MatBarbosa) in [Sample city](sample-city.md).
-- [ ] Costa Tijuca redistribution permission confirmed and recorded in the same document.
+- [x] Costa Tijuca redistribution permission on 2026-10-07 and recorded in [Sample city](sample-city.md).
 - [ ] Screenshots taken from the final package.
 - [ ] IARC questionnaire answered by the person submitting.
 - [ ] "Don't publish until I select Publish now" selected.

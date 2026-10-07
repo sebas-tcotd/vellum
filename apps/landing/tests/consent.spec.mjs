@@ -178,17 +178,12 @@ test('withdrawal in another tab unloads analytics in open tabs', async ({
   await other
     .getByRole('button', { name: 'Analytics preferences', exact: true })
     .click();
+  const analyticsTabReload = page.waitForNavigation();
   await other
     .getByRole('button', { name: 'Reject analytics', exact: true })
     .click();
-  await expect
-    .poll(() =>
-      page.evaluate(
-        () =>
-          document.querySelectorAll('script[src*="googletagmanager"]').length,
-      ),
-    )
-    .toBe(0);
+  await analyticsTabReload;
+  await expect(page.locator('script[src*="googletagmanager"]')).toHaveCount(0);
   expect(google).toHaveLength(1);
 });
 

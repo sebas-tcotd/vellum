@@ -2,6 +2,44 @@
 
 All notable changes to Vellum will be documented here.
 
+## [1.0.0](https://github.com/sebas-tcotd/vellum/compare/v0.15.0...v1.0.0) (2026-10-07)
+
+
+### Bug Fixes
+
+* **store-submission:** update Costa Tijuca permissions and validation status ([eaaa7a2](https://github.com/sebas-tcotd/vellum/commit/eaaa7a27fedfb372171f73bf2e3ca353f2b6ed10))
+* **store-submission:** update Costa Tijuca permissions and validation… ([fd81e78](https://github.com/sebas-tcotd/vellum/commit/fd81e78c8987710ff4db4c02b17a55017680a765))
+
+## [0.15.0](https://github.com/sebas-tcotd/vellum/compare/v0.14.0...v0.15.0) (2026-10-07)
+
+
+### Features
+
+* **bridge:** insignia de la Microsoft Store en inglés y español ([d3b935e](https://github.com/sebas-tcotd/vellum/commit/d3b935e5e63c191876da91eddca67b93c6bab087))
+* **bridge:** panel de opciones propio y textos en inglés y español ([798eca1](https://github.com/sebas-tcotd/vellum/commit/798eca1722a983af5c9a0c8181d6a89c0b43a8be))
+* **bridge:** panel de opciones propio, textos en/es y 1.0.0-rc ([ccdec1e](https://github.com/sebas-tcotd/vellum/commit/ccdec1eb8c2f1aef4eae846888a394ade6dbebf9))
+* **desktop:** open a bundled sample city from welcome ([987eb3e](https://github.com/sebas-tcotd/vellum/commit/987eb3e1e01fc3b9fe5feaf582f22edcb0c56f9e))
+* **desktop:** open a bundled sample city from welcome ([02ed00b](https://github.com/sebas-tcotd/vellum/commit/02ed00b639e3be97a342d9142d3a67d655f2e067))
+* **desktop:** use Costa Tijuca as the provisional sample city ([eca4e96](https://github.com/sebas-tcotd/vellum/commit/eca4e96260b8ad8e021373dad1a1a49cf2db54cd))
+* **landing:** datos del release al compilar para la banda #download ([84e5055](https://github.com/sebas-tcotd/vellum/commit/84e50554303bd6f6f312db51be7f370909473825))
+* **landing:** datos del release al compilar para la banda #download ([122efe7](https://github.com/sebas-tcotd/vellum/commit/122efe70f888c8fb642975d48a470770138f31fb))
+* **landing:** migrar la landing a Astro conservando las URL duras ([f3d6b9c](https://github.com/sebas-tcotd/vellum/commit/f3d6b9c4aef49c4f6cc8502a9ad23897fb938bc2))
+* **landing:** migrate the landing to Astro, keeping the hard URLs ([a0d80d0](https://github.com/sebas-tcotd/vellum/commit/a0d80d00c9345b19758599eb8655fc3956647161))
+* **landing:** spike real app components in Declarative Shadow DOM ([b5cd4ed](https://github.com/sebas-tcotd/vellum/commit/b5cd4edb3b5dbfdb8a83ea1339a8e4e1911c8744))
+* **landing:** spike real app components in Declarative Shadow DOM ([8631c42](https://github.com/sebas-tcotd/vellum/commit/8631c42e5b54502bdc8ad2e1d1487385d00c9f93))
+
+
+### Bug Fixes
+
+* **brand:** quitar Cities: Skylines de la descripción corta del paquete ([45ce348](https://github.com/sebas-tcotd/vellum/commit/45ce3482beb0889767a1d7ba71880a0be5469395))
+* **bridge:** integrate custom export result modal ([#166](https://github.com/sebas-tcotd/vellum/issues/166)) ([29edc1d](https://github.com/sebas-tcotd/vellum/commit/29edc1d33f9adee1353de34ff49da1fb2adafad1))
+* **bridge:** separadores de 1 px, punto de estado redondo y estado completo ([d1c1eef](https://github.com/sebas-tcotd/vellum/commit/d1c1eef6747962d9c3de0b76cabb22a81e01a34b))
+* **export:** preserve Bridge filenames in marginalia ([86b0192](https://github.com/sebas-tcotd/vellum/commit/86b0192ceaa65f9151d69046a8ea44a635e49b52))
+* **export:** preserve source filenames in marginalia ([09ea4c0](https://github.com/sebas-tcotd/vellum/commit/09ea4c098294502a8fd2caa4997d4ebd18460e30))
+* **release:** hold v1.0.0 for Store review ([749d672](https://github.com/sebas-tcotd/vellum/commit/749d672f5f1c2f69ba0538afcdec02899b5d36cf))
+* **release:** hold v1.0.0 for Store review ([7291354](https://github.com/sebas-tcotd/vellum/commit/7291354a71e4279b64e56b8b78755dd85cb19653))
+* **ui:** simplify welcome actions and add button feedback ([592a64b](https://github.com/sebas-tcotd/vellum/commit/592a64bc28d50e890b58f81dd7881492d1d4681c))
+
 ## [0.14.0](https://github.com/sebas-tcotd/vellum/compare/v0.13.2...v0.14.0) (2026-10-04)
 
 
