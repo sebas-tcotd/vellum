@@ -57,6 +57,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       release-id: ${{ steps.resolve-release.outputs.release-id }}
+      release-draft: ${{ steps.resolve-release.outputs.release-draft }}
       windows-signing: ${{ steps.signing-policy.outputs.windows-signing }}
       macos-signing: ${{ steps.signing-policy.outputs.macos-signing }}
     steps:
@@ -85,6 +86,8 @@ jobs:
             exit 1
           fi
           echo "release-id=$RELEASE_ID" >> "$GITHUB_OUTPUT"
+          RELEASE_DRAFT=$(gh api "repos/${{ github.repository }}/releases/$RELEASE_ID" --jq '.draft')
+          echo "release-draft=$RELEASE_DRAFT" >> "$GITHUB_OUTPUT"
 
       # Movido acá desde build-release: antes se repetía este chequeo 3 veces
       # (una por plataforma), cada vez después de instalar todo el toolchain.
@@ -809,7 +812,7 @@ jobs:
             if [ "$CURRENT_DRAFT" = 'true' ]; then
               RELEASE_STATE=$(gh api -X PATCH "$RELEASE_API" \
                 -f tag_name="$GITHUB_REF_NAME" \
-                -f draft=true \
+                -F draft=true \
                 --jq '[.tag_name, .draft] | @tsv')
               EXPECTED_STATE=$(printf '%s\ttrue' "$GITHUB_REF_NAME")
               if [ "$RELEASE_STATE" != "$EXPECTED_STATE" ]; then
@@ -912,10 +915,10 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if [ "$GITHUB_REF_NAME" = 'v1.0.0' ]; then
-            CURRENT_DRAFT=$(gh api "repos/${{ github.repository }}/releases/${{ needs.preflight.outputs.release-id }}" --jq '.draft')
-            if [ "$CURRENT_DRAFT" = 'false' ]; then
-              echo 'The v1.0.0 release was already published; preserving its public state after this rerun failure.'
+            INITIAL_DRAFT='${{ needs.preflight.outputs.release-draft }}'
+            if [ "$INITIAL_DRAFT" = 'false' ]; then
+              echo 'The v1.0.0 release was already published before this run; preserving its public state after this rerun failure.'
               exit 0
             fi
           fi
-          gh api -X PATCH "repos/${{ github.repository }}/releases/${{ needs.preflight.outputs.release-id }}" -f draft=true >/dev/null
+          gh api -X PATCH "repos/${{ github.repository }}/releases/${{ needs.preflight.outputs.release-id }}" -F draft=true >/dev/null
