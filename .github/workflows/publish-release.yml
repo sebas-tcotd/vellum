@@ -809,7 +809,7 @@ jobs:
             if [ "$CURRENT_DRAFT" = 'true' ]; then
               RELEASE_STATE=$(gh api -X PATCH "$RELEASE_API" \
                 -f tag_name="$GITHUB_REF_NAME" \
-                -f draft=true \
+                -F draft=true \
                 --jq '[.tag_name, .draft] | @tsv')
               EXPECTED_STATE=$(printf '%s\ttrue' "$GITHUB_REF_NAME")
               if [ "$RELEASE_STATE" != "$EXPECTED_STATE" ]; then
@@ -918,4 +918,4 @@ jobs:
               exit 0
             fi
           fi
-          gh api -X PATCH "repos/${{ github.repository }}/releases/${{ needs.preflight.outputs.release-id }}" -f draft=true >/dev/null
+          gh api -X PATCH "repos/${{ github.repository }}/releases/${{ needs.preflight.outputs.release-id }}" -F draft=true >/dev/null
