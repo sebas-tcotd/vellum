@@ -1,0 +1,49 @@
+---
+/**
+ * Side index of the Guide (220 px, sticky on desktop; above the steps as a
+ * compact list on narrow screens). Plain anchors without JS; with JS an
+ * inline script marks the visible step with `aria-current`, without motion.
+ */
+import type { GuideCopy } from '../../content/guide';
+import type { Lang } from '../../content/routes';
+import { SITE } from '../../content/site';
+import { richLinks, type RichLink } from '../../lib/rich';
+
+interface Props {
+  lang: Lang;
+  copy: GuideCopy;
+  links: Record<string, RichLink>;
+}
+
+const { lang, copy, links } = Astro.props;
+---
+
+<nav class="guide-toc" aria-labelledby="guide-toc-title" data-guide-toc>
+  <p class="guide-toc__title" id="guide-toc-title">{copy.toc.title}</p>
+  <ol class="guide-toc__list" role="list">
+    {
+      copy.steps.map((step, index) => (
+        <li>
+          <a href={`#${step.id}`} data-toc-link={step.id}>
+            <span class="guide-toc__n" aria-hidden="true">
+              {index + 1}
+            </span>
+            {step.toc}
+          </a>
+        </li>
+      ))
+    }
+  </ol>
+  <ul class="guide-toc__list guide-toc__list--more" role="list">
+    <li>
+      <a href="#advanced" data-toc-link="advanced">
+        <span class="guide-toc__n" aria-hidden="true">→</span>
+        {copy.toc.advanced}
+      </a>
+    </li>
+  </ul>
+  <p
+    class="guide-toc__help"
+    set:html={richLinks(copy.toc.help, links, SITE[lang].newTab)}
+  />
+</nav>

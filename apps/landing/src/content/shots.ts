@@ -2,7 +2,7 @@ import type { CityId } from './cities';
 import type { Lang } from './routes';
 
 /**
- * Registry of the home shots (LISTA-DE-TOMAS.md). A shot is `final` once its
+ * Registry of the home and Guide shots (LISTA-DE-TOMAS.md). A shot is `final` once its
  * WebP is in `src/assets/shots/` (`scripts/import-shots.mjs` converts Sebas's
  * PNG originals); until then it shows a `stand-in` (a render of an earlier
  * version, labelled with the shot id) or a visible `missing` placeholder.
@@ -15,8 +15,8 @@ export interface ShotEntry {
   file: string;
   /** P1 is needed to launch; P2 can fall back. */
   priority: 'P1' | 'P2';
-  /** City shown, for captions and credits. */
-  city: CityId;
+  /** City shown, for captions and credits (window captures may show none). */
+  city?: CityId;
   /** Width / height the page frames the shot at. */
   ratio: number;
   /** What the final shot shows, for the alt text. */
@@ -35,9 +35,17 @@ export interface ShotEntry {
    * Transit exports come out translucent even with a dark background).
    */
   background?: string;
+  /**
+   * App version the final shot was taken with, shown in its caption (the
+   * Guide: DESIGN.md · Paso de la Guía).
+   */
+  version?: string;
   /** Earlier render shown meanwhile, from `src/assets/standins/`. */
   standIn?: { file: string; alt: Record<Lang, string> };
 }
+
+/** A shot that shows a city, so its caption can credit it. */
+type CityShot = ShotEntry & { city: CityId };
 
 /** The showcase city of the shared master framing (T05–T16, T21). */
 export const SHOWCASE: CityId = 'costaTijuca';
@@ -48,6 +56,17 @@ const TRANSIT_BACKGROUND = '#1A1A2E';
 
 /** Ratio of the master framing A exports (5120 × 2700). */
 const MASTER_RATIO = 5120 / 2700;
+
+/** Window captures and game crops of the Guide (LISTA-DE-TOMAS.md · Guía). */
+const GUIDE_RATIO = 16 / 9;
+
+/**
+ * T28 keeps a 16:9 area centred on the welcome of the 3840 × 2088 window
+ * capture; the rest of the window is empty paper.
+ */
+const T28_WIDTH = 0.34;
+const T28_HEIGHT = (3840 * T28_WIDTH * 9) / 16 / 2088;
+const T28_CENTRE_Y = 0.517;
 
 export const SHOTS = {
   T01: {
@@ -239,6 +258,104 @@ export const SHOTS = {
   T22: shellShot('T22', 'windows', 'Windows'),
   T23: shellShot('T23', 'macos', 'macOS'),
   T24: shellShot('T24', 'linux', 'Linux'),
+  T25: {
+    id: 'T25',
+    file: 't25-guia-instalador-nsis',
+    priority: 'P2',
+    ratio: GUIDE_RATIO,
+    alt: {
+      en: 'The first screen of the Vellum installer on Windows',
+      es: 'La primera pantalla del instalador de Vellum en Windows',
+    },
+    pending: {
+      en: 'Guide · the Vellum installer on Windows',
+      es: 'Guía · el instalador de Vellum en Windows',
+    },
+  },
+  T26: {
+    id: 'T26',
+    file: 't26-guia-bridge-gestor-contenido',
+    priority: 'P1',
+    ratio: GUIDE_RATIO,
+    perLanguage: true,
+    alt: {
+      en: 'Cities: Skylines, Content Manager → Mods: Vellum Bridge in the list, enabled',
+      es: 'Cities: Skylines, Gestor de contenido → Mods: Vellum Bridge en la lista, activado',
+    },
+    pending: {
+      en: 'Guide · Vellum Bridge enabled in Content Manager',
+      es: 'Guía · Vellum Bridge activado en el Gestor de contenido',
+    },
+  },
+  T27: {
+    id: 'T27',
+    file: 't27-guia-bridge-resultado',
+    priority: 'P2',
+    ratio: GUIDE_RATIO,
+    perLanguage: true,
+    alt: {
+      en: 'The window Bridge shows in the game when the export is done, with the path of the file',
+      es: 'La ventana que Bridge muestra en el juego al terminar la exportación, con la ruta del archivo',
+    },
+    pending: {
+      en: 'Guide · Bridge shows where it saved the file',
+      es: 'Guía · Bridge muestra dónde guardó el archivo',
+    },
+  },
+  T28: {
+    id: 'T28',
+    file: 't28-guia-bienvenida',
+    priority: 'P1',
+    ratio: GUIDE_RATIO,
+    perLanguage: true,
+    version: '0.14.0',
+    crop: {
+      left: 0.5 - T28_WIDTH / 2,
+      top: T28_CENTRE_Y - T28_HEIGHT / 2,
+      right: 0.5 + T28_WIDTH / 2,
+      bottom: T28_CENTRE_Y + T28_HEIGHT / 2,
+    },
+    alt: {
+      en: 'The Vellum welcome with no city open: “Drop your city (.vellummap or .cslmap) here”, “or press Ctrl + O” and the Open file button',
+      es: 'La bienvenida de Vellum sin ninguna ciudad abierta: «Arrastra tu ciudad (.vellummap o .cslmap) aquí», «o presiona Ctrl + O» y el botón Abrir archivo',
+    },
+    pending: {
+      en: 'Guide · the Vellum welcome',
+      es: 'Guía · la bienvenida de Vellum',
+    },
+  },
+  T29: {
+    id: 'T29',
+    file: 't29-guia-dialogo-exportar',
+    priority: 'P1',
+    city: SHOWCASE,
+    ratio: GUIDE_RATIO,
+    perLanguage: true,
+    alt: {
+      en: `The Export Map dialog over ${sc} in Day: PNG at 4× scale, white background and the marginalia preview`,
+      es: `El diálogo Exportar mapa sobre ${sc} en Day: PNG a escala 4×, fondo blanco y la vista previa de la marginalia`,
+    },
+    pending: {
+      en: 'Guide · the Export Map dialog with marginalia',
+      es: 'Guía · el diálogo Exportar mapa con marginalia',
+    },
+  },
+  T30: {
+    id: 'T30',
+    file: 't30-ventana-vellum-day',
+    priority: 'P1',
+    city: SHOWCASE,
+    ratio: GUIDE_RATIO,
+    perLanguage: true,
+    alt: {
+      en: `Vellum with ${sc} open in Day: every layer on and the sidebar with the layer list and the map style`,
+      es: `Vellum con ${sc} abierta en Day: todas las capas encendidas y la barra lateral con la lista de capas y el estilo de mapa`,
+    },
+    pending: {
+      en: 'Guide · Vellum with a city open and the sidebar',
+      es: 'Guía · Vellum con una ciudad abierta y la barra lateral',
+    },
+  },
 } satisfies Record<string, ShotEntry>;
 
 export type ShotId = keyof typeof SHOTS;
@@ -247,7 +364,7 @@ function layerShot(
   id: string,
   file: string,
   what: Record<Lang, string>,
-): ShotEntry {
+): CityShot {
   return {
     id,
     file,
@@ -267,7 +384,7 @@ function themeShot(
   file: string,
   theme: string,
   what: Record<Lang, string>,
-): ShotEntry {
+): CityShot {
   return {
     id,
     file,
@@ -282,7 +399,7 @@ function themeShot(
   };
 }
 
-function shellShot(id: string, os: string, name: string): ShotEntry {
+function shellShot(id: string, os: string, name: string): CityShot {
   return {
     id,
     file: `${id.toLowerCase()}-shell-${os}`,

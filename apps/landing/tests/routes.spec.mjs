@@ -142,6 +142,8 @@ for (const path of [
   'es/',
   'download/',
   'es/descargar/',
+  'guide/',
+  'es/guia/',
   'privacy/',
   'no-existe/deeper/path',
 ]) {
@@ -187,6 +189,8 @@ for (const [path, canonical, lang, pair] of [
     'es',
     ['download/', 'es/descargar/'],
   ],
+  ['guide/', `${site}/vellum/guide/`, 'en', ['guide/', 'es/guia/']],
+  ['es/guia/', `${site}/vellum/es/guia/`, 'es', ['guide/', 'es/guia/']],
   ['privacy/', `${site}/vellum/privacy/`, 'en'],
 ]) {
   test(`"/vellum/${path}" serves its SEO metadata`, async ({ request }) => {
@@ -293,6 +297,21 @@ for (const [path, title] of [
   });
 }
 
+for (const [path, title] of [
+  ['guide/', 'Guide · Vellum'],
+  ['es/guia/', 'Guía · Vellum'],
+]) {
+  test(`"/vellum/${path}" is a real page with its title`, async ({
+    request,
+  }) => {
+    const response = await request.get(path);
+    expect(response.status()).toBe(200);
+    const html = await response.text();
+    expect(html).toContain(`<title>${title}</title>`);
+    expect(html).not.toMatch(/POR CONFIRMAR/i);
+  });
+}
+
 test('every published page points "Download" at the download page of its language', async ({
   request,
 }) => {
@@ -301,6 +320,8 @@ test('every published page points "Download" at the download page of its languag
     ['es/', '/vellum/es/descargar/'],
     ['download/', '/vellum/download/'],
     ['es/descargar/', '/vellum/es/descargar/'],
+    ['guide/', '/vellum/download/'],
+    ['es/guia/', '/vellum/es/descargar/'],
   ]) {
     const html = await (await request.get(path)).text();
     expect(html).toMatch(

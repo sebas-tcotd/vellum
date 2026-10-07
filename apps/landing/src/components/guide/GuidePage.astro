@@ -1,0 +1,160 @@
+---
+/**
+ * The Guide in one language (EXPERIENCE.md · Páginas · Guía): "From nothing
+ * to seeing your city" as an ordered list of six steps beside a side index,
+ * the closing lines and the «Advanced topics · Coming soon» block (the topics
+ * themselves are deferred). Reference: frame 4 of pages-2; the spines win.
+ */
+import '../../styles/guide.css';
+import { GUIDE } from '../../content/guide';
+import { BRIDGE_WORKSHOP_URL, REPOSITORY_URL } from '../../content/links';
+import { pageHref, type Lang } from '../../content/routes';
+import { SITE } from '../../content/site';
+import SiteLayout from '../../layouts/SiteLayout.astro';
+import { rich, type RichLink } from '../../lib/rich';
+import GuideStep from './GuideStep.astro';
+import GuideToc from './GuideToc.astro';
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const t = GUIDE[lang];
+const download = pageHref('download', lang);
+const links: Record<string, RichLink> = {
+  download: { href: download },
+  smartscreen: { href: `${download}#smartscreen` },
+  macos: { href: `${download}#macos` },
+  manual: { href: `${download}#bridge-manual` },
+  issues: { href: `${REPOSITORY_URL}/issues`, external: true },
+};
+const total = t.steps.length;
+
+// Marks the step being read in the index: the last target whose top has
+// passed 40 % of the viewport (the last one at the end of the page). No
+// motion, and nothing marked without JS.
+const tocScript = `(function () {
+  var toc = document.querySelector('[data-guide-toc]');
+  if (!toc) return;
+  var links = Array.prototype.slice.call(toc.querySelectorAll('[data-toc-link]'));
+  var targets = links.map(function (link) {
+    return document.getElementById(link.getAttribute('data-toc-link'));
+  });
+  var queued = false;
+  function update() {
+    queued = false;
+    var line = window.innerHeight * 0.4;
+    var current = -1;
+    targets.forEach(function (target, index) {
+      if (target && target.getBoundingClientRect().top <= line) current = index;
+    });
+    if (current === -1 && targets[0] && targets[0].getBoundingClientRect().top < window.innerHeight) current = 0;
+    var root = document.documentElement;
+    if (window.innerHeight + window.scrollY >= root.scrollHeight - 2) current = targets.length - 1;
+    links.forEach(function (link, index) {
+      if (index === current) link.setAttribute('aria-current', 'location');
+      else link.removeAttribute('aria-current');
+    });
+  }
+  function queue() {
+    if (!queued) { queued = true; requestAnimationFrame(update); }
+  }
+  addEventListener('scroll', queue, { passive: true });
+  addEventListener('resize', queue);
+  addEventListener('hashchange', queue);
+  update();
+})();`;
+---
+
+<SiteLayout
+  lang={lang}
+  page="guide"
+  title={t.meta.title}
+  description={t.meta.description}
+>
+  <div class="guide-page">
+  <div class="guide">
+    <header class="guide-head">
+      <p class="eyebrow">{t.header.eyebrow}</p>
+      <h1 set:html={rich(t.header.title)} />
+      <p class="guide-head__lede">{t.header.lede}</p>
+      <div class="guide-need">
+        <p class="guide-need__label">{t.header.needLabel}</p>
+        <ul class="guide-need__list" role="list">
+          {t.header.need.map((item) => <li>{item}</li>)}
+        </ul>
+      </div>
+    </header>
+
+    <div class="guide-body">
+      <GuideToc lang={lang} copy={t} links={links} />
+      <div class="guide-main">
+        <ol class="guide-steps" role="list">
+          {
+            t.steps.map((step, index) => (
+              <GuideStep
+                lang={lang}
+                step={step}
+                n={index + 1}
+                total={total}
+                stepOf={t.stepOf}
+                required={t.required}
+                links={links}
+              >
+                {step.id === 'bridge' &&
+                  (BRIDGE_WORKSHOP_URL ? (
+                    <p class="guide-step__action">
+                      <a
+                        class="link-ghost"
+                        href={BRIDGE_WORKSHOP_URL}
+                        target="_blank"
+                        rel="noopener"
+                      >
+                        {t.bridge.workshop}
+                        <span class="arrow" aria-hidden="true">
+                          ↗
+                        </span>
+                        <span class="visually-hidden">{SITE[lang].newTab}</span>
+                      </a>
+                    </p>
+                  ) : (
+                    <p class="guide-step__action">
+                      <a class="link-ghost" href={`${download}#bridge`}>
+                        {t.bridge.download}
+                        <span class="arrow" aria-hidden="true">
+                          →
+                        </span>
+                      </a>
+                    </p>
+                  ))}
+              </GuideStep>
+            ))
+          }
+        </ol>
+        <div class="guide-done">
+          <p class="guide-done__cslmap" set:html={rich(t.done.cslmap)} />
+          <p class="guide-done__finish" set:html={rich(t.done.finish)} />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <section class="guide-advanced" id="advanced" aria-labelledby="advanced-title">
+    <div class="guide-advanced__inner">
+      <p class="eyebrow">
+        {t.advanced.eyebrow}
+        <span class="guide-soon">{t.advanced.soon}</span>
+      </p>
+      <h2 id="advanced-title" set:html={rich(t.advanced.title)} />
+      <p class="guide-advanced__lede">{t.advanced.lede}</p>
+      <ul class="guide-advanced__topics" role="list">
+        {t.advanced.topics.map((topic) => <li set:html={rich(topic)} />)}
+      </ul>
+    </div>
+  </section>
+
+  </div>
+
+  <script is:inline set:html={tocScript} />
+</SiteLayout>

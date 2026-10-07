@@ -208,7 +208,34 @@ for (const [name, platform, expected] of [
 const pairs = [
   ['', 'es/'],
   ['download/', 'es/descargar/'],
+  ['guide/', 'es/guia/'],
 ];
+
+test('an external entry to /guide/#open with a saved Spanish choice lands on /es/guia/#open', () => {
+  expect(
+    decideLanguage(
+      input({
+        pathname: '/vellum/guide/',
+        hash: '#open',
+        stored: 'es',
+        pairs,
+      }),
+    ),
+  ).toEqual({ url: '/vellum/es/guia/#open', save: null });
+});
+
+test('/es/guia/?lang=en leads to /guide/ with the step hash and saves en', () => {
+  expect(
+    decideLanguage(
+      input({
+        pathname: '/vellum/es/guia/',
+        search: '?lang=en',
+        hash: '#bridge',
+        pairs,
+      }),
+    ),
+  ).toEqual({ url: '/vellum/guide/?lang=en#bridge', save: 'en' });
+});
 
 test('an external entry to /download/#bridge with a saved Spanish choice lands on /es/descargar/#bridge', () => {
   expect(

@@ -169,6 +169,25 @@ jobs:
             check_assets
           done
 
+          # Guide in both languages: the nav and the post-download block lead
+          # here.
+          for guide_path in guide/ es/guia/; do
+            fetch "${page_url}${guide_path}" --output "$html_file"
+            case "$guide_path" in
+              guide/)
+                grep -q '<html lang="en">' "$html_file"
+                grep -q '<title>Guide · Vellum</title>' "$html_file"
+                ;;
+              *)
+                grep -q '<html lang="es">' "$html_file"
+                grep -q '<title>Guía · Vellum</title>' "$html_file"
+                ;;
+            esac
+            grep -q "<link rel=\"canonical\" href=\"${page_url}${guide_path}\">" "$html_file"
+            grep -q 'id="bridge"' "$html_file"
+            check_assets
+          done
+
           # Privacy is the Partner Center URL: a real static page in both
           # directory forms, without SPA fallback, analytics or redirects
           # other than the trailing-slash one.
