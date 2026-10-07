@@ -224,10 +224,10 @@ Privacy policy: https://sebas-tcotd.github.io/vellum/privacy/
 
 ## Antes de pulsar «Enviar»
 
-- [ ] Story 6.2 cerrada: validación en Windows 10 y 11 limpios, ver [MSIX](msix.md).
+- [x] Story 6.2 cerrada: validación en Windows 10 y 11 limpios, ver [MSIX](msix.md).
 - [ ] Paquete final generado desde el release 1.0.0 y su hash registrado.
 - [x] Autor de Costa Tijuca registrado (MatBarbosa) en [Ciudad de muestra](sample-city.md).
-- [ ] Permiso de redistribución de Costa Tijuca confirmado y registrado en el mismo documento.
+- [x] Permiso de redistribución de Costa Tijuca el 2026-10-07 y registrado en [Ciudad de muestra](sample-city.md).
 - [ ] Capturas sacadas del paquete final.
 - [ ] Cuestionario IARC respondido por quien envía.
 - [ ] Opción «No publicar hasta que seleccione Publicar ahora» marcada.
