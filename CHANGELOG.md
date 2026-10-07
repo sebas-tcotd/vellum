@@ -2,6 +2,15 @@
 
 All notable changes to Vellum will be documented here.
 
+## [1.0.1](https://github.com/sebas-tcotd/vellum/compare/v1.0.0...v1.0.1) (2026-10-07)
+
+
+### Bug Fixes
+
+* **release:** preserve v1.0.0 Store draft ([fa52a78](https://github.com/sebas-tcotd/vellum/commit/fa52a781e27409e9b658b81145c8ec3539e2abef))
+* **release:** restore v1 draft after failed finalization ([1bc1812](https://github.com/sebas-tcotd/vellum/commit/1bc18123bb2989796d283f8c44242b240064796d))
+* **release:** send draft state as boolean ([c6f8193](https://github.com/sebas-tcotd/vellum/commit/c6f8193689ec217d8adcd11f073022539e9df0a8))
+
 ## [1.0.0](https://github.com/sebas-tcotd/vellum/compare/v0.15.0...v1.0.0) (2026-10-07)
 
 
