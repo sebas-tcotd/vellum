@@ -30,10 +30,12 @@ name: Publish Release
 #
 # Release publication policy:
 #   Release Please creates the GitHub Release as a draft and force-creates its
-#   tag. This workflow resolves that existing draft, builds and uploads all
-#   platform artifacts, then publishes it (draft -> false) ONLY after every
-#   platform's signature check, updater manifest check and release-wide asset
-#   check pass. NFR12 is reported as a non-blocking size target.
+#   tag. This workflow resolves that release, builds and uploads all platform
+#   artifacts, then finalizes it only after every signature check, updater
+#   manifest generation and release-wide asset check passes. Tags other than
+#   v1.0.0 are published; v1.0.0 stays a draft for Store review. Its public
+#   updater smoke check runs only after someone publishes that draft.
+#   NFR12 is reported as a non-blocking size target.
 #   A failed verification leaves the release as a draft — nothing is
 #   auto-published from a broken build.
 
@@ -431,7 +433,7 @@ jobs:
           echo "Uploaded one validated latest.json to release ${RELEASE_ID}."
 
   finalize-release:
-    name: Verify release assets and publish
+    name: Verify release assets and finalize
     needs:
       [
         preflight,
@@ -682,7 +684,7 @@ jobs:
 
       # La evidencia trazable de AC3. Se genera del mismo estado que decidió
       # las notas (los outputs de preflight), nunca a mano, y se sube antes de
-      # publicar: un release sin este asset no llega a `draft=false`.
+      # publicar: un release sin este asset no llega al estado final.
       - name: Generate and attach signing evidence
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -791,7 +793,8 @@ jobs:
           echo "Attached signing-evidence.md to release ${RELEASE_ID}."
           cat signing-evidence.md >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Associate and publish release (required for updater endpoint)
+      - name: Finalize release (hold v1.0.0 for Store review)
+        id: finalize-release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -801,16 +804,43 @@ jobs:
           if [ "$RELEASE_TAG" != "$GITHUB_REF_NAME" ]; then
             echo "Associating draft release tag $RELEASE_TAG with triggering tag $GITHUB_REF_NAME."
           fi
-          PUBLISHED_TAG=$(gh api -X PATCH "$RELEASE_API" \
-            -f tag_name="$GITHUB_REF_NAME" \
-            -f draft=false \
-            --jq '.tag_name')
-          if [ "$PUBLISHED_TAG" != "$GITHUB_REF_NAME" ]; then
-            echo "::error::Release was published with unexpected tag $PUBLISHED_TAG (expected $GITHUB_REF_NAME)."
-            exit 1
+          if [ "$GITHUB_REF_NAME" = 'v1.0.0' ]; then
+            CURRENT_DRAFT=$(gh api "$RELEASE_API" --jq '.draft')
+            if [ "$CURRENT_DRAFT" = 'true' ]; then
+              RELEASE_STATE=$(gh api -X PATCH "$RELEASE_API" \
+                -f tag_name="$GITHUB_REF_NAME" \
+                -f draft=true \
+                --jq '[.tag_name, .draft] | @tsv')
+              EXPECTED_STATE=$(printf '%s\ttrue' "$GITHUB_REF_NAME")
+              if [ "$RELEASE_STATE" != "$EXPECTED_STATE" ]; then
+                echo "::error::Store review release must remain a draft for $GITHUB_REF_NAME."
+                exit 1
+              fi
+              echo 'is_draft=true' >> "$GITHUB_OUTPUT"
+              echo "Kept $GITHUB_REF_NAME as a draft for Microsoft Store review."
+            else
+              if [ "$RELEASE_TAG" != "$GITHUB_REF_NAME" ]; then
+                echo "::error::Published Store release has unexpected tag $RELEASE_TAG."
+                exit 1
+              fi
+              echo 'is_draft=false' >> "$GITHUB_OUTPUT"
+              echo "$GITHUB_REF_NAME is already published; preserving its public release state."
+            fi
+          else
+            RELEASE_STATE=$(gh api -X PATCH "$RELEASE_API" \
+              -f tag_name="$GITHUB_REF_NAME" \
+              -f draft=false \
+              --jq '[.tag_name, .draft] | @tsv')
+            EXPECTED_STATE=$(printf '%s\tfalse' "$GITHUB_REF_NAME")
+            if [ "$RELEASE_STATE" != "$EXPECTED_STATE" ]; then
+              echo "::error::Release was not published with expected tag $GITHUB_REF_NAME."
+              exit 1
+            fi
+            echo 'is_draft=false' >> "$GITHUB_OUTPUT"
           fi
 
       - name: Smoke-check public updater manifest
+        if: steps.finalize-release.outputs.is_draft != 'true'
         id: updater-smoke-check
         env:
           MANIFEST_URL: https://github.com/${{ github.repository }}/releases/latest/download/latest.json
@@ -876,9 +906,16 @@ jobs:
           echo "::error::Updater manifest was not valid for $EXPECTED_VERSION after 180 seconds."
           exit 1
 
-      - name: Revert release to draft if finalization fails
+      - name: Keep release as draft if finalization fails
         if: failure()
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          if [ "$GITHUB_REF_NAME" = 'v1.0.0' ]; then
+            CURRENT_DRAFT=$(gh api "repos/${{ github.repository }}/releases/${{ needs.preflight.outputs.release-id }}" --jq '.draft')
+            if [ "$CURRENT_DRAFT" = 'false' ]; then
+              echo 'The v1.0.0 release was already published; preserving its public state after this rerun failure.'
+              exit 0
+            fi
+          fi
           gh api -X PATCH "repos/${{ github.repository }}/releases/${{ needs.preflight.outputs.release-id }}" -f draft=true >/dev/null

@@ -30,6 +30,16 @@ builds keep the warning that Story 1.8 put in the release
 notes and in `signing-evidence.md` — installer artwork does not soften it, and
 a prettier installer is not evidence of provenance.
 
+The exact `v1.0.0` tag is held as a GitHub draft after all release gates pass so
+its MSIX can be submitted to Microsoft Store certification without making the
+release assets public. The tag and source commit remain public. After Microsoft
+approves the package, publish that same GitHub draft; do not rebuild or replace
+the reviewed MSIX. Later tags continue to publish automatically.
+Because the tag and source are public, their source archive is public too. While
+`v1.0.0` remains a draft, the updater's `releases/latest` endpoint continues to
+serve the newest published release; a later tag can become latest before Store
+certification is complete.
+
 **Two MSIs, one per language.** `bundle.windows.wix.language` lists `en-US` and
 `es-ES`, and WiX builds a separate MSI per locale. Both are published; the
 release body links the first one it finds. This is the cost of the `.cslmap`

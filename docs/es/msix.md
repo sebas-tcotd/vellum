@@ -31,7 +31,21 @@ paquete antes de anunciar éxito.
 El MSIX subido queda sin firma para certificación y firma Microsoft. No es una
 descarga pública instalable directamente ni forma parte del actualizador Tauri.
 No crea, confía ni usa certificados locales. CI exige el asset MSIX antes de
-publicar el draft GitHub; no envía nada a Partner Center.
+finalizar el release de GitHub; no envía nada a Partner Center. Para el primer
+envío a Store, el workflow deja el release `v1.0.0` como borrador después de
+pasar todos los gates. Descarga su MSIX desde la página de borradores de GitHub
+Releases y registra el SHA-256 con `Get-FileHash -Algorithm SHA256` antes de
+enviar ese archivo a Partner Center. Cuando Microsoft apruebe el envío, descarga
+otra vez el asset del borrador y compara su hash con el valor registrado. Luego
+abre el mismo borrador en GitHub Releases y usa **Edit release** → **Publish
+release**. El paquete que distribuye Store lleva firma Microsoft, así que sus
+bytes difieren; comparten el build de la app revisado y el tag. El workflow
+sigue publicando automáticamente los tags
+posteriores. El tag, el commit y el archivo del código fuente son públicos
+aunque los assets del release estén en borrador; un tag posterior puede pasar a
+ser `releases/latest` para el updater antes de que termine la certificación. Si
+el workflow se vuelve a ejecutar tras la publicación manual, conserva el estado
+público y valida el manifiesto público del updater.
 
 La aplicación empaquetada desactiva su actualizador; Store gestiona actualizaciones.
 Preferencias, perfil WebView2 y temas personalizados usan almacenamiento Windows
