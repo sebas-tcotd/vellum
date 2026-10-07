@@ -31,7 +31,21 @@ absence of a package signature before reporting success.
 The uploaded MSIX is unsigned, intended for Microsoft signing and certification.
 It is not a directly installable public download and is excluded from the Tauri
 updater. No local certificate is created, trusted or used. CI requires the MSIX
-asset before publishing the GitHub draft; this does not submit to Partner Center.
+asset before finalizing the GitHub release; this does not submit to Partner Center.
+For the first Store submission, the `v1.0.0` workflow leaves that release as a
+draft after all gates pass. Download its MSIX from the GitHub Releases draft
+page and record its SHA-256 with `Get-FileHash -Algorithm SHA256` before
+submitting that file to Partner Center. After Microsoft approves the submission,
+download the draft asset again and compare its hash with the recorded value.
+Then open the same draft under GitHub Releases and use **Edit release** →
+**Publish release**. The Store-delivered package is Microsoft-signed, so its
+package bytes differ; the shared identity is the reviewed app build and tag.
+The workflow continues to publish later tags
+automatically. The tag, source commit and source archive are public even while
+the release assets remain in draft, and a later tag can become the updater's
+`releases/latest` before certification finishes. If the release workflow is
+rerun after manual publication, it preserves the published state and validates
+the public updater manifest.
 
 When packaged, Vellum disables its updater; Store handles updates. Preferences,
 WebView2 profile and custom themes use package-specific Windows storage, separate

@@ -30,6 +30,17 @@ Las builds sin firma conservan la advertencia que la Story 1.8 puso
 en las notas y en `signing-evidence.md` — el artwork no la atenúa, y un
 instalador más bonito no es evidencia de procedencia.
 
+El tag exacto `v1.0.0` queda como borrador de GitHub después de pasar todos los
+gates del release, para enviar el MSIX a certificación de Microsoft Store sin
+hacer públicos los assets del release. El tag y el commit fuente sí siguen
+visibles. Cuando Microsoft apruebe el paquete, publica ese mismo borrador de
+GitHub; no reconstruyas ni reemplaces el MSIX revisado. Los tags posteriores
+siguen publicándose automáticamente.
+Como el tag y el código fuente son públicos, su archivo fuente también lo es.
+Mientras `v1.0.0` siga como borrador, `releases/latest` del updater sirve el
+release publicado más reciente; un tag posterior puede convertirse en latest
+antes de que termine la certificación Store.
+
 **Dos MSI, uno por idioma.** `bundle.windows.wix.language` declara `en-US` y
 `es-ES`, y WiX compila un MSI por locale. Se publican los dos; el cuerpo del
 release enlaza el primero que encuentra. Es el precio de que el diálogo de
