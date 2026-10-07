@@ -263,6 +263,7 @@ export const SHOTS = {
     file: 't25-guia-instalador-nsis',
     priority: 'P2',
     ratio: GUIDE_RATIO,
+    version: '0.14.0',
     alt: {
       en: 'The first screen of the Vellum installer on Windows',
       es: 'La primera pantalla del instalador de Vellum en Windows',
@@ -293,6 +294,7 @@ export const SHOTS = {
     priority: 'P2',
     ratio: GUIDE_RATIO,
     perLanguage: true,
+    version: '0.14.0',
     alt: {
       en: 'The window Bridge shows in the game when the export is done, with the path of the file',
       es: 'La ventana que Bridge muestra en el juego al terminar la exportación, con la ruta del archivo',
@@ -331,9 +333,10 @@ export const SHOTS = {
     city: SHOWCASE,
     ratio: GUIDE_RATIO,
     perLanguage: true,
+    version: '0.14.0',
     alt: {
-      en: `The Export Map dialog over ${sc} in Day: PNG at 4× scale, white background and the marginalia preview`,
-      es: `El diálogo Exportar mapa sobre ${sc} en Day: PNG a escala 4×, fondo blanco y la vista previa de la marginalia`,
+      en: `The Export Map dialog over ${sc} in Day: PNG at 2× scale, white background and the marginalia preview`,
+      es: `El diálogo Exportar mapa sobre ${sc} en Day: PNG a escala 2×, fondo blanco y la vista previa de la marginalia`,
     },
     pending: {
       en: 'Guide · the Export Map dialog with marginalia',
@@ -344,12 +347,13 @@ export const SHOTS = {
     id: 'T30',
     file: 't30-ventana-vellum-day',
     priority: 'P1',
-    city: SHOWCASE,
+    // Sebas's own city (the same save as T27), not a Workshop city.
     ratio: GUIDE_RATIO,
     perLanguage: true,
+    version: '0.14.0',
     alt: {
-      en: `Vellum with ${sc} open in Day: every layer on and the sidebar with the layer list and the map style`,
-      es: `Vellum con ${sc} abierta en Day: todas las capas encendidas y la barra lateral con la lista de capas y el estilo de mapa`,
+      en: 'Vellum with Altavento open in Day: every layer on and the sidebar with the layer list and the map style',
+      es: 'Vellum con Altavento abierta en Day: todas las capas encendidas y la barra lateral con la lista de capas y el estilo de mapa',
     },
     pending: {
       en: 'Guide · Vellum with a city open and the sidebar',

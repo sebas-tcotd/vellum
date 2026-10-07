@@ -145,11 +145,16 @@ for (const [lang, t] of Object.entries(pages)) {
       lang === 'es' ? /bienvenida de Vellum/ : /Vellum welcome/,
     );
     await expect(page.locator('#open figcaption')).toHaveText('Vellum 0.14.0');
-    for (const id of ['T25', 'T26', 'T27', 'T29', 'T30'])
+    // Delivered on 2026-10-07; T26 is still pending.
+    for (const id of ['T25', 'T27', 'T29', 'T30'])
       await expect(page.locator(`[data-shot="${id}"]`)).toHaveAttribute(
         'data-shot-status',
-        'missing',
+        'final',
       );
+    await expect(page.locator('[data-shot="T26"]')).toHaveAttribute(
+      'data-shot-status',
+      'missing',
+    );
   });
 
   test(`"/vellum/${t.path}": step links lead to the download page of its language`, async ({
