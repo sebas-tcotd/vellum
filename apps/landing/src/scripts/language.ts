@@ -60,6 +60,10 @@ export function decideLanguage(input: LanguageInput): LanguageDecision {
     }
   }
   if (!pair) return stay;
+  // Privacy is the URL given to Partner Center: it is never redirected, not
+  // even by `?lang=` (its switcher already links to the other page). A
+  // manual choice is still saved.
+  const fixed = pair[0] === 'privacy/';
   const target = (lang: LandingLang) =>
     input.base +
     (lang === 'es' ? pair[1] : pair[0]) +
@@ -72,12 +76,15 @@ export function decideLanguage(input: LanguageInput): LanguageDecision {
   if (param) {
     const asked = param[1].toLowerCase().split(/[-_]/)[0];
     if (asked !== 'en' && asked !== 'es') return stay;
-    return { url: asked === current ? null : target(asked), save: asked };
+    return {
+      url: asked === current || fixed ? null : target(asked),
+      save: asked,
+    };
   }
 
   // A Spanish URL is never redirected; nor is anything without storage, after
   // the first page of the session, or arriving from this same site.
-  if (current === 'es' || !input.storageOk || !input.firstNavigation)
+  if (fixed || current === 'es' || !input.storageOk || !input.firstNavigation)
     return stay;
   // Same site means this project, not other Pages projects of the origin.
   if (input.referrer.indexOf(input.origin + input.base) === 0) return stay;

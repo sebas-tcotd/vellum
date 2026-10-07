@@ -1,0 +1,529 @@
+/* Manifesto (DESIGN.md · Layout: a centred 862 px letter, 170 + 72 + 620;
+   Components · Nota al margen, Tira de Los Santos Pobres, Foto suelta,
+   Lámina impresa). Visual moments go full bleed (100cqw of the site
+   container) or wide (1168 px). Eyebrow, captions and the Shot frame come
+   from figures.css; buttons and links from site.css. */
+
+@import './figures.css';
+
+.letter {
+  --letter-width: calc(var(--margin-column) + var(--margin-gap) + 38.75rem);
+
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--margin-column) minmax(0, 38.75rem);
+  column-gap: var(--margin-gap);
+  width: min(var(--letter-width), 100% - 2 * var(--page-x));
+  margin: 0 auto;
+  padding-bottom: 2.5rem;
+  color: var(--text-body);
+  font-size: 1.1875rem;
+  line-height: 1.75;
+}
+
+/* The notebook margin line, right of the notes column. */
+.letter::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(var(--margin-column) + var(--margin-gap) / 2);
+  width: 1px;
+  background: var(--margin-line);
+  pointer-events: none;
+}
+
+.letter > * {
+  grid-column: 2;
+}
+
+.letter > p,
+.letter__row {
+  margin-top: 1.05em;
+}
+
+/* ── Head, chapters, pauses ─────────────────────────────── */
+
+.letter__head {
+  padding: 7.5rem 0 4.5rem;
+}
+
+.letter__head h1 {
+  font-size: 5.25rem;
+  line-height: 0.98;
+  letter-spacing: -0.01em;
+}
+
+.letter__head + p {
+  margin-top: 0;
+}
+
+.letter__chapter {
+  font-size: 3rem;
+  line-height: 1.05;
+}
+
+.letter__pause {
+  margin: 1.35em 0 0.55em;
+  color: var(--text-display);
+  font-family: var(--font-display);
+  font-size: 2.25rem;
+  line-height: 1.18;
+  letter-spacing: -0.003em;
+}
+
+.letter__pause strong {
+  font-weight: 500;
+}
+
+.letter__chapter + .letter__pause {
+  margin-top: 0.45em;
+}
+
+.letter__pause + p,
+.letter__pause + .letter__row {
+  margin-top: 0.9em;
+}
+
+.letter__break {
+  height: auto;
+  margin: 5.5rem 0 5rem;
+  border: 0;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  line-height: 1;
+  letter-spacing: 0.6em;
+}
+
+.letter__break::before {
+  content: '·  ·  ·' / '';
+  white-space: pre;
+}
+
+/* ── Margin notes: beside their paragraph, after it in the DOM ── */
+
+/* The note hangs in the margin column without pushing the letter down. */
+.letter__row {
+  position: relative;
+}
+
+.letter__note {
+  position: absolute;
+  top: 0;
+  left: calc(-1 * (var(--margin-column) + var(--margin-gap)));
+  width: var(--margin-column);
+  padding-top: 0.35em;
+  color: var(--note);
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  font-style: italic;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.letter__note::before {
+  content: '';
+  display: block;
+  width: 1.75rem;
+  height: 1px;
+  margin-bottom: 0.625rem;
+  background: color-mix(in srgb, var(--note) 60%, transparent);
+}
+
+/* ── Signature and close ───────────────────────────────── */
+
+.letter__signature {
+  margin-top: 3em !important;
+  color: var(--text-display);
+  font-family: var(--font-display);
+  font-size: 1.625rem;
+  line-height: 1.3;
+}
+
+.letter__signature span {
+  display: inline-block;
+  margin-top: 0.25rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.78125rem;
+  letter-spacing: 0.06em;
+}
+
+.letter__coda {
+  margin-top: 2.2em !important;
+  color: var(--note);
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  font-style: italic;
+  line-height: 1.55;
+}
+
+.letter__close {
+  margin: 4.5rem 0 5rem !important;
+}
+
+/* ── Visual moments ────────────────────────────────────── */
+
+.letter__bleed,
+.letter__wide,
+.letter__wall {
+  grid-column: 1 / -1;
+  position: relative;
+}
+
+.letter__bleed {
+  width: 100cqw;
+  margin: 6rem 0 0 calc(50% - 50cqw);
+}
+
+.letter__bleed .shot {
+  aspect-ratio: auto !important;
+  height: min(40rem, 50cqw);
+}
+
+.letter__bleed .caption {
+  padding: 0 var(--page-x);
+}
+
+.letter__bleed + * {
+  margin-top: 6rem;
+}
+
+.letter__wide {
+  width: min(73rem, 100cqw - 2 * var(--page-x));
+  margin: 4.5rem 0 3.5rem calc(50% - min(36.5rem, 50cqw - var(--page-x)));
+}
+
+/* The Los Santos Pobres strip: loose prints in their order. */
+/* Two rows: 00–09, then the gap of 10 and 11–16. */
+.lsp__strip {
+  display: grid;
+  grid-template-columns: repeat(10, 6.5rem);
+  justify-content: center;
+  gap: 1.875rem 0.875rem;
+  padding: 1.625rem 0 0.5rem;
+}
+
+.photo {
+  flex: 0 0 auto;
+  width: 6.5rem;
+  padding: 5px 5px 6px;
+  background: var(--photo);
+  box-shadow:
+    0 1px 2px var(--photo-shadow),
+    0 5px 14px var(--photo-shadow);
+}
+
+.photo:nth-child(3n + 1) {
+  transform: rotate(-1.4deg);
+}
+
+.photo:nth-child(3n + 2) {
+  transform: rotate(0.9deg) translateY(4px);
+}
+
+.photo:nth-child(4n) {
+  transform: rotate(-0.5deg) translateY(-3px);
+}
+
+.photo:nth-child(5n) {
+  transform: rotate(1.7deg);
+}
+
+.photo__link img,
+.photo__gap {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+  object-fit: cover;
+}
+
+.photo__link:hover img {
+  outline: 1px solid var(--text-muted);
+}
+
+.photo__caption {
+  display: block;
+  margin-top: 0.3125rem;
+  color: var(--note);
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  font-style: italic;
+  line-height: 1.3;
+}
+
+.photo--missing {
+  border: 1px dashed var(--text-muted);
+  background: transparent;
+  box-shadow: none;
+}
+
+.lsp__foot {
+  display: grid;
+  grid-template-columns: var(--margin-column) minmax(0, 38.75rem);
+  column-gap: var(--margin-gap);
+  justify-content: center;
+  align-items: start;
+  margin-top: 2.5rem;
+}
+
+.lsp__pair {
+  position: relative;
+  min-height: 17rem;
+}
+
+.lsp__pair .photo {
+  position: absolute;
+  width: 8rem;
+}
+
+.lsp__pair .photo:first-child {
+  top: 0;
+  left: 0;
+  transform: rotate(-2.2deg);
+}
+
+.lsp__pair .photo:last-child {
+  top: 8.25rem;
+  left: 2.375rem;
+  transform: rotate(1.6deg);
+}
+
+.lsp__footnote {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  line-height: 1.55;
+}
+
+.lsp__pair-caption {
+  display: block;
+  margin-top: 0.75rem;
+  color: var(--note);
+  font-style: italic;
+}
+
+/* The diptych: Transit and the schematic, the same network. */
+.diptych__pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+}
+
+.diptych__caption {
+  margin-top: 1.125rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  text-align: center;
+}
+
+.diptych__line {
+  display: block;
+  margin-bottom: 0.25rem;
+  color: var(--note);
+  font-size: 0.8125rem;
+  font-style: italic;
+}
+
+/* The plate, hung on a band wall with plenty of air. */
+.letter__wall {
+  display: grid;
+  justify-items: center;
+  width: 100cqw;
+  margin: 6rem 0 5rem calc(50% - 50cqw);
+  padding: 6rem var(--page-x) 5.25rem;
+  background: var(--surface-band);
+}
+
+.wall__frame {
+  width: min(42.5rem, 100%);
+  padding: 10px;
+  background: var(--plate-frame);
+  box-shadow: var(--plate-shadow);
+  transition: box-shadow 150ms ease;
+}
+
+.wall__frame:hover {
+  box-shadow: var(--plate-shadow-hover);
+}
+
+.wall__mat {
+  padding: 34px;
+  background: var(--plate-mat);
+}
+
+.wall__art {
+  border: 7px solid var(--plate-border);
+}
+
+.wall__caption {
+  max-width: 42.5rem;
+  margin-top: 1.875rem;
+  text-align: center;
+}
+
+/* ── Motion ────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: no-preference) {
+  .js .letter__head [data-reveal]:not(.js-reveal) {
+    opacity: 0;
+    animation: letter-reveal 0s 1s forwards;
+  }
+
+  .letter__head .js-reveal {
+    transition: opacity 400ms ease;
+  }
+
+  .letter__bleed.is-fading .shot img {
+    opacity: 0;
+    transition: opacity 600ms ease;
+  }
+
+  .letter__bleed.is-fading.is-shown .shot img {
+    opacity: 1;
+  }
+
+  @keyframes letter-reveal {
+    to {
+      opacity: 1;
+    }
+  }
+}
+
+@media (forced-colors: active) {
+  .shot img,
+  .photo img {
+    forced-color-adjust: none;
+  }
+}
+
+/* ── Narrower widths ───────────────────────────────────── */
+
+@container site (max-width: 1023px) {
+  .letter,
+  .lsp__foot {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .lsp__strip {
+    grid-template-columns: repeat(5, 6.5rem);
+  }
+
+  .letter {
+    width: min(38.75rem, 100% - 2 * var(--page-x));
+  }
+
+  .letter::before {
+    display: none;
+  }
+
+  .letter > * {
+    grid-column: 1;
+  }
+
+  .letter__note {
+    position: static;
+    width: auto;
+    margin-top: 0.875rem;
+    padding: 0 0 0 0.75rem;
+    border-left: 2px solid var(--margin-line);
+  }
+
+  .letter__note::before {
+    display: none;
+  }
+
+  .letter__bleed,
+  .letter__wall {
+    grid-column: 1;
+  }
+
+  .letter__wide {
+    width: 100cqw;
+    margin-left: calc(50% - 50cqw);
+    padding-inline: var(--page-x);
+  }
+
+  .lsp__foot {
+    row-gap: 1.5rem;
+  }
+
+  .lsp__pair {
+    display: flex;
+    gap: 1.125rem;
+    min-height: 0;
+  }
+
+  .lsp__pair .photo {
+    position: static;
+  }
+}
+
+@container site (max-width: 640px) {
+  .letter {
+    font-size: 1.09375rem;
+    line-height: 1.72;
+  }
+
+  .letter__head {
+    padding: 2.75rem 0 2.5rem;
+  }
+
+  .letter__head h1 {
+    font-size: 3.125rem;
+  }
+
+  .letter__pause {
+    font-size: 1.8125rem;
+  }
+
+  .letter__chapter {
+    font-size: 2.25rem;
+  }
+
+  .letter__break {
+    margin: 3.75rem 0 3.375rem;
+  }
+
+  .letter__bleed {
+    margin-top: 3.75rem;
+  }
+
+  .letter__bleed .shot {
+    height: 18.75rem;
+  }
+
+  .letter__bleed + * {
+    margin-top: 3.75rem;
+  }
+
+  /* The strip scrolls sideways with the finger. */
+  .lsp__strip {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 1rem;
+    padding: 1.25rem 0.25rem 1.125rem;
+    scroll-snap-type: x proximity;
+  }
+
+  .lsp__strip .photo {
+    width: 8.25rem;
+    scroll-snap-align: start;
+  }
+
+  .diptych__pair {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .letter__wall {
+    padding: 3.5rem var(--page-x) 2.75rem;
+  }
+
+  .wall__mat {
+    padding: 16px;
+  }
+}

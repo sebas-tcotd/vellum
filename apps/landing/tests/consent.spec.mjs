@@ -115,19 +115,21 @@ test('accepts once, persists, sends denied advertising signals and revokes witho
   await expect.poll(() => google.length).toBe(3);
 });
 
-test('privacy never loads Google even with accepted consent', async ({
-  page,
-}) => {
-  const google = await observeGoogle(page);
-  await page.addInitScript(
-    (key) => localStorage.setItem(key, 'accepted'),
-    consentKey,
-  );
-  await page.goto('privacy/?lang=en');
-  await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-  await page.waitForTimeout(500);
-  expect(google).toEqual([]);
-});
+for (const path of ['privacy/', 'es/privacidad/'])
+  test(`"/vellum/${path}" never loads Google nor shows the bar, even with accepted consent`, async ({
+    page,
+  }) => {
+    const google = await observeGoogle(page);
+    await page.addInitScript(
+      (key) => localStorage.setItem(key, 'accepted'),
+      consentKey,
+    );
+    await page.goto(path);
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+    await expect(page.locator('#analytics-consent')).toHaveCount(0);
+    await page.waitForTimeout(500);
+    expect(google).toEqual([]);
+  });
 
 test('fails closed for inaccessible stored consent', async ({ page }) => {
   const google = await observeGoogle(page);
@@ -170,13 +172,13 @@ test('withdrawal in another tab unloads analytics in open tabs', async ({
     .getByRole('button', { name: 'Accept analytics', exact: true })
     .click();
   await expect.poll(() => google.length).toBe(1);
-  const privacy = await context.newPage();
-  await observeGoogle(privacy);
-  await privacy.goto('privacy/?lang=en');
-  await privacy
+  const other = await context.newPage();
+  await observeGoogle(other);
+  await other.goto('download/?lang=en');
+  await other
     .getByRole('button', { name: 'Analytics preferences', exact: true })
     .click();
-  await privacy
+  await other
     .getByRole('button', { name: 'Reject analytics', exact: true })
     .click();
   await expect

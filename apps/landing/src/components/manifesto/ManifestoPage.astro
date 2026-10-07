@@ -1,0 +1,292 @@
+---
+/**
+ * The manifesto in one language (EXPERIENCE.md · Páginas · Manifiesto;
+ * DESIGN.md · Layout: a centred 862 px letter, 170 + 72 + 620). The letter
+ * is literal; its pauses are `<p><strong>` in the pause type, its margin
+ * notes `<aside>` in DM Mono Italic beside their paragraph (after it in the
+ * DOM). The four visual moments: T32 full bleed, the Los Santos Pobres strip
+ * (each photo a link to the large image, with the lightbox on top), the
+ * T11 + T18 diptych and the T21 plate. One «Download Vellum» button closes
+ * it. Reference: manifesto-1; the spines win.
+ */
+import type { ImageMetadata } from 'astro';
+import '../../styles/manifesto.css';
+import { REPOSITORY_URL } from '../../content/links';
+import { MANIFESTO } from '../../content/manifesto';
+import { downloadHref, type Lang } from '../../content/routes';
+import { LSP_PAIR, LSP_STRIP, type LspPhoto } from '../../content/shots';
+import { SITE } from '../../content/site';
+import SiteLayout from '../../layouts/SiteLayout.astro';
+import { parseLetter } from '../../lib/letter';
+import { rich, richLinks } from '../../lib/rich';
+import { imageSources } from '../../lib/shots';
+import CityCredit from '../home/CityCredit.astro';
+import Lightbox from '../home/Lightbox.astro';
+import Shot from '../home/Shot.astro';
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const t = MANIFESTO[lang];
+const blocks = parseLetter(t.letter);
+const title = blocks.find((block) => block.type === 'title');
+if (!title) throw new Error('The manifesto letter needs a # title');
+const links = {
+  github: { href: REPOSITORY_URL, external: true },
+  issues: { href: `${REPOSITORY_URL}/issues`, external: true },
+};
+const note = (text: string) => richLinks(text, links, SITE[lang].newTab);
+
+// The strip photos (src/assets/lsp/): the print and, for 00–09, the
+// uncropped original that the link and the lightbox open.
+const files = import.meta.glob<{ default: ImageMetadata }>(
+  '../../assets/lsp/*.webp',
+  { eager: true },
+);
+const byName = new Map(
+  Object.entries(files).map(([path, module]) => [
+    path.slice(path.lastIndexOf('/') + 1, -'.webp'.length),
+    module.default,
+  ]),
+);
+async function photo(entry: LspPhoto) {
+  const print = byName.get(entry.file);
+  if (!print) throw new Error(`Missing src/assets/lsp/${entry.file}.webp`);
+  const large = byName.get(`${entry.file}-full`) ?? print;
+  return {
+    entry,
+    thumb: await imageSources(print, [280, 560]),
+    full: (await imageSources(large, [large.width])).src,
+  };
+}
+const before = await Promise.all(LSP_STRIP.before.map(photo));
+const after = await Promise.all(LSP_STRIP.after.map(photo));
+const pair = await Promise.all(LSP_PAIR.map(photo));
+type Photo = (typeof before)[number];
+---
+
+<SiteLayout
+  lang={lang}
+  page="manifesto"
+  title={t.meta.title}
+  description={t.meta.description}
+>
+  <article class="letter" lang={lang}>
+    <header class="letter__head">
+      <p class="eyebrow">{t.eyebrow}</p>
+      <h1 data-reveal>{title.text}</h1>
+    </header>
+    {
+      blocks.map((block) => {
+        switch (block.type) {
+          case 'title':
+            return null;
+          case 'chapter':
+            return <h2 class="letter__chapter">{block.text}</h2>;
+          case 'pause':
+            return (
+              <p class="letter__pause">
+                <strong>{block.text}</strong>
+              </p>
+            );
+          case 'break':
+            return <hr class="letter__break" />;
+          case 'paragraph':
+            return block.note ? (
+              <div class="letter__row">
+                <p set:html={rich(block.text)} />
+                <aside class="letter__note" set:html={note(block.note)} />
+              </div>
+            ) : (
+              <p set:html={rich(block.text)} />
+            );
+          case 'signature':
+            return (
+              <p class="letter__signature">
+                — {block.name}
+                <br />
+                <span>{block.place}</span>
+              </p>
+            );
+          case 'coda':
+            return <p class="letter__coda">{block.text}</p>;
+          case 'visual':
+            if (block.visual === 'bleed')
+              return (
+                <figure class="letter__bleed" data-fade>
+                  <Shot
+                    id="T32"
+                    lang={lang}
+                    sizes="100vw"
+                    widths={[800, 1280, 1920, 2560, 3200]}
+                  />
+                  <figcaption class="caption">{t.bleedCaption}</figcaption>
+                </figure>
+              );
+            if (block.visual === 'lsp')
+              return (
+                <figure class="letter__wide lsp" aria-label={t.strip.label}>
+                  <ul class="lsp__strip" role="list">
+                    {[...before, null, ...after].map((item: Photo | null) =>
+                      item ? (
+                        <li class="photo">
+                          <a
+                            class="photo__link lightbox-trigger on-map"
+                            href={item.full}
+                            data-lightbox="lsp"
+                            data-lightbox-caption={t.strip.caption(
+                              item.entry.label,
+                            )}
+                            data-lightbox-announce={t.strip.announce(
+                              item.entry.label,
+                            )}
+                          >
+                            <img
+                              src={item.thumb.src}
+                              srcset={item.thumb.srcset}
+                              sizes="(max-width: 640px) 132px, 112px"
+                              width={item.thumb.width}
+                              height={item.thumb.height}
+                              alt={item.entry.alt[lang]}
+                              loading="lazy"
+                              decoding="async"
+                            />
+                          </a>
+                          <span class="photo__caption" aria-hidden="true">
+                            {item.entry.label}
+                          </span>
+                        </li>
+                      ) : (
+                        <li class="photo photo--missing">
+                          <span class="photo__gap" />
+                          <span class="photo__caption">{t.strip.missing}</span>
+                        </li>
+                      ),
+                    )}
+                  </ul>
+                  <div class="lsp__foot">
+                    <ul class="lsp__pair" role="list">
+                      {pair.map((item) => (
+                        <li class="photo">
+                          <a
+                            class="photo__link lightbox-trigger on-map"
+                            href={item.full}
+                            data-lightbox="lsp-14"
+                            data-lightbox-caption={t.strip.caption(
+                              item.entry.label,
+                            )}
+                            data-lightbox-announce={t.strip.announce(
+                              item.entry.label,
+                            )}
+                          >
+                            <img
+                              src={item.thumb.src}
+                              srcset={item.thumb.srcset}
+                              sizes="128px"
+                              width={item.thumb.width}
+                              height={item.thumb.height}
+                              alt={item.entry.alt[lang]}
+                              loading="lazy"
+                              decoding="async"
+                            />
+                          </a>
+                          <span class="photo__caption" aria-hidden="true">
+                            {item.entry.label}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                    <figcaption class="lsp__footnote">
+                      {t.strip.footnote}
+                      <span class="lsp__pair-caption">{t.pairCaption}</span>
+                    </figcaption>
+                  </div>
+                </figure>
+              );
+            if (block.visual === 'diptych')
+              return (
+                <figure class="letter__wide diptych">
+                  <div class="diptych__pair">
+                    <figure>
+                      <Shot
+                        id="T11"
+                        lang={lang}
+                        ratio={4 / 3}
+                        sizes="(max-width: 1023px) 100vw, 574px"
+                        widths={[600, 1150]}
+                      />
+                      <figcaption class="caption">{t.diptych.transit}</figcaption>
+                    </figure>
+                    <figure>
+                      <Shot
+                        id="T18"
+                        lang={lang}
+                        ratio={4 / 3}
+                        sizes="(max-width: 1023px) 100vw, 574px"
+                        widths={[600, 1150]}
+                      />
+                      <figcaption class="caption">
+                        {t.diptych.schematic}
+                      </figcaption>
+                    </figure>
+                  </div>
+                  <figcaption class="diptych__caption">
+                    <span class="diptych__line">{t.diptych.caption}</span>
+                    <CityCredit city="costaTijuca" lang={lang} />
+                  </figcaption>
+                </figure>
+              );
+            return (
+              <figure class="letter__wall">
+                <div class="wall__frame">
+                  <div class="wall__mat">
+                    <div class="wall__art">
+                      <Shot
+                        id="T21"
+                        lang={lang}
+                        sizes="(max-width: 1023px) 90vw, 680px"
+                        widths={[700, 1360]}
+                      />
+                    </div>
+                  </div>
+                </div>
+                <figcaption class="caption wall__caption">
+                  {t.plate}
+                  <br />
+                  <CityCredit city="costaTijuca" lang={lang} />
+                </figcaption>
+              </figure>
+            );
+        }
+      })
+    }
+    <p class="letter__close">
+      <a class="button button--lg" href={downloadHref(lang)}>{t.download}</a>
+    </p>
+  </article>
+  <Lightbox lang={lang} />
+</SiteLayout>
+
+<script>
+  import { motionAllowed, onceVisible, revealOnLoad } from '../../scripts/motion';
+
+  // Title: a 400 ms fade on load. Full-bleed map: a 600 ms fade the first
+  // time it enters the view. The rest of the letter is already there.
+  revealOnLoad();
+  // Opacity 0 is only set at the moment the fade starts, so the map is never
+  // left hidden (print, screenshots, background tabs).
+  const bleed = document.querySelector<HTMLElement>('[data-fade]');
+  if (bleed && motionAllowed() && bleed.getBoundingClientRect().top > innerHeight)
+    onceVisible(
+      bleed,
+      () => {
+        bleed.classList.add('is-fading');
+        requestAnimationFrame(() =>
+          requestAnimationFrame(() => bleed.classList.add('is-shown')),
+        );
+      },
+      0.05,
+    );
+</script>

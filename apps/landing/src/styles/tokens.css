@@ -26,6 +26,8 @@
   --button-hover: #3d362e;
   --nav-active: #4a4035;
   --grain-opacity: 0.055;
+  --photo: #fbf9f4;
+  --photo-shadow: #4a40352e;
 
   --brand-ink: #4a4035;
   --nocturno-bg: #1c1915;
@@ -84,6 +86,8 @@
   --button-hover: #e6ddcf;
   --nav-active: #d2938e;
   --grain-opacity: 0.035;
+  --photo: #2b2620;
+  --photo-shadow: #00000080;
   --nocturno-bg: #0d0b09;
   --nocturno-rule: #2a241e;
   --nocturno-shadow: 0 0 0 1px #2a241e, 0 30px 80px rgb(0 0 0 / 60%);
@@ -115,6 +119,8 @@
     --button-hover: #e6ddcf;
     --nav-active: #d2938e;
     --grain-opacity: 0.035;
+    --photo: #2b2620;
+    --photo-shadow: #00000080;
     --nocturno-bg: #0d0b09;
     --nocturno-rule: #2a241e;
     --nocturno-shadow: 0 0 0 1px #2a241e, 0 30px 80px rgb(0 0 0 / 60%);

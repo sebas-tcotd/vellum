@@ -84,16 +84,36 @@ test('no redirect without storage, after the first page, or from this same site'
   ).toBeNull();
 });
 
-test('pages outside the bilingual pairs (privacy) are never redirected', () => {
+test('privacy, a bilingual pair, is never redirected', () => {
+  const pairs = [
+    ['', 'es/'],
+    ['privacy/', 'es/privacidad/'],
+  ];
   expect(
     decideLanguage(
       input({
         pathname: '/vellum/privacy/',
+        pairs,
         browserLanguage: 'es',
         stored: 'es',
       }),
     ).url,
   ).toBeNull();
+  // Not even a manual `?lang=`, which is still saved.
+  expect(
+    decideLanguage(
+      input({ pathname: '/vellum/privacy/', pairs, search: '?lang=es' }),
+    ),
+  ).toEqual({ url: null, save: 'es' });
+  expect(
+    decideLanguage(
+      input({ pathname: '/vellum/es/privacidad/', pairs, search: '?lang=en' }),
+    ),
+  ).toEqual({ url: null, save: 'en' });
+  // Other pairs still redirect.
+  expect(decideLanguage(input({ pairs, browserLanguage: 'es' })).url).toBe(
+    '/vellum/es/',
+  );
 });
 
 test('a release without assets sends every platform to GitHub Releases', () => {

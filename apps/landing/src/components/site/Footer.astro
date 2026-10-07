@@ -17,7 +17,8 @@ import { SITE } from '../../content/site';
 
 interface Props {
   lang: Lang;
-  current: PageId;
+  /** `null` on the 404, which belongs to no page. */
+  current: PageId | null;
 }
 
 const { lang, current } = Astro.props;
@@ -28,7 +29,7 @@ const links = NAV_PAGES.filter((page) => PUBLISHED_PAGES.has(page));
 const logo = `${base}assets/vellum-isotype-rounded.svg`;
 const themes = ['light', 'dark', 'auto'] as const;
 const otherHref = (code: Lang) =>
-  `${base}${PAGE_PATHS[current][code]}?lang=${code}`;
+  `${base}${PAGE_PATHS[current ?? 'home'][code]}?lang=${code}`;
 ---
 
 <footer class="footer">

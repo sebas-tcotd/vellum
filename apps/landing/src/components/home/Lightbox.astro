@@ -1,7 +1,9 @@
 ---
 /**
  * One modal `<dialog>` for every `[data-lightbox]` link of the page. Without
- * JS the links simply open the full image. Close, previous and next are
+ * JS the links simply open the full image. A link may carry
+ * `data-lightbox-announce` (e.g. «Snapshot 07 of 16») for the live region;
+ * otherwise «n of N» is announced. Close, previous and next are
  * 44 × 44 and visible on phones too; Esc, Close or a click on the backdrop
  * close it, and focus returns to the thumbnail.
  */
@@ -54,7 +56,9 @@ const t =
       image.alt = item.querySelector('img')?.alt ?? '';
       caption.textContent = item.dataset.lightboxCaption ?? '';
       if (announce && live)
-        live.textContent = `${index + 1} ${dialog.dataset.of} ${items.length}`;
+        live.textContent =
+          item.dataset.lightboxAnnounce ??
+          `${index + 1} ${dialog.dataset.of} ${items.length}`;
       for (const control of dialog.querySelectorAll<HTMLElement>('[data-lightbox-step]'))
         control.hidden = items.length < 2;
     };

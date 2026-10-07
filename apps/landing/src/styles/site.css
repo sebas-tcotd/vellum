@@ -219,6 +219,16 @@ kbd {
   border-bottom-width: 2px;
 }
 
+/* Thumbnail that opens the lightbox (home gallery, manifesto photos). */
+.lightbox-trigger {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: zoom-in;
+}
+
 /* ── Pending data marker (pre-launch only) ─────────────── */
 
 .pending {

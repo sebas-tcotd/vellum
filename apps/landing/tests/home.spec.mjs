@@ -228,6 +228,8 @@ test('the gallery opens a modal lightbox and returns focus', async ({
   await expect(dialog.getByRole('button', { name: 'Close' })).toBeFocused();
   await page.keyboard.press('ArrowRight');
   await expect(dialog).toContainText('San Rico');
+  // Without data-lightbox-announce, the live region says «n of N».
+  await expect(dialog.locator('[data-lightbox-live]')).toHaveText('2 of 3');
   await page.keyboard.press('Escape');
   await expect(dialog).toBeHidden();
   await expect(trigger).toBeFocused();

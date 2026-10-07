@@ -1,20 +1,9 @@
-import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
+import { PRIVACY } from '../src/content/privacy.ts';
 
 const origin = 'http://127.0.0.1:4178';
 const site = 'https://sebas-tcotd.github.io';
 const consentKey = 'vellum-analytics-consent-v1';
-const translations = Object.fromEntries(
-  ['en', 'es'].map((language) => [
-    language,
-    JSON.parse(
-      readFileSync(
-        new URL(`../i18n/${language}.json`, import.meta.url),
-        'utf8',
-      ),
-    ),
-  ]),
-);
 
 /** Headings of the v1.0 home (src/content/home.ts). */
 const home = {
@@ -79,8 +68,10 @@ test('privacy without a trailing slash redirects to the static page', async ({
     expect(response.status()).toBe(200);
     expect(response.url()).toBe(`${origin}/vellum/privacy/`);
     const html = await response.text();
-    expect(html).toContain('<title>Privacy | Vellum City Maps</title>');
-    expect(html).toContain('data-page="privacy"');
+    expect(html).toContain('<title>Privacy · Vellum</title>');
+    expect(html).toMatch(
+      /<main id="contenido" tabindex="-1" data-page="privacy">/,
+    );
     expect(html).not.toMatch(/googletagmanager|gtag\(/i);
   }
 });
@@ -105,7 +96,7 @@ test('privacy without a slash never reaches Google with accepted consent', async
   await expect(
     page.getByRole('heading', {
       level: 1,
-      name: translations.en.privacy.title,
+      name: PRIVACY.en.title,
     }),
   ).toBeVisible();
   await page.waitForTimeout(500);
@@ -119,7 +110,7 @@ test('a missing route answers a real 404 page, not the home', async ({
   const response = await request.get('no-existe');
   expect(response.status()).toBe(404);
   const html = await response.text();
-  expect(html).toContain('<title>Page not found | Vellum</title>');
+  expect(html).toContain('<title>Page not found · Vellum</title>');
   expect(html).not.toContain('component-url');
 
   const navigation = await page.goto('no-existe/deeper/path');
@@ -127,9 +118,18 @@ test('a missing route answers a real 404 page, not the home', async ({
   await expect(
     page.getByRole('heading', {
       level: 1,
-      name: "This place isn't on the map.",
+      name: 'This place isn’t on the map.',
     }),
   ).toBeVisible();
+  await expect(
+    page.getByRole('link', { name: 'Download Vellum', exact: true }),
+  ).toHaveAttribute('href', '/vellum/download/');
+  await expect(
+    page.getByRole('link', { name: 'descargar Vellum' }),
+  ).toHaveAttribute('href', '/vellum/es/descargar/');
+  await expect(
+    page.getByRole('link', { name: 'inicio de Vellum' }),
+  ).toHaveAttribute('href', '/vellum/es/');
   const home = page.getByRole('link', { name: 'Back to the Vellum home' });
   await expect(home).toHaveAttribute('href', '/vellum/');
   await home.click();
@@ -144,7 +144,12 @@ for (const path of [
   'es/descargar/',
   'guide/',
   'es/guia/',
+  'changelog/',
+  'es/novedades/',
+  'manifesto/',
+  'es/manifiesto/',
   'privacy/',
+  'es/privacidad/',
   'no-existe/deeper/path',
 ]) {
   test(`every asset of "/vellum/${path}" resolves under /vellum/`, async ({
@@ -153,7 +158,10 @@ for (const path of [
   }) => {
     const html = await (await request.get(path)).text();
     const urls = referencedUrls(html).filter(
-      (url) => !url.startsWith('https://') && !url.startsWith('#'),
+      (url) =>
+        !url.startsWith('https://') &&
+        !url.startsWith('mailto:') &&
+        !url.startsWith('#'),
     );
     expect(urls.length).toBeGreaterThan(0);
     for (const url of urls) {
@@ -191,7 +199,37 @@ for (const [path, canonical, lang, pair] of [
   ],
   ['guide/', `${site}/vellum/guide/`, 'en', ['guide/', 'es/guia/']],
   ['es/guia/', `${site}/vellum/es/guia/`, 'es', ['guide/', 'es/guia/']],
-  ['privacy/', `${site}/vellum/privacy/`, 'en'],
+  [
+    'changelog/',
+    `${site}/vellum/changelog/`,
+    'en',
+    ['changelog/', 'es/novedades/'],
+  ],
+  [
+    'es/novedades/',
+    `${site}/vellum/es/novedades/`,
+    'es',
+    ['changelog/', 'es/novedades/'],
+  ],
+  [
+    'manifesto/',
+    `${site}/vellum/manifesto/`,
+    'en',
+    ['manifesto/', 'es/manifiesto/'],
+  ],
+  [
+    'es/manifiesto/',
+    `${site}/vellum/es/manifiesto/`,
+    'es',
+    ['manifesto/', 'es/manifiesto/'],
+  ],
+  ['privacy/', `${site}/vellum/privacy/`, 'en', ['privacy/', 'es/privacidad/']],
+  [
+    'es/privacidad/',
+    `${site}/vellum/es/privacidad/`,
+    'es',
+    ['privacy/', 'es/privacidad/'],
+  ],
 ]) {
   test(`"/vellum/${path}" serves its SEO metadata`, async ({ request }) => {
     const html = await (await request.get(path)).text();
@@ -201,19 +239,14 @@ for (const [path, canonical, lang, pair] of [
     expect(html).toMatch(
       /<meta property="og:image" content="https:\/\/sebas-tcotd\.github\.io\/vellum\/assets\/[^"]+">/,
     );
-    if (path === 'privacy/') {
-      // Privacy has no Spanish pair yet, so it claims no alternates.
-      expect(html).not.toContain('hreflang');
-    } else {
-      for (const [code, href] of [
-        ['en', `${site}/vellum/${pair[0]}`],
-        ['es', `${site}/vellum/${pair[1]}`],
-        ['x-default', `${site}/vellum/${pair[0]}`],
-      ])
-        expect(html).toContain(
-          `<link rel="alternate" hreflang="${code}" href="${href}">`,
-        );
-    }
+    for (const [code, href] of [
+      ['en', `${site}/vellum/${pair[0]}`],
+      ['es', `${site}/vellum/${pair[1]}`],
+      ['x-default', `${site}/vellum/${pair[0]}`],
+    ])
+      expect(html).toContain(
+        `<link rel="alternate" hreflang="${code}" href="${href}">`,
+      );
   });
 }
 
@@ -224,6 +257,10 @@ test('the 404 page is English and stays out of the index', async ({
   expect(html).toMatch(/<html lang="en">/);
   expect(html).toContain('<meta name="robots" content="noindex">');
   expect(html).not.toContain('rel="canonical"');
+  expect(html).not.toContain('hreflang="x-default"');
+  // No GA and no consent bar on the 404.
+  expect(html).not.toContain('id="analytics-consent"');
+  expect(html).not.toMatch(/googletagmanager|gtag\(/);
 });
 
 test('the legacy ?lang=es link leads to the Spanish home', async ({ page }) => {
@@ -300,6 +337,12 @@ for (const [path, title] of [
 for (const [path, title] of [
   ['guide/', 'Guide · Vellum'],
   ['es/guia/', 'Guía · Vellum'],
+  ['changelog/', 'What’s new · Vellum'],
+  ['es/novedades/', 'Novedades · Vellum'],
+  ['manifesto/', 'Manifesto · Vellum'],
+  ['es/manifiesto/', 'Manifiesto · Vellum'],
+  ['privacy/', 'Privacy · Vellum'],
+  ['es/privacidad/', 'Privacidad · Vellum'],
 ]) {
   test(`"/vellum/${path}" is a real page with its title`, async ({
     request,
@@ -309,6 +352,8 @@ for (const [path, title] of [
     const html = await response.text();
     expect(html).toContain(`<title>${title}</title>`);
     expect(html).not.toMatch(/POR CONFIRMAR/i);
+    expect(html).not.toContain('client:only');
+    expect(html).not.toContain('component-url');
   });
 }
 
@@ -322,6 +367,12 @@ test('every published page points "Download" at the download page of its languag
     ['es/descargar/', '/vellum/es/descargar/'],
     ['guide/', '/vellum/download/'],
     ['es/guia/', '/vellum/es/descargar/'],
+    ['changelog/', '/vellum/download/'],
+    ['es/novedades/', '/vellum/es/descargar/'],
+    ['manifesto/', '/vellum/download/'],
+    ['es/manifiesto/', '/vellum/es/descargar/'],
+    ['privacy/', '/vellum/download/'],
+    ['es/privacidad/', '/vellum/es/descargar/'],
   ]) {
     const html = await (await request.get(path)).text();
     expect(html).toMatch(

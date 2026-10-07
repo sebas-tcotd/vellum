@@ -3,6 +3,11 @@
  * Document of the v1.0 pages: SEO head, the inline boot script (page theme
  * and language redirect, before any CSS), skip link, consent region, nav,
  * `<main id="contenido">` and footer.
+ *
+ * - `analytics={false}` (Privacy) leaves out the consent bar and with it any
+ *   code that could load Google.
+ * - `page={null}` with `noindex` (the 404) has no canonical, no alternates
+ *   and no current page in the nav.
  */
 import '@fontsource/cormorant-garamond/400.css';
 import '@fontsource/cormorant-garamond/400-italic.css';
@@ -30,13 +35,25 @@ import { bootScript } from '../scripts/language';
 
 interface Props {
   lang: Lang;
-  page: PageId;
+  page: PageId | null;
   title: string;
   description: string;
+  /** `false` on Privacy: no consent bar and never Google Analytics. */
+  analytics?: boolean;
+  /** The 404: `noindex`, without canonical or alternates. */
+  noindex?: boolean;
 }
 
-const { lang, page, title, description } = Astro.props;
-const alternates = PUBLISHED_PAGES.has(page) ? PAGE_PATHS[page] : undefined;
+const {
+  lang,
+  page,
+  title,
+  description,
+  analytics = true,
+  noindex = false,
+} = Astro.props;
+const alternates =
+  page && !noindex && PUBLISHED_PAGES.has(page) ? PAGE_PATHS[page] : undefined;
 const boot = bootScript(import.meta.env.BASE_URL, publishedPairs());
 ---
 
@@ -45,7 +62,12 @@ const boot = bootScript(import.meta.env.BASE_URL, publishedPairs());
   <head>
     <meta charset="UTF-8" />
     <script is:inline set:html={boot} />
-    <SeoHead title={title} description={description} alternates={alternates} />
+    <SeoHead
+      title={title}
+      description={description}
+      alternates={alternates}
+      noindex={noindex}
+    />
     <meta
       name="theme-color"
       content="#f7f6f1"
@@ -61,9 +83,9 @@ const boot = bootScript(import.meta.env.BASE_URL, publishedPairs());
   <body>
     <div class="site">
       <a class="button skip-link" href="#contenido">{SITE[lang].skipLink}</a>
-      <ConsentBar lang={lang} />
+      {analytics && <ConsentBar lang={lang} />}
       <Nav lang={lang} current={page} />
-      <main id="contenido" tabindex="-1">
+      <main id="contenido" tabindex="-1" data-page={page ?? undefined}>
         <slot />
       </main>
       <Footer lang={lang} current={page} />

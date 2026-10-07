@@ -340,7 +340,13 @@ test('#bridge-manual is «Coming soon», without a file or steps', async ({
   await page.goto('download/#bridge-manual');
   const manual = page.locator('#bridge-manual');
   await expect(manual).toContainText('Coming soon');
-  await expect(manual.locator('a, ol')).toHaveCount(0);
+  // Only the prose link to What's new (EXPERIENCE.md · State Patterns).
+  await expect(manual.locator('ol')).toHaveCount(0);
+  await expect(manual.locator('a')).toHaveCount(1);
+  await expect(manual.locator('a')).toHaveAttribute(
+    'href',
+    '/vellum/changelog/',
+  );
   await expect(page.locator('#verify')).not.toContainText(/\.dll/i);
 });
 
@@ -379,3 +385,30 @@ test('in the browser, /download/#bridge from outside with Spanish saved redirect
   await expect(page).toHaveURL(/\/vellum\/es\/descargar\/#bridge$/);
   await expect(page.locator('html')).toHaveAttribute('lang', 'es');
 });
+
+for (const [path, changelog] of [
+  ['download/', '/vellum/changelog/'],
+  ['es/descargar/', '/vellum/es/novedades/'],
+])
+  test(`"/vellum/${path}" links What's new of its language at the release version`, async ({
+    request,
+  }) => {
+    const html = await (await request.get(path)).text();
+    // The release the page was built with (fixture locally, the API in CI).
+    const version = /releases\/download\/v(\d+\.\d+\.\d+)\//.exec(html)?.[1];
+    expect(version).toBeTruthy();
+    const after = html.slice(html.indexOf('<section class="dl-after"'));
+    expect(after).toContain(
+      `class="link-ghost" href="${changelog}#${version}"`,
+    );
+    const update = html.slice(
+      html.indexOf('id="update"'),
+      html.indexOf('</section>', html.indexOf('id="update"')),
+    );
+    expect(update).toContain(`href="${changelog}"`);
+    const target = await (
+      await request.get(`http://127.0.0.1:4178${changelog}`)
+    ).text();
+    // A minor's entry or a patch alias inside it.
+    expect(target).toContain(`id="${version}"`);
+  });

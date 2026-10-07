@@ -1,0 +1,131 @@
+---
+/**
+ * Novedades in one language (EXPERIENCE.md · Páginas · Novedades; DESIGN.md ·
+ * Serie y Entrada de changelog): a header with «How to update», then the
+ * series from newest to oldest. The newest series is open; older ones fold
+ * into a native `<details>` that a small script opens when the URL hash
+ * points inside it (without JS, one click opens it). Reference: frame 5 of
+ * pages-2; the spines win.
+ */
+import '../../styles/changelog.css';
+import { CHANGELOG_PAGE } from '../../content/changelog-page';
+import { REPOSITORY_URL } from '../../content/links';
+import { pageHref, type Lang } from '../../content/routes';
+import { SITE } from '../../content/site';
+import SiteLayout from '../../layouts/SiteLayout.astro';
+import { loadChangelog } from '../../lib/changelog-load';
+import { rich } from '../../lib/rich';
+import ChangelogEntry from './ChangelogEntry.astro';
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const t = CHANGELOG_PAGE[lang];
+const series = (await loadChangelog())[lang];
+const format = new Intl.DateTimeFormat(lang, {
+  day: 'numeric',
+  month: 'short',
+  year: 'numeric',
+  timeZone: 'UTC',
+});
+const day = (iso: string) => format.format(new Date(`${iso}T00:00:00Z`));
+const range = (from: string, to: string) =>
+  from === to ? day(from) : `${day(from)} – ${day(to)}`;
+const releases = (entries: (typeof series)[number]['entries']) =>
+  entries.reduce((count, entry) => count + 1 + entry.patches.length, 0);
+
+// Opens the folded series that holds the hash target, then scrolls to it
+// (also on a later hash change, where the browser may not scroll by itself).
+const hashScript = `(function () {
+  function reveal() {
+    var id;
+    try { id = decodeURIComponent(location.hash.slice(1)); } catch (error) { return; }
+    var target = id && document.getElementById(id);
+    if (!target) return;
+    var folded = target.closest('details');
+    if (!folded) return;
+    folded.open = true;
+    target.scrollIntoView();
+  }
+  reveal();
+  addEventListener('hashchange', reveal);
+})();`;
+---
+
+<SiteLayout
+  lang={lang}
+  page="changelog"
+  title={t.meta.title}
+  description={t.meta.description}
+>
+  <div class="cl-page">
+    <header class="cl-head">
+      <p class="eyebrow">{t.header.eyebrow}</p>
+      <h1 set:html={rich(t.header.title)} />
+      <p class="cl-head__lede">{t.header.lede}</p>
+      <p class="cl-head__actions">
+        <a class="link-ghost" href={`${pageHref('download', lang)}#update`}>
+          {t.header.update}<span class="arrow" aria-hidden="true">→</span>
+        </a>
+      </p>
+      <p class="cl-head__source">
+        {t.header.source}{' '}
+        <a
+          class="link"
+          href={`${REPOSITORY_URL}/blob/main/CHANGELOG.md`}
+          target="_blank"
+          rel="noopener"
+        >
+          {t.header.sourceLink}<span aria-hidden="true"> ↗</span>
+          <span class="visually-hidden"> {SITE[lang].newTab}</span>
+        </a>
+      </p>
+    </header>
+
+    {
+      series.map((one, index) => (
+        <section
+          class="cl-series"
+          id={`series-${one.major}`}
+          aria-labelledby={`series-${one.major}-title`}
+        >
+          <div class="cl-series__head">
+            <p class="cl-series__range">
+              {t.series.label} {one.major}.x
+              <br />
+              {range(one.from, one.to)}
+            </p>
+            <div class="cl-series__text">
+              <h2 id={`series-${one.major}-title`}>
+                {one.title}
+                <small>{t.series.versions(releases(one.entries))}</small>
+              </h2>
+              <div class="cl-series__summary" set:html={one.summary} />
+            </div>
+          </div>
+          {index === 0 ? (
+            one.entries.map((entry) => (
+              <ChangelogEntry lang={lang} entry={entry} />
+            ))
+          ) : (
+            <details class="cl-fold">
+              <summary>
+                <span class="cl-fold__title">{one.title}</span>
+                <span class="cl-fold__meta">
+                  {t.series.show(one.entries.length)}
+                </span>
+              </summary>
+              {one.entries.map((entry) => (
+                <ChangelogEntry lang={lang} entry={entry} />
+              ))}
+            </details>
+          )}
+        </section>
+      ))
+    }
+  </div>
+
+  <script is:inline set:html={hashScript} />
+</SiteLayout>

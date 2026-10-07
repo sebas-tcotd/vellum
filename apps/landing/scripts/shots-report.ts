@@ -1,7 +1,7 @@
 /**
- * Lists what the home still needs before launch: shots without their final
- * file (with the stand-in they show meanwhile), Workshop authors and the
- * Bridge Workshop URL.
+ * Lists what the landing still needs before launch: shots without their
+ * final file (with the stand-in they show meanwhile), the Los Santos Pobres
+ * alts Sebas still has to write, Workshop authors and the Bridge Workshop URL.
  *
  * Run: `pnpm --filter @vellum/landing shots:report` (Node strips the types).
  */
@@ -9,7 +9,12 @@ import { existsSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { CITIES } from '../src/content/cities.ts';
 import { BRIDGE_WORKSHOP_URL } from '../src/content/links.ts';
-import { SHOTS, type ShotEntry } from '../src/content/shots.ts';
+import {
+  LSP_PAIR,
+  LSP_STRIP,
+  SHOTS,
+  type ShotEntry,
+} from '../src/content/shots.ts';
 import { pickShotFile } from '../src/lib/shot-file.ts';
 
 const root = (path: string) => fileURLToPath(new URL(path, import.meta.url));
@@ -43,6 +48,18 @@ for (const shot of Object.values(SHOTS) as ShotEntry[]) {
       : 'marcador visible';
   lines.push(
     `  ${shot.id} ${shot.priority}  ${shot.perLanguage ? `${shot.file}-en.png + ${shot.file}-es.png` : `${shot.file}.png`}  — ${shot.pending.es} (${meanwhile})`,
+  );
+}
+
+const lsp = [...LSP_STRIP.before, ...LSP_STRIP.after, ...LSP_PAIR].filter(
+  (photo) => photo.altPending,
+);
+if (lsp.length > 0) {
+  pending += lsp.length;
+  lines.push(
+    '',
+    'Alt de Los Santos Pobres (src/content/shots.ts · LspPhoto; hoy son neutros y mergear exige los de Sebas):',
+    `  ${lsp.map((photo) => photo.label).join(', ')}`,
   );
 }
 

@@ -28,20 +28,33 @@ fallback de SPA.
 
 - `astro.config.mjs`: salida estática, `base: '/vellum/'`, URLs de directorio
   con barra final, i18n (inglés en la raíz, español bajo `/es/`), React,
-  Tailwind 4 (solo para el CSS de los componentes embebidos y la privacidad
-  vieja) y el alias de `@vellum/core` a su `dist`.
-- `src/pages/`: `index.astro` y `es/index.astro` (home v1.0),
-  `privacy/index.astro` y `404.astro` (diseño anterior, con
-  `BaseLayout.astro`).
+  Tailwind 4 (solo para el CSS de los componentes embebidos del spike) y el
+  alias de `@vellum/core` a su `dist`.
+- `src/pages/`: una ruta por página y por idioma (home, descarga, guía,
+  novedades, manifiesto y privacidad) más `404.astro`; cada una monta el
+  componente de su página en `src/components/<página>/`.
 - `src/layouts/SiteLayout.astro`: documento de las páginas v1.0. En el
   `<head>`, antes del CSS, un script en línea aplica el tema guardado y las
   reglas de idioma (`src/scripts/language.ts`, función pura probada en
   `tests/language.spec.mjs`); después, enlace de salto, consentimiento, nav,
-  `<main id="contenido">` y footer (`src/components/site/`).
+  `<main id="contenido">` y footer (`src/components/site/`). Privacidad pasa
+  `analytics={false}` (sin barra de consentimiento ni Google) y el 404,
+  `noindex`.
 - `src/content/`: rutas y páginas publicadas (`routes.ts`; la nav solo enlaza
   a las que están en `PUBLISHED_PAGES`), enlaces externos (`links.ts`), textos
   de la base (`site.ts`) y de la home (`home.ts`), ciudades con su crédito
-  (`cities.ts`) y el registro de tomas (`shots.ts`).
+  (`cities.ts`), el registro de tomas y de las fotos de Los Santos Pobres
+  (`shots.ts`) y el copy de cada página (`guide.ts`, `download.ts`,
+  `changelog-page.ts`, `manifesto.ts`, `privacy.ts`).
+- `src/content/changelog/{en,es}/`: Novedades en markdown, una entrada por
+  minor (`X.Y.Z.md`, con sus parches en el frontmatter) y un resumen por serie
+  (`_series-N.md`). Se redactan a mano a partir de `CHANGELOG.md` y se
+  revisan en el PR; `src/lib/changelog.ts` los valida en build (pareja EN/ES y
+  frontmatter) y nada se genera en CI.
+- `src/lib/letter.ts`: lee la carta del manifiesto escrita en `manifesto.ts`
+  (pausas, notas al margen, momentos visuales y firma).
+- `src/assets/lsp/`: las fotos de Los Santos Pobres de la tira del manifiesto
+  (`-full` es el original sin recorte que abre el lightbox).
 - `src/components/home/`: una sección Astro por bloque de la home; la
   interacción (tira de capas, comparador y fichas, lightbox, Nocturno, menú,
   tema y consentimiento) va en scripts sin framework.
@@ -54,11 +67,13 @@ fallback de SPA.
   `LANDING_RELEASE_SOURCE=live|fixture` fuerza uno de los dos.
 - `src/components/DownloadBand.astro`: la banda `#download` de la home, con
   enlaces directos por plataforma en el HTML servido.
-- `src/islands/`, `src/Privacy.tsx`, `src/i18n.ts`, `i18n/*.json`: la
-  privacidad del diseño anterior, hasta que llegue su página nueva.
 - `public/`: assets servidos tal cual bajo `/vellum/`.
 - `tests/`: Playwright (rutas y URLs duras, home, idioma, consentimiento,
-  privacidad) y el servidor estático.
+  privacidad, guía, descarga, novedades y manifiesto) y el servidor estático.
+  `tests/changelog.test.mjs` prueba en unidad el changelog y la carta, y
+  `tests/fixtures/manifesto-final.md` es la copia literal del texto de Sebas
+  contra la que se compara el manifiesto (fuera de Prettier, en
+  `.prettierignore`).
 
 ## Tomas
 

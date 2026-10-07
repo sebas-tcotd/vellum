@@ -1,0 +1,368 @@
+/* Novedades (DESIGN.md · Serie y Entrada de changelog; Layout · Guía y
+   Novedades): the margin grid (170 + 72) with the version in the margin
+   column. Eyebrow and the Shot frame come from figures.css; links from
+   site.css. */
+
+@import './figures.css';
+
+.cl-page {
+  --cl-indent: calc(var(--margin-column) + var(--margin-gap));
+
+  max-width: var(--page-max);
+  margin: 0 auto;
+  padding: 0 var(--page-x) var(--section-bottom);
+}
+
+.cl-page h1 em,
+.cl-page h2 em {
+  font-style: italic;
+  font-weight: 400;
+}
+
+/* ── Header ────────────────────────────────────────────── */
+
+.cl-head {
+  padding: 4rem 0 2.25rem var(--cl-indent);
+}
+
+.cl-head h1 {
+  font-size: 5.25rem;
+  line-height: 0.98;
+  letter-spacing: -0.01em;
+}
+
+.cl-head__lede {
+  max-width: 42.5rem;
+  margin-top: var(--heading-to-body);
+  font-size: 1.125rem;
+  line-height: 1.6;
+}
+
+.cl-head__actions {
+  margin-top: 1.25rem;
+}
+
+.cl-head__source {
+  margin-top: 1rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+}
+
+/* ── Series ────────────────────────────────────────────── */
+
+.cl-series {
+  border-top: 1px solid var(--rule);
+}
+
+.cl-series__head {
+  display: grid;
+  grid-template-columns: var(--margin-column) minmax(0, 1fr);
+  column-gap: var(--margin-gap);
+  padding: 2rem 0 1.75rem;
+}
+
+.cl-series__range {
+  padding-top: 0.75rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+}
+
+.cl-series h2 {
+  font-size: 3.5rem;
+  line-height: 1.02;
+}
+
+.cl-series h2 small {
+  margin-left: 0.875rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  vertical-align: middle;
+}
+
+.cl-series__summary {
+  max-width: 47.5rem;
+  margin-top: 1rem;
+  font-size: 1.125rem;
+  line-height: 1.6;
+}
+
+.cl-series__summary p + p {
+  margin-top: 0.625rem;
+}
+
+/* Folded series: a native disclosure, its content on the band surface. */
+.cl-fold {
+  margin: 0 0 1rem var(--cl-indent);
+  border: 1px solid var(--rule);
+  background: var(--surface-raised);
+}
+
+.cl-fold > summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  min-height: 2.75rem;
+  padding: 0.875rem 1.25rem;
+  cursor: pointer;
+  list-style: none;
+}
+
+.cl-fold > summary::-webkit-details-marker {
+  display: none;
+}
+
+.cl-fold__title {
+  color: var(--text-display);
+  font-family: var(--font-display);
+  font-size: 1.5625rem;
+  font-weight: 500;
+  line-height: 1.1;
+}
+
+.cl-fold__meta {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.78125rem;
+  letter-spacing: 0.04em;
+}
+
+.cl-fold__meta::after {
+  content: ' ▸' / '';
+}
+
+.cl-fold[open] .cl-fold__meta::after {
+  content: ' ▾' / '';
+}
+
+.cl-fold[open] {
+  background: var(--surface-band);
+}
+
+.cl-fold .cl-entry {
+  grid-template-columns: 8rem minmax(0, 1fr);
+  column-gap: 2.5rem;
+  padding-inline: 1.25rem;
+}
+
+/* ── Entry ─────────────────────────────────────────────── */
+
+.cl-entry {
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--margin-column) minmax(0, 1fr);
+  column-gap: var(--margin-gap);
+  padding: 2.75rem 0 3rem;
+  border-top: 1px solid var(--rule);
+  scroll-margin-top: 1rem;
+}
+
+.cl-alias {
+  position: absolute;
+  top: 0;
+  scroll-margin-top: 1rem;
+}
+
+.cl-entry__side {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  line-height: 1.6;
+}
+
+.cl-entry__version {
+  margin-bottom: 0.5rem;
+  font-size: 1.875rem;
+  line-height: 1.08;
+}
+
+.cl-entry__side time {
+  display: block;
+}
+
+.cl-entry__includes {
+  margin-top: 0.25rem;
+}
+
+.cl-entry__permalink {
+  display: inline-block;
+  min-height: 1.5rem;
+  line-height: 1.5rem;
+  margin-top: 0.5rem;
+  color: var(--link);
+  text-decoration: underline 1px currentColor;
+  text-underline-offset: 0.2em;
+}
+
+.cl-entry__permalink:hover,
+.cl-entry__permalink:focus-visible {
+  text-decoration-thickness: 2px;
+}
+
+.cl-entry__title {
+  color: var(--text-display);
+  font-family: var(--font-display);
+  font-size: 1.5625rem;
+  font-weight: 500;
+  line-height: 1.1;
+}
+
+.cl-entry__intro {
+  max-width: 47.5rem;
+  margin-top: 0.625rem;
+  font-size: 1.09375rem;
+  line-height: 1.6;
+}
+
+.cl-entry__shot {
+  max-width: 47.5rem;
+  margin-top: 1.375rem;
+  border: 1px solid var(--rule);
+}
+
+.cl-group {
+  max-width: 51.25rem;
+  margin-top: 1.625rem;
+}
+
+.cl-group h4 {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  margin: 0;
+  padding-bottom: 0.375rem;
+  border-bottom: 1px solid var(--rule);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.71875rem;
+  font-weight: 400;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+/* The dot changes shape, not only colour: filled, ring, grey square. */
+.cl-group__dot {
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+}
+
+.cl-group--new .cl-group__dot {
+  background: var(--link);
+}
+
+.cl-group--improved .cl-group__dot {
+  box-shadow: inset 0 0 0 1.5px var(--link);
+}
+
+.cl-group--fixed .cl-group__dot {
+  border-radius: 1px;
+  background: var(--text-muted);
+}
+
+.cl-group ul {
+  margin: 0.375rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cl-group li {
+  position: relative;
+  padding: 0.5rem 0 0.5rem 1.125rem;
+  border-bottom: 1px dashed var(--rule);
+}
+
+.cl-group li::before {
+  content: '—' / '';
+  position: absolute;
+  left: 0;
+  color: var(--text-muted);
+}
+
+.cl-group li strong,
+.cl-entry__intro strong {
+  color: var(--text-display);
+  font-weight: 500;
+}
+
+.cl-entry__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.5rem;
+  margin-top: 1.25rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+}
+
+.cl-entry__links a {
+  display: inline-block;
+  min-height: 1.5rem;
+  line-height: 1.5rem;
+}
+
+/* ── Narrower widths ───────────────────────────────────── */
+
+@container site (max-width: 1023px) {
+  .cl-page {
+    --cl-indent: 0px;
+  }
+
+  .cl-series__head,
+  .cl-entry,
+  .cl-fold .cl-entry {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cl-series__range {
+    padding-top: 0;
+    margin-bottom: 0.5rem;
+  }
+
+  .cl-entry__side {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.25rem 1rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .cl-entry__version {
+    margin-bottom: 0;
+  }
+}
+
+@container site (max-width: 640px) {
+  .cl-head {
+    padding-top: 2.5rem;
+  }
+
+  .cl-head h1 {
+    font-size: 3.125rem;
+  }
+
+  .cl-head__lede,
+  .cl-series__summary {
+    font-size: 1.03125rem;
+  }
+
+  .cl-series h2 {
+    font-size: 2.375rem;
+  }
+
+  .cl-fold .cl-entry {
+    padding-inline: 1rem;
+  }
+
+  .cl-entry__permalink,
+  .cl-entry__links a {
+    min-height: 2.75rem;
+    line-height: 2.75rem;
+  }
+}

@@ -68,6 +68,15 @@ const T28_WIDTH = 0.34;
 const T28_HEIGHT = (3840 * T28_WIDTH * 9) / 16 / 2088;
 const T28_CENTRE_Y = 0.517;
 
+/**
+ * The diagram area of the schematic window captures (T17, T18), without the
+ * sidebar, the menu bar and the camera buttons.
+ */
+const SCHEMATIC_CROP = { left: 0.115, top: 0.03, right: 0.975, bottom: 0.985 };
+const SCHEMATIC_RATIO =
+  (3840 * (SCHEMATIC_CROP.right - SCHEMATIC_CROP.left)) /
+  (2088 * (SCHEMATIC_CROP.bottom - SCHEMATIC_CROP.top));
+
 export const SHOTS = {
   T01: {
     id: 'T01',
@@ -200,15 +209,30 @@ export const SHOTS = {
     file: 't17-esquematica-day',
     priority: 'P1',
     city: SHOWCASE,
-    // The diagram area of the window capture, without the sidebar, the menu
-    // bar and the camera buttons.
-    crop: { left: 0.115, top: 0.03, right: 0.975, bottom: 0.985 },
-    ratio: (3840 * (0.975 - 0.115)) / (2088 * (0.985 - 0.03)),
+    crop: SCHEMATIC_CROP,
+    ratio: SCHEMATIC_RATIO,
     alt: {
       en: `The transit network of ${sc} in the schematic view: lines at 0°, 45° and 90° with their stations labelled`,
       es: `La red de tránsito de ${sc} en la vista esquemática: líneas a 0°, 45° y 90° con sus estaciones rotuladas`,
     },
     pending: { en: 'Schematic view · Day', es: 'Vista esquemática · Day' },
+  },
+  T18: {
+    id: 'T18',
+    file: 't18-esquematica-transit',
+    priority: 'P1',
+    city: SHOWCASE,
+    // The same diagram area as T17.
+    crop: SCHEMATIC_CROP,
+    ratio: SCHEMATIC_RATIO,
+    alt: {
+      en: `The transit network of ${sc} in the schematic view on the dark Transit background: each line in its own colour, at 0°, 45° and 90°, with its stations labelled`,
+      es: `La red de tránsito de ${sc} en la vista esquemática sobre el fondo oscuro de Transit: cada línea con su color, a 0°, 45° y 90°, y sus estaciones rotuladas`,
+    },
+    pending: {
+      en: 'Schematic view · Transit',
+      es: 'Vista esquemática · Transit',
+    },
   },
   T19: {
     id: 'T19',
@@ -360,6 +384,21 @@ export const SHOTS = {
       es: 'Guía · Vellum con una ciudad abierta y la barra lateral',
     },
   },
+  T32: {
+    id: 'T32',
+    file: 't32-manifiesto-a-sangre-day',
+    priority: 'P1',
+    // Sebas's own city, not a Workshop city: no credit.
+    ratio: 2.2,
+    alt: {
+      en: 'A whole city in the Day theme: its streets and blocks in a clearing of the forest, a river to the north-west and a motorway passing to the west',
+      es: 'Una ciudad entera en el tema Day: sus calles y manzanas en un claro del bosque, un río al noroeste y una autopista que pasa por el oeste',
+    },
+    pending: {
+      en: 'Manifesto · a whole city in Day',
+      es: 'Manifiesto · una ciudad entera en Day',
+    },
+  },
 } satisfies Record<string, ShotEntry>;
 
 export type ShotId = keyof typeof SHOTS;
@@ -418,3 +457,62 @@ function shellShot(id: string, os: string, name: string): CityShot {
     pending: { en: `Window · ${name}`, es: `Ventana · ${name}` },
   };
 }
+
+/**
+ * One original snapshot of Los Santos Pobres in CSL Map View (the manifesto
+ * strip; T33 in LISTA-DE-TOMAS.md, delivered). The files live in
+ * `src/assets/lsp/`: `<file>.webp` is the strip print and `<file>-full.webp`,
+ * when it exists, the uncropped original the lightbox opens.
+ */
+export interface LspPhoto {
+  /** Snapshot number as printed in the caption (`05`, `14 · Bus`). */
+  label: string;
+  file: string;
+  alt: Record<Lang, string>;
+  /**
+   * `true` while the alt is the neutral one: true, but not yet Sebas's line
+   * about how the city grew (EXPERIENCE.md · Foto suelta). `shots:report`
+   * lists them; launching needs Sebas's alts.
+   */
+  altPending: boolean;
+}
+
+function lspPhoto(label: string, file: string): LspPhoto {
+  return {
+    label,
+    file,
+    alt: {
+      en: `Los Santos Pobres, snapshot ${label}`,
+      es: `Los Santos Pobres, snapshot ${label}`,
+    },
+    altPending: true,
+  };
+}
+
+const LSP_NUMBERS = [
+  '00',
+  '01',
+  '02',
+  '03',
+  '04',
+  '05',
+  '06',
+  '07',
+  '08',
+  '09',
+];
+const LSP_LATER = ['11', '12', '13', '14', '15', '16'];
+
+/** The strip in its order: 00–09, the gap of 10, then 11–16. */
+export const LSP_STRIP = {
+  before: LSP_NUMBERS.map((n) => lspPhoto(n, `lsp-${n}`)),
+  /** Snapshot 10 was not kept: the strip shows its gap with real text. */
+  missing: '10',
+  after: LSP_LATER.map((n) => lspPhoto(n, `lsp-${n}`)),
+};
+
+/** The loose "14 · Bus" / "14 · Train" pair, in the margin. */
+export const LSP_PAIR: LspPhoto[] = [
+  lspPhoto('14 · Bus', 'lsp-14-bus'),
+  lspPhoto('14 · Train', 'lsp-14-train'),
+];

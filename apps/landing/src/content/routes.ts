@@ -23,13 +23,16 @@ export const PAGE_PATHS: Record<PageId, Record<Lang, string>> = {
 };
 
 /**
- * Pages built with the v1.0 design in both languages. The nav and the footer
- * only link to these; the rest arrive in later steps (deferred-work.md).
+ * Pages built with the v1.0 design in both languages. The nav, the footer,
+ * the language switcher and hreflang only link to these.
  */
 export const PUBLISHED_PAGES: ReadonlySet<PageId> = new Set<PageId>([
   'home',
   'download',
   'guide',
+  'changelog',
+  'manifesto',
+  'privacy',
 ]);
 
 /** Pages linked from the nav bar, in order, when they are published. */
@@ -53,13 +56,11 @@ export function downloadHref(lang: Lang): string {
 }
 
 /**
- * The privacy page of a language. Until `/es/privacidad/` exists, Spanish
- * points at the static English URL in Spanish (`?lang=es`), as today.
+ * The privacy page of a language: `/privacy/` (the URL given to Partner
+ * Center) or `/es/privacidad/`.
  */
 export function privacyHref(lang: Lang): string {
-  if (lang === 'en' || PUBLISHED_PAGES.has('privacy'))
-    return pageHref('privacy', lang);
-  return `${pageHref('privacy', 'en')}?lang=es`;
+  return pageHref('privacy', lang);
 }
 
 /**

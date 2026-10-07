@@ -1,0 +1,103 @@
+---
+/**
+ * One version (DESIGN.md · Entrada de changelog): the version and its date in
+ * the margin column, then title, intro and the New · Improved · Fixed groups.
+ * `id="X.Y.Z"` is the anchor; each patch folded into the minor keeps an alias
+ * anchor (`#0.13.2`) at the top of the entry. The h3 shows the version but
+ * its accessible name is «version title» (`aria-labelledby` with both ids).
+ */
+import { CHANGELOG_PAGE } from '../../content/changelog-page';
+import { REPOSITORY_URL } from '../../content/links';
+import { pageHref, type Lang } from '../../content/routes';
+import { SHOTS, type ShotId } from '../../content/shots';
+import { SITE } from '../../content/site';
+import type { ChangelogEntry } from '../../lib/changelog';
+import Shot from '../home/Shot.astro';
+
+interface Props {
+  lang: Lang;
+  entry: ChangelogEntry;
+}
+
+const { lang, entry } = Astro.props;
+const t = CHANGELOG_PAGE[lang].entry;
+const format = new Intl.DateTimeFormat(lang, {
+  day: 'numeric',
+  month: 'short',
+  year: 'numeric',
+  timeZone: 'UTC',
+});
+const date = format.format(new Date(`${entry.date}T00:00:00Z`));
+const release = `${REPOSITORY_URL}/releases/tag/v${entry.version}`;
+const update = `${pageHref('download', lang)}#update`;
+if (entry.shot && !(entry.shot in SHOTS))
+  throw new Error(`Changelog ${entry.version}: unknown shot "${entry.shot}"`);
+const shot = entry.shot as ShotId | undefined;
+---
+
+<article
+  class="cl-entry"
+  id={entry.version}
+  aria-labelledby={`v-${entry.version} t-${entry.version}`}
+>
+  {entry.patches.map((patch) => <span class="cl-alias" id={patch.version} />)}
+  <div class="cl-entry__side">
+    <h3
+      class="cl-entry__version"
+      id={`v-${entry.version}`}
+      aria-labelledby={`v-${entry.version} t-${entry.version}`}
+    >
+      {entry.version}
+    </h3>
+    <time datetime={entry.date}>{date}</time>
+    {
+      entry.patches.length > 0 && (
+        <p class="cl-entry__includes">
+          {t.includes(entry.patches.map((patch) => patch.version))}
+        </p>
+      )
+    }
+    <a class="cl-entry__permalink" href={`#${entry.version}`}>
+      <span aria-hidden="true">¶ </span>{t.permalink}
+      <span class="visually-hidden"> {entry.version}</span>
+    </a>
+  </div>
+  <div class="cl-entry__main">
+    <p class="cl-entry__title" id={`t-${entry.version}`}>{entry.title}</p>
+    <div class="cl-entry__intro" set:html={entry.intro} />
+    {
+      shot && (
+        <figure class="cl-entry__shot">
+          <Shot
+            id={shot}
+            lang={lang}
+            sizes="(max-width: 1023px) 100vw, 760px"
+            widths={[640, 960, 1520]}
+          />
+        </figure>
+      )
+    }
+    {
+      entry.groups.map((group) => (
+        <section class:list={['cl-group', `cl-group--${group.kind}`]}>
+          <h4>
+            <span class="cl-group__dot" aria-hidden="true" />
+            {group.label}
+          </h4>
+          <Fragment set:html={group.html} />
+        </section>
+      ))
+    }
+    <p class="cl-entry__links">
+      <a class="link" href={release} target="_blank" rel="noopener">
+        {t.technical}
+        <span class="visually-hidden"> · v{entry.version}</span>
+        <span aria-hidden="true"> ↗</span>
+        <span class="visually-hidden"> {SITE[lang].newTab}</span>
+      </a>
+      <a class="link" href={update}>
+        {t.update}<span aria-hidden="true"> →</span>
+      </a>
+    </p>
+  </div>
+</article>

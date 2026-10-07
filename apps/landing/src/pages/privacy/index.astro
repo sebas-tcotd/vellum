@@ -1,13 +1,5 @@
 ---
-import { PrivacyIsland } from '../../islands/PrivacyIsland';
-import BaseLayout from '../../layouts/BaseLayout.astro';
+import PrivacyPage from '../../components/privacy/PrivacyPage.astro';
 ---
 
-<BaseLayout
-  title="Privacy | Vellum City Maps"
-  description="Privacy policy for Vellum City Maps desktop and the Vellum website."
->
-  <div id="root" data-page="privacy">
-    <PrivacyIsland client:only="react" />
-  </div>
-</BaseLayout>
+<PrivacyPage lang="en" />

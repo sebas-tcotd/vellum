@@ -1,0 +1,76 @@
+---
+/**
+ * The privacy policy in one language (EXPERIENCE.md · Páginas · Privacidad).
+ * Static HTML only: no consent bar and nothing that could load Google
+ * (`analytics={false}`). Its `<main data-page="privacy">` is the marker the deploy smoke
+ * test looks for.
+ */
+import '../../styles/privacy.css';
+import { PRIVACY } from '../../content/privacy';
+import type { Lang } from '../../content/routes';
+import { SITE } from '../../content/site';
+import SiteLayout from '../../layouts/SiteLayout.astro';
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const t = PRIVACY[lang];
+const newTab = SITE[lang].newTab;
+---
+
+<SiteLayout
+  lang={lang}
+  page="privacy"
+  title={t.meta.title}
+  description={t.meta.description}
+  analytics={false}
+>
+  <div class="doc">
+    <header class="doc-head">
+      <p class="eyebrow">{t.eyebrow}</p>
+      <h1>{t.title}</h1>
+      <p class="doc-head__updated">{t.updated}</p>
+      <p class="doc-head__lede">{t.intro}</p>
+    </header>
+    {
+      t.sections.map((section) => (
+        <section
+          class="doc-section"
+          id={section.id}
+          aria-labelledby={`${section.id}-title`}
+        >
+          <h2 id={`${section.id}-title`}>{section.title}</h2>
+          <p>{section.body}</p>
+          {section.links.length > 0 && (
+            <ul class="doc-links" role="list">
+              {section.links.map((link) =>
+                link.href.startsWith('mailto:') ? (
+                  <li>
+                    <a class="link" href={link.href}>
+                      {link.label}
+                    </a>
+                  </li>
+                ) : (
+                  <li>
+                    <a
+                      class="link"
+                      href={link.href}
+                      target="_blank"
+                      rel="noopener"
+                    >
+                      {link.label}
+                      <span aria-hidden="true"> ↗</span>
+                      <span class="visually-hidden"> {newTab}</span>
+                    </a>
+                  </li>
+                ),
+              )}
+            </ul>
+          )}
+        </section>
+      ))
+    }
+  </div>
+</SiteLayout>

@@ -1,0 +1,90 @@
+/* Privacy (EXPERIENCE.md · Páginas · Privacidad): a long text on paper, in
+   the content column of the margin grid (170 + 72) and at reading measure.
+   Eyebrow from figures.css; links from site.css. */
+
+@import './figures.css';
+
+.doc {
+  max-width: var(--page-max);
+  margin: 0 auto;
+  padding: 4rem var(--page-x) var(--section-bottom)
+    calc(var(--page-x) + var(--margin-column) + var(--margin-gap));
+}
+
+.doc-head {
+  max-width: 42.5rem;
+  padding-bottom: 2.5rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+.doc-head h1 {
+  font-size: 3.5rem;
+  line-height: 1.02;
+}
+
+.doc-head__updated {
+  margin-top: 1rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+}
+
+.doc-head__lede {
+  margin-top: var(--heading-to-body);
+  font-size: 1.125rem;
+  line-height: 1.6;
+}
+
+.doc-section {
+  max-width: 42.5rem;
+  padding-top: 2.25rem;
+}
+
+.doc-section h2 {
+  font-size: 1.875rem;
+  line-height: 1.08;
+}
+
+.doc-section p {
+  margin-top: 0.75rem;
+  line-height: 1.65;
+}
+
+.doc-links {
+  display: grid;
+  gap: 0.25rem;
+  margin-top: 0.75rem;
+  font-size: 0.90625rem;
+}
+
+.doc-links a {
+  display: inline-block;
+  min-height: 1.5rem;
+  line-height: 1.5rem;
+}
+
+@container site (max-width: 1023px) {
+  .doc {
+    padding-left: var(--page-x);
+  }
+}
+
+@container site (max-width: 640px) {
+  .doc {
+    padding-top: 2.5rem;
+  }
+
+  .doc-head h1 {
+    font-size: 2.375rem;
+    line-height: 1.05;
+  }
+
+  .doc-head__lede {
+    font-size: 1.03125rem;
+  }
+
+  .doc-links a {
+    min-height: 2.75rem;
+    line-height: 2.75rem;
+  }
+}

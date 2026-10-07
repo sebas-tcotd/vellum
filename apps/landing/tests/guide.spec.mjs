@@ -323,6 +323,12 @@ test('every published page links the Guide of its language in the nav and the fo
     ['es/descargar/', '/vellum/es/guia/'],
     ['guide/', '/vellum/guide/'],
     ['es/guia/', '/vellum/es/guia/'],
+    ['changelog/', '/vellum/guide/'],
+    ['es/novedades/', '/vellum/es/guia/'],
+    ['manifesto/', '/vellum/guide/'],
+    ['es/manifiesto/', '/vellum/es/guia/'],
+    ['privacy/', '/vellum/guide/'],
+    ['es/privacidad/', '/vellum/es/guia/'],
   ]) {
     const html = await (await request.get(path)).text();
     expect(html).toContain(`class="nav__link" href="${href}"`);
