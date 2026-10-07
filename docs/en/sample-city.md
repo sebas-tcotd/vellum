@@ -8,9 +8,8 @@ the bundled document.
 ## Content and provenance
 
 Costa Tijuca is the chosen sample city for v1.0. Its author is
-[MatBarbosa](https://steamcommunity.com/id/BarbosaCities). Redistribution
-permission must be recorded here before release; this document does not claim it
-is confirmed. Its original export is `Costa Tijuca 2026-10-01 171705.vellummap`, exported at
+[MatBarbosa](https://steamcommunity.com/id/BarbosaCities). Private correspondence is
+not included. Its original export is `Costa Tijuca 2026-10-01 171705.vellummap`, exported at
 `2026-10-01T22:17:05Z` by **Vellum Bridge 0.9.0-experimental**, with export schema
 `1.1` and snapshot ID `09670c2e-1fee-4535-91a7-8b0e1da84b0f`.
 
