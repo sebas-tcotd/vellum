@@ -1,0 +1,100 @@
+---
+/**
+ * `#verify`: a closed `<details>` with the SHA256 GitHub publishes for each
+ * asset, the command per system and, with JS only, a «Copy» button per row
+ * (EXPERIENCE.md · Detalle plegable · Verificar la descarga). Only rendered
+ * when the release has hashes.
+ */
+import { DOWNLOAD } from '../../content/download';
+import { fill } from '../../content/home';
+import type { Lang } from '../../content/routes';
+import type { HashRow, PagePlatform } from '../../data/release';
+import { rich } from '../../lib/rich';
+import DlSection from './DlSection.astro';
+
+interface Props {
+  lang: Lang;
+  version: string | null;
+  hashes: HashRow[];
+  platforms: PagePlatform[];
+}
+
+const { lang, version, hashes, platforms } = Astro.props;
+const t = DOWNLOAD[lang].verify;
+const primaryOf = (id: string) =>
+  platforms.find((platform) => platform.id === id)?.primary?.name;
+const commands = [
+  { id: 'windows', make: (file: string) => `Get-FileHash .\\${file}` },
+  { id: 'macos', make: (file: string) => `shasum -a 256 ${file}` },
+  { id: 'linux', make: (file: string) => `sha256sum ${file}` },
+] as const;
+---
+
+<DlSection id="verify-block" note={t.note} class="dl-section--verify">
+  <h2 class="visually-hidden" id="verify-block-title">{t.summary}</h2>
+  <details class="dl-verify" id="verify">
+    <summary>
+      <span class="dl-verify__title">{t.summary}</span>
+      <span class="dl-verify__meta">
+        {t.meta}<span class="dl-verify__mark" aria-hidden="true"></span>
+      </span>
+    </summary>
+    <div class="dl-verify__body">
+      <p set:html={rich(t.body)} />
+      <dl class="dl-commands">
+        {
+          commands.map(({ id, make }) => {
+            const file = primaryOf(id);
+            return (
+              file && (
+                <div>
+                  <dt>{t.commands[id]}</dt>
+                  <dd>
+                    <code>{make(file)}</code>
+                  </dd>
+                </div>
+              )
+            );
+          })
+        }
+      </dl>
+      <table class="dl-hashes">
+        <caption class="visually-hidden">
+          {fill(t.caption, { version: version ?? '' })}
+        </caption>
+        <thead class="visually-hidden">
+          <tr>
+            <th scope="col">{t.file}</th>
+            <th scope="col">{t.hash}</th>
+            <th scope="col">{t.copy}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {
+            hashes.map((row) => (
+              <tr
+                data-hash-row
+                data-platform={row.platform}
+                data-primary={row.primary ? '' : undefined}
+                data-file={row.file.name}
+              >
+                <th scope="row">
+                  <span class="dl-hashes__file">{row.file.name}</span>
+                  <span class="dl-hashes__label">
+                    {t.labels[row.file.format] ?? row.platform}
+                  </span>
+                </th>
+                <td>
+                  <code class="dl-hashes__hash" data-hash>
+                    {row.file.sha256}
+                  </code>
+                </td>
+                <td class="dl-hashes__copy" data-copy-cell />
+              </tr>
+            ))
+          }
+        </tbody>
+      </table>
+    </div>
+  </details>
+</DlSection>

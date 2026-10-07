@@ -54,7 +54,11 @@ const logo = `${import.meta.env.BASE_URL}assets/vellum-isotype-rounded.svg`;
         </ul>
       )
     }
-    <a class="button button--sm nav__download" href={downloadHref(lang)}>
+    <a
+      class="button button--sm nav__download"
+      href={downloadHref(lang)}
+      aria-current={current === 'download' ? 'page' : undefined}
+    >
       {t.download}
     </a>
     {

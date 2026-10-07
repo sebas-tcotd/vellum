@@ -6,11 +6,7 @@
  * system's row becomes the primary button. Next to it, the Bridge call.
  */
 import { HOME } from '../content/home';
-import {
-  BRIDGE_WORKSHOP_URL,
-  STORE_URL,
-  WORKSHOP_FALLBACK_URL,
-} from '../content/links';
+import { BRIDGE_WORKSHOP_URL, WORKSHOP_FALLBACK_URL } from '../content/links';
 import type { Lang } from '../content/routes';
 import { SITE } from '../content/site';
 import { detectPlatform } from '../scripts/platform';
@@ -20,6 +16,7 @@ import {
   releasesUrl,
   type PlatformId,
 } from '../data/release';
+import StoreBadge from './StoreBadge.astro';
 
 interface Props {
   lang: Lang;
@@ -34,10 +31,6 @@ const names: Record<PlatformId, string> = {
   macos: 'macOS',
   linux: 'Linux',
 };
-// Official Microsoft badges, self-hosted: the black one on a light page,
-// the white one on a dark page (CSS shows one per effective page mode).
-const badge = (background: 'light' | 'dark') =>
-  `${import.meta.env.BASE_URL}assets/store-badge-${lang}-on-${background}.svg`;
 const bridgeUrl = BRIDGE_WORKSHOP_URL ?? WORKSHOP_FALLBACK_URL;
 // OS detection: the detected row's main link becomes the primary button with
 // a visible "recommended" line. Nothing is reordered or hidden.
@@ -80,28 +73,7 @@ const detectScript = `(function () {
                 <ul class="platform__files" role="list">
                   {id === 'windows' && (
                     <li>
-                      <a
-                        class="store-badge"
-                        href={STORE_URL}
-                        target="_blank"
-                        rel="noopener"
-                      >
-                        <img
-                          class="store-badge__light"
-                          src={badge('light')}
-                          alt={t.storeAlt}
-                          width="161"
-                          height="44"
-                        />
-                        <img
-                          class="store-badge__dark"
-                          src={badge('dark')}
-                          alt={t.storeAlt}
-                          width="161"
-                          height="44"
-                        />
-                        <span class="visually-hidden">{newTab}</span>
-                      </a>
+                      <StoreBadge lang={lang} alt={t.storeAlt} />
                     </li>
                   )}
                   {files.length > 0 ? (

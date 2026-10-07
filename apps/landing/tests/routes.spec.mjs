@@ -137,7 +137,14 @@ test('a missing route answers a real 404 page, not the home', async ({
 });
 
 // The 404 is checked from a nested path: GitHub Pages serves it at any depth.
-for (const path of ['', 'es/', 'privacy/', 'no-existe/deeper/path']) {
+for (const path of [
+  '',
+  'es/',
+  'download/',
+  'es/descargar/',
+  'privacy/',
+  'no-existe/deeper/path',
+]) {
   test(`every asset of "/vellum/${path}" resolves under /vellum/`, async ({
     page,
     request,
@@ -165,9 +172,21 @@ for (const path of ['', 'es/', 'privacy/', 'no-existe/deeper/path']) {
   });
 }
 
-for (const [path, canonical, lang] of [
-  ['', `${site}/vellum/`, 'en'],
-  ['es/', `${site}/vellum/es/`, 'es'],
+for (const [path, canonical, lang, pair] of [
+  ['', `${site}/vellum/`, 'en', ['', 'es/']],
+  ['es/', `${site}/vellum/es/`, 'es', ['', 'es/']],
+  [
+    'download/',
+    `${site}/vellum/download/`,
+    'en',
+    ['download/', 'es/descargar/'],
+  ],
+  [
+    'es/descargar/',
+    `${site}/vellum/es/descargar/`,
+    'es',
+    ['download/', 'es/descargar/'],
+  ],
   ['privacy/', `${site}/vellum/privacy/`, 'en'],
 ]) {
   test(`"/vellum/${path}" serves its SEO metadata`, async ({ request }) => {
@@ -183,9 +202,9 @@ for (const [path, canonical, lang] of [
       expect(html).not.toContain('hreflang');
     } else {
       for (const [code, href] of [
-        ['en', `${site}/vellum/`],
-        ['es', `${site}/vellum/es/`],
-        ['x-default', `${site}/vellum/`],
+        ['en', `${site}/vellum/${pair[0]}`],
+        ['es', `${site}/vellum/${pair[1]}`],
+        ['x-default', `${site}/vellum/${pair[0]}`],
       ])
         expect(html).toContain(
           `<link rel="alternate" hreflang="${code}" href="${href}">`,
@@ -255,4 +274,37 @@ test('the download band shows only the language of the page', async ({
   ).toBeVisible();
   await expect(band.locator('[lang="en"]')).toHaveCount(0);
   await expect(band.getByRole('link', { name: /\.exe/ })).toHaveCount(1);
+});
+
+for (const [path, title] of [
+  ['download/', 'Download · Vellum'],
+  ['es/descargar/', 'Descargar · Vellum'],
+]) {
+  test(`"/vellum/${path}" is a real page with its title, real links and no msix`, async ({
+    request,
+  }) => {
+    const response = await request.get(path);
+    expect(response.status()).toBe(200);
+    const html = await response.text();
+    expect(html).toContain(`<title>${title}</title>`);
+    expect(html).toMatch(/releases\/download\/v\d+\.\d+\.\d+\//);
+    expect(html).not.toMatch(/\.msix/i);
+    expect(html).not.toMatch(/POR CONFIRMAR/i);
+  });
+}
+
+test('every published page points "Download" at the download page of its language', async ({
+  request,
+}) => {
+  for (const [path, href] of [
+    ['', '/vellum/download/'],
+    ['es/', '/vellum/es/descargar/'],
+    ['download/', '/vellum/download/'],
+    ['es/descargar/', '/vellum/es/descargar/'],
+  ]) {
+    const html = await (await request.get(path)).text();
+    expect(html).toMatch(
+      new RegExp(`class="button button--sm nav__download" href="${href}"`),
+    );
+  }
 });

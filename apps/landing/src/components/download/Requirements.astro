@@ -1,0 +1,34 @@
+---
+/** `#requirements`: only what the spine lists (EXPERIENCE.md · Requisitos). */
+import { DOWNLOAD } from '../../content/download';
+import type { Lang } from '../../content/routes';
+import { rich } from '../../lib/rich';
+import DlSection from './DlSection.astro';
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const t = DOWNLOAD[lang].requirements;
+---
+
+<DlSection
+  id="requirements"
+  eyebrow={t.eyebrow}
+  title={t.title}
+  note={t.note}
+>
+  <table class="dl-req">
+    <tbody>
+      {
+        t.rows.map((row) => (
+          <tr>
+            <th scope="row">{row.key}</th>
+            <td set:html={rich(row.value)} />
+          </tr>
+        ))
+      }
+    </tbody>
+  </table>
+</DlSection>

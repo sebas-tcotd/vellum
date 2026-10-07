@@ -1,0 +1,61 @@
+---
+/**
+ * `#update`: how each edition updates (DESIGN.md · Cómo actualizar). Bridge
+ * only mentions Workshop while the standalone DLL is «Coming soon».
+ */
+import { DOWNLOAD } from '../../content/download';
+import { PUBLISHED_PAGES, pageHref, type Lang } from '../../content/routes';
+import { SITE } from '../../content/site';
+import DlSection from './DlSection.astro';
+
+interface Props {
+  lang: Lang;
+  /** GitHub page of the release, when there is one. */
+  releaseUrl: string | null;
+}
+
+const { lang, releaseUrl } = Astro.props;
+const t = DOWNLOAD[lang].update;
+const changelog = PUBLISHED_PAGES.has('changelog');
+---
+
+<DlSection id="update" eyebrow={t.eyebrow} title={t.title}>
+  <ul class="dl-update" role="list">
+    {
+      t.columns.map((column) => (
+        <li>
+          <p class="dl-update__key">{column.key}</p>
+          <h3>{column.title}</h3>
+          <p>{column.body}</p>
+        </li>
+      ))
+    }
+  </ul>
+  {
+    (changelog || releaseUrl) && (
+      <aside class="margin-note" slot="note">
+        <p>
+          {changelog ? (
+            <a class="link" href={pageHref('changelog', lang)}>
+              {SITE[lang].pages.changelog}
+            </a>
+          ) : (
+            <>
+              {t.note}{' '}
+              <a
+                class="link"
+                href={releaseUrl}
+                target="_blank"
+                rel="noopener"
+              >
+                {t.noteLink}
+                <span aria-hidden="true"> ↗</span>
+                <span class="visually-hidden">{SITE[lang].newTab}</span>
+              </a>
+            </>
+          )}
+        </p>
+      </aside>
+    )
+  }
+</DlSection>

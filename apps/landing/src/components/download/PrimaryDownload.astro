@@ -1,0 +1,168 @@
+---
+/**
+ * Main download of one detected system (EXPERIENCE.md · State Patterns · SO
+ * detectado): on Windows the Store badge first and the `.exe` beside it, then
+ * the MSI of the page language, the other one folded, and GitHub Releases;
+ * on macOS the `.dmg` and the Gatekeeper pointer; on Linux the `.deb` with
+ * `.AppImage` and `.rpm`. Rendered inside a `<template>`: only the detection
+ * script brings it to the page.
+ */
+import { DOWNLOAD, type DownloadCopy } from '../../content/download';
+import { fill } from '../../content/home';
+import type { Lang } from '../../content/routes';
+import {
+  releasesUrl,
+  type DownloadFile,
+  type PagePlatform,
+} from '../../data/release';
+import {
+  PLATFORM_NAMES,
+  formatDate,
+  formatExtension,
+  formatSize,
+} from '../../lib/download-format';
+import { rich } from '../../lib/rich';
+import StoreBadge from '../StoreBadge.astro';
+
+interface Props {
+  lang: Lang;
+  platform: PagePlatform;
+  version: string | null;
+  publishedAt: string | null;
+}
+
+const { lang, platform, version, publishedAt } = Astro.props;
+const t: DownloadCopy = DOWNLOAD[lang];
+const os = PLATFORM_NAMES[platform.id];
+const others = (['windows', 'macos', 'linux'] as const).filter(
+  (id) => id !== platform.id,
+);
+const primary = platform.primary;
+// Windows: the MSI of the page language in the line, the other one folded.
+const msiHere = platform.alternatives.find(
+  (file) => file.format === `msi-${lang}`,
+);
+const msiOther = platform.alternatives.find(
+  (file) => file.format.startsWith('msi-') && file !== msiHere,
+);
+const linuxAlternatives: DownloadFile[] =
+  platform.id === 'linux' ? platform.alternatives : [];
+---
+
+<div class="dl-primary" data-primary-block>
+  <div class="dl-pair">
+    {
+      platform.id === 'windows' && (
+        <div class="dl-pair__store">
+          <StoreBadge lang={lang} alt={t.primary.storeAlt} />
+          <p class="dl-pair__note">{t.primary.storeNote}</p>
+        </div>
+      )
+    }
+    {
+      platform.id === 'windows' && primary && (
+        <span class="dl-pair__or">{t.primary.or}</span>
+      )
+    }
+    {
+      primary && (
+        <a class="button dl-main" href={primary.url} data-download>
+          <span class="dl-main__label">
+            {fill(t.primary.button, { os })}
+            <span class="arrow" aria-hidden="true">
+              ↓
+            </span>
+          </span>
+          <span class="dl-main__file">
+            {primary.name} · {t.primary.detail[platform.id]} ·{' '}
+            {formatSize(primary.size, lang)}
+          </span>
+        </a>
+      )
+    }
+  </div>
+  {
+    version && publishedAt && (
+      <p class="dl-released">
+        {fill(t.primary.released, { version })}{' '}
+        <time datetime={publishedAt.slice(0, 10)}>
+          {formatDate(publishedAt, lang)}
+        </time>
+      </p>
+    )
+  }
+  <div class="dl-alt">
+    <p>
+      {t.primary.other}{' '}
+      {
+        msiHere && (
+          <>
+            <a class="link" href={msiHere.url} data-download>
+              {t.primary.msiHere}
+              <span class="visually-hidden"> · {msiHere.name}</span>
+            </a>{' '}
+            {t.primary.msiNote} ·{' '}
+          </>
+        )
+      }
+      {
+        linuxAlternatives.map((file) => (
+          <>
+            <a class="link" href={file.url} data-download>
+              {formatExtension(file.format)}
+              <span class="visually-hidden"> · {file.name}</span>
+            </a>{' '}
+            ·{' '}
+          </>
+        ))
+      }
+      <a class="link" href={releasesUrl}>{t.primary.allDownloads}</a>
+    </p>
+    {
+      msiOther && (
+        <details class="dl-fold">
+          <summary>{t.primary.msiOther}</summary>
+          <p>
+            <a class="link" href={msiOther.url} data-download>
+              {fill(t.platforms.action, { format: '.msi' })}
+              <span class="visually-hidden"> · </span>
+              <span class="dl-fold__file">{msiOther.name}</span>
+              <span class="arrow" aria-hidden="true">
+                {' '}
+                ↓
+              </span>
+            </a>
+          </p>
+        </details>
+      )
+    }
+  </div>
+  {
+    platform.id === 'windows' && (
+      <p class="dl-twin" set:html={rich(t.primary.twin)} />
+    )
+  }
+  {
+    platform.id === 'macos' && (
+      <p class="dl-twin">
+        {t.primary.gatekeeper}{' '}
+        <a class="link" href="#macos">
+          {t.primary.gatekeeperLink}
+        </a>
+      </p>
+    )
+  }
+  <p class="dl-detected">
+    {fill(t.header.detected, { os })} {t.header.notYours}{' '}
+    {
+      others.map((id, index) => (
+        <>
+          {index > 0 && ' · '}
+          <a class="link" href={`#${id}`}>
+            {PLATFORM_NAMES[id]}
+          </a>
+        </>
+      ))
+    }
+  </p>
+</div>

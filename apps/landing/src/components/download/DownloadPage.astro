@@ -1,0 +1,291 @@
+---
+/**
+ * The download page in one language (EXPERIENCE.md · Páginas · Descarga).
+ *
+ * The served HTML is the state without JS: neutral header, the three platform
+ * cards in fixed order, the step 2 line, Bridge, SmartScreen, requirements,
+ * updates, verification and the post-download block, all with real links.
+ * A synchronous inline script then classifies the visitor before the first
+ * paint and only rearranges: the detected system's primary download and
+ * shell come in from templates, its card moves first, and the cards move
+ * after SmartScreen (the order of the spine); an unknown system keeps the
+ * three equal columns; a phone or tablet gets "Vellum is for desktop".
+ */
+import '../../styles/download.css';
+import { DOWNLOAD } from '../../content/download';
+import { fill } from '../../content/home';
+import type { Lang } from '../../content/routes';
+import {
+  downloadPage,
+  loadRelease,
+  releasesUrl,
+  type PlatformId,
+} from '../../data/release';
+import SiteLayout from '../../layouts/SiteLayout.astro';
+import { PLATFORM_NAMES } from '../../lib/download-format';
+import { rich } from '../../lib/rich';
+import { classifyVisitor } from '../../scripts/platform';
+import AfterDownload from './AfterDownload.astro';
+import BridgeStep from './BridgeStep.astro';
+import PlatformCards from './PlatformCards.astro';
+import PrimaryDownload from './PrimaryDownload.astro';
+import Requirements from './Requirements.astro';
+import ShellFigure from './ShellFigure.astro';
+import SmartScreen from './SmartScreen.astro';
+import Update from './Update.astro';
+import Verify from './Verify.astro';
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const t = DOWNLOAD[lang];
+const release = await loadRelease();
+const data = downloadPage(release);
+const site = Astro.site ?? new URL('https://sebas-tcotd.github.io');
+const canonical = new URL(Astro.url.pathname, site).href;
+const windows = data.platforms.find((platform) => platform.id === 'windows');
+const withPrimary = data.platforms.filter((platform) => platform.primary);
+
+const eyebrow = data.version
+  ? fill(t.header.eyebrow, { version: data.version })
+  : t.header.eyebrowNoVersion;
+const servedTitle = data.direct ? t.header.title : t.header.titleFallback;
+const titles: Record<PlatformId | 'unknown' | 'mobile', string> = {
+  windows: rich(fill(t.header.titleDetected, { os: PLATFORM_NAMES.windows })),
+  macos: rich(fill(t.header.titleDetected, { os: PLATFORM_NAMES.macos })),
+  linux: rich(fill(t.header.titleDetected, { os: PLATFORM_NAMES.linux })),
+  unknown: rich(t.header.titleUnknown),
+  mobile: rich(t.mobile.title),
+};
+
+// Runs synchronously where it is placed, after the blocks it rearranges and
+// before the browser scrolls to the URL hash.
+const detectScript = `(function () {
+  var __name = function (fn) { return fn; };
+  var classify = ${classifyVisitor.toString()};
+  var config = ${JSON.stringify({
+    direct: data.direct,
+    titles,
+    recommended: t.platforms.recommended,
+    detectedRow: t.verify.recommended,
+    mobileLede: t.mobile.lede,
+  })};
+  var page = document.querySelector('[data-download-page]');
+  function byId(id) { return document.getElementById(id); }
+  function template(name) {
+    var node = page.querySelector('template[data-template="' + name + '"]');
+    return node ? node.content.cloneNode(true) : null;
+  }
+  function openForHash() {
+    var id;
+    try { id = decodeURIComponent(location.hash.slice(1)); } catch (error) { return null; }
+    var target = id ? byId(id) : null;
+    var details = target && target.closest('details');
+    if (details && !details.open) details.open = true;
+    return target;
+  }
+  addEventListener('hashchange', function () {
+    var target = openForHash();
+    if (target) target.scrollIntoView();
+  });
+  if (!page) return;
+  var data = navigator.userAgentData;
+  var kind = classify({
+    userAgent: navigator.userAgent,
+    uaPlatform: data && data.platform,
+    mobile: data && data.mobile,
+    maxTouchPoints: navigator.maxTouchPoints || 0
+  });
+  var state = kind === 'mobile' ? 'mobile' : !config.direct ? 'static'
+    : kind !== 'unknown' && page.querySelector('template[data-template="' + kind + '"]') ? 'detected'
+    : 'unknown';
+  if (state !== 'static') {
+    page.setAttribute('data-state', state);
+    var title = page.querySelector('[data-title]');
+    var slot = page.querySelector('[data-primary-slot]');
+    var shell = page.querySelector('[data-shell-slot]');
+    var all = byId('all-platforms');
+    var line = page.querySelector('[data-step-line]');
+    title.innerHTML = config.titles[state === 'detected' ? kind : state];
+    slot.appendChild(template(state === 'detected' ? kind : state));
+    if (state === 'detected') {
+      if (kind !== 'windows') {
+        shell.replaceChildren(template('shell-' + kind));
+      }
+      var card = byId(kind);
+      card.parentNode.prepend(card);
+      card.setAttribute('data-detected', '');
+      var recommended = document.createElement('span');
+      recommended.className = 'dl-card__recommended';
+      recommended.textContent = config.recommended;
+      card.querySelector('.dl-card__key').appendChild(recommended);
+      byId('smartscreen').after(all);
+      var row = page.querySelector('[data-hash-row][data-platform="' + kind + '"][data-primary]');
+      if (row) {
+        row.setAttribute('data-detected', '');
+        row.querySelector('.dl-hashes__label').append(' · ' + config.detectedRow);
+      }
+    } else {
+      shell.hidden = true;
+    }
+    if (state === 'mobile') {
+      page.querySelector('[data-lede]').textContent = config.mobileLede;
+      page.querySelector('[data-step1]').hidden = true;
+      byId('bridge').after(all);
+      if (navigator.share) {
+        page.querySelectorAll('[data-share]').forEach(function (node) { node.hidden = false; });
+      }
+    }
+    if (state !== 'unknown') line.hidden = true;
+  }
+  openForHash();
+})();`;
+---
+
+<SiteLayout
+  lang={lang}
+  page="download"
+  title={t.meta.title}
+  description={t.meta.description}
+>
+  <div
+    class="dl"
+    data-download-page
+    data-state="static"
+    data-copy={t.verify.copy}
+    data-copied={t.verify.copied}
+    data-copy-label={t.verify.copyLabel}
+    data-announce={t.verify.announce}
+    data-link-announce={t.mobile.announce}
+    data-started={t.bridge.started}
+    data-canonical={canonical}
+  >
+    <section class="dl-section dl-header" aria-labelledby="dl-title">
+      <div class="dl-section__head">
+        <p class="eyebrow">{eyebrow}</p>
+        <h1 id="dl-title" data-title set:html={rich(servedTitle)} />
+      </div>
+      <div class="dl-section__body">
+        <div class="dl-header__grid">
+          <div class="dl-header__copy">
+            <p class="dl-lead" data-lede set:html={rich(t.header.lede)} />
+            {
+              !data.direct && (
+                <p class="dl-lead">
+                  {t.header.fallbackLede}{' '}
+                  <a class="link" href={releasesUrl}>
+                    {t.primary.allDownloads}
+                  </a>
+                </p>
+              )
+            }
+            <p class="step-tag" data-step1>
+              <span class="step-tag__disc" aria-hidden="true">1</span>
+              {t.step1}
+            </p>
+            <div class="dl-header__slot" data-primary-slot></div>
+          </div>
+          <div class="dl-header__shell" data-shell-slot>
+            <ShellFigure lang={lang} os="windows" eager />
+          </div>
+        </div>
+      </div>
+      <aside class="margin-note">
+        <p>{t.header.note}</p>
+      </aside>
+    </section>
+
+    <div class="dl-sections">
+      <PlatformCards lang={lang} platforms={data.platforms} />
+
+      <p class="dl-step-line" data-step-line>
+        <span class="dl-step-line__box">
+          <span set:html={rich(t.stepLine)} />{' '}
+          <a class="link" href="#bridge">
+            {t.stepLineLink}<span class="arrow" aria-hidden="true"> ↓</span>
+          </a>
+        </span>
+      </p>
+
+      <BridgeStep lang={lang} />
+      <SmartScreen
+        lang={lang}
+        installer={windows?.primary?.name ?? null}
+        hasHashes={data.hasHashes}
+      />
+      <Requirements lang={lang} />
+      <Update lang={lang} releaseUrl={release?.url ?? null} />
+      {
+        data.hasHashes && (
+          <Verify
+            lang={lang}
+            version={data.version}
+            hashes={data.hashes}
+            platforms={data.platforms}
+          />
+        )
+      }
+    </div>
+
+    <AfterDownload lang={lang} version={data.version} />
+
+    <p class="visually-hidden" aria-live="polite" data-live></p>
+
+    {
+      withPrimary.map((platform) => (
+        <template data-template={platform.id}>
+          <PrimaryDownload
+            lang={lang}
+            platform={platform}
+            version={data.version}
+            publishedAt={data.publishedAt}
+          />
+        </template>
+      ))
+    }
+    <template data-template="shell-macos">
+      <ShellFigure lang={lang} os="macos" />
+    </template>
+    <template data-template="shell-linux">
+      <ShellFigure lang={lang} os="linux" />
+    </template>
+    <template data-template="unknown">
+      <p class="dl-detected">
+        {t.header.unknown}{' '}
+        <a class="link" href="#all-platforms">{t.header.unknownLink}</a>
+      </p>
+    </template>
+    <template data-template="mobile">
+      <div class="dl-mobile">
+        <p class="dl-mobile__actions">
+          <button class="button dl-copy" type="button" data-copy-link>
+            <span class="dl-copy__idle">{t.mobile.copy}</span>
+            <span class="dl-copy__done">{t.mobile.copied}</span>
+          </button>
+          <button
+            class="button button--secondary"
+            type="button"
+            data-share
+            hidden
+          >
+            {t.mobile.share}
+          </button>
+        </p>
+        <p class="dl-mobile__fine" data-share hidden>{t.mobile.fine}</p>
+        <p class="dl-mobile__fine">
+          {t.mobile.address} <code data-link-text>{canonical}</code>
+        </p>
+      </div>
+    </template>
+
+    <script is:inline set:html={detectScript} />
+  </div>
+</SiteLayout>
+
+<script>
+  import { initDownloadPage } from '../../scripts/download';
+
+  initDownloadPage();
+</script>

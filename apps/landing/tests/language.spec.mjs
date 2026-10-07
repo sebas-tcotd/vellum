@@ -5,7 +5,7 @@ import { expect, test } from '@playwright/test';
 import { downloadBand } from '../src/data/release.ts';
 import { pickShotFile } from '../src/lib/shot-file.ts';
 import { decideLanguage } from '../src/scripts/language.ts';
-import { detectPlatform } from '../src/scripts/platform.ts';
+import { classifyVisitor, detectPlatform } from '../src/scripts/platform.ts';
 
 const base = '/vellum/';
 const input = (overrides = {}) => ({
@@ -202,5 +202,89 @@ for (const [name, platform, expected] of [
 ]) {
   test(`OS detection: ${name} → ${expected}`, () => {
     expect(detectPlatform({ ...desktop, ...platform })).toBe(expected);
+  });
+}
+
+const pairs = [
+  ['', 'es/'],
+  ['download/', 'es/descargar/'],
+];
+
+test('an external entry to /download/#bridge with a saved Spanish choice lands on /es/descargar/#bridge', () => {
+  expect(
+    decideLanguage(
+      input({
+        pathname: '/vellum/download/',
+        hash: '#bridge',
+        stored: 'es',
+        pairs,
+      }),
+    ),
+  ).toEqual({ url: '/vellum/es/descargar/#bridge', save: null });
+});
+
+test('/es/descargar/?lang=en leads to /download/ with the hash and saves en', () => {
+  expect(
+    decideLanguage(
+      input({
+        pathname: '/vellum/es/descargar/',
+        search: '?lang=en',
+        hash: '#verify',
+        pairs,
+      }),
+    ),
+  ).toEqual({ url: '/vellum/download/?lang=en#verify', save: 'en' });
+});
+
+for (const [name, platform, expected] of [
+  [
+    'Windows',
+    { userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
+    'windows',
+  ],
+  [
+    'macOS',
+    { userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)' },
+    'macos',
+  ],
+  ['Linux', { userAgent: 'Mozilla/5.0 (X11; Linux x86_64)' }, 'linux'],
+  [
+    'iPhone',
+    { userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)' },
+    'mobile',
+  ],
+  [
+    'Android',
+    { userAgent: 'Mozilla/5.0 (Linux; Android 14; Pixel 8)' },
+    'mobile',
+  ],
+  [
+    'iPad with a desktop UA',
+    {
+      userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
+      maxTouchPoints: 5,
+    },
+    'mobile',
+  ],
+  [
+    'mobile client hint',
+    { userAgent: 'Mozilla/5.0', uaPlatform: 'Windows', mobile: true },
+    'mobile',
+  ],
+  [
+    'ChromeOS',
+    { userAgent: 'Mozilla/5.0 (X11; CrOS x86_64 14541.0.0)' },
+    'unknown',
+  ],
+  ['nothing recognizable', { userAgent: 'Mozilla/5.0 (FreeBSD)' }, 'unknown'],
+]) {
+  test(`visitor kind: ${name} → ${expected}`, () => {
+    const visitor = { ...desktop, ...platform };
+    const kind = classifyVisitor(visitor);
+    expect(kind).toBe(expected);
+    // Consistent with the band's detection.
+    expect(detectPlatform(visitor)).toBe(
+      kind === 'mobile' || kind === 'unknown' ? null : kind,
+    );
   });
 }

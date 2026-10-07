@@ -1,0 +1,46 @@
+---
+/**
+ * A block of the download page on the margin grid: eyebrow and H2 in the
+ * content column, the margin note (an unnamed `<aside>` after the body in
+ * reading order) and the body.
+ */
+import { rich } from '../../lib/rich';
+
+interface Props {
+  id: string;
+  eyebrow?: string;
+  /** H2, with `rich()` markup; omit when the body carries its own heading. */
+  title?: string;
+  note?: string;
+  class?: string;
+}
+
+const { id, eyebrow, title, note, class: className } = Astro.props;
+const headingId = `${id}-title`;
+---
+
+<section
+  class:list={['dl-section', className]}
+  id={id}
+  aria-labelledby={headingId}
+>
+  {
+    title && (
+      <div class="dl-section__head">
+        {eyebrow && <p class="eyebrow">{eyebrow}</p>}
+        <h2 id={headingId} set:html={rich(title)} />
+      </div>
+    )
+  }
+  <div class="dl-section__body">
+    <slot />
+  </div>
+  {
+    note && (
+      <aside class="margin-note">
+        <p set:html={rich(note)} />
+      </aside>
+    )
+  }
+  <slot name="note" />
+</section>

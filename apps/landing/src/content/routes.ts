@@ -26,7 +26,10 @@ export const PAGE_PATHS: Record<PageId, Record<Lang, string>> = {
  * Pages built with the v1.0 design in both languages. The nav and the footer
  * only link to these; the rest arrive in later steps (deferred-work.md).
  */
-export const PUBLISHED_PAGES: ReadonlySet<PageId> = new Set<PageId>(['home']);
+export const PUBLISHED_PAGES: ReadonlySet<PageId> = new Set<PageId>([
+  'home',
+  'download',
+]);
 
 /** Pages linked from the nav bar, in order, when they are published. */
 export const NAV_PAGES: readonly PageId[] = ['guide', 'changelog', 'manifesto'];

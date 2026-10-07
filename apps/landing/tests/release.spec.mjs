@@ -2,6 +2,8 @@ import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
 import {
   buildReleaseData,
+  downloadBand,
+  downloadPage,
   pickAssets,
   resolveReleaseSource,
   selectRelease,
@@ -50,7 +52,10 @@ test('picks installers by pattern and skips signatures and other bundles', () =>
       ],
     }),
   );
-  expect(platforms.windows.map((file) => file.format)).toEqual(['exe']);
+  expect(platforms.windows.map((file) => file.format)).toEqual([
+    'exe',
+    'msi-en',
+  ]);
   expect(platforms.macos).toEqual([]);
   expect(platforms.linux.map((file) => file.format)).toEqual([
     'deb',
@@ -69,7 +74,12 @@ test('the committed fixture resolves to a complete release', () => {
   );
   const data = buildReleaseData(fixture);
   expect(data?.tag).toMatch(/^v\d+\.\d+\.\d+$/);
-  expect(data?.platforms.windows).toHaveLength(1);
+  expect(data?.platforms.windows.map((file) => file.format)).toEqual([
+    'exe',
+    'msi-en',
+    'msi-es',
+  ]);
+  expect(data?.publishedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
   expect(data?.platforms.macos).toHaveLength(1);
   expect(data?.platforms.linux).toHaveLength(3);
 });
@@ -88,4 +98,108 @@ test('CI reads the live API, local builds the fixture, bad overrides fail', () =
   expect(() =>
     resolveReleaseSource({ LANDING_RELEASE_SOURCE: 'Live' }),
   ).toThrow();
+});
+
+const fullRelease = () =>
+  release('v1.0.0', {
+    published_at: '2026-10-04T15:28:05Z',
+    assets: [
+      'latest.json',
+      'Vellum_1.0.0_x64-setup.exe',
+      'Vellum_1.0.0_x64-setup.exe.sig',
+      'Vellum_1.0.0_x64_en-US.msi',
+      'Vellum_1.0.0_x64_es-ES.msi',
+      'VellumCityMaps_1.0.0.0_x64.msix',
+      'Vellum_1.0.0_universal.dmg',
+      'Vellum_universal.app.tar.gz',
+      'Vellum_1.0.0_amd64.deb',
+      'Vellum_1.0.0_amd64.AppImage',
+      'Vellum-1.0.0-1.x86_64.rpm',
+    ].map(asset),
+  });
+
+test('never picks the msix, signatures, updater bundles or latest.json', () => {
+  const names = Object.values(pickAssets(fullRelease()))
+    .flat()
+    .map((file) => file.name);
+  expect(names).toHaveLength(7);
+  for (const name of names)
+    expect(name).not.toMatch(/\.msix$|\.sig$|\.tar\.gz$|latest\.json/);
+});
+
+test('the release date travels with the data', () => {
+  expect(buildReleaseData([fullRelease()])?.publishedAt).toBe(
+    '2026-10-04T15:28:05Z',
+  );
+  expect(buildReleaseData([release('v1.0.0')])?.publishedAt).toBeNull();
+});
+
+test('download page: a complete release has rows, alternatives and hashes', () => {
+  const page = downloadPage(buildReleaseData([fullRelease()]));
+  expect(page.direct).toBe(true);
+  expect(page.version).toBe('1.0.0');
+  expect(page.publishedAt).toBe('2026-10-04T15:28:05Z');
+  expect(page.platforms.map((platform) => platform.id)).toEqual([
+    'windows',
+    'macos',
+    'linux',
+  ]);
+  const [windows, macos, linux] = page.platforms;
+  expect(windows.primary?.format).toBe('exe');
+  expect(windows.alternatives.map((file) => file.format)).toEqual([
+    'msi-en',
+    'msi-es',
+  ]);
+  expect(macos.primary?.format).toBe('dmg');
+  expect(macos.alternatives).toEqual([]);
+  expect(linux.primary?.format).toBe('deb');
+  expect(linux.alternatives.map((file) => file.format)).toEqual([
+    'AppImage',
+    'rpm',
+  ]);
+  expect(
+    page.platforms.every((platform) => platform.fallbackUrl === null),
+  ).toBe(true);
+  expect(page.hasHashes).toBe(true);
+  expect(page.hashes).toHaveLength(7);
+  expect(page.hashes.filter((row) => row.primary)).toHaveLength(3);
+});
+
+test('download page: a missing asset only hides its row', () => {
+  const partial = fullRelease();
+  partial.assets = partial.assets.filter((file) => !file.name.endsWith('.rpm'));
+  const page = downloadPage(buildReleaseData([partial]));
+  const linux = page.platforms[2];
+  expect(linux.primary?.format).toBe('deb');
+  expect(linux.alternatives.map((file) => file.format)).toEqual(['AppImage']);
+  expect(page.hashes).toHaveLength(6);
+  expect(page.direct).toBe(true);
+});
+
+test('download page: no assets or no release sends everything to GitHub Releases', () => {
+  for (const data of [buildReleaseData([release('v1.0.0')]), null]) {
+    const page = downloadPage(data);
+    expect(page.direct).toBe(false);
+    expect(page.version).toBeNull();
+    expect(page.hasHashes).toBe(false);
+    for (const platform of page.platforms) {
+      expect(platform.primary).toBeNull();
+      expect(platform.fallbackUrl).toBe(
+        'https://github.com/sebas-tcotd/vellum/releases/latest',
+      );
+    }
+  }
+});
+
+test('download page: without digests there is no #verify', () => {
+  const bare = fullRelease();
+  bare.assets = bare.assets.map((file) => ({ ...file, digest: null }));
+  const page = downloadPage(buildReleaseData([bare]));
+  expect(page.direct).toBe(true);
+  expect(page.hasHashes).toBe(false);
+});
+
+test('the home band keeps its formats: no MSI', () => {
+  const band = downloadBand(buildReleaseData([fullRelease()]));
+  expect(band.platforms[0].files.map((file) => file.format)).toEqual(['exe']);
 });

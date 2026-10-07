@@ -1,0 +1,46 @@
+---
+/**
+ * The official Microsoft Store badge, self-hosted (DESIGN.md · Insignia de
+ * Microsoft Store): the black one on a light page, the white one on a dark
+ * page. CSS shows one per effective page mode and the other is
+ * `display: none`, so only one reaches assistive tech. Nothing is loaded from
+ * Microsoft at run time.
+ */
+import { STORE_URL } from '../content/links';
+import type { Lang } from '../content/routes';
+import { SITE } from '../content/site';
+
+interface Props {
+  lang: Lang;
+  /** Visible text of the badge, which is also its alt. */
+  alt: string;
+  class?: string;
+}
+
+const { lang, alt, class: className } = Astro.props;
+const badge = (background: 'light' | 'dark') =>
+  `${import.meta.env.BASE_URL}assets/store-badge-${lang}-on-${background}.svg`;
+---
+
+<a
+  class:list={['store-badge', className]}
+  href={STORE_URL}
+  target="_blank"
+  rel="noopener"
+>
+  <img
+    class="store-badge__light"
+    src={badge('light')}
+    alt={alt}
+    width="161"
+    height="44"
+  />
+  <img
+    class="store-badge__dark"
+    src={badge('dark')}
+    alt={alt}
+    width="161"
+    height="44"
+  />
+  <span class="visually-hidden">{SITE[lang].newTab}</span>
+</a>

@@ -18,6 +18,8 @@ export interface RawRelease {
   draft: boolean;
   prerelease: boolean;
   html_url: string;
+  /** ISO 8601 publication time. */
+  published_at?: string | null;
   assets: ReleaseAsset[];
 }
 
@@ -38,11 +40,17 @@ export interface ReleaseData {
   version: string;
   tag: string;
   url: string;
+  /** ISO 8601 publication time of the release, when GitHub reports it. */
+  publishedAt: string | null;
   platforms: Record<PlatformId, DownloadFile[]>;
 }
 
 const platformPatterns: Record<PlatformId, [format: string, RegExp][]> = {
-  windows: [['exe', /_x64-setup\.exe$/]],
+  windows: [
+    ['exe', /_x64-setup\.exe$/],
+    ['msi-en', /_x64_en-US\.msi$/],
+    ['msi-es', /_x64_es-ES\.msi$/],
+  ],
   macos: [['dmg', /_universal\.dmg$/]],
   linux: [
     ['deb', /_amd64\.deb$/],
@@ -50,6 +58,13 @@ const platformPatterns: Record<PlatformId, [format: string, RegExp][]> = {
     ['rpm', /\.x86_64\.rpm$/],
   ],
 };
+
+/**
+ * Assets the landing never offers, whatever the patterns: the Store package
+ * (EXPERIENCE.md · State Patterns), the updater signatures and bundles, and
+ * the updater manifest.
+ */
+const excludedAsset = /\.msix$|\.sig$|\.tar\.gz$|^latest\.json$/;
 
 const tagPattern = /^v(\d+)\.(\d+)\.(\d+)$/;
 
@@ -89,8 +104,9 @@ export function pickAssets(
   };
   for (const id of Object.keys(platformPatterns) as PlatformId[]) {
     for (const [format, pattern] of platformPatterns[id]) {
-      const asset = release.assets.find((candidate) =>
-        pattern.test(candidate.name),
+      const asset = release.assets.find(
+        (candidate) =>
+          !excludedAsset.test(candidate.name) && pattern.test(candidate.name),
       );
       if (!asset) continue;
       platforms[id].push({
@@ -115,6 +131,7 @@ export function buildReleaseData(releases: RawRelease[]): ReleaseData | null {
     version: release.tag_name.slice(1),
     tag: release.tag_name,
     url: release.html_url,
+    publishedAt: release.published_at ?? null,
     platforms: pickAssets(release),
   };
 }
@@ -178,6 +195,13 @@ export function loadRelease(): Promise<ReleaseData | null> {
   return cached;
 }
 
+/** Fixed order of the platforms in the served HTML. */
+export const PLATFORM_ORDER: readonly PlatformId[] = [
+  'windows',
+  'macos',
+  'linux',
+];
+
 /** What the download band shows for one platform. */
 export interface BandPlatform {
   id: PlatformId;
@@ -197,13 +221,95 @@ export function downloadBand(release: ReleaseData | null): {
   direct: boolean;
   platforms: BandPlatform[];
 } {
-  const ids: PlatformId[] = ['windows', 'macos', 'linux'];
-  const platforms = ids.map((id) => {
-    const files = release?.platforms[id] ?? [];
+  const platforms = PLATFORM_ORDER.map((id) => {
+    // The MSIs belong to the download page; the band keeps its own formats.
+    const files = (release?.platforms[id] ?? []).filter(
+      (file) => !file.format.startsWith('msi-'),
+    );
     return { id, files, fallbackUrl: files.length > 0 ? null : releasesUrl };
   });
   return {
     direct: platforms.some((platform) => platform.files.length > 0),
     platforms,
+  };
+}
+
+/** One platform card of the download page (`#windows`, `#macos`, `#linux`). */
+export interface PagePlatform {
+  id: PlatformId;
+  /** The recommended installer: `.exe`, `.dmg` or `.deb`. */
+  primary: DownloadFile | null;
+  /** The other formats: the MSIs on Windows, `.AppImage` and `.rpm` on Linux. */
+  alternatives: DownloadFile[];
+  /** GitHub Releases when the platform has no file at all. */
+  fallbackUrl: string | null;
+}
+
+/** One row of "Verify the download". */
+export interface HashRow {
+  platform: PlatformId;
+  file: DownloadFile & { sha256: string };
+  /** The platform's recommended installer. */
+  primary: boolean;
+}
+
+/** Everything the download page shows from the release. */
+export interface DownloadPageData {
+  /** At least one direct file; otherwise everything points at GitHub Releases. */
+  direct: boolean;
+  version: string | null;
+  publishedAt: string | null;
+  platforms: PagePlatform[];
+  /** Files with a published SHA-256, in platform order. */
+  hashes: HashRow[];
+  /** `#verify` is rendered only when there is at least one hash. */
+  hasHashes: boolean;
+}
+
+const primaryFormat: Record<PlatformId, string> = {
+  windows: 'exe',
+  macos: 'dmg',
+  linux: 'deb',
+};
+
+/**
+ * Decides the download page from the release data (EXPERIENCE.md · Páginas ·
+ * Descarga and State Patterns): a missing asset only hides its row; a release
+ * without assets, or no release, sends every platform to GitHub Releases; the
+ * hashes are the per-asset `digest` GitHub publishes.
+ */
+export function downloadPage(release: ReleaseData | null): DownloadPageData {
+  const platforms = PLATFORM_ORDER.map((id): PagePlatform => {
+    const files = release?.platforms[id] ?? [];
+    const primary =
+      files.find((file) => file.format === primaryFormat[id]) ?? null;
+    return {
+      id,
+      primary,
+      alternatives: files.filter((file) => file !== primary),
+      fallbackUrl: files.length > 0 ? null : releasesUrl,
+    };
+  });
+  const hashes = platforms.flatMap((platform) =>
+    [platform.primary, ...platform.alternatives].flatMap((file) =>
+      file?.sha256
+        ? [
+            {
+              platform: platform.id,
+              file: { ...file, sha256: file.sha256 },
+              primary: file === platform.primary,
+            },
+          ]
+        : [],
+    ),
+  );
+  const direct = platforms.some((platform) => platform.fallbackUrl === null);
+  return {
+    direct,
+    version: direct ? (release?.version ?? null) : null,
+    publishedAt: direct ? (release?.publishedAt ?? null) : null,
+    platforms,
+    hashes,
+    hasHashes: hashes.length > 0,
   };
 }

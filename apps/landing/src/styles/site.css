@@ -314,6 +314,12 @@ kbd {
   display: none;
 }
 
+/* The download page marks its own button (EXPERIENCE.md · Nav). */
+.nav__download[aria-current='page'] {
+  text-decoration: underline 1px currentColor;
+  text-underline-offset: 0.3em;
+}
+
 /* ── Footer ────────────────────────────────────────────── */
 
 .footer {
@@ -600,6 +606,42 @@ kbd {
   .nav[data-menu][data-open] .nav__link[aria-current='page'] {
     border-left: 2px solid var(--nav-active);
     text-decoration: none;
+  }
+}
+
+/* ── Microsoft Store badge (home band and download page) ── */
+
+.store-badge {
+  display: inline-flex;
+}
+
+.store-badge img {
+  display: block;
+  height: 3rem;
+  width: auto;
+}
+
+/* Store badge per effective page mode: the hidden one is display: none, so
+   only one reaches assistive tech. */
+.store-badge .store-badge__dark {
+  display: none;
+}
+
+:root[data-theme='dark'] .store-badge .store-badge__light {
+  display: none;
+}
+
+:root[data-theme='dark'] .store-badge .store-badge__dark {
+  display: block;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .store-badge .store-badge__light {
+    display: none;
+  }
+
+  :root:not([data-theme='light']) .store-badge .store-badge__dark {
+    display: block;
   }
 }
 

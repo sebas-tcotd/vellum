@@ -1,0 +1,69 @@
+---
+/**
+ * Post-download block, always in the served HTML (EXPERIENCE.md · Bloque
+ * post-descarga): the three steps in text and the step 2 reminder. The
+ * Guide and What's new buttons appear on their own once those pages are
+ * published.
+ */
+import { DOWNLOAD } from '../../content/download';
+import { fill } from '../../content/home';
+import { PUBLISHED_PAGES, pageHref, type Lang } from '../../content/routes';
+import { rich } from '../../lib/rich';
+
+interface Props {
+  lang: Lang;
+  version: string | null;
+}
+
+const { lang, version } = Astro.props;
+const t = DOWNLOAD[lang].after;
+const guide = PUBLISHED_PAGES.has('guide');
+const changelog = PUBLISHED_PAGES.has('changelog') && version !== null;
+---
+
+<section class="dl-after" aria-labelledby="after-title">
+  <div class="dl-after__inner">
+    <div>
+      <p class="eyebrow">{t.eyebrow}</p>
+      <h2 id="after-title" set:html={rich(t.title)} />
+      <p class="dl-lead">{t.lede}</p>
+      <ol class="dl-after__steps">
+        {t.steps.map((step) => <li set:html={rich(step)} />)}
+      </ol>
+      <p class="dl-after__fine" set:html={rich(t.cslmap)} />
+      {
+        (guide || changelog) && (
+          <p class="dl-after__actions">
+            {guide && (
+              <a class="button" href={pageHref('guide', lang)}>
+                {t.guide}
+                <span class="arrow" aria-hidden="true">
+                  →
+                </span>
+              </a>
+            )}
+            {changelog && (
+              <a
+                class="link-ghost"
+                href={`${pageHref('changelog', lang)}#${version}`}
+              >
+                {fill(t.changelog, { version: version ?? '' })}
+              </a>
+            )}
+          </p>
+        )
+      }
+    </div>
+    <div class="dl-remind">
+      <p class="step-tag">
+        <span class="step-tag__disc" aria-hidden="true">2</span>
+        {t.reminder.tag}
+      </p>
+      <h3>{t.reminder.title}</h3>
+      <p>{t.reminder.body}</p>
+      <a class="link-ghost" href="#bridge">
+        {t.reminder.link}<span class="arrow" aria-hidden="true">↑</span>
+      </a>
+    </div>
+  </div>
+</section>
