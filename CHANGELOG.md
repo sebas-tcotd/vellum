@@ -2,6 +2,14 @@
 
 All notable changes to Vellum will be documented here.
 
+## [1.0.0](https://github.com/sebas-tcotd/vellum/compare/v0.15.0...v1.0.0) (2026-10-07)
+
+
+### Bug Fixes
+
+* **store-submission:** update Costa Tijuca permissions and validation status ([eaaa7a2](https://github.com/sebas-tcotd/vellum/commit/eaaa7a27fedfb372171f73bf2e3ca353f2b6ed10))
+* **store-submission:** update Costa Tijuca permissions and validation… ([fd81e78](https://github.com/sebas-tcotd/vellum/commit/fd81e78c8987710ff4db4c02b17a55017680a765))
+
 ## [0.15.0](https://github.com/sebas-tcotd/vellum/compare/v0.14.0...v0.15.0) (2026-10-07)
 
 

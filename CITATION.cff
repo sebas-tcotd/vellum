@@ -6,7 +6,7 @@ abstract: 'A cross-platform cartographic viewer for Cities: Skylines cities.'
 authors:
   - family-names: Vargas
     given-names: Sebastian
-version: 0.15.0
+version: 1.0.0
 repository-code: https://github.com/sebas-tcotd/vellum
 url: https://sebas-tcotd.github.io/vellum/
 license: MIT
