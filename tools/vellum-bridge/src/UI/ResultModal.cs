@@ -116,8 +116,9 @@ namespace VellumBridge.UI
         private static void Handoff(ResultView view, UIPanel actions)
         {
             string file = view.file;
+            // Una sola salida hacia Desktop: abrirlo si el sistema ya lo tiene, y si no, conseguirlo.
             if (DesktopHandoff.CanOpenInVellum) BridgeStyle.Button(actions, Strings.OpenInVellum, false, delegate { DesktopHandoff.Open(file); }, 0.85f);
-            BridgeStyle.Button(actions, Strings.GetDesktop, false, delegate { DesktopHandoff.Get(file); }, 0.85f);
+            else BridgeStyle.Button(actions, Strings.GetDesktop, false, delegate { DesktopHandoff.Get(file); }, 0.85f);
             BridgeStyle.Button(actions, Strings.ShowFile, false, delegate { DesktopHandoff.Reveal(file); }, 0.85f);
         }
 
