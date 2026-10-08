@@ -30,3 +30,4 @@ research/vellum-bridge/reports/
 .astro/
 # Literal copies of external texts the landing tests compare against
 apps/landing/tests/fixtures/
+.worktrees/

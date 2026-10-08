@@ -216,6 +216,7 @@ namespace VellumBridge.Export
                     var written = new ResultView { kind = ResultKind.Success, title = Strings.FileWrittenTitle, body = Strings.SummaryFailed(error.Message) };
                     written.note = summary.path;
                     written.folder = System.IO.Path.GetDirectoryName(summary.path);
+                    written.file = summary.path;
                     Finish(ticket, written);
                     return;
                 }

@@ -225,13 +225,13 @@ Privacy policy: https://sebas-tcotd.github.io/vellum/privacy/
 ## Antes de pulsar «Enviar»
 
 - [x] Story 6.2 cerrada: validación en Windows 10 y 11 limpios, ver [MSIX](msix.md).
-- [ ] Paquete final generado desde el release 1.0.0 y su hash registrado.
+- [x] Paquete final generado desde el release 1.0.0 y su hash registrado: `VellumCityMaps_1.0.0.0_x64.msix`, SHA-256 `E76CDE68B0120B7294B3527A1B34CB70E723B8F1A80B2F031CCED48A918B5BBF`.
 - [x] Autor de Costa Tijuca registrado (MatBarbosa) en [Ciudad de muestra](sample-city.md).
 - [x] Permiso de redistribución de Costa Tijuca el 2026-10-07 y registrado en [Ciudad de muestra](sample-city.md).
-- [ ] Capturas sacadas del paquete final.
-- [ ] Cuestionario IARC respondido por quien envía.
-- [ ] Opción «No publicar hasta que seleccione Publicar ahora» marcada.
-- [ ] `/privacy` sigue respondiendo en la URL entregada.
+- [x] Capturas sacadas del paquete final (confirmado el 2026-10-07).
+- [x] Cuestionario IARC respondido por quien envía (3+ / PEGI 3).
+- [x] Opción «No publicar hasta que seleccione Publicar ahora» marcada (confirmado el 2026-10-07).
+- [x] `/privacy` sigue respondiendo en la URL entregada (comprobado el 2026-10-07).
 
 ## Después del envío
 
