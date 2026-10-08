@@ -70,7 +70,9 @@ for (const city of Object.values(CITIES)) {
     lines.push(`  Autor de ${city.city} (Workshop ${city.workshopId ?? '—'})`);
   }
   if (city.origin === 'workshop' && city.permission !== 'granted')
-    lines.push(`  Permiso de ${city.city}: ${city.permission} (riesgo D4)`);
+    lines.push(
+      `  Permiso de ${city.city}: ${city.permission} (riesgo D4, asumido por Sebas)`,
+    );
 }
 if (BRIDGE_WORKSHOP_URL === null) {
   pending += 1;
