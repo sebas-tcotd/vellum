@@ -145,16 +145,13 @@ for (const [lang, t] of Object.entries(pages)) {
       lang === 'es' ? /bienvenida de Vellum/ : /Vellum welcome/,
     );
     await expect(page.locator('#open figcaption')).toHaveText('Vellum 0.14.0');
-    // Delivered on 2026-10-07; T26 is still pending.
-    for (const id of ['T25', 'T27', 'T29', 'T30'])
+    // Every Guide shot is delivered (T26 on 2026-10-08, taken with Bridge 1.0.0).
+    for (const id of ['T25', 'T26', 'T27', 'T29', 'T30'])
       await expect(page.locator(`[data-shot="${id}"]`)).toHaveAttribute(
         'data-shot-status',
         'final',
       );
-    await expect(page.locator('[data-shot="T26"]')).toHaveAttribute(
-      'data-shot-status',
-      'missing',
-    );
+    await expect(page.locator('#bridge figcaption')).toHaveText('Vellum 1.0.0');
   });
 
   test(`"/vellum/${t.path}": step links lead to the download page of its language`, async ({

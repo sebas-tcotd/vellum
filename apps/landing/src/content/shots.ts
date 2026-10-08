@@ -303,9 +303,12 @@ export const SHOTS = {
     priority: 'P1',
     ratio: GUIDE_RATIO,
     perLanguage: true,
+    version: '1.0.0',
+    // The Content Manager dialog, without the FPS overlay and the menu.
+    crop: { left: 0.125, top: 0.125, right: 0.875, bottom: 0.875 },
     alt: {
-      en: 'Cities: Skylines, Content Manager → Mods: Vellum Bridge in the list, enabled',
-      es: 'Cities: Skylines, Gestor de contenido → Mods: Vellum Bridge en la lista, activado',
+      en: 'Cities: Skylines, Content Manager → Mods: Vellum Bridge 1.0.0 in the list, enabled',
+      es: 'Cities: Skylines, Gestor de contenidos → Mods: Vellum Bridge 1.0.0 en la lista, activado',
     },
     pending: {
       en: 'Guide · Vellum Bridge enabled in Content Manager',
