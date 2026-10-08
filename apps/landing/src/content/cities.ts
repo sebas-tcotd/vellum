@@ -27,28 +27,28 @@ export type CityId =
 export const CITIES: Record<CityId, City> = {
   springValley: {
     city: 'Spring Valley',
-    author: null,
+    author: 'SgtHK',
     origin: 'workshop',
     workshopId: '1273431737',
     permission: 'no',
   },
   islandHopping: {
     city: 'Island Hopping',
-    author: null,
+    author: 'Paper Wings',
     origin: 'workshop',
     workshopId: '2475283323',
     permission: 'no',
   },
   sanRico: {
     city: 'San Rico',
-    author: null,
+    author: 'miguelchavez',
     origin: 'workshop',
     workshopId: '3000569752',
     permission: 'no',
   },
   westdale: {
     city: '웨스트데일 (Westdale)',
-    author: null,
+    author: 'MOTEL F. ALVA',
     origin: 'workshop',
     workshopId: '3543847424',
     permission: 'no',
@@ -63,7 +63,7 @@ export const CITIES: Record<CityId, City> = {
   },
   pepperLake: {
     city: 'Pepper Lake',
-    author: null,
+    author: 'takkerue',
     origin: 'workshop',
     workshopId: '1568162351',
     permission: 'no',
