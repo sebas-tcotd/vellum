@@ -204,7 +204,7 @@ test.describe('unknown system', () => {
       'Elige tu sistema.',
     );
     await expect(page.locator('.dl-header')).toContainText(
-      'No pudimos reconocer tu sistema.',
+      'No se pudo reconocer tu sistema.',
     );
     await expect(page.locator('[data-detected]')).toHaveCount(0);
     expect(await cardOrder(page)).toEqual(['windows', 'macos', 'linux']);

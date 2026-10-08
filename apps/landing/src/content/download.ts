@@ -172,11 +172,11 @@ export const DOWNLOAD: Record<Lang, DownloadCopy> = {
       titleFallback: 'Descarga Vellum desde GitHub Releases',
       lede: 'Son dos piezas: **Vellum**, la app donde ves tu mapa, y **Vellum Bridge**, el mod que saca tu ciudad del juego. Empieza por la app.',
       fallbackLede:
-        'Ahora mismo no podemos enlazar cada archivo, pero todos están en la página del último release.',
+        'Ahora mismo no puedo enlazar cada archivo, pero todos están en la página del último release.',
       note: 'Sin cuenta ni registro: Vellum funciona en tu equipo y sin conexión.',
-      detected: 'Detectamos {os}.',
+      detected: 'Parece que usas {os}.',
       notYours: '¿No es tu sistema?',
-      unknown: 'No pudimos reconocer tu sistema.',
+      unknown: 'No se pudo reconocer tu sistema.',
       unknownLink: 'Todas las opciones están aquí.',
     },
     step1: 'Paso 1 de 2 · la app',
@@ -238,7 +238,7 @@ export const DOWNLOAD: Record<Lang, DownloadCopy> = {
       eyebrow: 'Si Windows te avisa',
       title: 'Windows puede avisarte. *Es normal.*',
       lede: 'Vellum aún no tiene firma de código. La primera vez que abras el instalador, Windows te avisará de un editor desconocido: elige *Más información → Ejecutar de todas formas*. Si prefieres evitarlo, la Microsoft Store lo instala firmado.',
-      note: 'Nunca te pediremos desactivar SmartScreen ni el antivirus.',
+      note: 'Nunca te pediré desactivar SmartScreen ni el antivirus.',
       steps: [
         '1 · pulsa «Más información»',
         '2 · «Ejecutar de todas formas»',
@@ -266,7 +266,7 @@ export const DOWNLOAD: Record<Lang, DownloadCopy> = {
         },
         verify: {
           title: 'Puedes comprobarlo',
-          body: 'Cada archivo tiene su huella SHA256: si coincide con la publicada, es exactamente el que subimos.',
+          body: 'Cada archivo tiene su huella SHA256: si coincide con la publicada, es exactamente el que subí.',
           link: 'Verificar la descarga',
         },
         store: {
@@ -368,7 +368,7 @@ export const DOWNLOAD: Record<Lang, DownloadCopy> = {
     verify: {
       summary: 'Verificar la descarga',
       meta: 'opcional · SHA256',
-      body: 'Cada archivo tiene una huella SHA256. Calcula la del archivo que bajaste y compárala con la de esta lista: si coinciden, es exactamente el que publicamos, sin cambios en el camino. Ejecuta el comando en la carpeta de descargas con el archivo que bajaste; `Get-FileHash` muestra la huella en mayúsculas, así que compáralas sin fijarte en mayúsculas y minúsculas.',
+      body: 'Cada archivo tiene una huella SHA256. Calcula la del archivo que bajaste y compárala con la de esta lista: si coinciden, es exactamente el que publiqué, sin cambios en el camino. Ejecuta el comando en la carpeta de descargas con el archivo que bajaste; `Get-FileHash` muestra la huella en mayúsculas, así que compáralas sin fijarte en mayúsculas y minúsculas.',
       note: 'GitHub calcula cada huella al publicar el archivo.',
       commands: {
         windows: 'Windows (PowerShell)',
@@ -420,7 +420,7 @@ export const DOWNLOAD: Record<Lang, DownloadCopy> = {
       copied: 'Enlace copiado ✓',
       announce: 'Enlace copiado',
       share: 'Compartir…',
-      fine: 'Compartir abre el menú de tu teléfono. No guardamos nada.',
+      fine: 'Compartir abre el menú de tu teléfono. No guardo nada.',
       address: 'La dirección:',
     },
   },
@@ -439,11 +439,11 @@ export const DOWNLOAD: Record<Lang, DownloadCopy> = {
       titleFallback: 'Download Vellum from GitHub Releases',
       lede: 'It comes in two pieces: **Vellum**, the app where you see your map, and **Vellum Bridge**, the mod that takes your city out of the game. Start with the app.',
       fallbackLede:
-        "We can't link each file right now, but they are all on the page of the latest release.",
+        "I can't link each file right now, but they are all on the page of the latest release.",
       note: 'No account, no sign-up: Vellum runs on your machine and offline.',
-      detected: 'We detected {os}.',
+      detected: "Looks like you're on {os}.",
       notYours: 'Not your system?',
-      unknown: "We couldn't recognize your system.",
+      unknown: "Your system couldn't be recognized.",
       unknownLink: 'Every option is right here.',
     },
     step1: 'Step 1 of 2 · the app',
@@ -505,7 +505,7 @@ export const DOWNLOAD: Record<Lang, DownloadCopy> = {
       eyebrow: 'If Windows warns you',
       title: "Windows may warn you. *That's normal.*",
       lede: "Vellum isn't code-signed yet. The first time you open the installer, Windows will warn you about an unknown publisher: choose *More info → Run anyway*. If you'd rather skip that, Microsoft Store installs it signed.",
-      note: "We'll never ask you to turn off SmartScreen or your antivirus.",
+      note: "I'll never ask you to turn off SmartScreen or your antivirus.",
       steps: ['1 · click “More info”', '2 · “Run anyway”', '3 · done'],
       dialog: {
         title: 'Windows protected your PC',
@@ -529,7 +529,7 @@ export const DOWNLOAD: Record<Lang, DownloadCopy> = {
         },
         verify: {
           title: 'You can check it',
-          body: 'Every file has its SHA256 fingerprint: if it matches the published one, it is exactly the file we uploaded.',
+          body: 'Every file has its SHA256 fingerprint: if it matches the published one, it is exactly the file I uploaded.',
           link: 'Verify the download',
         },
         store: {
@@ -630,7 +630,7 @@ export const DOWNLOAD: Record<Lang, DownloadCopy> = {
     verify: {
       summary: 'Verify the download',
       meta: 'optional · SHA256',
-      body: 'Every file has a SHA256 fingerprint. Compute the one of the file you downloaded and compare it with this list: if they match, it is exactly the file we published, unchanged on the way. Run the command in your downloads folder with the file you downloaded; `Get-FileHash` prints the fingerprint in uppercase, so compare them ignoring case.',
+      body: 'Every file has a SHA256 fingerprint. Compute the one of the file you downloaded and compare it with this list: if they match, it is exactly the file I published, unchanged on the way. Run the command in your downloads folder with the file you downloaded; `Get-FileHash` prints the fingerprint in uppercase, so compare them ignoring case.',
       note: 'GitHub computes each fingerprint when the file is published.',
       commands: {
         windows: 'Windows (PowerShell)',
@@ -682,7 +682,7 @@ export const DOWNLOAD: Record<Lang, DownloadCopy> = {
       copied: 'Link copied ✓',
       announce: 'Link copied',
       share: 'Share…',
-      fine: "Share opens your phone's menu. We don't keep anything.",
+      fine: "Share opens your phone's menu. I don't keep anything.",
       address: 'The address:',
     },
   },

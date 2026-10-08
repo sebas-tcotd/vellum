@@ -80,7 +80,7 @@ export const GUIDE: Record<Lang, GuideCopy> = {
     toc: {
       title: 'En esta guía',
       advanced: 'Temas avanzados',
-      help: '¿Te atascaste? {issues|Abre un issue en GitHub} y lo vemos.',
+      help: '¿Te atascaste? {issues|Abre un issue en GitHub} y lo veo.',
     },
     stepOf: 'Paso {n} de {total}',
     required: 'Imprescindible',
@@ -94,7 +94,7 @@ export const GUIDE: Record<Lang, GuideCopy> = {
         toc: 'Instala Vellum',
         title: 'Instala Vellum',
         body: [
-          'Descárgalo para tu sistema desde la {download|página de descarga} e instálalo. Si Windows te avisa la primera vez, {smartscreen|aquí te contamos por qué y qué pulsar}; en macOS, {macos|cómo abrirlo la primera vez}.',
+          'Descárgalo para tu sistema desde la {download|página de descarga} e instálalo. Si Windows te avisa la primera vez, {smartscreen|aquí te cuento por qué y qué pulsar}; en macOS, {macos|cómo abrirlo la primera vez}.',
         ],
         tip: 'En Windows también puedes usar la Microsoft Store: va firmada y se actualiza sola.',
         shot: 'T25',
@@ -205,7 +205,7 @@ export const GUIDE: Record<Lang, GuideCopy> = {
     toc: {
       title: 'In this guide',
       advanced: 'Advanced topics',
-      help: "Stuck? {issues|Open an issue on GitHub} and we'll take a look.",
+      help: "Stuck? {issues|Open an issue on GitHub} and I'll take a look.",
     },
     stepOf: 'Step {n} of {total}',
     required: 'Essential',

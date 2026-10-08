@@ -47,7 +47,7 @@ export const CHANGELOG_PAGE: Record<Lang, ChangelogPageCopy> = {
     header: {
       eyebrow: 'What’s new',
       title: 'What changed, *told for people.*',
-      lede: 'Every version of Vellum in a few lines: what is new, what got better and what we fixed.',
+      lede: 'Every version of Vellum in a few lines: what is new, what got better and what I fixed.',
       update: 'How to update',
       source: 'Written from the technical record:',
       sourceLink: 'CHANGELOG.md on GitHub',
@@ -74,7 +74,7 @@ export const CHANGELOG_PAGE: Record<Lang, ChangelogPageCopy> = {
     header: {
       eyebrow: 'Novedades',
       title: 'Lo que cambió, *contado para personas.*',
-      lede: 'Cada versión de Vellum en pocas líneas: qué es nuevo, qué mejoró y qué arreglamos.',
+      lede: 'Cada versión de Vellum en pocas líneas: qué es nuevo, qué mejoró y qué arreglé.',
       update: 'Cómo actualizar',
       source: 'Notas redactadas a partir del registro técnico:',
       sourceLink: 'CHANGELOG.md en GitHub',

@@ -61,7 +61,7 @@ export const SITE: Record<Lang, SiteStrings> = {
     newTab: '(opens in a new tab)',
     consent: {
       region: 'Analytics preferences',
-      body: 'May we use Google Analytics to understand visits to this site? It stays off until you accept, and rejecting does not limit anything.',
+      body: 'May I use Google Analytics to understand visits to this site? It stays off until you accept, and rejecting does not limit anything.',
       policy: 'Read the privacy policy',
       accept: 'Accept analytics',
       reject: 'Reject analytics',
@@ -97,7 +97,7 @@ export const SITE: Record<Lang, SiteStrings> = {
     newTab: '(se abre en una pestaña nueva)',
     consent: {
       region: 'Preferencias de analítica',
-      body: '¿Podemos usar Google Analytics para entender las visitas a este sitio? Queda desactivada hasta que aceptes, y rechazar no limita nada.',
+      body: '¿Puedo usar Google Analytics para entender las visitas a este sitio? Queda desactivada hasta que aceptes, y rechazar no limita nada.',
       policy: 'Leer la política de privacidad',
       accept: 'Aceptar analítica',
       reject: 'Rechazar analítica',
