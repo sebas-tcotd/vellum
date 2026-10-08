@@ -1,0 +1,73 @@
+---
+/**
+ * `#bridge`: step 2, Vellum Bridge (EXPERIENCE.md · Paso Bridge). Workshop is
+ * the main way; `#bridge-manual` keeps its anchor in the «Coming soon» state
+ * while the standalone DLL does not exist (no link, file or steps). Its H2 is
+ * where the post-download focus lands.
+ */
+import { DOWNLOAD } from '../../content/download';
+import { HOME } from '../../content/home';
+import {
+  BRIDGE_WORKSHOP_URL,
+  WORKSHOP_FALLBACK_URL,
+} from '../../content/links';
+import { PUBLISHED_PAGES, pageHref, type Lang } from '../../content/routes';
+import { SITE } from '../../content/site';
+import { rich } from '../../lib/rich';
+import DlSection from './DlSection.astro';
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const t = DOWNLOAD[lang].bridge;
+const workshopUrl = BRIDGE_WORKSHOP_URL ?? WORKSHOP_FALLBACK_URL;
+---
+
+<DlSection id="bridge" note={t.note} class="dl-section--bridge">
+  <div class="dl-bridge">
+    <p class="step-tag">
+      <span class="step-tag__disc" aria-hidden="true">2</span>
+      {t.tag}
+    </p>
+    <h2 id="bridge-title" tabindex="-1" set:html={rich(t.title)} />
+    <p class="dl-bridge__lede" set:html={rich(t.lede)} />
+    <div class="dl-bridge__cols">
+      <div class="dl-bridge__col">
+        <p class="dl-bridge__key">{t.workshop.key}</p>
+        <h3>{t.workshop.title}</h3>
+        <p set:html={rich(t.workshop.body)} />
+        <a class="button" href={workshopUrl} target="_blank" rel="noopener">
+          {t.workshop.button}<span class="arrow" aria-hidden="true">→</span>
+          <span class="visually-hidden">{SITE[lang].newTab}</span>
+        </a>
+        {
+          BRIDGE_WORKSHOP_URL === null && (
+            <p class="dl-bridge__fine">
+              <em class="pending">{HOME[lang].pendingUrl}</em>
+            </p>
+          )
+        }
+      </div>
+      <div class="dl-bridge__col" id="bridge-manual">
+        <p class="dl-bridge__key">{t.manual.key}</p>
+        <h3>{t.manual.title}</h3>
+        <p class="dl-soon">{t.manual.soon}</p>
+        <p>
+          {t.manual.body}
+          {
+            PUBLISHED_PAGES.has('changelog') && (
+              <>
+                {' '}
+                <a class="link" href={pageHref('changelog', lang)}>
+                  {t.manual.changelog}
+                </a>
+              </>
+            )
+          }
+        </p>
+      </div>
+    </div>
+  </div>
+</DlSection>

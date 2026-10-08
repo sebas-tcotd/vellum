@@ -1,0 +1,42 @@
+---
+/**
+ * A home section on the margin grid: eyebrow and H2 in the content column,
+ * the lead paragraphs, the margin note (an unnamed `<aside>` after the body in
+ * reading order) and the media slot.
+ */
+interface Props {
+  id: string;
+  eyebrow: string;
+  title: string;
+  body: string[];
+  note: string;
+  class?: string;
+}
+
+const { id, eyebrow, title, body, note, class: className } = Astro.props;
+const headingId = `${id}-title`;
+const hasBody = body.length > 0 || Astro.slots.has('body');
+---
+
+<section class:list={['section', !hasBody && 'section--no-body', className]} id={id} aria-labelledby={headingId}>
+  <div class="section__head">
+    <p class="eyebrow">{eyebrow}</p>
+    <h2 id={headingId}>{title}</h2>
+  </div>
+  {
+    hasBody && (
+      <div class="section__body">
+        {body.map((paragraph) => (
+          <p>{paragraph}</p>
+        ))}
+        <slot name="body" />
+      </div>
+    )
+  }
+  <aside class="margin-note">
+    <p>{note}</p>
+  </aside>
+  <div class="section__media">
+    <slot />
+  </div>
+</section>

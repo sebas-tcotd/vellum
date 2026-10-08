@@ -1,57 +1,103 @@
 ---
-import BaseLayout from '../layouts/BaseLayout.astro';
-
-const home = import.meta.env.BASE_URL;
+/**
+ * The 404 (DESIGN.md · Página 404; EXPERIENCE.md · State Patterns · 404): a
+ * headline on paper, no map, home (primary) and download (secondary), and
+ * the same two links in Spanish. GitHub Pages serves it at any depth with a
+ * real 404 status; it stays out of the index.
+ */
+import { downloadHref, pageHref } from '../content/routes';
+import SiteLayout from '../layouts/SiteLayout.astro';
 ---
 
-<BaseLayout
-  title="Page not found | Vellum"
-  description="This page is not on the Vellum map."
+<SiteLayout
+  lang="en"
+  page={null}
+  title="Page not found · Vellum"
+  description="This place is not on the Vellum map."
   noindex
+  analytics={false}
 >
-  <main class="not-found" id="main-content">
-    <p class="not-found-code">404</p>
-    <h1>This place isn't on the map.</h1>
-    <p>The page you asked for doesn't exist, or it moved.</p>
-    <a class="not-found-home" href={home}>Back to the Vellum home</a>
-  </main>
-</BaseLayout>
+  <div class="not-found">
+    <p class="eyebrow">404</p>
+    <h1>This place isn’t on the map.</h1>
+    <p class="not-found__lede">
+      The page you asked for doesn’t exist, or it moved.
+    </p>
+    <p class="not-found__actions">
+      <a class="button" href={pageHref('home', 'en')}>Back to the Vellum home</a>
+      <a class="button button--secondary" href={downloadHref('en')}>
+        Download Vellum
+      </a>
+    </p>
+    <p class="not-found__es" lang="es">
+      Este lugar no está en el mapa. Vuelve al <a
+        class="link"
+        href={pageHref('home', 'es')}>inicio de Vellum</a
+      > o ve a <a class="link" href={downloadHref('es')}>descargar Vellum</a>.
+    </p>
+  </div>
+</SiteLayout>
 
 <style>
   .not-found {
-    box-sizing: border-box;
-    display: grid;
-    min-height: 100vh;
-    align-content: center;
-    gap: 1rem;
-    max-width: 40rem;
+    width: 100%;
+    max-width: var(--page-max);
     margin: 0 auto;
-    padding: 2rem 1rem;
+    padding: var(--section-top) var(--page-x) var(--section-bottom)
+      calc(var(--page-x) + var(--margin-column) + var(--margin-gap));
   }
 
-  .not-found-code {
-    margin: 0;
+  .eyebrow {
+    margin-bottom: 0.875rem;
+    color: var(--text-muted);
     font-family: var(--font-mono);
-    color: var(--muted);
+    font-size: 0.71875rem;
+    letter-spacing: 0.14em;
   }
 
   h1 {
-    max-width: none;
-    margin: 0;
-    font-family: var(--font-display);
-    font-size: clamp(2.25rem, 6vw, 3.5rem);
-    font-weight: 500;
-    line-height: 1.05;
+    max-width: 40rem;
+    font-size: 3.5rem;
+    line-height: 1.02;
   }
 
-  p {
-    margin: 0;
+  .not-found__lede {
+    max-width: 40rem;
+    margin-top: var(--heading-to-body);
+    font-size: 1.125rem;
+    line-height: 1.6;
   }
 
-  .not-found-home {
-    justify-self: start;
-    color: inherit;
-    text-decoration: underline;
-    text-underline-offset: 0.2em;
+  .not-found__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 2rem;
+  }
+
+  .not-found__es {
+    max-width: 40rem;
+    margin-top: 2rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--rule);
+    color: var(--text-muted);
+    font-size: 0.90625rem;
+  }
+
+  @container site (max-width: 1023px) {
+    .not-found {
+      padding-left: var(--page-x);
+    }
+  }
+
+  @container site (max-width: 640px) {
+    h1 {
+      font-size: 2.375rem;
+      line-height: 1.05;
+    }
+
+    .not-found__actions .button {
+      min-height: 2.75rem;
+    }
   }
 </style>

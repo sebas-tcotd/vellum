@@ -57,10 +57,19 @@ describe('contratos de optimización de CI', () => {
   });
 
   it('publica entrada estática de privacidad bilingüe sin analytics propios', () => {
-    const privacy = read('apps/landing/src/pages/privacy/index.astro');
-    expect(privacy).toContain('data-page="privacy"');
-    expect(privacy).toContain('<PrivacyIsland client:only="react" />');
-    expect(privacy).not.toMatch(/googletagmanager|gtag\(/);
+    const page = read('apps/landing/src/components/privacy/PrivacyPage.astro');
+    expect(page).toContain('analytics={false}');
+    expect(page).not.toMatch(/client:only|googletagmanager|gtag\(/);
+    for (const route of [
+      'apps/landing/src/pages/privacy/index.astro',
+      'apps/landing/src/pages/es/privacidad/index.astro',
+    ])
+      expect(read(route)).toContain('<PrivacyPage lang=');
+    // The layout marks <main> with the page, and leaves the consent bar (the
+    // only code that can load Google) out when analytics is off.
+    const layout = read('apps/landing/src/layouts/SiteLayout.astro');
+    expect(layout).toContain('data-page={page ?? undefined}');
+    expect(layout).toContain('{analytics && <ConsentBar lang={lang} />}');
     expect(read('apps/landing/src/pages/index.astro')).not.toMatch(
       /googletagmanager|gtag\(/,
     );
@@ -68,27 +77,28 @@ describe('contratos de optimización de CI', () => {
     expect(astro).toContain("base: '/vellum/'");
     expect(astro).toContain("trailingSlash: 'always'");
     expect(astro).toContain("format: 'directory'");
-    expect(read('apps/landing/src/App.tsx')).toContain('./privacy/?lang=');
-    const en = JSON.parse(read('apps/landing/i18n/en.json'));
-    const es = JSON.parse(read('apps/landing/i18n/es.json'));
-    const keys = (value) =>
-      Object.entries(value)
-        .flatMap(([key, child]) =>
-          typeof child === 'object'
-            ? keys(child).map((k) => `${key}.${k}`)
-            : [key],
-        )
-        .sort();
-    expect(keys(en.privacy)).toEqual(keys(es.privacy));
-    expect(en.privacy.website.body).toContain('Google Analytics');
-    expect(es.privacy.website.body).toContain('Google Analytics');
-    expect(en.privacy.store.body).toContain('no network requests');
-    expect(es.privacy.store.body).toContain('no realiza solicitudes de red');
+    // Privacy is never redirected by language, even as a bilingual pair.
+    expect(read('apps/landing/src/scripts/language.ts')).toContain(
+      "pair[0] === 'privacy/'",
+    );
+    const privacy = read('apps/landing/src/content/privacy.ts');
+    expect(privacy).toContain('Google Analytics 4');
+    expect(privacy).toContain('no network requests');
+    expect(privacy).toContain('no realiza solicitudes de red');
+    expect(privacy).toContain('Vellum City Maps');
     const deploy = read('.github/workflows/deploy-pages.yml');
     expect(deploy).toContain('for privacy_path in privacy privacy/');
     expect(deploy).toContain('test "$final_url" = "${page_url}privacy/"');
     expect(deploy).toContain('test "$base_path" = \'/vellum/\'');
     expect(deploy).toContain('data-page="privacy"');
+    for (const path of [
+      'changelog/',
+      'es/novedades/',
+      'manifesto/',
+      'es/manifiesto/',
+      'es/privacidad/',
+    ])
+      expect(deploy).toContain(path);
   });
 
   it('fija Rust y separa la caché Cargo por runner y clase de trabajo', () => {

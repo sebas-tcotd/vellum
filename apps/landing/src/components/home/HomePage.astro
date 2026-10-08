@@ -1,0 +1,51 @@
+---
+/** The home in one language: the 11 sections of EXPERIENCE.md · Home. */
+import '../../styles/home.css';
+import { HOME } from '../../content/home';
+import type { Lang } from '../../content/routes';
+import SiteLayout from '../../layouts/SiteLayout.astro';
+import AppEmbedDocumentStyles from '../app-embed/AppEmbedDocumentStyles.astro';
+import DownloadBand from '../DownloadBand.astro';
+import Creators from './Creators.astro';
+import Districts from './Districts.astro';
+import Gallery from './Gallery.astro';
+import Hero from './Hero.astro';
+import Layers from './Layers.astro';
+import Lightbox from './Lightbox.astro';
+import Nocturno from './Nocturno.astro';
+import Plate from './Plate.astro';
+import Schematic from './Schematic.astro';
+import Shells from './Shells.astro';
+import Themes from './Themes.astro';
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const meta = HOME[lang].meta;
+---
+
+<SiteLayout lang={lang} page="home" title={meta.title} description={meta.description}>
+  <AppEmbedDocumentStyles slot="head" />
+  <Hero lang={lang} />
+  <div class="home-sections">
+    <Gallery lang={lang} />
+    <Layers lang={lang} />
+    <Themes lang={lang} />
+    <Nocturno lang={lang} />
+    <Schematic lang={lang} />
+    <Districts lang={lang} />
+    <Creators lang={lang} />
+    <Plate lang={lang} />
+    <Shells lang={lang} />
+  </div>
+  <DownloadBand lang={lang} />
+  <Lightbox lang={lang} />
+</SiteLayout>
+
+<script>
+  import { revealOnLoad } from '../../scripts/motion';
+
+  revealOnLoad();
+</script>

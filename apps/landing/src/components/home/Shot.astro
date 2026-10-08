@@ -1,0 +1,79 @@
+---
+/**
+ * One map shot of the registry, framed at its page ratio. A stand-in carries a
+ * visible tag with its shot id; a missing shot is a placeholder with the id
+ * and what it will show (never an image with a provisional alt).
+ */
+import type { Lang } from '../../content/routes';
+import type { ShotId } from '../../content/shots';
+import { HOME } from '../../content/home';
+import { imageSources, resolveShot } from '../../lib/shots';
+
+interface Props {
+  id: ShotId;
+  lang: Lang;
+  /** `sizes` of the image in the layout. */
+  sizes: string;
+  /** Generated widths. */
+  widths?: number[];
+  /** Frame ratio; defaults to the shot's own. */
+  ratio?: number;
+  /** The hero loads eagerly; everything else below the fold is lazy. */
+  eager?: boolean;
+  class?: string;
+  /** Decorative repetition of a shot shown elsewhere with its alt. */
+  decorative?: boolean;
+}
+
+const {
+  id,
+  lang,
+  sizes,
+  widths = [480, 800, 1200, 1600],
+  ratio,
+  eager = false,
+  class: className,
+  decorative = false,
+} = Astro.props;
+const shot = resolveShot(id, lang);
+const copy = HOME[lang];
+const frameRatio = ratio ?? shot.entry.ratio;
+const sources =
+  shot.status === 'missing' ? null : await imageSources(shot.image, widths);
+---
+
+<div
+  class:list={['shot', `shot--${shot.status}`, className]}
+  style={`aspect-ratio: ${frameRatio}`}
+  data-shot={shot.entry.id}
+  data-shot-status={shot.status}
+>
+  {
+    sources && shot.status !== 'missing' ? (
+      <>
+        <img
+          src={sources.src}
+          srcset={sources.srcset}
+          sizes={sizes}
+          width={sources.width}
+          height={sources.height}
+          alt={decorative ? '' : shot.alt}
+          loading={eager ? 'eager' : 'lazy'}
+          fetchpriority={eager ? 'high' : 'auto'}
+          decoding="async"
+        />
+        {shot.status === 'stand-in' && (
+          <span class="shot-tag" aria-hidden="true">
+            {shot.entry.id} · {copy.standIn}
+          </span>
+        )}
+      </>
+    ) : (
+      <p class="shot-missing">
+        <span class="shot-missing__id">{shot.entry.id}</span>
+        <span>{copy.pendingShot}</span>
+        <span class="shot-missing__what">{shot.entry.pending[lang]}</span>
+      </p>
+    )
+  }
+</div>

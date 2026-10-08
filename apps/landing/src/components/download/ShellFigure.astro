@@ -1,0 +1,42 @@
+---
+/**
+ * The OS shell card of the detected system, large in the download header
+ * (EXPERIENCE.md · Tarjeta de shell por SO). The served HTML carries the
+ * Windows one; macOS and Linux wait in templates for the detection script.
+ */
+import { DOWNLOAD } from '../../content/download';
+import type { Lang } from '../../content/routes';
+import type { ShotId } from '../../content/shots';
+import type { PlatformId } from '../../data/release';
+import Shot from '../home/Shot.astro';
+
+interface Props {
+  lang: Lang;
+  os: PlatformId;
+  eager?: boolean;
+}
+
+const { lang, os, eager = false } = Astro.props;
+const shots: Record<PlatformId, ShotId> = {
+  windows: 'T22',
+  macos: 'T23',
+  linux: 'T24',
+};
+const t = DOWNLOAD[lang].shell[os];
+---
+
+<figure class={`dl-shell dl-shell--${os}`} data-shell={os}>
+  <div class="dl-shell__window">
+    <Shot
+      id={shots[os]}
+      lang={lang}
+      sizes="(max-width: 1023px) 100vw, 34vw"
+      widths={[480, 800, 1200]}
+      eager={eager}
+    />
+  </div>
+  <figcaption>
+    <span class="dl-shell__title">{t.title}</span>
+    <span class="caption">{t.material}</span>
+  </figcaption>
+</figure>

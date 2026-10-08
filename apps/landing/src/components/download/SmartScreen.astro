@@ -1,0 +1,95 @@
+---
+/**
+ * `#smartscreen`: the SmartScreen warning in three recreated steps (HTML with
+ * the real Windows texts, not screenshots, not interactive) and three calm
+ * reasons (EXPERIENCE.md · Explicador de SmartScreen).
+ */
+import { DOWNLOAD } from '../../content/download';
+import { REPOSITORY_URL } from '../../content/links';
+import type { Lang } from '../../content/routes';
+import { SITE } from '../../content/site';
+import { rich } from '../../lib/rich';
+import DlSection from './DlSection.astro';
+
+interface Props {
+  lang: Lang;
+  /** Name of the `.exe` shown in the dialog, when the release has one. */
+  installer: string | null;
+  hasHashes: boolean;
+}
+
+const { lang, installer, hasHashes } = Astro.props;
+const t = DOWNLOAD[lang].smartscreen;
+const dialog = t.dialog;
+---
+
+<DlSection
+  id="smartscreen"
+  eyebrow={t.eyebrow}
+  title={t.title}
+  note={t.note}
+>
+  <p class="dl-lead" set:html={rich(t.lede)} />
+  <ol class="dl-ss" role="list">
+    <li>
+      <p class="dl-ss__step">{t.steps[0]}</p>
+      <div class="dl-ss__dialog">
+        <p class="dl-ss__title">{dialog.title}</p>
+        <p>{dialog.body}</p>
+        <p class="dl-ss__more"><span class="dl-ss__hl">{dialog.more}</span></p>
+        <p class="dl-ss__buttons"><span>{dialog.dontRun}</span></p>
+      </div>
+    </li>
+    <li>
+      <p class="dl-ss__step">{t.steps[1]}</p>
+      <div class="dl-ss__dialog">
+        <p class="dl-ss__title">{dialog.title}</p>
+        {installer && <p>{dialog.app} {installer}</p>}
+        <p>{dialog.publisher}</p>
+        <p class="dl-ss__buttons">
+          <span class="dl-ss__hl">{dialog.run}</span><span>{dialog.dontRun}</span>
+        </p>
+      </div>
+    </li>
+    <li>
+      <p class="dl-ss__step">{t.steps[2]}</p>
+      <div class="dl-ss__dialog dl-ss__dialog--done">
+        <p class="dl-ss__done-title">{t.done.title}</p>
+        <p>{t.done.body}</p>
+      </div>
+    </li>
+  </ol>
+  <p class="caption">{t.caption}</p>
+  <ul class="dl-why" role="list">
+    <li>
+      <h3>{t.why.openSource.title}</h3>
+      <p>
+        {t.why.openSource.body}{' '}
+        <a class="link" href={REPOSITORY_URL} target="_blank" rel="noopener">
+          {t.why.openSource.link}<span aria-hidden="true"> ↗</span>
+          <span class="visually-hidden">{SITE[lang].newTab}</span>
+        </a>
+      </p>
+    </li>
+    <li>
+      <h3>{t.why.verify.title}</h3>
+      <p>
+        {t.why.verify.body}
+        {
+          hasHashes && (
+            <>
+              {' '}
+              <a class="link" href="#verify">
+                {t.why.verify.link}
+              </a>
+            </>
+          )
+        }
+      </p>
+    </li>
+    <li>
+      <h3>{t.why.store.title}</h3>
+      <p>{t.why.store.body}</p>
+    </li>
+  </ul>
+</DlSection>

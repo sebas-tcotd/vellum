@@ -11,3 +11,11 @@
 .spike-figure {
   margin: 0;
 }
+
+/* The caption never widens its figure: captions use different fonts on each
+   side, and a wider first figure would push the next frame off whole pixels
+   (it did on Linux CI: 353 vs 352 px). */
+.spike-figure figcaption {
+  width: 0;
+  min-width: 100%;
+}

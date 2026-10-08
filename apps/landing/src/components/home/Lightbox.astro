@@ -1,0 +1,199 @@
+---
+/**
+ * One modal `<dialog>` for every `[data-lightbox]` link of the page. Without
+ * JS the links simply open the full image. A link may carry
+ * `data-lightbox-announce` (e.g. «Snapshot 07 of 16») for the live region;
+ * otherwise «n of N» is announced. Close, previous and next are
+ * 44 × 44 and visible on phones too; Esc, Close or a click on the backdrop
+ * close it, and focus returns to the thumbnail.
+ */
+import type { Lang } from '../../content/routes';
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const t =
+  lang === 'es'
+    ? { close: 'Cerrar', previous: 'Anterior', next: 'Siguiente', of: 'de' }
+    : { close: 'Close', previous: 'Previous', next: 'Next', of: 'of' };
+---
+
+<dialog class="lightbox" aria-labelledby="lightbox-caption" data-lightbox-dialog data-of={t.of}>
+  <div class="lightbox__content">
+    <img class="lightbox__image" alt="" data-lightbox-image />
+    <p class="lightbox__caption" id="lightbox-caption" data-lightbox-caption></p>
+  </div>
+  <button class="lightbox__control lightbox__close" type="button" aria-label={t.close} data-lightbox-close>
+    <span aria-hidden="true">×</span>
+  </button>
+  <button class="lightbox__control lightbox__prev" type="button" aria-label={t.previous} data-lightbox-step="-1">
+    <span aria-hidden="true">‹</span>
+  </button>
+  <button class="lightbox__control lightbox__next" type="button" aria-label={t.next} data-lightbox-step="1">
+    <span aria-hidden="true">›</span>
+  </button>
+  <p class="visually-hidden" aria-live="polite" data-lightbox-live></p>
+</dialog>
+
+<script>
+  const dialog = document.querySelector<HTMLDialogElement>('[data-lightbox-dialog]');
+  const image = dialog?.querySelector<HTMLImageElement>('[data-lightbox-image]');
+  const caption = dialog?.querySelector<HTMLElement>('[data-lightbox-caption]');
+  const live = dialog?.querySelector<HTMLElement>('[data-lightbox-live]');
+  const close = dialog?.querySelector<HTMLButtonElement>('[data-lightbox-close]');
+  if (dialog && image && caption && close) {
+    let items: HTMLAnchorElement[] = [];
+    let index = 0;
+    let opener: HTMLElement | null = null;
+
+    const show = (next: number, announce: boolean) => {
+      index = (next + items.length) % items.length;
+      const item = items[index];
+      if (!item) return;
+      image.src = item.href;
+      image.alt = item.querySelector('img')?.alt ?? '';
+      caption.textContent = item.dataset.lightboxCaption ?? '';
+      if (announce && live)
+        live.textContent =
+          item.dataset.lightboxAnnounce ??
+          `${index + 1} ${dialog.dataset.of} ${items.length}`;
+      for (const control of dialog.querySelectorAll<HTMLElement>('[data-lightbox-step]'))
+        control.hidden = items.length < 2;
+    };
+
+    for (const link of document.querySelectorAll<HTMLAnchorElement>('a[data-lightbox]')) {
+      link.addEventListener('click', (event) => {
+        event.preventDefault();
+        items = [
+          ...document.querySelectorAll<HTMLAnchorElement>(
+            `a[data-lightbox="${link.dataset.lightbox}"]`,
+          ),
+        ];
+        opener = link;
+        show(items.indexOf(link), false);
+        dialog.showModal();
+        document.documentElement.style.overflow = 'hidden';
+        close.focus();
+      });
+    }
+
+    for (const control of dialog.querySelectorAll<HTMLButtonElement>('[data-lightbox-step]'))
+      control.addEventListener('click', () =>
+        show(index + Number(control.dataset.lightboxStep), true),
+      );
+    close.addEventListener('click', () => dialog.close());
+    dialog.addEventListener('click', (event) => {
+      if (event.target === dialog) dialog.close();
+    });
+    dialog.addEventListener('keydown', (event) => {
+      if (event.key === 'ArrowLeft') show(index - 1, true);
+      if (event.key === 'ArrowRight') show(index + 1, true);
+    });
+    dialog.addEventListener('close', () => {
+      document.documentElement.style.overflow = '';
+      image.removeAttribute('src');
+      opener?.focus();
+    });
+  }
+</script>
+
+<style>
+  .lightbox {
+    --focus: var(--focus-dark);
+
+    width: 100vw;
+    max-width: none;
+    height: 100vh;
+    max-height: none;
+    margin: 0;
+    padding: 3.5rem 4rem;
+    border: 0;
+    color: var(--nocturno-title);
+    background: transparent;
+  }
+
+  .lightbox::backdrop {
+    background: var(--lightbox-backdrop);
+  }
+
+  .lightbox[open] {
+    display: grid;
+    place-items: center;
+  }
+
+  .lightbox__content {
+    display: grid;
+    gap: 0.75rem;
+    justify-items: center;
+    max-height: 100%;
+  }
+
+  .lightbox__image {
+    max-width: 100%;
+    max-height: calc(100vh - 9rem);
+    object-fit: contain;
+  }
+
+  .lightbox__caption {
+    color: var(--nocturno-muted);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+  }
+
+  .lightbox__control {
+    position: fixed;
+    display: grid;
+    place-items: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    padding: 0;
+    border: 0;
+    border-radius: 2px;
+    color: var(--nocturno-title);
+    background: transparent;
+    font-size: 1.75rem;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  .lightbox__control:hover {
+    background: var(--nocturno-rule);
+  }
+
+  .lightbox__control[hidden] {
+    display: none;
+  }
+
+  .lightbox__close {
+    top: 0.75rem;
+    right: 0.75rem;
+  }
+
+  .lightbox__prev,
+  .lightbox__next {
+    top: 50%;
+    transform: translateY(-50%);
+  }
+
+  .lightbox__prev {
+    left: 0.75rem;
+  }
+
+  .lightbox__next {
+    right: 0.75rem;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .lightbox[open] {
+      animation: lightbox-in 150ms ease;
+    }
+
+    @keyframes lightbox-in {
+      from {
+        opacity: 0;
+      }
+    }
+  }
+</style>

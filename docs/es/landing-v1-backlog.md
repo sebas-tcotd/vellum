@@ -119,7 +119,10 @@ tokens desde `DESIGN.md`.
    andamiaje Astro conservando `/vellum/#download` y `/vellum/privacy`, con
    tests, hecho; (3) ~~datos del release al compilar + workflow~~, hecho; (4)
    ~~spike de CSS de componentes~~, hecho (viable: componentes reales, sin las
-   capturas T37/T35); (5) páginas.
+   capturas T37/T35); (5) páginas: (5a) base común y home en EN/ES, con las
+   tomas de v1.0; faltan los datos que lista `shots:report` (autores del
+   Workshop, URL de Bridge e insignias oscuras de la Store); Descarga, Guía, Novedades, Manifiesto y la
+   privacidad nueva siguen pendientes.
 
 ## D. Ciudades de las tomas
 

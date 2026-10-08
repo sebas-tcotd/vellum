@@ -1,0 +1,131 @@
+---
+/**
+ * Analytics consent as a non-modal region, right after the skip link
+ * (EXPERIENCE.md · State Patterns · Consentimiento). Served hidden: the script
+ * shows it while there is no valid choice. Google is only loaded after
+ * Accept, and never from /privacy (which does not use this component).
+ */
+import { privacyHref, type Lang } from '../../content/routes';
+import { SITE } from '../../content/site';
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const t = SITE[lang].consent;
+---
+
+<section
+  class="consent"
+  role="region"
+  aria-label={t.region}
+  id="analytics-consent"
+  tabindex="-1"
+  hidden
+  data-consent
+>
+  <div class="consent__inner">
+    <p class="consent__text">
+      {t.body}{' '}
+      <a class="link" href={privacyHref(lang)}>{t.policy}</a>
+    </p>
+    <div class="consent__actions">
+      <button
+        class="button button--secondary"
+        type="button"
+        data-consent-choice="rejected">{t.reject}</button
+      >
+      <button
+        class="button button--secondary"
+        type="button"
+        data-consent-choice="accepted">{t.accept}</button
+      >
+      <button
+        class="button button--secondary"
+        type="button"
+        hidden
+        data-consent-close>{t.close}</button
+      >
+    </div>
+  </div>
+</section>
+
+<script>
+  import {
+    consentKey,
+    readConsent,
+    revokeAnalytics,
+    saveConsent,
+    startAnalytics,
+    type AnalyticsChoice,
+  } from '../../analytics';
+
+  const bar = document.querySelector<HTMLElement>('[data-consent]');
+  const reopen = document.querySelector<HTMLButtonElement>(
+    '[data-consent-open]',
+  );
+  const close = bar?.querySelector<HTMLButtonElement>('[data-consent-close]');
+  const main = document.getElementById('contenido');
+  let choice = readConsent();
+
+  /** Keeps focused elements clear of the fixed bar (WCAG 2.4.11). */
+  function syncPadding() {
+    const fixed = bar && !bar.hidden && getComputedStyle(bar).position === 'fixed';
+    document.documentElement.style.scrollPaddingBottom = fixed
+      ? `${bar.offsetHeight + 16}px`
+      : '';
+  }
+
+  function show(open: boolean) {
+    if (!bar) return;
+    bar.hidden = !open;
+    if (close) close.hidden = choice === null;
+    syncPadding();
+  }
+
+  if (bar) {
+    if (choice === 'accepted') startAnalytics();
+    show(choice === null);
+    if (reopen) reopen.hidden = false;
+    addEventListener('resize', syncPadding);
+
+    for (const button of bar.querySelectorAll<HTMLButtonElement>(
+      '[data-consent-choice]',
+    )) {
+      button.addEventListener('click', () => {
+        const next = button.dataset.consentChoice as AnalyticsChoice;
+        const wasAccepted = choice === 'accepted';
+        saveConsent(next);
+        choice = next;
+        show(false);
+        main?.focus();
+        if (next === 'accepted') startAnalytics();
+        else if (wasAccepted) revokeAnalytics();
+      });
+    }
+
+    close?.addEventListener('click', () => {
+      show(false);
+      main?.focus();
+    });
+
+    reopen?.addEventListener('click', () => {
+      show(true);
+      bar.focus();
+    });
+
+    // A choice made in another tab applies here too.
+    addEventListener('storage', (event) => {
+      if (event.key !== consentKey && event.key !== null) return;
+      const next = readConsent();
+      if (choice === 'accepted' && next !== 'accepted') {
+        revokeAnalytics();
+        return;
+      }
+      choice = next;
+      if (next === 'accepted') startAnalytics();
+      show(next === null);
+    });
+  }
+</script>

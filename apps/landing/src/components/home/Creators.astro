@@ -1,0 +1,40 @@
+---
+/** Home 08: for people who tell their city (video, stream, sharing). */
+import { HOME } from '../../content/home';
+import type { Lang } from '../../content/routes';
+import CityCredit from './CityCredit.astro';
+import Section from './Section.astro';
+import Shot from './Shot.astro';
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const t = HOME[lang].creators;
+---
+
+<Section id="creadores" {...t}>
+  <figure class="figure">
+    <div class="creators__frame">
+      <p class="creators__frame-label" aria-hidden="true">{t.frame}</p>
+      <Shot id="T20" lang={lang} sizes="(max-width: 1023px) 100vw, 70vw" widths={[800, 1280, 1920]} />
+    </div>
+    <figcaption >
+      {t.caption}
+      <br />
+      <CityCredit city="costaTijuca" lang={lang} />
+    </figcaption>
+  </figure>
+  <ul class="creators-cards" role="list">
+    {
+      t.cards.map((card) => (
+        <li>
+          <p class="cell-key">{card.key}</p>
+          <h3 class="cell-title">{card.title}</h3>
+          <p class="cell-body">{card.body}</p>
+        </li>
+      ))
+    }
+  </ul>
+</Section>

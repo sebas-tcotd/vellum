@@ -1,0 +1,66 @@
+---
+/**
+ * One step of the Guide (DESIGN.md · Paso de la Guía): the number with
+ * «STEP n OF N» (decorative: the `<ol>` already gives the position), the H2,
+ * the body, the keys, the tip and the figure. A final shot shows its image
+ * with the app version in the caption; a missing one shows the `Shot`
+ * placeholder at the same ratio.
+ */
+import type { GuideStepCopy } from '../../content/guide';
+import { fill } from '../../content/home';
+import type { Lang } from '../../content/routes';
+import { SITE } from '../../content/site';
+import { resolveShot } from '../../lib/shots';
+import { rich, richLinks, type RichLink } from '../../lib/rich';
+import Shot from '../home/Shot.astro';
+
+interface Props {
+  lang: Lang;
+  step: GuideStepCopy;
+  n: number;
+  total: number;
+  stepOf: string;
+  required: string;
+  links: Record<string, RichLink>;
+}
+
+const { lang, step, n, total, stepOf, required, links } = Astro.props;
+const newTab = SITE[lang].newTab;
+const shot = resolveShot(step.shot, lang);
+const version = shot.status === 'final' ? shot.entry.version : undefined;
+---
+
+<li
+  class:list={['guide-step', { 'guide-step--required': step.required }]}
+  id={step.id}
+  data-guide-step
+>
+  <div class="guide-step__num" aria-hidden="true">
+    {n}<span>{fill(stepOf, { n: String(n), total: String(total) })}</span>
+  </div>
+  <div class="guide-step__text">
+    <h2 id={`${step.id}-title`} set:html={rich(step.title)} />
+    {step.required && <p class="guide-step__flag">{required}</p>}
+    {step.body.map((paragraph) => <p set:html={richLinks(paragraph, links, newTab)} />)}
+    {
+      step.keys && (
+        <p class="guide-step__keys" set:html={step.keys.map(rich).join(' · ')} />
+      )
+    }
+    <slot />
+    {
+      step.tip && (
+        <p class="guide-step__tip" set:html={richLinks(step.tip, links, newTab)} />
+      )
+    }
+  </div>
+  <figure class="guide-step__figure">
+    <Shot
+      id={step.shot}
+      lang={lang}
+      sizes="(min-width: 1024px) 340px, (min-width: 641px) 60vw, 100vw"
+      widths={[480, 800, 1200]}
+    />
+    {version && <figcaption>Vellum {version}</figcaption>}
+  </figure>
+</li>

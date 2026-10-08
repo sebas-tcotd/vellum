@@ -1,0 +1,114 @@
+---
+/**
+ * `#all-platforms`: one card per system (`#windows`, `#macos`, `#linux`) in
+ * the fixed order of the served HTML, every format with its direct link and
+ * none emphasized. The detection script moves the detected card first and
+ * adds "Recommended for your system" to its key; it never hides a card.
+ */
+import { DOWNLOAD } from '../../content/download';
+import { fill } from '../../content/home';
+import type { Lang } from '../../content/routes';
+import { releasesUrl, type PagePlatform } from '../../data/release';
+import {
+  PLATFORM_NAMES,
+  formatExtension,
+  formatSize,
+} from '../../lib/download-format';
+import { rich } from '../../lib/rich';
+import StoreBadge from '../StoreBadge.astro';
+import DlSection from './DlSection.astro';
+
+interface Props {
+  lang: Lang;
+  platforms: PagePlatform[];
+}
+
+const { lang, platforms } = Astro.props;
+const t = DOWNLOAD[lang].platforms;
+// The MSI of the page language goes before the other one.
+const rank = (format: string) =>
+  format === `msi-${lang}` ? 0 : format.startsWith('msi-') ? 1 : 0;
+---
+
+<DlSection
+  id="all-platforms"
+  eyebrow={t.eyebrow}
+  title={t.title}
+  note={t.note}
+>
+  <ul class="dl-cards" role="list" data-cards>
+    {
+      platforms.map((platform) => {
+        const files = [
+          ...(platform.primary ? [platform.primary] : []),
+          ...[...platform.alternatives].sort(
+            (a, b) => rank(a.format) - rank(b.format),
+          ),
+        ];
+        return (
+          <li
+            class="dl-card"
+            id={platform.id}
+            data-platform={platform.id}
+            aria-labelledby={`${platform.id}-name`}
+          >
+            <p class="dl-card__key">{t.keys[platform.id]}</p>
+            <h3 id={`${platform.id}-name`}>{PLATFORM_NAMES[platform.id]}</h3>
+            <p class="dl-card__meta">{t.meta[platform.id]}</p>
+            <ul class="dl-rows" role="list">
+              {platform.id === 'windows' && (
+                <li class="dl-row">
+                  <span class="dl-row__what">{t.store}</span>
+                  <StoreBadge
+                    lang={lang}
+                    alt={DOWNLOAD[lang].primary.storeAlt}
+                    class="dl-row__badge"
+                  />
+                </li>
+              )}
+              {files.map((file) => (
+                <li class="dl-row">
+                  <span class="dl-row__what">
+                    {t.formats[file.format] ?? file.name}
+                    <span class="dl-row__file">
+                      {file.name} · {formatSize(file.size, lang)}
+                    </span>
+                  </span>
+                  <a class="link dl-row__action" href={file.url} data-download>
+                    {fill(t.action, { format: formatExtension(file.format) })}
+                    <span class="visually-hidden"> · {file.name}</span>
+                    <span class="arrow" aria-hidden="true">
+                      {' '}
+                      ↓
+                    </span>
+                  </a>
+                </li>
+              ))}
+              {platform.fallbackUrl && (
+                <li class="dl-row">
+                  <a class="link dl-row__action" href={platform.fallbackUrl}>
+                    {t.allDownloads}
+                  </a>
+                </li>
+              )}
+            </ul>
+            {platform.id === 'windows' && (
+              <p class="dl-card__note">
+                {t.windowsNote}{' '}
+                <a class="link" href="#smartscreen">
+                  {t.windowsNoteLink}
+                </a>
+              </p>
+            )}
+            {platform.id === 'macos' && (
+              <p class="dl-card__note" set:html={rich(t.gatekeeper)} />
+            )}
+          </li>
+        );
+      })
+    }
+  </ul>
+  <p class="dl-all">
+    <a class="link" href={releasesUrl}>{t.allDownloads}</a>
+  </p>
+</DlSection>

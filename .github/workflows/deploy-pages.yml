@@ -144,6 +144,69 @@ jobs:
           grep -q 'releases/download/v' "$html_file"
           check_assets
 
+          # Spanish home: the language switcher, hreflang and the legacy
+          # ?lang=es links lead here.
+          fetch "${page_url}es/" --output "$html_file"
+          grep -q '<html lang="es">' "$html_file"
+          grep -q "<link rel=\"canonical\" href=\"${page_url}es/\">" "$html_file"
+          grep -q 'id="download"' "$html_file"
+          grep -q 'releases/download/v' "$html_file"
+          check_assets
+
+          # Download page in both languages: the nav button leads here.
+          for download_path in download/ es/descargar/; do
+            fetch "${page_url}${download_path}" --output "$html_file"
+            case "$download_path" in
+              download/) grep -q '<html lang="en">' "$html_file" ;;
+              *) grep -q '<html lang="es">' "$html_file" ;;
+            esac
+            grep -q "<link rel=\"canonical\" href=\"${page_url}${download_path}\">" "$html_file"
+            grep -q 'releases/download/v' "$html_file"
+            if grep -qi '\.msix' "$html_file"; then
+              echo "::error::${download_path} offers the Store .msix"
+              exit 1
+            fi
+            check_assets
+          done
+
+          # Guide in both languages: the nav and the post-download block lead
+          # here.
+          for guide_path in guide/ es/guia/; do
+            fetch "${page_url}${guide_path}" --output "$html_file"
+            case "$guide_path" in
+              guide/)
+                grep -q '<html lang="en">' "$html_file"
+                grep -q '<title>Guide · Vellum</title>' "$html_file"
+                ;;
+              *)
+                grep -q '<html lang="es">' "$html_file"
+                grep -q '<title>Guía · Vellum</title>' "$html_file"
+                ;;
+            esac
+            grep -q "<link rel=\"canonical\" href=\"${page_url}${guide_path}\">" "$html_file"
+            grep -q 'id="bridge"' "$html_file"
+            check_assets
+          done
+
+          # What's new and the Manifesto in both languages: the nav and the
+          # footer lead here.
+          for page_path in changelog/ es/novedades/ manifesto/ es/manifiesto/; do
+            fetch "${page_url}${page_path}" --output "$html_file"
+            case "$page_path" in
+              changelog/) title='What’s new · Vellum' ;;
+              es/novedades/) title='Novedades · Vellum' ;;
+              manifesto/) title='Manifesto · Vellum' ;;
+              *) title='Manifiesto · Vellum' ;;
+            esac
+            case "$page_path" in
+              es/*) grep -q '<html lang="es">' "$html_file" ;;
+              *) grep -q '<html lang="en">' "$html_file" ;;
+            esac
+            grep -qF "<title>${title}</title>" "$html_file"
+            grep -q "<link rel=\"canonical\" href=\"${page_url}${page_path}\">" "$html_file"
+            check_assets
+          done
+
           # Privacy is the Partner Center URL: a real static page in both
           # directory forms, without SPA fallback, analytics or redirects
           # other than the trailing-slash one.
@@ -151,7 +214,7 @@ jobs:
             final_url="$(fetch "${page_url}${privacy_path}" \
               --output "$html_file" --write-out '%{url_effective}')"
             test "$final_url" = "${page_url}privacy/"
-            grep -q '<title>Privacy | Vellum City Maps</title>' "$html_file"
+            grep -q '<title>Privacy · Vellum</title>' "$html_file"
             grep -q 'data-page="privacy"' "$html_file"
             grep -q '<html lang="en">' "$html_file"
             grep -q "<link rel=\"canonical\" href=\"${page_url}privacy/\">" "$html_file"
@@ -162,10 +225,22 @@ jobs:
             check_assets
           done
 
+          # Its Spanish version: static too, never Google.
+          fetch "${page_url}es/privacidad/" --output "$html_file"
+          grep -q '<title>Privacidad · Vellum</title>' "$html_file"
+          grep -q 'data-page="privacy"' "$html_file"
+          grep -q '<html lang="es">' "$html_file"
+          grep -q "<link rel=\"canonical\" href=\"${page_url}es/privacidad/\">" "$html_file"
+          if grep -qiE 'googletagmanager|gtag\(' "$html_file"; then
+            echo '::error::Spanish privacy page unexpectedly loads analytics'
+            exit 1
+          fi
+          check_assets
+
           # A missing route answers the real 404 page, never the home.
           status="$(curl --silent --show-error --retry 5 --retry-delay 5 \
             --output "$html_file" --write-out '%{http_code}' \
             "${page_url}no-existe/")"
           test "$status" = '404'
-          grep -q '<title>Page not found | Vellum</title>' "$html_file"
+          grep -q '<title>Page not found · Vellum</title>' "$html_file"
           check_assets

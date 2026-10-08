@@ -1,0 +1,179 @@
+---
+/**
+ * Home 03: the layer strip (6 thumbnails, aria-pressed) over a stage that
+ * shows the active accumulation of layers, next to the real layer options
+ * panel of the app. Without JS: the six thumbnails and the all-layers image.
+ */
+import { HOME, fill } from '../../content/home';
+import type { Lang } from '../../content/routes';
+import { SHOTS, type ShotId } from '../../content/shots';
+import { CITIES } from '../../content/cities';
+import { shotData } from '../../lib/shots';
+import AppEmbed from '../app-embed/AppEmbed.astro';
+import { SampleAdvancedOptionsPanel } from '../app-embed/SampleComponents';
+import CityCredit from './CityCredit.astro';
+import Section from './Section.astro';
+import Shot from './Shot.astro';
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const t = HOME[lang].layers;
+const ids: ShotId[] = ['T05', 'T06', 'T07', 'T08', 'T09', 'T10'];
+const stageSizes = '(max-width: 1023px) 100vw, 55vw';
+const stages = await Promise.all(
+  ids.map((id) => shotData(id, lang, [640, 960, 1280, 1600])),
+);
+---
+
+<Section id="capas" {...t}>
+  <div class="layers">
+    <div>
+      <figure class="figure">
+        <div
+          class="layer-stage"
+          data-layer-stage
+          data-layers={JSON.stringify(stages)}
+          data-sizes={stageSizes}
+        >
+          <Shot id="T10" lang={lang} sizes={stageSizes} widths={[640, 960, 1280, 1600]} />
+        </div>
+        <figcaption>{fill(t.allCaption, { city: CITIES[SHOTS.T10.city].city })}
+        <br />
+        <CityCredit city={SHOTS.T10.city} lang={lang} />
+      </figcaption>
+      </figure>
+      <ul class="layer-strip" role="list" aria-label={t.stripLabel}>
+        {
+          ids.map((id, index) => (
+            <li>
+              <div
+                class="layer-thumb"
+                data-layer-thumb={index}
+              >
+                <Shot
+                  id={id}
+                  lang={lang}
+                  sizes="(max-width: 640px) 30vw, 9vw"
+                  widths={[240, 400]}
+                  ratio={4 / 3}
+                  decorative
+                />
+                <span>
+                  <span class="layer-thumb__num">
+                    {String(index + 1).padStart(2, '0')}
+                  </span>{' '}
+                  {t.names[index]}
+                </span>
+              </div>
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+    <figure class="app-frame">
+      <AppEmbed platform="linux" appearance="light" width={272}>
+        <SampleAdvancedOptionsPanel language={lang} />
+      </AppEmbed>
+      <figcaption class="caption">{t.panelCaption}</figcaption>
+      <p class="app-frame__note">{t.panelNote}</p>
+    </figure>
+  </div>
+</Section>
+
+<script>
+  import type { ShotData } from '../../lib/shots';
+  import { onceVisible, motionAllowed } from '../../scripts/motion';
+
+  const stage = document.querySelector<HTMLElement>('[data-layer-stage]');
+  const thumbs = [
+    ...document.querySelectorAll<HTMLElement>('[data-layer-thumb]'),
+  ];
+  if (stage && thumbs.length > 0) {
+    const layers = JSON.parse(stage.dataset.layers ?? '[]') as ShotData[];
+    const sizes = stage.dataset.sizes ?? '100vw';
+    const base = stage.querySelector('.shot') as HTMLElement | null;
+    let touring = false;
+    let userChose = false;
+    let tourTimer = 0;
+
+    const show = (index: number, fade: boolean) => {
+      const layer = layers[index];
+      stage.querySelectorAll('.shot + .shot').forEach((old) => old.remove());
+      if (!base || !layer?.sources) return;
+      const overlay = base.cloneNode(true) as HTMLElement;
+      overlay.querySelector('.shot-tag')?.remove();
+      const img = overlay.querySelector('img');
+      if (!img) return;
+      img.srcset = layer.sources.srcset;
+      img.src = layer.sources.src;
+      img.sizes = sizes;
+      img.alt = layer.alt;
+      img.loading = 'eager';
+      const baseImg = base.querySelector('img');
+      if (index === layers.length - 1 && baseImg) {
+        baseImg.alt = layer.alt;
+        return;
+      }
+      if (fade && motionAllowed()) {
+        overlay.style.opacity = '0';
+        stage.append(overlay);
+        requestAnimationFrame(() =>
+          requestAnimationFrame(() => (overlay.style.opacity = '1')),
+        );
+      } else stage.append(overlay);
+      if (baseImg) baseImg.alt = '';
+    };
+
+    const select = (index: number) => {
+      userChose = true;
+      stopTour();
+      thumbs.forEach((thumb, i) =>
+        thumb.setAttribute('aria-pressed', String(i === index)),
+      );
+      show(index, true);
+    };
+
+    const stopTour = () => {
+      if (!touring) return;
+      touring = false;
+      clearTimeout(tourTimer);
+    };
+
+    // Upgrade the static thumbnails into toggle buttons.
+    thumbs.forEach((thumb, index) => {
+      thumb.setAttribute('role', 'button');
+      thumb.setAttribute('aria-pressed', String(index === thumbs.length - 1));
+      thumb.tabIndex = 0;
+      thumb.addEventListener('click', () => select(index));
+      thumb.addEventListener('focus', () => {
+        userChose = true;
+        stopTour();
+      });
+      thumb.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          select(index);
+        }
+      });
+    });
+
+    // One automatic pass when the strip comes into view, then it stays
+    // still; aria-pressed does not change during the pass.
+    onceVisible(stage, () => {
+      if (userChose || !motionAllowed()) return;
+      touring = true;
+      let step = 0;
+      const next = () => {
+        if (!touring) return;
+        show(step, true);
+        step += 1;
+        if (step < layers.length) tourTimer = window.setTimeout(next, 500);
+        else touring = false;
+      };
+      next();
+    });
+  }
+</script>

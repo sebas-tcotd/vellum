@@ -1,0 +1,49 @@
+---
+/** Home 09: the export with its real marginalia, framed like a print. */
+import { HOME } from '../../content/home';
+import type { Lang } from '../../content/routes';
+import CityCredit from './CityCredit.astro';
+import Section from './Section.astro';
+import Shot from './Shot.astro';
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const t = HOME[lang].plate;
+---
+
+<div class="plate-band">
+  <Section id="lamina" {...t}>
+    <div class="plate">
+      <figure>
+        <div class="plate__frame">
+          <div class="plate__mat">
+            <div class="plate__art">
+              <Shot id="T21" lang={lang} sizes="(max-width: 1023px) 100vw, 60vw" widths={[800, 1280, 1920]} />
+            </div>
+          </div>
+        </div>
+        <figcaption class="caption">
+          <CityCredit city="costaTijuca" lang={lang} />
+        </figcaption>
+      </figure>
+      <div class="plate__cartel">
+        <h3>{t.cartelTitle}</h3>
+        <p class="plate__meta">{t.cartelMeta}</p>
+        <dl class="plate__rows">
+          {
+            t.rows.map((row) => (
+              <div>
+                <dt>{row.key}</dt>
+                <dd>{row.value}</dd>
+              </div>
+            ))
+          }
+        </dl>
+        <p class="plate__foot">{t.footnote}</p>
+      </div>
+    </div>
+  </Section>
+</div>

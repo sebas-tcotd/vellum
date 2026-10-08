@@ -1,8 +1,9 @@
-/** Shell profile of the app (`data-platform`). */
-export type EmbedPlatform = 'linux' | 'macos' | 'windows';
+import type {
+  EmbedAppearance,
+  EmbedPlatform,
+} from '../src/components/app-embed/types';
 
-/** App chrome appearance (`data-appearance`). */
-export type EmbedAppearance = 'light' | 'dark';
+export type { EmbedAppearance, EmbedPlatform };
 
 /** One compared rendering of the components. */
 export interface SpikeVariant {

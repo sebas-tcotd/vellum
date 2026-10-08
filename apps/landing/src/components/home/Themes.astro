@@ -1,0 +1,348 @@
+---
+/**
+ * Home 04: the Day/Transit comparator and the theme chips in two radio
+ * groups (left side, right side). Without JS: Day and Transit whole, side by
+ * side, and the chips as static thumbnails with their names.
+ */
+import { HOME, THEME_NAMES, fill, type ThemeId } from '../../content/home';
+import { THEME_SCHEMA_URL } from '../../content/links';
+import type { Lang } from '../../content/routes';
+import { SITE } from '../../content/site';
+import { SHOTS, type ShotId } from '../../content/shots';
+import { CITIES } from '../../content/cities';
+import { shotData } from '../../lib/shots';
+import CityCredit from './CityCredit.astro';
+import Section from './Section.astro';
+import Shot from './Shot.astro';
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const t = HOME[lang].themes;
+const THEME_SHOTS: Record<ThemeId, ShotId> = {
+  day: 'T10',
+  transit: 'T11',
+  classic: 'T12',
+  grayscale: 'T13',
+  grayscaleWater: 'T14',
+};
+const themes = Object.keys(THEME_SHOTS) as ThemeId[];
+const inherited: ThemeId[] = ['classic', 'grayscale', 'grayscaleWater'];
+const sizes = '(max-width: 1023px) 100vw, 70vw';
+const data = Object.fromEntries(
+  await Promise.all(
+    themes.map(async (theme) => [
+      theme,
+      {
+        name: THEME_NAMES[theme],
+        ...(await shotData(THEME_SHOTS[theme], lang, [800, 1280, 1920])),
+      },
+    ]),
+  ),
+);
+const strings = {
+  divider: t.divider,
+  swapped: t.swapped,
+  leftShort: t.leftShort,
+  rightShort: t.rightShort,
+  unavailable: t.unavailable,
+  standIn: HOME[lang].standIn,
+};
+const sides = [
+  { id: 'left', label: t.left },
+  { id: 'right', label: t.right },
+] as const;
+---
+
+<Section id="temas" {...t}>
+  <p slot="body">
+    <a class="link" href={THEME_SCHEMA_URL[lang]} target="_blank" rel="noopener">
+      {t.schemaLink}<span aria-hidden="true"> ↗</span>
+      <span class="visually-hidden">{SITE[lang].newTab}</span>
+    </a>
+  </p>
+  <figure class="figure">
+    <div
+      class="comparator comparator--static"
+      data-comparator
+      data-themes={JSON.stringify(data)}
+      data-strings={JSON.stringify(strings)}
+      data-sizes={sizes}
+    >
+      <div class="comparator__side comparator__side--left" data-side="left">
+        <Shot id="T10" lang={lang} sizes={sizes} widths={[800, 1280, 1920]} />
+      </div>
+      <div class="comparator__side comparator__side--right" data-side="right">
+        <Shot id="T11" lang={lang} sizes={sizes} widths={[800, 1280, 1920]} />
+      </div>
+    </div>
+    <figcaption class="comparator__caption">
+      <span>{fill(t.compare, { city: CITIES[SHOTS.T10.city].city })}</span>
+      <CityCredit city={SHOTS.T10.city} lang={lang} />
+    </figcaption>
+  </figure>
+  <div class="theme-groups">
+    {
+      sides.map((side) => (
+        <div class="theme-group" data-theme-side={side.id}>
+          <p class="theme-group__label" id={`themes-${side.id}-label`}>
+            {side.label}
+          </p>
+          <ul
+            class="theme-chips"
+            role="list"
+            data-theme-group={side.id}
+            aria-labelledby={`themes-${side.id}-label`}
+          >
+            {themes.map((theme) => (
+              <li>
+                <div
+                  class="theme-chip"
+                  data-theme={theme}
+                  data-inherited={inherited.includes(theme) ? '' : undefined}
+                >
+                  <Shot
+                    id={THEME_SHOTS[theme]}
+                    lang={lang}
+                    sizes="(max-width: 640px) 30vw, 12vw"
+                    widths={[240, 400]}
+                    decorative
+                  />
+                  <span class="theme-chip__name" lang="en">
+                    {THEME_NAMES[theme]}
+                  </span>
+                  <span class="theme-chip__local">{t.localized[theme]}</span>
+                </div>
+              </li>
+            ))}
+          </ul>
+          <p class="theme-inherited">{t.inherited}: Classic · Grayscale · Grayscale + Water</p>
+        </div>
+      ))
+    }
+    <p class="visually-hidden" aria-live="polite" data-theme-live></p>
+  </div>
+</Section>
+
+<script>
+  import type { ShotData } from '../../lib/shots';
+  import { motionAllowed } from '../../scripts/motion';
+
+  type Side = 'left' | 'right';
+  type ThemeData = ShotData & { name: string };
+
+  const comparator = document.querySelector<HTMLElement>('[data-comparator]');
+  if (comparator) {
+    const themes = JSON.parse(comparator.dataset.themes ?? '{}') as Record<
+      string,
+      ThemeData
+    >;
+    const strings = JSON.parse(comparator.dataset.strings ?? '{}') as Record<
+      string,
+      string
+    >;
+    const sizes = comparator.dataset.sizes ?? '100vw';
+    const live = document.querySelector<HTMLElement>('[data-theme-live]');
+    const state: Record<Side, string> = { left: 'day', right: 'transit' };
+    let split = 52;
+
+    // ── Comparator ────────────────────────────────────────
+    comparator.classList.remove('comparator--static');
+    const tags = { left: document.createElement('span'), right: document.createElement('span') };
+    tags.left.className = 'comparator__tag comparator__tag--left';
+    tags.right.className = 'comparator__tag comparator__tag--right';
+    tags.left.setAttribute('aria-hidden', 'true');
+    tags.right.setAttribute('aria-hidden', 'true');
+    const handle = document.createElement('div');
+    handle.className = 'comparator__handle';
+    handle.tabIndex = 0;
+    handle.setAttribute('role', 'slider');
+    handle.setAttribute('aria-label', strings.divider ?? '');
+    handle.setAttribute('aria-valuemin', '0');
+    handle.setAttribute('aria-valuemax', '100');
+    handle.innerHTML = '<span class="comparator__knob" aria-hidden="true">↔</span>';
+    comparator.append(tags.left, tags.right, handle);
+
+    const render = () => {
+      comparator.style.setProperty('--split', `${split}%`);
+      const left = themes[state.left]?.name ?? '';
+      const right = themes[state.right]?.name ?? '';
+      handle.setAttribute('aria-valuenow', String(Math.round(split)));
+      handle.setAttribute(
+        'aria-valuetext',
+        `${Math.round(split)} % ${left} · ${100 - Math.round(split)} % ${right}`,
+      );
+      tags.left.textContent = left;
+      tags.right.textContent = right;
+    };
+
+    const setSplit = (value: number) => {
+      split = Math.min(100, Math.max(0, value));
+      render();
+    };
+
+    handle.addEventListener('keydown', (event) => {
+      const step = event.shiftKey ? 10 : 5;
+      const keys: Record<string, number> = {
+        ArrowLeft: split - step,
+        ArrowDown: split - step,
+        ArrowRight: split + step,
+        ArrowUp: split + step,
+        Home: 0,
+        End: 100,
+      };
+      if (!(event.key in keys)) return;
+      event.preventDefault();
+      setSplit(keys[event.key] ?? split);
+    });
+
+    const fromPointer = (event: PointerEvent) => {
+      const box = comparator.getBoundingClientRect();
+      setSplit(((event.clientX - box.left) / box.width) * 100);
+    };
+    let dragging = false;
+    comparator.addEventListener('pointerdown', (event) => {
+      if (event.button !== 0 || !event.isPrimary) return;
+      // A finger only drags from the handle, so scrolling past the image
+      // never moves the divider.
+      if (event.pointerType === 'touch' && !handle.contains(event.target as Node))
+        return;
+      dragging = true;
+      comparator.setPointerCapture(event.pointerId);
+      fromPointer(event);
+    });
+    comparator.addEventListener('pointermove', (event) => {
+      if (dragging) fromPointer(event);
+    });
+    const stop = () => (dragging = false);
+    comparator.addEventListener('pointerup', stop);
+    comparator.addEventListener('pointercancel', stop);
+
+    const paintSide = (side: Side) => {
+      const container = comparator.querySelector<HTMLElement>(`[data-side="${side}"]`);
+      const theme = themes[state[side]];
+      if (!container || !theme) return;
+      const update = () => {
+        container.replaceChildren(renderShot(theme));
+      };
+      const current = container.querySelector('img');
+      if (current && motionAllowed()) {
+        current.style.opacity = '0';
+        window.setTimeout(update, 300);
+      } else update();
+    };
+
+    const renderShot = (theme: ThemeData) => {
+      const frame = document.createElement('div');
+      frame.className = `shot shot--${theme.status}`;
+      if (theme.sources) {
+        const img = document.createElement('img');
+        img.srcset = theme.sources.srcset;
+        img.src = theme.sources.src;
+        img.sizes = sizes;
+        img.alt = theme.alt;
+        img.width = theme.sources.width;
+        img.height = theme.sources.height;
+        frame.append(img);
+        if (theme.status === 'stand-in') {
+          const tag = document.createElement('span');
+          tag.className = 'shot-tag';
+          tag.setAttribute('aria-hidden', 'true');
+          tag.textContent = `${theme.id} · ${strings.standIn ?? ''}`;
+          frame.append(tag);
+        }
+      } else {
+        const missing = document.createElement('p');
+        missing.className = 'shot-missing';
+        missing.innerHTML = '<span class="shot-missing__id"></span><span></span><span class="shot-missing__what"></span>';
+        const [id, label, what] = missing.children;
+        if (id) id.textContent = theme.id;
+        if (label) label.textContent = strings.unavailable ?? '';
+        if (what) what.textContent = `${theme.name} · ${theme.pending}`;
+        frame.append(missing);
+      }
+      return frame;
+    };
+
+    // ── Theme chips: two APG radio groups ─────────────────
+    const groups = [...document.querySelectorAll<HTMLElement>('[data-theme-group]')];
+    const chipsOf = (group: HTMLElement) => [
+      ...group.querySelectorAll<HTMLElement>('.theme-chip'),
+    ];
+
+    const syncChips = () => {
+      for (const group of groups) {
+        const side = group.dataset.themeGroup as Side;
+        const other: Side = side === 'left' ? 'right' : 'left';
+        for (const chip of chipsOf(group)) {
+          const checked = chip.dataset.theme === state[side];
+          chip.setAttribute('aria-checked', String(checked));
+          chip.tabIndex = checked ? 0 : -1;
+          chip.toggleAttribute('data-other', chip.dataset.theme === state[other]);
+          chip.querySelector('.theme-chip__mark')?.remove();
+          if (checked) {
+            const mark = document.createElement('span');
+            mark.className = 'theme-chip__mark';
+            mark.setAttribute('aria-hidden', 'true');
+            mark.textContent = `✓ ${side === 'left' ? strings.leftShort : strings.rightShort}`;
+            chip.append(mark);
+          }
+        }
+      }
+    };
+
+    const choose = (side: Side, theme: string) => {
+      if (state[side] === theme) return;
+      const other: Side = side === 'left' ? 'right' : 'left';
+      const swapped = state[other] === theme;
+      if (swapped) state[other] = state[side];
+      state[side] = theme;
+      paintSide(side);
+      if (swapped) paintSide(other);
+      syncChips();
+      render();
+      if (swapped && live)
+        live.textContent = (strings.swapped ?? '')
+          .replace('{left}', themes[state.left]?.name ?? '')
+          .replace('{right}', themes[state.right]?.name ?? '');
+    };
+
+    for (const group of groups) {
+      const side = group.dataset.themeGroup as Side;
+      group.setAttribute('role', 'radiogroup');
+      for (const item of group.querySelectorAll('li')) item.setAttribute('role', 'none');
+      const chips = chipsOf(group);
+      chips.forEach((chip, index) => {
+        chip.setAttribute('role', 'radio');
+        chip.addEventListener('click', () => {
+          choose(side, chip.dataset.theme ?? '');
+          chip.focus();
+        });
+        chip.addEventListener('keydown', (event) => {
+          const delta =
+            event.key === 'ArrowRight' || event.key === 'ArrowDown'
+              ? 1
+              : event.key === 'ArrowLeft' || event.key === 'ArrowUp'
+                ? -1
+                : 0;
+          if (event.key === ' ' || event.key === 'Enter') {
+            event.preventDefault();
+            choose(side, chip.dataset.theme ?? '');
+            return;
+          }
+          if (delta === 0) return;
+          event.preventDefault();
+          const next = chips[(index + delta + chips.length) % chips.length];
+          if (!next) return;
+          choose(side, next.dataset.theme ?? '');
+          next.focus();
+        });
+      });
+    }
+
+    syncChips();
+    render();
+  }
+</script>
