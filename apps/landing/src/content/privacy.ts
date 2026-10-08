@@ -38,7 +38,7 @@ export const PRIVACY: Record<Lang, PrivacyCopy> = {
     },
     eyebrow: 'Vellum City Maps',
     title: 'Privacy policy',
-    updated: 'Last updated: October 1, 2026',
+    updated: 'Last updated: October 8, 2026',
     intro:
       'Your cities stay on your computer. This policy distinguishes the desktop application from this website.',
     sections: [
@@ -79,7 +79,7 @@ export const PRIVACY: Record<Lang, PrivacyCopy> = {
       {
         id: 'website',
         title: 'Website analytics',
-        body: 'The main Vellum landing page uses Google Analytics 4 to measure website visits and usage. It loads only after you accept optional analytics in the consent banner. You can reject analytics or change your choice at any time using Analytics preferences. Advertising consent remains denied. Google Signals is disabled and no Google Ads account is linked. Google may process cookies, identifiers, device/browser details and usage information. Google receives your IP address through the connection; Google states that Analytics uses IP addresses to derive approximate location and does not log or store individual IP addresses from users in the EU, Switzerland or the UK. Processing elsewhere is governed by Google’s policies. Website analytics is separate from the desktop application. This privacy page does not load Google Analytics or its own analytics scripts. You can restrict cookies through your browser or use Google’s Analytics opt-out add-on in supported browsers. Blocking cookies alone may not prevent all analytics requests.',
+        body: 'Every page of the Vellum website except this privacy page uses Google Analytics 4 to measure website visits and usage. It loads only after you accept optional analytics in the consent banner. You can reject analytics or change your choice at any time using Analytics preferences. Advertising consent remains denied. Google Signals is disabled and no Google Ads account is linked. Google may process cookies, identifiers, device/browser details and usage information. Google receives your IP address through the connection; Google states that Analytics uses IP addresses to derive approximate location and does not log or store individual IP addresses from users in the EU, Switzerland or the UK. Processing elsewhere is governed by Google’s policies. Website analytics is separate from the desktop application. This privacy page does not load Google Analytics or its own analytics scripts. You can restrict cookies through your browser or use Google’s Analytics opt-out add-on in supported browsers. Blocking cookies alone may not prevent all analytics requests.',
         links: [
           {
             href: 'https://tools.google.com/dlpage/gaoptout',
@@ -98,7 +98,7 @@ export const PRIVACY: Record<Lang, PrivacyCopy> = {
       {
         id: 'preferences',
         title: 'Website preferences',
-        body: "The website stores your language and theme choices in browser local storage (vellum-landing-language and vellum-page-theme). These preferences stay in your browser and are not sent by Vellum to a server. You can clear them using your browser's site data controls. Your analytics choice is stored locally under vellum-analytics-consent-v1. If storage is unavailable, it applies only to the current page. Withdrawing acceptance stops future analytics on this site and removes accessible Google Analytics cookies; the page reloads to unload the tag.",
+        body: "The website stores your language and theme choices in browser local storage (vellum-landing-language and vellum-page-theme). These preferences stay in your browser and are not sent by Vellum to a server. You can clear them using your browser's site data controls. It also keeps a session marker in session storage (vellum-landing-session) that only records whether this is the first page of your visit, to decide the language redirect; it is deleted when you close the tab and is never sent anywhere. Your analytics choice is stored locally under vellum-analytics-consent-v1. If storage is unavailable, it applies only to the current page. Withdrawing acceptance stops future analytics on this site and removes accessible Google Analytics cookies; the page reloads to unload the tag.",
         links: [],
       },
       {
@@ -159,7 +159,7 @@ export const PRIVACY: Record<Lang, PrivacyCopy> = {
     },
     eyebrow: 'Vellum City Maps',
     title: 'Política de privacidad',
-    updated: 'Última actualización: 1 de octubre de 2026',
+    updated: 'Última actualización: 8 de octubre de 2026',
     intro:
       'Tus ciudades permanecen en tu equipo. Esta política distingue la aplicación de escritorio de este sitio web.',
     sections: [
@@ -200,7 +200,7 @@ export const PRIVACY: Record<Lang, PrivacyCopy> = {
       {
         id: 'website',
         title: 'Analítica del sitio web',
-        body: 'La página principal de Vellum utiliza Google Analytics 4 para medir las visitas y el uso del sitio. Solo se carga después de que aceptes la analítica opcional en el aviso de consentimiento. Puedes rechazarla o cambiar tu elección en cualquier momento desde Preferencias de analítica. El consentimiento publicitario permanece denegado. Google Signals está desactivado y no hay ninguna cuenta de Google Ads vinculada. Google puede tratar cookies, identificadores, detalles del dispositivo y navegador e información de uso. Google recibe tu dirección IP mediante la conexión; según Google, Analytics utiliza las direcciones IP para obtener una ubicación aproximada y no registra ni almacena las direcciones IP individuales de usuarios en la UE, Suiza o el Reino Unido. El tratamiento en otras regiones se rige por las políticas de Google. La analítica web es independiente de la aplicación de escritorio. Esta página de privacidad no carga Google Analytics ni scripts propios de analítica. Puedes restringir las cookies en tu navegador o utilizar el complemento de inhabilitación de Google Analytics en navegadores compatibles. Bloquear solo las cookies puede no impedir todas las solicitudes de analítica.',
+        body: 'Todas las páginas del sitio de Vellum, salvo esta página de privacidad, utilizan Google Analytics 4 para medir las visitas y el uso del sitio. Solo se carga después de que aceptes la analítica opcional en el aviso de consentimiento. Puedes rechazarla o cambiar tu elección en cualquier momento desde Preferencias de analítica. El consentimiento publicitario permanece denegado. Google Signals está desactivado y no hay ninguna cuenta de Google Ads vinculada. Google puede tratar cookies, identificadores, detalles del dispositivo y navegador e información de uso. Google recibe tu dirección IP mediante la conexión; según Google, Analytics utiliza las direcciones IP para obtener una ubicación aproximada y no registra ni almacena las direcciones IP individuales de usuarios en la UE, Suiza o el Reino Unido. El tratamiento en otras regiones se rige por las políticas de Google. La analítica web es independiente de la aplicación de escritorio. Esta página de privacidad no carga Google Analytics ni scripts propios de analítica. Puedes restringir las cookies en tu navegador o utilizar el complemento de inhabilitación de Google Analytics en navegadores compatibles. Bloquear solo las cookies puede no impedir todas las solicitudes de analítica.',
         links: [
           {
             href: 'https://tools.google.com/dlpage/gaoptout',
@@ -219,7 +219,7 @@ export const PRIVACY: Record<Lang, PrivacyCopy> = {
       {
         id: 'preferences',
         title: 'Preferencias del sitio web',
-        body: 'El sitio guarda tus elecciones de idioma y tema en el almacenamiento local del navegador (vellum-landing-language y vellum-page-theme). Estas preferencias permanecen en tu navegador y Vellum no las envía a un servidor. Puedes borrarlas desde los controles de datos del sitio de tu navegador. Tu elección de analítica se guarda localmente con la clave vellum-analytics-consent-v1. Si el almacenamiento no está disponible, solo se aplica a la página actual. Retirar la aceptación detiene la analítica futura en este sitio y elimina las cookies accesibles de Google Analytics; la página se recarga para descargar el script.',
+        body: 'El sitio guarda tus elecciones de idioma y tema en el almacenamiento local del navegador (vellum-landing-language y vellum-page-theme). Estas preferencias permanecen en tu navegador y Vellum no las envía a un servidor. Puedes borrarlas desde los controles de datos del sitio de tu navegador. También guarda una marca de sesión en el almacenamiento de sesión (vellum-landing-session) que solo indica si es la primera página de tu visita, para decidir la redirección de idioma; se borra al cerrar la pestaña y nunca se envía a ningún sitio. Tu elección de analítica se guarda localmente con la clave vellum-analytics-consent-v1. Si el almacenamiento no está disponible, solo se aplica a la página actual. Retirar la aceptación detiene la analítica futura en este sitio y elimina las cookies accesibles de Google Analytics; la página se recarga para descargar el script.',
         links: [],
       },
       {
