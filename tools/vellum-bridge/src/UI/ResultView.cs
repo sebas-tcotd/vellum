@@ -16,7 +16,8 @@ namespace VellumBridge.UI
         public string note;                                  // línea secundaria, más tenue
         public List<string> limits = new List<string>();
         public string details;                               // lo que copia «Copiar detalles»
-        public string folder;                                // carpeta que abre el botón secundario
+        public string folder;                                // carpeta donde quedó el archivo
+        public string file;                                  // archivo exportado: base de las acciones de traspaso
 
         internal static ResultView Progress(string title, string body)
         {
@@ -41,6 +42,7 @@ namespace VellumBridge.UI
                 limits = summary.limits.FindAll(limit => !Strings.IsPermanentNote(limit)),
                 details = ExportSummaryFormatter.Describe(summary),
                 folder = folder,
+                file = summary.path,
             };
         }
     }

@@ -42,6 +42,8 @@ namespace VellumBridge.UI
             Header(width);
             BridgeStyle.Divider(page, width);
 
+            if (!ExportStorage.IntroSeen()) Intro(width);
+
             Title(Strings.ExportTitle);
             Body(Strings.ExportBody, width);
             UIPanel row = BridgeStyle.Row(page, width);
@@ -57,10 +59,10 @@ namespace VellumBridge.UI
             if (badge != null)
             {
                 UITextureSprite store = BridgeStyle.Image(page, badge, 161f);
-                store.eventClick += delegate { Application.OpenURL(BridgeInfo.StoreUrl); };
+                store.eventClick += delegate { DesktopHandoff.Get(null); };
                 BridgeStyle.Link(page, Strings.OtherPlatforms, delegate { BridgeStyle.OpenWeb(BridgeInfo.DesktopUrl); });
             }
-            else BridgeStyle.Button(page, Strings.GetDesktop, false, delegate { BridgeStyle.OpenWeb(BridgeInfo.DesktopUrl); });
+            else BridgeStyle.Button(page, Strings.GetDesktop, false, delegate { DesktopHandoff.Get(null); });
             BridgeStyle.Divider(page, width);
 
             BridgeStyle.Label(page, Strings.DiagnosticsTitle, 0.9f, BridgeStyle.Secondary);
@@ -147,6 +149,28 @@ namespace VellumBridge.UI
             statusDot.relativePosition = new Vector3(0f, 6f);
             status = BridgeStyle.Label(line, "", 0.85f, BridgeStyle.Secondary);
             status.relativePosition = new Vector3(14f, 0f);
+        }
+
+        // Primer uso: qué hace Bridge y qué hace falta aparte. Continuar la descarta para siempre
+        // (ver ExportStorage.IntroSeen).
+        private static void Intro(float width)
+        {
+            UIPanel intro = page.AddUIComponent<UIPanel>();
+            intro.width = width;
+            intro.autoLayout = true;
+            intro.autoLayoutDirection = LayoutDirection.Vertical;
+            intro.autoLayoutPadding = new RectOffset(0, 0, 0, (int)Gap);
+            intro.autoFitChildrenVertically = true;
+            BridgeStyle.Label(intro, Strings.IntroTitle, 1.1f, BridgeStyle.Primary);
+            BridgeStyle.Wrapped(intro, Strings.IntroBody, 0.85f, BridgeStyle.Secondary, width);
+            UIPanel actions = BridgeStyle.Row(intro, width);
+            BridgeStyle.Button(actions, Strings.GetDesktop, false, delegate { DesktopHandoff.Get(null); });
+            BridgeStyle.Button(actions, Strings.Continue, true, delegate
+            {
+                ExportStorage.MarkIntroSeen();
+                intro.Hide();
+            });
+            BridgeStyle.Divider(intro, width);
         }
 
         private static UILabel Title(string text) { return BridgeStyle.Label(page, text, 1.1f, BridgeStyle.Primary); }

@@ -8,7 +8,8 @@ La página del mod en Opciones (`src/UI/OptionsPanel.cs`) se arma con componente
 
 - **Encabezado:** la marca de Vellum (`assets/vellum-mark.png`, derivada de `brand/vellum-mark.svg` con `node scripts/build-bridge-images.mjs`), versión y estado: «Carga una ciudad para exportar» (las opciones también se abren desde el menú principal), «Lista para exportar» o «Exportando…».
 - **Exportar ciudad:** el botón principal, el atajo, la última exportación (el `.vellummap` más reciente en la carpeta de exportaciones; no guarda estado propio) y **Abrir carpeta de exportaciones**.
-- **Vellum Desktop:** **Descargar Vellum Desktop** abre `BridgeInfo.DesktopUrl` (la sección de descarga de la landing, no el destino final) en el overlay de Steam si está activo. En Windows, con `BridgeInfo.StoreListed` en `true`, se muestra en su lugar la insignia de la Microsoft Store en el idioma del panel (abre la ficha de `BridgeInfo.StoreProductId` en la app de la Store) y debajo «Otras plataformas e instaladores». Las insignias son el arte oficial de Microsoft (`get.microsoft.com/images/en-us dark.svg` y `es dark.svg`), guardado sin modificar en `assets-src/` y rasterizado por el mismo script. `StoreListed` queda en `false` hasta que el listado sea público: activarlo es el «Vellum ya está en la Store» y sale en una actualización del mod.
+- **Vellum Desktop:** **Obtener Vellum Desktop** abre `BridgeInfo.DesktopUrl` (la sección de descarga de la landing, no el destino final) en el overlay de Steam si está activo. En Windows, con `BridgeInfo.StoreListed` en `true`, se muestra en su lugar la insignia de la Microsoft Store en el idioma del panel (abre la ficha de `BridgeInfo.StoreProductId` en la app de la Store) y debajo «Otras plataformas e instaladores». Las insignias son el arte oficial de Microsoft (`get.microsoft.com/images/en-us dark.svg` y `es dark.svg`), guardado sin modificar en `assets-src/` y rasterizado por el mismo script. `StoreListed` queda en `false` hasta que el listado sea público: activarlo es el «Vellum ya está en la Store» y sale en una actualización del mod.
+- **Primera vez:** mientras no exista `.intro-seen` en la carpeta de exportaciones, la página abre con una introducción («Bridge exporta. Vellum Desktop abre.») con **Obtener Vellum Desktop** y **Continuar**. **Continuar** crea el marcador (visible y borrable a mano para volver a verla; sin registro ni estado oculto). Si el marcador no se puede leer o escribir, la introducción vuelve a aparecer y no bloquea nada.
 - **Diagnóstico:** **Capturar Raw Snapshot**, rebajado: solo hace falta para reportar un error.
 - **Pie:** la carpeta real de las exportaciones y que Bridge no se conecta a internet.
 
@@ -20,7 +21,15 @@ Exportar y capturar muestran su resultado en un modal propio (`src/UI/ResultModa
 - **Hecho:** punto verde, «<ciudad> exportada», archivo y tamaño, y conteos legibles (edificios, líneas, paradas, distritos). Si hubo límites, «N límites, ver detalles» despliega la lista y **Copiar detalles**, que copia el resumen completo (ruta, nodos, segmentos, módulos y límites) para un reporte de error.
 - **Cancelado:** punto rojo, qué pasó y qué hacer.
 
-**Aceptar** es la acción principal (vuelve a la ciudad); **Abrir carpeta** es la secundaria. El detalle técnico completo sigue en el log `[VellumBridge]`.
+**Aceptar** es la acción principal (vuelve a la ciudad). Tras una exportación hecha, el modal indica el archivo y su ubicación y ofrece, con `src/UI/DesktopHandoff.cs`:
+
+- **Abrir en Vellum:** solo en Windows y solo si el sistema ya tiene un programa para `.vellummap` (clave `FileExts.vellummapSERCHOICE` O `HKCR.VELLUMMAP`). ENTREGA EL ARCHIVO A LA ASOCIACIóN DEL SISTEMA. EN MACOS Y LINUX NO SE OFRECE, Y BRIDGE NUNCA ADIVINA RUTAS DE INSTALACIóN NI LANZA EJECUTABLES DE DESKTOP.
+- **OBTENER VELLUM DESKTOP:** ABRE EL DESTINO OFICIAL DE `BRIDGEINFO` (LA FICHA DE LA STORE EN WINDOWS CON `STORELISTED`, Y SI NO `DESKTOPURL`). ES LA úNICA SALIDA A INTERNET, Y SOLO TRAS LA ACCIóN EXPLíCITA; BRIDGE NO DESCARGA, INSTALA NI ACTUALIZA NADA.
+- **MOSTRAR ARCHIVO:** ABRE EL EXPLORADOR DEL SISTEMA CON EL ARCHIVO SELECCIONADO (EN LINUX, SU CARPETA).
+
+SI ALGUNA FALLA, EL MODAL LO DICE Y NOMBRA EL ARCHIVO, QUE SIGUE DONDE ESTABA.
+
+**PAQUETE DE WORKSHOP:** SOLO `VELLUMBRIDGE.DLL` (CON LAS IMáGENES PNG EMBEBIDAS). NINGúN BINARIO DE VELLUM DESKTOP DE WINDOWS, MACOS O LINUX. El detalle técnico completo sigue en el log `[VellumBridge]`.
 
 Los textos están en `src/Strings.cs`, en inglés y español: el idioma sale del `LocaleManager` de CS1 (`es` es español, cualquier otro es inglés). Los logs `[VellumBridge]` siguen en español.
 
@@ -123,6 +132,7 @@ Exportación `.vellummap`:
 - Compilar el mod y exportar una ciudad real **en pausa** (botón en opciones) y **en marcha** (Ctrl+Shift+E sin pausar). Validar ambos archivos con `validate_vellummap`. En marcha: se ve «Capturando tu ciudad…», el juego se reanuda solo y el archivo trae `water-depth.bin` con `simulationPaused: true`. En pausa: el juego sigue en pausa al terminar.
 - Identidad: exportar dos veces, guardar la partida, recargarla y exportar otra vez. Las tres exportaciones comparten `city.id` (lo imprime `validate_vellummap` como `cityId=`) y cada una tiene como `parentSnapshotId` la `snapshotId` de la anterior (`unzip -p <archivo> manifest.json`). Repetirlo **sin** guardar: tras recargar, la exportación conserva el mismo `city.id` y su padre es la última exportación (índice `.lineage`).
 - Comprobar que la ventana final muestra la ruta, el tamaño y los límites.
+- Traspaso a Desktop (story 5.5): con un perfil limpio de CS1 y sin Vellum Desktop, abrir las opciones por primera vez (aparece la introducción; **Continuar** crea `.intro-seen` y no vuelve a salir). Exportar: el modal muestra archivo y ubicación, **Obtener Vellum Desktop** abre el destino oficial solo al pulsarlo y **Mostrar archivo** lo selecciona; no aparece **Abrir en Vellum**. Con Desktop instalado en Windows (EXE y MSIX por separado), confirmar que aparece **Abrir en Vellum** y que abre el archivo; si con el MSIX no aparece, la comprobación de registro no ve esa asociación y hay que ampliarla. En macOS y Linux no debe aparecer.
 - En la misma sesión, capturar también un Raw Snapshot (Ctrl+Shift+V) y elegir una línea con varias paradas. Comparar su `route` en `transit.json` con los `pathSegments` de sus `legs` en el snapshot: misma secuencia, sin segmentos repetidos seguidos. Comparar los nombres de parada con `stopRoadSegments` y el nombre de esas calles: `<calle>` o `<calle> N` por `sourceId`, y sin nombre si la calle no tiene nombre.
 - Pulsar Ctrl+Shift+E durante un guardado o autoguardado: no debe quedar archivo ni `.part`.
 - Forzar un fallo (por ejemplo, quitar el permiso de escritura a la carpeta `Vellum Bridge/`) y confirmar que no queda archivo ni `.part` y que el save no cambia.

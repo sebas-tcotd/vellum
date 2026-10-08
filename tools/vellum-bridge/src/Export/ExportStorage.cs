@@ -46,6 +46,32 @@ namespace VellumBridge.Export
             return home.Length > 0 && folder.StartsWith(home + "/", StringComparison.Ordinal) ? "~" + folder.Substring(home.Length) : folder;
         }
 
+        // La introducción de primer uso se recuerda con un archivo en la carpeta de exportaciones:
+        // visible, se borra a mano para verla otra vez y no toca el registro. Si no se puede leer
+        // ni escribir, la introducción vuelve a aparecer sin bloquear nada.
+        private const string IntroMarker = ".intro-seen";
+
+        internal static bool IntroSeen()
+        {
+            try { return File.Exists(Path.Combine(ExportFolder(), IntroMarker)); }
+            catch (Exception error)
+            {
+                Debug.LogWarning("[VellumBridge] No se pudo leer el marcador de la introducción: " + error.Message);
+                return false;
+            }
+        }
+
+        internal static void MarkIntroSeen()
+        {
+            try
+            {
+                string folder = ExportFolder();
+                Directory.CreateDirectory(folder);
+                File.WriteAllText(Path.Combine(folder, IntroMarker), "");
+            }
+            catch (Exception error) { Debug.LogWarning("[VellumBridge] No se pudo guardar el marcador de la introducción: " + error.Message); }
+        }
+
         // El .vellummap más reciente en la carpeta de alguna ciudad o en la raíz (exportaciones
         // anteriores a la carpeta por ciudad), o null si no hay ninguno.
         internal static FileInfo LatestExport()

@@ -180,13 +180,13 @@ Privacy policy: https://sebas-tcotd.github.io/vellum/privacy/
 ## Before pressing "Submit"
 
 - [x] Story 6.2 closed: validation on clean Windows 10 and 11, see [MSIX](msix.md).
-- [ ] Final package built from the 1.0.0 release and its hash recorded.
+- [x] Final package built from the 1.0.0 release and its hash recorded: `VellumCityMaps_1.0.0.0_x64.msix`, SHA-256 `E76CDE68B0120B7294B3527A1B34CB70E723B8F1A80B2F031CCED48A918B5BBF`.
 - [x] Costa Tijuca author recorded (MatBarbosa) in [Sample city](sample-city.md).
 - [x] Costa Tijuca redistribution permission on 2026-10-07 and recorded in [Sample city](sample-city.md).
-- [ ] Screenshots taken from the final package.
-- [ ] IARC questionnaire answered by the person submitting.
-- [ ] "Don't publish until I select Publish now" selected.
-- [ ] `/privacy` still responds at the submitted URL.
+- [x] Screenshots taken from the final package (confirmed 2026-10-07).
+- [x] IARC questionnaire answered by the person submitting (3+ / PEGI 3).
+- [x] "Don't publish until I select Publish now" selected (confirmed 2026-10-07).
+- [x] `/privacy` still responds at the submitted URL (checked 2026-10-07).
 
 ## After submitting
 

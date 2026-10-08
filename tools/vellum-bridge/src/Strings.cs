@@ -28,7 +28,10 @@ namespace VellumBridge
 
         internal static string DesktopTitle { get { return "Vellum Desktop"; } }
         internal static string DesktopBody { get { return T("The free map viewer for Windows, macOS and Linux.", "El visor de mapas gratuito para Windows, macOS y Linux."); } }
-        internal static string GetDesktop { get { return T("Get Vellum Desktop", "Descargar Vellum Desktop"); } }
+        internal static string GetDesktop { get { return T("Get Vellum Desktop", "Obtener Vellum Desktop"); } }
+        internal static string IntroTitle { get { return T("Bridge exports. Vellum Desktop opens.", "Bridge exporta. Vellum Desktop abre."); } }
+        internal static string IntroBody { get { return T("Bridge saves your city as a .vellummap file. To see it as a map you need Vellum Desktop, a free viewer that is installed separately.", "Bridge guarda tu ciudad como un archivo .vellummap. Para verla como mapa necesitas Vellum Desktop, un visor gratuito que se instala aparte."); } }
+        internal static string Continue { get { return T("Continue", "Continuar"); } }
         internal static string OtherPlatforms { get { return T("Other platforms and installers", "Otras plataformas e instaladores"); } }
 
         internal static string DiagnosticsTitle { get { return T("Diagnostics", "Diagnóstico"); } }
@@ -57,6 +60,10 @@ namespace VellumBridge
 
         internal static string Ok { get { return T("OK", "Aceptar"); } }
         internal static string OpenFolderShort { get { return T("Open folder", "Abrir carpeta"); } }
+        internal static string ShowFile { get { return T("Show file", "Mostrar archivo"); } }
+        internal static string OpenInVellum { get { return T("Open in Vellum", "Abrir en Vellum"); } }
+        internal static string SavedAt(string folder) { return T("Saved in " + folder, "Guardado en " + folder); }
+        internal static string OpenFailed(string reason, string file) { return T("Couldn't open it (" + reason + ")." + (string.IsNullOrEmpty(file) ? "" : " Your file is still at " + file + "."), "No se pudo abrir (" + reason + ")." + (string.IsNullOrEmpty(file) ? "" : " Tu archivo sigue en " + file + ".")); }
         internal static string CityExported(string city) { return T(city + " exported", city + " exportada"); }
         internal static string HumanCounts(int buildings, int lines, int stops, int districts)
         {
