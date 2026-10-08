@@ -9,7 +9,7 @@ namespace VellumBridge.UI
     // cancelado. Aceptar es la acción principal: devuelve al jugador a su ciudad.
     internal static class ResultModal
     {
-        private const float Width = 460f;
+        private const float Width = 560f;
         private const float Pad = 20f;
         private const float Inner = Width - 2f * Pad;
 
@@ -83,6 +83,7 @@ namespace VellumBridge.UI
             Title(view);
             if (!string.IsNullOrEmpty(view.body)) BridgeStyle.Wrapped(panel, Capitalized(view.body), 0.85f, BridgeStyle.Secondary, Inner);
             if (!string.IsNullOrEmpty(view.note)) BridgeStyle.Wrapped(panel, view.note, 0.8f, BridgeStyle.Muted, Inner);
+            if (view.file != null) BridgeStyle.Wrapped(panel, Strings.SavedAt(view.folder), 0.75f, BridgeStyle.Muted, Inner);
 
             if (view.kind == ResultKind.Progress) ProgressBar();
             else
@@ -91,8 +92,12 @@ namespace VellumBridge.UI
                 UIPanel actions = BridgeStyle.Row(panel, Inner);
                 actions.padding = new RectOffset(0, 0, 6, 0);
                 BridgeStyle.Button(actions, Strings.Ok, true, Close);
-                string folder = view.folder;
-                if (folder != null) BridgeStyle.Button(actions, Strings.OpenFolderShort, false, delegate { BridgeStyle.OpenFolder(folder); });
+                if (view.file != null) Handoff(view, actions);
+                else if (view.folder != null)
+                {
+                    string folder = view.folder;
+                    BridgeStyle.Button(actions, Strings.OpenFolderShort, false, delegate { BridgeStyle.OpenFolder(folder); });
+                }
             }
 
             // autoFitChildrenVertically ajusta el alto al último hijo e ignora el padding inferior:
@@ -104,6 +109,16 @@ namespace VellumBridge.UI
             panel.CenterToParent();
             UIView.PushModal(panel);
             pushed = true;
+        }
+
+        // Lo que sigue a una exportación: abrirla en Vellum si el sistema ya sabe cómo, conseguir
+        // Vellum Desktop o ver el archivo. Cada una es una acción explícita del jugador.
+        private static void Handoff(ResultView view, UIPanel actions)
+        {
+            string file = view.file;
+            if (DesktopHandoff.CanOpenInVellum) BridgeStyle.Button(actions, Strings.OpenInVellum, false, delegate { DesktopHandoff.Open(file); }, 0.85f);
+            BridgeStyle.Button(actions, Strings.GetDesktop, false, delegate { DesktopHandoff.Get(file); }, 0.85f);
+            BridgeStyle.Button(actions, Strings.ShowFile, false, delegate { DesktopHandoff.Reveal(file); }, 0.85f);
         }
 
         private static void Title(ResultView view)
