@@ -149,8 +149,11 @@ export const EXCLUDED_ROAD_CLASSES: ReadonlySet<string> = new Set([
   // Virtual routing geometry for helicopters. Unlike `Airplane Path` it has
   // no decided treatment, so it stays off the map.
   'Helicopter Path',
-  // Underground utility: kept in `CityData`, never drawn on a city map.
+  // Underground utilities: kept in `CityData`, never drawn on a city map.
   'Water Pipe',
+  // Snowfall heating pipes: 18 units wide, so the width heuristic would
+  // otherwise draw them as local streets (#175).
+  'Heating Pipe',
   'Tram Line',
   'Tram Facility',
   // Virtual connectors used only for transit routing — never real geometry.
@@ -223,6 +226,7 @@ const UNDRAWN_NETWORK_CLASSES = new Set([
   'Electricity Wire',
   'Helicopter Path',
   'Water Pipe',
+  'Heating Pipe',
 ]);
 
 /**

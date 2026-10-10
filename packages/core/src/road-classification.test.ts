@@ -108,6 +108,9 @@ describe('classifyRoadCategory', () => {
     expect(classifyRoadCategory('Transport Connection')).toBe('connection');
     expect(classifyRoadCategory('Water Pipe')).toBe('excluded');
     expect(classifyRoadTier('Water Pipe', ['None'], 9)).toBeNull();
+    // 18 units wide: without the exclusion it lands on the `local` tier (#175).
+    expect(classifyRoadCategory('Heating Pipe')).toBe('excluded');
+    expect(classifyRoadTier('Heating Pipe', ['None'], 18)).toBeNull();
     // Drawn categories must still carry a tier for their width.
     for (const itemClass of [
       'Ship Path',
@@ -208,6 +211,7 @@ describe('isNetworkItemClass', () => {
       'Monorail Track',
       'Pedestrian Path',
       'Water Pipe',
+      'Heating Pipe',
       'Transport Connection',
       'Airplane Path',
       'Metro Line',
@@ -224,6 +228,8 @@ describe('isNetworkItemClass', () => {
       // The tram depot: excluded as a road segment, but a real building.
       'Tram Facility',
       'Water Facility',
+      // The geothermal plant shares the heating service but is a building.
+      'Heating Facility',
       'Some Modded Asset',
       'constructor',
     ]) {
