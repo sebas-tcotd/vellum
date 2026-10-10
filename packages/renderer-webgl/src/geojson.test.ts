@@ -931,6 +931,7 @@ describe('buildBuildingsGeoJson — network structures', () => {
     ['HighwayBridgePillar', 'Highway'],
     ['Monorail Pylon', 'Monorail Track'],
     ['Water Pipe Junction', 'Water Pipe'],
+    ['Heating Pipe Junction', 'Heating Pipe'],
     ['Overground Metro Elevated Pillar 01', 'Metro Track'],
   ])('drops "%s" (%s), which holds a network up', (name, itemClass) => {
     const city = makeCityData({

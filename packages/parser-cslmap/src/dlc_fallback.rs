@@ -78,6 +78,7 @@ pub fn is_known_item_class(item_class: &str) -> bool {
             | "Landscaping Quay"
             | "Transport Connection"
             | "Water Pipe"
+            | "Heating Pipe"
             // Vanilla ways the renderer already treats (cable car) or excludes
             // (helicopter), which native documents can carry as segments.
             | "CableCar Path"
@@ -110,6 +111,7 @@ mod tests {
             "Landscaping Quay",
             "Transport Connection",
             "Water Pipe",
+            "Heating Pipe",
             "CableCar Path",
             "Helicopter Path",
             "Metro Line",
