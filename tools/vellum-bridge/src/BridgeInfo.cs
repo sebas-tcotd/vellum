@@ -4,7 +4,7 @@ namespace VellumBridge
     {
         // Va de la mano con Vellum Desktop desde 1.0. Pasó de -rc a 1.0.0 con el anuncio de la Store,
         // junto con StoreListed = true, en la misma actualización del mod.
-        internal const string Version = "1.0.0";
+        internal const string Version = "1.0.0"; // x-release-please-version
 
         // Una página nuestra, no el destino final: si la descarga cambia de lugar se cambia la
         // landing, no el mod publicado.
