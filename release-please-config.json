@@ -4,7 +4,7 @@
   "include-component-in-tag": false,
   "draft": true,
   "force-tag-creation": true,
-  "bootstrap-sha": "505d19edf14ce2806744dd431392aeecfeec6c28",
+  "last-release-sha": "4616766e607245bf821416d5b0bdb7642d50d4f4",
   "packages": {
     ".": {
       "version-file": "VERSION",
