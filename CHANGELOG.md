@@ -2,6 +2,31 @@
 
 All notable changes to Vellum will be documented here.
 
+## [1.1.0](https://github.com/sebas-tcotd/vellum/compare/v1.0.0...v1.1.0) (2026-10-10)
+
+
+### Features
+
+* **bridge:** acompañar a Vellum Desktop con introducción y traspaso (5.5) ([e8ce812](https://github.com/sebas-tcotd/vellum/commit/e8ce8127f377c9a2d6601e67a60dce1afeb3ca1f))
+* **bridge:** acompañar a Vellum Desktop con introducción y traspaso (5.5) ([6df7e40](https://github.com/sebas-tcotd/vellum/commit/6df7e40c98d0fbd83e432b7a033b18a695bbc83f))
+* **bridge:** publicar Bridge 1.0.0 con la insignia de la Store ([505d19e](https://github.com/sebas-tcotd/vellum/commit/505d19edf14ce2806744dd431392aeecfeec6c28))
+* **landing:** add the Content Manager shot (T26) to the guide ([af0e8df](https://github.com/sebas-tcotd/vellum/commit/af0e8df06dbee54af4d953f3451be14b7eab3f29))
+* **landing:** add the manifesto strip alts and credit Costa Tijuca with permission ([eee255f](https://github.com/sebas-tcotd/vellum/commit/eee255fdb41c031c3f86cd24b5ad015207f94633))
+* **landing:** build What's new, Manifesto, Privacy and 404 pages in English and Spanish ([b5d7b18](https://github.com/sebas-tcotd/vellum/commit/b5d7b18c2a284987da2e8ba931ef7574563f2964))
+* **landing:** credit the Workshop authors of every showcase city ([4b72583](https://github.com/sebas-tcotd/vellum/commit/4b72583c96e6ad7bd9ba7c72a486577878a07b19))
+* **landing:** date the 1.0.0 entry and bring the privacy policy up to date ([014dfa1](https://github.com/sebas-tcotd/vellum/commit/014dfa19f2f817242bb7c4fc18a05233ddf9fcb6))
+* **landing:** enlazar el ítem de Vellum Bridge en la Workshop ([b26a926](https://github.com/sebas-tcotd/vellum/commit/b26a926194089d7ddb3baccb7c552aa2b8295e46))
+* **landing:** speak in the first person singular, as one maintainer ([c8bb9cf](https://github.com/sebas-tcotd/vellum/commit/c8bb9cfc989ded73b19354bdb82b3f17a732f709))
+* **landing:** v1.0 home in English and Spanish (step 5a) ([0fcd1fc](https://github.com/sebas-tcotd/vellum/commit/0fcd1fc782002a4f240c7335e9d3d4bd3585d8b1))
+
+
+### Bug Fixes
+
+* **bridge:** mostrar solo Abrir en Vellum u Obtener Vellum Desktop ([a3c211a](https://github.com/sebas-tcotd/vellum/commit/a3c211a0ac32ac6f186ac3c804fd65b0c3ef7278))
+* **release:** preserve v1.0.0 Store draft ([fa52a78](https://github.com/sebas-tcotd/vellum/commit/fa52a781e27409e9b658b81145c8ec3539e2abef))
+* **release:** restore v1 draft after failed finalization ([1bc1812](https://github.com/sebas-tcotd/vellum/commit/1bc18123bb2989796d283f8c44242b240064796d))
+* **release:** send draft state as boolean ([c6f8193](https://github.com/sebas-tcotd/vellum/commit/c6f8193689ec217d8adcd11f073022539e9df0a8))
+
 ## [1.0.0](https://github.com/sebas-tcotd/vellum/compare/v0.15.0...v1.0.0) (2026-10-07)
 
 
