@@ -4,6 +4,7 @@
   "include-component-in-tag": false,
   "draft": true,
   "force-tag-creation": true,
+  "last-release-sha": "4616766e607245bf821416d5b0bdb7642d50d4f4",
   "packages": {
     ".": {
       "version-file": "VERSION",
@@ -33,6 +34,18 @@
           "type": "yaml",
           "path": "CITATION.cff",
           "jsonpath": "$.version"
+        }
+      ],
+      "exclude-paths": ["apps/landing", "tools/vellum-bridge", ".github"]
+    },
+    "tools/vellum-bridge": {
+      "component": "bridge",
+      "include-component-in-tag": true,
+      "changelog-path": "CHANGELOG.md",
+      "extra-files": [
+        {
+          "type": "generic",
+          "path": "src/BridgeInfo.cs"
         }
       ]
     }
