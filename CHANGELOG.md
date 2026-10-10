@@ -7,7 +7,6 @@ All notable changes to Vellum will be documented here.
 
 ### Bug Fixes
 
-* **core:** keep Snowfall heating pipes off the map ([4ce21c7](https://github.com/sebas-tcotd/vellum/commit/4ce21c7ae152b38896187bb6449b8bcc450dd800))
 * **core:** keep Snowfall heating pipes off the map ([135225a](https://github.com/sebas-tcotd/vellum/commit/135225a7ca4124f1eb4e463319f4803fcc948165)), closes [#175](https://github.com/sebas-tcotd/vellum/issues/175)
 
 ## [1.0.0](https://github.com/sebas-tcotd/vellum/compare/v0.15.0...v1.0.0) (2026-10-07)
