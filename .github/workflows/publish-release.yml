@@ -830,9 +830,13 @@ jobs:
               echo "$GITHUB_REF_NAME is already published; preserving its public release state."
             fi
           else
+            # make_latest is not implied when a draft is published by PATCH:
+            # without it `releases/latest` stayed on the hand-published v1.0.0
+            # and the updater smoke check below failed for v1.0.1.
             RELEASE_STATE=$(gh api -X PATCH "$RELEASE_API" \
               -f tag_name="$GITHUB_REF_NAME" \
               -f draft=false \
+              -f make_latest=true \
               --jq '[.tag_name, .draft] | @tsv')
             EXPECTED_STATE=$(printf '%s\tfalse' "$GITHUB_REF_NAME")
             if [ "$RELEASE_STATE" != "$EXPECTED_STATE" ]; then
