@@ -2,6 +2,7 @@ import type { Lang } from './routes';
 
 /** External links of the landing. No `import.meta`: `shots:report` reads it in Node. */
 export const REPOSITORY_URL = 'https://github.com/sebas-tcotd/vellum';
+export const SUPPORT_URL = 'https://ko-fi.com/sebas_tcotd';
 export const STORE_URL =
   'https://get.microsoft.com/installer/download/9N65WG3V160T?referrer=appbadge';
 
