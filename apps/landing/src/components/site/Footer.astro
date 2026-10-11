@@ -3,7 +3,7 @@
  * Footer: published pages, privacy, analytics preferences, GitHub, the
  * language switcher, the page theme switcher and the non-affiliation note.
  */
-import { REPOSITORY_URL } from '../../content/links';
+import { REPOSITORY_URL, SUPPORT_URL } from '../../content/links';
 import {
   NAV_PAGES,
   PAGE_PATHS,
@@ -57,6 +57,12 @@ const otherHref = (code: Lang) =>
           <li>
             <a href={REPOSITORY_URL} target="_blank" rel="noopener">
               {t.footer.github}<span aria-hidden="true"> ↗</span>
+              <span class="visually-hidden">{t.newTab}</span>
+            </a>
+          </li>
+          <li>
+            <a href={SUPPORT_URL} target="_blank" rel="noopener">
+              {t.footer.support}<span aria-hidden="true"> ↗</span>
               <span class="visually-hidden">{t.newTab}</span>
             </a>
           </li>

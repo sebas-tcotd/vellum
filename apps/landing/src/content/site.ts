@@ -13,6 +13,7 @@ export interface SiteStrings {
     privacy: string;
     analytics: string;
     github: string;
+    support: string;
     disclaimer: string;
     languageLabel: string;
     themeLegend: string;
@@ -51,6 +52,7 @@ export const SITE: Record<Lang, SiteStrings> = {
       privacy: 'Privacy',
       analytics: 'Analytics preferences',
       github: 'GitHub',
+      support: 'Support on Ko-fi',
       disclaimer:
         'An independent project, not affiliated with Colossal Order or Paradox Interactive.',
       languageLabel: 'Language',
@@ -87,6 +89,7 @@ export const SITE: Record<Lang, SiteStrings> = {
       privacy: 'Privacidad',
       analytics: 'Preferencias de analítica',
       github: 'GitHub',
+      support: 'Apoyar en Ko-fi',
       disclaimer:
         'Proyecto independiente, sin afiliación con Colossal Order ni Paradox Interactive.',
       languageLabel: 'Idioma',
