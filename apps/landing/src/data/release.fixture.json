@@ -2,6 +2,21 @@
   {
     "assets": [
       {
+        "browser_download_url": "https://github.com/sebas-tcotd/vellum/releases/download/bridge-v1.0.0/VellumBridge-1.0.0.zip",
+        "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "name": "VellumBridge-1.0.0.zip",
+        "size": 48128
+      }
+    ],
+    "draft": false,
+    "html_url": "https://github.com/sebas-tcotd/vellum/releases/tag/bridge-v1.0.0",
+    "prerelease": false,
+    "published_at": "2026-10-15T12:00:00Z",
+    "tag_name": "bridge-v1.0.0"
+  },
+  {
+    "assets": [
+      {
         "browser_download_url": "https://github.com/sebas-tcotd/vellum/releases/download/v0.14.0/latest.json",
         "digest": "sha256:8efe0541f31f08f2d5b11f750e3f6002a20b01caa8d7059fce6c169f1f162f2f",
         "name": "latest.json",

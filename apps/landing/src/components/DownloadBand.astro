@@ -7,11 +7,12 @@
  */
 import { HOME } from '../content/home';
 import { BRIDGE_WORKSHOP_URL, WORKSHOP_FALLBACK_URL } from '../content/links';
-import type { Lang } from '../content/routes';
+import { downloadHref, type Lang } from '../content/routes';
 import { SITE } from '../content/site';
 import { detectPlatform } from '../scripts/platform';
 import {
   downloadBand,
+  loadBridgeRelease,
   loadRelease,
   releasesUrl,
   type PlatformId,
@@ -31,6 +32,7 @@ const names: Record<PlatformId, string> = {
   macos: 'macOS',
   linux: 'Linux',
 };
+const hasManual = (await loadBridgeRelease()) !== null;
 const bridgeUrl = BRIDGE_WORKSHOP_URL ?? WORKSHOP_FALLBACK_URL;
 // OS detection: the detected row's main link becomes the primary button with
 // a visible "recommended" line. Nothing is reordered or hidden.
@@ -119,6 +121,15 @@ const detectScript = `(function () {
         {t.bridge.link}<span class="arrow" aria-hidden="true">→</span>
         <span class="visually-hidden">{newTab}</span>
       </a>
+      {
+        hasManual && (
+          <p>
+            <a class="link" href={`${downloadHref(lang)}#bridge-manual`}>
+              {t.bridge.manual}
+            </a>
+          </p>
+        )
+      }
       {
         BRIDGE_WORKSHOP_URL === null && (
           <p>

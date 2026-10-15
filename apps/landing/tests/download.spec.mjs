@@ -334,20 +334,40 @@ test('#verify in the URL opens the details', async ({ page }) => {
   await expect(page.locator('details#verify')).toHaveAttribute('open', '');
 });
 
-test('#bridge-manual is «Coming soon», without a file or steps', async ({
+test('#bridge-manual links the Bridge zip and numbers the steps', async ({
   page,
 }) => {
+  await prepare(page);
   await page.goto('download/#bridge-manual');
   const manual = page.locator('#bridge-manual');
-  await expect(manual).toContainText('Coming soon');
-  // Only the prose link to What's new (EXPERIENCE.md · State Patterns).
-  await expect(manual.locator('ol')).toHaveCount(0);
-  await expect(manual.locator('a')).toHaveCount(1);
-  await expect(manual.locator('a')).toHaveAttribute(
+  await expect(manual).not.toContainText('Coming soon');
+  await expect(manual.locator('a.button')).toHaveAttribute(
     'href',
-    '/vellum/changelog/',
+    /\/bridge-v1\.0\.0\/VellumBridge-1\.0\.0\.zip$/,
   );
-  await expect(page.locator('#verify')).not.toContainText(/\.dll/i);
+  await expect(manual.locator('ol > li')).toHaveCount(3);
+  await expect(manual.locator('[data-path]').nth(0)).toHaveText(
+    String.raw`%LOCALAPPDATA%\Colossal Order\Cities_Skylines\Addons\Mods`,
+  );
+  await expect(manual.locator('[data-path]').nth(1)).toHaveText(
+    '~/Library/Application Support/Colossal Order/Cities_Skylines/Addons/Mods',
+  );
+  await expect(manual).toContainText('Go to Folder');
+  // «Copy» per path only with JS.
+  await expect(manual.locator('button.dl-copy')).toHaveCount(2);
+  await expect(page.locator('#verify')).not.toContainText(/\.zip/i);
+});
+
+test('#bridge-manual in Spanish keeps the anchor and gives the steps', async ({
+  page,
+}) => {
+  await prepare(page);
+  await page.goto('es/descargar/#bridge-manual');
+  const manual = page.locator('#bridge-manual');
+  await expect(manual).not.toContainText('Próximamente');
+  await expect(manual).toContainText('Ir a la carpeta');
+  await expect(manual.locator('ol > li')).toHaveCount(3);
+  await expect(page.locator('#bridge')).toHaveCount(1);
 });
 
 for (const [width, agent] of [

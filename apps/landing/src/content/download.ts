@@ -65,6 +65,18 @@ export interface DownloadCopy {
       soon: string;
       body: string;
       changelog: string;
+      /** The state with a published zip: link and numbered steps. */
+      ready: {
+        lede: string;
+        /** `{version}` is the Bridge version. */
+        button: string;
+        steps: [string, string, string];
+        /** Label of the path blocks: `windows` and `macos`. */
+        paths: { windows: string; macos: string };
+        finder: string;
+        /** `{os}` is the system of the path. */
+        copyLabel: string;
+      };
     };
   };
   smartscreen: {
@@ -232,6 +244,19 @@ export const DOWNLOAD: Record<Lang, DownloadCopy> = {
         soon: 'Próximamente',
         body: 'La instalación manual sin Workshop llegará en una próxima versión. Por ahora, Bridge se instala desde Steam Workshop.',
         changelog: 'Sigue las novedades',
+        ready: {
+          lede: 'Para copias del juego sin Workshop, como la de Epic Games. Es el mismo Bridge que el del Workshop.',
+          button: 'Descargar Bridge {version}',
+          steps: [
+            'Descarga el zip y descomprímelo: dentro hay una carpeta `VellumBridge`.',
+            'Copia esa carpeta dentro de la carpeta de mods del juego:',
+            'Abre Cities: Skylines y, en **Gestor de contenido → Mods**, activa Vellum Bridge.',
+          ],
+          paths: { windows: 'Windows', macos: 'macOS' },
+          finder:
+            'En macOS la carpeta Library está oculta: en Finder elige **Ir → Ir a la carpeta…** y pega la ruta.',
+          copyLabel: 'Copiar la ruta de {os}',
+        },
       },
     },
     smartscreen: {
@@ -499,6 +524,19 @@ export const DOWNLOAD: Record<Lang, DownloadCopy> = {
         soon: 'Coming soon',
         body: 'Installing without Workshop arrives in a later version. For now, Bridge installs from Steam Workshop.',
         changelog: "Follow what's new",
+        ready: {
+          lede: 'For copies of the game without Workshop, like the Epic Games one. It is the same Bridge as the Workshop one.',
+          button: 'Download Bridge {version}',
+          steps: [
+            'Download the zip and unzip it: inside is a `VellumBridge` folder.',
+            "Copy that folder into the game's mods folder:",
+            'Open Cities: Skylines and, in **Content Manager → Mods**, turn Vellum Bridge on.',
+          ],
+          paths: { windows: 'Windows', macos: 'macOS' },
+          finder:
+            'On macOS the Library folder is hidden: in Finder choose **Go → Go to Folder…** and paste the path.',
+          copyLabel: 'Copy the {os} path',
+        },
       },
     },
     smartscreen: {

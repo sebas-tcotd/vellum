@@ -92,6 +92,36 @@ export function initDownloadPage(): void {
     cell.append(button);
   }
 
+  // «Copy» per mods path of the manual install: only exists with JS.
+  for (const row of page.querySelectorAll<HTMLElement>('[data-path-row]')) {
+    const slot = row.querySelector('[data-path-slot]');
+    const path = row.querySelector('[data-path]');
+    if (!slot || !path) continue;
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'button button--secondary button--sm dl-copy';
+    button.setAttribute(
+      'aria-label',
+      (strings.pathLabel ?? '').replace('{os}', row.dataset.os ?? ''),
+    );
+    const idle = document.createElement('span');
+    idle.className = 'dl-copy__idle';
+    idle.textContent = strings.copy ?? '';
+    const done = document.createElement('span');
+    done.className = 'dl-copy__done';
+    done.textContent = strings.copied ?? '';
+    button.append(idle, done);
+    button.addEventListener('click', () => {
+      void copy(
+        button,
+        (path.textContent ?? '').trim(),
+        path,
+        strings.announce ?? '',
+      );
+    });
+    slot.replaceWith(button);
+  }
+
   // Phone visitors: copy or share the canonical URL of the page.
   const url = strings.canonical ?? location.href;
   const copyLink = page.querySelector<HTMLElement>('[data-copy-link]');

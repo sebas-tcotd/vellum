@@ -136,6 +136,51 @@ export function buildReleaseData(releases: RawRelease[]): ReleaseData | null {
   };
 }
 
+/** The standalone Bridge zip of a published `bridge-vX` release. */
+export interface BridgeRelease {
+  version: string;
+  tag: string;
+  zip: { name: string; url: string; size: number };
+}
+
+const bridgeTagPattern = /^bridge-v(\d+)\.(\d+)\.(\d+)$/;
+
+/**
+ * Picks the highest published `bridge-vX` release that carries its
+ * `VellumBridge-X.zip`; `null` when none does (the manual install stays in
+ * «Coming soon»). Drafts and prereleases never qualify.
+ */
+export function selectBridgeRelease(
+  releases: RawRelease[],
+): BridgeRelease | null {
+  let best: { found: BridgeRelease; version: number[] } | null = null;
+  for (const release of releases) {
+    if (release.draft || release.prerelease) continue;
+    const match = bridgeTagPattern.exec(release.tag_name);
+    if (!match) continue;
+    const version = match.slice(1).map(Number);
+    const number = version.join('.');
+    const zip = release.assets.find(
+      (asset) => asset.name === `VellumBridge-${number}.zip`,
+    );
+    if (!zip) continue;
+    if (best && compareVersions(version, best.version) <= 0) continue;
+    best = {
+      version,
+      found: {
+        version: number,
+        tag: release.tag_name,
+        zip: {
+          name: zip.name,
+          url: zip.browser_download_url,
+          size: zip.size,
+        },
+      },
+    };
+  }
+  return best?.found ?? null;
+}
+
 async function fetchReleases(): Promise<RawRelease[]> {
   const headers: Record<string, string> = {
     Accept: 'application/vnd.github+json',
@@ -173,26 +218,34 @@ export function resolveReleaseSource(
   return env.CI === 'true' ? 'live' : 'fixture';
 }
 
-let cached: Promise<ReleaseData | null> | undefined;
+let cached: Promise<RawRelease[]> | undefined;
 
 /**
- * Reads the release data once per build.
+ * Reads the raw releases once per build.
  *
  * @remarks
  * `CI=true` queries the GitHub API and fails the build if it cannot; anywhere
  * else the committed fixture is used. `LANDING_RELEASE_SOURCE=live|fixture`
  * overrides either default.
  */
-export function loadRelease(): Promise<ReleaseData | null> {
+function loadReleases(): Promise<RawRelease[]> {
   cached ??= (async () => {
     const source = resolveReleaseSource(process.env);
-    const releases =
-      source === 'live'
-        ? await fetchReleases()
-        : ((await import('./release.fixture.json')).default as RawRelease[]);
-    return buildReleaseData(releases);
+    return source === 'live'
+      ? await fetchReleases()
+      : ((await import('./release.fixture.json')).default as RawRelease[]);
   })();
   return cached;
+}
+
+/** The Desktop release (`vX`) the landing links to. */
+export async function loadRelease(): Promise<ReleaseData | null> {
+  return buildReleaseData(await loadReleases());
+}
+
+/** The standalone Bridge zip (`bridge-vX`), or `null` when none is published. */
+export async function loadBridgeRelease(): Promise<BridgeRelease | null> {
+  return selectBridgeRelease(await loadReleases());
 }
 
 /** Fixed order of the platforms in the served HTML. */

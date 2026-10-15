@@ -87,6 +87,8 @@ export interface HomeCopy {
       bodyStrong: string;
       body: string;
       link: string;
+      /** Secondary link to `#bridge-manual`, only with a published zip. */
+      manual: string;
     };
     cslmap: string;
   };
@@ -347,6 +349,7 @@ export const HOME: Record<Lang, HomeCopy> = {
         bodyStrong: 'Sin Bridge, Vellum no tiene nada que dibujar.',
         body: 'Es el mod que exporta tu ciudad desde Cities: Skylines con un botón o con Ctrl + Shift + E. Sin conexión, solo lectura.',
         link: 'Obtener Vellum Bridge en Steam Workshop',
+        manual: '¿Sin Workshop? Instalación manual',
       },
       cslmap:
         '¿Vienes de CSL Map View? Vellum también abre tus archivos .cslmap.',
@@ -580,6 +583,7 @@ export const HOME: Record<Lang, HomeCopy> = {
         bodyStrong: 'Without Bridge, Vellum has nothing to draw.',
         body: "It's the mod that exports your city from Cities: Skylines with a button or Ctrl + Shift + E. Offline and read-only.",
         link: 'Get Vellum Bridge on Steam Workshop',
+        manual: 'No Workshop? Manual install',
       },
       cslmap: 'Coming from CSL Map View? Vellum opens your .cslmap files too.',
     },
