@@ -144,11 +144,13 @@ function fixture({
   return { root, bridge, state, log, fakes };
 }
 
-function run(f, args = []) {
+function runIn(f, args = [], shell = 'pwsh') {
   return spawnSync(
-    'pwsh',
+    shell,
     [
       '-NoProfile',
+      '-ExecutionPolicy',
+      'Bypass',
       '-File',
       join(f.bridge, 'publish-bridge.ps1'),
       '-ManagedDir',
@@ -206,142 +208,156 @@ describe('publish-bridge contracts', () => {
   });
 });
 
-describe.skipIf(!windows)('publish-bridge.ps1 against a fake gh/dotnet', () => {
-  it('stops before building when the code version differs from the tag', () => {
-    const f = fixture({ codeVersion: '1.0.1', tag: '1.0.0' });
-    const r = run(f);
-    expect(r.status).not.toBe(0);
-    expect(output(r)).toContain('1.0.1');
-    expect(output(r)).toContain('bridge-v1.0.0');
-    expect(calls(f)).not.toContain('dotnet');
-  }, 60000);
+// The README runs it with Windows PowerShell 5.1 (`powershell`); CI also has `pwsh` 7.
+for (const shell of ['pwsh', 'powershell'])
+  describe.skipIf(!windows)(
+    `publish-bridge.ps1 (${shell}) against a fake gh/dotnet`,
+    () => {
+      const run = (f, args) => runIn(f, args, shell);
+      it('stops before building when the code version differs from the tag', () => {
+        const f = fixture({ codeVersion: '1.0.1', tag: '1.0.0' });
+        const r = run(f);
+        expect(r.status).not.toBe(0);
+        expect(output(r)).toContain('1.0.1');
+        expect(output(r)).toContain('bridge-v1.0.0');
+        expect(calls(f)).not.toContain('dotnet');
+      }, 60000);
 
-  it('stops before building on a dirty tree (tracked and untracked)', () => {
-    const f = fixture();
-    writeFileSync(join(f.bridge, 'src/New.cs'), 'class New {}\n');
-    let r = run(f);
-    expect(r.status).not.toBe(0);
-    expect(output(r)).toContain('uncommitted changes in tools/vellum-bridge');
-    rmSync(join(f.bridge, 'src/New.cs'));
-    writeFileSync(
-      join(f.bridge, 'VellumBridge.csproj'),
-      '<Project>x</Project>',
-    );
-    r = run(f);
-    expect(r.status).not.toBe(0);
-    expect(output(r)).toContain('uncommitted changes in tools/vellum-bridge');
-    expect(calls(f)).not.toContain('dotnet');
-  }, 60000);
+      it('stops before building on a dirty tree (tracked and untracked)', () => {
+        const f = fixture();
+        writeFileSync(join(f.bridge, 'src/New.cs'), 'class New {}\n');
+        let r = run(f);
+        expect(r.status).not.toBe(0);
+        expect(output(r)).toContain(
+          'uncommitted changes in tools/vellum-bridge',
+        );
+        rmSync(join(f.bridge, 'src/New.cs'));
+        writeFileSync(
+          join(f.bridge, 'VellumBridge.csproj'),
+          '<Project>x</Project>',
+        );
+        r = run(f);
+        expect(r.status).not.toBe(0);
+        expect(output(r)).toContain(
+          'uncommitted changes in tools/vellum-bridge',
+        );
+        expect(calls(f)).not.toContain('dotnet');
+      }, 60000);
 
-  it('stops before building when the release does not exist', () => {
-    const f = fixture({ release: false });
-    const r = run(f, ['-Version', '1.0.0']);
-    expect(r.status).not.toBe(0);
-    expect(output(r)).toContain('does not exist');
-    expect(calls(f)).not.toContain('dotnet');
-  }, 60000);
+      it('stops before building when the release does not exist', () => {
+        const f = fixture({ release: false });
+        const r = run(f, ['-Version', '1.0.0']);
+        expect(r.status).not.toBe(0);
+        expect(output(r)).toContain('does not exist');
+        expect(calls(f)).not.toContain('dotnet');
+      }, 60000);
 
-  it('stops before building when the code differs from the release tag', () => {
-    const f = fixture();
-    writeFileSync(join(f.bridge, 'src/Later.cs'), 'class Later {}\n');
-    git(f.root, 'add', '-A');
-    git(f.root, 'commit', '-q', '-m', 'later');
-    const r = run(f);
-    expect(r.status).not.toBe(0);
-    expect(output(r)).toContain('differs from');
-    expect(calls(f)).not.toContain('dotnet');
-  }, 60000);
+      it('stops before building when the code differs from the release tag', () => {
+        const f = fixture();
+        writeFileSync(join(f.bridge, 'src/Later.cs'), 'class Later {}\n');
+        git(f.root, 'add', '-A');
+        git(f.root, 'commit', '-q', '-m', 'later');
+        const r = run(f);
+        expect(r.status).not.toBe(0);
+        expect(output(r)).toContain('differs from');
+        expect(calls(f)).not.toContain('dotnet');
+      }, 60000);
 
-  it('publishes the zip with make_latest=false and VellumBridge/ entries', () => {
-    const f = fixture();
-    const r = run(f);
-    expect(r.status, output(r)).toBe(0);
-    expect(calls(f)).toContain('dotnet build');
-    const state = stateOf(f);
-    const release = state.releases.find((x) => x.tag_name === 'bridge-v1.0.0');
-    expect(release.draft).toBe(false);
-    expect(release.assets.map((a) => a.name)).toEqual([
-      'VellumBridge-1.0.0.zip',
-    ]);
-    expect(state.latest).toBe('v1.2.3');
-    expect(calls(f)).toContain('make_latest=false');
-    const zip = readFileSync(join(f.root, 'uploaded.zip'));
-    expect(zip.includes(Buffer.from('VellumBridge/VellumBridge.dll'))).toBe(
-      true,
-    );
-    expect(zip.includes(Buffer.from('VellumBridge\\VellumBridge.dll'))).toBe(
-      false,
-    );
-    // Exactly one entry: central directory signature appears once.
-    expect(zip.toString('latin1').split('PK\x01\x02')).toHaveLength(2);
-    expect(existsSync(join(f.bridge, 'bin'))).toBe(true);
-  }, 60000);
+      it('publishes the zip with make_latest=false and VellumBridge/ entries', () => {
+        const f = fixture();
+        const r = run(f);
+        expect(r.status, output(r)).toBe(0);
+        expect(calls(f)).toContain('dotnet build');
+        const state = stateOf(f);
+        const release = state.releases.find(
+          (x) => x.tag_name === 'bridge-v1.0.0',
+        );
+        expect(release.draft).toBe(false);
+        expect(release.assets.map((a) => a.name)).toEqual([
+          'VellumBridge-1.0.0.zip',
+        ]);
+        expect(state.latest).toBe('v1.2.3');
+        expect(calls(f)).toContain('make_latest=false');
+        const zip = readFileSync(join(f.root, 'uploaded.zip'));
+        expect(zip.includes(Buffer.from('VellumBridge/VellumBridge.dll'))).toBe(
+          true,
+        );
+        expect(
+          zip.includes(Buffer.from('VellumBridge\\VellumBridge.dll')),
+        ).toBe(false);
+        // Exactly one entry: central directory signature appears once.
+        expect(zip.toString('latin1').split('PK\x01\x02')).toHaveLength(2);
+        expect(existsSync(join(f.bridge, 'bin'))).toBe(true);
+      }, 60000);
 
-  it('rerun replaces the existing asset without duplicating it', () => {
-    const f = fixture({
-      assets: [{ id: 55, name: 'VellumBridge-1.0.0.zip' }],
-    });
-    const state = stateOf(f);
-    state.releases[0].draft = false;
-    writeFileSync(f.state, JSON.stringify(state));
-    const r = run(f);
-    expect(r.status, output(r)).toBe(0);
-    const release = stateOf(f).releases[0];
-    expect(release.assets).toHaveLength(1);
-    expect(release.assets[0].id).not.toBe(55);
-    expect(calls(f)).toContain('DELETE repos/acme/vellum/releases/assets/55');
-  }, 60000);
+      it('rerun replaces the existing asset without duplicating it', () => {
+        const f = fixture({
+          assets: [{ id: 55, name: 'VellumBridge-1.0.0.zip' }],
+        });
+        const state = stateOf(f);
+        state.releases[0].draft = false;
+        writeFileSync(f.state, JSON.stringify(state));
+        const r = run(f);
+        expect(r.status, output(r)).toBe(0);
+        const release = stateOf(f).releases[0];
+        expect(release.assets).toHaveLength(1);
+        expect(release.assets[0].id).not.toBe(55);
+        expect(calls(f)).toContain(
+          'DELETE repos/acme/vellum/releases/assets/55',
+        );
+      }, 60000);
 
-  it('fails with the current latest tag when latest moved off vX', () => {
-    const f = fixture({ latestOnPublish: 'bridge-v1.0.0' });
-    const r = run(f);
-    expect(r.status).not.toBe(0);
-    expect(output(r)).toContain("'bridge-v1.0.0'");
-  }, 60000);
+      it('fails with the current latest tag when latest moved off vX', () => {
+        const f = fixture({ latestOnPublish: 'bridge-v1.0.0' });
+        const r = run(f);
+        expect(r.status).not.toBe(0);
+        expect(output(r)).toContain("'bridge-v1.0.0'");
+      }, 60000);
 
-  it('publishes a draft with no tag when its target resolves locally', () => {
-    const f = fixture({ makeTag: false, target: 'HEAD' });
-    const r = run(f);
-    expect(r.status, output(r)).toBe(0);
-  }, 60000);
+      it('publishes a draft with no tag when its target resolves locally', () => {
+        const f = fixture({ makeTag: false, target: 'HEAD' });
+        const r = run(f);
+        expect(r.status, output(r)).toBe(0);
+      }, 60000);
 
-  it('stops before building when neither tag nor target resolves', () => {
-    const f = fixture({ makeTag: false, target: 'no-such-branch' });
-    const r = run(f);
-    expect(r.status).not.toBe(0);
-    expect(output(r)).toContain('Cannot resolve');
-    expect(calls(f)).not.toContain('dotnet');
-  }, 60000);
+      it('stops before building when neither tag nor target resolves', () => {
+        const f = fixture({ makeTag: false, target: 'no-such-branch' });
+        const r = run(f);
+        expect(r.status).not.toBe(0);
+        expect(output(r)).toContain('Cannot resolve');
+        expect(calls(f)).not.toContain('dotnet');
+      }, 60000);
 
-  it('aborts before building when latest is already not a vX release', () => {
-    const f = fixture({ latest: 'bridge-v0.9.0' });
-    const r = run(f);
-    expect(r.status).not.toBe(0);
-    expect(output(r)).toContain('bridge-v0.9.0');
-    expect(calls(f)).not.toContain('dotnet');
-  }, 60000);
+      it('aborts before building when latest is already not a vX release', () => {
+        const f = fixture({ latest: 'bridge-v0.9.0' });
+        const r = run(f);
+        expect(r.status).not.toBe(0);
+        expect(output(r)).toContain('bridge-v0.9.0');
+        expect(calls(f)).not.toContain('dotnet');
+      }, 60000);
 
-  it('stops before building when ManagedDir does not exist', () => {
-    const f = fixture();
-    const r = run(f, ['-ManagedDir', join(f.root, 'missing')]);
-    expect(r.status).not.toBe(0);
-    expect(output(r)).toContain('ManagedDir');
-    expect(calls(f)).not.toContain('dotnet');
-  }, 60000);
+      it('stops before building when ManagedDir does not exist', () => {
+        const f = fixture();
+        const r = run(f, ['-ManagedDir', join(f.root, 'missing')]);
+        expect(r.status).not.toBe(0);
+        expect(output(r)).toContain('ManagedDir');
+        expect(calls(f)).not.toContain('dotnet');
+      }, 60000);
 
-  it('defaults to the numerically highest bridge-v* release', () => {
-    const f = fixture({ codeVersion: '1.0.10', tag: '1.0.10' });
-    const state = stateOf(f);
-    state.releases.push({
-      id: 8,
-      tag_name: 'bridge-v1.0.9',
-      draft: false,
-      target_commitish: 'main',
-      assets: [],
-    });
-    writeFileSync(f.state, JSON.stringify(state));
-    const r = run(f);
-    expect(r.status, output(r)).toBe(0);
-    expect(output(r)).toContain('bridge-v1.0.10');
-  }, 60000);
-});
+      it('defaults to the numerically highest bridge-v* release', () => {
+        const f = fixture({ codeVersion: '1.0.10', tag: '1.0.10' });
+        const state = stateOf(f);
+        state.releases.push({
+          id: 8,
+          tag_name: 'bridge-v1.0.9',
+          draft: false,
+          target_commitish: 'main',
+          assets: [],
+        });
+        writeFileSync(f.state, JSON.stringify(state));
+        const r = run(f);
+        expect(r.status, output(r)).toBe(0);
+        expect(output(r)).toContain('bridge-v1.0.10');
+      }, 60000);
+    },
+  );
