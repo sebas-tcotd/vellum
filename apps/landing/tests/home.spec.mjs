@@ -351,3 +351,17 @@ test('one official Store badge per page mode, never a Microsoft request', async 
   ).toHaveAttribute('src', /store-badge-es-on-dark\.svg$/);
   expect(microsoft).toEqual([]);
 });
+
+test('the Bridge call links the manual install when a zip is published', async ({
+  page,
+}) => {
+  await rejectConsent(page);
+  await page.goto('');
+  await expect(
+    page.locator('#vellum-bridge a[href$="download/#bridge-manual"]'),
+  ).toHaveCount(1);
+  await page.goto('es/');
+  await expect(
+    page.locator('#vellum-bridge a[href$="descargar/#bridge-manual"]'),
+  ).toHaveCount(1);
+});

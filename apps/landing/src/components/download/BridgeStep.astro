@@ -2,17 +2,20 @@
 /**
  * `#bridge`: step 2, Vellum Bridge (EXPERIENCE.md · Paso Bridge). Workshop is
  * the main way; `#bridge-manual` keeps its anchor in the «Coming soon» state
- * while the standalone DLL does not exist (no link, file or steps). Its H2 is
+ * until a `bridge-vX` release carries its zip (no link, file or steps); with
+ * one it shows the zip and the numbered steps with copyable mods paths. Its H2 is
  * where the post-download focus lands.
  */
 import { DOWNLOAD } from '../../content/download';
-import { HOME } from '../../content/home';
+import { fill, HOME } from '../../content/home';
 import {
   BRIDGE_WORKSHOP_URL,
   WORKSHOP_FALLBACK_URL,
 } from '../../content/links';
 import { PUBLISHED_PAGES, pageHref, type Lang } from '../../content/routes';
 import { SITE } from '../../content/site';
+import { loadBridgeRelease } from '../../data/release';
+import { formatSize } from '../../lib/download-format';
 import { rich } from '../../lib/rich';
 import DlSection from './DlSection.astro';
 
@@ -22,6 +25,21 @@ interface Props {
 
 const { lang } = Astro.props;
 const t = DOWNLOAD[lang].bridge;
+const bridge = await loadBridgeRelease();
+const ready = t.manual.ready;
+// Paths are data, not copy: they are the same in both languages.
+const modsPaths = [
+  {
+    id: 'windows',
+    os: ready.paths.windows,
+    path: String.raw`%LOCALAPPDATA%\Colossal Order\Cities_Skylines\Addons\Mods`,
+  },
+  {
+    id: 'macos',
+    os: ready.paths.macos,
+    path: '~/Library/Application Support/Colossal Order/Cities_Skylines/Addons/Mods',
+  },
+];
 const workshopUrl = BRIDGE_WORKSHOP_URL ?? WORKSHOP_FALLBACK_URL;
 ---
 
@@ -53,20 +71,56 @@ const workshopUrl = BRIDGE_WORKSHOP_URL ?? WORKSHOP_FALLBACK_URL;
       <div class="dl-bridge__col" id="bridge-manual">
         <p class="dl-bridge__key">{t.manual.key}</p>
         <h3>{t.manual.title}</h3>
-        <p class="dl-soon">{t.manual.soon}</p>
-        <p>
-          {t.manual.body}
-          {
-            PUBLISHED_PAGES.has('changelog') && (
-              <>
-                {' '}
-                <a class="link" href={pageHref('changelog', lang)}>
-                  {t.manual.changelog}
+        {
+          bridge ? (
+            <>
+              <p>{ready.lede}</p>
+              <p>
+                <a class="button" href={bridge.zip.url}>
+                  {fill(ready.button, { version: bridge.version })}
+                  <span class="arrow" aria-hidden="true">
+                    ↓
+                  </span>
                 </a>
-              </>
-            )
-          }
-        </p>
+              </p>
+              <p class="dl-bridge__fine">
+                <code>{bridge.zip.name}</code> · {formatSize(bridge.zip.size, lang)}
+              </p>
+              <ol class="dl-steps">
+                <li set:html={rich(ready.steps[0])} />
+                <li>
+                  <span set:html={rich(ready.steps[1])} />
+                  <ul class="dl-paths">
+                    {modsPaths.map((entry) => (
+                      <li class="dl-path" data-path-row data-os={entry.os}>
+                        <span class="dl-bridge__key">{entry.os}</span>
+                        <code data-path>{entry.path}</code>
+                        <span data-path-slot />
+                      </li>
+                    ))}
+                  </ul>
+                  <p class="dl-bridge__fine" set:html={rich(ready.finder)} />
+                </li>
+                <li set:html={rich(ready.steps[2])} />
+              </ol>
+            </>
+          ) : (
+            <>
+              <p class="dl-soon">{t.manual.soon}</p>
+              <p>
+                {t.manual.body}
+                {PUBLISHED_PAGES.has('changelog') && (
+                  <>
+                    {' '}
+                    <a class="link" href={pageHref('changelog', lang)}>
+                      {t.manual.changelog}
+                    </a>
+                  </>
+                )}
+              </p>
+            </>
+          )
+        }
       </div>
     </div>
   </div>

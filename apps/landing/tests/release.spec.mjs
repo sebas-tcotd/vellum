@@ -6,6 +6,7 @@ import {
   downloadPage,
   pickAssets,
   resolveReleaseSource,
+  selectBridgeRelease,
   selectRelease,
 } from '../src/data/release.ts';
 
@@ -202,4 +203,32 @@ test('download page: without digests there is no #verify', () => {
 test('the home band keeps its formats: no MSI', () => {
   const band = downloadBand(buildReleaseData([fullRelease()]));
   expect(band.platforms[0].files.map((file) => file.format)).toEqual(['exe']);
+});
+
+test('selects the highest published bridge release that carries its zip', () => {
+  const zip = (version) => asset(`VellumBridge-${version}.zip`);
+  const chosen = selectBridgeRelease([
+    release('v2.0.0', { assets: [zip('2.0.0')] }),
+    release('bridge-v1.0.0', { assets: [zip('1.0.0')] }),
+    release('bridge-v1.10.0', { assets: [zip('1.10.0')] }),
+    release('bridge-v1.9.0', { assets: [zip('1.9.0')] }),
+    release('bridge-v2.0.0', { assets: [zip('2.0.0')], draft: true }),
+    release('bridge-v3.0.0', { assets: [zip('3.0.0')], prerelease: true }),
+    release('bridge-v4.0.0'),
+    release('bridge-v5.0.0', { assets: [zip('4.0.0')] }),
+  ]);
+  expect(chosen?.version).toBe('1.10.0');
+  expect(chosen?.zip.name).toBe('VellumBridge-1.10.0.zip');
+  expect(chosen?.zip.url).toBe('https://example.test/VellumBridge-1.10.0.zip');
+  expect(selectBridgeRelease([release('v1.0.0')])).toBeNull();
+  expect(selectBridgeRelease([])).toBeNull();
+});
+
+test('a bridge release never becomes the Desktop release', () => {
+  const zip = asset('VellumBridge-9.0.0.zip');
+  const chosen = selectRelease([
+    release('v1.0.0'),
+    release('bridge-v9.0.0', { assets: [zip] }),
+  ]);
+  expect(chosen?.tag_name).toBe('v1.0.0');
 });

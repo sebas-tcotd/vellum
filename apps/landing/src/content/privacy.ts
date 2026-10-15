@@ -38,7 +38,7 @@ export const PRIVACY: Record<Lang, PrivacyCopy> = {
     },
     eyebrow: 'Vellum City Maps',
     title: 'Privacy policy',
-    updated: 'Last updated: October 8, 2026',
+    updated: 'Last updated: October 15, 2026',
     intro:
       'Your cities stay on your computer. This policy distinguishes the desktop application from this website.',
     sections: [
@@ -62,7 +62,7 @@ export const PRIVACY: Record<Lang, PrivacyCopy> = {
       {
         id: 'standalone',
         title: 'Standalone edition',
-        body: 'The standalone application can check GitHub for updates at startup. You can disable this optional check in Preferences. Updates are downloaded and installed only after you explicitly choose to install them. GitHub receives your IP address and may process request metadata, such as browser or application information and the time of the request, under its privacy policy. These connections are used to check for and download releases; no cities or map files are included.',
+        body: 'The standalone application can check GitHub for updates at startup. You can disable this optional check in Preferences. Updates are downloaded and installed only after you explicitly choose to install them. GitHub receives your IP address and may process request metadata, such as browser or application information and the time of the request, under its privacy policy. These connections are used to check for and download releases; no cities or map files are included. If you install Vellum Bridge by hand, its zip is also downloaded from GitHub Releases, with the same data GitHub receives in that case.',
         links: [
           {
             href: 'https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement',
@@ -159,7 +159,7 @@ export const PRIVACY: Record<Lang, PrivacyCopy> = {
     },
     eyebrow: 'Vellum City Maps',
     title: 'Política de privacidad',
-    updated: 'Última actualización: 8 de octubre de 2026',
+    updated: 'Última actualización: 15 de octubre de 2026',
     intro:
       'Tus ciudades permanecen en tu equipo. Esta política distingue la aplicación de escritorio de este sitio web.',
     sections: [
@@ -183,7 +183,7 @@ export const PRIVACY: Record<Lang, PrivacyCopy> = {
       {
         id: 'standalone',
         title: 'Edición independiente',
-        body: 'La aplicación independiente puede comprobar si hay actualizaciones en GitHub al iniciarse. Puedes desactivar esta comprobación opcional en Preferencias. Las actualizaciones solo se descargan e instalan después de que elijas instalarlas expresamente. GitHub recibe tu dirección IP y puede tratar metadatos de las solicitudes, como información del navegador o la aplicación y la hora de la solicitud, conforme a su política de privacidad. Estas conexiones sirven para comprobar y descargar versiones; no incluyen ciudades ni archivos de mapas.',
+        body: 'La aplicación independiente puede comprobar si hay actualizaciones en GitHub al iniciarse. Puedes desactivar esta comprobación opcional en Preferencias. Las actualizaciones solo se descargan e instalan después de que elijas instalarlas expresamente. GitHub recibe tu dirección IP y puede tratar metadatos de las solicitudes, como información del navegador o la aplicación y la hora de la solicitud, conforme a su política de privacidad. Estas conexiones sirven para comprobar y descargar versiones; no incluyen ciudades ni archivos de mapas. Si instalas Vellum Bridge a mano, su zip también se descarga de GitHub Releases, con los mismos datos que GitHub recibe en ese caso.',
         links: [
           {
             href: 'https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement',
