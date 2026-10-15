@@ -43,6 +43,25 @@ Los textos están en `src/Strings.cs`, en inglés y español: el idioma sale del
    - **Sobrescribir solo el DLL no recarga nada.** El vigilante de `*.dll` llama a `OnPluginAdded` con la ruta del archivo, que empieza con `Directory.Exists(ruta)` y por eso no hace nada. Solo recarga el vigilante de carpetas de `Mods` (crear, borrar o cambiar la carpeta del mod), que hace `OnDisabled` en la instancia vieja y `Assembly.Load(byte[])` del DLL nuevo.
    - **La versión de ensamblado debe cambiar en cada compilación** (`AssemblyVersion 1.0.*` en el csproj). Con la misma versión, Mono devuelve el ensamblado ya cargado aunque los bytes sean otros. El log registra la carga, pero sigue activa la versión vieja.
 
+## Publicar una versión
+
+Para quien no usa Steam Workshop (p. ej. una copia de Epic), cada versión de Bridge se publica como `VellumBridge-X.zip` adjunto al release `bridge-vX` de GitHub. Es un paso manual del mantenedor, en Windows; no corre en CI.
+
+Precondiciones (el script las comprueba todas **antes** de compilar y se detiene con un mensaje si falla alguna):
+
+- `BridgeInfo.Version` coincide con la `X` del release `bridge-vX`.
+- `tools/vellum-bridge` no tiene cambios, ni trackeados ni sin trackear.
+- El release `bridge-vX` existe (release-please lo crea como borrador).
+- El código de `tools/vellum-bridge` es el del tag `bridge-vX` (si el borrador aún no tiene tag, el del commit objetivo del release).
+- La carpeta `Managed` de CS1 existe, `gh` está autenticado y `releases/latest` ya apunta a un `vX` de Desktop (si no, se detiene antes de publicar).
+
+```powershell
+powershell -ExecutionPolicy Bypass -File tools\vellum-bridge\publish-bridge.ps1
+# opcional: -Version 1.0.0 (por defecto, el bridge-v* más alto) y -ManagedDir <ruta>
+```
+
+El script compila en Release, arma `VellumBridge-X.zip` con `VellumBridge/VellumBridge.dll`, reemplaza el asset del mismo nombre si ya existía (se puede reejecutar), publica el release con `make_latest=false` y comprueba que `releases/latest` siga siendo un `vX` de Desktop; si no, termina con error y el tag que quedó como `latest`. El zip se descomprime dentro de `Addons/Mods/`.
+
 La captura actual extrae:
 
 - Segmentos de red con nombre visible (`GetSegmentName`: personalizado o generado desde `nameSeed`), ancho y direcciones de inicio/fin. Con las posiciones de `roadNodes`, esas direcciones definen la curva Bézier de cada segmento.
