@@ -23,8 +23,11 @@ function Invoke-Native([string]$Exe, [string[]]$Arguments) {
     if ($LASTEXITCODE -ne 0) { throw "'$Exe $($Arguments -join ' ')' failed with exit code $LASTEXITCODE." }
     return ($output -join "`n")
 }
+# Windows PowerShell 5.1 emits a JSON array as ONE object; enumerate it so a list of releases
+# is one item per release there too (pwsh 7 already does this).
 function Invoke-GhJson([string[]]$Arguments) {
-    return (Invoke-Native "gh" $Arguments) | ConvertFrom-Json
+    $parsed = (Invoke-Native "gh" $Arguments) | ConvertFrom-Json
+    foreach ($item in $parsed) { $item }
 }
 
 # 1. Resolve the version from the releases (drafts are only visible through the list endpoint).
