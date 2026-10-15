@@ -250,7 +250,7 @@ jobs:
       - name: Exercise PowerShell and the real Windows SDK
         env:
           REQUIRE_MSIX_SDK: '1'
-        run: pnpm exec vitest run --config vitest.scripts.config.mjs scripts/package-msix.test.mjs
+        run: pnpm exec vitest run --config vitest.scripts.config.mjs scripts/package-msix.test.mjs scripts/publish-bridge.test.mjs
 
   compile-matrix:
     name: Compile Check ${{ matrix.platform }}
