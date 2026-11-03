@@ -1,6 +1,6 @@
 # Vellum Bridge — el mod de Cities: Skylines 1 que exporta para Vellum
 
-Mod en C#. Dentro del juego hace dos cosas, cada una con su botón en las opciones del mod: **Exportar para Vellum** escribe el documento de ciudad `.vellummap` que abre Vellum, y **Capturar Raw Snapshot** escribe la captura cruda de diagnóstico. Se publica en el Steam Workshop con Vellum v1.0; mientras tanto, se compila e instala a mano como se describe abajo.
+Mod en C#. Dentro del juego hace dos cosas, cada una con su botón en las opciones del mod: **Exportar para Vellum** escribe el documento de ciudad `.vellummap` que abre Vellum, y **Capturar Raw Snapshot** escribe la captura cruda de diagnóstico. Se publica en el Steam Workshop (ítem 3815903587) y, para quien no usa Workshop, como `VellumBridge-X.zip` en GitHub; los dos canales llevan el mismo zip (ver «Publicar una versión»). Para desarrollo se compila e instala a mano como se describe abajo.
 
 ## Panel de opciones
 
@@ -61,6 +61,41 @@ powershell -ExecutionPolicy Bypass -File tools\vellum-bridge\publish-bridge.ps1
 ```
 
 El script compila en Release, arma `VellumBridge-X.zip` con `VellumBridge/VellumBridge.dll`, reemplaza el asset del mismo nombre si ya existía (se puede reejecutar), publica el release con `make_latest=false` y comprueba que `releases/latest` siga siendo un `vX` de Desktop; si no, termina con error y el tag que quedó como `latest`. El zip se descomprime dentro de `Addons/Mods/`.
+
+### Actualizar el Workshop
+
+Con el release ya publicado, el mismo zip actualiza el ítem 3815903587 del Steam Workshop. El script no compila nada: descarga `VellumBridge-X.zip` del release `bridge-vX`, lo descomprime y sube la carpeta `VellumBridge/` con `steamcmd +workshop_build_item`, con la nota de cambios de X. Solo cambian el contenido y la nota: título, descripción, visibilidad e imagen de vista previa del ítem quedan como están. Es un paso manual del mantenedor, en Windows; no corre en CI.
+
+Una sola vez por máquina, iniciar sesión a mano en steamcmd para que guarde la sesión. Las credenciales y el código de Steam Guard se escriben solo en la consola de steamcmd; el script, el repo y CI no los ven nunca:
+
+```powershell
+steamcmd +login <tu-usuario> +quit
+```
+
+Después, en cada versión:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File tools\vellum-bridge\publish-bridge.ps1 -Workshop -SteamUser <tu-usuario>
+# opcional: -Version 1.0.0 (por defecto, el bridge-v* publicado más alto; los borradores no cuentan) y -SteamCmd <ruta a steamcmd.exe> si no está en el PATH
+```
+
+Precondiciones (el script las comprueba todas **antes** de llamar a steamcmd y se detiene con un mensaje si falla alguna):
+
+- `-SteamUser` está presente y `steamcmd` se encuentra.
+- El release `bridge-vX` está publicado (no es borrador) y tiene adjunto `VellumBridge-X.zip`; si no, correr antes el script sin `-Workshop`.
+- El zip tiene una única entrada, `VellumBridge/VellumBridge.dll`.
+- Hay nota de cambios: la sección de X en `tools/vellum-bridge/CHANGELOG.md` en el tag `bridge-vX` o, si no hay archivo o sección (caso 1.0.0), el cuerpo del release. Ambas las genera release-please; el script las pasa a texto plano (los enlaces quedan como texto, sin hashes de commit, `### Features` pasa a `Features:`).
+
+steamcmd entra con `+@NoPromptForPassword 1`: sin sesión guardada se detiene sin subir nada y pide repetir el inicio de sesión de arriba. Su código de salida no es fiable, así que la subida solo cuenta como hecha si steamcmd termina en 0, imprime `Success.` y ninguna línea `ERROR!`. Si steamcmd no puede actualizar el ítem, el script termina con un aviso que remite a la sección siguiente.
+
+### Actualizar el Workshop a mano
+
+Si steamcmd no puede actualizar el ítem, se sube el mismo zip desde el Content Manager de CS1, sin compilar:
+
+1. Descargar `VellumBridge-X.zip` del release `bridge-vX` y descomprimirlo en `Addons/Mods/` de los datos locales de CS1 (rutas en «Compilar e instalar»), reemplazando `Addons/Mods/VellumBridge/` si existe. El resultado debe ser `Addons/Mods/VellumBridge/VellumBridge.dll` directamente, sin otro nivel de carpeta: «Extraer todo» del Explorador propone `VellumBridge-XVellumBridge`, y CS1 no carga el mod así anidado.
+2. Abrir CS1 con la cuenta de Steam dueña del ítem, ir a **Content Manager → Mods**, compartir la entrada local de Vellum Bridge y actualizar con ella el ítem 3815903587 (no publicar uno nuevo). Dejar título, descripción, visibilidad e imagen como están.
+3. Como nota de cambios, pegar la misma que usaría el script: la sección de X en `tools/vellum-bridge/CHANGELOG.md` o, si no existe, el cuerpo del release `bridge-vX`, en texto plano.
+4. Confirmar en la página del ítem que cambiaron la fecha de actualización y la nota.
 
 La captura actual extrae:
 
