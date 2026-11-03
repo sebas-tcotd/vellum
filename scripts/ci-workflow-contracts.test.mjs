@@ -50,8 +50,11 @@ describe('contratos de optimización de CI', () => {
     expect(finalize).toContain('exactly-one-nonempty-$EXPECTED_MSIX');
     expect(finalize).toContain('select(.name == $name and .size > 0)');
     expect(finalize.indexOf('for ext in')).toBeLessThan(
-      finalize.indexOf('-f draft=false'),
+      finalize.indexOf('-F draft=false'),
     );
+    // c6f8193: draft siempre como booleano (-F), aunque no haya bash para
+    // correr scripts/publish-release-draft.test.mjs.
+    expect(release).not.toMatch(/-f draft=/);
     expect(finalize).toContain('Microsoft signing and certification pending');
     expect(finalize).toContain('excluded from the Tauri updater');
   });

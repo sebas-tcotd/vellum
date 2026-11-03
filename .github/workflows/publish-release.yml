@@ -835,7 +835,7 @@ jobs:
             # and the updater smoke check below failed for v1.0.1.
             RELEASE_STATE=$(gh api -X PATCH "$RELEASE_API" \
               -f tag_name="$GITHUB_REF_NAME" \
-              -f draft=false \
+              -F draft=false \
               -f make_latest=true \
               --jq '[.tag_name, .draft] | @tsv')
             EXPECTED_STATE=$(printf '%s\tfalse' "$GITHUB_REF_NAME")
