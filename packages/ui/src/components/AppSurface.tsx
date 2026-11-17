@@ -24,6 +24,7 @@ import {
   type SampleCityDescriptor,
 } from './empty-state/EmptyState';
 import { LoadingModal } from './overlays/LoadingModal';
+import { CrashBoundary } from './overlays/CrashBoundary';
 import { ErrorToast } from './overlays/ErrorToast';
 import { PartialParseDialog } from './overlays/PartialParseDialog';
 import { DlcWarningToast } from './overlays/DlcWarningToast';
@@ -251,22 +252,24 @@ export function AppSurface({
                 onHoverSchematicLine={setHoveredSchematicLineId}
               />
             )}
-            <MapViewport
-              mapProps={mapProps}
-              commands={commands}
-              isCleanView={isCleanMode}
-              viewMode={shell.state.viewMode}
-              mapInset={mapInset}
-              schematicInset={schematicInset}
-              schematicModel={schematicModel}
-              hoveredSchematicLineId={hoveredSchematicLineId}
-              onShowAllSchematicModes={showAllSchematicModes}
-              subscribeServiceIconLegendRef={subscribeServiceIconLegendRef}
-              iconLegendToggleRef={iconLegendToggleRef}
-              preciseZoomToggleRef={preciseZoomToggleRef}
-              schematicCameraRef={schematicCameraRef}
-              shell={shell}
-            />
+            <CrashBoundary scope="view">
+              <MapViewport
+                mapProps={mapProps}
+                commands={commands}
+                isCleanView={isCleanMode}
+                viewMode={shell.state.viewMode}
+                mapInset={mapInset}
+                schematicInset={schematicInset}
+                schematicModel={schematicModel}
+                hoveredSchematicLineId={hoveredSchematicLineId}
+                onShowAllSchematicModes={showAllSchematicModes}
+                subscribeServiceIconLegendRef={subscribeServiceIconLegendRef}
+                iconLegendToggleRef={iconLegendToggleRef}
+                preciseZoomToggleRef={preciseZoomToggleRef}
+                schematicCameraRef={schematicCameraRef}
+                shell={shell}
+              />
+            </CrashBoundary>
           </div>
         </DesktopShell>
         {showEmptyState && (

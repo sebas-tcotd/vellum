@@ -10,6 +10,9 @@ export type {
 } from './components/empty-state/EmptyState';
 export { DlcWarningToast } from './components/overlays/DlcWarningToast';
 export type { DlcWarningToastProps } from './components/overlays/DlcWarningToast';
+export { CrashBoundary } from './components/overlays/CrashBoundary';
+export type { CrashBoundaryProps } from './components/overlays/CrashBoundary';
+export type { CrashScope } from './components/overlays/CrashFallback';
 export { ErrorToast } from './components/overlays/ErrorToast';
 export type { ErrorToastProps } from './components/overlays/ErrorToast';
 export { MapTooltip } from './components/overlays/MapTooltip';

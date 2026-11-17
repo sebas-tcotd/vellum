@@ -252,6 +252,16 @@ export class MapLibreRenderer implements IRenderer {
       ...(fadeDuration === undefined ? {} : { fadeDuration }),
     });
 
+    // MapLibre already redraws once the browser restores the context; these
+    // only leave a trace, since a lost context otherwise just blanks the
+    // canvas with nothing in the console (issue #188).
+    this.map.on('webglcontextlost', () => {
+      console.warn('[MapLibreRenderer] WebGL context lost');
+    });
+    this.map.on('webglcontextrestored', () => {
+      console.info('[MapLibreRenderer] WebGL context restored');
+    });
+
     this.layerManager = new MapLayerManager(this.map, initialColors);
     this.navigationManager = new MapNavigationManager(this.map);
     this.sourceManager = new MapSourceManager(this.map, initialColors);
