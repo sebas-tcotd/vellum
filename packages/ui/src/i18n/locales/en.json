@@ -238,6 +238,16 @@
       "unknown": "does not match the schema"
     }
   },
+  "crash": {
+    "appTitle": "Vellum ran into a problem",
+    "appBody": "Something went wrong and the window could not be drawn. Reloading usually fixes it, but you will need to open your city again.",
+    "reloadApp": "Reload Vellum",
+    "viewTitle": "The map stopped working",
+    "viewBody": "Something went wrong while drawing this view. The rest of Vellum still works, and reloading the map keeps your city open.",
+    "reloadView": "Reload map",
+    "details": "Technical details",
+    "reportHint": "If this keeps happening, copy these details into a bug report."
+  },
   "common": {
     "cancel": "Cancel",
     "close": "Close"

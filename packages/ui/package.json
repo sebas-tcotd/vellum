@@ -40,6 +40,7 @@
     "lucide-react": "^1.43.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
+    "react-error-boundary": "^6.1.6",
     "react-i18next": "^17.0.13",
     "tailwind-merge": "^3.6.0",
     "zustand": "^5.0.15"

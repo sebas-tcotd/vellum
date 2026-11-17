@@ -238,6 +238,16 @@
       "unknown": "no cumple el schema"
     }
   },
+  "crash": {
+    "appTitle": "Vellum tuvo un problema",
+    "appBody": "Algo falló y no se pudo dibujar la ventana. Recargar suele resolverlo, pero tendrás que volver a abrir tu ciudad.",
+    "reloadApp": "Recargar Vellum",
+    "viewTitle": "El mapa dejó de funcionar",
+    "viewBody": "Algo falló al dibujar esta vista. El resto de Vellum sigue funcionando, y al recargar el mapa tu ciudad sigue abierta.",
+    "reloadView": "Recargar mapa",
+    "details": "Detalles técnicos",
+    "reportHint": "Si vuelve a pasar, copia estos detalles en un informe de error."
+  },
   "common": {
     "cancel": "Cancelar",
     "close": "Cerrar"

@@ -11,6 +11,7 @@ import { IPC_COMMANDS } from '@vellum/core';
 import {
   App,
   AppMetaProvider,
+  CrashBoundary,
   PlatformProvider,
   PlatformServicesProvider,
   setPreferencesPort,
@@ -399,12 +400,16 @@ function AppShell() {
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
-    <AppMetaProvider version={version}>
-      <PlatformProvider platform={detectedPlatform}>
-        <PlatformServicesProvider services={platformServices}>
-          <AppShell />
-        </PlatformServicesProvider>
-      </PlatformProvider>
-    </AppMetaProvider>
+    {/* Outermost guard: a render error anywhere shows a reload message
+        instead of unmounting the root into an empty window. */}
+    <CrashBoundary scope="app">
+      <AppMetaProvider version={version}>
+        <PlatformProvider platform={detectedPlatform}>
+          <PlatformServicesProvider services={platformServices}>
+            <AppShell />
+          </PlatformServicesProvider>
+        </PlatformProvider>
+      </AppMetaProvider>
+    </CrashBoundary>
   </React.StrictMode>,
 );

@@ -318,6 +318,27 @@ describe('MapLibreRenderer', () => {
   // Regression: a GeoJSON source defaults to `maxzoom` 18, so MapLibre keeps
   // slicing fresh tiles at every detail zoom. These three carry ~2/3 of the
   // slicing cost; capping them lets panning re-use overzoomed tiles instead.
+  // Issue #188: a lost WebGL context blanked the map with nothing logged.
+  it('logs when the WebGL context is lost and restored', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const info = vi.spyOn(console, 'info').mockImplementation(() => undefined);
+    makeRenderer();
+
+    const handlerFor = (event: string) =>
+      (mockMap.on as Mock).mock.calls.find(
+        (call: unknown[]) => call[0] === event,
+      )?.[1] as (() => void) | undefined;
+    handlerFor('webglcontextlost')?.();
+    handlerFor('webglcontextrestored')?.();
+
+    expect(warn).toHaveBeenCalledWith('[MapLibreRenderer] WebGL context lost');
+    expect(info).toHaveBeenCalledWith(
+      '[MapLibreRenderer] WebGL context restored',
+    );
+    warn.mockRestore();
+    info.mockRestore();
+  });
+
   it('caps the heaviest GeoJSON sources so detail-zoom panning stops re-slicing', async () => {
     const renderer = makeRenderer();
     await renderer.render(makeCityData(), { activeLayers: ALL_LAYERS_VISIBLE });
