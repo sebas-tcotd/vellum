@@ -2,6 +2,13 @@
 
 All notable changes to Vellum will be documented here.
 
+## [1.0.2](https://github.com/sebas-tcotd/vellum/compare/v1.0.1...v1.0.2) (2026-11-17)
+
+
+### Bug Fixes
+
+* **ui:** show a recoverable message instead of a blank window on render crashes ([#189](https://github.com/sebas-tcotd/vellum/issues/189)) ([0b7b2a0](https://github.com/sebas-tcotd/vellum/commit/0b7b2a0e3753ee8afd62a6cbac2c7ad31d8bce6e)), closes [#188](https://github.com/sebas-tcotd/vellum/issues/188)
+
 ## [1.0.1](https://github.com/sebas-tcotd/vellum/compare/v1.0.0...v1.0.1) (2026-10-10)
 
 
