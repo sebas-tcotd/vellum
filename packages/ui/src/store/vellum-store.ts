@@ -525,7 +525,14 @@ export const useVellumStore = create<VellumStore>((set, get) => ({
 
   hydratePreferences: (prefs) =>
     set((state) => ({
-      activeTheme: prefs.selectedTheme ?? state.activeTheme,
+      activeTheme:
+        prefs.selectedTheme === undefined || state.availableThemes.length === 0
+          ? (prefs.selectedTheme ?? state.activeTheme)
+          : state.availableThemes.some(
+                (theme) => theme.id === prefs.selectedTheme,
+              )
+            ? prefs.selectedTheme
+            : (state.availableThemes[0]?.id ?? 'day'),
       activeLayers: prefs.activeLayers ?? state.activeLayers,
       autoUpdateEnabled: prefs.autoUpdateEnabled ?? state.autoUpdateEnabled,
     })),
